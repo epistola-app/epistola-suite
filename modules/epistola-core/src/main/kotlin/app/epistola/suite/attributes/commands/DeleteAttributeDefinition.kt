@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.currentTemplateViewJoin
 import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -53,10 +54,9 @@ class DeleteAttributeDefinitionHandler(
             // Any variant, in any catalog, that still names this attribute (qualified or bare)
             val variantCount = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM template_variants variants
-                ${templateJoin("variants")}
+                SELECT COUNT(*) FROM current_template_variants variants
+                ${currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantId
-                  AND ${inCurrentVersion("variants")}
                   AND ${AttributeReferences.uses("variants")}
                 """,
             )

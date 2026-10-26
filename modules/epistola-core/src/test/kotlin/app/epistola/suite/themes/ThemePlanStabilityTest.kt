@@ -125,6 +125,9 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                     repeat(STENCILS) { s ->
                         CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf("tag-${s % 3}"), content = themed("theme-${s % THEMES}")).execute()
                     }
+                    repeat(TEMPLATES) { t ->
+                        app.epistola.suite.templates.commands.CreateDocumentTemplate(app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("template-$t"), catalog), "Template $c/$t").execute()
+                    }
                     mediator.releaseNext(catalog)
                 }
             }
@@ -149,7 +152,12 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                 "$view of a catalog" to "SELECT t.payload FROM $view t WHERE $catalog",
                 "$view, one" to "SELECT t.payload FROM $view t WHERE $catalog AND t.id = $4",
             )
-        } + (BEFORE to BEFORE_SQL)
+        } + listOf(
+            // Templates read through views of the same shape before they move (ADR 0033, step 7a).
+            "current_templates of a catalog" to "SELECT t.id, t.name, t.theme_key FROM current_templates t WHERE $catalog",
+            "current_templates, one" to "SELECT t.id, t.data_model FROM current_templates t WHERE $catalog AND t.id = $4",
+            "current_template_variants of a catalog" to "SELECT t.id, t.template_model FROM current_template_variants t WHERE $catalog",
+        ) + (BEFORE to BEFORE_SQL)
         return reads.associate { (name, sql) -> name to genericPlan(sql, values) }
     }
 
@@ -182,6 +190,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         const val THEMES = 25
         const val CODE_LISTS = 5
         const val STENCILS = 10
+        const val TEMPLATES = 5
 
         fun themed(theme: String) = TemplateDocument(
             modelVersion = 1,

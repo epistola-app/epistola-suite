@@ -186,6 +186,28 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `delete font is blocked when a template of its own catalog uses it`() {
+        withMediator {
+            val tenant = createTenant("Font Template Tenant")
+            val tenantId = TenantId(tenant.id)
+            val catalog = testCatalog(tenantId, CatalogKey.DEFAULT)
+            val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "template-regular.ttf")
+            ImportFont(catalog = catalog, slug = "letter-font", name = "Letter Font", kind = FontKind.SERIF.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", regular))).execute()
+            val template = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("letter"), catalog)
+            val variant = app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, template)
+            app.epistola.suite.templates.commands.CreateDocumentTemplate(template, "Letter").execute()
+            // The editor names a font of the template's own catalog with that catalog; it is stored relative (ADR 0033).
+            val model = app.epistola.suite.templates.queries.variants.GetVariantContent(variant).query()!!
+                .copy(documentStylesOverride = mapOf("fontFamily" to mapOf("key" to "letter-font", "catalogKey" to "default")))
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, model).execute()
+            val fontId = FontId(FontKey.of("letter-font"), catalog)
+
+            assertThat(FindFontUsages(fontId).query().map { it.kind to it.name }).containsExactly("template" to "Letter")
+            assertThatThrownBy { DeleteFont(fontId).execute() }.isInstanceOf(FontInUseException::class.java)
+        }
+    }
+
+    @Test
     fun `a theme stored before 2_0, naming its font by slug, still counts as using it`() {
         withMediator {
             val tenant = createTenant("Font Slug Tenant")

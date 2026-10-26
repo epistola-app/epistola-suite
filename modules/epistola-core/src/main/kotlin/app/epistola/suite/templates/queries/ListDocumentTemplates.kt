@@ -5,9 +5,11 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -18,6 +20,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.TEMPLATE_COLUMNS
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -74,7 +77,7 @@ data class ListDocumentTemplates(
     val offset: Int = 0,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<DocumentTemplate>>,
     RequiresPermission {
     init {
@@ -92,9 +95,10 @@ class ListDocumentTemplatesHandler(
 ) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, th_cat.namespace AS theme_catalog_namespace, dt.pdfa_enabled, dt.description, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by FROM document_templates dt JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id LEFT JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id WHERE dt.tenant_key = :tenantId AND ${inCurrentVersion("dt")}")
+            // The view holds each catalog's version a caller means, a draft's or a release's.
+            append("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND dt.version_id = ${versionAt("tenantId", "catalogKey")}")
+                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")
@@ -104,7 +108,7 @@ class ListDocumentTemplatesHandler(
             // tenant and a template id in its catalog, so paging stays stable even when the sort
             // column ties and even for callers that list across catalogs (catalogKey == null).
             val direction = if (query.descending) "DESC" else "ASC"
-            append(" ORDER BY ${query.sort.orderBy} $direction, c.catalog_key ASC, dt.id ASC")
+            append(" ORDER BY ${query.sort.orderBy} $direction, catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

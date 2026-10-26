@@ -5,6 +5,7 @@
 package app.epistola.suite.loadtest.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -23,6 +24,7 @@ import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -89,9 +91,9 @@ class StartLoadTestHandler(
                 """
                 SELECT EXISTS (
                     SELECT 1
-                    FROM template_variants
-                    WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :variantId
-                      AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                    FROM current_template_variants
+                    WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :variantId
+                      AND template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
                 )
                 """,
             )
@@ -123,7 +125,7 @@ class StartLoadTestHandler(
                     id, tenant_key, template_resource_id, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, NULL, :environmentId,
+                VALUES (:id, :tenantId, ${templateIn("tenantId", "catalogKey", "templateId")}, :variantId, NULL, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
                 RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:catalogKey_ns AS TEXT) AS namespace,
                           CAST(:templateId AS TEXT) AS template_key,

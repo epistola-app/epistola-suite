@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.templateAtAddress
@@ -95,11 +96,11 @@ class UpdateVariantContentHandler(
             if (written == null) Revisions.refuse("Variant '${command.variantId.key.value}'", command.expectedRevision, variantRevision(handle, command.variantId))
             written
         } ?: throw TemplateVariantNotFoundException(command.variantId.tenantKey, command.variantId.templateKey, command.variantId.key)
-        return SavedVariantContent(objectMapper.readValue(prepared.templateModelJson, TemplateDocument::class.java), revision)
+        return SavedVariantContent(TemplateModels.read(prepared.templateModelJson, command.variantId.catalogKey.value, objectMapper), revision)
     }
 }
 
-/** A variant's working model as stored, and the variant's revision after the write. */
+/** A variant's working model as it reads after the write, and the variant's revision. */
 data class SavedVariantContent(val templateModel: TemplateDocument, val revision: Long)
 
 /** The revision of [variantId] in the version the caller means, or null when there is no such variant. */

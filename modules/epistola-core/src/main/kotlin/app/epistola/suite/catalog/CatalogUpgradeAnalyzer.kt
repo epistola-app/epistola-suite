@@ -51,7 +51,7 @@ class CatalogUpgradeAnalyzer(
     fun installedResources(catalog: CatalogId): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            SELECT 'template' AS type, id::text AS slug FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'stencil', id::text FROM current_stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'attribute', id FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
@@ -114,11 +114,10 @@ class CatalogUpgradeAnalyzer(
     private fun findThemeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT dt.name, dc.catalog_key AS catalog_key FROM document_templates dt
+            SELECT dt.name, dc.catalog_key AS catalog_key FROM current_templates dt
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             WHERE dt.tenant_key = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
-              AND ${inCurrentVersion("dt")}
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
@@ -140,11 +139,11 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
+            WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalog.key' = :cStr
               AND n.value -> 'props' ->> 'stencilKey' = :slug
@@ -159,10 +158,10 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_variants v
-            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.version_id = v.version_id AND dt.resource_id = v.template_resource_id
+            FROM current_template_variants v
+            JOIN current_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_id = v.catalog_id AND dt.resource_id = v.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
+            WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
               AND ${AttributeReferences.uses("v")}
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
@@ -234,14 +233,13 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_variants ver
-            JOIN document_templates dt
+            FROM current_template_variants ver
+            JOIN current_templates dt
               ON dt.tenant_key = ver.tenant_key
-             AND dt.version_id = ver.version_id
+             AND dt.catalog_id = ver.catalog_id
              AND dt.resource_id = ver.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             WHERE ver.tenant_key = :t
-              AND ${inCurrentVersion("dt")}
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             """,
         ).bind("t", catalog.tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)

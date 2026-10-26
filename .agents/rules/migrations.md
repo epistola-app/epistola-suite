@@ -26,7 +26,8 @@ forward, data-preserving migration. This is not negotiable for any feature matur
   (ADR 0035, [`docs/migrations.md`](../../docs/migrations.md#code-migrations)).
 - **A table moved to JSON storage** (ADR 0033, `themes` so far) is never named in SQL again outside
   code migrations and their tests: read the type's view, write through `DraftResources`
-  (`DroppedContentTableSqlTest`).
+  (`DroppedContentTableSqlTest`). Templates, until they move, are read only through
+  `current_templates` and `current_template_variants` (`TemplateTableReadsTest`).
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 

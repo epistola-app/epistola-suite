@@ -70,21 +70,5 @@ internal val ResolvedCatalogRelease.draftRef: DraftRef get() = requireNotNull(ve
 
 internal val ResolvedCatalogRelease.catalogId: CatalogId get() = catalog.catalogId
 
-/**
- * The time a released version's content stands for. A release records no per-resource timestamps,
- * so a resource read from it was created and last modified, as far as the release can tell, when it
- * was released.
- */
-internal val ResolvedCatalogRelease.releasedAt: OffsetDateTime get() = version.releasedAt ?: catalog.updatedAt
-
 /** Whether this catalog cannot be changed here (ADR 0032): the `readOnly` of a resource DTO in it. */
 internal fun Catalog.readOnlyHere(): Boolean = !GetCatalogEditability(catalogId).query().editable
-
-/** The resource of [type] at [key] the released version holds, or null when it holds none. */
-internal inline fun <reified R : CatalogResource> ResolvedCatalogRelease.releasedResource(type: String, key: String): R? = GetReleasedResource(catalog.catalogId, requireNotNull(version.version), type, key).query() as? R
-
-/**
- * Every resource of [type] the released version holds, in key order. A list endpoint pages these in
- * memory: released content is assembled whole anyway, and bounded by the size of the catalog.
- */
-internal inline fun <reified R : CatalogResource> ResolvedCatalogRelease.releasedResources(type: String): List<R> = ListReleasedResources(catalog.catalogId, requireNotNull(version.version), type).query().filterIsInstance<R>()

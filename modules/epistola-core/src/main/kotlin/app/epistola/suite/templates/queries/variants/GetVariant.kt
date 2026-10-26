@@ -5,8 +5,10 @@
 package app.epistola.suite.templates.queries.variants
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -15,9 +17,12 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.VARIANT_COLUMNS
+import app.epistola.suite.templates.VARIANT_ORDER
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -27,7 +32,7 @@ data class GetVariant(
     val variantId: VariantId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<TemplateVariant?>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
@@ -41,13 +46,11 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, c.catalog_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by, tv.revision
-                FROM template_variants tv
-                ${templateJoin("tv")}
-                JOIN catalogs c ON c.tenant_key = template.tenant_key AND c.catalog_id = template.catalog_id
+                SELECT $VARIANT_COLUMNS
+                FROM current_template_variants tv
                 WHERE tv.id = :variantId
-                  AND tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
-                  AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                  AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
                 """,
         )
             .bind("variantId", query.variantId.key)
@@ -64,7 +67,7 @@ data class GetVariantSummaries(
     val templateId: TemplateId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<VariantSummary>>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
@@ -89,10 +92,10 @@ class GetVariantSummariesHandler(
                                                          AND d.resource_id = m.resource_id AND d.part = m.part
                         WHERE m.tenant_key = tv.tenant_key AND m.version_id = tv.version_id AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
                     ) as ready
-                FROM template_variants tv
-                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
-                  AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                ORDER BY tv.is_default DESC, tv.created_at ASC
+                FROM current_template_variants tv
+                WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+                $VARIANT_ORDER
                 """,
         )
             .bind("templateId", query.templateId.key)

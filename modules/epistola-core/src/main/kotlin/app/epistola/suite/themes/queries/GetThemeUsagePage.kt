@@ -131,10 +131,10 @@ class GetThemeUsagePageHandler(
                             THEN template_theme.catalog_id
                         ELSE catalog_theme.catalog_id
                     END AS effective_theme_catalog_id
-                FROM template_variants variant
-                JOIN document_templates template
+                FROM current_template_variants variant
+                JOIN current_templates template
                   ON template.tenant_key = variant.tenant_key
-                 AND template.version_id = variant.version_id
+                 AND template.catalog_id = variant.catalog_id
                  AND template.resource_id = variant.template_resource_id
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key
@@ -149,7 +149,6 @@ class GetThemeUsagePageHandler(
                   ON catalog_theme.tenant_key = template_version.tenant_key
                  AND catalog_theme.resource_id = template_version.default_theme_resource_id
                 WHERE variant.tenant_key = :tenantKey
-                  AND ${inCurrentVersion("variant")}
             ),
             matching_usage AS (
                 SELECT *

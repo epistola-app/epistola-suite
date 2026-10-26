@@ -253,7 +253,17 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   the same content row (`DraftReleaseSameContentTest`). A stencil's references into its own catalog
   are relative there, as a release says them; the reads that have always seen them qualified (the
   editor, rendering a draft, an import's comparison) qualify them against the stencil's catalog when
-  they read it.
+  they read it. A template model is stored the same way from step 7a, while templates are still in
+  their tables (`TemplateModels`): every read qualifies it against the template's catalog, and a move
+  stores it again in the destination's form.
+- **Templates read through one interface before they move** (step 7a): `current_templates` and
+  `current_template_variants` answer a draft's rows or a targeted release's content, a variant's
+  model from the content it was lifted into (the default variant's from the template's), so the
+  template queries, REST and MCP read a release as they read a draft and every reader of the tables
+  reads the views. A template names its theme by catalog and key, resolved through
+  `resolve_catalog_alias` for a release. What a draft keeps and the wire form does not (a variant's
+  description, a data example's id, per-variant timestamps and revisions) a release cannot give back;
+  step 7b keeps it beside the released form.
 - **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,
   `ReferenceWalkerGoldenVectorsTest`; ADR 0035). The index needs rebuilding only when the walker
   changes its output for content that already exists (a bug fix, an existing field that starts to

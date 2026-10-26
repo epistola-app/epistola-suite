@@ -86,9 +86,8 @@ class GetLoadTestRunHandler(
                     ), 0)
                 END as failed_count
             FROM load_test_runs r
-            JOIN document_templates template ON template.tenant_key = r.tenant_key
+            JOIN current_templates template ON template.tenant_key = r.tenant_key
                                             AND template.resource_id = r.template_resource_id
-                                            AND ${inCurrentVersion("template")}
             JOIN catalogs cat ON cat.tenant_key = template.tenant_key AND cat.catalog_id = template.catalog_id
             WHERE r.id = :runId
               AND r.tenant_key = :tenantId

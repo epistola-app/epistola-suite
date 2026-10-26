@@ -88,7 +88,7 @@ class ListRelocatableResourcesHandler(
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'template', c.namespace, c.catalog_key::text, t.id::text, t.name, c.name, c.released
-                FROM document_templates t JOIN editable c ON c.version_id = t.version_id
+                FROM current_templates t JOIN editable c ON c.version_id = t.version_id
                 WHERE t.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'codeList', c.namespace, c.catalog_key::text, l.id, l.display_name, c.name, c.released

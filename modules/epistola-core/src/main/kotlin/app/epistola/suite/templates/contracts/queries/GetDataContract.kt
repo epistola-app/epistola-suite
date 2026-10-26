@@ -5,8 +5,10 @@
 package app.epistola.suite.templates.contracts.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -29,7 +31,7 @@ data class GetDataContract(
     val templateId: TemplateId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<DataContract?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_VIEW
@@ -46,14 +48,24 @@ class GetDataContractHandler(
     }
 }
 
-/** Reads [template]'s data contract on [handle], locking the row with [forUpdate]. */
+/**
+ * Reads [template]'s data contract on [handle], a draft's or a release's. With [forUpdate] it is
+ * about to be written, so it reads the draft's row and locks it.
+ */
 internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, template: TemplateId, forUpdate: Boolean = false): DataContract? = handle
     .createQuery(
-        """
-        SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM document_templates
-        WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
-        ${if (forUpdate) "FOR UPDATE" else ""}
-        """,
+        if (forUpdate) {
+            """
+            SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM document_templates
+            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
+            FOR UPDATE
+            """
+        } else {
+            """
+            SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM current_templates
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k
+            """
+        },
     )
     .bind("t", template.tenantKey)
     .bindCatalog("c", template.catalogId)

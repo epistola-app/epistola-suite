@@ -35,10 +35,10 @@ fun templateJoin(alias: String): String = "JOIN document_templates template ON t
 
 /**
  * Joins a row aliased [alias] that names a template by identity but belongs to no catalog version
- * (a quality finding, a load-test run) to that template in its catalog's current version, aliased
- * `template`.
+ * (a quality finding, a load-test run) to that template in the version its catalog's caller means
+ * (`current_templates`), aliased `template`.
  */
-fun currentTemplateJoin(alias: String): String = "JOIN document_templates template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id AND ${inCurrentVersion("template")}"
+fun currentTemplateJoin(alias: String): String = "JOIN current_templates template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id"
 
 /** The address columns a caller reading through [templateJoin] still expects to select. */
 const val TEMPLATE_ADDRESS_COLUMNS: String =

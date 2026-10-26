@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilFitCheck
+import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
@@ -71,7 +72,7 @@ class MarkVariantReadyHandler(
                 .map { rs, _ -> Triple(rs.getObject("template_resource_id", UUID::class.java), rs.getString("template_model"), rs.getString("data_model")) }
                 .findOne()
                 .orElseThrow { TemplateVariantNotFoundException(variant.tenantKey, variant.templateKey, variant.key) }
-            val model = objectMapper.readValue(row.second, TemplateDocument::class.java)
+            val model = TemplateModels.read(row.second, variant.catalogKey.value, objectMapper)
             validator.validateTemplatePublishable(model)
             val dataModel = row.third?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
             stencilFit.requireInstancesFit(variant.catalogId, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)

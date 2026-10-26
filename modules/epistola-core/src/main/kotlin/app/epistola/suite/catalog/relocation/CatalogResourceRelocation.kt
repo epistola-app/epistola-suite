@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -180,6 +181,8 @@ class MoveCatalogResourcesHandler(
                     .bind("templateKey", rewrite.ownerKey)
                     .bind("variantKey", rewrite.variantKey)
                     .bindRewrite(command.tenantKey, rewrite)
+                    // Stored in its released form (ADR 0033), as every model is.
+                    .bind("replacement", storedModel(rewrite.replacement, CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey)).key.value))
                     .execute()
 
                 is JsonRewrite.StencilContent -> rewriteStencil(handle, command.tenantKey, rewrite)
@@ -268,6 +271,9 @@ class MoveCatalogResourcesHandler(
                 .bind("targetKey", relocation.target.key)
                 .execute()
             if (moved != 1) throw StaleCatalogResourceMovePlanException()
+            if (movable == MovableResource.TEMPLATE) {
+                restoreModels(handle, command.tenantKey, resourceId.value, relocation.source.catalogIn(command.tenantKey), relocation.target.catalogIn(command.tenantKey))
+            }
             // This one row is the whole relational move. Every type is keyed by its resource_id and
             // every dependant names that, so nothing else refers to the address being changed --
             // owned hierarchies included, and a rename no differently from a move.
@@ -279,6 +285,35 @@ class MoveCatalogResourcesHandler(
         declarer.declareMissingInTenant(command.tenantKey)
 
         plan.preview
+    }
+
+    /** [json], a model of a template of [catalogKey], in the form it is stored. */
+    private fun storedModel(json: String, catalogKey: String): String = objectMapper.writeValueAsString(
+        app.epistola.suite.templates.TemplateModels.stored(objectMapper.readValue(json, app.epistola.template.model.TemplateDocument::class.java), catalogKey, objectMapper),
+    )
+
+    /**
+     * The moved template's models, read as they meant in [source] and stored in [target]'s form: a
+     * model is stored with its own-catalog references relative (ADR 0033), so left as it was, one into
+     * the catalog it left would come to mean the catalog it joined.
+     */
+    private fun restoreModels(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, templateResourceId: java.util.UUID, source: CatalogId, target: CatalogId) {
+        val models = handle.createQuery(
+            "SELECT id, template_model::text AS model FROM template_variants WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = :id",
+        )
+            .bind("t", tenantKey).bindCatalog("c", target).bind("id", templateResourceId)
+            .map { rs, _ -> rs.getString("id") to rs.getString("model") }
+            .list()
+        for ((variant, json) in models) {
+            val read = app.epistola.suite.templates.TemplateModels.read(json, source.key.value, objectMapper)
+            val stored = objectMapper.writeValueAsString(app.epistola.suite.templates.TemplateModels.stored(read, target.key.value, objectMapper))
+            if (objectMapper.readTree(stored) == objectMapper.readTree(json)) continue
+            handle.createUpdate(
+                "UPDATE template_variants SET template_model = :model::jsonb WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = :id AND id = :variant",
+            )
+                .bind("t", tenantKey).bindCatalog("c", target).bind("id", templateResourceId).bind("variant", variant).bind("model", stored)
+                .execute()
+        }
     }
 
     /** The theme's styles replaced, when they are still what the plan saw; 1 when they were, else 0. */

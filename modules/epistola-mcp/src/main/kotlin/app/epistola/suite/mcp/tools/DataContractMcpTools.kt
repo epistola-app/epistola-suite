@@ -10,7 +10,9 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.mcp.dto.DataContractInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -48,11 +50,11 @@ class DataContractMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): DataContractInfo? {
         val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
-        return mediator.query(GetDataContract(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
+        return mediator.query(GetDataContract(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
     }
 
     @McpTool(
