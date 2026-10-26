@@ -27,6 +27,8 @@ data class RenderContext(
     val fontCache: FontCache,
     /** Block style presets from theme (named style collections like CSS classes) */
     val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
+    /** The theme's baseline block margins (`defaultBlockStyles`), applied when [RenderingDefaults.themeBlockSpacing]. */
+    val defaultBlockStyles: Map<String, Any> = emptyMap(),
     /** The template document being rendered (for node/slot lookups) */
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
@@ -123,6 +125,17 @@ data class RenderContext(
     val pageBands: PageBandCollector? = null,
 ) {
     /**
+     * The default styles a block of [componentType] starts from: the rendering defaults' spacing, with
+     * the theme's baseline margins over it for a [RenderingDefaults.THEME_BLOCK_TYPES] block when the
+     * rendering defaults take block spacing from the theme ([RenderingDefaults.themeBlockSpacing]).
+     */
+    fun componentDefaults(componentType: String): Map<String, Any>? {
+        val engine = renderingDefaults.componentDefaults(componentType)
+        if (!renderingDefaults.themeBlockSpacing || defaultBlockStyles.isEmpty() || componentType !in RenderingDefaults.THEME_BLOCK_TYPES) return engine
+        return (engine.orEmpty() + defaultBlockStyles.filterKeys { it in BLOCK_MARGIN_KEYS }).ifEmpty { null }
+    }
+
+    /**
      * Returns a copy of this context with updated inherited styles based on a node's
      * resolved styles. Only inheritable style properties are propagated to children.
      */
@@ -214,3 +227,6 @@ data class ExpressionScope(
     /** See [RenderContext.stencilNestingDepth]. */
     val stencilNestingDepth: Int = 0,
 )
+
+/** The keys a theme's `defaultBlockStyles` may set. */
+private val BLOCK_MARGIN_KEYS = setOf("marginTop", "marginBottom")

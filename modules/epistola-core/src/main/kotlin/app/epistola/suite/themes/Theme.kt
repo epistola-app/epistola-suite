@@ -111,6 +111,12 @@ data class Theme(
     val revision: Long = 1,
     /** The namespace of its catalog: with the catalog key, its address (ADR 0034, section 9). */
     val namespace: String = "",
+    /**
+     * The baseline margins of every flow block (`marginTop`/`marginBottom` only; contract
+     * `ThemeResource.defaultBlockStyles`), applied from rendering defaults V7. Null or empty: the
+     * renderer's own fallback.
+     */
+    @Json val defaultBlockStyles: Map<String, Any?>? = null,
 ) {
     /** Its catalog, by its address. */
     val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))

@@ -54,6 +54,9 @@ data class UpdateTheme(
     val removeBlockStylePresets: Set<String> = emptySet(),
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
+    /** The baseline margins of every flow block (`marginTop`/`marginBottom`); null keeps them. */
+    val defaultBlockStyles: Map<String, Any?>? = null,
+    val clearDefaultBlockStyles: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
     /** The theme's revision the change was made against; null to write whatever it is at now. */
@@ -76,6 +79,7 @@ data class UpdateTheme(
         validate("removeBlockStylePresets", mergeBlockStylePresets?.keys.orEmpty().none { it in removeBlockStylePresets }) {
             "A preset cannot be merged and removed in the same update"
         }
+        validate("defaultBlockStyles", defaultBlockStyles.orEmpty().keys.all { it == "marginTop" || it == "marginBottom" }) { "A theme's default block styles set marginTop and marginBottom only" }
     }
 }
 
@@ -108,7 +112,8 @@ class UpdateThemeHandler(
 
     private fun UpdateTheme.changesSomething(): Boolean = name != null || clearDescription || description != null || documentStyles != null ||
         clearPageSettings || pageSettings != null || clearBlockStylePresets || blockStylePresets != null ||
-        mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty() || clearSpacingUnit || spacingUnit != null
+        mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty() || clearSpacingUnit || spacingUnit != null ||
+        clearDefaultBlockStyles || defaultBlockStyles != null
 
     /** [current] with this update's changes: only the fields it names, as a partial update. */
     private fun UpdateTheme.applyTo(current: ThemeFields): ThemeFields = current.copy(
@@ -133,5 +138,6 @@ class UpdateThemeHandler(
             else -> current.blockStylePresets
         },
         spacingUnit = if (clearSpacingUnit) null else spacingUnit ?: current.spacingUnit,
+        defaultBlockStyles = if (clearDefaultBlockStyles) null else defaultBlockStyles ?: current.defaultBlockStyles,
     )
 }

@@ -63,7 +63,7 @@ class QrCodeNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("qrcode"),
+            context.componentDefaults("qrcode"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,

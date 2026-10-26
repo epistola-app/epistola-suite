@@ -121,6 +121,8 @@ class ThemeMcpTools(
         blockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
+        @McpToolParam(description = DEFAULT_BLOCK_STYLES, required = false)
+        defaultBlockStyles: String? = null,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): ThemeInfo = ThemeInfo.from(
@@ -136,6 +138,7 @@ class ThemeMcpTools(
                 BlockStylePresets::class.java,
             ),
             spacingUnit = spacingUnit,
+            defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ).execute(),
     )
@@ -179,6 +182,8 @@ class ThemeMcpTools(
         removeBlockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
+        @McpToolParam(description = DEFAULT_BLOCK_STYLES, required = false)
+        defaultBlockStyles: String? = null,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
@@ -205,12 +210,16 @@ class ThemeMcpTools(
             Array<String>::class.java,
         )?.toSet().orEmpty(),
         spacingUnit = spacingUnit,
+        defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
         catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         expectedRevision = expectedRevision,
     ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
 
     @Suppress("UNCHECKED_CAST")
     private fun parseDocumentStyles(json: String?): DocumentStyles? = objectMapper.parseOptionalArgument("documentStyles", json, Map::class.java) as DocumentStyles?
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseBlockStyles(json: String?): Map<String, Any?>? = objectMapper.parseOptionalArgument("defaultBlockStyles", json, Map::class.java) as Map<String, Any?>?
 
     private fun themeId(catalogId: String, themeId: String) = ThemeId(ThemeKey.of(themeId), mcpCatalog(catalogId))
 
@@ -223,6 +232,8 @@ class ThemeMcpTools(
         const val BLOCK_STYLE_PRESETS = "JSON object string of named block style presets, same shape as " +
             "`get_theme` returns."
         const val SPACING_UNIT = "Spacing base unit in points (default 4)."
+        const val DEFAULT_BLOCK_STYLES = "JSON object string of the baseline margins every flow block takes, `marginTop` and/or " +
+            "`marginBottom` only, e.g. `{\"marginBottom\": \"8pt\"}`. Without one, blocks keep 6pt below them."
     }
 
     /** A catalog version's theme settings (contract ADR 0007), as MCP returns them. */

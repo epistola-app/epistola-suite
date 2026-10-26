@@ -39,6 +39,8 @@ data class ImportTheme(
     val pageSettings: PageSettings? = null,
     val blockStylePresets: BlockStylePresets? = null,
     val spacingUnit: Float? = null,
+    /** The theme's baseline block margins (contract `defaultBlockStyles`). */
+    val defaultBlockStyles: Map<String, Any?>? = null,
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 ) : Command<InstallStatus>,
@@ -77,7 +79,7 @@ class ImportThemeHandler(
             themes.put(
                 handle,
                 ThemeId(themeKey, command.catalog),
-                ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit, command.metadata),
+                ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit, command.defaultBlockStyles, command.metadata),
                 auditUser,
             )
         }

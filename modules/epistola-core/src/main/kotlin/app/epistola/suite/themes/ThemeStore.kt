@@ -28,12 +28,14 @@ data class ThemeFields(
     val pageSettings: PageSettings?,
     val blockStylePresets: BlockStylePresets?,
     val spacingUnit: Float?,
+    /** The baseline margins of every flow block (contract `defaultBlockStyles`); null or empty for none. */
+    val defaultBlockStyles: Map<String, Any?>? = null,
     /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /** What [this] theme says. */
-fun Theme.fields(): ThemeFields = ThemeFields(name, description, documentStyles, pageSettings, blockStylePresets, spacingUnit)
+fun Theme.fields(): ThemeFields = ThemeFields(name, description, documentStyles, pageSettings, blockStylePresets, spacingUnit, defaultBlockStyles = defaultBlockStyles)
 
 /**
  * Writes the themes of a draft (ADR 0033): its content, the theme's wire form (`ThemeResource`), to
@@ -64,6 +66,7 @@ class ThemeStore(
         pageSettings = fields.pageSettings,
         blockStylePresets = fields.blockStylePresets?.toMap(),
         spacingUnit = fields.spacingUnit?.let(::stored),
+        defaultBlockStyles = fields.defaultBlockStyles?.filterValues { it != null }?.takeIf { it.isNotEmpty() },
     )
 
     /** The spacing unit as stored: two decimals. */
@@ -94,6 +97,7 @@ class ThemeStore(
             pageSettings = fields.pageSettings,
             blockStylePresets = fields.blockStylePresets,
             spacingUnit = fields.spacingUnit?.let(::stored),
+            defaultBlockStyles = fields.defaultBlockStyles?.filterValues { it != null }?.takeIf { it.isNotEmpty() },
             revision = updated.revision,
             updatedAt = updated.updatedAt,
             updatedBy = actor?.let(app.epistola.suite.common.ids.UserKey::of),

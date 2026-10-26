@@ -207,7 +207,7 @@ class NodeRendererRegistry(
     private fun keepsWithNext(node: Node, context: RenderContext): Boolean {
         val inline = node.styles?.filterNonNullValues()?.get("keepWithNext")
         val preset = node.stylePreset?.let { context.blockStylePresets[it]?.get("keepWithNext") }
-        val componentDefault = context.renderingDefaults.componentDefaults(node.type)?.get("keepWithNext")
+        val componentDefault = context.componentDefaults(node.type)?.get("keepWithNext")
         val effective = inline ?: preset ?: componentDefault
         return effective == true || effective == "true"
     }

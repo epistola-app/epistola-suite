@@ -38,6 +38,8 @@ data class ResolvedThemeSnapshot(
     val blockStylePresets: Map<String, Map<String, Any>>,
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     val fontFingerprints: Map<String, String> = emptyMap(),
+    /** The theme's baseline block margins (`defaultBlockStyles`); empty when it names none. */
+    val defaultBlockStyles: Map<String, Any> = emptyMap(),
 ) {
     companion object {
         /**
@@ -49,6 +51,7 @@ data class ResolvedThemeSnapshot(
             pageSettings = resolvedStyles.pageSettings,
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             spacingUnit = resolvedStyles.spacingUnit,
+            defaultBlockStyles = resolvedStyles.defaultBlockStyles,
         )
     }
 }

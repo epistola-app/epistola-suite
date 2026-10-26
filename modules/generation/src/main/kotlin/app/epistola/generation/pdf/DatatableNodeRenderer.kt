@@ -79,7 +79,7 @@ class DatatableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("datatable"),
+            context.componentDefaults("datatable"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,

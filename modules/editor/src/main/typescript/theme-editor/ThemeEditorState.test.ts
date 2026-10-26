@@ -118,6 +118,28 @@ describe('ThemeEditorState', () => {
     });
   });
 
+  describe('block spacing', () => {
+    it('sends the baseline margins it sets, and clears them when none is left', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updateDefaultBlockStyle('marginBottom', '8pt');
+      expect(state.computePatchPayload().defaultBlockStyles).toEqual({ marginBottom: '8pt' });
+      state.markSaved();
+      state.updateDefaultBlockStyle('marginBottom', undefined);
+      expect(state.theme.defaultBlockStyles).toBeUndefined();
+      expect(state.computePatchPayload().clearDefaultBlockStyles).toBe(true);
+    });
+
+    it('leaves an unchanged baseline out of the patch', () => {
+      const state = new ThemeEditorState(
+        createTestTheme({ defaultBlockStyles: { marginTop: '2sp' } }),
+      );
+      state.updateName('Renamed');
+      const patch = state.computePatchPayload();
+      expect(patch.defaultBlockStyles).toBeUndefined();
+      expect(patch.clearDefaultBlockStyles).toBeUndefined();
+    });
+  });
+
   describe('page settings', () => {
     it('updatePageSetting creates page settings if missing', () => {
       const state = new ThemeEditorState(createTestTheme({ pageSettings: undefined }));

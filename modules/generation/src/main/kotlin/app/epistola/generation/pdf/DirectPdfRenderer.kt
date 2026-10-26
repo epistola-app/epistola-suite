@@ -186,6 +186,7 @@ class DirectPdfRenderer(
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
             blockStylePresets = resolvedTheme.blockStylePresets,
+            defaultBlockStyles = resolvedTheme.defaultBlockStyles,
             document = document,
             assetResolver = assetResolver,
             renderMode = renderMode,

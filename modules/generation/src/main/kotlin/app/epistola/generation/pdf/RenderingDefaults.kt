@@ -137,6 +137,14 @@ data class RenderingDefaults(
      * `loop` waits for the whole loop to fit and can leave most of a page empty.
      */
     val keepWithNextFirstBlock: Boolean = false,
+
+    /**
+     * When true, a block's vertical rhythm comes from the theme's `defaultBlockStyles` (contract
+     * `2.0.0-alpha.3`): the theme's margins replace [componentSpacing]'s for the [THEME_BLOCK_TYPES],
+     * and [componentSpacing] is only the fallback when the theme names none, in absolute points so a
+     * larger spacing unit does not magnify it. When false, [componentSpacing] alone applies, in `sp`.
+     */
+    val themeBlockSpacing: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -264,8 +272,31 @@ data class RenderingDefaults(
             keepWithNextFirstBlock = true,
         )
 
+        /**
+         * V7: block spacing comes from the theme ([themeBlockSpacing]). Without a theme baseline a
+         * flow block keeps 6pt below it, in points: what `1.5sp` gave at the default 4pt unit, no
+         * longer growing with the unit (it was 24pt at 16pt). Text keeps none, the separator its own.
+         */
+        val V7 = V6.copy(
+            version = 7,
+            themeBlockSpacing = true,
+            componentSpacing = mapOf(
+                "text" to mapOf("marginBottom" to "0pt"),
+                "container" to mapOf("marginBottom" to "6pt"),
+                "columns" to mapOf("marginBottom" to "6pt"),
+                "table" to mapOf("marginBottom" to "6pt"),
+                "datatable" to mapOf("marginBottom" to "6pt"),
+                "image" to mapOf("marginBottom" to "6pt"),
+                "qrcode" to mapOf("marginBottom" to "6pt"),
+                "separator" to mapOf(
+                    "marginTop" to "1.5sp",
+                    "marginBottom" to "1.5sp",
+                ),
+            ),
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V6
+        val CURRENT = V7
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
@@ -274,6 +305,7 @@ data class RenderingDefaults(
             4 to V4,
             5 to V5,
             6 to V6,
+            7 to V7,
         )
 
         /**
@@ -281,6 +313,12 @@ data class RenderingDefaults(
          * @throws IllegalArgumentException if the version is unknown
          */
         fun forVersion(version: Int): RenderingDefaults = REGISTRY[version] ?: throw IllegalArgumentException("Unknown rendering defaults version: $version")
+
+        /**
+         * The block types whose vertical rhythm a theme's `defaultBlockStyles` sets ([themeBlockSpacing]);
+         * the separator keeps its own margins (contract `catalog-compatibility.md`).
+         */
+        val THEME_BLOCK_TYPES: Set<String> = setOf("text", "richTextVariable", "container", "columns", "table", "datatable", "qrcode", "image")
     }
 
     /** Default heading font size for the given level. Falls back to [baseFontSizePt] for levels not in the map. */

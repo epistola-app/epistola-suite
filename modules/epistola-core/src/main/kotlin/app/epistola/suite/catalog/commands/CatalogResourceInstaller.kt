@@ -80,6 +80,7 @@ class CatalogResourceInstaller(
             pageSettings = resource.pageSettings,
             blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
             spacingUnit = resource.spacingUnit,
+            defaultBlockStyles = resource.defaultBlockStyles,
             // As received: none clears what the draft held.
             metadata = resource.metadata.orEmpty(),
         ).execute()

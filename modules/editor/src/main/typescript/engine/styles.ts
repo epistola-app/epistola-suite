@@ -140,3 +140,49 @@ export function resolvePresetStyles(
   const preset = presets[presetName];
   return preset?.styles;
 }
+
+/**
+ * The block types whose vertical rhythm the theme's `defaultBlockStyles` sets (contract
+ * `2.0.0-alpha.3`), as the renderer's current defaults (V7) apply it. The separator keeps its own.
+ */
+export const THEME_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'text',
+  'richTextVariable',
+  'container',
+  'columns',
+  'table',
+  'datatable',
+  'qrcode',
+  'image',
+]);
+
+/** What a flow block keeps below it when the theme names no baseline: 6pt, whatever the spacing unit. */
+const BLOCK_BASELINE_FALLBACK: Readonly<Record<string, unknown>> = { marginBottom: '6pt' };
+
+/** Text blocks keep no space of their own when the theme names no baseline. */
+const NO_FALLBACK_TYPES: ReadonlySet<string> = new Set(['text', 'richTextVariable']);
+
+/**
+ * The default styles a block of [type] starts from in the editor, as a draft renders: the
+ * component's own defaults, with the theme's baseline margins over them for a flow block, or the
+ * renderer's fallback when the theme names none.
+ */
+export function blockDefaultStyles(
+  type: string,
+  componentDefaults: Record<string, unknown> | undefined,
+  themeBaseline: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | undefined {
+  if (!THEME_BLOCK_TYPES.has(type)) return componentDefaults;
+  const margins = Object.fromEntries(
+    Object.entries(themeBaseline ?? {}).filter(
+      ([key, value]) => (key === 'marginTop' || key === 'marginBottom') && value != null,
+    ),
+  );
+  const baseline =
+    Object.keys(margins).length > 0
+      ? margins
+      : NO_FALLBACK_TYPES.has(type)
+        ? {}
+        : BLOCK_BASELINE_FALLBACK;
+  return { ...componentDefaults, ...baseline };
+}

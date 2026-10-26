@@ -57,7 +57,7 @@ class ExportThemesHandler(
 
     override fun handle(query: ExportThemes): List<ThemeResource> = jdbi.withHandle<List<ThemeResource>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit, (payload -> 'resource' -> 'metadata')::text AS metadata FROM current_themes WHERE tenant_key = :tenantKey")
+            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit, (payload -> 'resource' -> 'metadata')::text AS metadata, (payload -> 'resource' -> 'defaultBlockStyles')::text AS default_block_styles FROM current_themes WHERE tenant_key = :tenantKey")
             if (query.catalogKey != null) append(" AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND id IN (<slugs>)")
         }
@@ -75,10 +75,14 @@ class ExportThemesHandler(
                 // NUMERIC, so the driver answers a BigDecimal: read as a Float, it was always null.
                 spacingUnit = rs.getBigDecimal("spacing_unit")?.toFloat(),
                 metadata = metadataOf(rs.getString("metadata"), objectMapper),
+                defaultBlockStyles = rs.getString("default_block_styles")?.let { objectMapper.readTree(it) }?.takeIf { it.isObject && !it.isEmpty }
+                    ?.let { objectMapper.readValue(it.toString(), BLOCK_STYLES) },
             )
         }.list()
     }
 }
+
+private val BLOCK_STYLES = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}
 
 // ── Export Attributes ────────────────────────────────────────────────────────
 

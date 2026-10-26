@@ -19,6 +19,7 @@ import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.toBlockStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
@@ -79,6 +80,7 @@ class EpistolaThemeApi : ThemesApi {
             pageSettings = createThemeRequest.pageSettings,
             blockStylePresets = createThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = createThemeRequest.spacingUnit?.toFloat(),
+            defaultBlockStyles = createThemeRequest.defaultBlockStyles.toBlockStyles(),
             catalogVersion = draft.ref,
         ).execute()
 
@@ -119,6 +121,7 @@ class EpistolaThemeApi : ThemesApi {
             pageSettings = updateThemeRequest.pageSettings,
             blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
+            defaultBlockStyles = updateThemeRequest.defaultBlockStyles,
             catalogVersion = draft.ref,
             expectedRevision = ETags.expected(ifMatch),
         ).execute() ?: throw ThemeNotFoundException(key)

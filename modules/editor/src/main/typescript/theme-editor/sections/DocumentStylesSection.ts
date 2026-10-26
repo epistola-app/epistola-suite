@@ -49,6 +49,30 @@ export function renderDocumentStylesSection(state: ThemeEditorState, readOnly = 
           </div>
         `;
       })}
+      <div class="inspector-style-group">
+        <div class="inspector-style-group-label">Block spacing</div>
+        <p class="theme-section-hint">
+          Space around every block. Without a value, blocks keep 6pt below them.
+        </p>
+        ${(['marginTop', 'marginBottom'] as const).map((key) => {
+          const inputId = `theme-block-spacing-${key}`;
+          return html`
+            <div class="inspector-field">
+              <label class="inspector-field-label" for=${inputId}
+                >${key === 'marginTop' ? 'Space above' : 'Space below'}</label
+              >
+              ${renderUnitInput(
+                state.theme.defaultBlockStyles?.[key],
+                ['pt', 'sp'],
+                (v) => state.updateDefaultBlockStyle(key, v),
+                state.theme.spacingUnit ?? DEFAULT_SPACING_UNIT,
+                inputId,
+                readOnly,
+              )}
+            </div>
+          `;
+        })}
+      </div>
     </div>
   `;
 }

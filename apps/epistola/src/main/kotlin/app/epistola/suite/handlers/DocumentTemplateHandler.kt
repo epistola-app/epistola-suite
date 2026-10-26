@@ -128,6 +128,8 @@ data class EditorThemeConfig(
     val pageSettings: PageSettings?,
     val blockStylePresets: BlockStylePresets?,
     val spacingUnit: Float?,
+    /** The theme's baseline block margins (`defaultBlockStyles`); null when it names none. */
+    val defaultBlockStyles: Map<String, Any?>? = null,
 )
 
 /**
@@ -449,6 +451,7 @@ class DocumentTemplateHandler(
                 pageSettings = it.pageSettings,
                 blockStylePresets = it.blockStylePresets,
                 spacingUnit = it.spacingUnit,
+                defaultBlockStyles = it.defaultBlockStyles,
             )
         }
 

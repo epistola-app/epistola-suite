@@ -41,6 +41,8 @@ data class CreateTheme(
     val pageSettings: PageSettings? = null,
     val blockStylePresets: BlockStylePresets? = null,
     val spacingUnit: Float? = null,
+    /** The baseline margins of every flow block (`marginTop`/`marginBottom`); null for the renderer's fallback. */
+    val defaultBlockStyles: Map<String, Any?>? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -52,6 +54,7 @@ data class CreateTheme(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        validate("defaultBlockStyles", defaultBlockStyles.orEmpty().keys.all { it == "marginTop" || it == "marginBottom" }) { "A theme's default block styles set marginTop and marginBottom only" }
     }
 }
 
@@ -77,7 +80,7 @@ class CreateThemeHandler(
                 themes.create(
                     handle,
                     command.id,
-                    ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit),
+                    ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit, command.defaultBlockStyles),
                     auditUser,
                 )
             }
