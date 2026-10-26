@@ -141,7 +141,7 @@ class ImageNodeRenderer(
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("image"),
+            context.componentDefaults("image"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,

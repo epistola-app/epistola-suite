@@ -13,6 +13,8 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UseCompatibility
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogId
@@ -282,6 +284,7 @@ class ChangeKindEvaluator(
  */
 @Component
 class DraftChangeKinds(
+    private val jdbi: org.jdbi.v3.core.Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val releases: ReleaseContentAssembler,
     private val compatibility: UseCompatibility,
@@ -307,7 +310,20 @@ class DraftChangeKinds(
                     .map { "${typeName(it.type)} '${it.key}': ${it.reason}" }
             }
         }
-        return evaluator.evaluate(released, draft)
+        val assessment = evaluator.evaluate(released, draft)
+        // Newer rendering defaults change what every document looks like: a minor (#1127).
+        val renderedWith = jdbi.withHandle<Int?, Exception> { handle ->
+            handle.createQuery("SELECT rendering_defaults_version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
+                .bind("v", base)
+                .map { rs, _ -> rs.getObject(1) as Int? }
+                .list()
+                .firstOrNull()
+        }
+        val current = app.epistola.generation.pdf.RenderingDefaults.CURRENT.version
+        if (renderedWith == null || renderedWith == current) return assessment
+        return ChangeAssessment(assessment.reasons + ChangeReason(ChangeKind.ADDITIVE, "catalog", "renderingDefaults", "rendered with V$current instead of V$renderedWith, so documents may look different"))
     }
 }
 

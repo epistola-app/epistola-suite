@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -60,6 +61,8 @@ data class ImageFields(
     val height: Int?,
     /** The SHA-256 of its bytes, which `asset_content` holds under it. */
     val contentHash: String,
+    /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /**
@@ -98,7 +101,7 @@ class ImageStore(
         return hash
     }
 
-    private fun store(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields): String = contents.store(handle, catalog.tenantKey, IMAGE, payload(key, fields))
+    private fun store(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields): String = contents.store(handle, catalog.tenantKey, IMAGE, ResourceMetadata.carried(handle, catalog, IMAGE, key, payload(key, fields), fields.metadata, objectMapper))
 
     /** Adds image [key] to the targeted draft of [catalog]; one already there is a unique violation. */
     fun create(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields, actor: UUID?): Asset {
@@ -121,7 +124,7 @@ class ImageStore(
         val image = get(handle, source, key) ?: return false
         val hash = handle.createQuery("SELECT content_hash FROM current_images WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
             .bind("t", source.tenantKey).bindCatalog("c", source).bind("k", key).mapTo(String::class.java).one()
-        val fields = ImageFields(image.name, image.mediaType, image.width, image.height, hash)
+        val fields = ImageFields(image.name, image.mediaType, image.width, image.height, hash, ResourceMetadata.moving(handle, source, IMAGE, key))
         return DraftResources.move(handle, source, IMAGE, key, target, targetKey, store(handle, source, targetKey, fields))
     }
 

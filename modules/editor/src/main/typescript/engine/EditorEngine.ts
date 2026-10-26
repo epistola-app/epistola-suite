@@ -39,6 +39,7 @@ import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
 import { EventEmitter, type EngineEvents } from './events.js';
 import {
+  blockDefaultStyles,
   getInheritableKeys,
   resolveDocumentStyles,
   resolveNodeStyles,
@@ -392,7 +393,11 @@ export class EditorEngine {
       this._inheritableKeys,
       presetStyles,
       node.styles,
-      def?.defaultStyles,
+      blockDefaultStyles(
+        node.type,
+        def?.defaultStyles,
+        this._theme?.defaultBlockStyles as Record<string, unknown> | null | undefined,
+      ),
     );
   }
 

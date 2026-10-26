@@ -18,10 +18,10 @@ import tools.jackson.databind.node.ObjectNode
  * fingerprinted.
  *
  * - **The template** (its row, kind `template`): `{ "resource": { key, name, …, variants:
- *   [{ key, attributes, isDefault }] } }`, everything the wire form says of the template and of each
- *   variant's place in it, and no model.
+ *   [{ key, attributes, isDefault }], metadata } }`, everything the wire form says of the template and
+ *   of each variant's place in it, its producer metadata included, and no model.
  * - **A variant** (a row of its own, [VariantRows], kind [VARIANT_KIND]): `{ "resource": { title,
- *   templateModel, metadata, description } }`, its model whole (the default variant's included,
+ *   templateModel, description } }`, its model whole (the default variant's included,
  *   which the wire form keeps on the template). A variant content stored before contract
  *   `2.0.0-alpha.2` may keep its description beside the resource; a release holding one was
  *   fingerprinted without it.
@@ -61,7 +61,6 @@ object TemplateContents {
         val resource = objectMapper.createObjectNode().apply {
             put("title", variant.title)
             model?.let { set("templateModel", objectMapper.valueToTree(it)) }
-            variant.metadata?.takeIf { it.isNotEmpty() }?.let { set("metadata", objectMapper.valueToTree(it)) }
             variant.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
         }
         return objectMapper.createObjectNode().set("resource", resource)
@@ -91,13 +90,34 @@ object TemplateContents {
                             set("attributes", slot.path("attributes"))
                             set("templateModel", if (key == default?.path("key")?.asString()) objectMapper.nullNode() else part?.get("templateModel") ?: objectMapper.nullNode())
                             put("isDefault", slot.path("isDefault").asBoolean(false))
-                            part?.get("metadata")?.let { set("metadata", it) }
                             part?.get("description")?.let { set("description", it) }
                         },
                     )
                 }
             },
         )
+        foldVariantMetadata(resource, slots.associate { it.path("key").asString() to parts[it.path("key").asString()]?.path("resource")?.get("metadata") }, objectMapper)
         return resource
+    }
+
+    /**
+     * Folds what a variant content stored before contract `2.0.0-alpha.3` holds as its own `metadata`
+     * into the template's, as the contract's migrator folds an early wire-v8 variant's:
+     * `{"<namespace>": V}` of variant `k` becomes `{"<namespace>": {"variants": {"k": V}}}` on the
+     * template. A release retained before then keeps such contents, and assembles to the wire form
+     * that says the same. A value the template already holds is never overwritten.
+     */
+    private fun foldVariantMetadata(resource: ObjectNode, byVariant: Map<String, JsonNode?>, objectMapper: ObjectMapper) {
+        val held = byVariant.filterValues { it != null && it.isObject && !it.isEmpty }
+        if (held.isEmpty()) return
+        val metadata = (resource.get("metadata") as? ObjectNode) ?: objectMapper.createObjectNode()
+        held.forEach { (variant, values) ->
+            values!!.properties().forEach { (namespace, value) ->
+                val space = metadata.get(namespace)?.let { it as? ObjectNode ?: return@forEach } ?: metadata.putObject(namespace)
+                val variants = space.get("variants")?.let { it as? ObjectNode ?: return@forEach } ?: space.putObject("variants")
+                if (!variants.has(variant)) variants.set(variant, value)
+            }
+        }
+        resource.set("metadata", metadata)
     }
 }

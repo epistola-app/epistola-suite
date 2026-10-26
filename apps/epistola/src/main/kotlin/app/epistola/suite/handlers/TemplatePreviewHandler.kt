@@ -104,6 +104,7 @@ class TemplatePreviewHandler(
                                 ?.mapValues { (_, preset) -> preset.styles }
                                 .orEmpty(),
                             spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
+                            defaultBlockStyles = theme.defaultBlockStyles.orEmpty().filterValues { it != null }.mapValues { (_, v) -> v!! },
                         )
                     },
                 ).query()

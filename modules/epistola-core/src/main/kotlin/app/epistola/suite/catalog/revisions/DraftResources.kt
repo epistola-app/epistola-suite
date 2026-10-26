@@ -28,6 +28,28 @@ import java.util.UUID
 object DraftResources {
 
     /**
+     * The producer metadata (`resource.metadata`, as text) the targeted draft's row of [type] [key] of
+     * [catalog] holds; null when it holds none or there is no such row ([ResourceMetadata]).
+     */
+    fun metadataOf(handle: Handle, catalog: CatalogId, type: String, key: String): String? = handle
+        .createQuery(
+            """
+            SELECT (c.payload -> 'resource' -> 'metadata')::text
+            FROM release_resources r
+            JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+              AND r.resource_type = :type AND r.resource_key = :key
+            """,
+        )
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .bind("type", type)
+        .bind("key", key)
+        .map { rs, _ -> rs.getString(1) }
+        .list()
+        .firstOrNull()
+
+    /**
      * Adds [type] [key] to the targeted draft of [catalog], holding [contentHash], and returns its
      * identity: the one registered at that address, or a new one. A row already there is a
      * unique violation, as an insert into a content table was.

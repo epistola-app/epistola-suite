@@ -42,6 +42,8 @@ data class ImportCodeList(
     val displayName: String,
     val description: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
+    /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
@@ -67,7 +69,7 @@ class ImportCodeListHandler(
         // Hidden flags and sort order land straight from the catalog file: the importing tenant has no
         // copy of its own to preserve. A list already there keeps its source (ADR 0033).
         val existed = jdbi.withHandle<Boolean, Exception> { handle ->
-            codeLists.put(handle, CodeListId(codeListSlug, command.catalog), command.displayName, command.description, command.entries, app.epistola.suite.security.currentUserIdOrNull()?.value)
+            codeLists.put(handle, CodeListId(codeListSlug, command.catalog), command.displayName, command.description, command.entries, app.epistola.suite.security.currentUserIdOrNull()?.value, command.metadata)
         }
         return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }

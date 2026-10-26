@@ -28,6 +28,7 @@ class NodeRendererRegistryTest {
         mapOf(
             "root" to ContainerNodeRenderer(),
             "text" to TextNodeRenderer(),
+            "image" to ImageNodeRenderer(),
             "pagebreak" to PageBreakNodeRenderer(),
             // Emits three blocks, as a loop over three items does.
             "multi" to object : NodeRenderer {
@@ -56,6 +57,7 @@ class NodeRendererRegistryTest {
         doc: TemplateDocument,
         presets: Map<String, Map<String, Any>> = emptyMap(),
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+        assetResolver: AssetResolver? = null,
     ) = RenderContext(
         data = emptyMap(),
         expressionEvaluator = evaluator,
@@ -64,6 +66,7 @@ class NodeRendererRegistryTest {
         document = doc,
         blockStylePresets = presets,
         renderingDefaults = renderingDefaults,
+        assetResolver = assetResolver,
     )
 
     private fun siblingDocument(vararg children: Node): TemplateDocument = TemplateDocument(
@@ -149,6 +152,23 @@ class NodeRendererRegistryTest {
         val elements = registry.renderSlot("s-main", doc, contextFor(doc))
 
         val group = assertIs<Div>(elements.single())
+        assertEquals(2, group.children.size)
+    }
+
+    @Test
+    fun `keepWithNext keeps an image with the block after it`() {
+        val png = java.io.ByteArrayOutputStream().also {
+            javax.imageio.ImageIO.write(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", it)
+        }.toByteArray()
+        val doc = siblingDocument(
+            Node(id = "logo", type = "image", slots = emptyList(), props = mapOf("imageKey" to "logo"), styles = mapOf("keepWithNext" to true)),
+            Node(id = "caption", type = "text", slots = emptyList()),
+        )
+
+        val elements = registry.renderSlot("s-main", doc, contextFor(doc, assetResolver = AssetResolver { _, _ -> AssetResolution(png, "image/png") }))
+
+        val group = assertIs<Div>(elements.single())
+        assertTrue(isGroup(group))
         assertEquals(2, group.children.size)
     }
 

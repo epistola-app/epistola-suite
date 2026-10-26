@@ -61,6 +61,7 @@ object ThemeContent {
         pageSettings = payload.value("pageSettings")?.let { objectMapper.treeToValue(it, PageSettings::class.java) },
         blockStylePresets = payload.value("blockStylePresets")?.let { objectMapper.treeToValue(it, BlockStylePresets::class.java) },
         spacingUnit = payload.value("spacingUnit")?.floatValue(),
+        defaultBlockStyles = payload.value("defaultBlockStyles")?.takeIf { it.isObject && !it.isEmpty }?.let { objectMapper.readValue(it.toString(), BLOCK_STYLES) },
         createdAt = createdAt,
         updatedAt = updatedAt,
         createdBy = createdBy,
@@ -126,3 +127,5 @@ object ThemeReads {
         .findOne()
         .orElse(null)
 }
+
+private val BLOCK_STYLES = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}

@@ -35,7 +35,10 @@ export interface AvailablePreset {
 }
 
 export type EditorTheme = Partial<
-  Pick<Theme, 'documentStyles' | 'pageSettings' | 'blockStylePresets' | 'spacingUnit'>
+  Pick<
+    Theme,
+    'documentStyles' | 'pageSettings' | 'blockStylePresets' | 'spacingUnit' | 'defaultBlockStyles'
+  >
 > & {
   /** The presets the catalog's content may use; when present the editor offers exactly these. */
   availablePresets?: AvailablePreset[];

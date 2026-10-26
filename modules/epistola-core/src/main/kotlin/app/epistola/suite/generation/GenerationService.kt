@@ -130,6 +130,7 @@ class GenerationService(
             pageSettings = resolvedStyles.pageSettings,
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             spacingUnit = resolvedStyles.spacingUnit,
+            defaultBlockStyles = resolvedStyles.defaultBlockStyles,
         )
     }
 
@@ -167,6 +168,7 @@ class GenerationService(
                 pageSettings = themeSnapshot.pageSettings,
                 blockStylePresets = themeSnapshot.blockStylePresets,
                 spacingUnit = themeSnapshot.spacingUnit,
+                defaultBlockStyles = themeSnapshot.defaultBlockStyles,
             ),
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,

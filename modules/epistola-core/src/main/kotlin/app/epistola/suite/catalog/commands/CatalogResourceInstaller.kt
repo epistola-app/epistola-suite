@@ -80,6 +80,9 @@ class CatalogResourceInstaller(
             pageSettings = resource.pageSettings,
             blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
             spacingUnit = resource.spacingUnit,
+            defaultBlockStyles = resource.defaultBlockStyles,
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is StencilResource -> ImportStencil(
@@ -91,6 +94,8 @@ class CatalogResourceInstaller(
             content = resource.content,
             parameterSchema = resource.parameterSchema,
             readsTemplateData = resource.readsTemplateData,
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is AttributeResource -> {
@@ -103,6 +108,8 @@ class CatalogResourceInstaller(
                 allowedValues = resource.allowedValues,
                 codeListCatalog = bindingCatalog,
                 codeListSlug = bindingSlug,
+                // As received: none clears what the draft held.
+                metadata = resource.metadata.orEmpty(),
             ).execute()
         }
 
@@ -119,6 +126,8 @@ class CatalogResourceInstaller(
                     hidden = wire.hidden,
                 )
             },
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
@@ -132,6 +141,8 @@ class CatalogResourceInstaller(
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
                 app.epistola.suite.fonts.commands.ImportFontVariant(entry.weight, entry.italic, entry.mediaType, faceBytes)
             },
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is ImageResource -> {
@@ -153,6 +164,8 @@ class CatalogResourceInstaller(
                 content = contentBytes,
                 width = resource.width,
                 height = resource.height,
+                // As received: none clears what the draft held.
+                metadata = resource.metadata.orEmpty(),
             ).execute()
         }
     }
@@ -160,7 +173,7 @@ class CatalogResourceInstaller(
 
 /**
  * A received template as [ImportTemplates] writes it: every member the protocol carries, the wire v8
- * ones (description, a variant's metadata, a data example's key) included. The one translation, so
+ * ones (description, metadata, a data example's key) included. The one translation, so
  * everything that puts a received template in a version stores the same members.
  */
 internal fun templateImportInput(
@@ -188,9 +201,9 @@ internal fun templateImportInput(
             attributes = variant.attributes ?: emptyMap(),
             templateModel = variant.templateModel,
             isDefault = variant.isDefault,
-            metadata = variant.metadata,
             description = variant.description,
         )
     },
     description = resource.description,
+    metadata = resource.metadata,
 )

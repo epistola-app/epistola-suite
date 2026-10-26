@@ -36,6 +36,8 @@ data class ResolvedStyles(
     val pageSettings: PageSettings?,
     val blockStylePresets: BlockStylePresets,
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+    /** The theme's baseline block margins (`defaultBlockStyles`); empty when it names none. */
+    val defaultBlockStyles: Map<String, Any> = emptyMap(),
 )
 
 /**
@@ -83,6 +85,7 @@ class ThemeStyleResolver(
                 pageSettings = theme.pageSettings, // Theme page settings as fallback
                 blockStylePresets = theme.blockStylePresets ?: BlockStylePresets.EMPTY,
                 spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
+                defaultBlockStyles = theme.defaultBlockStyles.orEmpty().filterNonNull(),
             )
         } else {
             ResolvedStyles(
@@ -175,3 +178,6 @@ class ThemeStyleResolver(
         }
     }
 }
+
+/** [this] without its null values. */
+internal fun Map<String, Any?>.filterNonNull(): Map<String, Any> = entries.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()

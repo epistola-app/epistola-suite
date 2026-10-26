@@ -34,7 +34,7 @@ import java.util.UUID
 
 /**
  * One variant of a stored template: its place in the template (key, attributes, whether it is the
- * default) and what its own content holds (title, description, metadata, model).
+ * default) and what its own content holds (title, description, model).
  *
  * [model] is the variant's model in its stored form when it is to be written; null keeps the model
  * the variant's content already holds.
@@ -45,7 +45,6 @@ data class StoredVariant(
     val description: String? = null,
     val attributes: Map<String, String> = emptyMap(),
     val isDefault: Boolean = false,
-    val metadata: Map<String, Map<String, Any?>>? = null,
     val model: JsonNode? = null,
     /** The content the variant is stored as now; null for a variant not stored yet. */
     val contentHash: String? = null,
@@ -68,6 +67,12 @@ data class StoredTemplate(
     val dataModel: Map<String, Any?>? = null,
     val dataExamples: List<DataExampleEntry> = emptyList(),
     val variants: List<StoredVariant>,
+    /**
+     * Producer-specific data by reverse-DNS namespace (contract `CatalogResource.metadata`), kept as
+     * received and never fingerprinted; what a producer said of one variant sits under
+     * `{"<namespace>": {"variants": {"<variant>": …}}}`.
+     */
+    val metadata: Map<String, Map<String, Any?>>? = null,
 ) {
     val defaultVariant: StoredVariant get() = variants.firstOrNull { it.isDefault } ?: variants.first()
 
@@ -139,11 +144,11 @@ class TemplateStore(
                     attributes = variant.attributes,
                     templateModel = if (variant.key == default.key) null else models[variant.key] ?: PLACEHOLDER,
                     isDefault = variant.isDefault,
-                    metadata = variant.metadata?.takeIf { it.isNotEmpty() },
                     description = variant.description?.takeIf { it.isNotBlank() },
                 )
             },
             description = template.description,
+            metadata = template.metadata?.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -301,7 +306,7 @@ class TemplateStore(
         // Its variants' rows, read by its identity (VariantRows); a release retained before variants had
         // rows holds them in the template's content, which the view reads.
         val variants = VariantRows.of(handle, id.tenantKey, resourceId, columns[4]?.let(UUID::fromString), columns[5])
-            .mapValues { (_, row) -> listOf(row.title, row.description, row.metadata, row.contentHash) }
+            .mapValues { (_, row) -> listOf(row.title, row.description, row.contentHash) }
             .ifEmpty { legacyVariants(handle, id, columns[2]) }
         return LoadedTemplate(of(objectMapper.readTree(columns[0]), variants), columns[1].toLong(), resourceId, columns[3], updatedAt)
     }
@@ -310,7 +315,7 @@ class TemplateStore(
     private fun legacyVariants(handle: Handle, id: TemplateId, resourceId: String): Map<String, List<String?>> = handle
         .createQuery(
             """
-            SELECT tv.id, tv.title, tv.description, tv.metadata::text AS metadata, tv.model_hash
+            SELECT tv.id, tv.title, tv.description, tv.model_hash
             FROM current_template_variants tv
             WHERE tv.tenant_key = :t AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = CAST(:id AS UUID)
             """,
@@ -318,11 +323,11 @@ class TemplateStore(
         .bind("t", id.tenantKey)
         .bindCatalog("c", id.catalogId)
         .bind("id", resourceId)
-        .map { rs, _ -> rs.getString("id") to listOf(rs.getString("title"), rs.getString("description"), rs.getString("metadata"), rs.getString("model_hash")) }
+        .map { rs, _ -> rs.getString("id") to listOf(rs.getString("title"), rs.getString("description"), rs.getString("model_hash")) }
         .list()
         .toMap()
 
-    /** What a template's content and its variants' fields ([variants]: title, description, metadata, content hash, by key) say. */
+    /** What a template's content and its variants' fields ([variants]: title, description, content hash, by key) say. */
     private fun of(payload: JsonNode, variants: Map<String, List<String?>>): StoredTemplate {
         val resource = StoredContent.resourceOf(payload)
         return StoredTemplate(
@@ -343,10 +348,10 @@ class TemplateStore(
                     description = part?.get(1),
                     attributes = slot.get("attributes")?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, STRINGS) }.orEmpty(),
                     isDefault = slot.path("isDefault").asBoolean(false),
-                    metadata = part?.get(2)?.takeUnless { it == "null" }?.let { objectMapper.readValue(it, METADATA) },
-                    contentHash = part?.get(3),
+                    contentHash = part?.get(2),
                 )
             },
+            metadata = resource.get("metadata")?.takeIf { it.isObject && !it.isEmpty }?.let { objectMapper.readValue(it.toString(), METADATA) },
         )
     }
 

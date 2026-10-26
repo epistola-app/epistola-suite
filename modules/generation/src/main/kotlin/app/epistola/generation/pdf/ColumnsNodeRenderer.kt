@@ -67,7 +67,7 @@ class ColumnsNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("columns"),
+            context.componentDefaults("columns"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,

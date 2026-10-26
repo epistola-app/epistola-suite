@@ -80,7 +80,7 @@ class DataListNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("datalist"),
+            context.componentDefaults("datalist"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,

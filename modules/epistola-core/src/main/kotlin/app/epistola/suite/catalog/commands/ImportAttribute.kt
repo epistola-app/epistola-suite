@@ -41,6 +41,8 @@ data class ImportAttribute(
     /** The catalog of the bound code list, by its address (ADR 0034, section 9). */
     val codeListCatalog: CatalogId? = null,
     val codeListSlug: CodeListKey? = null,
+    /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
@@ -64,7 +66,7 @@ class ImportAttributeHandler(
         val id = app.epistola.suite.common.ids.AttributeId(AttributeKey.of(command.slug), command.catalog)
         val existed = jdbi.withHandle<Boolean, Exception> { handle ->
             val binding = command.codeListSlug?.let { slug -> attributes.bindingOf(handle, command.catalog, app.epistola.suite.common.ids.CodeListId(slug, command.codeListCatalog ?: command.catalog)) }
-            attributes.put(handle, id, app.epistola.suite.attributes.AttributeFields(command.displayName, command.allowedValues, binding), app.epistola.suite.security.currentUserIdOrNull()?.value)
+            attributes.put(handle, id, app.epistola.suite.attributes.AttributeFields(command.displayName, command.allowedValues, binding, command.metadata), app.epistola.suite.security.currentUserIdOrNull()?.value)
         }
         return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }

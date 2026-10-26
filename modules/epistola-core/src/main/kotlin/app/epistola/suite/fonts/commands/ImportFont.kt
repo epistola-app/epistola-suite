@@ -60,6 +60,8 @@ data class ImportFont(
     val name: String,
     val kind: String,
     val variants: List<ImportFontVariant> = emptyList(),
+    /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -100,7 +102,7 @@ class ImportFontHandler(
         // CatalogImportContext, which the guard lets through; a user upload must not.
         requireCatalogEditable(command.catalog)
         return jdbi.inTransaction<InstallStatus, Exception> { handle ->
-            fonts.put(handle, command.catalog, command.slug, command.name, command.kind, command.variants, currentUserIdOrNull()?.value)
+            fonts.put(handle, command.catalog, command.slug, command.name, command.kind, command.variants, currentUserIdOrNull()?.value, command.metadata)
         }
     }
 }

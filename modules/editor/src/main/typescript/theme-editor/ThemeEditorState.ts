@@ -20,6 +20,8 @@ export interface ThemeData {
   pageSettings?: Theme['pageSettings'];
   blockStylePresets: Record<string, BlockStylePreset>;
   spacingUnit?: number | null;
+  /** Baseline margins of every flow block (`marginTop`/`marginBottom`); absent for the renderer's 6pt. */
+  defaultBlockStyles?: Record<string, unknown> | null;
 }
 
 export class ThemeEditorState extends EventTarget {
@@ -51,6 +53,22 @@ export class ThemeEditorState extends EventTarget {
 
   updateDescription(description: string | undefined): void {
     this._current.description = description;
+    this._fireChange();
+  }
+
+  // -----------------------------------------------------------------------
+  // Block spacing
+  // -----------------------------------------------------------------------
+
+  /** Sets one baseline block margin ([key] `marginTop` or `marginBottom`); undefined removes it. */
+  updateDefaultBlockStyle(key: 'marginTop' | 'marginBottom', value: unknown): void {
+    const next = { ...this._current.defaultBlockStyles };
+    if (value === undefined || value === null || value === '') {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+    this._current.defaultBlockStyles = Object.keys(next).length > 0 ? next : undefined;
     this._fireChange();
   }
 
@@ -221,6 +239,17 @@ export class ThemeEditorState extends EventTarget {
         patch.clearSpacingUnit = true;
       } else {
         patch.spacingUnit = this._current.spacingUnit;
+      }
+    }
+
+    if (
+      JSON.stringify(this._current.defaultBlockStyles ?? null) !==
+      JSON.stringify(this._original.defaultBlockStyles ?? null)
+    ) {
+      if (this._current.defaultBlockStyles == null) {
+        patch.clearDefaultBlockStyles = true;
+      } else {
+        patch.defaultBlockStyles = this._current.defaultBlockStyles;
       }
     }
 

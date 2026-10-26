@@ -57,7 +57,7 @@ class ExportThemesHandler(
 
     override fun handle(query: ExportThemes): List<ThemeResource> = jdbi.withHandle<List<ThemeResource>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit FROM current_themes WHERE tenant_key = :tenantKey")
+            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit, (payload -> 'resource' -> 'metadata')::text AS metadata, (payload -> 'resource' -> 'defaultBlockStyles')::text AS default_block_styles FROM current_themes WHERE tenant_key = :tenantKey")
             if (query.catalogKey != null) append(" AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND id IN (<slugs>)")
         }
@@ -74,10 +74,15 @@ class ExportThemesHandler(
                 blockStylePresets = rs.getString("block_style_presets")?.let { objectMapper.readValue(it, BlockStylePresets::class.java) },
                 // NUMERIC, so the driver answers a BigDecimal: read as a Float, it was always null.
                 spacingUnit = rs.getBigDecimal("spacing_unit")?.toFloat(),
+                metadata = metadataOf(rs.getString("metadata"), objectMapper),
+                defaultBlockStyles = rs.getString("default_block_styles")?.let { objectMapper.readTree(it) }?.takeIf { it.isObject && !it.isEmpty }
+                    ?.let { objectMapper.readValue(it.toString(), BLOCK_STYLES) },
             )
         }.list()
     }
 }
+
+private val BLOCK_STYLES = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}
 
 // ── Export Attributes ────────────────────────────────────────────────────────
 
@@ -188,7 +193,8 @@ class ExportStencilsHandler(
             append(
                 """
                 SELECT s.id, s.name, s.description, s.tags::text,
-                       s.content::text, s.parameter_schema::text, s.reads_template_data
+                       s.content::text, s.parameter_schema::text, s.reads_template_data,
+                       (s.payload -> 'resource' -> 'metadata')::text AS metadata
                 FROM current_stencils s
                 WHERE s.tenant_key = :tenantKey
                 """,
@@ -216,6 +222,7 @@ class ExportStencilsHandler(
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
                 parameterSchema = parameterSchema,
                 readsTemplateData = rs.getBoolean("reads_template_data"),
+                metadata = metadataOf(rs.getString("metadata"), objectMapper),
             )
         }.list()
     }
@@ -257,3 +264,11 @@ class ExportFontsHandler(
         }.map { rs, _ -> objectMapper.readValue(rs.getString("resource"), FontResource::class.java) }.list()
     }
 }
+
+/** A content's stored producer metadata (`resource.metadata`, as text), or null when it holds none. */
+private fun metadataOf(json: String?, objectMapper: ObjectMapper): Map<String, Map<String, Any?>>? = json
+    ?.let { objectMapper.readTree(it) }
+    ?.takeIf { it.isObject && !it.isEmpty }
+    ?.let { objectMapper.readValue(it.toString(), PRODUCER_METADATA) }
+
+private val PRODUCER_METADATA = object : tools.jackson.core.type.TypeReference<Map<String, Map<String, Any?>>>() {}

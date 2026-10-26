@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.catalog.revisions.StoredContent
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.CatalogId
@@ -61,6 +62,8 @@ data class CodeListFields(
     val entries: List<CodeListEntry>,
     /** Null for an INLINE list, which has no source. */
     val source: CodeListSourceSettings?,
+    /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /**
@@ -104,7 +107,7 @@ class CodeListStore(
     }
 
     /** Stores [fields] as code list [key] of [catalog]'s tenant and returns its content hash. */
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: CodeListFields): String = contents.store(handle, catalog.tenantKey, CODE_LIST, payload(key, fields))
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: CodeListFields): String = contents.store(handle, catalog.tenantKey, CODE_LIST, ResourceMetadata.carried(handle, catalog, CODE_LIST, key, payload(key, fields), fields.metadata, objectMapper))
 
     /** Adds code list [id] to the targeted draft; one already there is a unique violation. */
     fun create(handle: Handle, id: CodeListId, fields: CodeListFields, actor: UUID?): CodeList {
@@ -132,9 +135,9 @@ class CodeListStore(
      * Creates or replaces code list [id] in the targeted draft, keeping the source a list already
      * there has (a received catalog brings none); true when it was there already.
      */
-    fun put(handle: Handle, id: CodeListId, name: String, description: String?, entries: List<CodeListEntry>, actor: UUID?): Boolean {
+    fun put(handle: Handle, id: CodeListId, name: String, description: String?, entries: List<CodeListEntry>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): Boolean {
         val existing = fields(handle, id)
-        val fields = CodeListFields(name, description, entries, existing?.source)
+        val fields = CodeListFields(name, description, entries, existing?.source, metadata)
         val hash = store(handle, id.catalogId, id.key.value, fields)
         if (DraftResources.update(handle, id.catalogId, CODE_LIST, id.key.value, hash, name, description, actor) != null) return true
         DraftResources.insert(handle, id.catalogId, CODE_LIST, id.key.value, hash, name, description, actor)
@@ -147,7 +150,7 @@ class CodeListStore(
     /** Moves code list [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val fields = fields(handle, CodeListId(app.epistola.suite.common.ids.CodeListKey.of(key), source)) ?: return false
-        return DraftResources.move(handle, source, CODE_LIST, key, target, targetKey, store(handle, source, targetKey, fields))
+        return DraftResources.move(handle, source, CODE_LIST, key, target, targetKey, store(handle, source, targetKey, fields.copy(metadata = ResourceMetadata.moving(handle, source, CODE_LIST, key))))
     }
 
     /** Code list [id] as the version the handle means holds it, or null. */

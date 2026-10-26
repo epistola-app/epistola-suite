@@ -43,6 +43,8 @@ data class ThemeInfo(
     val blockStylePresets: Any?,
     /** Spacing base unit in points (default 4pt when null). */
     val spacingUnit: Float?,
+    /** Baseline margins of every flow block (`marginTop`/`marginBottom`); null when the renderer's fallback applies. */
+    val defaultBlockStyles: Any? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
     /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
@@ -58,6 +60,7 @@ data class ThemeInfo(
             pageSettings = theme.pageSettings,
             blockStylePresets = theme.blockStylePresets,
             spacingUnit = theme.spacingUnit,
+            defaultBlockStyles = theme.defaultBlockStyles,
             createdAt = theme.createdAt,
             updatedAt = theme.updatedAt,
             revision = theme.revision,

@@ -150,7 +150,7 @@ object VariantRows {
     }
 
     /** A variant row as its template's store reads it: its own fields, and the content it names. */
-    data class Row(val key: String, val title: String, val description: String?, val metadata: String?, val contentHash: String)
+    data class Row(val key: String, val title: String, val description: String?, val contentHash: String)
 
     /**
      * The variant rows of template [parentId] in the draft [versionId] or the release [version] its row
@@ -159,9 +159,8 @@ object VariantRows {
     fun of(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, parentId: UUID, versionId: UUID?, version: String?): Map<String, Row> = handle
         .createQuery(
             """
-            SELECT v.resource_key, v.name, v.description, v.content_hash, (c.payload -> 'resource' -> 'metadata')::text AS metadata
+            SELECT v.resource_key, v.name, v.description, v.content_hash
             FROM release_resources v
-            JOIN resource_contents c ON c.tenant_key = v.tenant_key AND c.content_hash = v.content_hash
             WHERE v.tenant_key = :t AND v.parent_id = :parent AND v.resource_type = '$TYPE'
               AND ${if (versionId != null) "v.version_id = :versionId" else "v.version = :version"}
             """,
@@ -169,7 +168,7 @@ object VariantRows {
         .bind("t", tenantKey)
         .bind("parent", parentId)
         .apply { if (versionId != null) bind("versionId", versionId) else bind("version", version) }
-        .map { rs, _ -> Row(rs.getString("resource_key"), rs.getString("name"), rs.getString("description"), rs.getString("metadata"), rs.getString("content_hash")) }
+        .map { rs, _ -> Row(rs.getString("resource_key"), rs.getString("name"), rs.getString("description"), rs.getString("content_hash")) }
         .list()
         .associateBy { it.key }
 

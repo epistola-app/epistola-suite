@@ -175,7 +175,7 @@ class GetCatalogResourceChangesHandler(
         }.toMap()
         val draftSettings = CatalogSettings(content.catalog, declarations, namedDraftBases)
         val base = baseSettings(query.catalog, release?.version)
-        val settings = CatalogSettingDiff.between(query.catalogKey, base = base, draft = draftSettings) { alias ->
+        val settings = renderingDefaultsChange(release?.renderingDefaults) + CatalogSettingDiff.between(query.catalogKey, base = base, draft = draftSettings) { alias ->
             // The catalog an alias names, by the draft's declaration of it, or the release's for one
             // the draft no longer declares (ADR 0034, section 9).
             ((declarations + base.dependencies).firstOrNull { it.alias == alias }?.catalogIn(query.tenantKey) ?: query.catalog.takeIf { alias == query.catalogKey.value })
@@ -221,7 +221,25 @@ class GetCatalogResourceChangesHandler(
         return CatalogSettings(manifest.catalog, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
     }
 
-    private data class ReleaseRow(val version: String, val fingerprint: String)
+    /**
+     * The draft renders with newer rendering defaults than its base release was cut with (#1127): a
+     * change of what every document looks like, so the draft has something to release even when its
+     * content is the release's. None when the base was cut with the current defaults, or has none.
+     */
+    private fun renderingDefaultsChange(base: Int?): List<CatalogSettingChange> {
+        val current = app.epistola.generation.pdf.RenderingDefaults.CURRENT
+        if (base == null || base == current.version) return emptyList()
+        return listOf(
+            CatalogSettingChange(
+                entry = RENDERING_DEFAULTS_ENTRY,
+                state = CatalogResourceState.MODIFIED,
+                name = "Rendering defaults V$base → V${current.version}",
+                description = "documents may look different. ${current.summary}".trim(),
+            ),
+        )
+    }
+
+    private data class ReleaseRow(val version: String, val fingerprint: String, val renderingDefaults: Int?)
 
     /**
      * Each resource of [version] by the function [working] is compared with: what the draft recorded
@@ -245,7 +263,7 @@ class GetCatalogResourceChangesHandler(
     private fun loadBaseRelease(catalog: CatalogId): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
         val releases = handle.createQuery(
             """
-            SELECT version, fingerprint
+            SELECT version, fingerprint, rendering_defaults_version
             FROM catalog_releases
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
@@ -253,7 +271,7 @@ class GetCatalogResourceChangesHandler(
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
-            .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
+            .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint"), renderingDefaults = rs.getObject("rendering_defaults_version") as Int?) }
             .list()
         val draft = drafts.draft(handle, catalog) ?: return@withHandle releases.firstOrNull()
         // A draft that recorded no base (opened before drafts did) is measured against the latest release.
@@ -267,3 +285,6 @@ class GetCatalogResourceChangesHandler(
             releaseResourceStore.entriesOf(handle, catalog, version).associateBy { it.contentKey }
         }
 }
+
+/** The setting entry of a change of rendering defaults ([GetCatalogResourceChanges]). */
+const val RENDERING_DEFAULTS_ENTRY = "catalog/renderingDefaults"

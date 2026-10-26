@@ -74,6 +74,9 @@ data class UpdateThemeRequest(
     val clearBlockStylePresets: Boolean = false,
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
+    /** Baseline margins of every flow block (`marginTop`/`marginBottom`). */
+    val defaultBlockStyles: Map<String, Any?>? = null,
+    val clearDefaultBlockStyles: Boolean = false,
     /** The theme's revision as the editor last read or saved it; a save over someone else's is refused. */
     val expectedRevision: Long? = null,
 )
@@ -258,6 +261,7 @@ class ThemeHandler(
             "pageSettings" to theme.pageSettings,
             "blockStylePresets" to (theme.blockStylePresets ?: emptyMap()),
             "spacingUnit" to theme.spacingUnit,
+            "defaultBlockStyles" to theme.defaultBlockStyles,
             "revision" to theme.revision,
         )
 
@@ -337,6 +341,8 @@ class ThemeHandler(
                 clearBlockStylePresets = updateRequest.clearBlockStylePresets,
                 spacingUnit = updateRequest.spacingUnit,
                 clearSpacingUnit = updateRequest.clearSpacingUnit,
+                defaultBlockStyles = updateRequest.defaultBlockStyles,
+                clearDefaultBlockStyles = updateRequest.clearDefaultBlockStyles,
                 catalogVersion = request.catalogVersion(),
                 expectedRevision = updateRequest.expectedRevision,
             ).execute()
@@ -357,6 +363,7 @@ class ThemeHandler(
                     "pageSettings" to theme.pageSettings,
                     "blockStylePresets" to theme.blockStylePresets,
                     "spacingUnit" to theme.spacingUnit,
+                    "defaultBlockStyles" to theme.defaultBlockStyles,
                     "updatedAt" to theme.updatedAt,
                     "revision" to theme.revision,
                 ),

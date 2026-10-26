@@ -89,6 +89,11 @@ data class ImportTemplateInput(
     val variants: List<ImportVariantInput>,
     /** Plain-text notes for the template's authors (wire v8 `TemplateResource.description`); null when it has none. */
     val description: String? = null,
+    /**
+     * Producer-specific data by reverse-DNS namespace (contract `CatalogResource.metadata`), kept as it
+     * came and written back on export; null or empty when the template has none.
+     */
+    val metadata: Map<String, Map<String, Any?>>? = null,
 )
 
 data class ImportVariantInput(
@@ -97,11 +102,6 @@ data class ImportVariantInput(
     val attributes: Map<String, String>,
     val templateModel: TemplateDocument?,
     val isDefault: Boolean = false,
-    /**
-     * Producer-specific data by reverse-DNS namespace (wire v8 `VariantEntry.metadata`), kept as it
-     * came and written back on export; null or empty when the variant has none.
-     */
-    val metadata: Map<String, Map<String, Any?>>? = null,
     /** The variant's description (wire v8 `VariantEntry.description`); null when it has none. */
     val description: String? = null,
 )
@@ -194,6 +194,8 @@ class ImportTemplatesHandler(
             pdfaEnabled = input.pdfaEnabled,
             dataModel = input.dataModel?.let { objectMapper.convertValue(it, MAP) },
             dataExamples = TemplateStore.entriesOf(input.dataExamples, objectMapper),
+            // Empty metadata is no metadata: the wire forbids `{}`.
+            metadata = input.metadata?.takeIf { it.isNotEmpty() },
             variants = input.variants.map { variantInput ->
                 // The variant's own model, else the template's.
                 val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalog.key)
@@ -204,8 +206,6 @@ class ImportTemplatesHandler(
                     description = variantInput.description?.takeIf { it.isNotBlank() },
                     attributes = variantInput.attributes,
                     isDefault = variantInput.isDefault,
-                    // Empty metadata is no metadata: the wire forbids `{}`.
-                    metadata = variantInput.metadata?.takeIf { it.isNotEmpty() },
                     model = templates.storedModel(prepared.templateModelJson),
                 )
             },

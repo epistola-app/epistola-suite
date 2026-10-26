@@ -56,8 +56,8 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V6`() {
-        assertSame(RenderingDefaults.V6, RenderingDefaults.CURRENT)
+    fun `CURRENT is V7`() {
+        assertSame(RenderingDefaults.V7, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------

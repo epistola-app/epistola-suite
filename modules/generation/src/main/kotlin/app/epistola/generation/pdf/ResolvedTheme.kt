@@ -28,4 +28,6 @@ data class ResolvedTheme(
     val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
     /** Spacing scale base unit in points (controls `Nsp` resolution). */
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+    /** The theme's baseline block margins (`defaultBlockStyles`, margins only); empty when it names none. */
+    val defaultBlockStyles: Map<String, Any> = emptyMap(),
 )

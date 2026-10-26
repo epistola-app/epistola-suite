@@ -435,7 +435,8 @@
           "type": "image",
           "slots": [],
           "styles": {
-            "marginBottom": "1.5sp"
+            "marginBottom": "1.5sp",
+            "keepWithNext": true
           },
           "props": {
             "imageKey": "epistola-logo",
@@ -1124,7 +1125,8 @@
           "id": "n-notes-conditional",
           "type": "conditional",
           "slots": [
-            "s-notes-cond-children"
+            "s-notes-cond-children",
+            "s-notes-cond-else"
           ],
           "props": {
             "condition": {
@@ -1436,6 +1438,31 @@
               ]
             }
           }
+        },
+        "n-no-notes-text": {
+          "id": "n-no-notes-text",
+          "type": "text",
+          "slots": [],
+          "styles": {
+            "marginTop": "6sp",
+            "color": "#64748b"
+          },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Thank you for your business."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
       },
       "slots": {
@@ -1631,6 +1658,14 @@
             "n-payment-qr",
             "n-payment-qr-label",
             "n-footer-contact"
+          ]
+        },
+        "s-notes-cond-else": {
+          "id": "s-notes-cond-else",
+          "nodeId": "n-notes-conditional",
+          "name": "else",
+          "children": [
+            "n-no-notes-text"
           ]
         }
       }

@@ -63,7 +63,7 @@ class TableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.inheritedStyles,
             context.fontCache,
-            context.renderingDefaults.componentDefaults("table"),
+            context.componentDefaults("table"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
             mergedFontSelection = context.renderingDefaults.mergedFontSelection,
