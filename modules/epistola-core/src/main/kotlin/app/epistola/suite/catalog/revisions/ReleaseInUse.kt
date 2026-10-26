@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,7 +43,7 @@ object ReleaseInUse {
         val environments = handle.createQuery(
             """
             SELECT environment_key FROM environment_catalog_deployments
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+            WHERE tenant_key = :t AND target_version_id = ${releaseAt("t", "c", "v")}
             ORDER BY environment_key
             """,
         )

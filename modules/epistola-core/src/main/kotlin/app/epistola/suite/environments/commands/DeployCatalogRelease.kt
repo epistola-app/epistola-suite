@@ -7,6 +7,7 @@ package app.epistola.suite.environments.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -180,7 +181,7 @@ class DeployCatalogReleaseHandler(
         DraftDeploymentStore.undeploy(handle, environmentKey, command.catalog)
         handle.createUpdate(
             """
-            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, draft_id, deployed_at, deployed_by)
+            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, target_version_id, deployed_at, deployed_by)
             VALUES (:t, :e, ${catalogAt("t", "c")}, :d, NOW(), :by)
             """,
         )
@@ -208,8 +209,9 @@ class DeployCatalogReleaseHandler(
      */
     private fun replaceable(handle: Handle, command: DeployCatalogRelease): List<String> = handle.createQuery(
         """
-        SELECT d.version FROM environment_catalog_deployments d
-        WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version <> :v
+        SELECT tv.version FROM environment_catalog_deployments d
+        JOIN catalog_versions tv ON tv.tenant_key = d.tenant_key AND tv.version_id = d.target_version_id AND tv.state = 'released'
+        WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND tv.version <> :v
         """,
     )
         .bind("t", command.environmentId.tenantKey)
@@ -222,7 +224,7 @@ class DeployCatalogReleaseHandler(
     private fun stopServing(handle: Handle, command: DeployCatalogRelease, version: String, log: Boolean) {
         val tenantKey = command.environmentId.tenantKey
         handle.createUpdate(
-            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND target_version_id = ${releaseAt("t", "c", "v")}",
         )
             .bind("t", tenantKey)
             .bind("e", command.environmentId.key)
@@ -247,8 +249,8 @@ class DeployCatalogReleaseHandler(
         val tenantKey = command.environmentId.tenantKey
         handle.createUpdate(
             """
-            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, version, deployed_at, deployed_by)
-            VALUES (:t, :e, ${catalogAt("t", "c")}, :v, NOW(), :by)
+            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, target_version_id, deployed_at, deployed_by)
+            VALUES (:t, :e, ${catalogAt("t", "c")}, ${releaseAt("t", "c", "v")}, NOW(), :by)
             """,
         )
             .bind("t", tenantKey)

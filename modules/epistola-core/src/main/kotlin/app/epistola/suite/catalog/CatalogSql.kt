@@ -55,6 +55,13 @@ fun <T : SqlStatement<T>> T.bindCatalogs(name: String, catalogs: Collection<Cata
 fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = :$tenantParam AND cv.catalog_id = ${catalogAt(tenantParam, catalogParam)})"
 
 /**
+ * A scalar subquery for the row of release [versionParam] of a catalog (ADR 0036: every version is a
+ * row of `catalog_versions`), or NULL when there is no such release. For statements that name a
+ * release by its number, such as a deployment's.
+ */
+fun releaseAt(tenantParam: String, catalogParam: String, versionParam: String): String = "(SELECT rv.version_id FROM catalog_versions rv WHERE rv.tenant_key = :$tenantParam AND rv.catalog_id = ${catalogAt(tenantParam, catalogParam)} AND rv.state = 'released' AND rv.version = :$versionParam)"
+
+/**
  * A predicate that the content row aliased [alias] is part of the version its catalog's callers mean
  * (see [versionAt]: the targeted version for its catalog, else the current one). For statements that reach content without a catalog key in hand: tenant-wide reads,
  * and references to a resource by its identity, possibly in another catalog (a template's theme, an

@@ -92,8 +92,10 @@ object DraftDeploymentStore {
         val served = list(handle, tenantKey, environmentKey, catalog).singleOrNull() ?: return null
         handle.createUpdate(
             """
-            DELETE FROM environment_catalog_deployments
-            WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND draft_id IS NOT NULL
+            DELETE FROM environment_catalog_deployments d
+            USING catalog_versions v
+            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")}
+              AND v.tenant_key = d.tenant_key AND v.version_id = d.target_version_id AND v.state = 'draft'
             """,
         ).bind("t", tenantKey).bind("e", environmentKey).bindCatalog("c", catalog).execute()
         log(handle, tenantKey, served, DeploymentAction.UNDEPLOYED, version = null)
@@ -103,27 +105,47 @@ object DraftDeploymentStore {
     /** Every environment serving draft [versionId] stops, each logged as undeployed: the draft is discarded. */
     internal fun endFor(handle: Handle, tenantKey: TenantKey, versionId: UUID) {
         val served = byDraft(handle, tenantKey, versionId)
-        handle.createUpdate("DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND draft_id = :d")
+        handle.createUpdate("DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND target_version_id = :d")
             .bind("t", tenantKey).bind("d", versionId).execute()
         served.forEach { log(handle, tenantKey, it, DeploymentAction.UNDEPLOYED, version = null) }
     }
 
     /**
-     * Every environment serving draft [versionId] serves release [version] instead, which keeps the
-     * draft's id: the draft was released. Each is logged as released.
+     * The environments serving draft [versionId], which is about to be released. A deployment names
+     * the row (ADR 0036), so once the row is frozen they serve the release with nothing to update
+     * (contract ADR 0003); call [released] with the result after freezing, to log each as released.
      */
-    internal fun releaseFor(handle: Handle, tenantKey: TenantKey, versionId: UUID, version: String) {
-        val served = byDraft(handle, tenantKey, versionId)
-        handle.createUpdate(
-            "UPDATE environment_catalog_deployments SET version = :v, draft_id = NULL, deployed_at = NOW() WHERE tenant_key = :t AND draft_id = :d",
-        ).bind("t", tenantKey).bind("d", versionId).bind("v", version).execute()
+    internal fun servingDraft(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<DraftDeployment> = byDraft(handle, tenantKey, versionId)
+
+    /**
+     * Logs each of [served], the deployments of a draft that was just released as [version], as
+     * released, and restarts their deployment time: from now on they serve the release.
+     */
+    internal fun released(handle: Handle, tenantKey: TenantKey, versionId: UUID, served: List<DraftDeployment>, version: String) {
+        if (served.isEmpty()) return
+        handle.createUpdate("UPDATE environment_catalog_deployments SET deployed_at = NOW() WHERE tenant_key = :t AND target_version_id = :d")
+            .bind("t", tenantKey).bind("d", versionId).execute()
         served.forEach { log(handle, tenantKey, it, DeploymentAction.RELEASED, version = version) }
+    }
+
+    /** Every environment serving a draft of [catalog] stops, each logged as undeployed: the catalog is deleted. */
+    internal fun endForCatalog(handle: Handle, catalog: CatalogId) {
+        val served = list(handle, catalog.tenantKey, null, catalog)
+        handle.createUpdate(
+            """
+            DELETE FROM environment_catalog_deployments d
+            USING catalog_versions v
+            WHERE d.tenant_key = :t AND d.catalog_id = ${catalogAt("t", "c")}
+              AND v.tenant_key = d.tenant_key AND v.version_id = d.target_version_id AND v.state = 'draft'
+            """,
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).execute()
+        served.forEach { log(handle, catalog.tenantKey, it, DeploymentAction.UNDEPLOYED, version = null) }
     }
 
     /** Whether [environmentKey] serves a draft of any catalog. */
     internal fun servesDraft(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey): Boolean = list(handle, tenantKey, environmentKey, null).isNotEmpty()
 
-    private fun byDraft(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<DraftDeployment> = rows(handle, tenantKey, "AND d.draft_id = :d") { it.bind("d", versionId) }
+    private fun byDraft(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<DraftDeployment> = rows(handle, tenantKey, "AND d.target_version_id = :d") { it.bind("d", versionId) }
 
     private fun log(handle: Handle, tenantKey: TenantKey, deployment: DraftDeployment, action: DeploymentAction, version: String?) = DeploymentLog.record(
         handle,
@@ -140,8 +162,8 @@ object DraftDeploymentStore {
         SELECT d.environment_key, c.catalog_key, c.namespace, v.version_key, $LABEL AS label
         FROM environment_catalog_deployments d
         JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
-        JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.draft_id
-        WHERE d.tenant_key = :t AND d.draft_id IS NOT NULL $filter
+        JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.target_version_id AND v.state = 'draft'
+        WHERE d.tenant_key = :t $filter
         ORDER BY d.environment_key, c.catalog_key, c.namespace
         """,
     )

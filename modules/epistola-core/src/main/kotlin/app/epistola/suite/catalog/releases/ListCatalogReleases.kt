@@ -134,7 +134,7 @@ class CatalogReleaseReader(
 
     fun all(handle: Handle, catalog: CatalogId, numbers: Map<String, String> = emptyMap()): List<CatalogRelease> {
         val deployments = handle.createQuery(
-            "SELECT version, environment_key FROM environment_catalog_deployments WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY environment_key",
+            "SELECT tv.version, d.environment_key FROM environment_catalog_deployments d JOIN catalog_versions tv ON tv.tenant_key = d.tenant_key AND tv.version_id = d.target_version_id AND tv.state = 'released' WHERE d.tenant_key = :t AND d.catalog_id = ${catalogAt("t", "c")} ORDER BY d.environment_key",
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)

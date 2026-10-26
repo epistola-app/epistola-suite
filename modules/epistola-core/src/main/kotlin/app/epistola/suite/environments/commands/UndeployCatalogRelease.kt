@@ -6,6 +6,7 @@ package app.epistola.suite.environments.commands
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -83,7 +84,7 @@ class UndeployCatalogReleaseHandler(
         val removed = handle.createUpdate(
             """
             DELETE FROM environment_catalog_deployments
-            WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+            WHERE tenant_key = :t AND environment_key = :e AND target_version_id = ${releaseAt("t", "c", "v")}
             """,
         )
             .bind("t", command.environmentId.tenantKey)

@@ -374,7 +374,7 @@ class ReleaseRenderSource(
             .createQuery(
                 """
                 SELECT r.version FROM environment_catalog_deployments d
-                JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
+                JOIN catalog_versions r ON r.tenant_key = d.tenant_key AND r.version_id = d.target_version_id AND r.state = 'released'
                 WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")}
                 $LATEST_RELEASE_ORDER LIMIT 1
                 """,

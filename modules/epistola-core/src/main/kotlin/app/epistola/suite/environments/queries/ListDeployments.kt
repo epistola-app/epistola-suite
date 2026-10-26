@@ -50,7 +50,7 @@ class ListDeploymentsHandler(
             WHERE d.tenant_key = :t
               AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_id = epistola_catalog_id(:t, :c_ns, :c))
               AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
-            ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL), ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
+            ORDER BY d.environment_key, cat.catalog_key, (tv.state = 'released'), ${app.epistola.suite.catalog.queries.releaseNumberOrder("tv")}
             """,
         )
             .bind("t", query.tenantKey)
