@@ -40,6 +40,8 @@ data class CatalogSettingChange(
     val name: String,
     val lock: DependencyLock? = null,
     val baseLock: DependencyLock? = null,
+    /** What the change means, in words, for a setting that needs saying (the rendering defaults). */
+    val description: String? = null,
 ) {
     /** The entry type: [CatalogSetting.TYPE] or [CatalogSetting.DEPENDENCY_TYPE]. */
     val type: String get() = entry.substringBefore('/')

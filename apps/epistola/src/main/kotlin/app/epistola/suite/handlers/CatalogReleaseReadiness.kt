@@ -246,7 +246,7 @@ data class CatalogReleaseReadiness(
          * other catalog settings need no more than their name.
          */
         fun detailOf(change: CatalogSettingChange): String? {
-            if (!change.isDependency) return null
+            if (!change.isDependency) return change.description
             fun DependencyLock.words() = when {
                 releaseVersion != null -> "locked to v$releaseVersion"
                 draftName != null -> "its draft $draftName, published along"

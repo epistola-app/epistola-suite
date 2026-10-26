@@ -145,6 +145,9 @@ data class RenderingDefaults(
      * larger spacing unit does not magnify it. When false, [componentSpacing] alone applies, in `sp`.
      */
     val themeBlockSpacing: Boolean = false,
+
+    /** What this version changes, in a sentence for an author choosing to release with it. */
+    val summary: String = "",
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -280,6 +283,7 @@ data class RenderingDefaults(
         val V7 = V6.copy(
             version = 7,
             themeBlockSpacing = true,
+            summary = "Block spacing comes from the theme; without it a block keeps 6pt below it, whatever the spacing unit.",
             componentSpacing = mapOf(
                 "text" to mapOf("marginBottom" to "0pt"),
                 "container" to mapOf("marginBottom" to "6pt"),
