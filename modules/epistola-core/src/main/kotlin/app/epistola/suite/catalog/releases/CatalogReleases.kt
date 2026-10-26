@@ -202,29 +202,37 @@ class CatalogDrafts {
         .one()
 
     /**
-     * Draft [versionId] becomes release [version] (ADR 0036): its row is frozen in place, keeping its
-     * id, key and name, with the record [version]'s `catalog_releases` row holds. It stops being the
-     * next version; [startNext] opens the one that continues on it.
+     * Draft [versionId] becomes the release [record] describes (ADR 0036): its row is frozen in place,
+     * keeping its id, key and name, and carries the release record. It stops being the next version;
+     * [startNext] opens the one that continues on it.
      */
-    fun freeze(handle: Handle, tenantKey: TenantKey, versionId: UUID, version: String) {
+    fun freeze(handle: Handle, tenantKey: TenantKey, versionId: UUID, record: FrozenRelease) {
         val frozen = handle.createUpdate(
             """
-            UPDATE catalog_versions v SET state = 'released', is_next = FALSE, version = r.version,
-                fingerprint = r.fingerprint, content_hash = r.content_hash, notes = r.notes, manifest_snapshot = r.manifest_snapshot,
-                rendering_defaults_version = r.rendering_defaults_version, released_at = r.released_at, released_by = r.released_by,
-                released_by_installation = r.released_by_installation, base_version = r.base_version, base_fingerprint = r.base_fingerprint,
+            UPDATE catalog_versions v SET state = 'released', is_next = FALSE, version = :version,
+                fingerprint = :fingerprint, content_hash = :contentHash, notes = :notes, manifest_snapshot = CAST(:snapshot AS JSONB),
+                rendering_defaults_version = :renderingDefaults, released_at = :releasedAt, released_by = :releasedBy,
+                released_by_installation = :releasedByInstallation, base_version = :base, base_fingerprint = :baseFingerprint,
                 base_version_id = (SELECT b.version_id FROM catalog_versions b
-                                   WHERE b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version AND b.state = 'released')
-            FROM catalog_releases r
+                                   WHERE b.tenant_key = v.tenant_key AND b.catalog_id = v.catalog_id AND b.version = :base AND b.state = 'released')
             WHERE v.tenant_key = :t AND v.version_id = :v AND v.state = 'draft'
-              AND r.tenant_key = v.tenant_key AND r.catalog_id = v.catalog_id AND r.version = :version AND r.version_key = v.version_key
             """,
         )
             .bind("t", tenantKey)
             .bind("v", versionId)
-            .bind("version", version)
+            .bind("version", record.version)
+            .bind("fingerprint", record.fingerprint)
+            .bind("contentHash", record.contentHash)
+            .bind("notes", record.notes)
+            .bind("snapshot", record.manifestSnapshot)
+            .bind("renderingDefaults", record.renderingDefaultsVersion)
+            .bind("releasedAt", record.releasedAt)
+            .bind("releasedBy", record.releasedBy)
+            .bind("releasedByInstallation", record.releasedByInstallation)
+            .bind("base", record.base)
+            .bind("baseFingerprint", record.baseFingerprint)
             .execute()
-        check(frozen == 1) { "no draft $versionId to release as $version" }
+        check(frozen == 1) { "no draft $versionId to release as ${record.version}" }
     }
 
     /**
@@ -461,3 +469,19 @@ class CatalogDrafts {
         fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
     }
 }
+
+/** What a draft's row records when [CatalogDrafts.freeze] makes it a release (ADR 0036). */
+data class FrozenRelease(
+    val version: String,
+    val fingerprint: String,
+    val contentHash: String,
+    val notes: String?,
+    /** The release's manifest, serialized JSON. */
+    val manifestSnapshot: String,
+    val renderingDefaultsVersion: Int,
+    val releasedAt: java.time.OffsetDateTime,
+    val releasedBy: UUID?,
+    val releasedByInstallation: UUID?,
+    val base: String?,
+    val baseFingerprint: String?,
+)

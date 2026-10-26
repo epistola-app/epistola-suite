@@ -129,8 +129,8 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
         val (version, contentHash) = jdbi.withHandle<Pair<String, String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT r.version, r.content_hash FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                WHERE r.tenant_key = :t AND c.catalog_key = :c AND (CAST(:v AS TEXT) IS NULL OR r.version = :v)
+                SELECT r.version, r.content_hash FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+                WHERE r.state = 'released' AND r.tenant_key = :t AND c.catalog_key = :c AND (CAST(:v AS TEXT) IS NULL OR r.version = :v)
                 """,
             ).bind("t", tenant).bind("c", demo).bind("v", number).map { rs, _ -> rs.getString(1) to rs.getString(2) }.one()
         }

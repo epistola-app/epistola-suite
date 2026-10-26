@@ -92,8 +92,8 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
     private fun recorded(tenant: TenantKey, version: String): Pair<String, String> = jdbi.withHandle<Pair<String, String>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.fingerprint, r.content_hash FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
+            SELECT r.fingerprint, r.content_hash FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+            WHERE r.state = 'released' AND r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
             """,
         ).bind("t", tenant).bind("c", SYSTEM_CATALOG_KEY).bind("v", version)
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }

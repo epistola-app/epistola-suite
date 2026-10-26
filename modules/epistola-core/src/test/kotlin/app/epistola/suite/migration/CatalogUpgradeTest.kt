@@ -283,7 +283,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
             InstallFromCatalog(catalog = testCatalog(tenant, catalog.key)).execute()
         }
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("DELETE FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            handle.createUpdate("DELETE FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog.key)).execute()
             // A 1.x subscribed catalog: typed so (the suite no longer writes the column), with a legacy fingerprint.
             handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp, type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
@@ -293,7 +293,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     }
 
     private fun releases(catalog: CatalogId): List<Pair<String, String>> = jdbi.withHandle<List<Pair<String, String>>, Exception> { handle ->
-        handle.createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createQuery("SELECT version, fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }
             .list()

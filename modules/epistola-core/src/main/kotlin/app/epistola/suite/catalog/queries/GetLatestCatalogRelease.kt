@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Cheap read of a catalog's release pointer straight from
- * `catalog_releases` — **no catalog content build / fingerprint recompute**.
+ * the released rows of `catalog_versions` — **no catalog content build / fingerprint recompute**.
  *
  * Split out of [GetCatalogReleaseStatus] so callers that only need the latest
  * released version/fingerprint (notably [ExportCatalogZip][app.epistola.suite.catalog.commands.ExportCatalogZip])
@@ -48,7 +48,7 @@ data class LatestCatalogRelease(
 )
 
 /**
- * Releases by number, highest first, over `catalog_releases` as [alias] (none for the table itself):
+ * Releases by number, highest first, over the released rows of `catalog_versions` as [alias] (none for the table itself):
  * by SemVer precedence on the generated version components (V20261022110352), so a patch release
  * (`1.3.1-gemeente-x.1`) sorts above `1.3.0` and below `1.3.1`, patch labels compared as ASCII and
  * then by number. Labels that are not release numbers have null components — `SemVer.parseOrNull`
@@ -82,8 +82,8 @@ class GetLatestCatalogReleaseHandler(
             handle.createQuery(
                 """
                 SELECT version, fingerprint
-                FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+                FROM catalog_versions
+                WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 $LATEST_RELEASE_ORDER
                 LIMIT 1
                 """,

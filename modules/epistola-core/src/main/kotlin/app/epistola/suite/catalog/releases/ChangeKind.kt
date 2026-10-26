@@ -313,7 +313,7 @@ class DraftChangeKinds(
         val assessment = evaluator.evaluate(released, draft)
         // Newer rendering defaults change what every document looks like: a minor (#1127).
         val renderedWith = jdbi.withHandle<Int?, Exception> { handle ->
-            handle.createQuery("SELECT rendering_defaults_version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+            handle.createQuery("SELECT rendering_defaults_version FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
                 .bind("t", catalog.tenantKey)
                 .bindCatalog("c", catalog)
                 .bind("v", base)

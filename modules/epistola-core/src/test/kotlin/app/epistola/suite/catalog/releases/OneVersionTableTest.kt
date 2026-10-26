@@ -93,10 +93,10 @@ class OneVersionTableTest : IntegrationTestBase() {
         assertThat(released.key).`as`("the release keeps the draft's id").isEqualTo(before.key)
         assertThat(released.isNext).isFalse()
         val releaseRecord = jdbi.withHandle<Pair<String, String>, Exception> {
-            it.createQuery("SELECT r.version_key, r.fingerprint FROM catalog_releases r JOIN catalogs c ON c.catalog_id = r.catalog_id WHERE r.tenant_key = :t AND c.catalog_key = :c")
+            it.createQuery("SELECT r.version_key, r.fingerprint FROM catalog_versions r JOIN catalogs c ON c.catalog_id = r.catalog_id WHERE r.state = 'released' AND r.tenant_key = :t AND c.catalog_key = :c")
                 .bind("t", tenant).bind("c", letters).map { rs, _ -> rs.getString(1) to rs.getString(2) }.one()
         }
-        assertThat(releaseRecord).`as`("catalog_releases mirrors the released row").isEqualTo(before.key to released.fingerprint)
+        assertThat(releaseRecord).`as`("the release record is on the released row").isEqualTo(before.key to released.fingerprint)
 
         val continued = next(tenant)
         assertThat(continued.versionId).isNotEqualTo(before.versionId)

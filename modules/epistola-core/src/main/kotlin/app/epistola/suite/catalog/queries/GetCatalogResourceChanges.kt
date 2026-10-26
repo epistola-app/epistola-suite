@@ -264,8 +264,8 @@ class GetCatalogResourceChangesHandler(
         val releases = handle.createQuery(
             """
             SELECT version, fingerprint, rendering_defaults_version
-            FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             """,
         )

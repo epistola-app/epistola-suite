@@ -26,8 +26,8 @@ with. There are no catalog types (ADR 0032): every catalog has drafts and releas
 is only whether it can be changed here and where its releases come from (below). `catalogs.type` is
 still in the table, defaulted and unused, and goes in a later major release.
 
-- **Releases** — `catalog_releases` holds every release the catalog has, whether it was cut here or
-  received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_resources` row
+- **Releases** — the released rows of `catalog_versions` are every release the catalog has, whether
+  it was cut here or received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_resources` row
   per resource naming the content that holds it (`resource_contents`, by content hash, through a
   foreign key) and the digest it fingerprinted to (ADR 0033). A release's resource list reads these
   rows alone (`ListReleaseResources`); its content is read per type, its binaries when shown.
@@ -35,8 +35,9 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **One row per version** (ADR 0036, in progress): every version, draft or release, is a row of
   `catalog_versions` (`state` draft or released, `origin` authored or installed). Releasing a draft
   freezes its row, keeping its id, key and name; the next version is a new row that takes over what
-  the release holds. `catalogs.next_version_id` names the next version. Until the readers keyed by
-  number are re-keyed, `catalog_releases` mirrors the released rows (`trg_catalog_releases_mirror`).
+  the release holds. `catalogs.next_version_id` names the next version. Since step (e) there is no other release table:
+  `catalog_releases` and its mirror are gone, a release's merge parents name its row, and the
+  publication outbox names it by catalog and number.
   A release's `release_resources` rows name its row too (step (b)): releasing turns the frozen
   draft's rows into the release's, with their fingerprints, after the next version copied them.
   What a version depends on is one table too (`catalog_version_dependencies`, step (c)): a
@@ -799,7 +800,7 @@ settings included. It dispatches
 [`ReleaseCatalogDraft`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogDraft.kt):
 refuses for a catalog that cannot be changed here and while a changed resource is not [ready](#ready-marks),
 parses + monotonic-checks the SemVer, computes the fingerprint,
-inserts the `catalog_releases` row (with the manifest snapshot and the
+freezes the draft's row as the release (with the manifest snapshot and the
 per-resource digests) and advances the catalog pointer — one transaction.
 Over REST (`releaseCatalogDraft`) and MCP (`release_draft`), a draft that changed nothing against its
 base, no resource and no catalog-level content, has nothing to release and is refused

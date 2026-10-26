@@ -188,7 +188,7 @@ class CatalogReleaseTargeting(
     fun resolveRelease(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val version = (ref.draft as DraftRef.Released).version
         handle.createQuery(
-            "SELECT r.catalog_id FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v",
+            "SELECT r.catalog_id FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v",
         )
             .bind("t", ref.tenantKey)
             .bindCatalog("c", ref.catalog)

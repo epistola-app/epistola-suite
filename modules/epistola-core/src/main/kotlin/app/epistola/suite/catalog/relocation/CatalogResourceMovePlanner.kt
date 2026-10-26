@@ -285,7 +285,7 @@ class CatalogResourceMovePlanner(
         .one()
 
     private fun hasRelease(handle: Handle, tenantKey: TenantKey, catalog: app.epistola.suite.common.ids.CatalogId): Boolean = handle.createQuery(
-        "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")})",
+        "SELECT EXISTS(SELECT 1 FROM catalog_versions WHERE state = 'released' AND tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")})",
     )
         .bind("tenantKey", tenantKey)
         .bindCatalog("catalogKey", catalog)

@@ -199,9 +199,9 @@ class RestoreTenantSnapshotHandler(
             for (release in entry.releases) {
                 handle.createUpdate(
                     """
-                    UPDATE catalog_releases
+                    UPDATE catalog_versions
                     SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes
-                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                    WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", release.version)
@@ -212,8 +212,8 @@ class RestoreTenantSnapshotHandler(
                 handle.createUpdate(
                     """
                     UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
-                    FROM catalog_releases r
-                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
+                    FROM catalog_versions r
+                    WHERE r.state = 'released' AND c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", entry.version)
@@ -231,7 +231,7 @@ class RestoreTenantSnapshotHandler(
                     """
                     UPDATE catalog_versions SET base_version = :b
                     WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next
-                      AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
+                      AND EXISTS (SELECT 1 FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("b", base)

@@ -309,7 +309,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     private fun recordedCandidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
         return handle
-            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bindCatalog("c", catalog)
             .map { rs, _ -> app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }

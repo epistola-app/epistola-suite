@@ -156,9 +156,9 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
     private fun releases(): List<Recorded> = jdbi.withHandle<List<Recorded>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT c.catalog_key, r.version, r.fingerprint, r.content_hash, c.namespace FROM catalog_releases r
+            SELECT c.catalog_key, r.version, r.fingerprint, r.content_hash, c.namespace FROM catalog_versions r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t ORDER BY c.catalog_key, r.version
+            WHERE r.state = 'released' AND r.tenant_key = :t ORDER BY c.catalog_key, r.version
             """,
         ).bind("t", TENANT).map { rs, _ -> Recorded(CatalogKey.of(rs.getString(1)), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)) }.list()
     }

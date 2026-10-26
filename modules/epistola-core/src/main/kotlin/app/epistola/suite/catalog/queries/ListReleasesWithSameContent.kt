@@ -65,7 +65,7 @@ class ListReleasesWithSameContentHandler(
 
     override fun handle(query: ListReleasesWithSameContent): ReleasesWithSameContent? = jdbi.withHandle<ReleasesWithSameContent?, Exception> { handle ->
         val own = handle.createQuery(
-            "SELECT catalog_id, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+            "SELECT catalog_id, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", query.tenantKey)
             .bindCatalog("c", query.catalog)
@@ -79,9 +79,9 @@ class ListReleasesWithSameContentHandler(
         val releases = handle.createQuery(
             """
             SELECT c.catalog_key, c.namespace, c.name, r.version, (r.catalog_id = :own) AS same_catalog
-            FROM catalog_releases r
+            FROM catalog_versions r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t AND r.content_hash = :h AND NOT (r.catalog_id = :own AND r.version = :v)
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.content_hash = :h AND NOT (r.catalog_id = :own AND r.version = :v)
             ORDER BY same_catalog DESC, c.name, c.catalog_key, ${releaseNumberOrder("r")}
             """,
         )

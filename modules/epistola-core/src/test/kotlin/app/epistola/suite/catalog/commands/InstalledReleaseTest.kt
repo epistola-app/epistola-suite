@@ -101,7 +101,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
     // Read-only: the installed release's fingerprint as stored.
     private fun releaseFingerprint(tenant: TenantKey, catalog: CatalogKey, version: String): String = jdbi.withHandle<String, Exception> { handle ->
-        handle.createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        handle.createQuery("SELECT fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant)
             .bindCatalog("c", testCatalog(tenant, catalog))
             .bind("v", version)
@@ -110,7 +110,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     }
 
     private fun releaseCount(tenant: TenantKey, catalog: CatalogKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT COUNT(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createQuery("SELECT COUNT(*) FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenant)
             .bindCatalog("c", testCatalog(tenant, catalog))
             .mapTo(Int::class.java)

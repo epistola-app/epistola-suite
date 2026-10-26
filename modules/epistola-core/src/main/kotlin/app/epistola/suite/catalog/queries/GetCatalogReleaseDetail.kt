@@ -101,9 +101,9 @@ class GetCatalogReleaseDetailHandler(
             """
             SELECT r.version, r.released_at, r.notes, r.fingerprint, r.content_hash, r.manifest_snapshot::text AS snapshot,
                    r.released_by_installation, u.display_name AS released_by_name
-            FROM catalog_releases r
+            FROM catalog_versions r
             LEFT JOIN users u ON u.id = r.released_by
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
             .bind("t", query.tenantKey)

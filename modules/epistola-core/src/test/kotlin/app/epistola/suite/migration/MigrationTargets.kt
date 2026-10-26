@@ -46,3 +46,6 @@ internal const val BEFORE_VERSION_DEPENDENCIES = "20261026172947"
 
 /** The last migration before a deployment named its version row instead of a number or a draft (ADR 0036 step (d), `V20261026191146`). */
 internal const val BEFORE_DEPLOYMENTS_BY_VERSION_ROW = "20261026183314"
+
+/** The last migration before `catalog_releases` went and every release was only its version row (ADR 0036 step (e), `V20261026195907`). */
+internal const val BEFORE_DROP_CATALOG_RELEASES = "20261026191146"

@@ -30,9 +30,9 @@ fun Mediator.recordBeforeContentHashes(jdbi: Jdbi, catalog: CatalogId, version: 
     jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
-            UPDATE catalog_releases r SET fingerprint = :f,
+            UPDATE catalog_versions r SET fingerprint = :f,
                    manifest_snapshot = jsonb_set(r.manifest_snapshot, '{release,fingerprint}', to_jsonb(CAST(:f AS TEXT)))
-            FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.version = :v
+            FROM catalogs c WHERE r.state = 'released' AND c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.version = :v
             """,
         ).bind("f", v5).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("v", version).execute()
     }

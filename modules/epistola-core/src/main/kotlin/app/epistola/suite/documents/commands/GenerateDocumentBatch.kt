@@ -189,8 +189,8 @@ class GenerateDocumentBatchHandler(
                         (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
                         :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :draftId, :draftLabel,
-                        COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
+                        COALESCE(:draftId, (SELECT r.version_key FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+                         WHERE r.state = 'released' AND c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
                         :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )

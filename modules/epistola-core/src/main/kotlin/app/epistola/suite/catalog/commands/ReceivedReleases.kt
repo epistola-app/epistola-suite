@@ -75,8 +75,8 @@ class ReceivedReleases(private val jdbi: Jdbi) {
         val id = release.releaseId ?: return
         val holder = handle.createQuery(
             """
-            SELECT 'release ' || version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_key = :id AND version <> :v
+            SELECT 'release ' || version FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_key = :id AND version <> :v
             UNION ALL
             SELECT 'a draft' FROM catalog_versions
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND version_key = :id

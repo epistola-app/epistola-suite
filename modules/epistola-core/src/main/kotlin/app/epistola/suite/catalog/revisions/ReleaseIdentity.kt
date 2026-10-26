@@ -24,7 +24,7 @@ import tools.jackson.databind.ObjectMapper
  * ([CatalogCanonicalizer.contentHash]), which covers no name, number, release block or presentation.
  * Two releases with the same content hash are the same release, whatever number or route they came
  * by. Every release records its content hash beside the fingerprint it was cut or received with
- * (`catalog_releases.content_hash`, NOT NULL): cutting and receiving compute it from the content.
+ * (`catalog_versions.content_hash`, NOT NULL): cutting and receiving compute it from the content.
  * 1.x kept no release content, and the 2.0 upgrade deletes its releases before cutting each
  * catalog's first 2.0 release, so no release is without one.
  *
@@ -50,7 +50,7 @@ class ReleaseIdentity(
 
     /** Release [version] of [catalogKey] as recorded, or null when the catalog has no such release. */
     fun recorded(handle: Handle, catalog: CatalogId, version: String): Recorded? = handle
-        .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        .createQuery("SELECT version, fingerprint, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
         .bind("v", version)
@@ -89,7 +89,7 @@ class ReleaseIdentity(
      */
     fun releaseNamed(handle: Handle, catalog: CatalogId, fingerprint: String): String? {
         val releases = handle
-            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
             .map { rs, _ -> Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }

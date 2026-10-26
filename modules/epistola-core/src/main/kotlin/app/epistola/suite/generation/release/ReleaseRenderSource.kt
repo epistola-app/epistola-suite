@@ -295,8 +295,8 @@ class ReleaseRenderSource(
     private fun loadRenderingDefaultsVersion(tenantKey: TenantKey, release: ReleaseRef): Int? = jdbi.withHandle<Int?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT rendering_defaults_version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+            SELECT rendering_defaults_version FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", tenantKey)

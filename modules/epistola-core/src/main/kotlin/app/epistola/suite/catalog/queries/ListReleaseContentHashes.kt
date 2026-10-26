@@ -17,7 +17,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * The content hash (ADR 0034, `catalog_releases.content_hash`) of every release of the tenant, by
+ * The content hash (ADR 0034, `catalog_versions.content_hash`) of every release of the tenant, by
  * catalog and number, in one read: for naming the releases a page lists (a catalog's highest release,
  * a dependency's pinned one) by their content without a query each.
  */
@@ -49,9 +49,9 @@ class ListReleaseContentHashesHandler(
         ReleaseContentHashes(
             handle.createQuery(
                 """
-                SELECT c.namespace, c.catalog_key, r.version, r.content_hash FROM catalog_releases r
+                SELECT c.namespace, c.catalog_key, r.version, r.content_hash FROM catalog_versions r
                 JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                WHERE r.tenant_key = :t
+                WHERE r.state = 'released' AND r.tenant_key = :t
                 """,
             )
                 .bind("t", query.tenantKey)

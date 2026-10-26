@@ -69,8 +69,8 @@ class ListRelocatableResourcesHandler(
             WITH editable AS (
                 SELECT c.catalog_id, cv.version_id, c.namespace, c.catalog_key, c.name,
                        EXISTS(
-                           SELECT 1 FROM catalog_releases r
-                           WHERE r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id
+                           SELECT 1 FROM catalog_versions r
+                           WHERE r.state = 'released' AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id
                        ) released
                 FROM catalogs c
                 JOIN catalog_current_versions cv ON cv.tenant_key = c.tenant_key AND cv.catalog_id = c.catalog_id

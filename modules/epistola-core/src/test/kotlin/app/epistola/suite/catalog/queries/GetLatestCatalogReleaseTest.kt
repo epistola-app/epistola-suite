@@ -113,8 +113,8 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT version_major, version_minor, version_patch
-                FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                FROM catalog_versions
+                WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey)

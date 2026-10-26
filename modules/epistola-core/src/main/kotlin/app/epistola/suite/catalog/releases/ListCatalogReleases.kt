@@ -105,7 +105,7 @@ class GetCatalogDraftHandler(
 
 /**
  * Reads a catalog's versions: its open drafts from `catalog_versions`, the rest from
- * `catalog_releases`. A draft given a number in `numbers` lists the releases it is behind for that
+ * the released rows of `catalog_versions`. A draft given a number in `numbers` lists the releases it is behind for that
  * number, each with what that release changed.
  */
 @Component
@@ -144,7 +144,7 @@ class CatalogReleaseReader(
         val releases = handle.createQuery(
             """
             SELECT version, version_key, released_at, notes, fingerprint, content_hash, base_version
-            FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
             .bind("t", catalog.tenantKey)

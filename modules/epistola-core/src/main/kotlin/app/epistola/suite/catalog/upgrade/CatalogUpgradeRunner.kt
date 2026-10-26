@@ -190,7 +190,7 @@ class CatalogUpgradeRunner(
     }
 
     private fun hasRelease(catalog: Queued): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")})")
+        handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")})")
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog.catalogId)
             .mapTo(Boolean::class.java)

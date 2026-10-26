@@ -33,7 +33,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) 
 | Axis                             | What it versions                                                | Where                                                                  | Reference                                                 |
 | -------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Catalog wire `schemaVersion`** | the JSON _shape_ of the whole exchange bundle (one per catalog) | the manifest's `schemaVersion` (authoritative); echoed on every detail | [ADR 0007](../adr/0007-catalog-wire-format-migrations.md) |
-| **Release version** (SemVer)     | the catalog _content_ at a point in time                        | `release.version`, `catalog_releases`                                  | [catalog-versioning.md](../catalog-versioning.md)         |
+| **Release version** (SemVer)     | the catalog _content_ at a point in time                        | `release.version`, `catalog_versions`                                  | [catalog-versioning.md](../catalog-versioning.md)         |
 | **Content fingerprint**          | content _identity_ (did anything change?)                       | `release.fingerprint`                                                  | [catalog-versioning.md](../catalog-versioning.md)         |
 
 These three are the **catalog-level** axes. For the full picture — including the template, contract and stencil versions 2.0 removed — see [version-axes.md](../version-axes.md).
@@ -159,10 +159,10 @@ follow-up for RC3 stencil draft markers.
 
 Primary key: `(tenant_key, id)`.
 
-### `catalog_releases`
+### Releases (`catalog_versions`, released rows)
 
-Immutable release history of a catalog, released here or received — one row
-per release. Not parallel installs; the changelog + Phase 2 upgrade-diff
+Immutable release history of a catalog, released here or received — one released row of
+`catalog_versions` per release (ADR 0036; `catalog_releases` is gone). Not parallel installs; the changelog + Phase 2 upgrade-diff
 source. PK `(tenant_key, catalog_key, version)`, columns `version` (SemVer),
 `fingerprint`, `notes`, `manifest_snapshot` (jsonb), `released_at`,
 `released_by`. See [`catalog-versioning.md`](../catalog-versioning.md).

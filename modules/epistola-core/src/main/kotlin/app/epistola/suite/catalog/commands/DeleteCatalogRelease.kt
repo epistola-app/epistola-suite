@@ -75,8 +75,8 @@ class DeleteCatalogReleaseHandler(
 
         val deleted = handle.createUpdate(
             """
-            DELETE FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+            DELETE FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
             """,
         )
             .bind("t", command.tenantKey)
@@ -134,8 +134,8 @@ class DeleteCatalogReleaseHandler(
                 updated_at = NOW()
             FROM (
                 SELECT r.version, r.fingerprint, r.released_at
-                FROM catalog_releases r
-                WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
+                FROM catalog_versions r
+                WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
                 ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
                 LIMIT 1
             ) AS latest

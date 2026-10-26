@@ -319,7 +319,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     private fun releaseFingerprint(tenantKey: String, catalogKey: String, version: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+            "SELECT fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)
             .mapTo(String::class.java)
@@ -373,8 +373,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun releaseRow(tenantKey: String, catalogKey: String, version: String): Map<String, Any?>? = jdbi.withHandle<Map<String, Any?>?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT notes, fingerprint FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                SELECT notes, fingerprint FROM catalog_versions
+                WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)

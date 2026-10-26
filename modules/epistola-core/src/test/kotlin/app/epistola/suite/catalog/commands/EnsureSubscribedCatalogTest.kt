@@ -61,8 +61,8 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
             ).bind("t", tenant.id).execute()
             handle.createUpdate(
                 """
-                UPDATE catalog_releases r SET fingerprint = :f, content_hash = :f FROM catalogs c
-                WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = 'epistola-demo'
+                UPDATE catalog_versions r SET fingerprint = :f, content_hash = :f FROM catalogs c
+                WHERE r.state = 'released' AND c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = 'epistola-demo'
                 """,
             ).bind("t", tenant.id).bind("f", "v6:" + "0".repeat(64)).execute()
         }

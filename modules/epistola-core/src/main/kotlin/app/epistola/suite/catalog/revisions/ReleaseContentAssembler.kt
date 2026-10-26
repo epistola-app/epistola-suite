@@ -313,10 +313,10 @@ class ReleaseContentAssembler(
         .createQuery(
             """
             SELECT r.manifest_snapshot::text AS snapshot, r.version_key, r.rendering_defaults_version, r.base_version, r.released_by_installation,
-                   COALESCE(r.base_fingerprint, (SELECT COALESCE(b.content_hash, b.fingerprint) FROM catalog_releases b
-                    WHERE b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version)) AS base_fingerprint
-            FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
+                   COALESCE(r.base_fingerprint, (SELECT COALESCE(b.content_hash, b.fingerprint) FROM catalog_versions b
+                    WHERE b.state = 'released' AND b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version)) AS base_fingerprint
+            FROM catalog_versions r
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
         .bind("t", catalog.tenantKey)
