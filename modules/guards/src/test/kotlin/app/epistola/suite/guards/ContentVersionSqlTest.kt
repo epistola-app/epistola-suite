@@ -197,7 +197,7 @@ class ContentVersionSqlTest {
             // Every resource type is draft rows of release_resources now (ADR 0033), read through its view,
             // which holds only the version a caller means; DroppedContentTableSqlTest refuses the old table.
             "resource_ready_marks",
-            "catalog_dependencies",
+            "catalog_version_dependencies",
             "resource_content_digests",
         )
         private val TOUCHES = Regex(

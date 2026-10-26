@@ -29,7 +29,7 @@ class CatalogReferences(private val jdbi: Jdbi) {
         if (own(from, alias)) return from
         return handle.createQuery(
             """
-            SELECT d.namespace, d.dependency_key FROM catalog_dependencies d
+            SELECT d.namespace, d.dependency_key FROM catalog_version_dependencies d
             WHERE d.tenant_key = :t AND d.version_id = ${versionAt("t", "from")} AND d.alias = :alias
             """,
         )
@@ -46,8 +46,9 @@ class CatalogReferences(private val jdbi: Jdbi) {
         if (own(from, alias)) return from
         return handle.createQuery(
             """
-            SELECT d.namespace, d.dependency_key FROM catalog_release_dependencies d
-            WHERE d.tenant_key = :t AND d.catalog_id = ${catalogAt("t", "from")} AND d.version = :v AND d.alias = :alias
+            SELECT d.namespace, d.dependency_key FROM catalog_version_dependencies d
+            JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.version_id
+            WHERE d.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "from")} AND v.version = :v AND v.state = 'released' AND d.alias = :alias
             """,
         )
             .bind("t", from.tenantKey)
@@ -97,6 +98,6 @@ class CatalogReferences(private val jdbi: Jdbi) {
  */
 fun referenceAt(tenantParam: String, fromParam: String, aliasParam: String): String = """
     (CASE WHEN CAST(:$aliasParam AS TEXT) IS NULL OR :$aliasParam = :$fromParam THEN ${catalogAt(tenantParam, fromParam)}
-     ELSE (SELECT epistola_catalog_id(:$tenantParam, ref.namespace, ref.dependency_key) FROM catalog_dependencies ref
+     ELSE (SELECT epistola_catalog_id(:$tenantParam, ref.namespace, ref.dependency_key) FROM catalog_version_dependencies ref
            WHERE ref.tenant_key = :$tenantParam AND ref.version_id = ${versionAt(tenantParam, fromParam)} AND ref.alias = :$aliasParam) END)
 """

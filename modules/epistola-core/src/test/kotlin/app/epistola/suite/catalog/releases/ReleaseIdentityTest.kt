@@ -221,8 +221,9 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                UPDATE catalog_release_dependencies d SET release_fingerprint = :f FROM catalogs c
+                UPDATE catalog_version_dependencies d SET release_fingerprint = :f FROM catalogs c, catalog_versions v
                 WHERE c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id AND d.tenant_key = :t AND c.catalog_key = 'letters' AND d.dependency_key = 'shared'
+                  AND v.version_id = d.version_id AND v.state = 'released'
                 """,
             ).bind("f", v5).bind("t", a).execute()
         }

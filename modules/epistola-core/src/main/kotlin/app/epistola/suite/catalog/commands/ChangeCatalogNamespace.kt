@@ -100,8 +100,9 @@ class ChangeCatalogNamespaceHandler(
         // locks stay, because the releases they lock to are the same releases.
         handle.createUpdate(
             """
-            UPDATE catalog_dependencies SET namespace = :namespace
+            UPDATE catalog_version_dependencies SET namespace = :namespace
             WHERE tenant_key = :tenantKey AND registry = :registry AND namespace = :previous AND dependency_key = :catalogKey
+              AND version_id IN (SELECT version_id FROM catalog_versions WHERE tenant_key = :tenantKey AND state = 'draft')
             """,
         )
             .bind("namespace", command.namespace)

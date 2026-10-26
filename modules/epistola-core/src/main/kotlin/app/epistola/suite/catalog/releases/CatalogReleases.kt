@@ -257,12 +257,12 @@ class CatalogDrafts {
     }
 
     /**
-     * Released version [versionId] keeps no draft bookkeeping: its ready marks, code list refreshes and
-     * dependency declarations go, since what it contains, and the releases it pins, are recorded with
-     * the release. Its content rows stay: they are the release's (ADR 0036).
+     * Released version [versionId] keeps no draft bookkeeping: its ready marks and code list refreshes
+     * go. Its content rows and its declarations stay: they are the release's, its declarations pinned
+     * ([CatalogDependencyStore.recordRelease], ADR 0036).
      */
     fun retire(handle: Handle, tenantKey: TenantKey, versionId: UUID) {
-        for (table in listOf("resource_ready_marks", "code_list_refreshes", "catalog_dependencies")) {
+        for (table in listOf("resource_ready_marks", "code_list_refreshes")) {
             handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND version_id = :v")
                 .bind("t", tenantKey)
                 .bind("v", versionId)
