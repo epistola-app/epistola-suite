@@ -33,8 +33,9 @@ against those ADRs.
 | Leftover: `ContentVersionSqlTest` allowlist entries for removed files (`ContentReaper`, `ContentBackfillRunner`)                                                                                                                                                               | `ContentVersionSqlTest.kt`                                                             | ✅ guards                                                                                                                          |
 | Leftover: the storage doc's asset table still named a per-scope key                                                                                                                                                                                                            | `docs/storage.md`                                                                      | docs                                                                                                                               |
 
-**Left for later:** the contract switch (waits for `2.0.0-alpha.2`); the MigrationLauncher auto-repair
-(undecided); document retention could join partition maintenance (separate concern, kept as a task of
+**Left for later:** the contract switch (waits for `2.0.0-alpha.2`); no MigrationLauncher auto-repair is needed:
+Flyway 12 records no history row for a non-transactional migration that fails, so the next run of the
+migration step runs it again (`FailedMigrationRerunIT`); document retention could join partition maintenance (separate concern, kept as a task of
 its own).
 
 ### ADR 0033 storage, step 7b: templates stored as JSON (25 October; branch `feat/storage-templates`, on `feat/storage-templates-reads`, not pushed)

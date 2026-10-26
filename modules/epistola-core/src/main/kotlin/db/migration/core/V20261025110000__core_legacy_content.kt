@@ -29,9 +29,9 @@ import java.sql.Connection
  * ([sha256Hex], pinned by a golden vector in `LegacyContentMigrationTest`), the one the suite stores
  * assets under. Runs outside Flyway's single transaction, a batch per transaction, so a large
  * installation does not hold every blob in one. Every step is idempotent, so what committed before a
- * failure is kept and running it again only does the rest; but Flyway records a failed
- * non-transactional migration as failed, so it runs again only after `flyway repair` removes that
- * record.
+ * failure is kept and running it again only does the rest. Flyway records no history row for a
+ * non-transactional migration that fails, so the next run of the migration step runs it again
+ * (`FailedMigrationRerunIT`).
  */
 @Suppress("ClassName")
 class V20261025110000__core_legacy_content : BaseJavaMigration() {
@@ -144,7 +144,7 @@ class V20261025110000__core_legacy_content : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 1805446445
+        const val CHECKSUM: Int = 1510018926
 
         private const val BATCH = 100
 

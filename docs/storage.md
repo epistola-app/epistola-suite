@@ -137,7 +137,8 @@ conversion before it hashes a face's legacy bytes itself), and the table is drop
   bytes were still in `content_store` joins its font when the fonts are converted next.
 
 The migration runs outside Flyway's single transaction, a batch per transaction, and is idempotent:
-what committed before a failure is kept, and running it again does only the rest. Flyway records a
-failed non-transactional migration as failed, so it runs again only after `flyway repair`. Rows left in `content_store` after it named nothing that exists
+what committed before a failure is kept, and running it again does only the rest. Flyway records no
+history row for a non-transactional migration that fails, so the next run of the migration step runs
+it again (`FailedMigrationRerunIT`). Rows left in `content_store` after it named nothing that exists
 any more (a document deleted before its blob moved); their count is logged and they go with the
 table. 1.x kept the legacy store in the database, so nothing is read from S3 or a filesystem.

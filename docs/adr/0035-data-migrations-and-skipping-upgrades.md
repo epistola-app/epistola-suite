@@ -92,8 +92,9 @@ step when it can be self-contained. The content backfill (#738, `ContentBackfill
 `V20261025110000` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256 (the fonts
 conversion before it hashes a face's still-legacy bytes itself, so the face joins its font), and the job, its fallback
 reads and the table are gone. It runs outside Flyway's transaction, a batch per transaction, and is
-idempotent, so what committed before a failure is kept; but Flyway records a failed
-non-transactional migration as failed, and it runs again only after `flyway repair`.
+idempotent, so what committed before a failure is kept. Flyway records no history row for a
+non-transactional migration that fails, so the next run of the migration step simply runs it again and
+it does the rest, with no `flyway repair` (`FailedMigrationRerunIT` holds that for the Flyway in use).
 
 The release content-hash backfill (`ReleaseContentHashBackfill`) was dropped instead: it had nothing
 to hash. 1.x kept no release content, the 2.0 upgrade deletes the 1.x releases (`V20261018201400`)
