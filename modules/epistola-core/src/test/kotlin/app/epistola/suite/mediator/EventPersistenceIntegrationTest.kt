@@ -4,8 +4,15 @@
 
 package app.epistola.suite.mediator
 
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.fonts.commands.ImportFont
+import app.epistola.suite.fonts.commands.ImportFontVariant
+import app.epistola.suite.fonts.model.FontKind
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.metrics.MetricsRecordingMediator
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -88,6 +95,32 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
                     .one()
             }
             assertThat(count).isGreaterThanOrEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `a command carrying bytes is recorded with their size and hash, not the bytes`() {
+        withMediator {
+            val tenant = TenantId(createTenant("Bytes Tenant").id)
+            val face = ByteArray(64 * 1024) { (it % 251).toByte() }
+
+            ImportFont(
+                catalog = testCatalog(tenant, CatalogKey.DEFAULT),
+                slug = "probe-sans",
+                name = "Probe Sans",
+                kind = FontKind.SANS.wire,
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", face)),
+            ).execute()
+
+            val payload = jdbi.withHandle<String, Exception> { handle ->
+                // ImportFont is not TenantScoped, so its row has no tenant_key: match on the font.
+                handle.createQuery("SELECT payload::text FROM event_log WHERE event_type = 'ImportFont' AND payload ->> 'slug' = 'probe-sans'")
+                    .mapTo(String::class.java)
+                    .one()
+            }
+            // The bytes are stored by their hash; the event says which, not what they are.
+            assertThat(payload).contains(sha256Hex(face)).contains("\"size\": ${face.size}")
+            assertThat(payload.length).isLessThan(4 * 1024)
         }
     }
 }

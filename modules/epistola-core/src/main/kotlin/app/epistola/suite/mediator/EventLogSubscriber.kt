@@ -8,6 +8,7 @@ import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.fonts.model.sha256Hex
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -16,7 +17,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
+import tools.jackson.core.JsonGenerator
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.SerializationContext
+import tools.jackson.databind.ValueSerializer
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.databind.module.SimpleModule
 
 /**
  * Subscribes to all CommandCompleted events and persists them to the event_log table.
@@ -38,6 +44,15 @@ class EventLogSubscriber(
 ) {
 
     private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
+
+    /**
+     * Writes a command as the event stream records it: a byte array (an uploaded image, a font face)
+     * as its size and SHA-256, not its contents. The bytes are stored by that hash already, and
+     * logging them made every font a catalog installs cost its faces again, as base64, in `event_log`.
+     */
+    private val payloadMapper: ObjectMapper = (objectMapper as JsonMapper).rebuild()
+        .addModule(SimpleModule("event-log-binaries").addSerializer(ByteArray::class.java, BinaryReferenceSerializer))
+        .build()
     private val persistFailures = Counter.builder("epistola.eventlog.persist.failures")
         .description("Event log persistence failures (audit trail gaps)")
         .register(meterRegistry)
@@ -55,7 +70,7 @@ class EventLogSubscriber(
             val eventType = command::class.simpleName ?: "Unknown"
             val tenantId = (command as? TenantScoped)?.tenantKey?.value
             val entityId = extractEntityId(command)
-            val payload = objectMapper.writeValueAsString(command)
+            val payload = payloadMapper.writeValueAsString(command)
 
             jdbi.withHandle<Unit, Exception> { handle ->
                 handle.createUpdate(
@@ -96,5 +111,15 @@ class EventLogSubscriber(
             command is EntityIdentifiable -> command.entityId
             else -> null
         }
+    }
+}
+
+/** A byte array as a reference to it: `{"size": …, "sha256": …}`. */
+private object BinaryReferenceSerializer : ValueSerializer<ByteArray>() {
+    override fun serialize(value: ByteArray, gen: JsonGenerator, ctxt: SerializationContext) {
+        gen.writeStartObject()
+        gen.writeNumberProperty("size", value.size)
+        gen.writeStringProperty("sha256", sha256Hex(value))
+        gen.writeEndObject()
     }
 }
