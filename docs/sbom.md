@@ -103,6 +103,28 @@ The scans also consume our own VEX document, so a finding already assessed as
 `not_affected` does not fail the gate a second time — see
 [VEX: recorded assessments](#vex-recorded-assessments).
 
+### Daily CVE watch
+
+The SBOM scans only see the Java and npm dependencies of `main`. Customers run released
+images, and those also carry operating-system packages from the base image: CVE-2026-111497
+was reported to us against the image's `libbrotli1`, which no SBOM scan could have flagged.
+
+So the daily `Security Scan` workflow also runs Trivy against the published image of every
+supported release line (the latest patch of the two newest minor lines, per
+[`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md)), production and `-demo`, with our VEX applied.
+[`scripts/cve_watch.py`](../scripts/cve_watch.py) then opens one issue labelled `cve-watch`
+for every HIGH or CRITICAL vulnerability that has never had one. Because the Trivy database
+updates daily, a CVE disclosed today against an image we shipped last month is filed tomorrow.
+
+The watch establishes presence, not exploitability. Each issue is triaged with the procedure
+below. Closing the issue is the decision, and the watch never re-files a closed one. Suppress a
+`not_affected` finding with a `kind: dependency` record, so the VEX keeps it out of later scans
+and out of customers' scanners.
+
+To try it locally: `python3 scripts/cve_watch.py supported-images --repository
+epistola-app/epistola-suite`, scan an image with `trivy image --format json`, then
+`python3 scripts/cve_watch.py triage <report.json> --repository epistola-app/epistola-suite --dry-run`.
+
 ### Local Scanning
 
 #### Trivy
