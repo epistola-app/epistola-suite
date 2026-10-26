@@ -79,7 +79,7 @@ class CatalogFingerprintService(
      * it leaves out what wire v8 added to a resource, so nothing that tells resources apart compares
      * it. That is [resourceFingerprints].
      */
-    fun perResourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.perResourceFingerprints(content.resourceDetails) { contentPath -> content.assetContents[contentPath] }
+    fun perResourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.perResourceFingerprints(content.resourceDetails, hasAsset = content.assetContents::containsKey) { contentPath -> content.assetContents[contentPath] }
 
     /**
      * What tells two states of a resource apart, keyed `"type/key"`: the complete per-resource
