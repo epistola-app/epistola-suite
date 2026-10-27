@@ -667,19 +667,12 @@ class ImportCatalogZipHandler(
                 return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true, catalog = catalog)
             }
             analyzer.removeStale(catalog, staleBefore)
-            // Moves the next version to the release (the database's trigger on installed_release_version).
-            rows.updateInstalledState(
-                catalog,
-                manifest.release.version,
-                manifest.release.fingerprint,
-                fingerprints.storeBaseline(sourceResourceFingerprints(manifest, entries)),
-                manifest.catalog.name,
-                manifest.catalog.description,
-                catalogMetadataJson,
-            )
+            rows.updateReceived(catalog, manifest.catalog.name, manifest.catalog.description, catalogMetadataJson)
             jdbi.useHandle<Exception> { dependencyStore.replace(it, catalog, declared) }
             rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
             markReady(catalog, manifest.resources)
+            // Recorded first, then the next version moves to it: the installed release is the one the
+            // next version is based on (ADR 0036, `catalog_installed_releases`).
             RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
         } else if (!anyFailed) {
             if (!command.intoDraft) {
@@ -750,23 +743,6 @@ class ImportCatalogZipHandler(
                 readyMarks.resourceId(handle, catalog, entry.type, entry.key)
                     ?.let { readyMarks.mark(handle, catalog.tenantKey, it) }
             }
-        }
-    }
-
-    /**
-     * The received release's per-resource baseline from the ZIP bytes, by the same function as a URL
-     * source's ([app.epistola.suite.catalog.CatalogFingerprintService.resourceFingerprintsFromSource],
-     * the complete form), keyed `"$type/$key"`, asset bytes folded in.
-     */
-    private fun sourceResourceFingerprints(
-        manifest: CatalogManifest,
-        entries: Map<String, ByteArray>,
-    ): Map<String, String> {
-        val detailBytesByKey = manifest.resources.mapNotNull { entry ->
-            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.key}" to it }
-        }.toMap()
-        return fingerprints.resourceFingerprints(detailBytesByKey) { contentUrl ->
-            entries[contentUrl.removePrefix("./")]
         }
     }
 }

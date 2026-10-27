@@ -6,8 +6,6 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
-import app.epistola.suite.catalog.CatalogContentBuilder
-import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
@@ -52,12 +50,6 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
-
-    @Autowired
-    private lateinit var fingerprints: CatalogFingerprintService
-
-    @Autowired
-    private lateinit var contentBuilder: CatalogContentBuilder
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -144,8 +136,11 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
+            // Its next release: one number names one release.
             rewriteJson(tmp.resolve("catalog.json")) { manifest ->
+                (manifest.get("release") as ObjectNode).put("version", "1.1.0")
                 (manifest.get("catalog") as ObjectNode)
                     .put("name", "Publisher Renamed Catalog")
                     .set("keywords", objectMapper.createArrayNode().add("new-keyword"))
@@ -189,7 +184,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a baseline stored before baselines named their function is recomputed, and the upgrade stores it anew`(@TempDir tmp: Path) {
+    fun `the installed release is compared with the source as the incoming one is, and an upgrade leaves nothing to preview`(@TempDir tmp: Path) {
         val sourceUrl = copyFixture(tmp)
         val tenant = createTenant("Preview Legacy Baseline")
 
@@ -197,14 +192,6 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
         }
-        // What register stored before baselines named their function: a flat map of V3 values. No
-        // command writes that form any more, so it is put in place directly.
-        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(testCatalog(tenant.id, depKey)))) }
-        jdbi.useHandle<Exception> { h ->
-            h.createUpdate("UPDATE catalogs SET installed_resource_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND catalog_key = :c")
-                .bind("f", legacy).bind("t", tenant.id).bind("c", depKey).execute()
-        }
-
         withMediator {
             // The source still serves the installed release: nothing changed.
             assertThat(PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query().hasChanges).isFalse()
@@ -231,7 +218,6 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             UpgradeCatalog(testCatalog(tenant.id, depKey)).execute()
             val upgraded = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
             assertThat(upgraded.installedReleaseVersion).isEqualTo("1.1.0")
-            assertThat(fingerprints.readBaseline(upgraded.installedResourceFingerprints)).isNotNull()
             assertThat(PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query().hasChanges).isFalse()
         }
     }

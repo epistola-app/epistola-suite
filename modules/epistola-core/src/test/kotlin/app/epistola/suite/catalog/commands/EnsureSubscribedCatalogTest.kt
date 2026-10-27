@@ -59,9 +59,6 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
         // its content is the bundle's, ADR 0034).
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
-                "UPDATE catalogs SET installed_fingerprint = 'stale' WHERE tenant_key = :t AND catalog_key = 'epistola-demo'",
-            ).bind("t", tenant.id).execute()
-            handle.createUpdate(
                 """
                 UPDATE catalog_versions r SET fingerprint = :f, content_hash = :f FROM catalogs c
                 WHERE r.state = 'released' AND c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = 'epistola-demo'

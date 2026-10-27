@@ -90,16 +90,13 @@ class CatalogImportRows(
     }
 
     /**
-     * Advances the install pointer from a received archive — the same `installed_*` state a URL
-     * [RegisterCatalog]/[UpgradeCatalog] records, so the upgrade preview / drift detection work
-     * identically; the database moves the next version to it. Run last, only on a fully
-     * successful import.
+     * The catalog as a received release describes it: its name, description and metadata, its
+     * content changed now. The release it received is the installed one once it is recorded
+     * ([RecordInstalledRelease] moves the next version to it). Run last, only on a fully successful
+     * import.
      */
-    fun updateInstalledState(
+    fun updateReceived(
         catalog: CatalogId,
-        version: String,
-        fingerprint: String?,
-        resourceFingerprintsJson: String,
         name: String,
         description: String?,
         catalogMetadataJson: String,
@@ -108,18 +105,13 @@ class CatalogImportRows(
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
-                    installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
+                SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
+                    content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
                 """,
             )
                 .bind("t", catalog.tenantKey)
                 .bindCatalog("c", catalog)
-                .bind("version", version)
-                .bind("fingerprint", fingerprint)
-                .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("name", name)
                 .bind("description", description)
                 .bind("catalogMetadata", catalogMetadataJson)

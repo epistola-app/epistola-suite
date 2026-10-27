@@ -121,16 +121,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         val tenant = createTenant("SysUpgrade")
 
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE catalogs
-                SET installed_release_version = '0', installed_fingerprint = 'stale-fingerprint'
-                WHERE tenant_key = :tenantKey AND catalog_key = 'system'
-                """,
-            )
-                .bind("tenantKey", tenant.id)
-                .execute()
-            // Nor does it hold the bundled release: received, it is a release like any other.
+            // It holds no bundled release, so it has none installed (catalog_installed_releases).
             handle.createUpdate(
                 """
                 DELETE FROM catalog_versions v USING catalogs c

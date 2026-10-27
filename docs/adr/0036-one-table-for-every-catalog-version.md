@@ -77,7 +77,10 @@ Invariants, as `CHECK`s:
   `is_next`. A trigger or a deferred check keeps it a draft of the same catalog.
 - `released_version`, `released_fingerprint`, `released_at` and `installed_release_version` go.
   "The catalog's current release" becomes a query over its released rows (the highest number), in
-  one view, so it cannot drift.
+  one view, so it cannot drift. So does the release it installed (`catalog_installed_releases`):
+  the nearest received release its next version descends from. Receiving records the release, then
+  moves the next version to it; `installed_fingerprint`, `installed_resource_fingerprints` and
+  `installed_at` go with the pointer.
 
 ### 3. `release_resources`: keyed by the version row only
 

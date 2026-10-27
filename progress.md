@@ -2486,4 +2486,18 @@ cannot clear a default theme through generated clients (null and omitted are the
   aborted receive now rolls back every resource it wrote (a savepoint), for archives as for sources.
   Gap noted, not fixed: the contract validator checks no variant attribute keys nor a legacy
   `assetId` image prop, which only the old URL core's `DependencyResolver` walk caught.
-- **Open: `catalogs.installed_*` as a view** (finding 2).
+- **Done: `catalogs.installed_*` as a view** (finding 2, `V20261027100000`). Receiving records the
+  release, then `RecordInstalledRelease` moves the next version to it (base, base id, merges
+  cleared, a stale baseline forgotten); the trigger `catalog_installed_version` is replaced by one
+  that opens the next version on no release. `catalog_installed_releases` walks the next version's
+  base chain to the nearest received release, so a release cut here keeps the installed one (as the
+  old pointer did). The 1.x installed release and fingerprint reach the runner through
+  `catalog_upgrade_queue` (2.0 migration `V20261018201400` edited in place); its fingerprint is never
+  adopted, and a release received since (the system catalog at boot) wins. `RegisterCatalog` no
+  longer fetches the whole source for a stored baseline, nor writes the release's declarations (on a
+  next version based on no release they counted as changes of its own); the preview compares the
+  installed release's retained content, the source only when that is not kept. Occurrences in main
+  Kotlin: 12 in 9 files (3 writers) → 3 in 2 files (the view's aliases, the queue column). Tests:
+  `UpgradeCatalogTest` (second fast-forward, local release keeps installed), `InstalledReleaseRecordTest`
+  (queued fingerprint not adopted, received since wins). Dev databases from earlier 2.0 builds need
+  a rebuild.

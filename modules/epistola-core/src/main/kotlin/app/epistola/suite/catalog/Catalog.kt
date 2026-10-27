@@ -29,17 +29,12 @@ data class Catalog(
     val sourceAuthType: AuthType = AuthType.NONE,
     /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
     val sourceAuthCredential: Secret? = null,
+    /**
+     * The release it installed: the one its next version is based on, if received from its publisher
+     * (`catalog_installed_releases`, ADR 0036). Null for a catalog that never received a release.
+     */
     val installedReleaseVersion: String? = null,
     val installedFingerprint: String? = null,
-    /**
-     * Per-resource source-side digests of the installed release as stored, captured from the source
-     * at register/upgrade: a baseline naming its function (`{"algorithm", "entries"}`), read with
-     * [CatalogFingerprintService.readBaseline], which counts one stored before baselines named theirs
-     * (a flat V3 map) as none. The source-vs-source baseline for
-     * [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]. Never
-     * publisher-authored; null for a catalog that never received a release.
-     */
-    @Json val installedResourceFingerprints: tools.jackson.databind.JsonNode? = null,
     @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
     val installedAt: OffsetDateTime? = null,
     val releasedVersion: String? = null,

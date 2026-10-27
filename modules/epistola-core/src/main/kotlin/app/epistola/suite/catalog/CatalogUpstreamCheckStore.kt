@@ -48,10 +48,10 @@ class CatalogUpstreamCheckStore(
         handle.createQuery(
             """
             SELECT COUNT(*) FROM catalog_upstream_checks u
-            JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
+            LEFT JOIN catalog_installed_releases ir ON ir.tenant_key = u.tenant_key AND ir.catalog_id = u.catalog_id
             WHERE u.tenant_key = :t
               AND u.available_release_version IS NOT NULL
-              AND u.available_release_version IS DISTINCT FROM c.installed_release_version
+              AND u.available_release_version IS DISTINCT FROM ir.version
             """,
         ).bind("t", tenantKey).mapTo(Int::class.java).one()
     }

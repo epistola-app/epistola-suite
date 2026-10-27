@@ -138,24 +138,22 @@ follow-up for RC3 stencil draft markers.
 
 ### `catalogs`
 
-| Field                       | Type              | Description                                    |
-| --------------------------- | ----------------- | ---------------------------------------------- |
-| `id`                        | CatalogKey (slug) | URL-safe slug. Unique per tenant.              |
-| `tenant_key`                | TenantKey         | Owning tenant.                                 |
-| `name`                      | varchar(255)      | Display name.                                  |
-| `description`               | text, nullable    | Optional description.                          |
-| `type`                      | varchar(20)       | Unused since ADR 0032; defaults to `AUTHORED`. |
-| `source_url`                | text, nullable    | Where releases come from; null for none.       |
-| `source_auth_type`          | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                |
-| `source_auth_credential`    | text, nullable    | Credential for authenticated remote catalogs.  |
-| `installed_release_version` | varchar(50)       | Release last received into the next version.   |
-| `installed_fingerprint`     | char(64)          | Its content fingerprint.                       |
-| `installed_at`              | timestamptz       | Last install/upgrade timestamp.                |
-| `next_version_id`           | uuid, nullable    | The next version (ADR 0036).                   |
-| `created_at`                | timestamptz       | Creation timestamp.                            |
-| `updated_at`                | timestamptz       | Last modification timestamp.                   |
+| Field                    | Type              | Description                                    |
+| ------------------------ | ----------------- | ---------------------------------------------- |
+| `id`                     | CatalogKey (slug) | URL-safe slug. Unique per tenant.              |
+| `tenant_key`             | TenantKey         | Owning tenant.                                 |
+| `name`                   | varchar(255)      | Display name.                                  |
+| `description`            | text, nullable    | Optional description.                          |
+| `type`                   | varchar(20)       | Unused since ADR 0032; defaults to `AUTHORED`. |
+| `source_url`             | text, nullable    | Where releases come from; null for none.       |
+| `source_auth_type`       | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                |
+| `source_auth_credential` | text, nullable    | Credential for authenticated remote catalogs.  |
+| `next_version_id`        | uuid, nullable    | The next version (ADR 0036).                   |
+| `created_at`             | timestamptz       | Creation timestamp.                            |
+| `updated_at`             | timestamptz       | Last modification timestamp.                   |
 
-Primary key: `(tenant_key, id)`.
+Primary key: `(tenant_key, id)`. The release it installed is a view, `catalog_installed_releases`:
+the nearest received release its next version descends from (ADR 0036).
 
 ### Releases (`catalog_versions`, released rows)
 

@@ -28,8 +28,8 @@ import org.springframework.stereotype.Component
  * does one cheap version-comparison query each. The work only kicks in
  * when the bundled manifest's `release.version` has been bumped since
  * the last deploy: the installer then dispatches `UpgradeCatalog`, which
- * re-installs the system catalog's resources at the new version and
- * advances `installed_release_version`.
+ * receives the system catalog's release at the new version, which its
+ * next version then moves to.
  *
  * Ordered after `DemoLoader` so the demo tenant (created on boot when
  * `epistola.demo.enabled=true`) is also picked up on the same pass.

@@ -59,12 +59,13 @@ class CatalogUpgradeQueueMigrationTest {
             val queued = connection.createStatement().use { st ->
                 st.executeQuery(
                     """
-                    SELECT c.catalog_key FROM catalog_upgrade_queue q
+                    SELECT c.catalog_key, q.installed_version FROM catalog_upgrade_queue q
                     JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
                     """,
-                ).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
+                ).use { rs -> buildList { while (rs.next()) add(rs.getString(1) to rs.getString(2)) } }
             }
-            assertThat(queued).containsExactlyInAnyOrder("default", "letters", "forms")
+            // A subscribed one carries its installed release to the runner, which records it.
+            assertThat(queued).containsExactlyInAnyOrder("default" to null, "letters" to null, "forms" to "3.1.0")
         }
     }
 

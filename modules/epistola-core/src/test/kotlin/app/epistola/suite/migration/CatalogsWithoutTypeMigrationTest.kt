@@ -52,7 +52,8 @@ class CatalogsWithoutTypeMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the migration that replaced this trigger (core_installed_release_view).
+        flyway(UNTIL).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun nextVersions() = connection.rows(
@@ -91,6 +92,9 @@ class CatalogsWithoutTypeMigrationTest {
     }
 
     private companion object {
+        /** The last migration whose trigger moved the next version with `installed_release_version`. */
+        const val UNTIL = "20261026203611"
+
         /** The migration before `core_catalogs_without_type`. */
         const val BEFORE = "20261021063432"
     }

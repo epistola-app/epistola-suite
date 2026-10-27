@@ -73,19 +73,6 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
     @AfterEach
     fun stop() = server.stop(0)
 
-    @Test
-    fun `a manifest whose image content is a local file is refused at registration`() {
-        imageContentUrl = "file:///etc/passwd"
-        val tenant = createTenant("Outbound File")
-
-        withMediator {
-            assertThatThrownBy {
-                RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
-            }.hasMessageContaining("may only name paths relative to its manifest")
-            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).doesNotContain(CATALOG_SLUG)
-        }
-    }
-
     // From wire v8 a resource detail may only name its content by a path relative to the manifest,
     // so a detail that turns into an absolute or non-http location is refused by the wire format
     // itself: the whole install is rejected, as any detail that fails the wire gate is.

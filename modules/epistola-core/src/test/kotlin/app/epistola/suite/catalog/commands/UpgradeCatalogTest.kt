@@ -153,6 +153,54 @@ class UpgradeCatalogTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `each upgrade without changes of its own moves the next version on, measured from the release before`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Twice Test")
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
+            publish(source, tmp.resolve("next"))
+            UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("after"), "1.2.0") { dir ->
+                drop(dir, "template", "no-deps")
+                drop(dir, "template", "full-deps")
+            }
+            publish(source, tmp.resolve("after"))
+
+            // What 1.1.0 removed is not a change of the next version's own: its baseline is 1.1.0's.
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+
+            assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "full-deps"))
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.2.0")
+        }
+    }
+
+    @Test
+    fun `a release cut here keeps the installed release it descends from`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Local Release Test")
+        val depKey = CatalogKey.of("dep-test")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(tmp.resolve("source"), "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            CatalogImportContext.runAsImport {
+                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey)), name = "Ours").execute()
+            }
+
+            // Released here in the publisher's namespace, which this tenant is granted.
+            app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant.id, "exchange.epistola.app", "epistola").execute()
+            MarkCatalogReady(testCatalog(tenant.id, depKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, depKey), "1.0.1").execute()
+
+            // Its next version is based on 1.0.1 now, which is based on the release it received.
+            val catalog = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
+            assertThat(catalog.releasedVersion).isEqualTo("1.0.1")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
     fun `an upgrade is refused when a resource the publisher dropped is used by another catalog`(@TempDir tmp: Path) {
         val tenant = createTenant("Upgrade Conflict Test")
         val tenantId = TenantId(tenant.id)

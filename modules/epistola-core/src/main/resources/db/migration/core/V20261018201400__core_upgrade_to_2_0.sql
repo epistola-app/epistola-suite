@@ -22,6 +22,8 @@ CREATE TABLE catalog_upgrade_queue (
     catalog_id UUID       NOT NULL,
     last_error TEXT,
     continues_after VARCHAR(50),
+    installed_version VARCHAR(128),
+    installed_fingerprint VARCHAR(80),
     PRIMARY KEY (tenant_key, catalog_id),
     FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs (tenant_key, catalog_id) ON DELETE CASCADE
 );
@@ -32,9 +34,15 @@ COMMENT ON COLUMN catalog_upgrade_queue.last_error IS
     'Why the last attempt did not finish; the runner tries again.';
 COMMENT ON COLUMN catalog_upgrade_queue.continues_after IS
     'The highest SemVer release of the catalog in 1.x; its first 2.0 release is the patch after it, so numbering does not go back.';
+COMMENT ON COLUMN catalog_upgrade_queue.installed_version IS
+    'A subscribed catalog''s installed release in 1.x, recorded by the runner from the content in place; the release its next version is then based on.';
+COMMENT ON COLUMN catalog_upgrade_queue.installed_fingerprint IS
+    'The fingerprint 1.x recorded for installed_version.';
 
-INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after)
-SELECT c.tenant_key, c.catalog_id, latest.version
+INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after, installed_version, installed_fingerprint)
+SELECT c.tenant_key, c.catalog_id, latest.version,
+       CASE WHEN c.type = 'SUBSCRIBED' THEN c.installed_release_version END,
+       CASE WHEN c.type = 'SUBSCRIBED' THEN c.installed_fingerprint END
 FROM catalogs c
 LEFT JOIN LATERAL (
     SELECT r.version
