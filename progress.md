@@ -2513,3 +2513,26 @@ cannot clear a default theme through generated clients (null and omitted are the
   `UpgradeCatalogTest` (second fast-forward, local release keeps installed), `InstalledReleaseRecordTest`
   (queued fingerprint not adopted, received since wins). Dev databases from earlier 2.0 builds need
   a rebuild.
+- **Done: the 1.x → 2.0 upgrade scenarios** (finding 10). Each seeds a database as the last 1.x
+  release left it and starts the app on it (Flyway with the preflight, then the boot passes), on
+  PostgreSQL 17 and 18:
+
+  | Scenario                                                                        | Test                                                                                                                                                                                                                                |
+  | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | A 1.x database on its last release                                              | `DataPreservationMigrationIT` (RC1 → 1.x → 2.0, PG 17/18), `OneXUpgradeReleasesIT`                                                                                                                                                  |
+  | An unfinished 1.x content backfill                                              | `LegacyContentMigrationTest`                                                                                                                                                                                                        |
+  | That backfill interrupted after one committed batch, resumed                    | `LegacyContentResumeTest` (PG 17/18): 100 of 150 stamped, no failed migration recorded, the rerun moves the rest once                                                                                                               |
+  | Two authored catalogs, one using the other's theme                              | `OneXUpgradeScenariosIT` (PG 17/18 subclasses): a "Published in 1.x" draft only where there is unpublished work, the used catalog declared by name, the release refused naming it until it is released, then pinned to that release |
+  | A catalog subscribed to from a URL whose source names its publisher's namespace | `OneXUpgradeScenariosIT`: received at boot into the tenant's catalog, its next version fast-forwarded                                                                                                                               |
+  | An environment that activated versions in 1.x                                   | `OneXUpgradeScenariosIT`: nothing deployed, an empty deployment log, the activations in `upgrade-1x-history`, `NoReleaseDeployedException` until the released "Published in 1.x" draft is deployed                                  |
+
+  Shown failing when the behaviour is disabled: the subscribed scenario without the boot pass
+  (`ReceiveOneXSubscribedReleases`), the two-catalog scenario without release-time pinning.
+
+- **Fixed, found by the scenarios: a 1.x catalog subscribed to from a URL received its release as a
+  second catalog.** 1.x catalogs had no namespace, so the upgrade named a subscribed one in its
+  tenant's (`V20261018200100`), while a real source names it in its publisher's. The boot pass
+  installed the release under the source's name, a new catalog, and left the tenant's own without a
+  release, retried at every boot. It now takes the registry and namespace the source's manifest gives
+  it first (it has never had a release, so its namespace can still change), with the drafts that
+  declare it; a different key, or a name another catalog already has, fails it, logged and retried.

@@ -63,6 +63,7 @@ class FrozenVersionWriteGuardTest {
             "/catalog/commands/RecordInstalledRelease.kt" to "installs a received release",
             "/catalog/commands/DeleteCatalog.kt" to "deletes a catalog with every version",
             "/catalog/commands/ChangeCatalogNamespace.kt" to "renames what every version names",
+            "/catalog/commands/ReceiveOneXSubscribedReleases.kt" to "renames, as ChangeCatalogNamespace does, what the drafts name of a 1.x catalog taking its source's name",
             "/catalog/commands/CatalogImportRows.kt" to "receives a release into the catalog",
             "/catalog/dependencies/CatalogDependencyStore.kt" to "also records a release's pins (recordRelease, pinDeclarationsOf); its draft writer replace() is guarded",
             "/catalog/revisions/VariantRows.kt" to "also records a release's variant rows (recordRelease); its draft writers are guarded",
