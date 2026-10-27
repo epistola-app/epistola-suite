@@ -6,9 +6,11 @@ package app.epistola.generation.pdf
 
 import app.epistola.catalog.protocol.FontRef
 import com.itextpdf.layout.borders.Border
+import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.properties.UnitValue
+import com.itextpdf.layout.properties.VerticalAlignment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -18,6 +20,21 @@ import kotlin.test.assertTrue
 class StyleApplicatorTest {
 
     private val fontCache = FontCache()
+
+    @Test
+    fun `a data table column's vertical align reaches its cells`() {
+        // The datatable renderer styles each column's cells through applyStylesWithPreset.
+        val cell = Cell()
+        StyleApplicator.applyStylesWithPreset(cell, mapOf("verticalAlign" to "middle"), null, emptyMap(), emptyMap(), fontCache)
+        assertEquals(VerticalAlignment.MIDDLE, cell.getProperty<VerticalAlignment>(Property.VERTICAL_ALIGNMENT))
+    }
+
+    @Test
+    fun `an unknown vertical align is ignored`() {
+        val cell = Cell()
+        StyleApplicator.applyStyles(cell, mapOf("verticalAlign" to "sideways"), null, fontCache)
+        assertEquals(null, cell.getProperty<VerticalAlignment>(Property.VERTICAL_ALIGNMENT))
+    }
 
     // -----------------------------------------------------------------------
     // INHERITABLE_KEYS

@@ -15,6 +15,7 @@ import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
+import com.itextpdf.layout.properties.VerticalAlignment
 import org.slf4j.LoggerFactory
 
 /**
@@ -236,6 +237,17 @@ object StyleApplicator {
             }
         }
 
+        // Min height: the least height of the box; it grows with taller content and never clips.
+        (styles["minHeight"] as? String)?.let { minHeight ->
+            parseSize(minHeight, baseFontSizePt, spacingUnit)?.let { element.setMinHeight(it) }
+        }
+
+        // Vertical align: where the content sits in a box taller than it (a table cell, a column
+        // in a row of equal-height columns, a box with a min height).
+        (styles["verticalAlign"] as? String)?.let { align ->
+            parseVerticalAlign(align)?.let { element.setVerticalAlignment(it) }
+        }
+
         if (selectFont) selectFont(element, styles, fontCache)
 
         // Letter spacing: iText's character spacing, inherited by the paragraphs and text inside.
@@ -448,6 +460,13 @@ object StyleApplicator {
         }
     } catch (_: Exception) {
         null
+    }
+
+    private fun parseVerticalAlign(align: String): VerticalAlignment? = when (align.lowercase()) {
+        "top" -> VerticalAlignment.TOP
+        "middle" -> VerticalAlignment.MIDDLE
+        "bottom" -> VerticalAlignment.BOTTOM
+        else -> null
     }
 
     private fun parseTextAlign(align: String): TextAlignment = when (align.lowercase()) {
