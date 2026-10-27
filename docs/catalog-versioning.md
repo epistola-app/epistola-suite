@@ -111,8 +111,9 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
 - **Receiving a newer release** (an import, an Exchange install, an upgrade from a source) records it
   and, when the next release has no changes of its own, moves the next release to it (a
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
-  others and the next release is behind it, to be merged; an upgrade from a source is refused
-  (`CatalogHasLocalChangesException`), since it would discard them. Changes are its resources and its
+  others and the next release is behind it, to be merged. An upgrade from a source is received the
+  same way: every source installs through `ImportCatalogZip` (contract ADR 0008, "installing is
+  importing"). Changes are its resources and its
   catalog settings (`catalog/defaultTheme`, `catalog/presets` and one `catalogDependency/<catalogKey>`
   per catalog it uses, as a merge compares them), so a next release whose only change is its default theme is not moved along either.
   They are measured against what the next release held when the release was put in place

@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.sources
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogArchiveBuilder
 import app.epistola.suite.catalog.CatalogClient
@@ -18,7 +17,6 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * Where a subscribed catalog's releases come from (contract `listAvailableCatalogReleases`,
@@ -84,21 +82,26 @@ class CatalogReleaseSources(private val sources: List<CatalogReleaseSource>) {
 @Order
 class ManifestUrlReleaseSource(
     private val client: CatalogClient,
-    private val objectMapper: ObjectMapper,
     private val archiveBuilder: CatalogArchiveBuilder,
 ) : CatalogReleaseSource {
     override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl != null
 
     override fun offered(catalog: Catalog): List<String> = listOf(fetch { manifest(catalog) }.release.version)
 
-    override fun archive(catalog: Catalog, version: String): ByteArray = fetch {
+    override fun archive(catalog: Catalog, version: String): ByteArray = released(catalog, version).let { (content, release) -> archiveBuilder.build(content, release) }
+
+    /** Release [version] as its source describes it: its content, fetched, and its release record. */
+    private fun released(catalog: Catalog, version: String): Pair<app.epistola.suite.catalog.CatalogContent, app.epistola.catalog.protocol.ReleaseInfo> = fetch {
         val url = requireNotNull(catalog.sourceUrl)
         val auth = catalog.sourceAuthType
         val credential = catalog.sourceAuthCredential?.value
-        val manifest = manifest(catalog)
+        // Migrated as fetched, as a source of an older wire version is read; the archive is then
+        // checked as any other (ImportCatalogZip), so what the source claims is never taken on trust.
+        val migrated = client.fetchMigratedManifest(url, auth, credential)
+        val manifest = migrated.manifest
         check(manifest.release.version == version) { "${catalog.id.value}'s source offers ${manifest.release.version}, not $version" }
         val bound: Map<String, CatalogResource> = manifest.resources.associate { entry ->
-            "${entry.type}/${entry.key}" to objectMapper.readValue(client.fetchBinaryContent(entry.detailUrl, url, auth, credential), ResourceDetail::class.java).resource
+            "${entry.type}/${entry.key}" to client.fetchResourceDetail(entry.type, entry.detailUrl, url, auth, credential, migrated.catalog).resource
         }
         val binaries = bound.values.flatMap { resource ->
             when (resource) {
@@ -107,9 +110,8 @@ class ManifestUrlReleaseSource(
                 else -> emptyList()
             }
         }.distinct().associateWith { path -> client.fetchBinaryContent(path, url, auth, credential) }
-        val content = publishedContent(manifest, bound, binaries)
         // The release as its source describes it, its id, metadata and base included (wire v8).
-        archiveBuilder.build(content, manifest.release)
+        publishedContent(manifest, bound, binaries) to manifest.release
     }
 
     private fun manifest(catalog: Catalog) = client.fetchManifest(requireNotNull(catalog.sourceUrl), catalog.sourceAuthType, catalog.sourceAuthCredential?.value)

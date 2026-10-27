@@ -216,7 +216,12 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             rewriteJson(tmp.resolve("resources/themes/test-theme.json")) { detail ->
                 (detail.get("resource") as ObjectNode).put("name", "Renamed By Publisher")
             }
-            rewriteJson(tmp.resolve("catalog.json")) { manifest -> (manifest.get("release") as ObjectNode).put("version", "1.1.0") }
+            rewriteJson(tmp.resolve("catalog.json")) { manifest ->
+                (manifest.get("release") as ObjectNode).put("version", "1.1.0")
+                // The manifest's entry says what the detail says (a listing shows it unopened).
+                manifest.get("resources").first { it.get("key").asString() == "no-deps" }.let { (it as ObjectNode).put("description", "Now described") }
+                manifest.get("resources").first { it.get("key").asString() == "test-theme" }.let { (it as ObjectNode).put("name", "Renamed By Publisher") }
+            }
 
             val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
             assertThat(diff.changed).containsExactlyInAnyOrder(UpgradeResourceChange("template", "no-deps"), UpgradeResourceChange("theme", "test-theme"))

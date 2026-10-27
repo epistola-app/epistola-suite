@@ -9,7 +9,9 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -153,9 +155,11 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
             imageContentUrl = contentUrl
 
-            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
-
-            assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED }
+            // Refused whole (a catalog is one install unit): a failed fetch is refused before anything
+            // is written, a resource that fails to install reports FAILED and is rolled back.
+            runCatching { InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute() }
+                .onSuccess { results -> assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED } }
+                .onFailure { refused -> assertThat(refused).isInstanceOfAny(OutboundUrlRejectedException::class.java, CatalogSourceUnavailableException::class.java) }
             assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
         }
     }

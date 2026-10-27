@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -17,6 +18,7 @@ import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -34,7 +36,7 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
     private val demoUrl = "classpath:epistola/catalogs/fixture/catalog.json"
 
     @Test
-    fun `first sight installs, re-run is a no-op, drifted fingerprint upgrades`() {
+    fun `first sight installs, re-run is a no-op, other content under the installed number is refused`() {
         val tenant = createTenant("Ensure Sub")
         val demoKey = CatalogKey.of("epistola-demo")
 
@@ -68,29 +70,29 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
         }
 
         withMediator {
-            // 3. Drifted → UPGRADED
-            val third = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
-            assertThat(third.status).isEqualTo(EnsureCatalogStatus.UPGRADED)
-            assertThat(third.catalogKey).isEqualTo(demoKey)
-            assertThat(third.newVersion).isNotBlank()
+            // 3. Other content under the installed number: one number names one release, so it is
+            //    refused rather than received (a bundle bumps its release.version when it changes).
+            assertThatThrownBy { EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute() }
+                .isInstanceOf(CatalogReleaseTakenException::class.java)
         }
     }
 
     @Test
-    fun `missing resource is installed even when catalog fingerprint is current`() {
+    fun `a resource the next version deleted is its own change, and the installed release keeps it`() {
         val tenant = createTenant("Ensure Missing")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("epistola-demo")
         val templateId = TemplateId(TemplateKey.of("advanced-data-contract"), testCatalog(tenantId, catalogKey))
 
         withMediator {
-            EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
+            val first = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
             val deleted = CatalogImportContext.runAsImport { DeleteDocumentTemplate(templateId).execute() }
             assertThat(deleted).isTrue()
 
             val result = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
-            assertThat(result.status).isEqualTo(EnsureCatalogStatus.UPGRADED)
-            assertThat(ListDocumentTemplates(tenantId).query().map { it.id.value })
+            assertThat(result.status).isEqualTo(EnsureCatalogStatus.ALREADY_CURRENT)
+            assertThat(ListDocumentTemplates(tenantId).query().map { it.id.value }).doesNotContain("advanced-data-contract")
+            assertThat(GetCatalogReleaseDetail(testCatalog(tenantId, catalogKey), first.newVersion).query()!!.resources.map { it.resourceKey })
                 .contains("advanced-data-contract")
         }
     }

@@ -8,8 +8,6 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
-import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
@@ -25,8 +23,8 @@ import org.springframework.stereotype.Component
 /**
  * Idempotently brings a catalog Epistola supplies (identified by its manifest slug at
  * [sourceUrl]) to the bundled/remote content: registers + installs it on first
- * sight, no-ops when the installed content fingerprint and resource set match,
- * and reconciles when either drifted. The single state machine shared by the system
+ * sight, no-ops when the installed release is the one the source offers, and
+ * receives the offered release otherwise, as any import does. The single state machine shared by the system
  * catalog installer ([InstallSystemCatalog][app.epistola.suite.catalog.system.InstallSystemCatalog])
  * and the demo loader — previously duplicated in both.
  *
@@ -59,7 +57,6 @@ data class EnsureSubscribedCatalogResult(
 @Component
 class EnsureSubscribedCatalogHandler(
     private val catalogClient: CatalogClient,
-    private val upgradeAnalyzer: CatalogUpgradeAnalyzer,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<EnsureSubscribedCatalog, EnsureSubscribedCatalogResult> {
@@ -67,8 +64,8 @@ class EnsureSubscribedCatalogHandler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: EnsureSubscribedCatalog): EnsureSubscribedCatalogResult = CatalogImportContext.runAsImport {
-        // The manifest's content fingerprint and complete resource set decide
-        // install / reconcile / no-op (version is for humans).
+        // The release the source offers decides: install it, receive it, or nothing (its content
+        // fingerprint, not its number, says whether it is the installed one).
         val manifest = catalogClient.fetchManifest(command.sourceUrl, command.authType, command.authCredential)
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         val bundledVersion = manifest.release.version
@@ -115,12 +112,9 @@ class EnsureSubscribedCatalogHandler(
             )
             existing.installedReleaseVersion == bundledVersion
         }
-        val installedResources = upgradeAnalyzer.installedResources(catalog)
-        val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.key) in installedResources }
-        val alreadyCurrent = contentCurrent && allResourcesInstalled
-        if (alreadyCurrent) {
-            // Installed before releases were recorded for subscribed catalogs: record it now.
-            RecordInstalledRelease(catalog).execute()
+        // The installed release is the source's: nothing to receive. What the next version changed on
+        // top of it is its own (ADR 0032), kept as an import keeps it.
+        if (contentCurrent) {
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,
@@ -129,7 +123,6 @@ class EnsureSubscribedCatalogHandler(
                 catalog,
             )
         }
-
         val previousVersion = existing.installedReleaseVersion
         val upgrade = UpgradeCatalog(catalog = existing.catalogId).execute()
         if (upgrade.aborted) {

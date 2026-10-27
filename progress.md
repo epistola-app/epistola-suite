@@ -2466,10 +2466,24 @@ cannot clear a default theme through generated clients (null and omitted are the
   `MigrationLauncherIntegrationTest` "…already name the mode, as a devtools restart hands them back",
   which failed before. The Helm Job and init container pass the mode by environment variable, with
   no devtools, and were never affected.
-- **Open, needs a design decision: one install core** (review finding 1) and `catalogs.installed_*`
-  as a view (finding 2). Two things the archive core (`ImportCatalogZip`) does not do today:
-  - the system catalog's manifest declares no fonts: `EnsureSystemFonts` seeds them beside it, and
-    the recorded release includes them, so its fingerprint is not the manifest's;
-  - `UpgradeCatalog` reconciles the whole manifest into the next version (removing what the
-    publisher dropped, with the conflict check and `preserveResourceTypes`), while an import either
-    fast-forwards or records the release beside the next version to be merged.
+- **Done: one install core** (review finding 1). URL, `file:` and `classpath:` sources build the
+  release's archive (`ManifestUrlReleaseSource`, migrated fetches) and `ImportCatalogZip` receives it;
+  `InstallFromCatalog` and `UpgradeCatalog` are thin adapters. Import semantics for upgrades (user
+  decision B): a fast-forward without local changes, recorded beside with them;
+  `CatalogHasLocalChangesException` is gone. `DependencyResolver.requireComplete` now runs for every
+  received archive. Tests: `SourceInstallChecksTest` (tampered binary, wrong fingerprint, missing pin
+  failed on the old core; missing attribute guards the resolver), `UpgradeCatalogTest` on real v1 →
+  v2 sources (drop, conflict, beside, unserved binary). A source's archive is a ZIP, imported as any
+  other: one install path. Writing it deflates the system catalog's 14 MB of faces, which tripled
+  the cost of a tenant's creation; that matters only to tests (a tenant is created rarely in
+  production), so the test infrastructure builds a `classpath:` source's archive once per JVM
+  (`BundledCatalogArchiveCache` in `modules/testing`, bounded, registered as a test-only
+  auto-configuration). `SystemFontBootPerfTest`, ms, base (#1161) → ZIP → ZIP with the test cache:
+  first tenant 1669 → 2270–2419 → 2394–2677 (it builds the archive, once per JVM), second tenant 314
+  → 893–1051 → 421–441 (what is left is reading and checking the archive, as every import does), boot
+  pass 12.7 → 5.1 → 5.3. An in-memory archive handed to the import was tried and taken out: a second
+  entry point to the install core. An
+  aborted receive now rolls back every resource it wrote (a savepoint), for archives as for sources.
+  Gap noted, not fixed: the contract validator checks no variant attribute keys nor a legacy
+  `assetId` image prop, which only the old URL core's `DependencyResolver` walk caught.
+- **Open: `catalogs.installed_*` as a view** (finding 2).

@@ -130,6 +130,16 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             )
                 .bind("tenantKey", tenant.id)
                 .execute()
+            // Nor does it hold the bundled release: received, it is a release like any other.
+            handle.createUpdate(
+                """
+                DELETE FROM catalog_versions v USING catalogs c
+                WHERE v.tenant_key = :tenantKey AND v.state = 'released' AND c.tenant_key = v.tenant_key
+                  AND c.catalog_id = v.catalog_id AND c.catalog_key = 'system'
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .execute()
         }
 
         withMediator {

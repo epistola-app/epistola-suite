@@ -145,7 +145,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
               "schemaVersion": 8,
               "catalog": { "key": "diff-test", "registry": "exchange.epistola.app", "namespace": "tests", "name": "Diff Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "$version", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "$version" },
               "resources": [
                 { "type": "theme", "key": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
                 { "type": "template", "key": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }

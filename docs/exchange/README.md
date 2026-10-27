@@ -383,17 +383,21 @@ Remote catalogs support three authentication types:
 
 ## Import Flow
 
-`InstallFromCatalog` orchestrates the import process:
+A catalog installed from its source URL is received exactly as an archive is (contract ADR 0008,
+"installing is importing"). `InstallFromCatalog` and `UpgradeCatalog` are thin adapters:
 
-1. Fetch catalog metadata from DB (source URL, auth type, credential)
-2. Fetch remote manifest via `CatalogClient.fetchManifest()`
-3. Take **every** resource in the manifest — a catalog is one install unit, and there is no way to ask for a subset (see [#850](https://github.com/epistola-app/epistola-suite/issues/850))
-4. Run `DependencyResolver` over that set: it can add nothing to a complete manifest, but it validates that every same-catalog reference points at a resource the manifest declares
-5. Sort by install order: images, attributes, themes, stencils, templates
-6. For each resource, fetch the detail JSON and call the type-specific importer
-7. Binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
-
-> **Cross-catalog dependencies are not checked on this path.** `ImportCatalogZip` verifies that a manifest's declared `dependencies[]` exist in the target tenant before it writes anything; the URL-subscribed path above does not, so a catalog that depends on another tenant-local catalog installs and fails later at render. Tracked in [#917](https://github.com/epistola-app/epistola-suite/issues/917).
+1. `ManifestUrlReleaseSource` fetches the manifest and every resource detail and binary, migrated
+   from an older wire version as `CatalogClient` reads them, every fetch through `OutboundUrlGuard`.
+   A failed fetch refuses the install before anything is written (a catalog is one install unit,
+   [#850](https://github.com/epistola-app/epistola-suite/issues/850)).
+2. It writes them into the release's archive, a ZIP, with the publisher's release record.
+3. `ImportCatalogZip` receives that archive as any other, through the one path every install takes:
+   the fingerprint is recomputed, every binary is checked against its content hash, the releases it
+   pins must be present, the resources its content refers to must be carried (the contract
+   validator), and it is kept as it says it is or refused.
+4. Without changes of its own the next version moves to it, and what the publisher no longer
+   publishes is removed unless another catalog uses it (`CatalogUpgradeConflictException`). With
+   changes of its own the release is recorded beside the next version, to be merged (ADR 0032).
 
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the catalog it installs into.
 

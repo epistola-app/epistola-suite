@@ -4,56 +4,28 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.protocol.AttributeResource
-import app.epistola.catalog.protocol.CatalogResource
-import app.epistola.catalog.protocol.CodeListResource
-import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.ResourceEntry
-import app.epistola.catalog.protocol.StencilResource
-import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.catalog.protocol.ThemeResource
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.attributes.codelists.model.CodeListEntry
-import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.DependencyResolver
-import app.epistola.suite.catalog.ProtocolMapper
-import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
-import app.epistola.suite.catalog.migrations.CatalogMigrationContext
-import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.sources.ManifestUrlReleaseSource
 import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CodeListKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.commands.ImportFont
-import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Jdbi
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
 
 /**
- * Installs a subscribed catalog from its source URL.
+ * Installs a subscribed catalog's current release from its source URL.
  *
- * A catalog is one install unit: every resource in the manifest is installed, never a subset. A
- * partially installed catalog cannot say what "installed 1.2.0" means -- the version and fingerprint
- * on the catalog row are the publisher's statement about the whole release -- and every rule built
- * on top (a cross-catalog dependency, an upgrade diff) becomes conditional on what the installer
- * happened to pick. A publisher who wants independent adoption publishes more than one catalog.
- * See issue #850.
+ * Installing is importing (contract ADR 0008): the source assembles the release it offers into an
+ * archive ([ManifestUrlReleaseSource]), and [ImportCatalogZip] receives it exactly as an uploaded
+ * archive, a registry or the Exchange is received. So its fingerprint is recomputed, every binary is
+ * checked against its hash, its pins must be present, and it is kept as it says it is or refused.
+ * A catalog is one install unit: all of the release or nothing (issue #850).
  */
 data class InstallFromCatalog(
     val catalog: CatalogId,
@@ -82,300 +54,26 @@ enum class InstallStatus {
 
 @Component
 class InstallFromCatalogHandler(
-    private val jdbi: Jdbi,
-    private val catalogClient: CatalogClient,
-    private val dependencyResolver: DependencyResolver,
-    private val protocolMapper: ProtocolMapper,
-    private val sizeLimits: CatalogSizeLimits,
-    private val installedCatalogCheck: InstalledCatalogCheck,
-    private val receivedReleases: ReceivedReleases,
-    private val references: app.epistola.suite.catalog.CatalogReferences,
-    transactionManager: PlatformTransactionManager,
+    private val source: ManifestUrlReleaseSource,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
-
-    /**
-     * Phase two runs here. The command is [SelfManagedTransaction] because phase one talks HTTP, and
-     * holding a pooled connection across somebody else's server is what that opt-out exists to
-     * avoid; this opens a transaction once the network is done with.
-     */
-    private val installTransaction = TransactionTemplate(transactionManager)
-
-    /**
-     * One resource fetched and held in memory, waiting for the transaction.
-     *
-     * A resource whose fetch failed is staged as a failure rather than thrown: the caller's contract
-     * is a per-resource [InstallResult], and an upgrade reads those to decide it aborted. Only a
-     * wire-version gate failure and an over-budget catalog reject the whole install outright.
-     */
-    private data class StagedResource(
-        val entry: ResourceEntry,
-        val resource: CatalogResource? = null,
-        /** Pre-fetched binary bytes, keyed by the contentUrl they came from. Empty for a
-         *  resource that carries none — an image carries one, a font one per face. */
-        val binaries: Map<String, ByteArray> = emptyMap(),
-        val fetchError: String? = null,
-    )
-
     override fun handle(command: InstallFromCatalog): List<InstallResult> = CatalogImportContext.runAsImport {
-        val catalog = GetCatalog(command.catalog).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
-
-        val sourceUrl = catalog.sourceUrl
-            ?: throw IllegalStateException("Catalog has no source URL: ${command.catalogKey}")
-
-        val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
-        val manifest = migratedManifest.manifest
-        val catalogCtx = migratedManifest.catalog
-        // Kept as it says it is, or refused before anything is fetched or written.
-        receivedReleases.requireKeepable(command.catalog, manifest.release)
-
-        // The whole manifest, always. `DependencyResolver` still runs: it cannot add anything to a
-        // set that is already complete, but it validates that every same-catalog reference points at
-        // a resource the manifest actually declares, which is the check that used to matter when a
-        // subset was installable and still catches a malformed manifest.
-        val resourcesToInstall = dependencyResolver.resolve(
-            manifest.resources,
-            manifest,
-            sourceUrl,
-            catalog.sourceAuthType,
-            catalog.sourceAuthCredential?.value,
-            catalogCtx,
-        )
-
-        // Install in dependency order: assets → attributes → themes → stencils → templates
-        val ordered = resourcesToInstall.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
-
-        // Phase one: fetch everything, holding no database connection. A wire-version gate failure
-        // (too new/old/unknown) rejects the whole install here and surfaces the dedicated operator
-        // remediation, rather than being downgraded to one FAILED resource — matching the manifest
-        // gate above and the ZIP path in ImportCatalogZip.
-        val staged = stage(command, ordered, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, catalogCtx)
-
-        // Phase two: one transaction for the whole catalog. A resource that fails still reports
-        // FAILED to the caller, but the transaction is rolled back, so the install leaves nothing
-        // behind rather than a half-installed catalog nobody chose (#850).
-        val results = installTransaction.execute { status ->
-            val results = staged.map { item ->
-                if (item.fetchError != null) {
-                    return@map InstallResult(type = item.entry.type, slug = item.entry.key, status = InstallStatus.FAILED, errorMessage = item.fetchError)
-                }
-                try {
-                    val installStatus = installResource(command, item, manifest.release.version, manifest.catalogDependencies.orEmpty().map(app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration::of))
-                    InstallResult(type = item.entry.type, slug = item.entry.key, status = installStatus)
-                } catch (e: Exception) {
-                    logger.error("Failed to install {} '{}' from catalog '{}': {}", item.entry.type, item.entry.key, command.catalogKey, e.message, e)
-                    InstallResult(type = item.entry.type, slug = item.entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
-                }
-            }
-            if (results.any { it.status == InstallStatus.FAILED }) {
-                status.setRollbackOnly()
-            } else {
-                installedCatalogCheck.requireValid(command.catalog, fetched = fetchedByHash(staged))
-            }
-            results
-        }
-
-        // The publisher's content as fetched, when the install covered all of it: what the release keeps.
-        val published = staged.takeIf { items -> results.none { it.status == InstallStatus.FAILED } && items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
-            publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
-        }
-        // A fresh install records the publisher's release it just installed, so it can be rendered.
-        // Inside an upgrade the catalog still names the previous version here; the upgrade records
-        // the new release once it has moved the pointer, from the content handed to it here.
-        InstalledContentHandoff.offer(published)
-        if (results.none { it.status == InstallStatus.FAILED } &&
-            catalog.installedReleaseVersion == manifest.release.version
-        ) {
-            RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
-        }
-        results
+        installFromSource(source, command.catalog).results
     }
+}
 
-    /**
-     * Fetches every resource detail, and the bytes of every asset, before anything is written.
-     *
-     * Holding the catalog in memory is what buys atomicity: the alternative is HTTP inside the
-     * transaction, which keeps a pooled connection open across somebody else's server. The ZIP path
-     * already works this way — it holds a whole archive — so the same budget applies, and a catalog
-     * that would not have fitted in an archive does not get in through the URL instead.
-     */
-    private fun stage(
-        command: InstallFromCatalog,
-        ordered: List<ResourceEntry>,
-        sourceUrl: String,
-        authType: AuthType,
-        credential: String?,
-        catalogCtx: CatalogMigrationContext,
-    ): List<StagedResource> {
-        val budget = sizeLimits.maxDecompressedSize.toBytes()
-        var fetched = 0L
-        return ordered.map { entry ->
-            try {
-                val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, authType, credential, catalogCtx)
-                val resource = detail.resource
-                // Every binary the resource carries: an image's own, or one per font face. A face
-                // holds its binary directly from wire v7 rather than naming a separate asset, so
-                // fonts now need fetching here too.
-                val contentUrls = when (resource) {
-                    is ImageResource -> listOf(resource.contentPath())
-                    is FontResource -> resource.variants.map { it.contentPath() }
-                    else -> emptyList()
-                }
-                val binaries = contentUrls.distinct().associateWith {
-                    catalogClient.fetchBinaryContent(it, sourceUrl, authType, credential)
-                }
-                fetched += binaries.values.sumOf { it.size.toLong() }
-                if (fetched > budget) {
-                    throw CatalogTooLargeException(command.catalogKey, fetched, budget)
-                }
-                StagedResource(entry, resource, binaries)
-            } catch (e: CatalogSchemaException) {
-                throw e
-            } catch (e: CatalogTooLargeException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error("Failed to fetch {} '{}' from catalog '{}': {}", entry.type, entry.key, command.catalogKey, e.message, e)
-                StagedResource(entry, fetchError = e.message ?: "could not be fetched from the catalog source")
-            }
-        }
-    }
-
-    /** Every binary [staged] holds, by the hash its resource declares for it. */
-    private fun fetchedByHash(staged: List<StagedResource>): Map<String, ByteArray> = staged.flatMap { item ->
-        when (val resource = item.resource) {
-            is ImageResource -> listOf(resource.contentHash to resource.contentPath())
-            is FontResource -> resource.variants.map { it.contentHash to it.contentPath() }
-            else -> emptyList()
-        }.mapNotNull { (hash, path) -> item.binaries[path]?.let { hash to it } }
-    }.toMap()
-
-    private fun installResource(
-        command: InstallFromCatalog,
-        item: StagedResource,
-        releaseVersion: String,
-        declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>,
-    ): InstallStatus = when (val resource = requireNotNull(item.resource) { "Resource '${item.entry.key}' was not staged" }) {
-        is TemplateResource -> installTemplate(command, resource, releaseVersion, declarations)
-
-        is ThemeResource -> installTheme(command, resource)
-
-        is StencilResource -> installStencil(command, resource)
-
-        is AttributeResource -> installAttribute(command, resource, declarations)
-
-        is ImageResource -> installAsset(
-            command,
-            resource,
-            requireNotNull(item.binaries[resource.contentPath()]) { "Image '${resource.key}' was not staged" },
-        )
-
-        is CodeListResource -> installCodeList(command, resource)
-
-        is FontResource -> installFont(command, resource, item.binaries)
-    }
-
-    private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String, declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>): InstallStatus {
-        val input = templateImportInput(resource, releaseVersion, protocolMapper) { alias -> references.resolveReceived(command.catalog, alias, declarations) }
-
-        val results = ImportTemplates(
-            catalog = command.catalog,
-            templates = listOf(input),
-        ).execute()
-
-        val result = results.first()
-        if (result.status == ImportStatus.FAILED) {
-            throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
-        }
-        return if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
-    }
-
-    private fun installTheme(command: InstallFromCatalog, resource: ThemeResource): InstallStatus = ImportTheme(
-        catalog = command.catalog,
-        slug = resource.key,
-        name = resource.name,
-        description = resource.description,
-        documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
-        pageSettings = resource.pageSettings,
-        blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
-        spacingUnit = resource.spacingUnit,
-    ).execute()
-
-    private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus = ImportStencil(
-        catalog = command.catalog,
-        slug = resource.key,
-        name = resource.name,
-        description = resource.description,
-        tags = resource.tags,
-        content = resource.content,
-        parameterSchema = resource.parameterSchema,
-        readsTemplateData = resource.readsTemplateData,
-    ).execute()
-
-    private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource, declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>): InstallStatus {
-        // A binding's `catalogKey` defaults to the attribute's own catalog —
-        // the typical case is a catalog that authors both the attribute and
-        // the list it binds to. Cross-catalog bindings (e.g. an attribute in
-        // `default` binding to a list in `system`) carry an explicit
-        // catalogKey on the wire.
-        val bindingCatalog = resource.codeListBinding?.let { binding -> references.resolveReceived(command.catalog, binding.catalogKey, declarations) }
-        val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
-        return ImportAttribute(
-            catalog = command.catalog,
-            slug = resource.key,
-            displayName = resource.name,
-            allowedValues = resource.allowedValues,
-            codeListCatalog = bindingCatalog,
-            codeListSlug = bindingSlug,
-        ).execute()
-    }
-
-    private fun installCodeList(command: InstallFromCatalog, resource: CodeListResource): InstallStatus = ImportCodeList(
-        catalog = command.catalog,
-        slug = resource.key,
-        displayName = resource.name,
-        description = resource.description,
-        entries = resource.entries.map { wire ->
-            CodeListEntry(
-                code = wire.code,
-                label = wire.label,
-                sortOrder = wire.sortOrder,
-                hidden = wire.hidden,
-            )
-        },
-    ).execute()
-
-    private fun installFont(
-        command: InstallFromCatalog,
-        resource: FontResource,
-        binaries: Map<String, ByteArray>,
-    ): InstallStatus {
-        // A face carries its own file from wire v7, and it is the font's own binary (ADR 0033).
-        return ImportFont(
-            catalog = command.catalog,
-            slug = resource.key,
-            name = resource.name,
-            kind = resource.kind,
-            variants = resource.variants.map { entry ->
-                ImportFontVariant(entry.weight, entry.italic, entry.mediaType, requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" })
-            },
-        ).execute()
-    }
-
-    private fun installAsset(
-        command: InstallFromCatalog,
-        resource: ImageResource,
-        content: ByteArray,
-    ): InstallStatus = ImportAsset(
-        catalog = command.catalog,
-        id = app.epistola.suite.common.ids.AssetKey.of(resource.key),
-        name = resource.name,
-        mediaType = AssetMediaType.fromMimeType(resource.mediaType),
-        content = content,
-        width = resource.width,
-        height = resource.height,
-    ).execute()
+/**
+ * Receives the release [catalog]'s source URL offers now, through the archive path every other way of
+ * receiving one takes. Without changes of its own the next version moves to it, and what the publisher
+ * no longer publishes goes, subject to the conflict check; with changes, the release is recorded beside
+ * the next version, to be merged (ADR 0032).
+ */
+internal fun installFromSource(source: ManifestUrlReleaseSource, catalog: CatalogId): ImportCatalogZipResult {
+    val existing = GetCatalog(catalog).query()
+        ?: throw IllegalArgumentException("Catalog not found: ${catalog.key.value}")
+    requireNotNull(existing.sourceUrl) { "Catalog has no source URL: ${catalog.key.value}" }
+    val version = source.offered(existing).single()
+    return source.install(existing, version)
 }
 
 /**

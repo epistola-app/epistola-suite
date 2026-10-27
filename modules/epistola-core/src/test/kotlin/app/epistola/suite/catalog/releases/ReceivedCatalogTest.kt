@@ -4,10 +4,10 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.commands.CatalogHasLocalChangesException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -160,18 +160,15 @@ class ReceivedCatalogTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an upgrade from the source is refused while the next version has changes of its own`() {
+    fun `a catalog received from an archive has no source to upgrade from`() {
         val tenant = createTenant("Received Upgrade").id
         withMediator {
             val author = createTenant("Received Upgrade A").id
             val catalog = CatalogKey.of("received-upgrade")
             ImportCatalogZip(tenant, authored(author, catalog)).execute()
-            UpdateTheme(theme(tenant, catalog, "brand"), name = "Brand, ours").execute()
 
             assertThatThrownBy { UpgradeCatalog(testCatalog(tenant, catalog)).execute() }
-                .`as`("refused before its source is asked, so a catalog from an archive shows it too")
-                .isInstanceOf(CatalogHasLocalChangesException::class.java)
-                .hasMessageContaining("theme/brand")
+                .isInstanceOf(CatalogNotUpgradeableException::class.java)
         }
     }
 

@@ -117,11 +117,11 @@ class DependencyResolutionTest : IntegrationTestBase() {
                     catalog = testCatalog(tenant.id, catalog.id),
                 ).execute()
             }
-                .isInstanceOf(InvalidCatalogException::class.java)
-                .hasMessageContaining("image:00000000-0000-0000-0000-missing00001")
-                .hasMessageContaining("stencil:nonexistent-stencil")
-                .hasMessageContaining("theme:nonexistent-theme")
-                .hasMessageContaining("attribute:nonexistent-attr")
+                // Received as any archive is (installing is importing): the validator names the
+                // references it checks, the stencil and the theme.
+                .isInstanceOf(CatalogImportValidationException::class.java)
+                .hasMessageContaining("nonexistent-stencil")
+                .hasMessageContaining("nonexistent-theme")
         }
     }
 }
