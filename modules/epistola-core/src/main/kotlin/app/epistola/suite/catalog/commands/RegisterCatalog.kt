@@ -7,12 +7,9 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
-import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
-import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
-import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
@@ -60,12 +57,10 @@ data class RegisterCatalog(
 class RegisterCatalogHandler(
     private val jdbi: Jdbi,
     private val catalogClient: CatalogClient,
-    private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
     private val guard: OutboundUrlGuard,
     private val properties: CatalogSourceProperties,
     private val identity: CatalogIdentityProperties,
-    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -87,23 +82,12 @@ class RegisterCatalogHandler(
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before insert.
         validateCatalogNameLength(manifest.catalog.name)
 
-        // Source-side per-resource baseline, captured at register exactly like
-        // installed_fingerprint (never publisher-authored), stored naming its function. The upgrade
-        // preview diffs this against the re-fetched source — source-vs-source, so a CHANGED verdict
-        // means the publisher changed that resource.
-        val resourceFingerprintsJson = fingerprintService.storeBaseline(
-            fingerprintService.resourceFingerprintsFromSource(
-                command.sourceUrl,
-                command.authType,
-                command.authCredential,
-            ),
-        )
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
 
         // Its key means the catalog of its own namespace here, beside one of another (ADR 0034, phase 4).
         val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
         return executeOrThrowDuplicate("catalog", catalogKey.value) {
-            register(command, manifest, CatalogId(namespace, catalogKey, TenantId(command.tenantKey)), resourceFingerprintsJson, catalogMetadataJson)
+            register(command, manifest, CatalogId(namespace, catalogKey, TenantId(command.tenantKey)), catalogMetadataJson)
         }
     }
 
@@ -111,14 +95,13 @@ class RegisterCatalogHandler(
         command: RegisterCatalog,
         manifest: app.epistola.catalog.protocol.CatalogManifest,
         catalog: CatalogId,
-        resourceFingerprintsJson: String,
         catalogMetadataJson: String,
     ): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
-        // The database opens the catalog's next version on the release it registers.
+        // The database opens the catalog's next version; it is on no release until one is installed.
         handle.createUpdate(
             """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
-                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, source_url, source_auth_type, source_auth_credential, catalog_metadata, created_at, updated_at)
+                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, :sourceUrl, :authType, :authCredential, :catalogMetadata::jsonb, NOW(), NOW())
                 """,
         )
             .bind("id", catalog.key)
@@ -131,14 +114,10 @@ class RegisterCatalogHandler(
             .bind("sourceUrl", command.sourceUrl)
             .bind("authType", command.authType.name)
             .bind("authCredential", command.authCredential?.let(::Secret))
-            .bind("releaseVersion", manifest.release.version)
-            .bind("fingerprint", manifest.release.fingerprint)
-            .bind("resourceFingerprints", resourceFingerprintsJson)
             .bind("catalogMetadata", catalogMetadataJson)
             .execute()
-        // What the publisher's release declares and was cut with: the mirror renders with it.
-        dependencyStore.replace(handle, catalog, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
-
+        // What its release declares arrives with the release (the install): on no release yet, the next
+        // version would hold them as changes of its own.
         handle.findCatalog(catalog)!!
     }
 }

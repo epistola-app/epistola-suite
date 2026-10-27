@@ -130,9 +130,8 @@ class CatalogFingerprintService(
 
     /**
      * [resourceFingerprints] of a catalog fetched from a source URL, the same fetch loop as
-     * [fingerprintFromSource]. Stored at register and upgrade as the installed release's baseline
-     * (`catalogs.installed_resource_fingerprints`, through [storeBaseline]) and computed again for
-     * the incoming release when previewing an upgrade: source against source, so a CHANGED verdict
+     * [fingerprintFromSource]. Computed for the installed and the incoming release when previewing an
+     * upgrade: source against source, so a CHANGED verdict
      * means the publisher changed that resource, a template's description included.
      */
     fun resourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {

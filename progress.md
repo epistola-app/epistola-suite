@@ -2456,3 +2456,48 @@ parallel work), demo catalog 6.3.0, docs, changelog. Full `test uiTest`: 4635 te
 (`SystemFontsIntegrationTest` set the tenant default theme; now the catalog's) — passes after.
 Contract `feature/v2` `173dfef` (published locally as 2.0.0-SNAPSHOT). Left: the REST draft update
 cannot clear a default theme through generated clients (null and omitted are the same there).
+
+## Review follow-ups (27 October)
+
+- **Done: the migration step under `bootRun`.** `EPISTOLA_MIGRATION_MODE=migrate` or `--migrate`
+  through devtools failed with `migrate,migrate`: the restart calls `main` again with the arguments
+  the migration context got, and the launcher appended the mode once more. `runMigration` now drops
+  its own options from the arguments first. Proven by
+  `MigrationLauncherIntegrationTest` "…already name the mode, as a devtools restart hands them back",
+  which failed before. The Helm Job and init container pass the mode by environment variable, with
+  no devtools, and were never affected.
+- **Done: one install core** (review finding 1). URL, `file:` and `classpath:` sources build the
+  release's archive (`ManifestUrlReleaseSource`, migrated fetches) and `ImportCatalogZip` receives it;
+  `InstallFromCatalog` and `UpgradeCatalog` are thin adapters. Import semantics for upgrades (user
+  decision B): a fast-forward without local changes, recorded beside with them;
+  `CatalogHasLocalChangesException` is gone. `DependencyResolver.requireComplete` now runs for every
+  received archive. Tests: `SourceInstallChecksTest` (tampered binary, wrong fingerprint, missing pin
+  failed on the old core; missing attribute guards the resolver), `UpgradeCatalogTest` on real v1 →
+  v2 sources (drop, conflict, beside, unserved binary). A source's archive is a ZIP, imported as any
+  other: one install path. Writing it deflates the system catalog's 14 MB of faces, which tripled
+  the cost of a tenant's creation; that matters only to tests (a tenant is created rarely in
+  production), so the test infrastructure builds a `classpath:` source's archive once per JVM
+  (`BundledCatalogArchiveCache` in `modules/testing`, bounded, registered as a test-only
+  auto-configuration). `SystemFontBootPerfTest`, ms, base (#1161) → ZIP → ZIP with the test cache:
+  first tenant 1669 → 2270–2419 → 2394–2677 (it builds the archive, once per JVM), second tenant 314
+  → 893–1051 → 421–441 (what is left is reading and checking the archive, as every import does), boot
+  pass 12.7 → 5.1 → 5.3. An in-memory archive handed to the import was tried and taken out: a second
+  entry point to the install core. An
+  aborted receive now rolls back every resource it wrote (a savepoint), for archives as for sources.
+  Gap noted, not fixed: the contract validator checks no variant attribute keys nor a legacy
+  `assetId` image prop, which only the old URL core's `DependencyResolver` walk caught.
+- **Done: `catalogs.installed_*` as a view** (finding 2, `V20261027100000`). Receiving records the
+  release, then `RecordInstalledRelease` moves the next version to it (base, base id, merges
+  cleared, a stale baseline forgotten); the trigger `catalog_installed_version` is replaced by one
+  that opens the next version on no release. `catalog_installed_releases` walks the next version's
+  base chain to the nearest received release, so a release cut here keeps the installed one (as the
+  old pointer did). The 1.x installed release and fingerprint reach the runner through
+  `catalog_upgrade_queue` (2.0 migration `V20261018201400` edited in place); its fingerprint is never
+  adopted, and a release received since (the system catalog at boot) wins. `RegisterCatalog` no
+  longer fetches the whole source for a stored baseline, nor writes the release's declarations (on a
+  next version based on no release they counted as changes of its own); the preview compares the
+  installed release's retained content, the source only when that is not kept. Occurrences in main
+  Kotlin: 12 in 9 files (3 writers) → 3 in 2 files (the view's aliases, the queue column). Tests:
+  `UpgradeCatalogTest` (second fast-forward, local release keeps installed), `InstalledReleaseRecordTest`
+  (queued fingerprint not adopted, received since wins). Dev databases from earlier 2.0 builds need
+  a rebuild.

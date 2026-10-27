@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -39,11 +40,15 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import kotlin.io.path.readText
 import kotlin.io.path.toPath
+import kotlin.io.path.writeText
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 class UpgradeCatalogTest : IntegrationTestBase() {
+
+    private val mapper = tools.jackson.databind.json.JsonMapper.builder().build()
 
     @Test
     fun `upgrade updates installed resources and version`() {
@@ -67,41 +72,6 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             assertThat(result.newVersion).isNotBlank()
             assertThat(result.installResults).isNotEmpty()
             assertThat(result.installResults.filter { it.status == InstallStatus.FAILED }).isEmpty()
-        }
-    }
-
-    @Test
-    fun `upgrade removes stale resources`() {
-        val tenant = createTenant("Upgrade Stale Test")
-        val catalogKey = CatalogKey.of("epistola-demo")
-
-        withMediator {
-            RegisterCatalog(
-                tenantKey = tenant.id,
-                sourceUrl = DEMO_CATALOG_URL,
-                authType = AuthType.NONE,
-            ).execute()
-
-            InstallFromCatalog(
-                catalog = testCatalog(tenant.id, catalogKey),
-            ).execute()
-
-            val staleTemplateId = TemplateId(
-                TemplateKey.of("stale-template"),
-                testCatalog(TenantId(tenant.id), catalogKey),
-            )
-            CatalogImportContext.runAsImport {
-                CreateDocumentTemplate(id = staleTemplateId, name = "Stale").execute()
-            }
-
-            val result = UpgradeCatalog(
-                catalog = testCatalog(tenant.id, catalogKey),
-            ).execute()
-
-            assertThat(result.removedResources).anyMatch { it.slug == "stale-template" }
-
-            val staleTemplate = GetDocumentTemplate(staleTemplateId).query()
-            assertThat(staleTemplate).isNull()
         }
     }
 
@@ -130,188 +100,178 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         }
     }
 
-    @Test
-    fun `upgrade removes stale code lists and fonts`() {
-        val tenant = createTenant("Upgrade All Types Test")
-        val tenantId = TenantId(tenant.id)
-        val catalogKey = CatalogKey.of("epistola-demo")
-
-        withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            ImportCodeList(testCatalog(tenantId, catalogKey), "stale-list", "Stale List").execute()
-            // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "stale-font", "Stale Font", "sans").execute() }
-
-            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-
-            assertThat(result.removedResources)
-                .contains(
-                    app.epistola.suite.catalog.RemovedResource("codeList", "stale-list"),
-                    app.epistola.suite.catalog.RemovedResource("font", "stale-font"),
-                )
-            assertThat(ListCodeLists(tenantId, testCatalog(tenantId, catalogKey)).query().map { it.slug.value }).doesNotContain("stale-list")
-            assertThat(ListFonts(tenantId, testCatalog(tenantId, catalogKey)).query().map { it.slug.value }).doesNotContain("stale-font")
-        }
-    }
-
-    @Test
-    fun `upgrade protects stale code lists and fonts referenced outside their catalog`() {
-        val tenant = createTenant("Upgrade Reference Types Test")
-        val tenantId = TenantId(tenant.id)
-        val catalogKey = CatalogKey.of("epistola-demo")
-        val subscribedCatalog = testCatalog(tenantId, catalogKey)
-
-        withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            ImportCodeList(testCatalog(tenantId, catalogKey), "used-list", "Used List").execute()
-            CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("uses-list"), CatalogId.default(tenantId)),
-                displayName = "Uses List",
-                codeListId = CodeListId(CodeListKey.of("used-list"), subscribedCatalog),
-            ).execute()
-            // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "used-font", "Used Font", "sans").execute() }
-            CreateTheme(
-                id = ThemeId(ThemeKey.of("uses-font"), CatalogId.default(tenantId)),
-                name = "Uses Font",
-                documentStyles = mapOf(
-                    "fontFamily" to mapOf("key" to "used-font", "catalogKey" to "epistola-demo"),
-                ),
-            ).execute()
-
-            assertThatThrownBy {
-                UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            }
-                .isInstanceOf(CatalogUpgradeConflictException::class.java)
-                .hasMessageContaining("Code list 'used-list'")
-                .hasMessageContaining("Font 'used-font'")
-        }
-    }
-
-    @Test
-    fun `upgrade removes stale reference resources with their stale dependents`() {
-        val tenant = createTenant("Upgrade Stale Dependency Test")
-        val tenantId = TenantId(tenant.id)
-        val catalogKey = CatalogKey.of("epistola-demo")
-
-        withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            ImportCodeList(testCatalog(tenantId, catalogKey), "obsolete-list", "Obsolete List").execute()
-            ImportAttribute(
-                catalog = testCatalog(tenantId, catalogKey),
-                slug = "obsolete-attribute",
-                displayName = "Obsolete Attribute",
-                codeListCatalog = testCatalog(testCatalog(tenantId, catalogKey).tenantKey, catalogKey),
-                codeListSlug = CodeListKey.of("obsolete-list"),
-            ).execute()
-            // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "obsolete-font", "Obsolete Font", "sans").execute() }
-            ImportTheme(
-                catalog = testCatalog(tenantId, catalogKey),
-                slug = "obsolete-theme",
-                name = "Obsolete Theme",
-                documentStyles = mapOf(
-                    "fontFamily" to mapOf("key" to "obsolete-font", "catalogKey" to "epistola-demo"),
-                ),
-            ).execute()
-
-            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-
-            assertThat(result.removedResources.map { it.type to it.slug })
-                .contains(
-                    "attribute" to "obsolete-attribute",
-                    "codeList" to "obsolete-list",
-                    "theme" to "obsolete-theme",
-                    "font" to "obsolete-font",
-                )
-        }
-    }
-
-    @Test
-    fun `upgrade is rejected when removing a theme referenced by another catalog`() {
-        val tenant = createTenant("Upgrade Conflict Test")
-        val tenantId = TenantId(tenant.id)
-        val catalogKey = CatalogKey.of("epistola-demo")
-        val defaultCatalogId = testCatalog(tenantId, CatalogKey.DEFAULT)
-
-        withMediator {
-            // Install demo catalog with all resources (includes "corporate" theme)
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-
-            // Create a template in the default catalog that references the demo catalog's theme
-            val templateKey = TestIdHelpers.nextTemplateId()
-            val templateId = TemplateId(templateKey, defaultCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(
-                id = templateId,
-                themeId = app.epistola.suite.common.ids.ThemeKey.of("corporate"),
-                themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
-            ).execute()
-
-            CatalogImportContext.runAsImport {
-                CreateTheme(
-                    id = ThemeId(ThemeKey.of("stale-theme"), testCatalog(tenantId, catalogKey)),
-                    name = "Stale Theme",
-                ).execute()
-            }
-
-            // Point the cross-ref template at the stale theme
-            UpdateDocumentTemplate(
-                id = templateId,
-                themeId = app.epistola.suite.common.ids.ThemeKey.of("stale-theme"),
-                themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
-            ).execute()
-
-            // Upgrade should be rejected because stale-theme is referenced
-            assertThatThrownBy {
-                UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            }
-                .isInstanceOf(CatalogUpgradeConflictException::class.java)
-                .hasMessageContaining("stale-theme")
-                .hasMessageContaining("Cross-Ref Template")
-        }
-    }
-
-    @Test
-    fun `upgrade aborts on failed install — version not bumped, stale not removed`(@TempDir tmp: Path) {
-        // Mutable file:// copy of a self-contained fixture so we can break a
-        // resource between install and upgrade.
+    /** A writable copy of the dependency-test fixture at [dir], released as [version]; [edit] changes it first. */
+    private fun fixture(dir: Path, version: String, edit: (Path) -> Unit = {}): String {
         val src = javaClass.classLoader.getResource("epistola/catalogs/test/dependency-test/catalog.json")!!.toURI().toPath().parent
         Files.walk(src).use { stream ->
             stream.forEach { p ->
-                val target = tmp.resolve(src.relativize(p).toString())
+                val target = dir.resolve(src.relativize(p).toString())
                 if (Files.isDirectory(p)) Files.createDirectories(target) else Files.copy(p, target, StandardCopyOption.REPLACE_EXISTING)
             }
         }
-        val sourceUrl = tmp.resolve("catalog.json").toUri().toString()
-        val tenant = createTenant("Upgrade Abort Test")
+        val manifest = dir.resolve("catalog.json")
+        manifest.writeText(manifest.readText().replace("\"version\": \"1.0.0\"", "\"version\": \"$version\""))
+        edit(dir)
+        return manifest.toUri().toString()
+    }
+
+    /** Drops [key] of [type] from the manifest at [dir]: a release that no longer publishes it. */
+    private fun drop(dir: Path, type: String, key: String) {
+        val manifest = dir.resolve("catalog.json")
+        val json = mapper.readTree(manifest.readText()) as tools.jackson.databind.node.ObjectNode
+        val kept = json.get("resources").filterNot { it.get("type").asString() == type && it.get("key").asString() == key }
+        json.putArray("resources").addAll(kept)
+        manifest.writeText(mapper.writeValueAsString(json))
+    }
+
+    /** Points [dir]'s source at [next]: the catalog's source now offers the release copied there. */
+    private fun publish(dir: Path, next: Path) {
+        Files.walk(next).use { stream ->
+            stream.sorted(Comparator.reverseOrder()).forEach { if (!Files.isDirectory(it)) Files.copy(it, dir.resolve(next.relativize(it).toString()), StandardCopyOption.REPLACE_EXISTING) }
+        }
+    }
+
+    @Test
+    fun `an upgrade to a release that no longer publishes a resource removes it`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Drops Test")
         val depKey = CatalogKey.of("dep-test")
-
+        val source = tmp.resolve("source")
         withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            val install = InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
-            assertThat(install.filter { it.status == InstallStatus.FAILED }).isEmpty()
-            val before = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
-
-            // Break the asset binary so its re-install on upgrade FAILS.
-            Files.delete(tmp.resolve("binaries/test-logo.png"))
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
+            publish(source, tmp.resolve("next"))
 
             val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
-            assertThat(result.aborted).isTrue()
-            assertThat(result.installResults.any { it.status == InstallStatus.FAILED }).isTrue()
-            assertThat(result.removedResources).isEmpty()
+            assertThat(result.aborted).isFalse()
+            assertThat(result.newVersion).isEqualTo("1.1.0")
+            assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "no-deps"))
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNull()
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.1.0")
+        }
+    }
 
-            // Version/fingerprint untouched → next run retries (no silent half-upgrade).
-            val after = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
-            assertThat(after.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
-            assertThat(after.installedFingerprint).isEqualTo(before.installedFingerprint)
-            // Nothing was installed, so the install stamp must not move either.
-            assertThat(after.installedAt).isEqualTo(before.installedAt)
+    @Test
+    fun `each upgrade without changes of its own moves the next version on, measured from the release before`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Twice Test")
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
+            publish(source, tmp.resolve("next"))
+            UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("after"), "1.2.0") { dir ->
+                drop(dir, "template", "no-deps")
+                drop(dir, "template", "full-deps")
+            }
+            publish(source, tmp.resolve("after"))
+
+            // What 1.1.0 removed is not a change of the next version's own: its baseline is 1.1.0's.
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+
+            assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "full-deps"))
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.2.0")
+        }
+    }
+
+    @Test
+    fun `a release cut here keeps the installed release it descends from`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Local Release Test")
+        val depKey = CatalogKey.of("dep-test")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(tmp.resolve("source"), "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            CatalogImportContext.runAsImport {
+                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey)), name = "Ours").execute()
+            }
+
+            // Released here in the publisher's namespace, which this tenant is granted.
+            app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant.id, "exchange.epistola.app", "epistola").execute()
+            MarkCatalogReady(testCatalog(tenant.id, depKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, depKey), "1.0.1").execute()
+
+            // Its next version is based on 1.0.1 now, which is based on the release it received.
+            val catalog = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
+            assertThat(catalog.releasedVersion).isEqualTo("1.0.1")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `an upgrade is refused when a resource the publisher dropped is used by another catalog`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Conflict Test")
+        val tenantId = TenantId(tenant.id)
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            // A template of another catalog renders with the subscribed catalog's theme.
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
+            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template").execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(tenantId, depKey)).execute()
+            // 1.1.0 no longer publishes the theme, nor uses it itself.
+            fixture(tmp.resolve("next"), "1.1.0") { dir ->
+                drop(dir, "theme", "test-theme")
+                val template = dir.resolve("resources/templates/full-deps.json")
+                template.writeText(template.readText().replace(Regex("\"themeRef\": \\{[^}]*\\}"), "\"themeRef\": { \"type\": \"inherit\" }"))
+            }
+            publish(source, tmp.resolve("next"))
+
+            assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
+                .isInstanceOf(CatalogUpgradeConflictException::class.java)
+                .hasMessageContaining("test-theme")
+                .hasMessageContaining("Cross-Ref Template")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `an upgrade of a catalog with changes of its own records the release beside its next version`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Beside Test")
+        val tenantId = TenantId(tenant.id)
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            CatalogImportContext.runAsImport {
+                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey)), name = "Ours").execute()
+            }
+            fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
+            publish(source, tmp.resolve("next"))
+
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+
+            // Received beside the next version, to be merged (ADR 0032): nothing of it is removed.
+            assertThat(result.aborted).isFalse()
+            assertThat(result.removedResources).isEmpty()
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey))).query()!!.name).isEqualTo("Ours")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, depKey)).query().map { it.version }).contains("1.0.0", "1.1.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `an upgrade whose source cannot serve a binary is refused and changes nothing`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Abort Test")
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
+            publish(source, tmp.resolve("next"))
+            Files.delete(source.resolve("binaries/test-logo.png"))
+
+            // A catalog is one install unit: the release is fetched whole before anything is written.
+            assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
+                .isInstanceOfAny(app.epistola.suite.catalog.outbound.OutboundUrlRejectedException::class.java, app.epistola.suite.catalog.sources.CatalogSourceUnavailableException::class.java)
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNotNull()
         }
     }
 }

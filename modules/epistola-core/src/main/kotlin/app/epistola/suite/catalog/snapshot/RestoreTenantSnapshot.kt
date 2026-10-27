@@ -192,8 +192,8 @@ class RestoreTenantSnapshotHandler(
      * What the snapshot says of a catalog's releases beyond their content (schema 3): when and by
      * whom each was released and its notes, the catalog's released and installed releases, and the
      * release its next release is on. Raw SQL: these are the rows' own columns, which no command
-     * sets to a past value; the trigger on `installed_release_version` moves the next version, so
-     * its base is set after.
+     * sets to a past value. The installed release is the one the next version is based on, so the
+     * next version's base is set last.
      */
     private fun restoreReleaseState(tenantKey: TenantKey, entry: SnapshotCatalogEntry) {
         jdbi.useHandle<Exception> { handle ->
@@ -214,17 +214,12 @@ class RestoreTenantSnapshotHandler(
                     .bind("current", entry.version)
                     .execute()
             }
-            entry.installed?.let { installed ->
-                handle.createUpdate(
-                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)",
-                )
-                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", installed.version).bind("f", installed.fingerprint)
-                    .execute()
-            }
-            entry.nextBase?.let { base ->
+            // The installed release is the one the next version is based on (ADR 0036).
+            (entry.nextBase ?: entry.installed?.version)?.let { base ->
                 handle.createUpdate(
                     """
-                    UPDATE catalog_versions SET base_version = :b
+                    UPDATE catalog_versions SET base_version = :b,
+                        base_version_id = (SELECT r.version_id FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND ${isNext("catalog_versions")}
                       AND EXISTS (SELECT 1 FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     """,

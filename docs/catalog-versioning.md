@@ -79,24 +79,24 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **Released here** — the catalog's current release is its highest release cut here, a view over its
   released rows (`catalog_current_releases`, ADR 0036) rather than a pointer kept by hand.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
-  source) records it and, when the next release moves to it, sets `installed_release_version` +
-  `installed_fingerprint`; `installed_resource_fingerprints` (JSONB) records the per-resource
-  source-side digests of that release (the complete form, naming its function), the upgrade-diff
-  baseline for a catalog with a source.
+  source) records it first, then moves the next release to it. The installed release is a view as
+  well (`catalog_installed_releases`, ADR 0036): the nearest received release the next release
+  descends from, through its base and, after a release cut here, that release's base. Its
+  fingerprint is the one the import checked, or computed here, never a publisher's taken as given.
 
 A catalog can carry both pointers: one received from elsewhere and then released here has both.
 Its version is its **highest release**, by number (`Catalog.highestReleaseVersion`). A
 `1.4.0` exported and received elsewhere flows its version and fingerprint through the manifest into
-the receiver's release and `installed_*`, so values stay coherent end to end.
+the receiver's release, so values stay coherent end to end.
 
 ## Who may change a catalog, and what receiving a release does
 
 ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules below.
 
 - **Every catalog has a next release**, the draft its browsable content lives in. The database opens
-  it when the catalog row is inserted, on the release it was inserted with, and moves it when an
-  install changes `installed_release_version` (`V20261021081527`). A received catalog's next release
-  starts on the release it installed (`base_version`); there is no installed copy any more
+  it when the catalog row is inserted, on no release, and receiving a release moves it there
+  (`RecordInstalledRelease`, `V20261027100000`). A received catalog's next release starts on the
+  release it installed (`base_version_id`); there is no installed copy any more
   (`V20261021063432`).
 - **A catalog can be changed** when the installation allows editing
   (`epistola.catalog.editing.enabled`, default `true`) and the suite does not supply it (a
@@ -111,8 +111,9 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
 - **Receiving a newer release** (an import, an Exchange install, an upgrade from a source) records it
   and, when the next release has no changes of its own, moves the next release to it (a
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
-  others and the next release is behind it, to be merged; an upgrade from a source is refused
-  (`CatalogHasLocalChangesException`), since it would discard them. Changes are its resources and its
+  others and the next release is behind it, to be merged. An upgrade from a source is received the
+  same way: every source installs through `ImportCatalogZip` (contract ADR 0008, "installing is
+  importing"). Changes are its resources and its
   catalog settings (`catalog/defaultTheme`, `catalog/presets` and one `catalogDependency/<catalogKey>`
   per catalog it uses, as a merge compares them), so a next release whose only change is its default theme is not moved along either.
   They are measured against what the next release held when the release was put in place
@@ -836,10 +837,8 @@ place (`catalog_versions.base_fingerprints`), else the base's retained content, 
 `release_resources.fingerprint` (V3, stored per release) is not compared any more. A stored baseline
 names the function that computed it (`{"algorithm": "complete-v5", "entries": …}`); one stored before,
 without it, is as good as none. The upgrade diff from a source compares the same way:
-`installed_resource_fingerprints` holds the complete form of the installed release, stored as such a
-baseline at register, upgrade and receiving an archive; one stored before (a flat V3 map) is recomputed
-when previewing — from the source while it still serves the installed release, else from that
-release's retained content — and replaced at the next upgrade.
+the complete form of the installed release is computed when previewing — from the source while it
+still serves the installed release, else from that release's retained content.
 
 Everything wire v8 added to a resource is stored, so it survives being written into a version: a
 template's `description`, a variant's `metadata` (kept as it came; this suite writes none of its
@@ -1185,8 +1184,8 @@ recomputes the fingerprint from classpath content and asserts it equals the
 committed value — the drift gate (analogous to the `pg_dump --schema-only`
 migration check). Editing a bundled resource without regenerating the committed
 fingerprint fails the build. `DemoLoader` and `InstallSystemCatalog` decide
-install/upgrade/no-op by **fingerprint** (`manifest.release.fingerprint` vs
-`catalogs.installed_fingerprint`), logging the SemVer transition for humans.
+install/upgrade/no-op by **fingerprint** (`manifest.release.fingerprint` vs the installed
+release's, `catalog_installed_releases`), logging the SemVer transition for humans.
 
 To regenerate after an intentional change: run the test, paste the reported
 "actual" fingerprint into the catalog's `catalog.json`, and bump
@@ -1205,10 +1204,9 @@ To regenerate after an intentional change: run the test, paste the reported
 
 - **Phase 2 — upgrade diff/preview.** _Backend landed._ The diff for a
   catalog with a source is **source-vs-source**, not snapshot-vs-installed: the
-  per-resource source-side digests are captured into
-  `catalogs.installed_resource_fingerprints` (JSONB) at `RegisterCatalog` /
-  `UpgradeCatalog`, exactly alongside `installed_fingerprint` and with the same
-  provenance (computed from the source manifest, never publisher-authored).
+  per-resource source-side digests of the installed release are computed from
+  the source (never publisher-authored; they were stored in
+  `catalogs.installed_resource_fingerprints` until `V20261027100000`).
   `PreviewCatalogUpgrade` re-fetches the manifest, recomputes the same
   per-resource digests, and classifies every `(type, slug)` as
   ADDED / REMOVED / CHANGED / UNCHANGED — so a CHANGED verdict means the

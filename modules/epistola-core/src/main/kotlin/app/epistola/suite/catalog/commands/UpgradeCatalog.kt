@@ -4,46 +4,34 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.catalog.CatalogClient
-import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
-import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.sources.ManifestUrlReleaseSource
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
- * Upgrades a subscribed catalog by re-fetching from its source URL.
+ * Upgrades a subscribed catalog to the release its source URL offers now.
  *
- * The upgrade is validated before execution: if removing stale resources
- * would break cross-catalog references (themes used by other templates,
- * stencils embedded in other template models, etc.), the entire upgrade
- * is rejected with a [CatalogUpgradeConflictException].
- *
- * An upgrade reconciles the **whole** manifest: resources that are new since the installed release
- * are added, changed ones are updated, and ones the publisher no longer publishes are removed,
- * subject to the conflict check below. There is no selective mode. An upgrade that preserved a
- * locally chosen subset made "installed 1.2.0" mean something different on every installation; a
- * catalog is one install unit (see issue #850 and [InstallFromCatalog]).
+ * Installing is importing (contract ADR 0008): the release goes through [ImportCatalogZip], as one
+ * received any other way. Without changes of its own the next version moves to it: what is new is
+ * added, what changed is updated, and what the publisher no longer publishes is removed, unless it is
+ * still used from another catalog ([CatalogUpgradeConflictException], before anything changes). With
+ * changes of its own, the release is recorded beside the next version, to be merged (ADR 0032).
+ * There is no selective mode: a catalog is one install unit (issue #850).
  */
 data class UpgradeCatalog(
     val catalog: CatalogId,
@@ -79,16 +67,6 @@ class CatalogUpgradeAbortedException(
         failed.joinToString("\n") { "  - ${it.type}/${it.slug}: ${it.errorMessage}" },
 )
 
-/**
- * An upgrade of a catalog whose next version has changes of its own ([changed], `type/key`): moving it
- * to the new release would discard them. Install the release beside the others and merge it instead.
- */
-class CatalogHasLocalChangesException(val catalogKey: CatalogKey, val changed: Set<String>) :
-    RuntimeException(
-        "Catalog '${catalogKey.value}' has changes of its own in its next release (${changed.joinToString()}). " +
-            "Install the new release beside the others, then merge it into the next release.",
-    )
-
 class CatalogUpgradeConflictException(
     val conflicts: List<String>,
 ) : RuntimeException(
@@ -98,15 +76,8 @@ class CatalogUpgradeConflictException(
 
 @Component
 class UpgradeCatalogHandler(
-    private val jdbi: Jdbi,
-    private val catalogClient: CatalogClient,
     private val analyzer: CatalogUpgradeAnalyzer,
-    private val fingerprintService: CatalogFingerprintService,
-    private val objectMapper: ObjectMapper,
-    private val dependencyStore: CatalogDependencyStore,
-    private val importRows: CatalogImportRows,
-    private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
-    private val receivedReleases: ReceivedReleases,
+    private val source: ManifestUrlReleaseSource,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -114,160 +85,30 @@ class UpgradeCatalogHandler(
     override fun handle(command: UpgradeCatalog): UpgradeCatalogResult = CatalogImportContext.runAsImport {
         val catalog = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-
-        // An upgrade moves the next version to the new release, which is right only while it has no
-        // changes of its own (ADR 0032). With changes, the release is received beside the others and
-        // merged instead.
-        val changed = nextVersionChanges.changed(command.catalog)
-        if (changed.isNotEmpty()) throw CatalogHasLocalChangesException(command.catalogKey, changed)
-
-        val sourceUrl = catalog.sourceUrl
-            ?: throw CatalogNotUpgradeableException(
-                command.catalogKey,
-                "only a catalog with a source URL can be upgraded",
-            )
-
+        if (catalog.sourceUrl == null) {
+            throw CatalogNotUpgradeableException(command.catalogKey, "only a catalog with a source URL can be upgraded")
+        }
         val previousVersion = catalog.installedReleaseVersion
-
-        // 1. Fetch manifest (once — reused for install and stale check)
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
-        receivedReleases.requireKeepable(command.catalog, manifest.release)
-
-        // 2. Find which resources are currently installed locally
-        val installedSlugs = analyzer.installedByType(command.catalog)
-
-        // 3. Compute what would be removed
-        val staleResources = analyzer.computeStale(installedSlugs, manifestSlugs)
-
-        // 4. Validate: fail if any stale resource is still referenced
-        if (staleResources.isNotEmpty()) {
-            val conflicts = analyzer.findConflicts(command.catalog, staleResources)
-            if (conflicts.isNotEmpty()) {
-                throw CatalogUpgradeConflictException(conflicts)
-            }
-        }
-
-        // 5. Reconcile the whole manifest. Resources added since the installed release arrive with
-        //    this upgrade rather than waiting to be asked for individually.
-        //    The content it fetched is what the release keeps (step 8).
-        val (installResults, published) = if (manifest.resources.isNotEmpty()) {
-            InstalledContentHandoff.capturing {
-                InstallFromCatalog(
-                    catalog = command.catalog,
-                ).execute()
-            }
+        val before = analyzer.installedResources(command.catalog)
+        val imported = installFromSource(source, command.catalog)
+        val removed = if (imported.aborted) {
+            emptyList()
         } else {
-            emptyList<InstallResult>() to null
+            (before - analyzer.installedResources(command.catalog)).map { RemovedResource(it.type, it.slug) }
         }
-
-        // 5b. Abort before any destructive change if an install FAILED. The
-        //     per-resource try/catch swallows failures into InstallResult, so
-        //     without this an upgrade would still remove stale resources and
-        //     bump the version — a silent, permanent half-upgrade. Leave
-        //     version/fingerprint untouched so the next run retries.
-        val failedInstalls = installResults.filter { it.status == InstallStatus.FAILED }
-        if (failedInstalls.isNotEmpty()) {
-            logger.error(
-                "Catalog '{}' upgrade ABORTED for tenant {} — {} resource(s) failed; not removing stale resources, not bumping version (stays {}): {}",
-                command.catalogKey,
-                command.tenantKey.value,
-                failedInstalls.size,
-                previousVersion,
-                failedInstalls.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
-            )
-            return@runAsImport UpgradeCatalogResult(
-                previousVersion = previousVersion,
-                newVersion = manifest.release.version,
-                installResults = installResults,
-                removedResources = emptyList(),
-                aborted = true,
-            )
-        }
-
-        // 6. Remove stale resources (already validated) — shared definition.
-        val removed = analyzer.removeStale(command.catalog, staleResources)
-
-        // 7. Bump version last — only reached when all installs succeeded.
-        //    Re-capture the source-side per-resource baseline of the release we
-        //    just moved to (same provenance as installed_fingerprint), so the
-        //    next preview diffs against this release, not the old one.
-        val resourceFingerprintsJson = fingerprintService.storeBaseline(
-            fingerprintService.resourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value),
-        )
-        updateCatalogVersion(
-            command.catalog,
-            manifest.release.version,
-            manifest.release.fingerprint,
-            resourceFingerprintsJson,
-            manifest.catalog.name,
-            manifest.catalog.description,
-            objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
-            manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
-        )
-        // The upgraded version's theme settings (contract ADR 0007), as its archive declares them.
-        importRows.updateThemeSettings(command.catalog, manifest.catalog, objectMapper)
-
-        // 8. Record the release moved to, as its archive holds it: rebuilt from the rows the install
-        //    wrote, it would not hash to the content hash its source names it by.
-        RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
-
-        val newVersion = manifest.release.version
-        val installed = installResults.count { it.status == InstallStatus.INSTALLED }
-        val updatedCount = installResults.count { it.status == InstallStatus.UPDATED }
-        val failed = installResults.count { it.status == InstallStatus.FAILED }
         logger.info(
-            "Upgraded catalog '{}': {} -> {}, {} installed, {} updated, {} failed, {} removed",
+            "Upgraded catalog '{}': {} -> {}{}",
             command.catalogKey,
             previousVersion,
-            newVersion,
-            installed,
-            updatedCount,
-            failed,
-            removed.size,
+            imported.releaseVersion,
+            if (imported.aborted) " (aborted)" else ", ${removed.size} removed",
         )
-
         UpgradeCatalogResult(
             previousVersion = previousVersion,
-            newVersion = newVersion,
-            installResults = installResults,
+            newVersion = imported.releaseVersion ?: previousVersion.orEmpty(),
+            installResults = imported.results,
             removedResources = removed,
+            aborted = imported.aborted,
         )
-    }
-
-    private fun updateCatalogVersion(
-        catalog: CatalogId,
-        version: String,
-        fingerprint: String?,
-        resourceFingerprintsJson: String,
-        name: String,
-        description: String?,
-        catalogMetadataJson: String,
-        dependencies: List<CatalogDependencyDeclaration>,
-    ) {
-        // #692: bound the re-fetched manifest name to catalogs.name VARCHAR(255).
-        validateCatalogNameLength(name)
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE catalogs
-                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
-                    installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-                """,
-            )
-                .bind("t", catalog.tenantKey)
-                .bindCatalog("c", catalog)
-                .bind("version", version)
-                .bind("fingerprint", fingerprint)
-                .bind("resourceFingerprints", resourceFingerprintsJson)
-                .bind("name", name)
-                .bind("description", description)
-                .bind("catalogMetadata", catalogMetadataJson)
-                .execute()
-            dependencyStore.replace(handle, catalog, dependencies)
-        }
     }
 }

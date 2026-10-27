@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
+import app.epistola.suite.catalog.commands.RecordedRelease
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
@@ -97,7 +98,7 @@ class CatalogUpgradeRunner(
     override fun handle(task: ClusterScheduledTask) = run()
 
     /** [continuesAfter]: the catalog's highest 1.x release, which the migration recorded before removing it. */
-    private data class Queued(val catalogId: CatalogId, val subscribed: Boolean, val continuesAfter: String?) {
+    private data class Queued(val catalogId: CatalogId, val subscribed: Boolean, val continuesAfter: String?, val installed: RecordedRelease?) {
         val tenantKey: TenantKey get() = catalogId.tenantKey
         val catalogKey: CatalogKey get() = catalogId.key
     }
@@ -138,7 +139,7 @@ class CatalogUpgradeRunner(
     private fun upgrade(catalog: Queued) = SecurityContext.runWithPrincipal(SystemUser.principalForTenant(catalog.tenantKey)) {
         if (catalog.subscribed) {
             // Its declarations and content are the publisher's: only the release is missing.
-            RecordInstalledRelease(catalog.catalogId).execute()
+            RecordInstalledRelease(catalog.catalogId, installed = catalog.installed).execute()
                 ?.let { logger.info("Catalog {}/{} recorded its installed release {}", catalog.tenantKey.value, catalog.catalogKey.value, it) }
             return@runWithPrincipal
         }
@@ -179,13 +180,14 @@ class CatalogUpgradeRunner(
     private fun queued(): List<Queued> = jdbi.withHandle<List<Queued>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT q.tenant_key, c.namespace, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed, q.continues_after
+            SELECT q.tenant_key, c.namespace, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed, q.continues_after,
+                   q.installed_version, q.installed_fingerprint
             FROM catalog_upgrade_queue q
             JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
             ORDER BY q.tenant_key, c.catalog_key
             """,
         )
-            .map { rs, _ -> Queued(CatalogId(rs.getString(2), CatalogKey.of(rs.getString(3)), app.epistola.suite.common.ids.TenantId(TenantKey.of(rs.getString(1)))), rs.getBoolean(4), rs.getString(5)) }
+            .map { rs, _ -> Queued(CatalogId(rs.getString(2), CatalogKey.of(rs.getString(3)), app.epistola.suite.common.ids.TenantId(TenantKey.of(rs.getString(1)))), rs.getBoolean(4), rs.getString(5), rs.getString(6)?.let { RecordedRelease(it, rs.getString(7)) }) }
             .list()
     }
 

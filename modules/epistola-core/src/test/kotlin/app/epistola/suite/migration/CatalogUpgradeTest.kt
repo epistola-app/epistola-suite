@@ -92,15 +92,24 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
     /**
      * What the upgrade migration does for every authored catalog of a 1.x installation, recording its
-     * highest 1.x release ([continuesAfter]) before it removes the 1.x releases.
+     * highest 1.x release ([continuesAfter]) before it removes the 1.x releases, and for a subscribed
+     * one its installed release ([installed]), as 1.x recorded it.
      */
-    private fun queue(catalog: CatalogId, continuesAfter: String? = null) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after) VALUES (:t, ${catalogAt("t", "c")}, :after)")
+    private fun queue(catalog: CatalogId, continuesAfter: String? = null, installed: Pair<String, String>? = null) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            "INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after, installed_version, installed_fingerprint) " +
+                "VALUES (:t, ${catalogAt("t", "c")}, :after, :installed, :installedFingerprint)",
+        )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
             .bind("after", continuesAfter)
+            .bind("installed", installed?.first)
+            .bind("installedFingerprint", installed?.second)
             .execute()
     }
+
+    /** What the upgrade migration queues for a catalog subscribed to under 1.x ([subscribedIn1x]). */
+    private fun queueSubscribed(catalog: CatalogId) = queue(catalog, installed = "5.17.4" to "0".repeat(64))
 
     /** As the cluster scheduler runs an install-wide task: a mediator, and no principal. */
     private fun runUpgrade() = MediatorContext.runWithMediator(mediator) { upgrade.run() }
@@ -272,9 +281,9 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     // ── Subscribed catalogs ──
 
     /**
-     * A catalog a tenant subscribed to under 1.x: installed, with the publisher's legacy fingerprint,
-     * and no release recorded, since 1.x kept none. The install is done with today's commands, then
-     * its recorded release is removed and the legacy fingerprint put back, as 1.x left it.
+     * A catalog a tenant subscribed to under 1.x: installed, and no release recorded, since 1.x kept
+     * none. The install is done with today's commands, then its recorded release is removed, as 1.x
+     * left it; its installed release and legacy fingerprint are on the queue ([queueSubscribed]).
      */
     private fun subscribedIn1x(tenant: TenantKey): CatalogId {
         val catalog = testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))
@@ -285,9 +294,9 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog.key)).execute()
-            // A 1.x subscribed catalog: typed so (the suite no longer writes the column), with a legacy fingerprint.
-            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp, type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
-                .bind("fp", "0".repeat(64)).bind("t", tenant).bind("c", catalog.key).execute()
+            // A 1.x subscribed catalog: typed so (the suite no longer writes the column).
+            handle.createUpdate("UPDATE catalogs SET type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
+                .bind("t", tenant).bind("c", catalog.key).execute()
         }
         return catalog
     }
@@ -303,7 +312,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     fun `a subscribed catalog gets its installed release recorded, with a fingerprint that can be pinned`() {
         val subscribed = subscribedIn1x(tenant("upgrade-subscribed"))
         assertThat(releases(subscribed)).isEmpty()
-        queue(subscribed)
+        queueSubscribed(subscribed)
 
         runUpgrade()
 
@@ -326,7 +335,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         published1x("variant", resourceId(letters, "template", "invoice"), VariantKey.INITIAL.value, document("published"))
         // 'epistola-demo' sorts first, but queue the dependent first to be sure the order comes from the rounds.
         queue(letters)
-        queue(subscribed)
+        queueSubscribed(subscribed)
 
         runUpgrade()
 

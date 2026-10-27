@@ -17,9 +17,8 @@ import org.junit.jupiter.api.Test
 private const val FIXTURE_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 /**
- * `catalogs.installed_at` was declared with the original schema, mapped on `Catalog`, and surfaced
- * to AI assistants through the MCP server's `CatalogInfo` — and written by nothing, so every
- * catalog on every installation reported `null`. These pin the three paths that now set it.
+ * `Catalog.installedAt`, surfaced to AI assistants through the MCP server's `CatalogInfo`, is when
+ * the release it installed was received (`catalog_installed_releases`, ADR 0036).
  *
  * The timestamps come from the database clock (`NOW()`), not [app.epistola.suite.clock.EpistolaClock],
  * because they describe when a row was written rather than application time; that is why these
@@ -28,14 +27,16 @@ private const val FIXTURE_CATALOG_URL = "classpath:epistola/catalogs/fixture/cat
 class CatalogInstalledAtTest : IntegrationTestBase() {
 
     @Test
-    fun `registering a subscribed catalog stamps installed_at`() {
+    fun `installing a subscribed catalog stamps installed_at, registering it does not`() {
         val tenant = createTenant("Installed At Register")
+        val catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
+            assertThat(GetCatalog(catalog).query()!!.installedAt).`as`("nothing received yet").isNull()
 
-            val catalog = GetCatalog(testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).query()!!
-            assertThat(catalog.installedAt).isNotNull()
+            InstallFromCatalog(catalog = catalog).execute()
+            assertThat(GetCatalog(catalog).query()!!.installedAt).isNotNull()
         }
     }
 

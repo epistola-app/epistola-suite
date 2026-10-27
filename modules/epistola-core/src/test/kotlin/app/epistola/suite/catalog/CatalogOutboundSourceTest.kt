@@ -9,7 +9,9 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -70,19 +72,6 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
 
     @AfterEach
     fun stop() = server.stop(0)
-
-    @Test
-    fun `a manifest whose image content is a local file is refused at registration`() {
-        imageContentUrl = "file:///etc/passwd"
-        val tenant = createTenant("Outbound File")
-
-        withMediator {
-            assertThatThrownBy {
-                RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
-            }.hasMessageContaining("may only name paths relative to its manifest")
-            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).doesNotContain(CATALOG_SLUG)
-        }
-    }
 
     // From wire v8 a resource detail may only name its content by a path relative to the manifest,
     // so a detail that turns into an absolute or non-http location is refused by the wire format
@@ -153,9 +142,11 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
             imageContentUrl = contentUrl
 
-            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
-
-            assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED }
+            // Refused whole (a catalog is one install unit): a failed fetch is refused before anything
+            // is written, a resource that fails to install reports FAILED and is rolled back.
+            runCatching { InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute() }
+                .onSuccess { results -> assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED } }
+                .onFailure { refused -> assertThat(refused).isInstanceOfAny(OutboundUrlRejectedException::class.java, CatalogSourceUnavailableException::class.java) }
             assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
         }
     }

@@ -113,13 +113,13 @@ class PreviewCatalogUpgradeHandler(
             catalog.sourceAuthCredential?.value,
         )
 
-        // Source-vs-source: the baseline was captured from the source at register/upgrade (same
-        // provenance and the same function as the incoming side), so a CHANGED verdict means the
+        // Publisher against publisher: the installed release is kept as its checked archive held it,
+        // fingerprinted by the same function as the incoming side, so a CHANGED verdict means the
         // publisher changed that resource — never install round-trip noise.
         val installed = installedBaseline(query, catalog, manifest.release, incoming)
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,
-                "no per-resource baseline captured yet — re-register or upgrade it to capture one",
+                "the release it installed is not kept here, and its source now serves another",
             )
 
         fun parse(key: String) = UpgradeResourceChange(
@@ -163,10 +163,9 @@ class PreviewCatalogUpgradeHandler(
     }
 
     /**
-     * The installed release's per-resource baseline, in the function [incoming] was computed with.
-     * A stored one that names another function (a flat V3 map, stored before baselines named theirs)
-     * counts as none and is recomputed: from the source when it still serves the installed release,
-     * else from the installed release's retained content. The next upgrade stores it anew.
+     * The installed release's per-resource baseline, in the function [incoming] was computed with:
+     * of its retained content, else of the source while it still serves that release. Nothing for a
+     * catalog that installed none, so everything it is offered is added.
      */
     private fun installedBaseline(
         query: PreviewCatalogUpgrade,
@@ -174,12 +173,11 @@ class PreviewCatalogUpgradeHandler(
         offered: app.epistola.catalog.protocol.ReleaseInfo,
         incoming: Map<String, String>,
     ): Map<String, String>? {
-        fingerprintService.readBaseline(catalog.installedResourceFingerprints)?.let { return it }
         val sourceServesInstalled = catalog.installedReleaseVersion == offered.version &&
             (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
-        if (sourceServesInstalled) return incoming
-        val version = catalog.installedReleaseVersion ?: return null
+        val version = catalog.installedReleaseVersion ?: return emptyMap()
         return assembler.assemble(query.catalog, version)?.content?.let(fingerprintService::resourceFingerprints)
+            ?: incoming.takeIf { sourceServesInstalled }
     }
 
     /** Whether release [version] the tenant has is the one [fingerprint] names, by content (ADR 0034). */

@@ -46,8 +46,9 @@ import java.time.OffsetDateTime
  * so it is recognisably the publisher's release; only a legacy fingerprint, which names no algorithm,
  * is replaced by the qualified one of the installed content.
  *
- * Idempotent: a release already recorded for the installed version is left alone. Does nothing for
- * a catalog with no installed version (one only released here, ADR 0032), unless [release] names one.
+ * Idempotent: a release already recorded is left alone. Unless it is recorded beside ([release]),
+ * the next version then moves to it: it is what the catalog has installed. Does nothing without a
+ * release to record ([release], [received] or [installed]).
  *
  * `SystemInternal`: dispatched by the install, upgrade and import commands once their own
  * authorization has passed, and by the bundled-catalog bootstrap, which runs as the system.
@@ -74,6 +75,11 @@ data class RecordInstalledRelease(
      * records it now: a new id, the current rendering defaults, no base.
      */
     val received: ReleaseInfo? = null,
+    /**
+     * The installed release of a catalog upgraded from 1.x, by its number and the fingerprint 1.x
+     * recorded: its content is in place in the next version and is rebuilt from it.
+     */
+    val installed: RecordedRelease? = null,
 ) : Command<String?>,
     SystemInternal {
     val tenantKey: TenantKey get() = catalog.tenantKey
@@ -122,9 +128,43 @@ class RecordInstalledReleaseHandler(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * The next version moves to installed release [version]: it is based on it, as of now, and the
+     * merges it carried are done with (ADR 0036). What the catalog has installed is the release its
+     * next version is based on (`catalog_installed_releases`).
+     */
+    private fun advanceNextVersion(catalog: CatalogId, version: String) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_versions n
+            SET base_version = r.version, base_version_id = r.version_id, created_at = NOW()
+            FROM catalogs c, catalog_versions r
+            WHERE c.tenant_key = :t AND c.catalog_id = ${catalogAt("t", "c")} AND n.tenant_key = c.tenant_key AND n.version_id = c.next_version_id
+              AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v AND r.state = 'released'
+            """,
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("v", version).execute()
+        handle.createUpdate(
+            "DELETE FROM catalog_draft_merges m USING catalogs c WHERE c.tenant_key = :t AND c.catalog_id = ${catalogAt("t", "c")} AND m.tenant_key = c.tenant_key AND m.version_id = c.next_version_id",
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).execute()
+    }
+
+    /** Clears the next version's baseline unless it is installed release [version]'s. */
+    private fun forgetBaselineOfAnother(catalog: CatalogId, version: String) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_versions n SET base_fingerprints = NULL
+            FROM catalogs c
+            WHERE c.tenant_key = :t AND c.catalog_id = ${catalogAt("t", "c")} AND n.tenant_key = c.tenant_key AND n.version_id = c.next_version_id
+              AND n.base_version IS DISTINCT FROM :v
+            """,
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("v", version).execute()
+    }
+
     override fun handle(command: RecordInstalledRelease): String? {
         val catalog = GetCatalog(command.catalog).query() ?: return null
-        val version = command.release?.version ?: catalog.installedReleaseVersion ?: return null
+        // A catalog upgraded from 1.x that received a release since (the system catalog at boot) has it installed already.
+        if (command.release == null && command.received == null && catalog.installedReleaseVersion != null) return catalog.installedReleaseVersion
+        val version = command.release?.version ?: command.received?.version ?: command.installed?.version ?: return null
         check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
@@ -140,9 +180,15 @@ class RecordInstalledReleaseHandler(
         // release's, not changes of the next version's own.
         if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(command.catalog, it.catalog, objectMapper) }
         // The installed release is in place in the next version: what it holds now is the baseline
-        // its own changes are measured from (ADR 0032).
-        if (command.release == null) nextVersionChanges.recordBaseline(command.catalog)
-        if (exists) return version
+        // its own changes are measured from (ADR 0032), not what the one it replaces put in place.
+        if (command.release == null) {
+            forgetBaselineOfAnother(command.catalog, version)
+            nextVersionChanges.recordBaseline(command.catalog)
+        }
+        if (exists) {
+            if (command.release == null) advanceNextVersion(command.catalog, version)
+            return version
+        }
         val received = command.received?.takeIf { it.version == version }
         val renderingDefaults = received?.let { receivedReleases.renderingDefaultsVersion(command.catalogKey, it) } ?: RenderingDefaults.CURRENT.version
 
@@ -154,7 +200,9 @@ class RecordInstalledReleaseHandler(
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
         // (contract ADR 0003), so such a release records the qualified fingerprint of what it holds.
-        val publisherFingerprint = if (command.release != null) command.release.fingerprint else catalog.installedFingerprint
+        // Only an archive the import checked carries a fingerprint known to be its content's; content
+        // rebuilt from the rows (an upgrade from 1.x) has its fingerprint computed here.
+        val publisherFingerprint = if (command.published != null) command.release?.fingerprint ?: command.received?.fingerprint else null
         val fingerprint = publisherFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
             ?: fingerprintService.fingerprint(content)
         // Its identity (ADR 0034): a V6 fingerprint is its content hash, verified on receipt; a release
@@ -242,6 +290,7 @@ class RecordInstalledReleaseHandler(
                 .execute()
         }
 
+        if (command.release == null) advanceNextVersion(command.catalog, version)
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }

@@ -109,6 +109,22 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `runMigration returns 0 when its arguments already name the mode, as a devtools restart hands them back`() {
+        // Under devtools (`bootRun`) the restart calls main again with the arguments the migration
+        // context was started with, the mode included; appended once more it read 'migrate,migrate'.
+        val code = MigrationLauncher.runMigration(
+            arrayOf(
+                "--spring.datasource.url=${connectionDetails.jdbcUrl}",
+                "--spring.datasource.username=${connectionDetails.username}",
+                "--spring.datasource.password=${connectionDetails.password}",
+                "--epistola.migration.mode=migrate",
+                "--spring.flyway.clean-disabled=true",
+            ),
+        )
+        assertThat(code).isEqualTo(0)
+    }
+
+    @Test
     fun `runMigration returns 1 when the database is unreachable`() {
         val code = MigrationLauncher.runMigration(
             arrayOf(
