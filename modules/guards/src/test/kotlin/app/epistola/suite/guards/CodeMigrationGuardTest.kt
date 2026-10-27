@@ -22,15 +22,21 @@ import kotlin.test.assertTrue
  *   [FIRST_PINNED_VERSION] on each declares one, `CHECKSUM`, pinned to its source: the CRC32 of the
  *   file with that number written as `0`. Flyway records it, so an installation that ran the
  *   migration refuses to start on an edited one; `checkMigrationVersions` refuses the edit itself.
+ * - **The frozen toolkit** (`db/migration/<module>/frozen/`), the logic the 2.0 upgrade's code
+ *   migrations share, pins every file the same way, and a migration that uses it reports its own
+ *   checksum combined with the toolkit's (`FrozenToolkit.pinned(CHECKSUM)`), so an installation refuses
+ *   an edit of the toolkit too.
  */
 class CodeMigrationGuardTest {
 
-    private val migrations = RepoSources.mainKotlinFiles().filter { "/src/main/kotlin/db/migration/" in RepoSources.relativize(it) }
+    private val sources = RepoSources.mainKotlinFiles().filter { "/src/main/kotlin/db/migration/" in RepoSources.relativize(it) }
+    private val toolkit = sources.filter { "/frozen/" in RepoSources.relativize(it) }
+    private val migrations = sources - toolkit.toSet()
 
     @Test
     fun `a code migration imports only JDBC, Jackson, Flyway, logging and frozen code`() {
         assertTrue(migrations.size >= 4, "Found only ${migrations.size} code migrations — the scan is broken")
-        val violations = migrations.flatMap { path ->
+        val violations = sources.flatMap { path ->
             val source = Files.readString(path)
             val imports = IMPORT.findAll(source).map { it.groupValues[1] }
                 .filterNot { name -> ALLOWED_IMPORTS.any { name.startsWith(it) } || name in FROZEN }
@@ -53,8 +59,26 @@ class CodeMigrationGuardTest {
         for (path in pinned) {
             val source = Files.readString(path)
             val declared = CHECKSUM.find(source)?.groupValues?.get(1)?.toLong()
-            assertTrue(declared != null && "override fun getChecksum(): Int = CHECKSUM" in source, "${RepoSources.relativize(path)} declares no pinned CHECKSUM")
+            val reported = "override fun getChecksum(): Int = CHECKSUM" in source || "override fun getChecksum(): Int = FrozenToolkit.pinned(CHECKSUM)" in source
+            assertTrue(declared != null && reported, "${RepoSources.relativize(path)} declares no pinned CHECKSUM")
             assertEquals(pinnedChecksum(source).toLong(), declared, "${RepoSources.relativize(path)}: CHECKSUM does not match its source")
+            if ("frozen." in source) {
+                assertTrue("FrozenToolkit.pinned(CHECKSUM)" in source, "${RepoSources.relativize(path)} uses the frozen toolkit; its checksum must include it (FrozenToolkit.pinned)")
+            }
+        }
+    }
+
+    @Test
+    fun `every file of the frozen toolkit declares a checksum pinned to its source`() {
+        assertTrue(toolkit.size >= 3, "Found only ${toolkit.size} frozen toolkit files — the scan is broken")
+        for (path in toolkit) {
+            val source = Files.readString(path)
+            val declared = CHECKSUM.find(source)?.groupValues?.get(1)?.toLong()
+            assertTrue(declared != null, "${RepoSources.relativize(path)} declares no pinned CHECKSUM")
+            assertEquals(pinnedChecksum(source).toLong(), declared, "${RepoSources.relativize(path)}: CHECKSUM does not match its source; the toolkit is frozen (ADR 0035)")
+            val parts = Files.readString(toolkit.first { it.name == "FrozenToolkit.kt" })
+            val name = path.name.removeSuffix(".kt")
+            assertTrue(name == "FrozenToolkit" || "$name.CHECKSUM" in parts, "FrozenToolkit.pinned does not include $name")
         }
     }
 
@@ -66,7 +90,7 @@ class CodeMigrationGuardTest {
         val IMPORT = Regex("""(?m)^import\s+([\w.]+)""")
         val CHECKSUM = Regex("""const val CHECKSUM: Int = (-?\d+)""")
 
-        val ALLOWED_IMPORTS = listOf("java.", "javax.", "kotlin.", "org.flywaydb.", "org.slf4j.", "tools.jackson.")
+        val ALLOWED_IMPORTS = listOf("java.", "javax.", "kotlin.", "org.flywaydb.", "org.slf4j.", "tools.jackson.", "db.migration.core.frozen.")
 
         /** Frozen code a migration may call, each with why it is frozen. */
         val FROZEN = mapOf(

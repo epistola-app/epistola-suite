@@ -13,12 +13,11 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * The 2.0 catalog identity migrations (`core_catalog_identity`, `core_catalog_id`) on data shaped
- * like an installation upgrading from before them: every catalog gets its name and an opaque id,
+ * The 2.0 upgrade's catalog identity (step 1) on a 1.x installation: every catalog gets its name and an opaque id,
  * and every row that belonged to a catalog by key belongs to the same catalog by id afterwards.
  *
  * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
- * match the schema as it was before these migrations.
+ * match the schema of 1.x.
  */
 @Tag("integration")
 class CatalogIdentityMigrationTest {
@@ -40,10 +39,9 @@ class CatalogIdentityMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE_IDENTITY).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use(::seed)
-        // Up to the themes table's last schema: what follows moves themes to JSON storage.
-        flyway(BEFORE_THEME_STORAGE).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(rows(connection, "SELECT tenant_key, catalog_key, registry, namespace FROM catalogs ORDER BY 1, 2"))
@@ -61,7 +59,8 @@ class CatalogIdentityMigrationTest {
 
             // Each row reaches the catalog it named by key, now by id.
             val owners = """
-                SELECT 'theme', t.id, c.catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                SELECT 'theme', t.resource_key, c.catalog_key FROM release_resources t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                WHERE t.version_id = c.next_version_id AND t.resource_type = 'theme'
                 UNION ALL
                 SELECT 'resource', r.resource_key, c.catalog_key FROM catalog_resources r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                 ORDER BY 1, 2
@@ -101,10 +100,5 @@ class CatalogIdentityMigrationTest {
             val columns = rs.metaData.columnCount
             buildList { while (rs.next()) add((1..columns).map { rs.getString(it) }) }
         }
-    }
-
-    private companion object {
-        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
-        const val BEFORE_IDENTITY = "20260923150918"
     }
 }

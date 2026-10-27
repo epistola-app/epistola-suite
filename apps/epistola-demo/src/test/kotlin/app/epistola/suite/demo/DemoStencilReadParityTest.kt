@@ -27,7 +27,7 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Every stencil of the demo catalog reads the same from its next version and from the release it was
- * installed as (ADR 0033, step 4), and `V20261025083103` converts each, from its 1.x columns,
+ * installed as (ADR 0033, step 4), and `V20261101000700` converts each, from its 1.x columns,
  * exactly as the suite stores it.
  */
 class DemoStencilReadParityTest : IntegrationTestBase() {

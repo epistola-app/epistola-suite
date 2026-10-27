@@ -5,7 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
-import db.migration.core.V20261025110000__core_legacy_content
+import db.migration.core.frozen.CanonicalJson
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
@@ -15,13 +15,13 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_legacy_content` and `core_drop_content_store` (#742): an installation that upgrades before
- * the 1.x content backfill ran has its remaining blobs moved in the migration step: documents into
- * `document_content`, assets into `asset_content` with their hash stamped, before the fonts are
- * converted, so a face whose bytes were still there joins its font; then the legacy table goes. An asset whose legacy bytes are
- * missing is left as it is, never refused.
+ * The 2.0 upgrade's legacy blobs (step 5, #742): an installation that upgrades before the 1.x content
+ * backfill ran has its remaining blobs moved in the migration step: documents into `document_content`,
+ * files into `asset_content` with their hash stamped, before the fonts and images are converted
+ * (step 6), so a face whose bytes were still there joins its font; then the legacy table goes (step
+ * 14). An asset whose legacy bytes are missing is left as it is, never refused.
  *
- * Seeded with raw SQL on purpose: `content_store` is what no command writes any more.
+ * Seeded with raw SQL on purpose: the 1.x tables and `content_store` are what no command writes any more.
  */
 @Tag("integration")
 class LegacyContentMigrationTest {
@@ -29,7 +29,7 @@ class LegacyContentMigrationTest {
     @Test
     fun `the content hash is SHA-256, lowercase hex`() {
         // FIPS 180-2 test vector.
-        assertThat(V20261025110000__core_legacy_content.sha256Hex("abc".toByteArray())).isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        assertThat(CanonicalJson.sha256Hex("abc".toByteArray())).isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
     }
 
     @Test
@@ -53,20 +53,20 @@ class LegacyContentMigrationTest {
         val secret = "89504e470202"
         val face = "0001000000aa"
 
-        flyway(BEFORE_LEGACY_CONTENT).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.exec(
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name) VALUES ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters');
+                INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED');
 
                 -- Assets the 1.x backfill never reached: no hash, their bytes in content_store, or none.
-                INSERT INTO assets (id, tenant_key, name, media_type, size_bytes, sensitive, catalog_id, version_id)
-                SELECT k, c.tenant_key, k, t, 6, s, c.catalog_id, v.version_id
-                FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next,
-                     (VALUES ('logo', 'image/png', false), ('secret', 'image/png', true), ('lost', 'image/png', false),
-                             ('face', 'font/ttf', false), ('lost-face', 'font/ttf', false)) AS x(k, t, s)
-                WHERE c.catalog_key = 'letters';
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, sensitive)
+                VALUES ('logo', 'acme', 'letters', 'logo', 'image/png', 6, false),
+                       ('secret', 'acme', 'letters', 'secret', 'image/png', 6, true),
+                       ('lost', 'acme', 'letters', 'lost', 'image/png', 6, false),
+                       ('face', 'acme', 'letters', 'face', 'font/ttf', 6, false),
+                       ('lost-face', 'acme', 'letters', 'lost-face', 'font/ttf', 6, false);
                 INSERT INTO content_store (key, content, content_type, size_bytes) VALUES
                     ('assets/acme/logo', '\x$logo'::bytea, 'image/png', 6),
                     ('assets/acme/secret', '\x$secret'::bytea, 'image/png', 6),
@@ -76,19 +76,15 @@ class LegacyContentMigrationTest {
 
                 -- A document whose blob is still in content_store; the second blob's document is gone.
                 SELECT epistola_create_partition('documents'::regclass, DATE '2026-03-01');
-                INSERT INTO document_templates (id, tenant_key, name, catalog_id, version_id)
-                SELECT 'letter', c.tenant_key, 'Letter', c.catalog_id, v.version_id
-                FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next WHERE c.catalog_key = 'letters';
-                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key, filename, size_bytes, created_at, registry, namespace)
-                VALUES ('00000000-0000-0000-0000-000000000001', 'acme', 'letters', 'letter', 'default', 1, 'letter.pdf', 4, TIMESTAMPTZ '2026-03-15 10:00:00+00', 'exchange.epistola.app', 'acme');
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name) VALUES ('letter', 'acme', 'letters', 'Letter');
+                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key, filename, size_bytes, created_at)
+                VALUES ('00000000-0000-0000-0000-000000000001', 'acme', 'letters', 'letter', 'default', 1, 'letter.pdf', 4, TIMESTAMPTZ '2026-03-15 10:00:00+00');
 
                 -- A 1.x font whose faces the backfill never reached: neither a face nor its asset has a
                 -- hash; one face's bytes are still in content_store, the other's 1.x had lost.
-                INSERT INTO fonts (slug, tenant_key, name, kind, catalog_id, version_id)
-                SELECT 'house-sans', c.tenant_key, 'House Sans', 'sans', c.catalog_id, v.version_id
-                FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next WHERE c.catalog_key = 'letters';
-                INSERT INTO font_variants (tenant_key, version_id, font_resource_id, weight, italic, source, asset_resource_id, content_hash)
-                SELECT f.tenant_key, f.version_id, f.resource_id, w, false, 'ASSET', a.resource_id, NULL
+                INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind) VALUES ('house-sans', 'acme', 'letters', 'House Sans', 'sans');
+                INSERT INTO font_variants (tenant_key, font_resource_id, weight, italic, source, asset_resource_id, content_hash)
+                SELECT f.tenant_key, f.resource_id, w, false, 'ASSET', a.resource_id, NULL
                 FROM fonts f, (VALUES (400, 'face'), (700, 'lost-face')) AS x(w, k)
                 JOIN assets a ON a.id = x.k;
                 """.trimIndent(),
@@ -107,7 +103,7 @@ class LegacyContentMigrationTest {
             assertThat(connection.rows("SELECT content_hash FROM asset_content").map { it.single() })
                 .`as`("each moved, once (a sensitive asset's too, one store since step 6)")
                 .containsExactlyInAnyOrder(sha(logo), sha(secret), sha(face))
-            assertThat(connection.rows("SELECT b.binary_hash FROM resource_binaries b JOIN release_resources f ON f.tenant_key = b.tenant_key AND f.content_hash = b.content_hash WHERE f.resource_type = 'font' AND f.resource_key = 'house-sans' AND f.version_id IS NOT NULL").map { it.single() })
+            assertThat(connection.rows("SELECT DISTINCT b.binary_hash FROM resource_binaries b JOIN release_resources f ON f.tenant_key = b.tenant_key AND f.content_hash = b.content_hash WHERE f.resource_type = 'font' AND f.resource_key = 'house-sans'").map { it.single() })
                 .`as`("the font links to its face's bytes").containsExactly(sha(face))
             assertThat(connection.rows("SELECT key FROM document_content").map { it.single() })
                 .`as`("the document's blob moves; the one whose document is gone does not")

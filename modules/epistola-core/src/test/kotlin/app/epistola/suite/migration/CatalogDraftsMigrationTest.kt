@@ -14,11 +14,11 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_catalog_versions` and `core_upgrade_to_2_0` on a 1.x installation: every authored catalog's
- * working copy becomes its next version, unnumbered; its 1.x releases, which kept no content, are
- * removed, and the highest is recorded for the upgrade to number the first release after. A subscribed
- * catalog's content is its installed release. A caller that names no version then means the next
- * version.
+ * The 2.0 upgrade's drafts (steps 2 and 4) on a 1.x installation: every catalog's working copy
+ * becomes its next draft, unnumbered; its 1.x releases, which kept no content, are not kept, and an
+ * authored catalog's draft names the highest as its base, so its first release is numbered after it.
+ * A subscribed catalog's draft names the release it installed. A caller that names no version then
+ * means the next draft.
  *
  * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
  * match the schema of 1.x.
@@ -43,7 +43,7 @@ class CatalogDraftsMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.exec(
                 """
@@ -60,36 +60,26 @@ class CatalogDraftsMigrationTest {
                 """.trimIndent(),
             )
         }
-        // Up to the themes table's last schema: what follows moves themes to JSON storage.
-        flyway(BEFORE_THEME_STORAGE).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val drafts = connection.rows(
-                "SELECT c.catalog_key, v.is_next, v.version, v.base_version, v.name FROM catalog_versions v " +
-                    "JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'draft' ORDER BY c.catalog_key",
+                "SELECT c.catalog_key, v.version_id = c.next_version_id, v.version, v.base_version, v.name FROM catalog_versions v " +
+                    "JOIN catalogs c ON c.catalog_id = v.catalog_id ORDER BY c.catalog_key",
             )
-            assertThat(drafts).`as`("a subscribed catalog's installed copy became its next version on its installed release (ADR 0032)").containsExactly(
+            assertThat(drafts).`as`("one next draft each; 1.10.0 is the highest by SemVer, not by text").containsExactly(
                 listOf("fresh", "t", null, null, null),
                 listOf("mirror", "t", null, "3.1.0", null),
-                listOf("released", "t", null, null, null),
+                listOf("released", "t", null, "1.10.0", null),
                 listOf("waiting", "t", null, null, null),
             )
-            assertThat(connection.rows("SELECT count(*) FROM catalog_releases")).`as`("1.x releases kept no content").containsExactly(listOf("0"))
-            assertThat(connection.rows("SELECT catalog_key, released_version, released_fingerprint, released_at FROM catalogs WHERE released_version IS NOT NULL OR released_fingerprint IS NOT NULL OR released_at IS NOT NULL"))
-                .`as`("no catalog points at a removed release").isEmpty()
-            assertThat(
-                connection.rows(
-                    "SELECT c.catalog_key, q.continues_after FROM catalog_upgrade_queue q JOIN catalogs c ON c.catalog_id = q.catalog_id WHERE c.type = 'AUTHORED' ORDER BY 1",
-                ),
-            ).`as`("1.10.0 is the highest by SemVer, not by text").containsExactly(listOf("fresh", null), listOf("released", "1.10.0"))
-            assertThat(connection.rows("SELECT count(*) FROM catalog_versions WHERE kind <> 'draft' OR version IS NOT NULL"))
-                .`as`("no installed copy is left (ADR 0032)").containsExactly(listOf("0"))
+            assertThat(connection.rows("SELECT CAST(to_regclass('catalog_releases') IS NULL AS TEXT)")).`as`("1.x releases kept no content").containsExactly(listOf("true"))
+            assertThat(connection.rows("SELECT count(*) FROM catalog_versions WHERE state <> 'draft' OR version IS NOT NULL"))
+                .`as`("no release is cut (ADR 0035)").containsExactly(listOf("0"))
 
-            // The working copy's content is in the next version, and that is what a caller naming none means.
-            val next = connection.rows(
-                "SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE c.catalog_key = 'released' AND v.is_next",
-            ).single().single()
-            assertThat(connection.rows("SELECT version_id FROM themes WHERE id = 'brand'")).containsExactly(listOf(next))
+            // The working copy's content is in the next draft, and that is what a caller naming none means.
+            val next = connection.rows("SELECT next_version_id FROM catalogs WHERE catalog_key = 'released'").single().single()
+            assertThat(connection.rows("SELECT version_id FROM release_resources WHERE resource_type = 'theme' AND resource_key = 'brand'")).containsExactly(listOf(next))
             fun current(catalog: String) = connection.rows(
                 "SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.catalog_id = cv.catalog_id WHERE c.catalog_key = '$catalog'",
             ).single().single()
@@ -97,7 +87,7 @@ class CatalogDraftsMigrationTest {
 
             // Parallel work is reached only by targeting it.
             connection.exec(
-                "INSERT INTO catalog_versions (tenant_key, catalog_id, kind, base_version, name) SELECT tenant_key, catalog_id, 'draft', '1.0.0', 'Redesign' FROM catalogs WHERE catalog_key = 'released'",
+                "INSERT INTO catalog_versions (tenant_key, catalog_id, state, base_version, name) SELECT tenant_key, catalog_id, 'draft', '1.0.0', 'Redesign' FROM catalogs WHERE catalog_key = 'released'",
             )
             val parallel = connection.rows("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'").single().single()
             assertThat(current("released")).isEqualTo(next)
@@ -107,13 +97,9 @@ class CatalogDraftsMigrationTest {
             connection.commit()
             connection.autoCommit = true
 
-            // One next version per catalog; a draft has no number; parallel work has a name.
-            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next) SELECT tenant_key, catalog_id, 'draft', TRUE FROM catalogs WHERE catalog_key = 'released'") }
-                .hasMessageContaining("uq_catalog_versions_one_next")
-            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, version, name) SELECT tenant_key, catalog_id, 'draft', '4.0.0', 'Four' FROM catalogs WHERE catalog_key = 'released'") }
-                .hasMessageContaining("chk_catalog_versions_numbered")
-            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind) SELECT tenant_key, catalog_id, 'draft' FROM catalogs WHERE catalog_key = 'released'") }
-                .hasMessageContaining("chk_catalog_versions_long_term_named")
+            // A draft has no number.
+            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, state, version, name) SELECT tenant_key, catalog_id, 'draft', '4.0.0', 'Four' FROM catalogs WHERE catalog_key = 'released'") }
+                .hasMessageContaining("chk_catalog_versions_draft_unnumbered")
         }
     }
 
@@ -125,10 +111,5 @@ class CatalogDraftsMigrationTest {
             val columns = rs.metaData.columnCount
             buildList { while (rs.next()) add((1..columns).map { rs.getString(it) }) }
         }
-    }
-
-    private companion object {
-        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
-        const val BEFORE = "20260923150918"
     }
 }

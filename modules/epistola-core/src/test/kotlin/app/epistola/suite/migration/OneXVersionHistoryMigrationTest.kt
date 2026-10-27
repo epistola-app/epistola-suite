@@ -13,11 +13,10 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_upgrade_to_2_0` on a 1.x installation's versions: each variant's, data contract's and
- * stencil's latest published content is kept for the first release (`catalog_upgrade_published`), the
- * history is summarised in `app_metadata` (`upgrade-1x-history`), and the version tables are dropped.
- * (The load-test module's reference to them is dropped by its own migration; this module's tests do
- * not run it.)
+ * The 2.0 upgrade on a 1.x installation's versions: each variant's, data contract's and stencil's
+ * working copy is the next draft's (steps 7 and 8), the latest published of each the "Published in
+ * 1.x" draft's (step 9), the history is summarised in `app_metadata` (`upgrade-1x-history`, step 11),
+ * and the version tables are dropped (step 14).
  *
  * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
  * match the schema of 1.x.
@@ -42,7 +41,7 @@ class OneXVersionHistoryMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.exec(
                 """
@@ -67,17 +66,30 @@ class OneXVersionHistoryMigrationTest {
                 """.trimIndent(),
             )
         }
-        // To the upgrade migration: what it keeps of what was published, until V20261027112414 drafts it and drops it.
-        flyway(UPGRADE).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            assertThat(connection.rows("SELECT kind, part, payload->'templateModel'->>'marker', payload->'dataModel'->>'marker' FROM catalog_upgrade_published ORDER BY kind"))
-                .`as`("the latest published of each, not an archived one or a draft")
-                .containsExactly(
-                    listOf("contract", "", null, "contract 1"),
-                    listOf("stencil", "", null, null),
-                    listOf("variant", "main", "v2", null),
-                )
+            fun held(draft: String) = connection.rows(
+                """
+                SELECT r.resource_type, r.resource_key,
+                       c.payload -> 'resource' -> 'templateModel' ->> 'marker', c.payload -> 'resource' -> 'dataModel' ->> 'marker'
+                FROM release_resources r
+                JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+                JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id
+                WHERE v.name IS NOT DISTINCT FROM $draft
+                ORDER BY 1, 2
+                """,
+            )
+            assertThat(held("'Published in 1.x'")).`as`("the latest published of each, not an archived one or a draft").containsExactly(
+                listOf("stencil", "header", null, null),
+                listOf("template", "invoice", null, "contract 1"),
+                listOf("variant", "main", "v2", null),
+            )
+            assertThat(held("NULL")).`as`("the next draft holds the working copy").containsExactly(
+                listOf("stencil", "header", null, null),
+                listOf("template", "invoice", null, "contract 2"),
+                listOf("variant", "main", "v3", null),
+            )
 
             fun history(list: String) = connection.rows(
                 "SELECT v->>'version', v->>'status' FROM app_metadata, jsonb_array_elements(value->'$list') v WHERE key = 'upgrade-1x-history' ORDER BY 1",
@@ -121,13 +133,5 @@ class OneXVersionHistoryMigrationTest {
             val columns = rs.metaData.columnCount
             buildList { while (rs.next()) add((1..columns).map { rs.getString(it) }) }
         }
-    }
-
-    private companion object {
-        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
-        const val BEFORE = "20260923150918"
-
-        /** The 2.0 upgrade migration (`core_upgrade_to_2_0`). */
-        const val UPGRADE = "20261018201400"
     }
 }

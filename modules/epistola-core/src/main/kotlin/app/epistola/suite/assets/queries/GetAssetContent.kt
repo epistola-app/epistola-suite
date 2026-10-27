@@ -67,7 +67,7 @@ class GetAssetContentHandler(
             handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog)
         } ?: return null
 
-        // 2. Its bytes, by that hash. An image without one had no bytes to keep (V20261025134500).
+        // 2. Its bytes, by that hash. An image without one had no bytes to keep (V20261101000600).
         val hash = metadata.contentHash ?: return null
         val bytes = assetContentStore.get(hash)?.content?.readAllBytes() ?: return null
 

@@ -31,10 +31,10 @@ data class GenerationReadiness(
     val ready: Boolean get() = idleEnvironments.isEmpty() && publishedIn1x.isEmpty()
 }
 
-/** The name of the draft the 2.0 upgrade makes of what a 1.x catalog last published (`V20261027112414`). */
+/** The name of the draft the 2.0 upgrade makes of what a 1.x catalog last published (`V20261101000900`). */
 const val PUBLISHED_IN_1X = "Published in 1.x"
 
-/** The `app_metadata` key the 2.0 upgrade lists its authored 1.x catalogs under (`V20261027112414`). */
+/** The `app_metadata` key the 2.0 upgrade lists its authored 1.x catalogs under (`V20261101000900`). */
 const val ONE_X_CATALOGS = "upgrade-1x-catalogs"
 
 data class GetGenerationReadiness(

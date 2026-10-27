@@ -9,7 +9,9 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.themes.Theme
 import app.epistola.suite.themes.ThemeContent
-import db.migration.core.V20261024114440__core_themes_to_storage
+import db.migration.core.frozen.CanonicalJson
+import db.migration.core.frozen.Envelopes
+import db.migration.core.frozen.ReferenceWalker
 import org.assertj.core.api.SoftAssertions
 import org.jdbi.v3.core.Jdbi
 import tools.jackson.databind.ObjectMapper
@@ -17,8 +19,8 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * Proves, for every theme of [catalog]'s next version, that the migration that moved themes to JSON
- * storage (`V20261024114440`) converts a theme's 1.x columns exactly as the suite now stores it, both
+ * Proves, for every theme of [catalog]'s next version, that the 2.0 upgrade's conversion of themes
+ * to JSON storage (`V20261101000600`, [Envelopes.theme]) converts a theme's 1.x columns exactly as the suite now stores it, both
  * ways (ADR 0033, ADR 0035):
  *
  * - **columns to storage**: the columns the suite wrote for the theme before (each JSON field as
@@ -33,7 +35,6 @@ import java.math.RoundingMode
 object ThemeStorageConversion {
 
     fun verify(jdbi: Jdbi, objectMapper: ObjectMapper, catalog: CatalogId, themes: List<Theme>) {
-        val migration = V20261024114440__core_themes_to_storage.Companion
         val softly = SoftAssertions()
         jdbi.useHandle<Exception> { handle ->
             fun jsonb(value: Any?): String? = value?.let {
@@ -52,21 +53,21 @@ object ThemeStorageConversion {
                 ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("k", theme.id.value).mapTo(String::class.java).one()
                 val storedReferences = handle.createQuery("SELECT alias, resource_type, resource_key FROM resource_references WHERE tenant_key = :t AND content_hash = :h")
                     .bind("t", catalog.tenantKey).bind("h", stored)
-                    .map { rs, _ -> V20261024114440__core_themes_to_storage.Reference(rs.getString(1), rs.getString(2), rs.getString(3)) }
+                    .map { rs, _ -> ReferenceWalker.Reference(rs.getString(1), rs.getString(2), rs.getString(3)) }
                     .set()
 
-                val converted = migration.payload(
+                val converted = Envelopes.theme(
                     key = theme.id.value,
                     name = theme.name,
                     description = theme.description,
-                    documentStyles = jsonb(theme.documentStyles),
-                    pageSettings = jsonb(theme.pageSettings),
-                    blockStylePresets = jsonb(theme.blockStylePresets),
+                    documentStyles = jsonb(theme.documentStyles)?.let(objectMapper::readTree),
+                    pageSettings = jsonb(theme.pageSettings)?.let(objectMapper::readTree),
+                    blockStylePresets = jsonb(theme.blockStylePresets)?.let(objectMapper::readTree),
                     spacingUnit = theme.spacingUnit?.let { BigDecimal(it.toString()).setScale(2, RoundingMode.HALF_UP) },
                 )
                 if (from1x) {
-                    softly.assertThat(migration.contentHash(migration.canonical(converted))).`as`("content hash of theme ${theme.id.value}").isEqualTo(stored)
-                    softly.assertThat(migration.references(converted)).`as`("references of theme ${theme.id.value}").isEqualTo(storedReferences)
+                    softly.assertThat(CanonicalJson.contentHash(CanonicalJson.canonical(converted))).`as`("content hash of theme ${theme.id.value}").isEqualTo(stored)
+                    softly.assertThat(ReferenceWalker.references(converted)).`as`("references of theme ${theme.id.value}").isEqualTo(storedReferences)
                 }
 
                 val read = ThemeContent.theme(

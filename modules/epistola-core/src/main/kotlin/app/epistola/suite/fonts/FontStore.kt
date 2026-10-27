@@ -138,7 +138,7 @@ class FontStore(
             FROM resource_contents rc
             CROSS JOIN LATERAL jsonb_array_elements(COALESCE(rc.payload -> 'resource' -> 'variants', rc.payload -> 'variants')) face
             WHERE rc.tenant_key = :t AND rc.kind = 'font' AND face ->> 'contentHash' IN (<hashes>)
-              AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = face ->> 'contentHash')
+              AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = CAST(face ->> 'contentHash' AS CHAR(64)))
             ON CONFLICT DO NOTHING
             """,
         ).bind("t", tenant).bindList("hashes", hashes.distinct()).execute()

@@ -252,9 +252,9 @@ instance sits, and a default in the stencil's.
 
 The 2.0 upgrade converts stored data without changing what renders, except where noted:
 
-- `V20261018200400__core_stencil_working_copy.sql` — each stencil's working copy is its draft where it
+- `V20261101000700__core_2_0_stencils_to_storage` — each stencil's working copy is its draft where it
   had one, else its latest published version.
-- `V20261018200500__core_template_content_v8.kt` — every stored template version is rewritten to the
+- `TemplateContentV8` (the frozen toolkit, used by `V20261101000700` to `V20261101000900`) — every stored template version is rewritten to the
   reference form:
   - an instance whose copy matches the stencil version it pinned (apart from fills) becomes a
     reference plus its fills; pinned to an older version, it now renders the current stencil, and is

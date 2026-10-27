@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test
  * was installed as (ADR 0033, steps 7a and 7b): its fields, its theme, its data contract, its variants
  * and each variant's model, the default variant's included (a release keeps that one on the
  * template). Installed from one archive in the released form, the draft and the release name the
- * same content, and `V20261025170700` converts each template, from its 1.x columns, exactly as the
+ * same content, and `V20261101000800` converts each template, from its 1.x columns, exactly as the
  * suite stores it.
  */
 class DemoTemplateReadParityTest : IntegrationTestBase() {

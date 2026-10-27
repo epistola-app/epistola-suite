@@ -43,7 +43,7 @@ import kotlin.io.path.toPath
 
 /**
  * What the application does with a catalog the 2.0 upgrade brought over from 1.x, which cut no
- * release (ADR 0035; the drafts themselves are `V20261027112414`'s, which `OneXUpgradeReleasesIT`
+ * release (ADR 0035; the drafts themselves are `V20261101000900`'s, which `OneXUpgradeScenariosIT`
  * runs on a 1.x database):
  *
  * - releasing pins every dependency the upgrade declared by name to that catalog's highest release,
