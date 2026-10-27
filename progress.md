@@ -2456,3 +2456,20 @@ parallel work), demo catalog 6.3.0, docs, changelog. Full `test uiTest`: 4635 te
 (`SystemFontsIntegrationTest` set the tenant default theme; now the catalog's) — passes after.
 Contract `feature/v2` `173dfef` (published locally as 2.0.0-SNAPSHOT). Left: the REST draft update
 cannot clear a default theme through generated clients (null and omitted are the same there).
+
+## Review follow-ups (27 October)
+
+- **Done: the migration step under `bootRun`.** `EPISTOLA_MIGRATION_MODE=migrate` or `--migrate`
+  through devtools failed with `migrate,migrate`: the restart calls `main` again with the arguments
+  the migration context got, and the launcher appended the mode once more. `runMigration` now drops
+  its own options from the arguments first. Proven by
+  `MigrationLauncherIntegrationTest` "…already name the mode, as a devtools restart hands them back",
+  which failed before. The Helm Job and init container pass the mode by environment variable, with
+  no devtools, and were never affected.
+- **Open, needs a design decision: one install core** (review finding 1) and `catalogs.installed_*`
+  as a view (finding 2). Two things the archive core (`ImportCatalogZip`) does not do today:
+  - the system catalog's manifest declares no fonts: `EnsureSystemFonts` seeds them beside it, and
+    the recorded release includes them, so its fingerprint is not the manifest's;
+  - `UpgradeCatalog` reconciles the whole manifest into the next version (removing what the
+    publisher dropped, with the conflict check and `preserveResourceTypes`), while an import either
+    fast-forwards or records the release beside the next version to be merged.

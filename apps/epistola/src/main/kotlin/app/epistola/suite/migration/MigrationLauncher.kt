@@ -49,6 +49,14 @@ object MigrationLauncher {
     const val MIGRATION_MODE_ENV = "EPISTOLA_MIGRATION_MODE"
     private const val MIGRATE = "migrate"
 
+    /** The options [runMigration] sets itself, whatever the caller passed. */
+    private val FORCED = listOf(
+        "epistola.migration.mode",
+        "spring.flyway.clean-disabled",
+        "spring.datasource.hikari.data-source-properties.socketTimeout",
+        "spring.datasource.hikari.leak-detection-threshold",
+    )
+
     /**
      * True when this process was launched as the dedicated migration step.
      * Pure: the environment value is passed in so it is unit-testable without
@@ -113,7 +121,10 @@ object MigrationLauncher {
                 // them as *default* properties (lowest precedence) and
                 // application.yaml's clean-disabled:false would win.
                 .run(
-                    *args,
+                    // A devtools restart (`bootRun`) calls main again with the arguments this context
+                    // was started with, the ones set below included; a repeated option reads as a
+                    // list ('migrate,migrate'), so the caller's own copies of them are dropped.
+                    *args.filterNot { arg -> FORCED.any { arg.startsWith("--$it=") } }.toTypedArray(),
                     "--epistola.migration.mode=migrate",
                     "--spring.flyway.clean-disabled=true",
                     // The app's 30s socketTimeout and 60s leak detector are tuned for request
