@@ -5,18 +5,27 @@
 package app.epistola.suite.migration
 
 import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.upgrade.CatalogUpgradeRunner
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.environments.queries.GetGenerationReadiness
+import app.epistola.suite.environments.queries.PUBLISHED_IN_1X
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -77,8 +86,6 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         }
     }
 
-    @Autowired private lateinit var upgrade: CatalogUpgradeRunner
-
     @Autowired private lateinit var assembler: ReleaseContentAssembler
 
     @Autowired private lateinit var entries: ReleaseResourceStore
@@ -96,17 +103,34 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
     @Test
     fun `every release of an upgraded 1x tenant holds what its record says it holds`() {
         // The app has started on the 1.x database: migrated, and the system catalog brought to the
-        // bundled release. Then the upgrade's startup work runs, as the scheduler runs it.
-        MediatorContext.runWithMediator(mediator) { upgrade.run() }
+        // bundled release. The upgrade cut no release of the authored catalog: it has its next draft
+        // and, beside it, a draft of what it last published, which its author releases.
+        assertThat(jdbi.withHandle<Boolean, Exception> { it.createQuery("SELECT to_regclass('catalog_upgrade_queue') IS NULL AND to_regclass('catalog_upgrade_published') IS NULL").mapTo(Boolean::class.java).one() })
+            .`as`("the upgrade's tables are gone").isTrue()
+        assertThat(jdbi.withHandle<Int, Exception> { it.createQuery("SELECT count(*) FROM cluster_tasks_scheduled WHERE task_key IN ('core.catalog-upgrade', 'core.release-content-hash')").mapTo(Int::class.java).one() })
+            .`as`("no upgrade work is scheduled after startup").isZero()
+        assertThat(releases().map { "${it.catalogKey.value}@${it.version}" }).`as`("only the system catalog's release: the upgrade cuts none").containsExactly("system@$BUNDLED_SYSTEM_VERSION")
+        val letters = testCatalog(TENANT, LETTERS)
+        assertThat(asTenant { GetGenerationReadiness(TENANT).query() }.publishedIn1x).`as`("the tenant home says what to release").containsExactly("Letters")
+        val published = requireNotNull(jdbi.withHandle<String?, Exception> { it.createQuery("SELECT version_key FROM catalog_versions WHERE tenant_key = :t AND name = :n AND state = 'draft'").bind("t", TENANT).bind("n", PUBLISHED_IN_1X).mapTo(String::class.java).findOne().orElse(null) }) {
+            "letters has no '$PUBLISHED_IN_1X' draft"
+        }
 
-        assertThat(queued()).`as`("the upgrade finished every catalog (catalog_upgrade_queue, with its errors)").isEmpty()
+        // Its author releases that draft: numbered the patch after its 1.x release, its use of the
+        // system catalog (declared by name by the upgrade) pinned to the installed release.
+        val result = asTenant { ReleaseCatalogDraft(letters, catalogVersion = CatalogReleaseRef(letters, DraftRef.Id(published))).execute() }
+        assertThat(result.version).isEqualTo("1.1.1")
+        assertThat(result.pinnedDependencies.map { "${it.catalogKey}@${it.releaseVersion}" }).containsExactly("system@$BUNDLED_SYSTEM_VERSION")
+        assertThat(asTenant { GetGenerationReadiness(TENANT).query() }.publishedIn1x).isEmpty()
+
         val releases = releases()
-        assertThat(releases.map { "${it.catalogKey.value}@${it.version}" })
-            .`as`("the system catalog at the release the suite ships, and the authored catalog's first 2.0 release, the patch after its 1.x one")
-            .containsExactlyInAnyOrder("system@$BUNDLED_SYSTEM_VERSION", "letters@1.1.1")
-        assertThat(releases).`as`("every release records its content hash, the 1.x one gone").allSatisfy { assertThat(it.contentHash).startsWith("v6:") }
-        assertThat(jdbi.withHandle<Int, Exception> { it.createQuery("SELECT count(*) FROM cluster_tasks_scheduled WHERE task_key = 'core.release-content-hash'").mapTo(Int::class.java).one() })
-            .`as`("no content-hash backfill is scheduled: there is nothing to hash").isZero()
+        assertThat(releases.map { "${it.catalogKey.value}@${it.version}" }).containsExactlyInAnyOrder("system@$BUNDLED_SYSTEM_VERSION", "letters@1.1.1")
+        assertThat(releases).`as`("every release records its content hash").allSatisfy { assertThat(it.contentHash).startsWith("v6:") }
+        val invoice = requireNotNull(assembler.assemble(letters, "1.1.1")).content.resourceDetails.values.mapNotNull { it.resource as? TemplateResource }.single()
+        assertThat(objectMapper.writeValueAsString(invoice.templateModel)).`as`("the release holds what 1.x published").contains("Dear customer").doesNotContain("Draft wording")
+        val next = asTenant { app.epistola.suite.templates.queries.variants.GetVariantContent(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("default"), app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters))).query() }
+        assertThat(objectMapper.writeValueAsString(next)).`as`("the next draft keeps the unpublished 1.x work").contains("Draft wording")
+        assertThat(invoice.dataExamples.orEmpty().map { it.key }).`as`("the published contract's example, by its key").containsExactly("default")
 
         val canonicalizer = CatalogCanonicalizer(objectMapper)
         val softly = SoftAssertions()
@@ -159,11 +183,8 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         ).bind("t", TENANT).map { rs, _ -> Recorded(CatalogKey.of(rs.getString(1)), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)) }.list()
     }
 
-    private fun queued(): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery(
-            "SELECT c.catalog_key || ': ' || COALESCE(q.last_error, 'not tried') FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id",
-        ).mapTo(String::class.java).list()
-    }
+    /** As the catalog's author: the tenant's system principal, with the mediator. */
+    private fun <T> asTenant(block: () -> T): T = SecurityContext.runWithPrincipal(SystemUser.principalForTenant(TENANT)) { MediatorContext.runWithMediator(mediator) { block() } }
 
     /** A bundled family as 1.x seeded it into the system catalog: 1.x recorded where its faces sat on the classpath ([location]). */
     private data class SystemFont(val slug: String, val name: String, val kind: String, val at: ((String) -> String)? = null) {
@@ -240,6 +261,12 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
                     SELECT 1, 'acme', resource_id, 'default',
                            '{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": ["root:children"]}, "body": {"id": "body", "type": "text", "slots": [], "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Dear customer"}]}]}}}}, "slots": {"root:children": {"id": "root:children", "name": "children", "nodeId": "root", "children": ["body"]}}}',
                            'published', NOW()
+                    FROM document_templates WHERE tenant_key = 'acme' AND id = 'invoice';
+                    -- Unpublished work on top of it: the working copy, which 2.0 keeps as the next draft.
+                    INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status)
+                    SELECT 2, 'acme', resource_id, 'default',
+                           '{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": ["root:children"]}, "body": {"id": "body", "type": "text", "slots": [], "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Draft wording"}]}]}}}}, "slots": {"root:children": {"id": "root:children", "name": "children", "nodeId": "root", "children": ["body"]}}}',
+                           'draft'
                     FROM document_templates WHERE tenant_key = 'acme' AND id = 'invoice';
                     INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, published_at)
                     SELECT 1, 'acme', resource_id, '{"type": "object", "properties": {"name": {"type": "string"}}}',

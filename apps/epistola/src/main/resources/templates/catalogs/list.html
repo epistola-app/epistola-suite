@@ -288,6 +288,16 @@
                             Shared is published too, as v1.1.0: this uses its Next release, with Brand not published yet.</p>
                     </div>
 
+                    <!--/* Declared by name, pinning nothing (the 2.0 upgrade declares what a 1.x catalog used): publishing
+                           pins each to its latest version, or is refused while it has none. */-->
+                    <div th:unless="${readiness.borrowing.pinnedAtRelease.isEmpty()}" class="form-group" data-testid="publish-pins">
+                        <span class="ep-label">Pinned when published</span>
+                        <p th:each="other : ${readiness.borrowing.pinnedAtRelease}" style="margin: var(--ep-space-1) 0 0;"
+                           data-testid="publish-pins-catalog" th:attr="data-catalog=${other.catalogKey}"
+                           th:text="${other.latest != null} ? ('Pins ' + ${other.name} + ' v' + ${other.latest} + '.') : (${other.name} + ' has no published version yet: publish it first.')">
+                            Pins System v2.1.0.</p>
+                    </div>
+
                     <!--/* A newer version that would break something used here: this stays on what it uses, and says why. */-->
                     <div th:each="other : ${readiness.borrowing.catalogs}" th:if="${other.newerDoesNotFit != null}" class="form-group"
                          data-testid="publish-newer-breaks" th:attr="data-catalog=${other.catalogKey}">

@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
-import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -23,7 +22,7 @@ import org.springframework.stereotype.Component
  * turns the declaration into a pin of its release). A catalog with neither stays unpinned.
  *
  * For where references into another catalog arise without an author declaring them: a resource
- * moved into another catalog, and catalogs upgraded from 1.x, which had no declarations. A
+ * moved into another catalog. A
  * reference to a catalog the tenant does not have is left alone; releasing refuses it.
  */
 @Component
@@ -68,21 +67,6 @@ class MissingDependencyDeclarer(
     }
 
     /**
-     * The catalogs [catalogKey]'s content from [source] uses that the tenant does not have, by key: a
-     * reference whose catalog this tenant has no catalog of that key for, which no declaration can name.
-     */
-    fun unknownCatalogs(catalog: CatalogId, source: ContentSource): List<String> {
-        val known = jdbi.withHandle<Set<String>, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key FROM catalogs WHERE tenant_key = :t").bind("t", catalog.tenantKey).mapTo(String::class.java).set()
-        }
-        return contentBuilder.build(catalog, source).dependencies.orEmpty()
-            .map { it.catalogKey }
-            .filter { it !in known }
-            .distinct()
-            .sorted()
-    }
-
-    /**
      * Every catalog of the tenant by key, with its registry and namespace, for an alias no declaration
      * has. A key two catalogs share means neither (ADR 0034): a reference by it could mean either.
      */
@@ -94,22 +78,6 @@ class MissingDependencyDeclarer(
         .groupBy { it.third }
         .mapNotNull { (key, catalogs) -> catalogs.singleOrNull()?.let { key to it } }
         .toMap()
-
-    /**
-     * Pins every declaration of [catalogKey] that pins nothing (and names no draft) to the highest
-     * release of its catalog, where there is one now: the 2.0 upgrade declares a catalog before the
-     * catalog it depends on is released. A declaration whose catalog still has no release stays
-     * unpinned, which releasing refuses. @return the declarations pinned.
-     */
-    fun pinUnpinned(catalog: CatalogId): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        val declarations = store.declarations(handle, catalog)
-        val pinned = declarations.map { declaration ->
-            if (declaration.pinned || declaration.namesDraft) return@map declaration
-            store.highest(handle, catalog.tenantKey, declaration)?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) } ?: declaration
-        }
-        if (pinned != declarations) store.replace(handle, catalog, pinned)
-        pinned.filter { it !in declarations }
-    }
 
     /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032), each in its namespace. */
     fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogId, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableCatalogs

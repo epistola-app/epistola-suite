@@ -174,8 +174,8 @@ deployment names a row, so it follows the row into the release with no extra sta
 
 One non-rolling step (ADR 0035), in the migration step, after the storage conversions of ADR 0033.
 Upgrades from 1.x go through the same chain: the 2.0 upgrade (`V20261018201400`) deletes 1.x
-releases, so a 1.x installation arrives with drafts only, and `CatalogUpgradeRunner` cuts first
-releases after startup through the new code.
+releases, so a 1.x installation arrives with drafts only: its next draft and, where it differs, a
+named draft "Published in 1.x" (`V20261027112414`), which its author releases (ADR 0035).
 
 1. **The table.** Add the release columns, `state` and `origin` to `catalog_versions`; insert one
    released row per `catalog_releases` row, keeping its `version_key` and number (SQL); set

@@ -85,8 +85,9 @@ anything substantial.
 ## From 1.x to 2.0
 
 2.0 renders catalog releases deployed to environments, where 1.x rendered template versions
-activated per environment. What each author was working on becomes the working copy, and what was
-last published becomes each catalog's first 2.0 release. The 1.x template, data contract and stencil
+activated per environment. What each author was working on becomes the working copy, the catalog's
+next draft, and what was last published becomes a draft beside it, **Published in 1.x**. The upgrade
+cuts no release: you release that draft, and deploy it, to put back what was live. The 1.x template, data contract and stencil
 versions and the environment activations are then removed; a summary of them (every version's
 number, status and dates, and what each environment had activated) is kept as the `app_metadata`
 record `upgrade-1x-history`, so a document or load-test run that names a 1.x version number can still
@@ -106,16 +107,16 @@ For this upgrade:
 
 Both read what the upgrade keeps — each variant's and stencil's latest published version and draft,
 themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
-a subscribed catalog's release is recorded as installed. A check that cannot run refuses too. To
+a subscribed catalog receives its source's release. A check that cannot run refuses too. To
 go ahead regardless, once you have read why, skip a check by id:
 `EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
-`config.env`). A catalog a skipped check would have reported stays without a first release.
+`config.env`). A catalog a skipped check would have reported cannot be released until it is fixed.
 
 **Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
 the documents of each environment before deploying to it:
 
-- **An environment that ran an older version** gets what was last published once the first release
-  is deployed: production on a template's version 1 while version 2 went to test serves version 2.
+- **An environment that ran an older version** gets what was last published once the release of
+  "Published in 1.x" is deployed: production on a template's version 1 while version 2 went to test serves version 2.
   The older content is not kept, so it cannot be deployed instead. Which version each environment
   had activated is in `upgrade-1x-history`.
 - **A stencil instance pinned to an older stencil version** renders the stencil as it is now. An
@@ -133,32 +134,25 @@ that outage, and tell the teams whose applications request documents.
 1. **Drain the generation queue** before scaling down: a request still queued at the upgrade named
    a template version, which 2.0 no longer renders, and fails.
 2. **Upgrade** as a breaking upgrade (above), and move REST clients to contract 2.0.
-3. **Wait for the first releases.** At the first start a background task gives every authored
-   catalog its dependency declarations and a first release, cut from what was last published before
-   the upgrade and numbered the patch after the catalog's highest 1.x release (or 1.0.0), and every
-   subscribed catalog its installed release as one it can render from. The 1.x releases themselves
-   are removed: they kept only a number, a fingerprint and notes, so nothing could render, export or
-   deploy them, and their Exchange publication records go with them (see
-   [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). It runs at startup and
-   then every five minutes (`epistola.catalog.upgrade.interval-ms`) until the queue is empty. Follow
-   it in:
-   - the **tenant home**, which says how many catalogs are still being prepared and which
-     environments make no documents yet;
-   - the **log**: each catalog it releases, each it cannot release yet with the reason, and
-     `2.0 upgrade finished` when the queue is empty;
-   - the metric **`epistola_catalog_upgrade_queued`**: catalogs still waiting (0 when done, -1
-     before this node's first run);
-   - the table, for a catalog that stays queued:
-
-     ```sql
-     SELECT c.tenant_key, c.catalog_key, q.last_error
-     FROM catalog_upgrade_queue q JOIN catalogs c USING (tenant_key, catalog_id);
-     ```
-
-     `last_error` says why. A catalog whose content references another catalog that has no
-     release yet waits for it (released in a later round of the same run); one that references a
-     catalog the tenant does not have needs that catalog installed; anything else is a defect to
-     report with the message.
+3. **Release what was published.** The upgrade cuts no release (ADR 0035): it runs entirely in the
+   migration step, and nothing is done for you after startup.
+   - **An authored catalog** keeps its next draft, with any unpublished 1.x work, and gets a draft
+     **Published in 1.x** beside it holding what each template and stencil last published (a
+     template whose default variant was never published, or a stencil never published, is left
+     out). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
+     (or the next draft where there is none) from the catalog's page. Its number is suggested as the
+     patch after the catalog's highest 1.x release, or 1.0.0.
+   - **Dependencies:** 1.x declared none, so the upgrade declares every catalog a catalog's content
+     uses, pinning nothing; releasing pins each to that catalog's latest release (the dialog says
+     "Pins System v2.1.0"), and refuses, naming it, a catalog that has no release yet: release that
+     one first.
+   - **A subscribed catalog** receives its source's release at boot, through the same install as any
+     other; a source that cannot be reached is retried at the next boot (the log says why).
+   - The 1.x releases themselves are removed: they kept only a number, a fingerprint and notes, so
+     nothing could render, export or deploy them, and their Exchange publication records go with them
+     (see [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)).
+   - The **tenant home** lists the catalogs from 1.x that have no release yet, and which environments
+     make no documents yet.
 
 4. **Deploy those releases** to each environment, from its page (Environments) or with
    `deployCatalogRelease`. Until an environment has a release deployed, a generation request for it is

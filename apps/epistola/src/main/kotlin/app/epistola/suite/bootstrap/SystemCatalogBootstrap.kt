@@ -4,6 +4,7 @@
 
 package app.epistola.suite.bootstrap
 
+import app.epistola.suite.catalog.commands.ReceiveOneXSubscribedReleases
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SystemCatalogStatus
 import app.epistola.suite.mediator.Mediator
@@ -95,6 +96,13 @@ class SystemCatalogBootstrap(
                     e.message,
                     e,
                 )
+            }
+            // A catalog 1.x subscribed to from a URL receives its source's release, which the 2.0
+            // upgrade did not cut (ADR 0035); one whose source fails is tried again at the next boot.
+            try {
+                mediator.send(ReceiveOneXSubscribedReleases(tenant.id))
+            } catch (e: Exception) {
+                log.error("Receiving the releases of 1.x subscribed catalogs failed for tenant '{}': {}", tenant.id.value, e.message, e)
             }
         }
 

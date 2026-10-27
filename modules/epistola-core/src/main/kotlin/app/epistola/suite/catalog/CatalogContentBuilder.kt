@@ -77,20 +77,6 @@ data class CatalogContent(
     )
 }
 
-/** Where a catalog's templates, data contracts and stencils are read from. */
-enum class ContentSource {
-    /** The working copy: what authors edit, and what a release contains. */
-    WORKING_COPY,
-
-    /**
-     * What each was last published as before 2.0, which the upgrade migration kept in
-     * `catalog_upgrade_published`: the content of the 2.0 upgrade's first release. A variant or stencil
-     * that was never published is left out, and so is a template whose default variant was not; a
-     * template that never published a data contract keeps its working one.
-     */
-    PUBLISHED_BEFORE_2_0,
-}
-
 /**
  * Builds the canonical content of a catalog — the manifest resource entries,
  * per-resource detail payloads, cross-catalog dependencies and asset binaries —
@@ -109,24 +95,17 @@ class CatalogContentBuilder(
     private val templateStore: app.epistola.suite.templates.TemplateStore,
 ) {
 
-    fun build(catalog: CatalogId, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
+    fun build(catalog: CatalogId): CatalogContent {
         val found = GetCatalog(catalog).query()
             ?: throw IllegalArgumentException("Catalog not found: ${catalog.address}")
 
         val outbound = Outbound(catalog.key.value)
-        val templates = loadTemplates(catalog, source, outbound)
+        val templates = loadTemplates(catalog, outbound)
         val themes = ExportThemes(catalog.tenantKey, catalog = catalog).query().map { theme ->
             // A theme's own-catalog font references have always travelled as stored.
             objectMapper.treeToValue(outbound.withoutNameQualifiers(objectMapper.valueToTree(theme)), ThemeResource::class.java)
         }
-        val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(catalog) else null
-        val stencils = ExportStencils(catalog.tenantKey, catalog = catalog).query().mapNotNull { exported ->
-            val stencil = if (published == null) {
-                exported
-            } else {
-                val version = published[exported.key] ?: return@mapNotNull null
-                exported.copy(content = version.first, parameterSchema = version.second)
-            }
+        val stencils = ExportStencils(catalog.tenantKey, catalog = catalog).query().map { stencil ->
             stencil.copy(
                 content = outbound.content(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
@@ -229,20 +208,13 @@ class CatalogContentBuilder(
 
     private fun loadTemplates(
         catalog: CatalogId,
-        source: ContentSource,
         outbound: Outbound,
     ): List<TemplateResource> {
-        val published = source == ContentSource.PUBLISHED_BEFORE_2_0
-        data class Row(val template: StoredTemplate, val contract: String?, val publishedModels: Map<String, String>)
-
-        // A draft holds each template as its content (ADR 0033); what was last published before 2.0
-        // the upgrade migration kept beside it in catalog_upgrade_published.
-        val rows = jdbi.withHandle<List<Row>, Exception> { handle ->
+        // A draft holds each template as its content (ADR 0033).
+        val templates = jdbi.withHandle<List<StoredTemplate>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT t.id,
-                       ${if (published) "(SELECT pc.payload::text FROM catalog_upgrade_published pc WHERE pc.tenant_key = t.tenant_key AND pc.resource_id = t.resource_id AND pc.kind = 'contract')" else "NULL"} AS contract,
-                       ${if (published) "(SELECT jsonb_object_agg(pv.part, pv.payload -> 'templateModel')::text FROM catalog_upgrade_published pv WHERE pv.tenant_key = t.tenant_key AND pv.resource_id = t.resource_id AND pv.kind = 'variant')" else "NULL"} AS published_models
+                SELECT t.id
                 FROM current_templates t
                 WHERE t.tenant_key = :tenantKey AND t.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 ORDER BY t.id
@@ -250,43 +222,28 @@ class CatalogContentBuilder(
             )
                 .bind("tenantKey", catalog.tenantKey)
                 .bindCatalog("catalogKey", catalog)
-                .map { rs, _ ->
-                    Row(
-                        template = checkNotNull(templateStore.get(handle, app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(rs.getString("id")), catalog))).template,
-                        contract = rs.getString("contract"),
-                        publishedModels = rs.getString("published_models")?.let { objectMapper.readTree(it).properties().associate { (k, v) -> k to v.toString() } }.orEmpty(),
-                    )
-                }
+                .map { rs, _ -> checkNotNull(templateStore.get(handle, app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(rs.getString("id")), catalog))).template }
                 .list()
         }
 
-        return rows.mapNotNull { row ->
-            val template = row.template
-            // Before 2.0 a template rendered through its default variant, so one whose default was never
-            // published is left out of its published content, and so is a variant never published.
-            val variants = if (published) template.variants.filter { it.key in row.publishedModels } else template.variants
-            val default = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()?.takeUnless { published } ?: return@mapNotNull null
+        return templates.mapNotNull { template ->
+            val variants = template.variants
+            val default = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull() ?: return@mapNotNull null
             fun modelOf(variant: StoredVariant): TemplateDocument {
-                val json = row.publishedModels[variant.key]?.let { objectMapper.readTree(it) }
-                    ?: jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
-                        objectMapper.valueToTree(checkNotNull(templateStore.model(handle, catalog.tenantKey, variant)) { "Template ${template.key} names a model that is not stored" })
-                    }
-                // Stored relative already; a model published before 2.0 named its own catalog.
+                val json = jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
+                    objectMapper.valueToTree(checkNotNull(templateStore.model(handle, catalog.tenantKey, variant)) { "Template ${template.key} names a model that is not stored" })
+                }
+                // Stored relative already.
                 return objectMapper.treeToValue(outbound.content(json), TemplateDocument::class.java)
             }
-            val contract = row.contract?.let(objectMapper::readTree)
             TemplateResource(
                 key = template.key,
                 name = template.name,
                 themeKey = template.themeKey,
                 themeCatalogKey = template.themeCatalogKey.takeIf { template.themeKey != null },
                 pdfaEnabled = template.pdfaEnabled,
-                dataModel = if (contract == null) template.dataModel else contract.get("dataModel")?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, PLAIN_MAP) },
-                dataExamples = if (contract == null) {
-                    template.dataExamples
-                } else {
-                    TemplateStore.entriesOf(contract.get("dataExamples")?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, DataExamples::class.java) }.orEmpty(), objectMapper)
-                },
+                dataModel = template.dataModel,
+                dataExamples = template.dataExamples,
                 templateModel = modelOf(default),
                 variants = variants.map { v ->
                     VariantEntry(
@@ -302,31 +259,6 @@ class CatalogContentBuilder(
                 metadata = template.metadata?.takeIf { it.isNotEmpty() },
             )
         }
-    }
-
-    /** Each stencil's latest published version before 2.0: its content and parameter schema, by stencil key. */
-    private fun publishedStencils(catalog: CatalogId): Map<String, Pair<TemplateDocument, Map<String, Any?>?>> = jdbi.withHandle<Map<String, Pair<TemplateDocument, Map<String, Any?>?>>, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT s.id, (p.payload -> 'content')::text AS content,
-                   NULLIF(p.payload -> 'parameterSchema', 'null'::jsonb)::text AS parameter_schema
-            FROM current_stencils s
-            JOIN catalog_upgrade_published p ON p.tenant_key = s.tenant_key AND p.resource_id = s.resource_id AND p.kind = 'stencil'
-            WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")}
-            """,
-        )
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
-            .map { rs, _ ->
-                rs.getString("id") to (
-                    objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java) to
-                        rs.getString("parameter_schema")?.let {
-                            objectMapper.readValue<Map<String, Any?>>(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java))
-                        }
-                    )
-            }
-            .list()
-            .toMap()
     }
 
     /**
@@ -408,5 +340,3 @@ private fun CatalogInfo.withThemeSettings(catalog: CatalogId): CatalogInfo {
         presets = settings.presets.map { app.epistola.catalog.protocol.CatalogPresetDeclaration(it.key, it.name, it.description) },
     )
 }
-
-private val PLAIN_MAP = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}

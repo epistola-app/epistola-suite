@@ -14,8 +14,8 @@ import app.epistola.suite.security.Permission
 import org.springframework.stereotype.Component
 
 /**
- * Tells someone landing on the tenant home why documents cannot be made yet: catalogs still being
- * prepared for 2.0, and environments that serve nothing, so every request naming them fails. Right
+ * Tells someone landing on the tenant home why documents cannot be made yet: catalogs whose
+ * "Published in 1.x" draft still has to be published after an upgrade from 1.x, and environments that serve nothing, so every request naming them fails. Right
  * after an upgrade from 1.x both are true, and nothing else would say so.
  */
 @Component
@@ -44,10 +44,14 @@ data class GenerationReadinessNoticeData(
     /** The viewer can deploy, so the banner offers it. */
     val mayDeploy: Boolean,
 ) {
-    val upgrading: String? get() = when (readiness.catalogsUpgrading) {
-        0 -> null
-        1 -> "1 catalog is still being prepared for Epistola 2.0. Its documents can be made once its first release is published and deployed."
-        else -> "${readiness.catalogsUpgrading} catalogs are still being prepared for Epistola 2.0. Their documents can be made once their first releases are published and deployed."
+    /**
+     * The upgrade from 1.x cut no release: each catalog keeps what it last published as a draft,
+     * "Published in 1.x", which publishing and deploying puts back live (ADR 0035).
+     */
+    val upgrading: String? get() = readiness.publishedIn1x.takeIf { it.isNotEmpty() }?.let { names ->
+        val list = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
+        "Upgrade to Epistola 2.0: publish $list and deploy ${if (names.size == 1) "it" else "them"} to restore what was live in 1.x. " +
+            "Where a catalog has a draft \"Published in 1.x\", publish that one: it holds what 1.x published."
     }
 
     val idle: String? get() = readiness.idleEnvironments.map { it.second }.takeIf { it.isNotEmpty() }?.let { names ->

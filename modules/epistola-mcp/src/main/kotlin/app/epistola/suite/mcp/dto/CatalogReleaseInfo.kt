@@ -91,6 +91,8 @@ data class ReleasedDraftInfo(
     val draftsBehind: List<String>,
     val releasedDependencies: List<String>,
     val contentHash: String?,
+    /** Dependencies declared by name that this release pinned, as `catalog vVersion`. */
+    val pinnedDependencies: List<String> = emptyList(),
 ) {
     companion object {
         fun from(result: ReleaseCatalogDraftResult) = ReleasedDraftInfo(
@@ -104,6 +106,7 @@ data class ReleasedDraftInfo(
             releasedDependencies = result.releasedDependencies.map { "${it.catalogKey} v${it.releaseVersion}" },
             // A release is fingerprinted with its content hash (ADR 0034).
             contentHash = result.fingerprint.takeIf(CatalogCanonicalizer::isContentHash),
+            pinnedDependencies = result.pinnedDependencies.map { "${it.catalogKey} v${it.releaseVersion}" },
         )
     }
 }

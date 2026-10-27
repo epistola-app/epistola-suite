@@ -70,6 +70,9 @@ data class CatalogBorrowing(val catalogs: List<BorrowedCatalog>, val others: Lis
      * would still pin them; whether they go is the author's call (`RemoveUnusedCatalogDependencies`).
      */
     val unused: List<BorrowedCatalog> get() = catalogs.filter { it.declared && !it.used }
+
+    /** Declared by name, pinning nothing: releasing pins each to its latest release ([BorrowedCatalog.pinsAtRelease]). */
+    val pinnedAtRelease: List<BorrowedCatalog> get() = catalogs.filter { it.pinsAtRelease }
 }
 
 /**
@@ -122,6 +125,12 @@ data class BorrowedCatalog(
 
     /** What this version uses of it that the named draft changed and has not published. */
     val unpublishedUsed: List<BorrowedResource> get() = uses.filter { used -> unpublished.any { it.type == used.type && it.key == used.key } }
+
+    /**
+     * Declared by name, pinning no release and naming no draft (as the 2.0 upgrade declares what a 1.x
+     * catalog used): releasing pins it to [latest]. Without a latest release, releasing is refused.
+     */
+    val pinsAtRelease: Boolean get() = declared && release == null && draftName == null
 
     /** The declaration names a draft with something to publish: publishing here publishes it first. */
     val publishAlong: Boolean get() = draftName != null && nextNumber != null
