@@ -71,13 +71,18 @@ object ChainSnapshot {
             val out = mapper.createObjectNode()
             row.propertyNames().sorted().forEach { column ->
                 val value = row.get(column)
-                out.set(column, if ("$table.$column" in generated && value.isString) StringNode(label(value.asString(), depth)) else transform(value) { label(it, depth) })
+                out.set(column, if ("$table.$column" in generated && value.isString) StringNode(label(value.asString(), depth)) else transform(value) { label(it, depth, inText = true) })
             }
             return mapper.writeValueAsString(out)
         }
 
-        fun label(value: String, depth: Int): String {
+        /**
+         * A generated value's label. A uuid written by hand (version 0, as the seeds write theirs) that
+         * no row generated is no run's, and stays as it is.
+         */
+        fun label(value: String, depth: Int, inText: Boolean = false): String {
             val defining = definers[value.lowercase()].orEmpty()
+            if (inText && defining.isEmpty() && value[14] == '0') return value
             if (depth <= 0 || defining.isEmpty()) return "<id>"
             val description = defining.map { (table, row) -> "$table${render(table, row, depth - 1)}" }.sorted().joinToString("|")
             return "@" + java.security.MessageDigest.getInstance("SHA-256").digest(description.toByteArray()).joinToString("") { "%02x".format(it) }.take(12)
@@ -88,10 +93,13 @@ object ChainSnapshot {
                 val tables = tables(connection)
                 val generated = generatedColumns(connection)
                 val keys = primaryKeys(connection)
+                val referencing = foreignKeyColumns(connection)
                 val rows = tables.associateWith { rows(connection, it) }
                 val definers = HashMap<String, MutableList<Pair<String, ObjectNode>>>()
                 rows.forEach { (table, list) ->
-                    val keyColumns = keys[table].orEmpty().filter { "$table.$it" in generated }
+                    // A row defines the ids its own key generates; a key column that references another
+                    // table's row only repeats that row's id, and must not make its label depend on this one.
+                    val keyColumns = keys[table].orEmpty().filter { "$table.$it" in generated && "$table.$it" !in referencing }
                     list.forEach { row ->
                         keyColumns.mapNotNull { row.get(it)?.takeIf { v -> v.isString }?.asString() }.forEach { value ->
                             definers.getOrPut(value.lowercase()) { mutableListOf() } += table to row
@@ -111,6 +119,18 @@ object ChainSnapshot {
             WHERE tc.table_schema = 'public' AND tc.constraint_type = 'PRIMARY KEY'
             """,
         ).use { rs -> buildList { while (rs.next()) add(rs.getString(1) to rs.getString(2)) } }.groupBy({ it.first }, { it.second })
+    }
+
+    /** `table.column` for every column of a foreign key. */
+    private fun foreignKeyColumns(connection: Connection): Set<String> = connection.createStatement().use { st ->
+        st.executeQuery(
+            """
+            SELECT c.relname || '.' || a.attname FROM pg_constraint k
+            JOIN pg_class c ON c.oid = k.conrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = ANY (k.conkey)
+            WHERE k.contype = 'f' AND n.nspname = 'public'
+            """,
+        ).use { rs -> buildSet { while (rs.next()) add(rs.getString(1)) } }
     }
 
     private fun tables(connection: Connection): List<String> = connection.createStatement().use { st ->

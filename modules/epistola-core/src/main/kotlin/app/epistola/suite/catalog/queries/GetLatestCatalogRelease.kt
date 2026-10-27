@@ -49,7 +49,7 @@ data class LatestCatalogRelease(
 
 /**
  * Releases by number, highest first, over the released rows of `catalog_versions` as [alias] (none for the table itself):
- * by SemVer precedence on the generated version components (V20261022110352), so a patch release
+ * by SemVer precedence on the generated version components (V20261101000200), so a patch release
  * (`1.3.1-gemeente-x.1`) sorts above `1.3.0` and below `1.3.1`, patch labels compared as ASCII and
  * then by number. Labels that are not release numbers have null components — `SemVer.parseOrNull`
  * tolerates them — so they sort last; ties fall back to when they were released.

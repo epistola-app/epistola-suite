@@ -128,6 +128,6 @@ object ReleaseDescription {
         val merged: List<ReleaseParent> = emptyList(),
     )
 
-    /** The longest release number `catalog_release_merges.merged_version` holds: a patch release's included (V20261022110352). */
+    /** The longest release number `catalog_release_merges.merged_version` holds: a patch release's included (V20261101000200). */
     private const val MAX_VERSION_LENGTH = app.epistola.suite.catalog.SemVer.MAX_LENGTH
 }

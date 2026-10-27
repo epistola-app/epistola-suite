@@ -1,0 +1,15 @@
+# The deliberate differences of this chain from the one it replaced (TwoZeroChainEquivalenceIT):
+# `+ statement` / `- statement` of the schema, `+ row` / `- row` of the data as data.txt writes it,
+# `column table.column` a column no longer compared. Each says why.
+
+# A 1.x font face's file whose bytes were lost before the upgrade: no image, no font face, left behind.
+# The old chain dropped the asset row but kept its identity and a ready mark of a resource no version
+# holds; this chain removes the identity, and the mark with it.
+- row catalog_resources: {"catalog_id":"@e8ccd8236cc4","created_at":"<now>","resource_id":"@20cd8fe990d0","resource_key":"00000000-0000-0000-0000-000000000302","resource_type":"image","tenant_key":"preserve-tenant"}
+- row resource_ready_marks: {"digest":"e64ba2571b962b05a06963637ad6587c924b82804e8661251dfb7fedb699bb4b","marked_at":"<now>","marked_by":null,"part":"","resource_id":"@20cd8fe990d0","tenant_key":"preserve-tenant","version_id":"@021d3e9f7b69"}
+
+# A 1.x image whose bytes were still in the 1.x content store at the upgrade is ready, as every 1.x
+# image is (images were never versioned). The old chain marked it ready on its columns before the
+# bytes moved, so the mark kept a digest no content has: the image read as not ready.
+- row resource_ready_marks: {"digest":"058c09beaec981b0c4d919471f15dc28c2179fc0197058b4c14c2ba2f335f2b3","marked_at":"<now>","marked_by":null,"part":"","resource_id":"@a8f2c73a7035","tenant_key":"preserve-tenant","version_id":"@021d3e9f7b69"}
++ row resource_ready_marks: {"digest":"240dfe0d91017010435348d248c9786e11ed875b8ec795ecf54c956874b78490","marked_at":"<now>","marked_by":null,"part":"","resource_id":"@a8f2c73a7035","tenant_key":"preserve-tenant","version_id":"@021d3e9f7b69"}

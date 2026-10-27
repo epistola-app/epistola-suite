@@ -13,14 +13,16 @@ package db.migration.core.frozen
 object FrozenToolkit {
 
     /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-    const val CHECKSUM: Int = -1051655111
+    const val CHECKSUM: Int = -1166805231
 
     private val parts = listOf(
         CHECKSUM,
         CanonicalJson.CHECKSUM,
         DataExampleKeys.CHECKSUM,
         Envelopes.CHECKSUM,
+        OneXContent.CHECKSUM,
         ReferenceWalker.CHECKSUM,
+        StorageWrites.CHECKSUM,
         TemplateContentV8.CHECKSUM,
     )
 

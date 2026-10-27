@@ -14,7 +14,7 @@ import tools.jackson.databind.json.JsonMapper
 import java.sql.DriverManager
 
 /**
- * `core_catalog_metadata_v8_keys` renames the catalog wire members v8 renamed inside stored catalog
+ * The 2.0 upgrade (step 1) renames the catalog wire members v8 renamed inside stored catalog
  * metadata, keeping every value: presentation `iconAssetSlug`/`imageAssetSlugs` become
  * `iconImageKey`/`imageKeys`, an attribute assignment's `catalog` becomes `catalogKey`.
  */
@@ -40,15 +40,15 @@ class CatalogMetadataV8KeysMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             // Rows as 1.x wrote them; no command writes the old names any more.
             connection.createStatement().use {
                 it.execute(
                     """
                     INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                    INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, catalog_metadata) VALUES
-                        ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters', 'AUTHORED', '{
+                    INSERT INTO catalogs (id, tenant_key, name, type, catalog_metadata) VALUES
+                        ('letters', 'acme', 'Letters', 'AUTHORED', '{
                             "keywords": ["letters"],
                             "presentation": {"iconAssetSlug": "logo", "imageAssetSlugs": ["logo", "preview"]},
                             "attributes": [
@@ -56,7 +56,7 @@ class CatalogMetadataV8KeysMigrationTest {
                                 {"catalog": "letters", "key": "tone", "value": "formal"}
                             ]
                         }'),
-                        ('plain', 'acme', 'exchange.epistola.app', 'acme', 'Plain', 'AUTHORED', '{}');
+                        ('plain', 'acme', 'Plain', 'AUTHORED', '{}');
                     """.trimIndent(),
                 )
             }
@@ -86,10 +86,5 @@ class CatalogMetadataV8KeysMigrationTest {
             ),
         )
         assertThat(metadata.getValue("plain")).isEqualTo(mapper.readTree("{}"))
-    }
-
-    private companion object {
-        /** The last migration before `core_catalog_metadata_v8_keys`. */
-        const val BEFORE = "20261018200500"
     }
 }

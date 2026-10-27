@@ -16,7 +16,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_legacy_content` (`V20261025110000`) interrupted halfway resumes: it moves the 1.x content
+ * The 2.0 upgrade's legacy blobs (step 5, `V20261101000500`) interrupted halfway resume: it moves the 1.x content
  * store's blobs a batch per transaction, outside Flyway's, so a failure keeps the batches that
  * committed, records no failed migration, and the next migrate moves the rest, each blob once.
  *
@@ -54,17 +54,15 @@ class LegacyContentResumeTest {
         fun flyway(target: String) = Flyway.configure().dataSource(url, postgres.username, postgres.password).locations("classpath:db/migration").target(target).load()
         fun <T> db(block: (Connection) -> T): T = DriverManager.getConnection(url, postgres.username, postgres.password).use(block)
 
-        flyway(BEFORE_LEGACY_CONTENT).migrate()
+        flyway(LAST_1X).migrate()
         db { connection ->
             connection.exec(
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name) VALUES ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters');
+                INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED');
                 -- 150 images the 1.x backfill never reached, more than one batch (100), each with bytes of its own.
-                INSERT INTO assets (id, tenant_key, name, media_type, size_bytes, sensitive, catalog_id, version_id)
-                SELECT 'a' || lpad(n::text, 3, '0'), c.tenant_key, 'image ' || n, 'image/png', 4, false, c.catalog_id, v.version_id
-                FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next, generate_series(1, $ASSETS) AS n
-                WHERE c.catalog_key = 'letters';
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, sensitive)
+                SELECT 'a' || lpad(n::text, 3, '0'), 'acme', 'letters', 'image ' || n, 'image/png', 4, false FROM generate_series(1, $ASSETS) AS n;
                 INSERT INTO content_store (key, content, content_type, size_bytes)
                 SELECT 'assets/acme/a' || lpad(n::text, 3, '0'), decode(lpad(to_hex(n), 8, '0'), 'hex'), 'image/png', 4 FROM generate_series(1, $ASSETS) AS n;
                 -- A failure in the second batch: the 120th blob is refused while this trigger is there.
@@ -105,7 +103,7 @@ class LegacyContentResumeTest {
     }
 
     private companion object {
-        const val LEGACY_CONTENT = "20261025110000"
+        const val LEGACY_CONTENT = "20261101000500"
         const val ASSETS = 150
         const val FAILING = 120
     }

@@ -87,7 +87,7 @@ class ContentVersionSqlTest {
     /** Directories allowed as a whole, with their reason. */
     private val allowedPrefixes: Map<String, String> = mapOf(
         // Java-based Flyway migrations run against the schema of their own time, before content
-        // carried a version (V20261018201000); they are history and are never edited.
+        // carried a version (V20261101000300); they are history and are never edited.
         "modules/epistola-core/src/main/kotlin/db/migration/" to "historical Flyway migrations",
     )
 

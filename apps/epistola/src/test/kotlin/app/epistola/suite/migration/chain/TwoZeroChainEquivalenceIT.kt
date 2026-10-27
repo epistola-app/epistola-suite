@@ -69,12 +69,19 @@ class TwoZeroChainEquivalenceIT {
             return
         }
 
+        // What this chain made, beside the build, to diff against the snapshot when they differ.
+        Path.of("build", "migration-chain").also { dir ->
+            Files.createDirectories(dir)
+            Files.writeString(dir.resolve("schema.sql"), schema.joinToString(";\n\n", postfix = ";\n"))
+            Files.writeString(dir.resolve("data.txt"), data.joinToString("\n", postfix = "\n"))
+        }
+
         val intended = Intended.load()
         val goldenSchema = ChainSnapshot.statements(resource("schema.sql")).map { it.trim() }.filter { it.isNotEmpty() }.map(ChainSnapshot::monthless).sorted()
         assertThat(schema.toSet() - goldenSchema.toSet()).`as`("statements the chain adds beyond the old one's schema").containsExactlyInAnyOrderElementsOf(intended.added)
         assertThat(goldenSchema.toSet() - schema.toSet()).`as`("statements of the old chain's schema this chain does not make").containsExactlyInAnyOrderElementsOf(intended.removed)
 
-        val goldenData = resource("data.txt").lines().filter { it.isNotEmpty() }.map(intended::withoutDroppedColumns)
+        val goldenData = (resource("data.txt").lines().filter { it.isNotEmpty() } - intended.removedRows.toSet() + intended.addedRows).sorted().map(intended::withoutDroppedColumns)
         assertThat(data.map(intended::withoutDroppedColumns)).`as`("every row the old chain made of the seed, and nothing else").containsExactlyElementsOf(goldenData)
         assertThat(ambiguous).`as`("rows the snapshot cannot tell apart, whose labels could swap between runs").isEmpty()
     }
@@ -98,9 +105,16 @@ class TwoZeroChainEquivalenceIT {
 
     /**
      * The deliberate differences from the old chain: `+ statement` it adds, `- statement` it no longer
-     * makes, `column table.column` a column whose values are no longer compared because it is gone.
+     * makes, `+ row line` and `- row line` a row it makes or no longer makes (as `data.txt` writes it),
+     * `column table.column` a column whose values are no longer compared because it is gone.
      */
-    private class Intended(val added: List<String>, val removed: List<String>, private val droppedColumns: Set<String>) {
+    private class Intended(
+        val added: List<String>,
+        val removed: List<String>,
+        val addedRows: List<String>,
+        val removedRows: List<String>,
+        private val droppedColumns: Set<String>,
+    ) {
         fun withoutDroppedColumns(line: String): String {
             val table = line.substringBefore(": ")
             val dropped = droppedColumns.filter { it.startsWith("$table.") }.map { it.substringAfter('.') }
@@ -111,10 +125,14 @@ class TwoZeroChainEquivalenceIT {
         companion object {
             fun load(): Intended {
                 val text = TwoZeroChainEquivalenceIT::class.java.getResource("/migration-chain/intended.txt")?.readText().orEmpty()
-                val entries = text.split(Regex("\n(?=[+\\-] |column )")).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+                val entries = text.split(Regex("\n(?=[+\\-] |column |#)")).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+                val rows = entries.filter { it.startsWith("+ row ") || it.startsWith("- row ") }
+                val statements = entries - rows.toSet()
                 return Intended(
-                    added = entries.filter { it.startsWith("+ ") }.map { it.removePrefix("+ ").trim().removeSuffix(";") },
-                    removed = entries.filter { it.startsWith("- ") }.map { it.removePrefix("- ").trim().removeSuffix(";") },
+                    added = statements.filter { it.startsWith("+ ") }.map { it.removePrefix("+ ").trim().removeSuffix(";") },
+                    removed = statements.filter { it.startsWith("- ") }.map { it.removePrefix("- ").trim().removeSuffix(";") },
+                    addedRows = rows.filter { it.startsWith("+ ") }.map { it.removePrefix("+ row ").trim() },
+                    removedRows = rows.filter { it.startsWith("- ") }.map { it.removePrefix("- row ").trim() },
                     droppedColumns = entries.filter { it.startsWith("column ") }.map { it.removePrefix("column ").trim() }.toSet(),
                 )
             }

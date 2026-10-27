@@ -5,7 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
-import db.migration.core.V20261025170700__core_templates_to_storage
+import db.migration.core.frozen.DataExampleKeys
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
@@ -15,13 +15,11 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_templates_to_storage` and `core_drop_templates` (ADR 0033, step 7b): a template and its
- * variants become one content in its released form, each variant's model a content of its own; a
- * data example is kept by its key, derived when it had none; a variant's description beside the
- * resource; a ready mark still holds; findings follow a variant through its template's content.
- * Then `core_variant_description_in_resource` moves a draft variant's description into its released
- * form (contract `2.0.0-alpha.2`), and `core_template_metadata_on_template` its metadata to its
- * template (contract `2.0.0-alpha.3`); the ready marks still hold.
+ * The 2.0 upgrade's templates (steps 8 to 10) on a 1.x template: its content names its theme and each
+ * variant by key, attributes and default, the default first; each variant is a row of its own with
+ * its title, description and working model; a data example is kept by its key, derived when it had
+ * none; a variant whose draft differs from what it published is not ready, and the "Published in 1.x"
+ * draft holds what it published, ready; a variant attribute's qualifier declares its catalog.
  *
  * Seeded with raw SQL on purpose: the tables are the 1.x shape no command writes any more.
  */
@@ -32,7 +30,7 @@ class TemplatesToStorageMigrationTest {
 
     @Test
     fun `a data example's key is derived from its name as a release derives it`() {
-        val key = V20261025170700__core_templates_to_storage.Companion::dataExampleKey
+        val key = DataExampleKeys::dataExampleKey
         // Golden vectors: `CatalogKeys.deriveDataExampleKey` of contract 2.0.0-alpha.1.
         assertThat(key("Ärger & Co.", emptySet())).isEqualTo("arger-co")
         assertThat(key("Standaard brief", setOf("standaard-brief"))).isEqualTo("standaard-brief-2")
@@ -45,7 +43,7 @@ class TemplatesToStorageMigrationTest {
     }
 
     @Test
-    fun `templates become their content, examples keep keys, descriptions, metadata and marks stay`() {
+    fun `a 1_x template becomes its content and its variants' rows, in its next draft and what it published`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "templates_to_storage_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -60,95 +58,78 @@ class TemplatesToStorageMigrationTest {
             .locations("classpath:db/migration")
             .apply { if (target != null) target(target) }
             .load()
-        val model = """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["children"],"styles":null,"stylePreset":null,"props":null},""" +
-            """"s1":{"id":"s1","type":"stencil","slots":["s1:children"],"styles":null,"stylePreset":null,"props":{"stencilKey":"header","catalogKey":"letters","namespace":"acme"}}},""" +
-            """"slots":{"children":{"id":"children","nodeId":"root","name":"children","children":["s1"]},"s1:children":{"id":"s1:children","nodeId":"s1","name":"children","children":[]}},""" +
-            """"themeRef":{"type":"override","themeKey":"brand","catalogKey":"letters"},"pageSettingsOverride":null,"documentStylesOverride":{"fontFamily":{"key":"serif","catalogKey":"system"}}}"""
+        fun model(text: String) = """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["children"]},""" +
+            """"t1":{"id":"t1","type":"text","props":{"content":"$text"}}},""" +
+            """"slots":{"children":{"id":"children","nodeId":"root","name":"children","children":["t1"]}},""" +
+            """"themeRef":{"type":"override","themeId":"brand"}}"""
 
-        flyway(BEFORE_TEMPLATE_STORAGE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.exec(
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name) VALUES ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters');
-                -- The theme a template names by identity; its identity is all this needs.
-                INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, resource_key, catalog_id)
-                SELECT 'acme', '00000000-0000-0000-0000-0000000000aa', 'theme', 'brand', catalog_id FROM catalogs WHERE catalog_key = 'letters';
+                INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED'), ('system', 'acme', 'System', 'AUTHORED');
+                INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('brand', 'acme', 'letters', 'Brand');
 
-                INSERT INTO document_templates (id, tenant_key, name, description, catalog_id, version_id, theme_resource_id, pdfa_enabled, data_model, data_examples, revision)
-                SELECT 'invoice', c.tenant_key, 'Invoice', 'Bills', c.catalog_id, v.version_id, '00000000-0000-0000-0000-0000000000aa', FALSE,
-                       '{"type":"object"}'::jsonb,
-                       '[{"id":"u1","name":"Standaard brief","data":{"a":1}},{"id":"u2","name":"Standaard brief","data":{"a":2}},{"id":"u3","name":"Kept","data":{},"key":"kept-key"}]'::jsonb, 7
-                FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next WHERE c.catalog_key = 'letters';
-                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, description, attributes, is_default, template_model, metadata, created_at)
-                SELECT x.id, t.tenant_key, t.version_id, t.resource_id, x.title, x.description, x.attributes::jsonb, x.is_default, '$model'::jsonb, x.metadata::jsonb, x.created_at
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, pdfa_enabled, theme_resource_id)
+                SELECT 'invoice', 'acme', 'letters', 'Invoice', FALSE, resource_id FROM themes WHERE id = 'brand';
+                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, description, attributes, is_default, created_at)
+                SELECT x.id, t.tenant_key, t.resource_id, x.title, x.description, x.attributes::jsonb, x.is_default, x.created_at
                 FROM document_templates t,
-                     (VALUES ('second', 'Second', 'For courts', '{"system.locale":"nl"}', FALSE, '{"app.epistola.suite":{"a":1}}', TIMESTAMPTZ '2026-01-02 00:00:00+00'),
-                             ('default', 'Default', NULL, '{}', TRUE, NULL, TIMESTAMPTZ '2026-01-01 00:00:00+00')) AS x(id, title, description, attributes, is_default, metadata, created_at);
-
-                -- Both variants marked ready; a finding about the second.
-                INSERT INTO resource_ready_marks (tenant_key, resource_id, part, digest, version_id)
-                SELECT tenant_key, resource_id, part, digest, version_id FROM resource_content_digests d
-                WHERE tenant_key = 'acme' AND resource_id = (SELECT resource_id FROM document_templates);
+                     (VALUES ('second', 'Second', 'For courts', '{"system.locale":"nl"}', FALSE, TIMESTAMPTZ '2026-01-02 00:00:00+00'),
+                             ('default', 'Default', NULL, '{}', TRUE, TIMESTAMPTZ '2026-01-01 00:00:00+00')) AS x(id, title, description, attributes, is_default, created_at);
+                -- Both published; the second has a draft since that differs.
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, published_at)
+                SELECT x.id, t.tenant_key, t.resource_id, x.variant, x.model::jsonb, x.status, x.published_at
+                FROM document_templates t,
+                     (VALUES (1, 'default', '${model("hello")}', 'published', NOW()),
+                             (1, 'second', '${model("hello")}', 'published', NOW()),
+                             (2, 'second', '${model("draft")}', 'draft', NULL)) AS x(id, variant, model, status, published_at);
+                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, published_at)
+                SELECT 1, t.tenant_key, t.resource_id, '{"type":"object"}'::jsonb,
+                       '[{"id":"u1","name":"Standaard brief","data":{"a":1}},{"id":"u2","name":"Standaard brief","data":{"a":2}},{"id":"u3","name":"Kept","data":{},"key":"kept-key"}]'::jsonb,
+                       'published', NOW()
+                FROM document_templates t;
                 """.trimIndent(),
             )
         }
-        flyway(BEFORE_VARIANT_DESCRIPTION).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            val payload = mapper.readTree(connection.rows("SELECT payload::text FROM current_templates WHERE id = 'invoice'").single().single())
+            val next = "(SELECT next_version_id FROM catalogs WHERE catalog_key = 'letters')"
+            val published = "(SELECT version_id FROM catalog_versions WHERE name = 'Published in 1.x')"
+            val payload = mapper.readTree(
+                connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.version_id = $next AND r.resource_type = 'template'").single().single(),
+            )
             val resource = payload.path("resource")
-            assertThat(listOf(resource.path("name").asString(), resource.path("description").asString(), resource.path("themeKey").asString(), resource.path("pdfaEnabled").asBoolean()))
-                .containsExactly("Invoice", "Bills", "brand", false)
+            assertThat(listOf(resource.path("name").asString(), resource.path("themeKey").asString(), resource.path("pdfaEnabled").asBoolean())).containsExactly("Invoice", "brand", false)
             assertThat(resource.path("themeCatalogKey").isNull).`as`("a theme of its own catalog is named relatively").isTrue()
             assertThat(resource.path("dataExamples").toList().map { it.path("key").asString() }).containsExactly("standaard-brief", "standaard-brief-2", "kept-key")
             assertThat(resource.path("dataExamples").toList().none { it.has("id") }).`as`("no example keeps the id").isTrue()
             assertThat(resource.path("variants").toList().map { it.path("key").asString() }).`as`("the default first").containsExactly("default", "second")
             assertThat(resource.has("templateModel") || resource.path("variants").any { it.has("templateModel") || it.has("title") })
                 .`as`("the template's content holds no variant's own fields").isFalse()
-            // Each variant a row of its own, with its title, description, metadata and model.
-            val second = connection.rows("SELECT title, description, metadata::text FROM current_template_variants WHERE id = 'second'").single()
-            assertThat(second.take(2)).containsExactly("Second", "For courts")
-            assertThat(mapper.readTree(second[2]).path("app.epistola.suite").path("a").asInt()).isEqualTo(1)
-            assertThat(connection.rows("SELECT resource_key FROM release_resources WHERE resource_type = 'variant' ORDER BY 1").map { it.single() })
-                .containsExactly("default", "second")
 
-            val stored = mapper.readTree(connection.rows("SELECT template_model::text FROM current_template_variants WHERE id = 'second'").single().single())
-            assertThat(stored.path("themeRef").path("catalogKey").isNull).`as`("its own theme, relative").isTrue()
-            assertThat(stored.path("nodes").path("s1").path("props").has("catalogKey")).`as`("its own stencil, relative").isFalse()
-            assertThat(stored.path("nodes").path("s1").path("props").has("namespace")).`as`("no name qualifier").isFalse()
-            assertThat(stored.path("documentStylesOverride").path("fontFamily").path("catalogKey").asString()).`as`("another catalog's font, by alias").isEqualTo("system")
-            assertThat(connection.rows("SELECT resource_type || '/' || COALESCE(alias, '') || '/' || resource_key FROM resource_references ORDER BY 1").map { it.single() })
-                // The template's content names its theme; each variant's (one model, two titles) its own.
-                .containsExactlyInAnyOrder("font/system/serif", "font/system/serif", "stencil//header", "stencil//header", "theme//brand", "theme//brand", "theme//brand")
-            assertThat(connection.rows("SELECT revision FROM current_templates").single().single()).`as`("its revision stays").isEqualTo("7")
+            fun part(version: String, key: String) = mapper.readTree(
+                connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.version_id = $version AND r.resource_type = 'variant' AND r.resource_key = '$key'").single().single(),
+            ).path("resource")
+            val second = part(next, "second")
+            assertThat(listOf(second.path("title").asString(), second.path("description").asString())).containsExactly("Second", "For courts")
+            assertThat(second.path("templateModel").path("nodes").path("t1").path("props").path("content").asString()).`as`("the working copy is the draft").isEqualTo("draft")
+            assertThat(second.path("templateModel").path("themeRef").path("themeKey").asString()).`as`("in wire v8").isEqualTo("brand")
+            assertThat(part(next, "default").has("description")).`as`("a variant without one has none").isFalse()
+            assertThat(part(published, "second").path("templateModel").path("nodes").path("t1").path("props").path("content").asString())
+                .`as`("the named draft holds what it published").isEqualTo("hello")
+
+            // Ready: in the next draft what has no differing draft; in the named draft everything.
+            assertThat(connection.rows("SELECT m.part FROM resource_ready_marks m WHERE m.version_id = $next AND m.part <> '' ORDER BY 1").map { it.single() }).containsExactly("default")
+            assertThat(connection.rows("SELECT m.part FROM resource_ready_marks m WHERE m.version_id = $published AND m.part <> '' ORDER BY 1").map { it.single() }).containsExactly("default", "second")
             assertThat(connection.rows("SELECT count(*) FROM resource_ready_marks m JOIN resource_content_digests d USING (tenant_key, version_id, resource_id, part) WHERE d.digest = m.digest").single().single())
-                .`as`("both marks hold against the content").isEqualTo("2")
+                .`as`("every mark holds against the content").isEqualTo(connection.rows("SELECT count(*) FROM resource_ready_marks").single().single())
+
+            assertThat(connection.rows("SELECT v.name, d.alias FROM catalog_version_dependencies d JOIN catalog_versions v USING (tenant_key, version_id) ORDER BY 1 NULLS FIRST"))
+                .`as`("the attribute's qualifier declares its catalog, in both drafts").containsExactly(listOf(null, "system"), listOf("Published in 1.x", "system"))
             assertThat(connection.rows("SELECT CAST(to_regclass('document_templates') IS NULL AND to_regclass('template_variants') IS NULL AS TEXT)").single().single()).isEqualTo("true")
-            val beside = mapper.readTree(connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = 'second'").single().single())
-            assertThat(beside.path("description").asString()).`as`("7b keeps the description beside the resource").isEqualTo("For courts")
-        }
-
-        flyway(null).migrate()
-
-        DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            fun content(key: String) = mapper.readTree(
-                connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = '$key'").single().single(),
-            )
-            val second = content("second")
-            assertThat(second.path("resource").path("description").asString()).`as`("the description is in its released form").isEqualTo("For courts")
-            assertThat(second.has("description")).`as`("and no longer beside it").isFalse()
-            assertThat(content("default").path("resource").has("description")).`as`("a variant without one has none").isFalse()
-            // A variant's metadata moved to its template, folded as the contract's migrator folds it.
-            assertThat(second.path("resource").has("metadata")).`as`("the variant keeps no metadata").isFalse()
-            val head = mapper.readTree(connection.rows("SELECT payload::text FROM current_templates WHERE id = 'invoice'").single().single())
-            assertThat(head.path("resource").path("metadata").path("app.epistola.suite").path("variants").path("second").path("a").asInt())
-                .`as`("the template holds it, by the variant").isEqualTo(1)
-            assertThat(connection.rows("SELECT description FROM current_template_variants WHERE id = 'second'").single().single()).isEqualTo("For courts")
-            assertThat(connection.rows("SELECT f.resource_type || '/' || COALESCE(f.alias, '') || '/' || f.resource_key FROM release_resources r JOIN resource_references f USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = 'second' ORDER BY 1").map { it.single() })
-                .`as`("its new content names what the old one did").containsExactly("font/system/serif", "stencil//header", "theme//brand")
-            assertThat(connection.rows("SELECT count(*) FROM resource_ready_marks m JOIN resource_content_digests d USING (tenant_key, version_id, resource_id, part) WHERE d.digest = m.digest").single().single())
-                .`as`("both marks still hold").isEqualTo("2")
         }
     }
 
