@@ -84,7 +84,8 @@ object ChainSnapshot {
             val defining = definers[value.lowercase()].orEmpty()
             if (inText && defining.isEmpty() && value[14] == '0') return value
             if (depth <= 0 || defining.isEmpty()) return "<id>"
-            val description = defining.map { (table, row) -> "$table${render(table, row, depth - 1)}" }.sorted().joinToString("|")
+            // A row's revision counts its edits; it says nothing of which row it is.
+            val description = defining.map { (table, row) -> "$table${render(table, row.deepCopy().also { it.remove("revision") }, depth - 1)}" }.sorted().joinToString("|")
             return "@" + java.security.MessageDigest.getInstance("SHA-256").digest(description.toByteArray()).joinToString("") { "%02x".format(it) }.take(12)
         }
 

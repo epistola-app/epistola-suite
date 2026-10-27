@@ -33,7 +33,7 @@ import tools.jackson.databind.node.ObjectNode
  * - a stencil never published is left out; a published one's content and parameter schema replace the
  *   draft's, in released form ([ReferenceWalker.releasedForm]);
  * - every part of it is marked ready: it was published.
- * A row whose content changes counts as changed (its revision is raised), as any edit of a draft row.
+ * The named draft is new, not an edit: its rows keep the revision and timestamps of the rows they copy.
  * When the result holds what the next draft holds, the named draft is removed: there is nothing of its
  * own to release. A subscribed 1.x catalog gets its release from its source at boot.
  *
@@ -258,6 +258,6 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
         const val ONE_X_CATALOGS = "upgrade-1x-catalogs"
 
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 188484460
+        const val CHECKSUM: Int = -368030369
     }
 }
