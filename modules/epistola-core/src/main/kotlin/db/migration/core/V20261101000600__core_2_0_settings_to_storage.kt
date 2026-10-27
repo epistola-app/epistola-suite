@@ -263,7 +263,7 @@ class V20261101000600__core_2_0_settings_to_storage : BaseJavaMigration() {
             """
             SELECT $ownerColumns, x.id, x.name, x.media_type, x.width, x.height, x.content_hash, x.created_at, x.created_by::text,
                    EXISTS (SELECT 1 FROM font_variants fv WHERE fv.tenant_key = x.tenant_key AND fv.asset_resource_id = x.resource_id) AS face,
-                   EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = x.content_hash) AS stored
+                   EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = CAST(x.content_hash AS CHAR(64))) AS stored
             FROM assets x $ownerJoin
             ORDER BY x.tenant_key, x.catalog_key, x.id
             """,
@@ -333,6 +333,6 @@ class V20261101000600__core_2_0_settings_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 254294781
+        const val CHECKSUM: Int = 1153267541
     }
 }

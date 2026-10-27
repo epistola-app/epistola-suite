@@ -642,7 +642,7 @@ SELECT u.*,
        CAST(u.payload -> 'resource' ->> 'width' AS INTEGER) AS width,
        CAST(u.payload -> 'resource' ->> 'height' AS INTEGER) AS height,
        u.payload -> 'resource' ->> 'contentHash' AS content_hash,
-       (SELECT ac.size_bytes FROM asset_content ac WHERE ac.content_hash = u.payload -> 'resource' ->> 'contentHash') AS size_bytes
+       (SELECT ac.size_bytes FROM asset_content ac WHERE ac.content_hash = CAST(u.payload -> 'resource' ->> 'contentHash' AS CHAR(64))) AS size_bytes
 FROM (
     -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,

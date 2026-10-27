@@ -175,3 +175,110 @@ BEGIN
     RETURN OLD;
 END;
 $$
+
+# Consistent types (decided for the rewrite: no domains, one plain type per concept): every unprefixed
+# SHA-256 is CHAR(64), so the hash of a file stored in asset_content compares like for like with the
+# content hashes of the storage tables, and a lookup by it keeps its index. The image view compares the
+# hash in a content's JSON to the column as CHAR(64) for the same reason.
+- CREATE TABLE public.asset_content (
+    content bytea NOT NULL,
+    content_hash text NOT NULL,
+    content_type character varying(100) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    size_bytes bigint NOT NULL
+)
++ CREATE TABLE public.asset_content (
+    content bytea NOT NULL,
+    content_hash character(64) NOT NULL,
+    content_type character varying(100) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    size_bytes bigint NOT NULL
+)
+- CREATE TABLE public.resource_binaries (
+    binary_hash text NOT NULL,
+    content_hash character(64) NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.resource_binaries (
+    binary_hash character(64) NOT NULL,
+    content_hash character(64) NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
+- CREATE VIEW public.current_images AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    ((payload -> 'resource'::text) ->> 'mediaType'::text) AS media_type,
+    (((payload -> 'resource'::text) ->> 'width'::text))::integer AS width,
+    (((payload -> 'resource'::text) ->> 'height'::text))::integer AS height,
+    ((payload -> 'resource'::text) ->> 'contentHash'::text) AS content_hash,
+    ( SELECT ac.size_bytes
+           FROM public.asset_content ac
+          WHERE (ac.content_hash = ((u.payload -> 'resource'::text) ->> 'contentHash'::text))) AS size_bytes
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            c.payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM (public.catalog_version_resources('image'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
+             CROSS JOIN LATERAL ( SELECT c_1.payload
+                   FROM public.resource_contents c_1
+                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
+                 OFFSET 0) c)) u
++ CREATE VIEW public.current_images AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    ((payload -> 'resource'::text) ->> 'mediaType'::text) AS media_type,
+    (((payload -> 'resource'::text) ->> 'width'::text))::integer AS width,
+    (((payload -> 'resource'::text) ->> 'height'::text))::integer AS height,
+    ((payload -> 'resource'::text) ->> 'contentHash'::text) AS content_hash,
+    ( SELECT ac.size_bytes
+           FROM public.asset_content ac
+          WHERE (ac.content_hash = (((u.payload -> 'resource'::text) ->> 'contentHash'::text))::character(64))) AS size_bytes
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            c.payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM (public.catalog_version_resources('image'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
+             CROSS JOIN LATERAL ( SELECT c_1.payload
+                   FROM public.resource_contents c_1
+                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
+                 OFFSET 0) c)) u

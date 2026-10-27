@@ -59,6 +59,9 @@ ON CONFLICT DO NOTHING;
 DELETE FROM asset_content WHERE scope <> 'global';
 ALTER TABLE asset_content DROP CONSTRAINT asset_content_pkey;
 ALTER TABLE asset_content DROP COLUMN scope;
+-- Every unprefixed SHA-256 is CHAR(64), as the storage tables hold them, so a join on a file's hash
+-- compares like types and keeps its index.
+ALTER TABLE asset_content ALTER COLUMN content_hash TYPE CHAR(64);
 ALTER TABLE asset_content ADD CONSTRAINT asset_content_pkey PRIMARY KEY (content_hash);
 
 COMMENT ON TABLE asset_content IS
@@ -70,7 +73,7 @@ COMMENT ON TABLE asset_content IS
 CREATE TABLE resource_binaries (
     tenant_key   TENANT_KEY NOT NULL,
     content_hash CHAR(64)   NOT NULL,
-    binary_hash  TEXT       NOT NULL,
+    binary_hash  CHAR(64)   NOT NULL,
     CONSTRAINT pk_resource_binaries PRIMARY KEY (tenant_key, content_hash, binary_hash),
     CONSTRAINT fk_resource_binaries_content FOREIGN KEY (tenant_key, content_hash)
         REFERENCES resource_contents (tenant_key, content_hash) ON DELETE CASCADE,

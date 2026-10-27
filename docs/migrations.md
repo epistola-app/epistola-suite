@@ -207,6 +207,15 @@ revision, and the hygiene of the rewrite. The snapshot is recorded only from the
 history (`EPISTOLA_MIGRATION_CHAIN_RECORD`); a test of what the upgrade does to 1.x data seeds the
 last 1.x schema (`LAST_1X`) and migrates to the end.
 
+The chain uses one plain type per concept, not domains: every unprefixed SHA-256 (a content's hash,
+a file's hash, a ready mark's digest) is `CHAR(64)`; every prefixed fingerprint (`v6:…`) is
+`VARCHAR(80)`; every registry and namespace is `TEXT`, without a `CHECK`, so a 1.x namespace the
+contract's grammar rejects still migrates (the application validates names). A domain was tried and
+dropped: it put a cast into every join on a hash, and a lookup by hash would lose its index. A
+`CHAR(64)` column compared with JSON text (`payload ->> 'contentHash'`) is cast to `text` by
+PostgreSQL, which also loses the index, so such a comparison casts the JSON side:
+`CAST(… AS CHAR(64))`. A bound parameter needs no cast.
+
 ## Running migrations: embedded vs separated
 
 A single knob — `epistola.migration.mode` (env `EPISTOLA_MIGRATION_MODE`),

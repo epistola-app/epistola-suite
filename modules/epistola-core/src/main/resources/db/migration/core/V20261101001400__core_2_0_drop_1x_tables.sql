@@ -23,7 +23,7 @@ BEGIN
       AND NOT EXISTS (
           SELECT 1 FROM assets a
           WHERE cs.key = 'assets/' || a.tenant_key || '/' || a.id
-            AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = a.content_hash)
+            AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = CAST(a.content_hash AS CHAR(64)))
       );
     IF total > 0 THEN
         RAISE NOTICE 'Dropping content_store: % row(s), of which % named nothing that exists any more', total, orphaned;
