@@ -23,6 +23,12 @@ import java.sql.Connection
  *    stamped on the asset, which the conversions of step 6 read. An asset whose legacy bytes are
  *    missing is logged and left as it is: never refused.
  *
+ * Months are UTC months: the migration runs with the session time zone set to UTC, as the rest of the
+ * schema's monthly partitions are bounded. `document_content`'s key is a `timestamptz`, so the dates
+ * `epistola_create_partition` bounds a partition with, and `date_trunc('month', …)`, are read in the
+ * session time zone, which pgjdbc takes from the JVM: run elsewhere than UTC, the partitions would be
+ * shifted by its offset (`TwoZeroChainEquivalenceIT` caught it between a CET and a UTC run).
+ *
  * Runs outside Flyway's single transaction, a batch per transaction, so a large installation does not
  * hold every blob in one. Every step is idempotent, so what committed before a failure is kept and
  * running it again only does the rest. Flyway records no history row for a non-transactional migration
@@ -43,10 +49,23 @@ class V20261101000500__core_2_0_legacy_blobs : BaseJavaMigration() {
     override fun migrate(context: Context) {
         val connection = context.connection
         val autoCommit = connection.autoCommit
+        val timeZone = connection.createStatement().use { st ->
+            st.executeQuery("SHOW TimeZone").use { rs ->
+                rs.next()
+                rs.getString(1)
+            }
+        }
         connection.autoCommit = false
         try {
+            connection.createStatement().use { it.execute("SET TIME ZONE 'UTC'") }
             documents(connection)
             files(connection)
+            // The steps after this one run on the same connection, in the zone they were given.
+            connection.prepareStatement("SELECT set_config('TimeZone', ?, false)").use {
+                it.setString(1, timeZone)
+                it.executeQuery().close()
+            }
+            connection.commit()
         } finally {
             connection.autoCommit = autoCommit
         }
@@ -140,7 +159,7 @@ class V20261101000500__core_2_0_legacy_blobs : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -497160093
+        const val CHECKSUM: Int = -1048118342
 
         private const val BATCH = 100
     }

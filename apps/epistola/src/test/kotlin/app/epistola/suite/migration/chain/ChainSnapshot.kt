@@ -91,6 +91,9 @@ object ChainSnapshot {
 
         companion object {
             fun read(connection: Connection): Graph {
+                // Times render in the session time zone, which pgjdbc takes from the JVM: fixed to UTC so a
+                // CET and a UTC run write the same snapshot.
+                connection.createStatement().use { it.execute("SET TIME ZONE 'UTC'") }
                 val tables = tables(connection)
                 val generated = generatedColumns(connection)
                 val keys = primaryKeys(connection)

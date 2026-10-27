@@ -2553,3 +2553,11 @@ cannot clear a default theme through generated clients (null and omitted are the
   release, retried at every boot. It now takes the registry and namespace the source's manifest gives
   it first (it has never had a release, so its namespace can still change), with the drafts that
   declare it; a different key, or a name another catalog already has, fails it, logged and retried.
+
+- 2.0 chain, time zone (2026-10-27): `TwoZeroChainEquivalenceIT` failed in CI (UTC) but passed locally (CET). Two
+  causes. (1) Step 5 (`V20261101000500`) bounded the `document_content` partition and grouped documents by month
+  in the session time zone pgjdbc takes from the JVM, so a CET migration shifted the bounds by its offset; the
+  step now runs with the session in UTC (the old chain had the same flaw). (2) The snapshot rendered times, and
+  labels derived from them, in that zone; `ChainSnapshot` now reads in UTC, and the golden snapshot is recorded
+  again from the old chain in UTC. The test passes under UTC, CET, New York and Tokyo, and fails in Tokyo with
+  the step-5 fix disabled.

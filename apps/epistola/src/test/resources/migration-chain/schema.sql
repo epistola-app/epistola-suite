@@ -260,7 +260,7 @@ ALTER TABLE ONLY public.consumer_partition_cursors
 ALTER TABLE ONLY public.document_content
     ADD CONSTRAINT document_content_pkey PRIMARY KEY (key, created_at);
 
-ALTER TABLE ONLY public.document_content ATTACH PARTITION public.document_content_2026_06 FOR VALUES FROM ('2026-05-31 22:00:00+00') TO ('2026-06-30 22:00:00+00');
+ALTER TABLE ONLY public.document_content ATTACH PARTITION public.document_content_2026_06 FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
 
 ALTER TABLE ONLY public.document_content_2026_06
     ADD CONSTRAINT document_content_2026_06_pkey PRIMARY KEY (key, created_at);
