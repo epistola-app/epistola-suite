@@ -153,12 +153,23 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   grants now. A platform administrator grants and revokes them (`GrantTenantNamespace`,
   `RevokeTenantNamespace`, `TENANT_MANAGER`) on the tenant list's **Namespaces** page, and grants one
   when creating a tenant, whose default catalog is named in it. A tenant created without one (the
-  demo's personal tenants) gets its default catalog under `local/default`. Existing tenants hold,
-  from the migration (`V20261022180032`), the namespaces their Exchange connection grants and those
-  of the catalogs they author: no source (not supplied by Epistola, not installed from the Exchange,
-  a registry or a manifest URL), not a 1.x subscribed copy, and not a file another installation
-  released (a release naming another installation, and none cut here; a release recorded before
-  releases named their installation counts as cut here).
+  demo's personal tenants) gets its default catalog under `local/default`.
+- **Catalogs from before 2.0** are named by the identity migration (`V20261018200100`): a catalog the
+  tenant authored becomes `local/<tenant key>/<key>`, the key padded with `0` to a namespace's 3
+  characters, since until now a catalog never left its installation but through the Exchange. Only
+  the Exchange names one on `exchange.epistola.app`: the catalogs Epistola ships (`epistola`, as their
+  manifests say), one installed from the Exchange (its publisher's namespace) and one bound to an
+  Exchange namespace for publishing (that namespace). Importing an archive from before wire v8, which
+  names no catalog, proposes the same `local/<tenant key>`, so an export from 1.x lands on the
+  catalog it came from. One subscribed to from a URL starts there too, and takes the name its source
+  gives it at the first boot, before its release is installed (`ReceiveOneXSubscribedReleases`); any
+  other local catalog moves to a real name only by promotion (ADR 0034, phase 8).
+  Existing tenants hold, from the grants migration (`V20261022180032`), the namespaces their Exchange
+  connection grants and those of the catalogs they author outside `local`, which are the ones bound
+  to the Exchange: no source (not supplied by Epistola, not installed from the Exchange, a registry or
+  a manifest URL), not a 1.x subscribed copy, and not a file another installation released (a release
+  naming another installation, and none cut here; a release recorded before releases named their
+  installation counts as cut here).
 - **Revoking** is refused while catalogs the tenant authors (no source) are named in the namespace,
   and the refusal names them (`CATALOG_NAMESPACE_IN_USE`); a received catalog does not block it.
 - **Creating a catalog** (`CreateCatalog`; the create dialog, MCP `create_catalog`): the namespace is

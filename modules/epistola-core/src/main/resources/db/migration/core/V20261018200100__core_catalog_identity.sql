@@ -1,11 +1,13 @@
 -- A catalog is identified by registry, namespace and key (contract ADR 0003). Until now a catalog
 -- had only its key.
 --
--- Existing catalogs are named on the default registry, exchange.epistola.app, with `epistola` as
--- namespace for the catalogs Epistola ships (installed from the classpath), and otherwise their
--- tenant's key, padded with `0` to the 3 characters a namespace needs, as the contract pads a short
--- key, unless Exchange already names it (below). The namespace stays changeable until the catalog is
--- first published.
+-- Existing catalogs are named under `local` (ADR 0034, section 7), in their tenant's key, padded with
+-- `0` to the 3 characters a namespace needs, as the contract pads a short key: until now a catalog
+-- never left its installation but through the Exchange, so a name valid only within the organisation
+-- is the one it had. Only Exchange names a catalog on exchange.epistola.app: the catalogs Epistola
+-- ships (installed from the classpath, namespace `epistola`, as their manifests name them), and those
+-- installed from or bound to the Exchange (below). The namespace stays changeable until the catalog
+-- is first published.
 ALTER TABLE catalogs
     ADD COLUMN registry TEXT,
     ADD COLUMN namespace TEXT;
@@ -14,7 +16,12 @@ ALTER TABLE catalogs
 -- (`exchange:<namespace>/<key>`); one bound to an Exchange namespace for publishing takes that
 -- namespace, which is the same one (ADR 0003: the registry grants it).
 UPDATE catalogs c
-SET registry  = 'exchange.epistola.app',
+SET registry  = CASE
+        WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' OR c.source_url LIKE 'exchange:%/%'
+            OR EXISTS (SELECT 1 FROM catalog_exchange_bindings b WHERE b.tenant_key = c.tenant_key AND b.catalog_key = c.id)
+            THEN 'exchange.epistola.app'
+        ELSE 'local'
+    END,
     namespace = CASE
         WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
         WHEN c.source_url LIKE 'exchange:%/%' THEN split_part(substring(c.source_url FROM length('exchange:') + 1), '/', 1)
@@ -31,7 +38,7 @@ ALTER TABLE catalogs
 COMMENT ON COLUMN catalogs.registry IS
     'The registry the catalog is named on (contract ADR 0003): a DNS name, written in full.';
 COMMENT ON COLUMN catalogs.namespace IS
-    'The catalog''s namespace on its registry (contract ADR 0003). Defaults to the tenant key for an authored catalog; fixed once the catalog is published.';
+    'The catalog''s namespace on its registry (contract ADR 0003). An authored catalog from before 2.0 is local/<tenant key>; fixed once the catalog is published.';
 
 -- Wire v8 writes a fingerprint as `<algorithm>:<hex>` (`v5:` + 64 hex characters). A fingerprint
 -- recorded before keeps its bare 64-character hex, which the contract reads as "algorithm not
@@ -82,15 +89,15 @@ END $$;
 ALTER TABLE documents ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 ALTER TABLE document_generation_requests ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 
--- A row whose catalog no longer exists keeps its key and is named on the default registry in its
--- tenant's namespace, which is what a catalog of that tenant was named on the move to 2.0.
-UPDATE documents d SET registry = COALESCE(c.registry, 'exchange.epistola.app'),
+-- A row whose catalog no longer exists keeps its key and is named under `local` in its tenant's
+-- namespace, which is what an authored catalog of that tenant was named on the move to 2.0.
+UPDATE documents d SET registry = COALESCE(c.registry, 'local'),
                        namespace = COALESCE(c.namespace, CASE WHEN length(d.tenant_key) < 3 THEN rpad(d.tenant_key, 3, '0') ELSE d.tenant_key END)
 FROM (SELECT DISTINCT tenant_key, catalog_key FROM documents) k
 LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.id = k.catalog_key
 WHERE d.tenant_key = k.tenant_key AND d.catalog_key = k.catalog_key;
 
-UPDATE document_generation_requests d SET registry = COALESCE(c.registry, 'exchange.epistola.app'),
+UPDATE document_generation_requests d SET registry = COALESCE(c.registry, 'local'),
                        namespace = COALESCE(c.namespace, CASE WHEN length(d.tenant_key) < 3 THEN rpad(d.tenant_key, 3, '0') ELSE d.tenant_key END)
 FROM (SELECT DISTINCT tenant_key, catalog_key FROM document_generation_requests) k
 LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.id = k.catalog_key

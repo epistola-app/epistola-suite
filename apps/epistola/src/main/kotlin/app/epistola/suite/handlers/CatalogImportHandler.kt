@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -39,12 +40,10 @@ import org.springframework.web.servlet.function.ServerResponse
  * Importing a catalog archive from the catalog list (_Import ZIP_): the dialog and the upload.
  * The import receives the release ([ImportCatalogZip], `CATALOG_MANAGE`); an archive from before
  * wire v8 names no catalog, so the operator is asked for its registry and namespace, proposed as
- * the default registry and this tenant's namespace, never decided silently.
+ * local and this tenant's namespace, never decided silently.
  */
 @Component
-class CatalogImportHandler(
-    private val identity: CatalogIdentityProperties,
-) {
+class CatalogImportHandler {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -150,15 +149,16 @@ class CatalogImportHandler(
                 ),
             )
         } catch (e: CatalogNameRequiredException) {
-            // An archive from before wire v8 names no catalog: the importer proposes the default
-            // registry and this tenant's namespace, and the operator decides. The prompt's fields sit
+            // An archive from before wire v8 names no catalog: the importer proposes the name the 2.0
+            // migration gave this tenant's own catalogs, local in its namespace, so re-importing an
+            // export from before lands on the catalog it came from. The operator decides. The prompt's fields sit
             // inside the form, so its button re-submits the same file with them, migration confirmed.
             fragmentOrPage(
                 request,
                 "catalogs/import",
                 "import-name-required",
                 mapOf(
-                    "registry" to (registry ?: identity.defaultRegistry),
+                    "registry" to (registry ?: LocalAuthority.NAME),
                     "namespace" to (namespace ?: CatalogIdentityProperties.defaultNamespace(tenantId.key)),
                 ),
             )

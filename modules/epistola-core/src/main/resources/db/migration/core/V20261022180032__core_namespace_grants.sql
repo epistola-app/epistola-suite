@@ -51,6 +51,8 @@ WHERE length(ns) BETWEEN 3 AND 63 AND ns ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
 ON CONFLICT DO NOTHING;
 
 -- Existing data, 2: the namespaces of the catalogs each tenant authors (ADR 0032, sections 2 and 7).
+-- The 2.0 identity migration named an authored catalog under `local`, which needs no grant, unless it
+-- was bound to an Exchange namespace for publishing: that is the one held here.
 -- A catalog is authored by its tenant when it
 --   * has no source: one Epistola supplies (`classpath:`) is the suite's, and one installed from
 --     the Exchange (`exchange:`), a container registry (`oci:`) or a manifest URL is received;
