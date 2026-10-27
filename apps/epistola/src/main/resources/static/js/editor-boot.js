@@ -8,14 +8,6 @@
 // swaps (module top-level code only evaluates once per URL, so mounting is
 // driven by htmx:load with an idempotency guard).
 
-// The same page in the catalog's next draft: the catalog address without its version
-// (`/catalogs/{namespace}/{key}@{version}/…` becomes `/catalogs/{namespace}/{key}/…`, and the
-// short `/catalogs/{key}@{version}/…` becomes `/catalogs/{key}/…`).
-function nextDraftLocation(location) {
-  const path = location.pathname.replace(/(\/catalogs\/(?:[^/@]+\/)?[^/@]+)@[^/]+/, '$1');
-  return path + location.search;
-}
-
 async function mount(container) {
   if (container.dataset.editorMounted) return;
   const island = document.getElementById('editor-config');
@@ -24,7 +16,13 @@ async function mount(container) {
   const config = JSON.parse(island.textContent);
 
   const editorModule = await import(config.editorModuleUrl);
-  const { formatPreviewErrorResponse, loadEditorPlugins, mountEditor } = editorModule;
+  const {
+    formatPreviewErrorResponse,
+    isReleasedVersionProblem,
+    loadEditorPlugins,
+    mountEditor,
+    offerNextDraft,
+  } = editorModule;
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
@@ -212,7 +210,15 @@ async function mount(container) {
               'Not saved: someone else saved this stencil. Open it again to see their version.',
             );
           }
-          if (!resp.ok) throw new Error(await errorMessage(resp, 'Failed to save the stencil'));
+          if (!resp.ok) {
+            const problem = await resp.json().catch(() => ({}));
+            const message =
+              problem.detail || problem.message || problem.error || 'Failed to save the stencil';
+            // The catalog version was released while the stencil was open here (ADR 0036).
+            if (isReleasedVersionProblem(resp.status, problem.type) && offerNextDraft(message))
+              return;
+            throw new Error(message);
+          }
           const saved = await resp.json().catch(() => null);
           if (saved && typeof saved.revision === 'number')
             stencilRevisions.set(url, saved.revision);
@@ -286,15 +292,7 @@ async function mount(container) {
         }
         // This version was released while it was open here (ADR 0036): it cannot change any more,
         // and work goes on in the catalog's next draft, which the same page without a version opens.
-        if (response.status === 409 && type && type.endsWith('/catalog-version-released')) {
-          const openNext = window.confirm(
-            message + '\n\nOK: open the next draft (your unsaved changes here are lost).',
-          );
-          if (openNext) {
-            window.location.assign(nextDraftLocation(window.location));
-            return;
-          }
-        }
+        if (isReleasedVersionProblem(response.status, type) && offerNextDraft(message)) return;
         // Carry the structured problem `type`/`field` on the Error so
         // the editor can render it inline without parsing the message.
         const err = new Error(message);

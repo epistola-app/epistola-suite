@@ -18,6 +18,11 @@ import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 
 export type { ThemeData } from './theme-editor/ThemeEditorState.js';
 export type { FontInfo } from './engine/font-catalog.js';
+export {
+  isReleasedVersionProblem,
+  nextDraftLocation,
+  offerNextDraft,
+} from './ui/released-version.js';
 
 // ---------------------------------------------------------------------------
 // Public mount API
