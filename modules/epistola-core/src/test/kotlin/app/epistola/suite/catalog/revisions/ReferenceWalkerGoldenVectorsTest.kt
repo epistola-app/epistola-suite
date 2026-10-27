@@ -4,7 +4,7 @@
 
 package app.epistola.suite.catalog.revisions
 
-import db.migration.core.V20261024114440__core_themes_to_storage
+import db.migration.core.frozen.ReferenceWalker
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.JsonNode
@@ -17,7 +17,9 @@ import tools.jackson.databind.json.JsonMapper
  * already exists fails here, and needs a code migration that walks the existing content again. A
  * new kind of reference only new content can contain adds a case.
  *
- * The theme conversion carries a frozen copy of the walker; it must agree on every theme case.
+ * The 2.0 upgrade carries a frozen copy of the walker (`db.migration.core.frozen.ReferenceWalker`),
+ * which it records the references of converted themes, stencils and variants with; it must agree on
+ * every case of a document it walks.
  */
 class ReferenceWalkerGoldenVectorsTest {
 
@@ -39,9 +41,11 @@ class ReferenceWalkerGoldenVectorsTest {
     }
 
     @Test
-    fun `the theme conversion's frozen walker agrees on every theme case`() {
-        for (case in vectors.path("cases").toList().filter { it.path("kind").asString() == "theme" }) {
-            val found = V20261024114440__core_themes_to_storage.references(case.path("content"))
+    fun `the upgrade's frozen walker agrees on every document it walks`() {
+        val walked = vectors.path("cases").toList().filter { it.path("kind").asString() in setOf("theme", "templateModel") }
+        assertThat(walked).isNotEmpty
+        for (case in walked) {
+            val found = ReferenceWalker.references(case.path("content"))
                 .map { ContentReference(it.alias, it.type, it.key) }.toSet()
             assertThat(found).`as`(case.path("name").asString()).isEqualTo(expected(case))
         }

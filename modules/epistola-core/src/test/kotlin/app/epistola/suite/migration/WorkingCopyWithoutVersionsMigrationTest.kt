@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test
 import java.sql.DriverManager
 
 /**
- * `core_working_copy_without_versions` gives each template variant its working model and each
- * template its data contract (the draft where there is one, else the latest published), and marks
- * ready exactly what was publishable before: unfinished drafts stay unready.
+ * The 2.0 upgrade's working copy (steps 7 and 8) gives each template variant its working model and
+ * each template its data contract (the draft where there is one, else the latest published), and
+ * marks ready in the next draft exactly what was publishable before: unfinished drafts stay unready.
  */
 @Tag("integration")
 class WorkingCopyWithoutVersionsMigrationTest {
@@ -36,37 +36,50 @@ class WorkingCopyWithoutVersionsMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             // Rows as 1.x wrote them: no command writes template or contract versions any more.
             connection.createStatement().use { it.execute(SEED) }
         }
-        flyway(BEFORE_TEMPLATE_STORAGE).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun rows(sql: String): Map<String, String?> = connection.createStatement().use { st ->
                 st.executeQuery(sql).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2)) } }
             }
 
-            assertThat(rows("SELECT t.id, v.template_model->>'root' FROM template_variants v JOIN document_templates t ON t.resource_id = v.template_resource_id"))
-                .containsExactlyInAnyOrderEntriesOf(
-                    mapOf(
-                        "published-only" to "published",
-                        "draft-over-published" to "draft",
-                        "never-published" to "draft",
-                        "draft-as-published" to "published",
-                        "contract-in-progress" to "published",
-                    ),
-                )
-            assertThat(rows("SELECT id, data_model->>'title' FROM document_templates"))
+            val next = "SELECT next_version_id FROM catalogs WHERE catalog_key = 'letters'"
+            assertThat(
+                rows(
+                    """
+                    SELECT t.resource_key, c.payload -> 'resource' -> 'templateModel' ->> 'root'
+                    FROM release_resources t
+                    JOIN release_resources v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id AND v.parent_id = t.resource_id
+                    JOIN resource_contents c ON c.tenant_key = v.tenant_key AND c.content_hash = v.content_hash
+                    WHERE t.version_id = ($next) AND t.resource_type = 'template'
+                    """,
+                ),
+            ).containsExactlyInAnyOrderEntriesOf(
+                mapOf(
+                    "published-only" to "published",
+                    "draft-over-published" to "draft",
+                    "never-published" to "draft",
+                    "draft-as-published" to "published",
+                    "contract-in-progress" to "published",
+                ),
+            )
+            val contracts = "SELECT r.resource_key, c.payload -> 'resource' FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) " +
+                "WHERE r.version_id = ($next) AND r.resource_type = 'template'"
+            assertThat(rows("SELECT k, p -> 'dataModel' ->> 'title' FROM ($contracts) x(k, p)"))
                 .containsEntry("published-only", "published contract")
                 .containsEntry("contract-in-progress", "draft contract")
-            assertThat(rows("SELECT id, data_examples->0->>'key' FROM document_templates")).containsEntry("published-only", "jane")
+            assertThat(rows("SELECT k, p -> 'dataExamples' -> 0 ->> 'key' FROM ($contracts) x(k, p)")).containsEntry("published-only", "jane")
 
             val ready = rows(
                 """
                 SELECT r.resource_key, m.part FROM resource_ready_marks m
                 JOIN catalog_resources r ON r.tenant_key = m.tenant_key AND r.resource_id = m.resource_id
+                WHERE m.version_id = ($next)
                 """,
             )
             assertThat(ready.keys).containsExactlyInAnyOrder("published-only", "draft-as-published", "brand")
@@ -85,14 +98,10 @@ class WorkingCopyWithoutVersionsMigrationTest {
     }
 
     private companion object {
-        /** The last migration before the one under test. */
-        const val BEFORE = "20261018200500"
-
         fun model(root: String) = """{"modelVersion": 1, "root": "$root", "nodes": {"$root": {"id": "$root", "type": "root", "slots": []}}, "slots": {}, "themeRef": {"type": "inherit"}}"""
 
         fun template(key: String) = """
-            INSERT INTO document_templates (id, tenant_key, name, resource_id, catalog_id)
-                VALUES ('$key', 'acme', '$key', gen_random_uuid(), (SELECT catalog_id FROM catalogs WHERE catalog_key = 'letters'));
+            INSERT INTO document_templates (id, tenant_key, catalog_key, name) VALUES ('$key', 'acme', 'letters', '$key');
             INSERT INTO template_variants (id, tenant_key, title, template_resource_id)
                 VALUES ('default', 'acme', 'Default', (SELECT resource_id FROM document_templates WHERE id = '$key'));
         """.trimIndent()
@@ -110,8 +119,7 @@ class WorkingCopyWithoutVersionsMigrationTest {
 
         val SEED = listOf(
             "INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');",
-            """INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, catalog_metadata)
-               VALUES ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters', 'AUTHORED', '{}');""",
+            "INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED');",
             template("published-only"), contract("published-only", 1, "published", "published contract"),
             version("published-only", 1, "published", "published"),
             template("draft-over-published"), contract("draft-over-published", 1, "published", "c"),
@@ -123,10 +131,8 @@ class WorkingCopyWithoutVersionsMigrationTest {
             template("contract-in-progress"), contract("contract-in-progress", 1, "published", "published contract"),
             contract("contract-in-progress", 2, "draft", "draft contract"),
             version("contract-in-progress", 1, "published", "published"),
-            """INSERT INTO themes (id, tenant_key, name, document_styles, resource_id, catalog_id)
-               VALUES ('brand', 'acme', 'Brand', '{}', gen_random_uuid(), (SELECT catalog_id FROM catalogs WHERE catalog_key = 'letters'));""",
-            """INSERT INTO stencils (id, tenant_key, name, tags, resource_id, catalog_id, content)
-               VALUES ('header', 'acme', 'Header', '[]', gen_random_uuid(), (SELECT catalog_id FROM catalogs WHERE catalog_key = 'letters'), '${model("draft")}');""",
+            "INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('brand', 'acme', 'letters', 'Brand');",
+            "INSERT INTO stencils (id, tenant_key, catalog_key, name) VALUES ('header', 'acme', 'letters', 'Header');",
             """INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, status)
                VALUES (1, 'acme', (SELECT resource_id FROM stencils WHERE id = 'header'), '${model("draft")}', 'draft');""",
         ).joinToString("\n")

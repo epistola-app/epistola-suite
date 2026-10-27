@@ -178,7 +178,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         const val BEFORE = "the read before the fix"
 
         /**
-         * A catalog's themes as `ExportThemes` read them before the fix (`V20261024114500` as first
+         * A catalog's themes as `ExportThemes` read them before the fix (the 2.0 alpha chain's `V20261024114500`, as first
          * written, ADR 0033 step 1b): the version's rows from a view of two unions, joined to their
          * content and their catalog, so the planner chose the join order.
          */

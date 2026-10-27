@@ -173,9 +173,11 @@ deployment names a row, so it follows the row into the release with no extra sta
 ## Migration path
 
 One non-rolling step (ADR 0035), in the migration step, after the storage conversions of ADR 0033.
-Upgrades from 1.x go through the same chain: the 2.0 upgrade (`V20261018201400`) deletes 1.x
-releases, so a 1.x installation arrives with drafts only: its next draft and, where it differs, a
-named draft "Published in 1.x" (`V20261027112414`), which its author releases (ADR 0035).
+Upgrades from 1.x go through the same chain: the 2.0 upgrade does not carry the 1.x
+releases over (`V20261101001400`), so a 1.x installation arrives with drafts only: its next draft and, where it differs, a
+named draft "Published in 1.x" (`V20261101000900`), which its author releases (ADR 0035). The steps
+below were built as migrations of the 2.0 alphas; before 2.0 was released the chain was written
+again from the last 1.x schema straight to this one ([`docs/migrations.md`](../migrations.md#the-20-chain)).
 
 1. **The table.** Add the release columns, `state` and `origin` to `catalog_versions`; insert one
    released row per `catalog_releases` row, keeping its `version_key` and number (SQL); set

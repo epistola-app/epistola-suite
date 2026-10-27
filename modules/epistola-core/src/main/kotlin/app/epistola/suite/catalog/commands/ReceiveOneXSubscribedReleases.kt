@@ -37,7 +37,7 @@ import org.springframework.stereotype.Component
  * cannot be reached is logged and tried again at the next boot.
  *
  * 1.x catalogs had no namespace: the upgrade named a subscribed one in its tenant's (the tenant key,
- * `V20261018200100`), while its source names it as its publisher does. Before installing, a catalog
+ * `V20261101000100`), while its source names it as its publisher does. Before installing, a catalog
  * that has never had a release takes the registry and namespace its source's manifest gives it (2.0
  * keeps a namespace changeable until a release is published under it), together with the drafts that
  * declare it; otherwise the install would receive the release as another catalog, a second one, and

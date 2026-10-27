@@ -314,6 +314,51 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a theme saved through work released meanwhile is refused as released, so its editor offers the next draft`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Drafts Theme Released")
+            work = withRedesign(tenant)
+            withMediator {
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0", catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+            }
+        }
+        whenever {
+            send(HttpMethod.PATCH, "/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/themes/brand", """{"name":"Brand redesigned"}""")
+        }
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            assertThat(response.body).contains("catalog-version-released").contains("open the next draft")
+        }
+    }
+
+    @Test
+    fun `a stencil saved through work released meanwhile is refused as released, so the editor offers the next draft`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Drafts Stencil Released")
+            work = withRedesign(tenant)
+            withMediator {
+                CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant)), "Footer", catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0", catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+            }
+        }
+        whenever {
+            send(HttpMethod.PUT, "/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/stencils/footer/content", """{"content":{"modelVersion":1,"root":"r","nodes":{"r":{"id":"r","type":"root","slots":["s"]}},"slots":{"s":{"id":"s","nodeId":"r","name":"children","children":[]}},"themeRef":{"type":"inherit"}}}""")
+        }
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            assertThat(response.body).contains("catalog-version-released").contains("open the next draft")
+        }
+    }
+
+    @Test
     fun `a stencil page in parallel work shows the work's stencil`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String

@@ -8,20 +8,20 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.fonts.FontStore
-import db.migration.core.V20261025105724__core_fonts_to_storage
+import db.migration.core.frozen.CanonicalJson
+import db.migration.core.frozen.Envelopes
 import org.assertj.core.api.SoftAssertions
 import org.jdbi.v3.core.Jdbi
 
 /**
- * Proves, for every font of [catalog]'s next version, that the migration that moved fonts to JSON
- * storage (`V20261025105724`) converts a font's 1.x rows exactly as the suite now stores it (ADR
+ * Proves, for every font of [catalog]'s next version, that the 2.0 upgrade's conversion of fonts
+ * to JSON storage (`V20261101000600`, [Envelopes.font]) converts a font's 1.x rows exactly as the suite now stores it (ADR
  * 0033, ADR 0035): the converted content has the content hash the suite stored it under, and its
  * faces are the ones the suite reads.
  */
 object FontStorageConversion {
 
     fun verify(jdbi: Jdbi, fonts: FontStore, catalog: CatalogId) {
-        val migration = V20261025105724__core_fonts_to_storage.Companion
         val softly = SoftAssertions()
         var seen = 0
         jdbi.useHandle<Exception> { handle ->
@@ -38,8 +38,8 @@ object FontStorageConversion {
                 seen++
                 val faces = fonts.facesOf(variants)
                 // The rows as 1.x kept them: the faces in no particular order.
-                val converted = migration.payload(slug, name, kind, faces.reversed().map { V20261025105724__core_fonts_to_storage.Face(it.weight, it.italic, it.mediaType, it.contentHash) })
-                softly.assertThat(migration.contentHash(migration.canonical(converted))).`as`("content hash of font $slug").isEqualTo(hash)
+                val converted = Envelopes.font(slug, name, kind, faces.reversed().map { Envelopes.Face(it.weight, it.italic, it.mediaType, it.contentHash) })
+                softly.assertThat(CanonicalJson.contentHash(CanonicalJson.canonical(converted))).`as`("content hash of font $slug").isEqualTo(hash)
                 softly.assertThat(fonts.facesOf(converted.path("resource").path("variants").toString())).`as`("faces of font $slug").isEqualTo(faces)
             }
         }

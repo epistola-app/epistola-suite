@@ -60,8 +60,7 @@ describe('TableInspector — cell styles', () => {
     document.body.appendChild(container);
   });
 
-  it('offers no per-cell style controls, because the server rejects cellStyles', async () => {
-    const engine = setupEngineWithSelectedCell();
+  async function renderInspector(engine: EditorEngine) {
     render(
       html`<table-inspector
         .node=${engine.doc.nodes['t' as NodeId]}
@@ -70,12 +69,42 @@ describe('TableInspector — cell styles', () => {
       container,
     );
     await Promise.resolve();
+  }
+
+  it('offers the cell styles the contract allows, and no text align', async () => {
+    const engine = setupEngineWithSelectedCell();
+    await renderInspector(engine);
 
     expect(container.textContent).toContain('Cell Style');
-    expect(container.textContent).toContain("Cells can't be styled one by one yet");
-    expect(container.querySelector('epistola-border-input')).toBeNull();
-    expect(container.querySelector('input[type="color"]')).toBeNull();
+    expect(container.querySelector('epistola-border-input')).not.toBeNull();
+    expect(container.textContent).toContain('Background');
+    expect(container.textContent).toContain('Padding');
+    expect(container.textContent).toContain('Vertical Align');
+    expect(container.textContent).not.toContain('Text Align');
     // The selection section above it is still there.
     expect(container.textContent).toContain('Selection (0,0)');
+  });
+
+  it('writes a vertical align to every selected cell', async () => {
+    const engine = setupEngineWithSelectedCell();
+    engine.setComponentState('table:cellSelection', {
+      startRow: 0,
+      startCol: 0,
+      endRow: 0,
+      endCol: 1,
+    });
+    await renderInspector(engine);
+
+    const select = container.querySelector<HTMLSelectElement>('select[id$="-vertical-align"]')!;
+    select.value = 'middle';
+    select.dispatchEvent(new Event('change'));
+
+    const cellStyles = engine.doc.nodes['t' as NodeId].props?.cellStyles as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(cellStyles['0-0']).toEqual({ verticalAlign: 'middle' });
+    expect(cellStyles['0-1']).toEqual({ verticalAlign: 'middle' });
+    expect(cellStyles['1-0']).toBeUndefined();
   });
 });

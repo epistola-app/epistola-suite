@@ -15,7 +15,9 @@ async function mount(container) {
   container.dataset.editorMounted = 'true';
   const config = JSON.parse(island.textContent);
 
-  const { mountThemeEditor } = await import(config.editorModuleUrl);
+  const { mountThemeEditor, isReleasedVersionProblem, offerNextDraft } = await import(
+    config.editorModuleUrl
+  );
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
@@ -73,6 +75,20 @@ async function mount(container) {
 
       if (!response.ok) {
         const text = await response.text().catch(() => response.statusText);
+        // The catalog version was released while the theme was open here (ADR 0036): it cannot
+        // change any more, and work goes on in the catalog's next draft.
+        let problem = null;
+        try {
+          problem = JSON.parse(text);
+        } catch (_) {
+          problem = null;
+        }
+        if (
+          isReleasedVersionProblem(response.status, problem?.type) &&
+          offerNextDraft(problem?.detail || text)
+        ) {
+          return;
+        }
         throw new Error('Failed to save theme: ' + text);
       }
 

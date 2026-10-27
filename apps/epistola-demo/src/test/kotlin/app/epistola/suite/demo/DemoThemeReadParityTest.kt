@@ -27,7 +27,7 @@ import tools.jackson.databind.ObjectMapper
 /**
  * Every theme of the demo catalog reads the same from its next version and from the release it was
  * installed as (ADR 0033, step 1): one read interface and one mapper, whatever the version; and
- * `V20261024114440` converts each, from its 1.x columns, exactly as the suite stores it.
+ * `V20261101000600` converts each, from its 1.x columns, exactly as the suite stores it.
  */
 class DemoThemeReadParityTest : IntegrationTestBase() {
     @Autowired

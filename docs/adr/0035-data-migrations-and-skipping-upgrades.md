@@ -89,26 +89,25 @@ new kind of reference only new content can contain adds a vector and needs no mi
 
 A backfill that 1.x ran after startup, and an installation may skip past, moves into the migration
 step when it can be self-contained. The content backfill (#738, `ContentBackfillRunner`) did:
-`V20261025110000` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256 (the fonts
-conversion before it hashes a face's still-legacy bytes itself, so the face joins its font), and the job, its fallback
+`V20261101000500` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256, before the
+fonts are converted, so a face whose bytes were still there joins its font, and the job, its fallback
 reads and the table are gone. It runs outside Flyway's transaction, a batch per transaction, and is
 idempotent, so what committed before a failure is kept. Flyway records no history row for a
 non-transactional migration that fails, so the next run of the migration step simply runs it again and
 it does the rest, with no `flyway repair` (`FailedMigrationRerunIT` holds that for the Flyway in use).
 
 The release content-hash backfill (`ReleaseContentHashBackfill`) was dropped instead: it had nothing
-to hash. 1.x kept no release content, the 2.0 upgrade deletes the 1.x releases (`V20261018201400`)
+to hash. 1.x kept no release content, the 2.0 upgrade does not carry the 1.x releases over (`V20261101001400`)
 and the upgrade cuts no release, and cutting or receiving a release records its content
-hash, so `catalog_releases.content_hash` is NOT NULL (`V20261025143621`) and nothing computes one
+hash, so a released version always has its content hash (`chk_catalog_versions_released`) and nothing computes one
 later.
 
 **The 2.0 upgrade cuts no release, so nothing runs after startup.** `CatalogUpgradeRunner` cut each
 1.x catalog's first release with the suite's release code after startup; it is gone. Cutting a
 release needs a great deal of live code (building the released form, checks, storage, pins), which no
 migration may call, and a frozen copy of it was rejected below. So the migration step only drafts:
-`V20261027112414` keeps each authored 1.x catalog's next draft and makes a named draft "Published in
-1.x" of what it last published (JDBC, a JSON tree and the frozen conversions of the storage
-migrations), declares by name what each uses, and lists the 1.x catalogs for the tenant home. Their
+`V20261101000900` keeps each authored 1.x catalog's next draft and makes a named draft "Published in
+1.x" of what it last published (JDBC, a JSON tree and the frozen toolkit, `db/migration/core/frozen/`), declares by name what each uses, and lists the 1.x catalogs for the tenant home. Their
 authors release those drafts through the normal flow, which pins a dependency declared by name to its
 catalog's highest release. A catalog 1.x subscribed to from a URL receives its source's release at
 boot, as any install does. After an upgrade environments start empty anyway, so a release cut by hand

@@ -110,7 +110,9 @@ class TableNodeRenderer : NodeRenderer {
 
                 // Apply per-cell styles if defined, otherwise use defaults
                 val cellKey = "$row-$col"
-                val perCellStyles = cellStyles?.get(cellKey)
+                val perCellStyles = cellStyles?.get(cellKey)?.let {
+                    if (context.renderingDefaults.expandStyleShorthands) StyleShorthands.expand(it) else it
+                }
                 if (perCellStyles != null) {
                     StyleApplicator.applyStyles(
                         cell,

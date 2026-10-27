@@ -13,7 +13,7 @@ import tools.jackson.databind.json.JsonMapper
 import java.sql.DriverManager
 
 /**
- * `core_catalog_default_theme_and_presets` (contract ADR 0007): a catalog version whose templates
+ * The 2.0 upgrade (step 4, contract ADR 0007): a catalog version whose templates
  * inherit their theme takes the tenant default it rendered with as its own default theme, a version
  * without such templates does not, and each version declares the presets its themes style, named by
  * their labels.
@@ -40,27 +40,21 @@ class CatalogDefaultThemeMigrationTest {
             .apply { if (target != null) target(target) }
             .load()
 
-        flyway(BEFORE).migrate()
+        flyway(LAST_1X).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            // The state before the migration; its columns do not exist yet, so no command can make it.
+            // A 1.x tenant: its house theme, which a template that names none rendered with.
             connection.createStatement().use {
                 it.execute(
                     """
                     INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                    INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type) VALUES
-                        ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters', 'AUTHORED'),
-                        ('forms', 'acme', 'exchange.epistola.app', 'acme', 'Forms', 'AUTHORED');
-                    INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next)
-                        SELECT 'acme', catalog_id, 'draft', true FROM catalogs;
-                    INSERT INTO themes (id, tenant_key, name, block_style_presets, catalog_id, version_id)
-                        SELECT 'brand', 'acme', 'Brand',
-                               '{"muted": {"label": "Muted text", "styles": {"color": "#666"}}, "accent": {"styles": {}}}',
-                               c.catalog_id, v.version_id
-                        FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id WHERE c.catalog_key = 'letters';
+                    INSERT INTO catalogs (id, tenant_key, name, type) VALUES
+                        ('letters', 'acme', 'Letters', 'AUTHORED'),
+                        ('forms', 'acme', 'Forms', 'AUTHORED');
+                    INSERT INTO themes (id, tenant_key, catalog_key, name, block_style_presets)
+                        VALUES ('brand', 'acme', 'letters', 'Brand',
+                                '{"muted": {"label": "Muted text", "styles": {"color": "#666"}}, "accent": {"styles": {}}}');
                     UPDATE tenants SET default_theme_resource_id = (SELECT resource_id FROM themes WHERE id = 'brand');
-                    INSERT INTO document_templates (id, tenant_key, name, catalog_id, version_id)
-                        SELECT 'invoice', 'acme', 'Invoice', c.catalog_id, v.version_id
-                        FROM catalogs c JOIN catalog_versions v ON v.catalog_id = c.catalog_id WHERE c.catalog_key = 'letters';
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name) VALUES ('invoice', 'acme', 'letters', 'Invoice');
                     """.trimIndent(),
                 )
             }
@@ -86,10 +80,5 @@ class CatalogDefaultThemeMigrationTest {
             mapper.readTree("""[{"key": "accent", "name": "accent", "description": null}, {"key": "muted", "name": "Muted text", "description": null}]"""),
         )
         assertThat(rows.getValue("forms").second).isEqualTo(mapper.readTree("[]"))
-    }
-
-    private companion object {
-        /** The last migration before `core_catalog_default_theme_and_presets`. */
-        const val BEFORE = "20261019055841"
     }
 }

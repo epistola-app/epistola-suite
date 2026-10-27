@@ -28,7 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired
 /**
  * [GetCatalogResourceChanges] localizes the catalog-level drift that
  * [GetCatalogReleaseStatus] reports to the resources that caused it, against the resources
- * [ReleaseCatalogDraft] records for each release (V20261018200200).
+ * [ReleaseCatalogDraft] records for each release (V20261101000300).
  */
 class GetCatalogResourceChangesTest : IntegrationTestBase() {
 

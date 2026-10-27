@@ -266,7 +266,7 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
                     '74c0b2d145c4a970830b5ccbeb092b20abe7c8e9559f1d6b368147bac4bc09ba', NOW());
         """.trimIndent()
 
-        private fun seed(partnerSource: String): String = listOf(
+        internal fun seed(partnerSource: String): String = listOf(
             // Two authored catalogs: letters' template uses shared's theme.
             "INSERT INTO tenants (id, name) VALUES ('${DEPS.value}', 'Deps');",
             system(DEPS),

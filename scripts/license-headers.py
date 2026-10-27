@@ -51,6 +51,7 @@ SKIP_PREFIXES = (
     "modules/testing/src/main/resources/epistola/catalogs/",
     "modules/epistola-core/src/main/resources/epistola/fonts/",
     "modules/generation/src/main/resources/fonts/",
+    "apps/epistola/src/test/resources/migration-chain/",
     "org/",
 )
 

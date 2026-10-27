@@ -7,19 +7,19 @@ package app.epistola.suite.testing
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
-import db.migration.core.V20261025134500__core_images_to_storage
+import db.migration.core.frozen.CanonicalJson
+import db.migration.core.frozen.Envelopes
 import org.assertj.core.api.SoftAssertions
 import org.jdbi.v3.core.Jdbi
 
 /**
- * Proves, for every image of [catalog]'s next version, that the migration that moved images to
- * JSON storage (`V20261025134500`) converts an image's 1.x row exactly as the suite now stores it
+ * Proves, for every image of [catalog]'s next version, that the 2.0 upgrade's conversion of images
+ * to JSON storage (`V20261101000600`, [Envelopes.image]) converts an image's 1.x row exactly as the suite now stores it
  * (ADR 0033, ADR 0035): the converted content has the content hash the suite stored it under.
  */
 object ImageStorageConversion {
 
     fun verify(jdbi: Jdbi, catalog: CatalogId) {
-        val migration = V20261025134500__core_images_to_storage.Companion
         val softly = SoftAssertions()
         var seen = 0
         jdbi.useHandle<Exception> { handle ->
@@ -32,7 +32,7 @@ object ImageStorageConversion {
             ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .map { rs, _ ->
                     seen++
-                    val converted = migration.payload(
+                    val converted = Envelopes.image(
                         key = rs.getString("id"),
                         name = rs.getString("name"),
                         mediaType = rs.getString("media_type"),
@@ -40,7 +40,7 @@ object ImageStorageConversion {
                         height = rs.getObject("height") as Int?,
                         contentHash = rs.getString("bytes"),
                     )
-                    softly.assertThat(migration.contentHash(migration.canonical(converted))).`as`("content hash of image ${rs.getString("id")}").isEqualTo(rs.getString("content_hash").trim())
+                    softly.assertThat(CanonicalJson.contentHash(CanonicalJson.canonical(converted))).`as`("content hash of image ${rs.getString("id")}").isEqualTo(rs.getString("content_hash").trim())
                 }.list()
         }
         softly.assertThat(seen).`as`("images checked").isPositive()

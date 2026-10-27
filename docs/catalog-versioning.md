@@ -95,9 +95,9 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
 
 - **Every catalog has a next release**, the draft its browsable content lives in. The database opens
   it when the catalog row is inserted, on no release, and receiving a release moves it there
-  (`RecordInstalledRelease`, `V20261027100000`). A received catalog's next release starts on the
+  (`RecordInstalledRelease`, `V20261101001500`). A received catalog's next release starts on the
   release it installed (`base_version_id`); there is no installed copy any more
-  (`V20261021063432`).
+  (`V20261101000400`).
 - **A catalog can be changed** when the installation allows editing
   (`epistola.catalog.editing.enabled`, default `true`) and the suite does not supply it (a
   `classpath:` source: the system and demo catalogs). `GetCatalogEditability` says which, and
@@ -154,7 +154,7 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   `RevokeTenantNamespace`, `TENANT_MANAGER`) on the tenant list's **Namespaces** page, and grants one
   when creating a tenant, whose default catalog is named in it. A tenant created without one (the
   demo's personal tenants) gets its default catalog under `local/default`.
-- **Catalogs from before 2.0** are named by the identity migration (`V20261018200100`): a catalog the
+- **Catalogs from before 2.0** are named by the identity migration (`V20261101000100`): a catalog the
   tenant authored becomes `local/<tenant key>/<key>`, the key padded with `0` to a namespace's 3
   characters, since until now a catalog never left its installation but through the Exchange. Only
   the Exchange names one on `exchange.epistola.app`: the catalogs Epistola ships (`epistola`, as their
@@ -164,7 +164,7 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   catalog it came from. One subscribed to from a URL starts there too, and takes the name its source
   gives it at the first boot, before its release is installed (`ReceiveOneXSubscribedReleases`); any
   other local catalog moves to a real name only by promotion (ADR 0034, phase 8).
-  Existing tenants hold, from the grants migration (`V20261022180032`), the namespaces their Exchange
+  Existing tenants hold, from the same migration, the namespaces their Exchange
   connection grants and those of the catalogs they author outside `local`, which are the ones bound
   to the Exchange: no source (not supplied by Epistola, not installed from the Exchange, a registry or
   a manifest URL), not a 1.x subscribed copy, and not a file another installation released (a release
@@ -208,7 +208,7 @@ live side by side, with no switch to turn on.
   (`tenant/acme/letters/invoice`). Every address names one catalog. An address is built from the
   catalog's name wherever the code reads one: a URL segment, a row, a dependency row.
 - **SQL takes the address or the id**: `epistola_catalog_id(tenant, namespace, key)`
-  (`V20261023112019`), bound with `bindCatalog` (`CatalogSql.catalogAt`, `versionAt`, `findCatalog`).
+  (`V20261101000100`), bound with `bindCatalog` (`CatalogSql.catalogAt`, `versionAt`, `findCatalog`).
   There is no lookup by key alone and no ambient names scope.
 - **Stored references point at `catalog_id`**, never at a name: pins, deployments, release rows,
   upstream checks, publication rows, resource identities. A rename (a new namespace) changes the
@@ -379,14 +379,14 @@ until it is released**; only releases are numbered.
     `installCatalogRelease`) makes the merge possible.
   - No common release known (a release from before `release.base`, or from a producer that did not
     know it): no base, and every entry the two have differently is a choice; the dialog and MCP say so.
-- **A release records its base** (`catalog_releases.base_version`, `V20261018200200`, and
-  `base_fingerprint`, `V20261021104938`): the release its draft started from, which `getCatalogRelease`
+- **A release records its base** (`catalog_versions.base_version`, `V20261101000200`, and
+  `base_fingerprint`): the release its draft started from, which `getCatalogRelease`
   reports as a released release's `base` and which `behind` measures its changes against. A received
   release keeps the base its archive names (`release.base`). It is null for a catalog's first release,
   a release from an archive that names none, and every release cut before the column; for the list of
   what a behind release changed, those are measured against the release below them, which is only a
   display.
-- **A release records its merge parents** (`catalog_release_merges`, `V20261022052418`): the releases
+- **A release records its merge parents** (`catalog_release_merges`, `V20261101000200`): the releases
   merged into its draft (`catalog_draft_merges`) when it is released, each with its fingerprint. The
   manifest says them too, in `release.metadata` under `app.epistola.suite` as
   `merged: [{"version": "1.0.1", "fingerprint": "v6:…"}]` (a bare version is read as well), so an
@@ -498,7 +498,7 @@ release a draft and make one the next release (see [`mcp.md`](mcp.md)).
 - **Patch releases** (contract ADR 0003, amendment of 2026-10-22; ADR 0034): someone who does not hold
   a catalog's namespace numbers a release `MAJOR.MINOR.PATCH-<namespace>.<N>` (`1.3.1-gemeente-x.1`),
   labelled with a namespace they hold. A release number is up to 128 characters
-  (`V20261022110352` widened every column that holds one). This installation **receives** patch
+  (every column that holds one is `VARCHAR(128)`, `V20261101000200`). This installation **receives** patch
   releases (an import, the Exchange, a registry) and orders them as SemVer does wherever releases
   are ordered or compared: above the release they fix and below the holder's next (`1.3.0` <
   `1.3.1-bureau.9` < `1.3.1-gemeente-x.1` < `1.3.1-gemeente-x.2` < `1.3.1`), in the catalog's highest
@@ -538,7 +538,7 @@ deployments and version ranges use.
   fingerprint the release was cut with.
 - **Every release** keeps the fingerprint it was cut or received with (a received one may be V5 or
   older: immutable and verifiable with the algorithm it names), and records its content hash beside
-  it, `catalog_releases.content_hash` (NOT NULL, `V20261025143621`): the fingerprint when that is V6,
+  it, `catalog_versions.content_hash` (required of a released row, `chk_catalog_versions_released`): the fingerprint when that is V6,
   else computed from the content when it is cut or received. 1.x kept no release content and the 2.0
   upgrade deletes the 1.x releases, so no release is without one.
 - **"Is this the same release?"** is `ReleaseIdentity.isRelease`: the release's recorded fingerprint
@@ -655,8 +655,8 @@ alias and a resource key (a reference's `catalogKey`, a template's `themeCatalog
 theme's `catalogKey`, a variant attribute's qualifier such as `system.locale`) and never by registry
 or namespace, so renaming or mirroring a dependency changes the declaration, not the content (ADR
 0034). This installation tells catalogs apart by key within a tenant until ADR 0034's phase 4, so it
-declares every dependency under its key, the contract's default (`catalog_dependencies.alias`,
-`catalog_release_dependencies.alias`, `V20261022101420`), and refuses an archive that declares one
+declares every dependency under its key, the contract's default (`catalog_version_dependencies.alias`,
+`V20261101000200`), and refuses an archive that declares one
 under another alias (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would rewrite its references
 and so change its content hash. The draft page's Dependencies table shows each declaration's alias
 ("Named in content as") next to its namespace and key, and so does the catalog's Dependencies page
@@ -749,9 +749,9 @@ release must be present, carried in the archive or installed already
 (`CatalogImportDependenciesMissingException`, REST `release-dependencies-missing`).
 
 **Upgrading from 1.x** cuts no release, and runs nothing after startup (ADR 0035). In the migration
-step (`V20261027112414`) each authored 1.x catalog keeps its next draft, the working copy with any
+step (`V20261101000900`) each authored 1.x catalog keeps its next draft, the working copy with any
 unpublished 1.x work, and gets a named draft **Published in 1.x** holding what each template and
-stencil last published (from `catalog_upgrade_published`, then dropped); a template whose default
+stencil last published (from the 1.x version tables); a template whose default
 variant was never published, and a stencil never published, are left out, and the draft is not made
 when it would hold what the next draft holds. Everything in it is marked ready: it was published. Both
 drafts name the catalog's highest 1.x release by number as their base (`base_version`, the 1.x
@@ -797,7 +797,7 @@ never waits on a mark: choosing one is a single deliberate act with nothing half
 a mark records a resource's content digest, which a setting does not have. So a draft whose only
 changes are catalog settings is publishable as it is, and "Mark all ready" has nothing to mark.
 
-The 2.0 upgrade (`V20261018200600__core_working_copy.sql`) gives each variant its
+The 2.0 upgrade (`V20261101000700`, `V20261101000800`) gives each variant its
 draft model, else its latest published, else its latest archived; each template its draft contract,
 else its latest published. What was publishable before is marked ready: a variant with no unfinished
 draft, a stencil without a draft, and every other resource. `template_versions` and
@@ -1219,7 +1219,7 @@ To regenerate after an intentional change: run the test, paste the reported
   catalog with a source is **source-vs-source**, not snapshot-vs-installed: the
   per-resource source-side digests of the installed release are computed from
   the source (never publisher-authored; they were stored in
-  `catalogs.installed_resource_fingerprints` until `V20261027100000`).
+  `catalogs.installed_resource_fingerprints` in 1.x).
   `PreviewCatalogUpgrade` re-fetches the manifest, recomputes the same
   per-resource digests, and classifies every `(type, slug)` as
   ADDED / REMOVED / CHANGED / UNCHANGED — so a CHANGED verdict means the

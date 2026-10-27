@@ -78,6 +78,16 @@ class ColumnsNodeRenderer : NodeRenderer {
         val gap = (node.props?.get("gap") as? Number)?.toFloat() ?: context.renderingDefaults.columnGap
         val cellPadding = gap / 2f
 
+        // Per-column styles (`columnStyles`, entry i styles slot column-i): background, padding,
+        // border and vertical alignment. The columns of a row are one table row, so they are equally
+        // tall and a column's background and border fill the row.
+        val columnStyles = (node.props?.get("columnStyles") as? List<*>)?.map { entry ->
+            @Suppress("UNCHECKED_CAST")
+            (entry as? Map<String, Any?>)?.filterNonNullValues()?.let {
+                if (context.renderingDefaults.expandStyleShorthands) StyleShorthands.expand(it) else it
+            }
+        }
+
         // Compute inherited styles once for all column slots
         val childContext = context.withInheritedStylesFrom(node)
 
@@ -93,6 +103,18 @@ class ColumnsNodeRenderer : NodeRenderer {
             }
             if (index < columnSlots.size - 1) {
                 cell.setPaddingRight(cellPadding)
+            }
+
+            // A column's own styles override the defaults above, its padding included.
+            columnStyles?.getOrNull(index)?.takeIf { it.isNotEmpty() }?.let { styles ->
+                StyleApplicator.applyStyles(
+                    cell,
+                    styles,
+                    null,
+                    context.fontCache,
+                    context.renderingDefaults.baseFontSizePt,
+                    context.spacingUnit,
+                )
             }
 
             val childElements = registry.renderSlot(slot.id, document, childContext)

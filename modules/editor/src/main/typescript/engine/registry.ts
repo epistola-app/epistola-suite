@@ -9,6 +9,13 @@
  */
 
 import type { JsonSchema } from '../data-contract/types.js';
+import {
+  applyConditionalCommand,
+  renderConditionalInspector,
+  CONDITIONAL_COMMAND_TYPES,
+  type ConditionalCommand,
+} from '../components/conditional/conditional-else.js';
+import type { EditorEngine } from './EditorEngine.js';
 import { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, pageBandHint } from './page-bands.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
@@ -930,6 +937,11 @@ export function createDefaultRegistry(): ComponentRegistry {
       condition: { raw: '', language: 'jsonata' },
       inverse: false,
     },
+    // A conditional made before the else slot existed can get one ("Add else branch").
+    commandTypes: CONDITIONAL_COMMAND_TYPES,
+    commandHandler: (doc, _indexes, command) =>
+      applyConditionalCommand(doc, command as ConditionalCommand),
+    renderInspector: ({ node, engine }) => renderConditionalInspector(node, engine as EditorEngine),
     examples: [
       {
         name: 'show-when-present',
