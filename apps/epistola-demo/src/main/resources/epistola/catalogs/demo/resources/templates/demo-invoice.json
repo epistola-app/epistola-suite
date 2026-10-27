@@ -427,7 +427,13 @@
               1,
               1
             ],
-            "gap": 20
+            "gap": 20,
+            "columnStyles": [
+              {},
+              {
+                "verticalAlign": "bottom"
+              }
+            ]
           }
         },
         "n-vendor-logo": {
@@ -631,7 +637,8 @@
             "marginBottom": "6sp",
             "padding": "3sp",
             "backgroundColor": "#f8fafc",
-            "borderRadius": "3pt"
+            "borderRadius": "3pt",
+            "minHeight": "18sp"
           }
         },
         "n-bill-to-label": {
@@ -929,7 +936,22 @@
               50
             ],
             "headerRows": 0,
-            "merges": []
+            "merges": [],
+            "cellStyles": {
+              "2-0": {
+                "backgroundColor": "#eff6ff",
+                "paddingTop": "2sp",
+                "paddingBottom": "2sp",
+                "verticalAlign": "middle"
+              },
+              "2-1": {
+                "backgroundColor": "#eff6ff",
+                "paddingTop": "2sp",
+                "paddingBottom": "2sp",
+                "verticalAlign": "middle",
+                "borderTop": "1pt solid #2563eb"
+              }
+            }
           }
         },
         "n-subtotal-label": {
