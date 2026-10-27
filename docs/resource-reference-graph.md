@@ -82,7 +82,7 @@ a template's theme, an attribute's code-list binding, a variant attribute's qual
 catalog's default theme. The `namespace` and `registry` an earlier draft of wire v8 let a reference
 carry are dropped when content is stored (`ResourceReferenceSites.qualifyRelative`), when it is
 built for export (`CatalogContentBuilder.Outbound`) and when a release retained with them is read
-(`ReleaseContentAssembler`); `V20261022102009` dropped them from stored content. An archive that
+(`ReleaseContentAssembler`); the 2.0 upgrade stores content without them. An archive that
 declares a catalog under another alias than its key is refused on import
 (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would mean rewriting its references, which
 changes its content hash, until catalogs are told apart by namespace and key (ADR 0034, phase 4).

@@ -64,7 +64,16 @@ CREATE CONSTRAINT TRIGGER trg_release_resources_template_moved AFTER UPDATE OF c
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW WHEN (OLD.resource_type = 'template') EXECUTE FUNCTION release_resource_variants_moved();
 
--- 5. The conversion filled the storage tables at once: the planner must see them as they are before
+-- 5. Indexes for the foreign keys whose referenced rows are deleted: a catalog, a version or a
+--    resource's identity going would otherwise scan the referencing table.
+CREATE INDEX idx_catalog_resources_catalog ON catalog_resources (tenant_key, catalog_id);
+CREATE INDEX idx_catalogs_next_version ON catalogs (tenant_key, next_version_id) WHERE next_version_id IS NOT NULL;
+CREATE INDEX idx_catalog_versions_base ON catalog_versions (tenant_key, base_version_id) WHERE base_version_id IS NOT NULL;
+CREATE INDEX idx_catalog_versions_default_theme ON catalog_versions (tenant_key, default_theme_resource_id) WHERE default_theme_resource_id IS NOT NULL;
+CREATE INDEX idx_catalog_version_dependencies_catalog ON catalog_version_dependencies (tenant_key, catalog_id);
+CREATE INDEX idx_resource_ready_marks_resource ON resource_ready_marks (tenant_key, resource_id);
+
+-- 6. The conversion filled the storage tables at once: the planner must see them as they are before
 --    the first node serves (a catalog's reads are planned on their size, ThemePlanStabilityTest).
 ANALYZE catalog_versions;
 ANALYZE release_resources;

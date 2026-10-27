@@ -70,3 +70,6 @@ CREATE TRIGGER trg_release_resources_quality_findings_follow_variant
     AFTER UPDATE OF content_hash OR DELETE ON release_resources
     FOR EACH ROW WHEN (OLD.resource_type = 'template')
     EXECUTE FUNCTION quality_findings_follow_variant();
+
+-- 4. An ignore follows its template identity (1): its deletion finds the ignores by an index.
+CREATE INDEX idx_quality_finding_ignores_template ON quality_finding_ignores (tenant_key, template_resource_id);

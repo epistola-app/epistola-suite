@@ -53,3 +53,6 @@ CREATE TRIGGER trg_release_resources_load_test_runs_follow_variant
     AFTER UPDATE OF content_hash OR DELETE ON release_resources
     FOR EACH ROW WHEN (OLD.resource_type = 'template')
     EXECUTE FUNCTION load_test_runs_follow_variant();
+
+-- 4. A run follows its template identity (2): its deletion finds the runs by an index.
+CREATE INDEX idx_load_test_runs_template ON load_test_runs (tenant_key, template_resource_id);

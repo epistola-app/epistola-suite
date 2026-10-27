@@ -38,6 +38,9 @@ ALTER TABLE tenants ADD CONSTRAINT fk_tenants_default_theme
 DROP TABLE environment_activations, template_versions, contract_versions, template_variants, document_templates,
     stencil_versions, stencils, variant_attribute_definitions, code_list_entries, code_lists, font_variants, fonts,
     assets, themes, content_store, catalog_releases;
+-- Their identity triggers' function: a version's rows keep identities through
+-- sync_draft_resource_identity (step 16).
+DROP FUNCTION sync_catalog_resource_identity();
 
 -- A catalog's pointers at its 1.x releases, which named rows that are gone: a release is a row of
 -- catalog_versions now.

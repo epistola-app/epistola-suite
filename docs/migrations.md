@@ -49,19 +49,18 @@ Rules:
 - **Unreleased migrations may be rewritten.** A migration that is on a release
   line under development (such as `release/2.0`) but not on `main` has run on
   no installation, so it may be edited, merged with others or removed — the
-  2.0 migrations were consolidated this way. `checkMigrationVersions` allows it
+  2.0 migrations were written again this way ([The 2.0 chain](#the-20-chain)). `checkMigrationVersions` allows it
   for any path absent from `main`, and still refuses for anything on `main`.
   Rewriting resets local and test databases that ran the old files.
-- **One destructive exception: 1.x versioning.** The 2.0 upgrade
-  (`V20261018201400`) deletes every `catalog_releases` row 1.x wrote. They held
-  no content, only a number, a fingerprint and notes, and Exchange was not in
-  use; a release cut in 2.0 is numbered after the highest of them.
-  It also drops `template_versions`, `contract_versions`, `stencil_versions`
-  and `environment_activations`, after keeping what was last published, which
-  becomes the draft "Published in 1.x" (`catalog_upgrade_published`, dropped by
-  `V20261027112414`), and a summary of the rest (the
-  `upgrade-1x-history` record in `app_metadata`). Decided for 2.0; it is not a
-  precedent.
+- **One destructive exception: 1.x versioning.** The 2.0 upgrade drops every
+  `catalog_releases` row 1.x wrote (`V20261101001400`). They held no content,
+  only a number, a fingerprint and notes, and Exchange was not in use; a
+  catalog's draft names the highest as its base, so a release cut in 2.0 is
+  numbered after it. It also drops `template_versions`, `contract_versions`,
+  `stencil_versions` and `environment_activations`, after keeping what was last
+  published, which becomes the draft "Published in 1.x" (`V20261101000900`), and
+  a summary of the rest (the `upgrade-1x-history` record in `app_metadata`,
+  `V20261101001100`). Decided for 2.0; it is not a precedent.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway
   duplicate-version error, bump your file's seconds by one and retry.
 - **Always append after the target branch.** Before opening or updating a PR,
@@ -149,21 +148,64 @@ integration-test coverage — `InstallationServiceIT` and
 
 A conversion SQL cannot say well is a Kotlin migration (ADR 0035): a Flyway `BaseJavaMigration` in
 `<module>/src/main/kotlin/db/migration/<module>/`, named and ordered like an SQL one, run in the
-migration step and recorded in `flyway_schema_history`. The first is
-`V20261024114440__core_themes_to_storage`, which moves themes to JSON storage.
+migration step and recorded in `flyway_schema_history`. Those of the 2.0 upgrade are steps 5 to 10
+of [the 2.0 chain](#the-20-chain), from `V20261101000500__core_2_0_legacy_blobs`.
 
 - **Self-contained.** It uses JDBC, a JSON tree (Jackson `ObjectNode`) and frozen code only: no
   suite classes, no mediator, no protocol model that moves on. What it knows (how the columns of its
   time map to the wire form of its time, the content hash) is written into it.
   `CodeMigrationGuardTest` refuses any other import, and any `app.epistola.suite` name.
-- **Frozen.** Never edited once merged, like SQL (`checkMigrationVersions`). From
-  `V20261024114440` on, each declares `override fun getChecksum(): Int = CHECKSUM`, the CRC32 of its
-  file with that number written as `0`; Flyway records it, and `CodeMigrationGuardTest` checks it
-  matches. Recompute it after a change that has not merged yet (the guard prints the expected value).
+- **Frozen.** Never edited once merged, like SQL (`checkMigrationVersions`). Each declares a
+  `CHECKSUM`, the CRC32 of its file with that number written as `0`, and reports it to Flyway
+  (`getChecksum`); `CodeMigrationGuardTest` checks it matches. Recompute it after a change that has
+  not merged yet (the guard prints the expected value).
+- **Shared logic is a frozen toolkit.** What several code migrations compute alike lives in
+  `db/migration/core/frozen/` (canonical JSON and hashes, the envelope of every resource type, the
+  reference walker and released forms, data example keys, the 1.x template content in wire v8, and
+  how the upgrade writes storage). Each file pins its own `CHECKSUM`, golden vectors
+  (`fixtures/storage/v1.json`, `FrozenToolkitGoldenVectorsTest`) pin what it gives, and a migration
+  that uses it reports `FrozenToolkit.pinned(CHECKSUM)`, so an installation refuses an edit of the
+  toolkit too.
 - **Proven both ways.** A conversion that must equal what the suite writes gets a test that runs
   the suite's writer and the migration's conversion over the same data and compares them, as
   `ThemeStorageConversion` does for every bundled and demo theme; `DataPreservationMigrationIT`
   upgrades a 1.x database through it.
+
+## The 2.0 chain
+
+A 1.x database (the last 1.x migration is `V20260923150918`) migrates to 2.0 in one chain of steps,
+each doing one thing to it. The 2.0 alphas grew 74 migrations, each adjusting what the one before
+left; before 2.0 was released they were written again as these (`checkMigrationVersions` allows it:
+none reached `main`). A database migrated by an alpha or release-candidate build of 2.0 cannot
+migrate on; rebuild it from a 1.x database or from scratch.
+
+| Step | Migration                                               | What it does                                                                                                              |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `V20261101000100__core_2_0_identity`                    | A catalog's registry, namespace and `catalog_id`; the 1.x content tables read only; v8 catalog metadata; namespace grants |
+| 2    | `V20261101000200__core_2_0_versions`                    | `catalog_versions`, a catalog's next draft, dependencies and merges                                                       |
+| 3    | `V20261101000300__core_2_0_storage_tables`              | JSON storage (ADR 0033), without triggers; one store for files                                                            |
+| —    | quality `V20261101000350`, loadtest `V20261101000360`   | The modules re-point their references to template identities, before step 14 drops the 1.x tables                         |
+| 4    | `V20261101000400__core_2_0_open_drafts`                 | Every catalog's next draft, on its last 1.x release; default theme and presets                                            |
+| 5    | `V20261101000500__core_2_0_legacy_blobs`                | The 1.x content store into its replacements, batched, outside Flyway's transaction                                        |
+| 6    | `V20261101000600__core_2_0_settings_to_storage`         | Themes, code lists, attributes, fonts and images, ready                                                                   |
+| 7    | `V20261101000700__core_2_0_stencils_to_storage`         | Stencils: their working copy in v8                                                                                        |
+| 8    | `V20261101000800__core_2_0_templates_to_storage`        | Templates and their variants, data examples keyed                                                                         |
+| 9    | `V20261101000900__core_2_0_published_in_1x`             | The "Published in 1.x" draft of what each authored catalog last published                                                 |
+| 10   | `V20261101001000__core_2_0_dependencies`                | Declarations of the catalogs a draft's content names                                                                      |
+| 11   | `V20261101001100__core_2_0_history`                     | The 1.x version history, summarised in `app_metadata`                                                                     |
+| 12   | `V20261101001200__core_2_0_environments_and_generation` | Environments serve versions; generation history names what it rendered                                                    |
+| 13   | `V20261101001300__core_2_0_exchange`                    | Exchange bindings by address                                                                                              |
+| 14   | `V20261101001400__core_2_0_drop_1x_tables`              | The 1.x tables go                                                                                                         |
+| 15   | `V20261101001500__core_2_0_read_model`                  | Every function and view the read model uses, in its final form                                                            |
+| 16   | `V20261101001600__core_2_0_triggers`                    | The triggers and deferred checks, foreign-key indexes, `ANALYZE`                                                          |
+
+`TwoZeroChainEquivalenceIT` holds the chain to a golden snapshot of what the chain it replaced
+made of a rich 1.x seed (`apps/epistola/src/test/resources/migration-chain/`): the schema statement
+for statement, and every row, with what a run generates replaced by labels. Every deliberate
+difference is in `intended.txt`, each with its reason: the fixes of the old chain, the drafts' starting
+revision, and the hygiene of the rewrite. The snapshot is recorded only from the old chain, from
+history (`EPISTOLA_MIGRATION_CHAIN_RECORD`); a test of what the upgrade does to 1.x data seeds the
+last 1.x schema (`LAST_1X`) and migrates to the end.
 
 ## Running migrations: embedded vs separated
 

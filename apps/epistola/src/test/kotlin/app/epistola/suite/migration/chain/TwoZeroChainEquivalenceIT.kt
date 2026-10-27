@@ -79,6 +79,10 @@ class TwoZeroChainEquivalenceIT {
 
         val intended = Intended.load()
         val goldenSchema = ChainSnapshot.statements(resource("schema.sql")).map { it.trim() }.filter { it.isNotEmpty() }.map(ChainSnapshot::monthless).sorted()
+        Path.of("build", "migration-chain").also { dir ->
+            Files.writeString(dir.resolve("schema-added.txt"), (schema.toSet() - goldenSchema.toSet()).sorted().joinToString("\n;;\n"))
+            Files.writeString(dir.resolve("schema-removed.txt"), (goldenSchema.toSet() - schema.toSet()).sorted().joinToString("\n;;\n"))
+        }
         assertThat(schema.toSet() - goldenSchema.toSet()).`as`("statements the chain adds beyond the old one's schema").containsExactlyInAnyOrderElementsOf(intended.added)
         assertThat(goldenSchema.toSet() - schema.toSet()).`as`("statements of the old chain's schema this chain does not make").containsExactlyInAnyOrderElementsOf(intended.removed)
 

@@ -65,7 +65,7 @@ content collector has taken the contents nothing names, by that same collector.
 
 There is no per-tenant scope any more. 1.x let an asset be marked `sensitive`, which kept its bytes
 apart per tenant (#751, never surfaced on the UI, REST or catalog formats); 2.0 drops the flag: the
-upgrade moves such bytes into the one store, deduplicated (`V20261025134400`), and the REST upload's
+upgrade moves such bytes into the one store, deduplicated (`V20261101000300`), and the REST upload's
 `sensitive` field is dropped from the contract.
 
 ## Document retention
@@ -125,8 +125,8 @@ a code list source's secret) that no content names any more, past the same grace
 
 Blobs used to share a single `content_store` table (1.x). 1.x moved them to the two stores above in
 the background (`ContentBackfillRunner`, #738); an installation that upgrades to 2.0 before that job
-finished has the rest moved in the migration step instead (`V20261025110000`, ADR 0035; the fonts
-conversion before it hashes a face's legacy bytes itself), and the table is dropped (`V20261025133400`, #742):
+finished has the rest moved in the migration step instead (`V20261101000500`, ADR 0035, before the fonts
+are converted, so a face whose bytes were still there joins its font), and the table is dropped (`V20261101001400`, #742):
 
 - **Documents** → `document_content`, into the monthly partition of the owning document's
   `created_at`, one month at a time.

@@ -45,3 +45,133 @@
 #   catalog) are kept, as the old chain made them (step 1); the wide seed now reaches them.
 # - Legacy files are moved in batches paged by tenant and id (step 5). The old chain paged by id
 #   alone, so a file of another tenant with the id a batch ended on was skipped until the next run.
+
+
+
+# Hygiene: an index for each foreign key whose referenced row is deleted (a catalog, a version, a
+# resource's identity), so the delete does not scan the referencing table.
++ CREATE INDEX idx_catalog_resources_catalog ON public.catalog_resources USING btree (tenant_key, catalog_id)
++ CREATE INDEX idx_catalog_version_dependencies_catalog ON public.catalog_version_dependencies USING btree (tenant_key, catalog_id)
++ CREATE INDEX idx_catalog_versions_base ON public.catalog_versions USING btree (tenant_key, base_version_id) WHERE (base_version_id IS NOT NULL)
++ CREATE INDEX idx_catalog_versions_default_theme ON public.catalog_versions USING btree (tenant_key, default_theme_resource_id) WHERE (default_theme_resource_id IS NOT NULL)
++ CREATE INDEX idx_catalogs_next_version ON public.catalogs USING btree (tenant_key, next_version_id) WHERE (next_version_id IS NOT NULL)
++ CREATE INDEX idx_load_test_runs_template ON public.load_test_runs USING btree (tenant_key, template_resource_id)
++ CREATE INDEX idx_quality_finding_ignores_template ON public.quality_finding_ignores USING btree (tenant_key, template_resource_id)
++ CREATE INDEX idx_resource_ready_marks_resource ON public.resource_ready_marks USING btree (tenant_key, resource_id)
+
+# Hygiene: functions nothing calls. content_version_move_children and
+# touch_catalog_content_on_variant_delete served tables the 2.0 alphas created and dropped again;
+# sync_catalog_resource_identity kept the identities of the 1.x tables, which go in step 14.
+- CREATE FUNCTION public.content_version_move_children() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+    child_table TEXT := TG_ARGV[0];
+    parent_column TEXT := TG_ARGV[1];
+BEGIN
+    IF NEW.version_id IS DISTINCT FROM OLD.version_id THEN
+        EXECUTE format('UPDATE %I SET version_id = $1 WHERE tenant_key = $2 AND %I = $3 AND version_id = $4', child_table, parent_column)
+            USING NEW.version_id, NEW.tenant_key, NEW.resource_id, OLD.version_id;
+    END IF;
+    RETURN NULL;
+END;
+$_$
+- CREATE FUNCTION public.sync_catalog_resource_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+    resource_type_value TEXT := TG_ARGV[0];
+    key_column TEXT := TG_ARGV[1];
+    resource_key_value TEXT;
+    existing_resource_id UUID;
+    held_elsewhere BOOLEAN;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I WHERE tenant_key = $1 AND resource_id = $2)', TG_TABLE_NAME)
+            INTO held_elsewhere USING OLD.tenant_key, OLD.resource_id;
+        -- A release holds it too: releasing a draft that a higher draft does not follow discards the
+        -- draft, and what only it held lives on in that release. Keeping the identity keeps the
+        -- resource's history and findings with it, and a resource created again at its address adopts it.
+        IF NOT held_elsewhere THEN
+            SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id)
+                INTO held_elsewhere;
+        END IF;
+        IF NOT held_elsewhere THEN
+            DELETE FROM catalog_resources
+            WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    resource_key_value := to_jsonb(NEW) ->> key_column;
+
+    IF TG_OP = 'INSERT' THEN
+        SELECT resource_id INTO existing_resource_id
+        FROM catalog_resources
+        WHERE tenant_key = NEW.tenant_key
+          AND resource_type = resource_type_value
+          AND catalog_id = NEW.catalog_id
+          AND resource_key = resource_key_value;
+
+        IF NEW.resource_id IS NULL THEN
+            -- Nothing supplied: adopt the identity already registered at this address, which another
+            -- version of the catalog may hold (imports use INSERT .. ON CONFLICT DO UPDATE, which runs
+            -- this BEFORE INSERT trigger too).
+            NEW.resource_id := COALESCE(existing_resource_id, epistola_uuidv7());
+        ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
+            -- A caller that names an identity means it; never silently prefer the incumbent.
+            RAISE EXCEPTION 'catalog resource % is already registered at %/% under identity %',
+                NEW.resource_id, NEW.catalog_id, resource_key_value, existing_resource_id;
+        END IF;
+
+        -- An insert registers an identity, or joins the one registered at its address; it never moves
+        -- one. Under concurrency the address it adopted may have moved since its snapshot (a
+        -- relocation committing meanwhile): the conflict check sees the committed row, and refuses.
+        INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+        VALUES (NEW.tenant_key, NEW.resource_id, resource_type_value, NEW.catalog_id, resource_key_value)
+        ON CONFLICT (tenant_key, resource_id) DO UPDATE
+        SET catalog_id = EXCLUDED.catalog_id,
+            resource_key = EXCLUDED.resource_key
+        WHERE catalog_resources.resource_type = EXCLUDED.resource_type
+          AND catalog_resources.catalog_id = EXCLUDED.catalog_id
+          AND catalog_resources.resource_key = EXCLUDED.resource_key;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % is registered with another type or at another address than %/%',
+                NEW.resource_id, NEW.catalog_id, resource_key_value;
+        END IF;
+    ELSE
+        IF NEW.resource_id <> OLD.resource_id THEN
+            RAISE EXCEPTION 'catalog resource_id is immutable';
+        END IF;
+        IF NEW.catalog_id IS DISTINCT FROM OLD.catalog_id OR resource_key_value IS DISTINCT FROM (to_jsonb(OLD) ->> key_column) THEN
+            EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I WHERE tenant_key = $1 AND resource_id = $2 AND version_id <> $3)', TG_TABLE_NAME)
+                INTO held_elsewhere USING OLD.tenant_key, OLD.resource_id, OLD.version_id;
+            IF held_elsewhere THEN
+                RAISE EXCEPTION 'catalog resource % is held by another version of its catalog; it cannot move or be renamed', OLD.resource_id;
+            END IF;
+        END IF;
+        UPDATE catalog_resources
+        SET catalog_id = NEW.catalog_id,
+            resource_key = resource_key_value
+        WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        -- A missing registry row would let the domain row move while the registry keeps the old
+        -- address, silently; every public address lookup reads the registry.
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % has no identity row', OLD.resource_id;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$_$
+- CREATE FUNCTION public.touch_catalog_content_on_variant_delete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    UPDATE catalogs c
+    SET content_updated_at = now()
+    FROM document_templates t
+    WHERE t.tenant_key = OLD.tenant_key AND t.resource_id = OLD.template_resource_id
+      AND c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id;
+    RETURN OLD;
+END;
+$$
