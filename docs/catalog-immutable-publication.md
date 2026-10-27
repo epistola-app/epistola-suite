@@ -1,6 +1,7 @@
 # From resource relocation to immutable publication
 
-> **Status:** Proposed. The execution plan behind
+> **Status:** Record (2026-10-27): its goals were met in 2.0 (releases hold their content, see
+> [ADR 0038](adr/0038-catalogs-in-2-0.md)). Written as a proposal. The execution plan behind
 > [ADR 0025](adr/0025-relocation-without-aliases.md), written during the relocation review of
 > September 2026. The direction is accepted; each goal is designed and decided when it starts. It
 > does not describe implemented behaviour — [Catalog resource relocation](catalog-resource-relocation.md)

@@ -18,6 +18,41 @@ Authored catalogs had no real version: the ZIP export stamped
 "this is now a new version" with any meaning, and re-export produced a
 different "version" even when nothing changed (or the same one when it did).
 
+## Working on catalogs
+
+Most people who change a catalog are not technical: they want to change a letter and see it. The
+model puts control only where it pays off — **work freely, control what goes out**. While working,
+nothing is numbered and nothing is locked; control applies when a version is **released** (frozen,
+numbered, tied to exact releases of what it uses) and when an environment is made to **serve** it.
+The storage behind it is [ADR 0038](adr/0038-catalogs-in-2-0.md).
+
+The words the screens use:
+
+| Word              | Is                                                                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Next release**  | The everyday work on a catalog, one per catalog (`catalogs.next_version_id`). What a page edits unless its catalog segment names another draft. No number.                                      |
+| **Release**       | A frozen, numbered version (`v1.3.0`). Never changes; what applications get.                                                                                                                    |
+| **Deployed**      | What an environment serves: releases side by side, at most one draft (see [What an environment uses](#what-an-environment-uses)).                                                               |
+| **Parallel work** | Another draft, always with a name: a fix of a release (the bar says "Fix of v1.2.0"), work set aside, or a second line of work (see [Choosing a draft in the UI](#choosing-a-draft-in-the-ui)). |
+
+How the everyday cases map onto it:
+
+- **Change a template and have the application use it:** edit it in the next release, release it
+  (the dialog picks the number from the kind of change), deploy the release.
+- **Two catalogs, one using the other's stencil:** both previews show the change at once. Releasing
+  the catalog that uses it can release the other along (`releaseDependencies`), dependencies first,
+  in one transaction (see [Declared dependencies](#declared-dependencies)).
+- **A fix while the next release is half done:** start parallel work from the released version,
+  fix, release it as the next patch and deploy it. The next release is then behind that release;
+  its release dialog lists what it is behind, and merging brings the fix in
+  ([Merge internals](#merge-internals)).
+- **Put work aside, or run two lines at once:** make another draft the next release and keep the
+  previous one as parallel work (`keepPreviousAs`), or start parallel work beside it; either is
+  released as it is ([Everyday work continuing from parallel work](#everyday-work-continuing-from-parallel-work)).
+
+Nothing is lost silently: setting work aside keeps it as a named draft, and discarding is a separate,
+confirmed action.
+
 ## Model
 
 A catalog is **one row per `(tenant_key, slug)`**, with one live resource set per open draft (see
@@ -233,9 +268,9 @@ live side by side, with no switch to turn on.
 
 ## Catalog versions and drafts
 
-A catalog consists of **versions** (contract ADR 0002): released ones, kept in
-`catalog_releases` with their retained content, and the versions whose content is in the content
-tables, identified by `catalog_versions`: the catalog's open **drafts**. A draft has **no number
+A catalog consists of **versions** (contract ADR 0002), one row each in `catalog_versions`
+([ADR 0038](adr/0038-catalogs-in-2-0.md)): its **releases** (`state = released`, frozen) and its open
+**drafts**. A draft has **no number
 until it is released**; only releases are numbered.
 
 - **Every draft is the same; one is the next release.** Any draft can be released (contract ADR
@@ -556,12 +591,12 @@ deployments and version ranges use.
   a catalog's highest release; null for a draft), and
   `listCatalogReleases?contentHash=` lists the releases with that content: a filter, so none is an
   empty list, and anything but a `v6:` hash is a 400. The database answers it
-  (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), so a
-  release whose hash is not computed yet is no match. MCP `list_catalog_releases` (with the same
+  (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), . Every
+  release records its hash. MCP `list_catalog_releases` (with the same
   `contentHash` filter), `release_draft`, `list_catalogs` and `list_catalog_dependencies` return it
   likewise.
-- The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release
-  under its catalog and number, which in ADR 0034's terms is the binding of that number to the hash.
+- A release is its row in `catalog_versions`, under its catalog and number, which in ADR 0034's
+  terms is the binding of that number to the hash.
 
 ### Fingerprint algorithm
 
@@ -789,8 +824,8 @@ changes are catalog settings is publishable as it is, and "Mark all ready" has n
 The 2.0 upgrade (`V20261101000700`, `V20261101000800`) gives each variant its
 draft model, else its latest published, else its latest archived; each template its draft contract,
 else its latest published. What was publishable before is marked ready: a variant with no unfinished
-draft, a stencil without a draft, and every other resource. `template_versions` and
-`contract_versions` stay as history nobody reads.
+draft, a stencil without a draft, and every other resource. The 1.x `template_versions` and
+`contract_versions` are dropped once converted; their history is a summary in `app_metadata`.
 
 ## Cutting a release
 
@@ -963,7 +998,7 @@ template per variant or per block, an editor merge tool — adds to it rather th
   for a release it merged; for an older merge base that one descends from, the same wherever the two
   releases are alike; else the base as released. A baseline another function stored is ignored.
 - **Merge base** (`MergeInputReader`, `ReleaseLineage.closestIn`). Found by the lineage releases record
-  (`catalog_releases.base_version`, `base_fingerprint`, and `catalog_release_merges`), checked against the installed release of that
+  (`catalog_versions.base_version_id`, `base_version`, `base_fingerprint`, and `catalog_release_merges`), checked against the installed release of that
   number by fingerprint; missing, it is `MergeInputs.missingBase` and the planner classifies nothing.
 - **Mergers** (`ResourceMerger`, found by type in `ResourceMergers`). One classifies an entry from its
   three sides (`MergeEntrySides`) and plans what to write for a `MergeResolution` (`MergeAction`:

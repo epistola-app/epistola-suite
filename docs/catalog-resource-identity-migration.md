@@ -1,6 +1,7 @@
 # Catalog resource identity migration
 
-> **Status:** Proposed. A plan, largely carried out by the relocation work — file paths in it are
+> **Status:** Record (2026-10-27): carried out; the current model is
+> [ADR 0037](adr/0037-resource-identity-and-relocation.md). Written as a proposal. A plan, largely carried out by the relocation work — file paths in it are
 > the proposal's, not a map of the code. Its alias steps were withdrawn before release
 > ([ADR 0025](adr/0025-relocation-without-aliases.md)), and its unfinished steps are superseded by
 > [From resource relocation to immutable publication](catalog-immutable-publication.md).

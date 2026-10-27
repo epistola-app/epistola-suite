@@ -1,6 +1,6 @@
 # ADR 0014: Safe relocation of authored catalog resources
 
-- **Status:** Accepted — superseded in part by [ADR 0025](0025-relocation-without-aliases.md)
+- **Status:** Superseded by [ADR 0037](0037-resource-identity-and-relocation.md) (2026-10-27)
 - **Superseded on template versions** by contract ADR 0002 (2.0): there are no template versions or
   theme snapshots to pin; see [catalog resource relocation](../catalog-resource-relocation.md).
 - **Date:** 2026-08-26

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0026: Revisions, releases and the working copy
 
-- **Status:** Accepted — steps 1 to 3 of the transition implemented
+- **Status:** Superseded by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27)
 - **Date:** 2026-09-23
 - **Deciders:** Epistola team
 - **Tags:** catalog, versioning, publication, storage

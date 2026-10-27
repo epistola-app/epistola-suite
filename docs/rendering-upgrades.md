@@ -9,7 +9,7 @@ Epistola uses a three-layer defense for deterministic PDF rendering:
 
 1. **Versioned Rendering Defaults** — All rendering constants (font sizes, margins, spacing, borders)
    are centralized in `RenderingDefaults`. Each catalog release records which defaults version was
-   in effect when it was cut (`catalog_releases.rendering_defaults_version`). A release keeps
+   in effect when it was cut (`catalog_versions.rendering_defaults_version` on the release's row, and its `ReleaseInfo.metadata`). A release keeps
    rendering with its original defaults forever; one cut before that column existed renders with
    the current defaults.
 

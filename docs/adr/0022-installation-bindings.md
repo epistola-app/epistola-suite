@@ -1,6 +1,6 @@
 # ADR 0022: Installation bindings — what an installed catalog leaves to the installer
 
-- **Status:** Draft
+- **Status:** Superseded by [ADR 0032](0032-catalog-sources-releases-and-merging.md) and [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27); was a draft, never accepted
 - **Date:** 2026-09-09
 - **Note, 2026-09-22:** relocation no longer leaves aliases
   ([ADR 0025](0025-relocation-without-aliases.md)). Where this draft relies on "the alias

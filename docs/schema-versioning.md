@@ -28,10 +28,13 @@ templates/
 
 ## Storage
 
-- `document_templates.data_model` — the JSON Schema, `NULL` when the template has none.
-- `document_templates.data_examples` — the examples, each with a key; at least one is required.
-- `template_variants.referenced_paths` — the data paths the variant's working model reads,
-  recomputed on every model save.
+- The template's content (`resource.dataModel`, [ADR 0038](adr/0038-catalogs-in-2-0.md)) — the JSON
+  Schema, absent when the template has none.
+- `resource.dataExamples` — the examples, each with a key; at least one is required.
+
+The data paths a variant's model reads are not stored: `TemplatePathExtractor` computes them from
+the model when they are needed (the 1.x `template_variants.referenced_paths` column was dropped by
+the 2.0 migration chain).
 
 `UpdateDataContract` validates the schema and property names, requires an example, and validates
 every example against the schema; with `forceUpdate` the failures come back as warnings instead.
@@ -48,13 +51,15 @@ The 2.0 upgrade gave each template its draft contract, else its latest published
 1. **Schema structural diff** (`SchemaCompatibilityChecker`): compares two schemas for field
    removal, type changes, required changes and constraint narrowing.
 2. **Template field usage** (`TemplatePathExtractor`): extracts which data paths a template's
-   expressions reference, stored as `referenced_paths`.
+   expressions reference, computed from the model.
 3. **Template compatibility** (`TemplateCompatibilityEvaluator`): cross-references a variant's
-   `referenced_paths` against an old and a new schema, reporting `FIELD_REMOVED` and
+   referenced paths against an old and a new schema, reporting `FIELD_REMOVED` and
    `TYPE_CHANGED` only for fields the template uses.
 
-These are pure comparisons. With no contract versions there is no publish step that runs them; the
-web UI's contract editor is still being moved to this model.
+These are pure comparisons, and nothing in the application calls the extractor or the evaluator at
+the moment: with no contract versions there is no publish step that runs them, and the web UI's
+contract editor is still being moved to this model. `ChangeKindEvaluator` uses
+`SchemaCompatibilityChecker` alone.
 
 ### Breaking change rules (schema level)
 
@@ -95,12 +100,12 @@ from expressions.
 
 Inside a loop on `orders` with `itemAlias: "order"`, the expression `order.name` resolves to the root path `orders[*].name`. Nested loops compound: `orders[*].items[*].price`.
 
-### Stored format
+### Output format
 
-`template_variants.referenced_paths` as JSONB:
+`TemplatePathExtractor` returns the paths as a set:
 
 ```json
 ["customer.name", "orders", "orders[*].total", "orders[*].items[*].price"]
 ```
 
-Non-nullable, defaults to `[]`. `Set<String>` in Kotlin.
+`Set<String>` in Kotlin, empty when the model reads no data.

@@ -1,7 +1,7 @@
 # ADR 0017: Structured failure reasons for asynchronous work
 
-- Status: Accepted
-- Date: 2026-08-31
+- **Status:** Accepted
+- **Date:** 2026-08-31
 
 ## Context
 

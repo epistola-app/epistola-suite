@@ -139,29 +139,37 @@ resubmit, on the same row.
 ## Deletion: the database does it
 
 A finding is metadata _about_ a resource and means nothing once that resource is gone, so the
-tables carry foreign keys to `document_templates` and `template_variants` with
-`ON DELETE CASCADE`. Delete a template and its findings, ignores and comments go with it;
-delete one variant and only that variant's findings go. Catalog and tenant deletion already
-cascade through `document_templates`, so those come free.
+database removes it (`V20261101000350__quality_2_0.sql`):
+
+- **Template:** findings and ignores reference the template's identity,
+  `catalog_resources (tenant_key, resource_id)` through `template_resource_id`, with
+  `ON DELETE CASCADE`. The identity goes when the last version holding the template does
+  ([ADR 0037](adr/0037-resource-identity-and-relocation.md)), so deleting a template from every
+  version, or deleting its catalog or tenant, takes its findings and ignores with it. A template
+  that only leaves a draft but stays in a release keeps them.
+- **Variant:** no table holds a variant's identity across versions (it is an entry of its
+  template's content, [ADR 0038](adr/0038-catalogs-in-2-0.md)), so a finding keeps its
+  `variant_key` and the trigger `trg_release_resources_quality_findings_follow_variant` follows
+  it: when a template's row in `release_resources` stops holding a variant (its content changes
+  or the row goes) and no other row of that template, draft or release, still holds it, the
+  variant's findings are deleted.
 
 **Why foreign keys rather than an event handler.** They point quality → core, the same
 direction the module dependency already points, so the cleanup costs nothing architecturally:
-`DeleteDocumentTemplate` never learns that quality exists, which is the invariant that keeps
+deleting a template never learns that quality exists, which is the invariant that keeps
 this module droppable. An event subscription would be more code, eventually-consistent, and
 able to fail.
 
 Two subtleties, both pinned by `QualityCascadeIntegrationTest`:
 
-- A **template-subject** finding has a NULL `variant_key`, so the variant FK does not apply to
-  it at all (Postgres skips a composite FK when any referencing column is NULL, under the
-  default `MATCH SIMPLE`). That is the wanted behaviour rather than an accident: such a finding
-  must survive a variant being deleted.
+- A **template-subject** finding has a NULL `variant_key`, so the variant trigger never matches
+  it: such a finding survives a variant being deleted.
 - **Ignores cascade too**, and that is a correctness rule rather than tidiness. URNs are built
   from slugs, so deleting `invoice` and creating a new `invoice` reproduces `ignore_scope_urn`
   _exactly_ — a reviewer's "does not apply here" from the deleted template would silently
   suppress findings on a template nobody has ever looked at. `quality_finding_ignores` carries
-  `catalog_key`/`template_key` for no other purpose: they are never read, are not part of the
-  key, and are nullable so a future non-template scope simply is not cascade-bound.
+  `template_resource_id` for no other purpose: it is not part of the key, and is nullable so a
+  future non-template scope simply is not cascade-bound.
 
 ## Anchoring a finding to elements
 
