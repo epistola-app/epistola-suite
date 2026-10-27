@@ -19,14 +19,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import {
-  renderColorInput,
-  renderSelectInput,
-  readBorderFromStyles,
-  expandBorderToStyles,
-  type BorderValue,
-} from '../../ui/inputs/style-inputs.js';
-import '../../ui/inputs/BorderInput.js';
+import { renderBoxStyleFields, type BoxStyles } from '../../ui/inputs/box-style-fields.js';
 import {
   findMergeAt,
   canMerge,
@@ -35,14 +28,6 @@ import {
   type CellMerge,
   type CellSelection,
 } from './table-utils.js';
-
-/**
- * Per-cell styles (`props.cellStyles`): contract `2.0.0-alpha.2` declares them, allowing only
- * `backgroundColor`, `padding`, `border` and `verticalAlign` per cell. These controls write
- * `textAlign` too, which the server then refuses, and the renderer applies no `verticalAlign`, so they
- * stay hidden until the cell controls match the contract (epistola-contract#97).
- */
-const CELL_STYLES_SUPPORTED = false;
 
 @customElement('table-inspector')
 export class TableInspector extends LitElement {
@@ -343,102 +328,40 @@ export class TableInspector extends LitElement {
   // Cell styles
   // -----------------------------------------------------------------------
 
+  /**
+   * Per-cell styles (`props.cellStyles`, keyed `"<row>-<col>"`): the contract allows background,
+   * padding, border and vertical alignment. An edit applies to every selected cell.
+   */
   private _renderCellStyles() {
     if (!this._cellSelection) return nothing;
 
-    if (!CELL_STYLES_SUPPORTED) {
-      return html`
-        <div class="inspector-section">
-          <div class="inspector-section-label">Cell Style</div>
-          <div
-            class="inspector-field-hint"
-            style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
-          >
-            Cells can't be styled one by one yet. Style the table, or the block inside the cell.
-          </div>
-        </div>
-      `;
-    }
-
     const sel = normalizeSelection(this._cellSelection);
     const cellKey = `${sel.startRow}-${sel.startCol}`;
-    const cellStyles =
-      (this.node.props?.cellStyles as Record<string, Record<string, unknown>>) ?? {};
+    const cellStyles = (this.node.props?.cellStyles as Record<string, BoxStyles>) ?? {};
     const currentStyles = cellStyles[cellKey] ?? {};
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Cell Style</div>
-        <div class="inspector-field">
-          <label class="inspector-field-label">Background</label>
-          ${renderColorInput(currentStyles.backgroundColor as string | undefined, (v) =>
-            this._handleCellStyleChange('backgroundColor', v || undefined),
-          )}
-        </div>
-        <div class="inspector-field">
-          <label class="inspector-field-label">Text Align</label>
-          ${renderSelectInput(
-            currentStyles.textAlign as string | undefined,
-            [
-              { label: 'Left', value: 'left' },
-              { label: 'Center', value: 'center' },
-              { label: 'Right', value: 'right' },
-            ],
-            (v) => this._handleCellStyleChange('textAlign', v || undefined),
-          )}
-        </div>
-        <div class="inspector-field">
-          <label class="inspector-field-label">Border</label>
-          <epistola-border-input
-            .value=${readBorderFromStyles(currentStyles)}
-            .units=${['pt', 'sp']}
-            @change=${(e: CustomEvent) => this._handleCellBorderChange(e.detail as BorderValue)}
-          ></epistola-border-input>
-        </div>
+        ${renderBoxStyleFields(
+          currentStyles,
+          (mutate) => this._updateSelectedCellStyles(mutate),
+          `table-cell-${cellKey}`,
+        )}
       </div>
     `;
   }
 
-  private _handleCellBorderChange(borderValue: BorderValue) {
+  private _updateSelectedCellStyles(mutate: (styles: BoxStyles) => void) {
     const sel = normalizeSelection(this._cellSelection!);
     const props = this.node.props ?? {};
-    const cellStyles = { ...(props.cellStyles as Record<string, Record<string, unknown>>) };
+    const cellStyles = { ...(props.cellStyles as Record<string, BoxStyles>) };
 
     for (let row = sel.startRow; row <= sel.endRow; row++) {
       for (let col = sel.startCol; col <= sel.endCol; col++) {
         const cellKey = `${row}-${col}`;
         const existing = { ...cellStyles[cellKey] };
-        expandBorderToStyles(borderValue, existing);
-        if (Object.keys(existing).length > 0) {
-          cellStyles[cellKey] = existing;
-        } else {
-          delete cellStyles[cellKey];
-        }
-      }
-    }
-
-    this.engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId: this.node.id,
-      props: { ...props, cellStyles },
-    });
-  }
-
-  private _handleCellStyleChange(styleKey: string, value: unknown) {
-    const sel = normalizeSelection(this._cellSelection!);
-    const props = this.node.props ?? {};
-    const cellStyles = { ...(props.cellStyles as Record<string, Record<string, unknown>>) };
-
-    // Apply to all cells in selection
-    for (let row = sel.startRow; row <= sel.endRow; row++) {
-      for (let col = sel.startCol; col <= sel.endCol; col++) {
-        const cellKey = `${row}-${col}`;
-        const existing = { ...cellStyles[cellKey] };
-        if (value === undefined || value === '') {
-          delete existing[styleKey];
-        } else {
-          existing[styleKey] = value;
-        }
+        mutate(existing);
         if (Object.keys(existing).length > 0) {
           cellStyles[cellKey] = existing;
         } else {

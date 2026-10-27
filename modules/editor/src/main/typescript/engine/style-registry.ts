@@ -19,13 +19,6 @@ const COMPOUND_STYLE_LONGHANDS: Record<string, ReadonlySet<string>> = {
 };
 
 /**
- * Properties the contract declares that the PDF renderer does not apply yet (contract
- * `2.0.0-alpha.2`, epistola-contract#97). The editor offers no control for them, so an author is
- * never given a setting that changes nothing in the document. A model that carries one keeps it.
- */
-const NOT_YET_RENDERED: ReadonlySet<string> = new Set(['minHeight', 'verticalAlign']);
-
-/**
  * Build the registry presented by editor UIs. The contract keeps canonical
  * longhand properties for validation and serialization, while the compound
  * controls edit those same keys and therefore replace the duplicate rows.
@@ -40,9 +33,7 @@ export function createEditorStyleRegistry(source: StyleRegistry): StyleRegistry 
         longhands.forEach((key) => hiddenLonghands.add(key));
       }
     }
-    group.properties = group.properties.filter(
-      (property) => !hiddenLonghands.has(property.key) && !NOT_YET_RENDERED.has(property.key),
-    );
+    group.properties = group.properties.filter((property) => !hiddenLonghands.has(property.key));
   }
   registry.groups = registry.groups.filter((group) => group.properties.length > 0);
   return registry;
