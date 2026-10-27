@@ -21,6 +21,7 @@ MIGRATION_SQL_FRAGMENT = "/src/main/resources/db/migration/"
 
 LINE_COMMENT_EXTENSIONS = {
     ".kt": "//",
+    ".imports": "#",
     ".kts": "//",
     ".java": "//",
     ".ts": "//",
