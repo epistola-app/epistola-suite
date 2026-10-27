@@ -2488,6 +2488,15 @@ cannot clear a default theme through generated clients (null and omitted are the
 
 ## Review follow-ups (27 October)
 
+- **Done: monthly partitions in UTC.** `PartitionMaintenanceScheduler` creates every monthly
+  partition (`documents`, `document_content`, `document_generation_requests`, `generation_results`,
+  `event_log`, `audit_log`) through `epistola_create_partition`, whose `date` bounds Postgres reads
+  against the `timestamptz` key in the session's zone, and pgjdbc takes that from the JVM. A node
+  outside UTC created shifted partitions. The create now runs in its own transaction with
+  `SET LOCAL TIME ZONE 'UTC'`, and the current month (create and retention cutoff) is computed in
+  UTC. `PartitionMaintenanceTimeZoneIT` runs maintenance through Asia/Tokyo connections and failed
+  without the fix. Found by the 2.0 chain's equivalence test, which had the same flaw in its
+  migration step.
 - **Done: the migration step under `bootRun`.** `EPISTOLA_MIGRATION_MODE=migrate` or `--migrate`
   through devtools failed with `migrate,migrate`: the restart calls `main` again with the arguments
   the migration context got, and the launcher appended the mode once more. `runMigration` now drops

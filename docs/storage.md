@@ -38,6 +38,9 @@ way each backend does best:
   lockstep with `documents_YYYY_MM` — an O(1) `DROP TABLE`, no per-row `DELETE`, no
   BYTEA bloat. This is the fix for the original leak: a partition drop on `documents`
   used to leave the matching blobs in an unpartitioned `content_store` orphaned forever.
+  Every monthly partition spans UTC midnights, whatever time zone a node's JVM runs in: the
+  scheduler computes the month in UTC and creates the partition with the session in UTC
+  (`PartitionMaintenanceTimeZoneIT`), as the 2.0 migration step does.
 - **S3** — `S3DocumentRetentionInitializer` reconciles a bucket **lifecycle rule** at
   startup that expires the `documents/` prefix after the retention window
   (`epistola.storage.s3.document-retention-days`, default `retention-months × 31`).
