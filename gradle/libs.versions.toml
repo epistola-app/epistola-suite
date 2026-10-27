@@ -2,7 +2,7 @@
 kotlin = "2.4.20"
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
-graalvm-native = "1.1.14"
+graalvm-native = "1.1.16"
 ktlint = "14.2.0"
 # The ktlint engine the Gradle plugin runs; the plugin's own default lags behind (1.5.0).
 ktlint-engine = "1.8.0"
