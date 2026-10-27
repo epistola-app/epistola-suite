@@ -59,8 +59,7 @@ data class RecordInstalledRelease(
     /**
      * The release's content as its archive carries it, when the caller has the archive: retained
      * instead of a rebuild from the installed rows, so the release exports with its publisher's
-     * fingerprint. Null rebuilds it from what is installed (an upgrade from 1.x, the system catalog's
-     * seeded fonts).
+     * fingerprint. Null rebuilds it from what is installed (an upgrade from 1.x).
      */
     val published: CatalogContent? = null,
     /**
@@ -83,18 +82,6 @@ data class RecordInstalledRelease(
 
 /** A release's number and its publisher's fingerprint, when the archive carries one. */
 data class RecordedRelease(val version: String, val fingerprint: String?)
-
-/**
- * Lets the bundled-catalog bootstrap record a catalog's release itself, after seeding what its
- * manifest does not carry (the system catalog's fonts), instead of at the end of each install step.
- */
-object InstalledReleaseRecording {
-    private val deferred: ScopedValue<Boolean> = ScopedValue.newInstance()
-
-    val isDeferred: Boolean get() = deferred.isBound && deferred.get()
-
-    fun <T> deferred(block: () -> T): T = ScopedValue.where(deferred, true).call<T, RuntimeException>(block)
-}
 
 /**
  * Hands the content an install fetched to the upgrade that runs it, so the upgrade records the release

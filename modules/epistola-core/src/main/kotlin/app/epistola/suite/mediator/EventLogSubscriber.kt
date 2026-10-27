@@ -16,7 +16,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
+import tools.jackson.core.JsonGenerator
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.SerializationContext
+import tools.jackson.databind.ValueSerializer
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.databind.module.SimpleModule
 
 /**
  * Subscribes to all CommandCompleted events and persists them to the event_log table.
@@ -38,6 +43,17 @@ class EventLogSubscriber(
 ) {
 
     private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
+
+    /**
+     * Writes a command as the event stream records it: a byte array (an uploaded image, a font face)
+     * as its size, not its contents. The bytes are stored by their hash, which a command carrying a
+     * file names beside them (`contentHash`); logging them made every font a catalog installs cost its
+     * faces again, as base64, in `event_log`. Not hashed here either: hashing the faces a tenant's
+     * system catalog brings was a third of creating the tenant.
+     */
+    private val payloadMapper: ObjectMapper = (objectMapper as JsonMapper).rebuild()
+        .addModule(SimpleModule("event-log-binaries").addSerializer(ByteArray::class.java, BinaryReferenceSerializer))
+        .build()
     private val persistFailures = Counter.builder("epistola.eventlog.persist.failures")
         .description("Event log persistence failures (audit trail gaps)")
         .register(meterRegistry)
@@ -55,7 +71,7 @@ class EventLogSubscriber(
             val eventType = command::class.simpleName ?: "Unknown"
             val tenantId = (command as? TenantScoped)?.tenantKey?.value
             val entityId = extractEntityId(command)
-            val payload = objectMapper.writeValueAsString(command)
+            val payload = payloadMapper.writeValueAsString(command)
 
             jdbi.withHandle<Unit, Exception> { handle ->
                 handle.createUpdate(
@@ -96,5 +112,14 @@ class EventLogSubscriber(
             command is EntityIdentifiable -> command.entityId
             else -> null
         }
+    }
+}
+
+/** A byte array as its size: `{"size": …}`. */
+private object BinaryReferenceSerializer : ValueSerializer<ByteArray>() {
+    override fun serialize(value: ByteArray, gen: JsonGenerator, ctxt: SerializationContext) {
+        gen.writeStartObject()
+        gen.writeNumberProperty("size", value.size)
+        gen.writeEndObject()
     }
 }

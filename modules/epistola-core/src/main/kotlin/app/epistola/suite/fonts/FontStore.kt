@@ -21,6 +21,7 @@ import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.storage.AssetContentStore
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -81,11 +82,14 @@ class FontStore(
 
     /**
      * Writes several families of [catalog]'s targeted draft. A family whose content is the one its
-     * row names already is left alone, so seeding the system fonts on every boot writes nothing.
+     * row names already is left alone, so installing a catalog again writes nothing. Its faces are
+     * still linked to their bytes, which a family stored before its files were (the 2.0 upgrade's
+     * conversion of 1.x's bundled fonts) does not have yet.
      */
     fun putAll(handle: Handle, catalog: CatalogId, fonts: List<FontSpec>, actor: UUID?): Map<String, InstallStatus> {
         if (fonts.isEmpty()) return emptyMap()
         storeBytes(fonts.flatMap { it.variants })
+        linkStoredFaces(handle, catalog.tenantKey, fonts.flatMap { it.variants }.map { it.contentHash })
         val current = currentHashes(handle, catalog)
         return fonts.associate { font ->
             val payload = ResourceMetadata.carried(handle, catalog, FONT, font.slug, payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face)), font.metadata, objectMapper)
@@ -181,7 +185,14 @@ class FontStore(
         /** The resource type, and content kind, of a font. */
         const val FONT = "font"
 
-        /** The hash a face's bytes are stored under. */
-        fun hashOf(bytes: ByteArray): String = sha256Hex(bytes)
+        /**
+         * The hash a face's bytes are stored under, remembered per array: weakly, by identity, and
+         * bounded. A bundled catalog's binaries are one array each per JVM ([app.epistola.suite.catalog.ClasspathCatalogCache]),
+         * installed for every tenant, and hashing the system fonts again for each one was a sixth of
+         * creating a tenant. An array is never written once it is read, so its hash cannot change.
+         */
+        fun hashOf(bytes: ByteArray): String = HASHES.get(bytes, ::sha256Hex)
+
+        private val HASHES = Caffeine.newBuilder().weakKeys().maximumSize(4096).build<ByteArray, String>()
     }
 }

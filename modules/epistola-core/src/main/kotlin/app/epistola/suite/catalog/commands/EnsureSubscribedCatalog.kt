@@ -40,7 +40,6 @@ data class EnsureSubscribedCatalog(
     val sourceUrl: String,
     val authType: AuthType = AuthType.NONE,
     val authCredential: String? = null,
-    val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<EnsureSubscribedCatalogResult>,
     SystemInternal,
     // Fetches the remote catalog over HTTP mid-command.
@@ -121,9 +120,7 @@ class EnsureSubscribedCatalogHandler(
         val alreadyCurrent = contentCurrent && allResourcesInstalled
         if (alreadyCurrent) {
             // Installed before releases were recorded for subscribed catalogs: record it now.
-            if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(catalog).execute()
-            }
+            RecordInstalledRelease(catalog).execute()
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,
@@ -134,10 +131,7 @@ class EnsureSubscribedCatalogHandler(
         }
 
         val previousVersion = existing.installedReleaseVersion
-        val upgrade = UpgradeCatalog(
-            catalog = existing.catalogId,
-            preserveResourceTypes = command.preserveResourceTypes,
-        ).execute()
+        val upgrade = UpgradeCatalog(catalog = existing.catalogId).execute()
         if (upgrade.aborted) {
             // Loud + self-retrying: SystemCatalogBootstrap's catch counts this
             // as failed; the version stayed put so the next boot retries.

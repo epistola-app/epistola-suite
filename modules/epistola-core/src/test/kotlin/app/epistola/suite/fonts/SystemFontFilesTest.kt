@@ -4,22 +4,20 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.suite.fonts.commands.DeclaredSystemFace
-import app.epistola.suite.fonts.commands.EnsureSystemFontsHandler
 import com.itextpdf.io.font.FontProgram
 import com.itextpdf.io.font.FontProgramFactory
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Checks each bundled system font file against the face it is registered as. The seeder addresses
+ * Checks each bundled system font file against the face it is registered as. The catalog addresses
  * files by name only, so a file holding the wrong face (Merriweather shipped with Regular and Italic,
  * and Bold and BoldItalic, swapped) or one that lost glyphs in an update rendered wrong without
  * anything failing.
  */
 class SystemFontFilesTest {
 
-    private val faces = EnsureSystemFontsHandler.DECLARED_FACES
+    private val faces = SystemCatalogFaces.ALL
 
     private fun program(face: DeclaredSystemFace): FontProgram {
         val bytes = javaClass.classLoader.getResourceAsStream(face.classpathLocation)!!.use { it.readBytes() }

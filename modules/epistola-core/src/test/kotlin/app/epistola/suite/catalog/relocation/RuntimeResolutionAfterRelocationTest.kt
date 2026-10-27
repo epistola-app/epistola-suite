@@ -55,7 +55,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
     private lateinit var themeStyleResolver: ThemeStyleResolver
 
     private fun ttfBytes(): ByteArray = resourceLoader
-        .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+        .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
     @Test

@@ -24,28 +24,14 @@ class CatalogClient(
     private val sourceReader: OutboundSourceReader,
     private val schemaMigrator: CatalogSchemaMigrator,
     private val properties: CatalogSourceProperties,
+    /** The bundled catalogs as read from the classpath: one per JVM unless a test brings its own. */
+    private val classpathCache: ClasspathCatalogCache = ClasspathCatalogCache.SHARED,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private val allowHttp: Boolean get() = properties.allowHttp
 
-    // Bundled catalogs live on the classpath, which cannot change while this JVM runs, yet the same
-    // manifest, resource details and binaries were read, schema-migrated and hashed again for every
-    // tenant that installs them, every catalogs-page render and every boot. Cached like FontByteCache:
-    // one Caffeine cache, weighed by the raw bytes each entry was loaded from, with an explicit
-    // ceiling (every classpath catalog in the repo is under half a megabyte; the ceiling is the bound
-    // stated out loud, not something that is expected to evict). No TTL: classpath content is
-    // immutable. Only `classpath:` sources are cached; `file:` and HTTP sources can change underneath
-    // a running process. Cached manifests and details are shared across tenants and threads: callers
-    // read them and map them into their own structures; nothing writes into a fetched object.
-    private val classpathCache = Caffeine.newBuilder()
-        .maximumWeight(MAX_CACHED_CLASSPATH_BYTES)
-        .weigher<String, CachedClasspathEntry> { _, entry -> entry.weight }
-        .build<String, CachedClasspathEntry>()
-
-    private class CachedClasspathEntry(val value: Any, val weight: Int)
-
-    private inline fun <reified T : Any> cachedClasspath(key: String, crossinline load: () -> Pair<T, Int>): T = classpathCache.get(key) { load().let { (value, weight) -> CachedClasspathEntry(value, weight) } }.value as T
+    private inline fun <reified T : Any> cachedClasspath(key: String, crossinline load: () -> Pair<T, Int>): T = classpathCache.get(key) { load() } as T
 
     /** The bound, current-shape manifest. Use [fetchMigratedManifest] when you also need to fetch details. */
     fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest = fetchMigratedManifest(url, authType, credential).manifest
@@ -125,10 +111,11 @@ class CatalogClient(
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         val resolvedUrl = resolveContentUrl(contentUrl, manifestUrl)
         if (resolvedUrl.startsWith("classpath:")) {
-            // Copied out so a caller that keeps the array cannot alter what the next tenant reads.
+            // Shared, not copied: every tenant installs the bundled catalogs, and a copy per install
+            // held the system fonts (14 MB) again for each tenant being created. Callers only read it.
             return cachedClasspath<ByteArray>("binary:$manifestUrl\n$resolvedUrl") {
                 loadBinary(resolvedUrl, manifestUrl, authType, credential).let { it to it.size }
-            }.copyOf()
+            }
         }
         return loadBinary(resolvedUrl, manifestUrl, authType, credential)
     }
@@ -145,9 +132,6 @@ class CatalogClient(
     }
 
     companion object {
-        /** Ceiling of the classpath cache, in bytes of source content. Every bundled catalog together is well under 1 MiB. */
-        private const val MAX_CACHED_CLASSPATH_BYTES: Long = 32L * 1024 * 1024
-
         /** A leading `scheme:` — anything that makes a path an absolute URL. */
         private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
 
@@ -207,5 +191,41 @@ class CatalogClient(
             OutboundUrlGuard.requireBelowManifest(resolved, manifestUrl)
             return resolved
         }
+    }
+}
+
+/**
+ * The bundled catalogs as read from the classpath: manifests, resource details and binaries.
+ *
+ * The classpath cannot change while the JVM runs, yet the same manifest, details and binaries were
+ * read, schema-migrated and hashed again for every tenant that installs them, every catalogs-page
+ * render and every boot. Cached like FontByteCache: one Caffeine cache, weighed by the raw bytes each
+ * entry was loaded from, with an explicit ceiling (the system catalog's fonts are 14 MB and every other
+ * bundled catalog is under half a megabyte; the ceiling is the bound stated out loud, not something that
+ * is expected to evict). No TTL: classpath content is immutable. Only `classpath:` sources are cached;
+ * `file:` and HTTP sources can change underneath a running process. What it holds is shared across
+ * tenants and threads: callers read it and map it into their own structures; nothing writes into a
+ * fetched object, a fetched byte array included.
+ *
+ * One per JVM ([SHARED]), not one per [CatalogClient]: Spring makes a client per application context,
+ * and a test JVM holds a couple of dozen contexts, each of which held the system fonts again.
+ */
+class ClasspathCatalogCache(maxBytes: Long = MAX_BYTES) {
+    private class Entry(val value: Any, val weight: Int)
+
+    private val cache = Caffeine.newBuilder()
+        .maximumWeight(maxBytes)
+        .weigher<String, Entry> { _, entry -> entry.weight }
+        .build<String, Entry>()
+
+    /** The value cached under [key], loading it as (value, the size of the bytes it came from) when absent. */
+    fun get(key: String, load: () -> Pair<Any, Int>): Any = cache.get(key) { load().let { (value, weight) -> Entry(value, weight) } }.value
+
+    companion object {
+        /** Ceiling, in bytes of source content. Every bundled catalog together is about 15 MiB, the system fonts nearly all of it. */
+        const val MAX_BYTES: Long = 32L * 1024 * 1024
+
+        /** The JVM's: what every [CatalogClient] uses unless it is given its own. */
+        val SHARED = ClasspathCatalogCache()
     }
 }

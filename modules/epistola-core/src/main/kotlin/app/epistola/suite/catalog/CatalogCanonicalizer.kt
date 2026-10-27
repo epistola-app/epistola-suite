@@ -56,6 +56,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.resourceEntries,
         includeSerializedDetails = false,
         publisher = content.publisher,
+        hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
@@ -74,6 +75,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.resourceEntries,
         includeSerializedDetails = false,
         publisher = content.publisher,
+        hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use(Companion::contentHash)
@@ -91,6 +93,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.resourceEntries,
         includeSerializedDetails = false,
         publisher = content.publisher,
+        hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use(PortableCatalogCanonicalizer::completePerResourceFingerprints)
@@ -117,6 +120,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.resourceEntries,
         includeSerializedDetails = false,
         publisher = content.publisher,
+        hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use { archive ->
@@ -136,6 +140,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.dependencies,
         content.catalogDependencies,
         content.resourceEntries,
+        hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use { archive -> CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false)) }
@@ -152,11 +157,13 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
 
     fun perResourceFingerprintsFromSerializedDetails(
         serializedDetails: Map<String, ByteArray>,
+        hasAsset: ((contentUrl: String) -> Boolean)? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): Map<String, String> = archive(
         PLACEHOLDER_CATALOG,
         serializedDetails,
         null,
+        hasAsset = hasAsset,
         assetBytes = assetBytes,
     ).use(PortableCatalogCanonicalizer::currentPerResourceFingerprints)
 
@@ -176,9 +183,11 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
 
     fun perResourceFingerprints(
         resourceDetails: Map<String, ResourceDetail>,
+        hasAsset: ((contentUrl: String) -> Boolean)? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): Map<String, String> = perResourceFingerprintsFromSerializedDetails(
         resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
+        hasAsset,
         assetBytes,
     )
 
@@ -213,6 +222,13 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         resourceEntries: List<ResourceEntry> = emptyList(),
         includeSerializedDetails: Boolean = true,
         publisher: PublisherInfo = PublisherInfo("Epistola"),
+        /**
+         * Whether a binary exists, answered without loading it. Given, a binary is read only when the
+         * contract opens it, and not kept: the fingerprints open an image's bytes and never a font
+         * face's, so a font's faces (megabytes) are not loaded for them. Null loads every binary up
+         * front, for a source that can only tell by fetching.
+         */
+        hasAsset: ((contentUrl: String) -> Boolean)? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): CatalogArchive {
         val details = serializedDetails.mapValues { (_, bytes) ->
@@ -223,13 +239,14 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         } else {
             emptyMap()
         }
-        val assets = details.values
-            .flatMap { detail -> detail.resource.contentPaths() }
-            .distinct()
-            .associateWith { path -> assetBytes(path) }
-            .filterValues { it != null }
-            .mapValues { (_, bytes) -> requireNotNull(bytes) }
-        val content = detailContent + assets
+        val binaryPaths = details.values.flatMap { detail -> detail.resource.contentPaths() }.distinct()
+        val loaded: Map<String, ByteArray> = if (hasAsset == null) {
+            binaryPaths.mapNotNull { path -> assetBytes(path)?.let { path to it } }.toMap()
+        } else {
+            emptyMap()
+        }
+        val binaries = if (hasAsset == null) loaded.keys else binaryPaths.filterTo(mutableSetOf(), hasAsset)
+        val content = detailContent + loaded
         return CatalogArchive(
             manifest = CatalogManifest(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
@@ -241,8 +258,11 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
                 catalogDependencies = catalogDependencies,
             ),
             resourceDetails = details,
-            paths = content.keys,
-            content = { path -> ByteArrayInputStream(requireNotNull(content[path]) { "Missing catalog content: $path" }) },
+            paths = detailContent.keys + binaries,
+            content = { path ->
+                val bytes = content[path] ?: path.takeIf { it in binaries }?.let(assetBytes)
+                ByteArrayInputStream(requireNotNull(bytes) { "Missing catalog content: $path" })
+            },
         )
     }
 

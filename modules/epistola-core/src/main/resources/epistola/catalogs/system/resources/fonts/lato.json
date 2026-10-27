@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "font",
+    "key": "lato",
+    "name": "Lato",
+    "kind": "sans",
+    "variants": [
+      {
+        "weight": 400,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "d636e4683231f931eda222d588e944d082bfd3bdba02f928bee461c0f185b251",
+        "contentUrl": "./binaries/fonts/lato/lato-Regular.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "8a0aace75d33794eece4b28187bfc1df0bbd2888b5d8a56e01788c8d65d16be1",
+        "contentUrl": "./binaries/fonts/lato/lato-Bold.ttf"
+      },
+      {
+        "weight": 400,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "e399c44efe1387100531d26c7e4800c5d12251b890d6654a3098c7c679cb1786",
+        "contentUrl": "./binaries/fonts/lato/lato-Italic.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "62c1b7f0d2e74b45960154c3520efc337b553db0961bfdc950d5618334596cc8",
+        "contentUrl": "./binaries/fonts/lato/lato-BoldItalic.ttf"
+      }
+    ]
+  }
+}

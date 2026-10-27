@@ -64,7 +64,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
     private lateinit var objectMapper: ObjectMapper
 
     private fun ttfBytes(): ByteArray = resourceLoader
-        .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+        .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
     private fun manifestOf(zipBytes: ByteArray): CatalogManifest = objectMapper.readValue(readZipEntry(zipBytes, "catalog.json"), CatalogManifest::class.java)

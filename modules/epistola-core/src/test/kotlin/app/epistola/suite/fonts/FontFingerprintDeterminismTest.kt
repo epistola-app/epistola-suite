@@ -156,7 +156,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             val catalogId = CatalogId.default(tenantId)
 
             // 1. AUTHORED-catalog font (Inter Regular bytes), referenced by a theme.
-            val originalAsset = upload(tenantId, "brand-v1.ttf", "epistola/fonts/inter/inter-Regular.ttf")
+            val originalAsset = upload(tenantId, "brand-v1.ttf", "epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
             importBrandFont(tenantId, originalAsset)
 
             CreateTheme(
@@ -204,11 +204,11 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 data = previewData(),
             ).query()
             assertThat(String(ok.copyOfRange(0, 4))).isEqualTo("%PDF")
-            val regular = javaClass.classLoader.getResourceAsStream("epistola/fonts/inter/inter-Regular.ttf")!!.readBytes()
+            val regular = javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")!!.readBytes()
             assertThat(releaseFace(tenant.id, "1.0.0")).isEqualTo(regular)
 
             // 5. Replace the face with DIFFERENT bytes (Inter Bold), same slug/weight/italic.
-            val mutatedAsset = upload(tenantId, "brand-v2.ttf", "epistola/fonts/inter/inter-Bold.ttf")
+            val mutatedAsset = upload(tenantId, "brand-v2.ttf", "epistola/catalogs/system/binaries/fonts/inter/inter-Bold.ttf")
             importBrandFont(tenantId, mutatedAsset)
 
             // 6. The release still renders, with the bytes it kept: replacing a face in the working
@@ -223,7 +223,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
 
             // 7. The next release takes the new bytes.
             mediator.releaseNext(catalogId)
-            val bold = javaClass.classLoader.getResourceAsStream("epistola/fonts/inter/inter-Bold.ttf")!!.readBytes()
+            val bold = javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/inter/inter-Bold.ttf")!!.readBytes()
             assertThat(releaseFace(tenant.id, "1.0.1")).isEqualTo(bold)
         }
     }

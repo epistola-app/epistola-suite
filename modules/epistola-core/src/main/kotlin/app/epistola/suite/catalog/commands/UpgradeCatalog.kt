@@ -44,14 +44,9 @@ import tools.jackson.databind.ObjectMapper
  * subject to the conflict check below. There is no selective mode. An upgrade that preserved a
  * locally chosen subset made "installed 1.2.0" mean something different on every installation; a
  * catalog is one install unit (see issue #850 and [InstallFromCatalog]).
- *
- * [preserveResourceTypes] is not an exception to that: it names resources deliberately managed
- * outside the manifest, such as the system fonts seeded by `EnsureSystemFonts`, so reconciliation
- * does not delete what the manifest was never responsible for.
  */
 data class UpgradeCatalog(
     val catalog: CatalogId,
-    val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission,
     // Re-fetches the remote catalog over HTTP mid-command.
@@ -144,7 +139,6 @@ class UpgradeCatalogHandler(
 
         // 3. Compute what would be removed
         val staleResources = analyzer.computeStale(installedSlugs, manifestSlugs)
-            .filterNot { it.type in command.preserveResourceTypes }
 
         // 4. Validate: fail if any stale resource is still referenced
         if (staleResources.isNotEmpty()) {
@@ -216,9 +210,7 @@ class UpgradeCatalogHandler(
 
         // 8. Record the release moved to, as its archive holds it: rebuilt from the rows the install
         //    wrote, it would not hash to the content hash its source names it by.
-        if (!InstalledReleaseRecording.isDeferred) {
-            RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
-        }
+        RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
 
         val newVersion = manifest.release.version
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }

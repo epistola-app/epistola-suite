@@ -32,7 +32,7 @@ class FontUploadMimeUiTest : BasePlaywrightTest() {
         page.locator("#name").fill("Corporate Sans")
 
         val bytes = resourceLoader
-            .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+            .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
             .contentAsByteArray
         val fileInput = page.locator("input[data-font-file]")
         fileInput.setInputFiles(

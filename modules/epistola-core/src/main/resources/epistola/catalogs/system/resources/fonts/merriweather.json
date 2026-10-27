@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "font",
+    "key": "merriweather",
+    "name": "Merriweather",
+    "kind": "serif",
+    "variants": [
+      {
+        "weight": 400,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "e029d3b71e5bae3877c73f4f2b15af28db16593d49b0aed2a328d37ff7075846",
+        "contentUrl": "./binaries/fonts/merriweather/merriweather-Regular.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "90b7db4460fcd1a5ca49575c2668a793f3cd6447664d312a068d690e1c01e6bc",
+        "contentUrl": "./binaries/fonts/merriweather/merriweather-Bold.ttf"
+      },
+      {
+        "weight": 400,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "afff81272b7653417bb6f8bef57add055b1f9fda36f27eba5f32b40752bd08da",
+        "contentUrl": "./binaries/fonts/merriweather/merriweather-Italic.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "e9864a6790bf712a04e20f3662b206a1535186ed3e877fd859dd5fb9682335df",
+        "contentUrl": "./binaries/fonts/merriweather/merriweather-BoldItalic.ttf"
+      }
+    ]
+  }
+}

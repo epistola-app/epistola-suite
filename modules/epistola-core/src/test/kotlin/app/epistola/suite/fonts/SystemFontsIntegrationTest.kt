@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -26,15 +27,19 @@ import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.statement.SqlLogger
+import org.jdbi.v3.core.statement.SqlStatements
+import org.jdbi.v3.core.statement.StatementContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.sql.SQLException
 
 /**
  * End-to-end coverage for the bundled system fonts: every tenant gets the
- * nine OFL families seeded into its `system` catalog on creation, the
+ * nine bundled families as resources of its `system` catalog on creation, the
  * classpath-backed binaries resolve to real TTF bytes, and the structured
  * `fontFamily` ref is honoured by the live render path (the `system/default`
  * theme points at `inter`/`system`).
@@ -113,15 +118,47 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `seeding is idempotent across repeated install`() {
+    fun `installing the system catalog again keeps the nine families`() {
         val tenant = createTenant("Fonts3")
         withMediator {
-            // CreateTenant already ran EnsureSystemFonts once; run it again
-            // directly — ImportFont UPSERTs, so the family count must hold.
-            app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
+            // CreateTenant installed the system catalog once; install it again: nothing changes.
+            InstallSystemCatalog(tenant.id).execute()
             val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
         }
+    }
+
+    @Test
+    fun `creating a tenant reads no font face back from the database`() {
+        // The install fetched the faces and checks the stored catalog with those bytes; reading all
+        // 36 back (14 MB, one query each) was most of a tenant's creation and of its memory.
+        val statements = statementsOnThisThread { createTenant("Fonts Reads Tenant") }
+
+        assertThat(statements.filter { "JOIN asset_content c ON c.content_hash = b.binary_hash" in it }).isEmpty()
+    }
+
+    /** The SQL this thread executes while [block] runs. */
+    private fun statementsOnThisThread(block: () -> Unit): List<String> {
+        val config = jdbi.getConfig(SqlStatements::class.java)
+        val original = config.sqlLogger
+        val thread = Thread.currentThread()
+        val statements = java.util.Collections.synchronizedList(mutableListOf<String>())
+        config.sqlLogger = object : SqlLogger {
+            override fun logBeforeExecution(context: StatementContext) {
+                if (Thread.currentThread() == thread) statements += context.renderedSql
+                original.logBeforeExecution(context)
+            }
+
+            override fun logAfterExecution(context: StatementContext) = original.logAfterExecution(context)
+
+            override fun logException(context: StatementContext, ex: SQLException) = original.logException(context, ex)
+        }
+        try {
+            block()
+        } finally {
+            config.sqlLogger = original
+        }
+        return statements.toList()
     }
 
     private val hexRegex = Regex("^[0-9a-f]{64}$")
@@ -161,7 +198,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `re-seeding system fonts is hash-idempotent`() {
+    fun `installing the system catalog again keeps every family's fingerprint`() {
         val tenant = createTenant("Fonts Hash Idempotent Tenant")
         withMediator {
             val before = expectedSlugs.associateWith { slug ->
@@ -169,9 +206,8 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             }
             assertThat(before.values).allSatisfy { assertThat(it).isNotNull() }
 
-            // CreateTenant already ran EnsureSystemFonts; re-run it (ImportFont
-            // re-hashes from the same classpath bytes) — fingerprints must hold.
-            app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
+            // CreateTenant installed the system catalog; installing it again must not move a font.
+            InstallSystemCatalog(tenant.id).execute()
 
             val after = expectedSlugs.associateWith { slug ->
                 GetFontFamilyFingerprint(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of(slug)).query()

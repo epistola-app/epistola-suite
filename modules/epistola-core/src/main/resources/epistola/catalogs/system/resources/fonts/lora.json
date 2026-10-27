@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "font",
+    "key": "lora",
+    "name": "Lora",
+    "kind": "serif",
+    "variants": [
+      {
+        "weight": 400,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "c72a925082ba55885e7b4ead25d34a3c91fa44edda72a16a3a2983fc7fa7cef3",
+        "contentUrl": "./binaries/fonts/lora/lora-Regular.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "32baf740eac1bf3f257904a6cf89e4e067ca1566b375bf22f743a26fc88b3791",
+        "contentUrl": "./binaries/fonts/lora/lora-Bold.ttf"
+      },
+      {
+        "weight": 400,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "1985f2fa49d675c3d88ca6a0b9161be38f955bec7efb025d2a5b68bc03e471fe",
+        "contentUrl": "./binaries/fonts/lora/lora-Italic.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "f448e41ab0bf529ec7bd4f8aef843eb4d33b5608c7ed0a53128ead588e6ea9e5",
+        "contentUrl": "./binaries/fonts/lora/lora-BoldItalic.ttf"
+      }
+    ]
+  }
+}

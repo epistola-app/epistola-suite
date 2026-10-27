@@ -48,7 +48,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("5.17.3")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("5.17.4")
         }
     }
 

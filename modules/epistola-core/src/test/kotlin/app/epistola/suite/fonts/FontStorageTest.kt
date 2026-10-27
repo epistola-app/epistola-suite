@@ -48,7 +48,7 @@ class FontStorageTest : IntegrationTestBase() {
 
     private fun one(sql: String): String = jdbi.withHandle<String, Exception> { it.createQuery(sql).mapTo(String::class.java).one() }
 
-    private fun bytes(file: String) = resourceLoader.getResource("classpath:epistola/fonts/lato/$file").contentAsByteArray
+    private fun bytes(file: String) = resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/lato/$file").contentAsByteArray
 
     @Test
     fun `a font is content whose faces are its binaries, with no asset row, and the tables are gone`() {

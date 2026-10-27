@@ -171,10 +171,8 @@ class InstallFromCatalogHandler(
             }
             if (results.any { it.status == InstallStatus.FAILED }) {
                 status.setRollbackOnly()
-            } else if (!InstalledReleaseRecording.isDeferred) {
-                // A caller that defers recording the release completes the content first (the system
-                // catalog seeds its fonts) and checks it then.
-                installedCatalogCheck.requireValid(command.catalog)
+            } else {
+                installedCatalogCheck.requireValid(command.catalog, fetched = fetchedByHash(staged))
             }
             results
         }
@@ -188,8 +186,7 @@ class InstallFromCatalogHandler(
         // the new release once it has moved the pointer, from the content handed to it here.
         InstalledContentHandoff.offer(published)
         if (results.none { it.status == InstallStatus.FAILED } &&
-            catalog.installedReleaseVersion == manifest.release.version &&
-            !InstalledReleaseRecording.isDeferred
+            catalog.installedReleaseVersion == manifest.release.version
         ) {
             RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
         }
@@ -244,6 +241,15 @@ class InstallFromCatalogHandler(
             }
         }
     }
+
+    /** Every binary [staged] holds, by the hash its resource declares for it. */
+    private fun fetchedByHash(staged: List<StagedResource>): Map<String, ByteArray> = staged.flatMap { item ->
+        when (val resource = item.resource) {
+            is ImageResource -> listOf(resource.contentHash to resource.contentPath())
+            is FontResource -> resource.variants.map { it.contentHash to it.contentPath() }
+            else -> emptyList()
+        }.mapNotNull { (hash, path) -> item.binaries[path]?.let { hash to it } }
+    }.toMap()
 
     private fun installResource(
         command: InstallFromCatalog,
