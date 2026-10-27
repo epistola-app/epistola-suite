@@ -120,138 +120,7 @@ class DataPreservationMigrationIT {
     }
 
     private fun seed(connection: Connection) {
-        connection.createStatement().use { statement ->
-            statement.execute(
-                """
-                INSERT INTO tenants (id, name, default_locale)
-                VALUES ('$TENANT', 'Preservation Tenant', 'nl-NL');
-
-                INSERT INTO catalogs (id, tenant_key, name, type)
-                VALUES ('default', '$TENANT', 'Default Catalog', 'AUTHORED');
-
-                INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles)
-                VALUES ('brand', '$TENANT', 'default', 'Brand Theme', '$THEME_STYLES'::jsonb);
-
-                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_catalog_key, theme_key)
-                VALUES ('invoice', '$TENANT', 'default', 'Invoice Template', 'default', 'brand');
-
-                INSERT INTO stencils (id, tenant_key, catalog_key, name)
-                VALUES ('header', '$TENANT', 'default', 'Header'),
-                       ('draft-only', '$TENANT', 'default', 'Draft only');
-
-                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at)
-                VALUES (1, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'published', NOW()),
-                       (2, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'draft', NULL),
-                       (1, '$TENANT', 'default', 'draft-only', '$STENCIL_CONTENT'::jsonb, 'draft', NULL);
-
-                -- 'legacy' (NULL) and 'blanktitle' (whitespace) were both allowed pre-#631;
-                -- the migration must backfill each with its own slug.
-                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, is_default)
-                VALUES ('main', '$TENANT', 'default', 'invoice', 'Main Variant', true),
-                       ('legacy', '$TENANT', 'default', 'invoice', NULL, false),
-                       ('blanktitle', '$TENANT', 'default', 'invoice', '   ', false);
-
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key,
-                                               template_model, status, published_at, referenced_paths)
-                VALUES (1, '$TENANT', 'default', 'invoice', 'main',
-                        '$TEMPLATE_MODEL'::jsonb, 'published', NOW(), '["customer.name","total"]'::jsonb),
-                       (2, '$TENANT', 'default', 'invoice', 'main',
-                        '$DRAFT_TEMPLATE_MODEL'::jsonb, 'draft', NULL, '["customer.name","total"]'::jsonb);
-
-                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values)
-                VALUES ('language', '$TENANT', 'default', 'Language', '["nl","en"]'::jsonb);
-
-                -- A second catalog, so the identity migrations are exercised against a
-                -- cross-catalog reference and not only against everything living in 'default'.
-                INSERT INTO catalogs (id, tenant_key, name, type)
-                VALUES ('shared', '$TENANT', 'Shared Catalog', 'AUTHORED');
-
-                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type)
-                VALUES ('countries', '$TENANT', 'shared', 'Countries', 'INLINE');
-
-                INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order)
-                VALUES ('$TENANT', 'shared', 'countries', 'nl', 'Netherlands', 0),
-                       ('$TENANT', 'shared', 'countries', 'be', 'Belgium', 1);
-
-                -- Bound across catalogs: the attribute is in 'default', its code list in 'shared'.
-                INSERT INTO variant_attribute_definitions
-                    (id, tenant_key, catalog_key, display_name, allowed_values, code_list_catalog_key, code_list_slug)
-                VALUES ('country', '$TENANT', 'default', 'Country', '[]'::jsonb, 'shared', 'countries');
-
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes)
-                VALUES ('00000000-0000-0000-0000-000000000301', '$TENANT', 'default', 'logo.png', 'image/png', 512),
-                       ('00000000-0000-0000-0000-000000000302', '$TENANT', 'default', 'brand-regular.ttf', 'font/ttf', 2048);
-
-                INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind)
-                VALUES ('brand', '$TENANT', 'default', 'Brand Sans', 'sans');
-
-                -- One face of each source: the ASSET face is the one whose binary pointer the
-                -- migration has to re-key, the CLASSPATH face the one it must leave unbound.
-                INSERT INTO font_variants
-                    (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
-                VALUES ('$TENANT', 'default', 'brand', 400, false, 'ASSET',
-                        '00000000-0000-0000-0000-000000000302', NULL, 'abc123'),
-                       ('$TENANT', 'default', 'brand', 700, false, 'CLASSPATH',
-                        NULL, 'epistola/fonts/brand/brand-Bold.ttf', 'def456');
-
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, status, published_at)
-                VALUES (1, '$TENANT', 'default', 'invoice',
-                        '{"type":"object"}'::jsonb, 'published', NOW());
-
-                -- documents is partitioned like audit_log below; the fixture owns its partition.
-                CREATE TABLE documents_202606
-                    PARTITION OF documents
-                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
-
-                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
-                                       filename, size_bytes, created_at)
-                VALUES ('00000000-0000-0000-0000-000000000201', '$TENANT', 'default', 'invoice', 'main', 1,
-                        'invoice.pdf', 1024, '2026-06-23 10:00:00+00');
-
-                -- Bytes the 1.x content backfill (#738) had not moved yet: the 2.0 upgrade moves them.
-                INSERT INTO content_store (key, content, content_type, size_bytes) VALUES
-                    ('assets/$TENANT/00000000-0000-0000-0000-000000000301', '\x89504e47'::bytea, 'image/png', 4),
-                    ('documents/$TENANT/00000000-0000-0000-0000-000000000201', '\x25504446'::bytea, 'application/pdf', 4);
-
-                -- Partitioned like documents; the fixture owns its partition.
-                CREATE TABLE document_generation_requests_202606
-                    PARTITION OF document_generation_requests
-                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
-
-                INSERT INTO document_generation_requests
-                    (id, tenant_key, catalog_key, template_key, variant_key, version_key, data, status, created_at)
-                VALUES ('00000000-0000-0000-0000-000000000401', '$TENANT', 'default', 'invoice', 'main', 1,
-                        '{}'::jsonb, 'COMPLETED', '2026-06-23 10:00:00+00');
-
-                -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
-                -- V20260708110402) plus a control row for a still-live feature that must survive.
-                INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
-                VALUES ('$TENANT', 'stencil-parameters', true),
-                       ('$TENANT', 'support-feedback', false);
-
-                -- audit_log is partitioned, while this migration-only fixture does not start the
-                -- partition scheduler. Create the historical partition explicitly so the scoped
-                -- consumer-housekeeping cleanup can be exercised against pre-existing rows.
-                CREATE TABLE audit_log_202606
-                    PARTITION OF audit_log
-                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
-
-                INSERT INTO audit_log
-                    (id, occurred_at, tenant_key, action, operation, outcome, instance_id)
-                VALUES
-                    ('00000000-0000-0000-0000-000000000101', '2026-06-23 10:00:00+00', '$TENANT',
-                     'TouchConsumerNode', 'WRITE', 'SUCCESS', 'migration-test'),
-                    ('00000000-0000-0000-0000-000000000102', '2026-06-23 10:00:01+00', '$TENANT',
-                     'TouchConsumerNode', 'WRITE', 'FAILURE', 'migration-test'),
-                    ('00000000-0000-0000-0000-000000000103', '2026-06-23 10:00:02+00', '$TENANT',
-                     'AcknowledgeGenerationResults', 'WRITE', 'SUCCESS', 'migration-test'),
-                    ('00000000-0000-0000-0000-000000000104', '2026-06-23 10:00:03+00', '$TENANT',
-                     'AcknowledgeGenerationResults', 'WRITE', 'FAILURE', 'migration-test'),
-                    ('00000000-0000-0000-0000-000000000105', '2026-06-23 10:00:04+00', '$TENANT',
-                     'CreateTheme', 'WRITE', 'SUCCESS', 'migration-test');
-                """.trimIndent(),
-            )
-        }
+        connection.createStatement().use { it.execute(RC1_SEED) }
     }
 
     private fun verify(connection: Connection) {
@@ -529,17 +398,147 @@ class DataPreservationMigrationIT {
     }
 
     companion object {
+        /** The RC1-shaped rows this test seeds; also the base of the 2.0 chain equivalence seed. */
+        internal val RC1_SEED: String = """
+            INSERT INTO tenants (id, name, default_locale)
+            VALUES ('$TENANT', 'Preservation Tenant', 'nl-NL');
+
+            INSERT INTO catalogs (id, tenant_key, name, type)
+            VALUES ('default', '$TENANT', 'Default Catalog', 'AUTHORED');
+
+            INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles)
+            VALUES ('brand', '$TENANT', 'default', 'Brand Theme', '$THEME_STYLES'::jsonb);
+
+            INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_catalog_key, theme_key)
+            VALUES ('invoice', '$TENANT', 'default', 'Invoice Template', 'default', 'brand');
+
+            INSERT INTO stencils (id, tenant_key, catalog_key, name)
+            VALUES ('header', '$TENANT', 'default', 'Header'),
+                   ('draft-only', '$TENANT', 'default', 'Draft only');
+
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at)
+            VALUES (1, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'published', NOW()),
+                   (2, '$TENANT', 'default', 'header', '$STENCIL_CONTENT'::jsonb, 'draft', NULL),
+                   (1, '$TENANT', 'default', 'draft-only', '$STENCIL_CONTENT'::jsonb, 'draft', NULL);
+
+            -- 'legacy' (NULL) and 'blanktitle' (whitespace) were both allowed pre-#631;
+            -- the migration must backfill each with its own slug.
+            INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, is_default)
+            VALUES ('main', '$TENANT', 'default', 'invoice', 'Main Variant', true),
+                   ('legacy', '$TENANT', 'default', 'invoice', NULL, false),
+                   ('blanktitle', '$TENANT', 'default', 'invoice', '   ', false);
+
+            INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key,
+                                           template_model, status, published_at, referenced_paths)
+            VALUES (1, '$TENANT', 'default', 'invoice', 'main',
+                    '$TEMPLATE_MODEL'::jsonb, 'published', NOW(), '["customer.name","total"]'::jsonb),
+                   (2, '$TENANT', 'default', 'invoice', 'main',
+                    '$DRAFT_TEMPLATE_MODEL'::jsonb, 'draft', NULL, '["customer.name","total"]'::jsonb);
+
+            INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values)
+            VALUES ('language', '$TENANT', 'default', 'Language', '["nl","en"]'::jsonb);
+
+            -- A second catalog, so the identity migrations are exercised against a
+            -- cross-catalog reference and not only against everything living in 'default'.
+            INSERT INTO catalogs (id, tenant_key, name, type)
+            VALUES ('shared', '$TENANT', 'Shared Catalog', 'AUTHORED');
+
+            INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type)
+            VALUES ('countries', '$TENANT', 'shared', 'Countries', 'INLINE');
+
+            INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order)
+            VALUES ('$TENANT', 'shared', 'countries', 'nl', 'Netherlands', 0),
+                   ('$TENANT', 'shared', 'countries', 'be', 'Belgium', 1);
+
+            -- Bound across catalogs: the attribute is in 'default', its code list in 'shared'.
+            INSERT INTO variant_attribute_definitions
+                (id, tenant_key, catalog_key, display_name, allowed_values, code_list_catalog_key, code_list_slug)
+            VALUES ('country', '$TENANT', 'default', 'Country', '[]'::jsonb, 'shared', 'countries');
+
+            INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes)
+            VALUES ('00000000-0000-0000-0000-000000000301', '$TENANT', 'default', 'logo.png', 'image/png', 512),
+                   ('00000000-0000-0000-0000-000000000302', '$TENANT', 'default', 'brand-regular.ttf', 'font/ttf', 2048);
+
+            INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind)
+            VALUES ('brand', '$TENANT', 'default', 'Brand Sans', 'sans');
+
+            -- One face of each source: the ASSET face is the one whose binary pointer the
+            -- migration has to re-key, the CLASSPATH face the one it must leave unbound.
+            INSERT INTO font_variants
+                (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
+            VALUES ('$TENANT', 'default', 'brand', 400, false, 'ASSET',
+                    '00000000-0000-0000-0000-000000000302', NULL, 'abc123'),
+                   ('$TENANT', 'default', 'brand', 700, false, 'CLASSPATH',
+                    NULL, 'epistola/fonts/brand/brand-Bold.ttf', 'def456');
+
+            INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, status, published_at)
+            VALUES (1, '$TENANT', 'default', 'invoice',
+                    '{"type":"object"}'::jsonb, 'published', NOW());
+
+            -- documents is partitioned like audit_log below; the fixture owns its partition.
+            CREATE TABLE documents_202606
+                PARTITION OF documents
+                FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+            INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                                   filename, size_bytes, created_at)
+            VALUES ('00000000-0000-0000-0000-000000000201', '$TENANT', 'default', 'invoice', 'main', 1,
+                    'invoice.pdf', 1024, '2026-06-23 10:00:00+00');
+
+            -- Bytes the 1.x content backfill (#738) had not moved yet: the 2.0 upgrade moves them.
+            INSERT INTO content_store (key, content, content_type, size_bytes) VALUES
+                ('assets/$TENANT/00000000-0000-0000-0000-000000000301', '\x89504e47'::bytea, 'image/png', 4),
+                ('documents/$TENANT/00000000-0000-0000-0000-000000000201', '\x25504446'::bytea, 'application/pdf', 4);
+
+            -- Partitioned like documents; the fixture owns its partition.
+            CREATE TABLE document_generation_requests_202606
+                PARTITION OF document_generation_requests
+                FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+            INSERT INTO document_generation_requests
+                (id, tenant_key, catalog_key, template_key, variant_key, version_key, data, status, created_at)
+            VALUES ('00000000-0000-0000-0000-000000000401', '$TENANT', 'default', 'invoice', 'main', 1,
+                    '{}'::jsonb, 'COMPLETED', '2026-06-23 10:00:00+00');
+
+            -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
+            -- V20260708110402) plus a control row for a still-live feature that must survive.
+            INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
+            VALUES ('$TENANT', 'stencil-parameters', true),
+                   ('$TENANT', 'support-feedback', false);
+
+            -- audit_log is partitioned, while this migration-only fixture does not start the
+            -- partition scheduler. Create the historical partition explicitly so the scoped
+            -- consumer-housekeeping cleanup can be exercised against pre-existing rows.
+            CREATE TABLE audit_log_202606
+                PARTITION OF audit_log
+                FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+            INSERT INTO audit_log
+                (id, occurred_at, tenant_key, action, operation, outcome, instance_id)
+            VALUES
+                ('00000000-0000-0000-0000-000000000101', '2026-06-23 10:00:00+00', '$TENANT',
+                 'TouchConsumerNode', 'WRITE', 'SUCCESS', 'migration-test'),
+                ('00000000-0000-0000-0000-000000000102', '2026-06-23 10:00:01+00', '$TENANT',
+                 'TouchConsumerNode', 'WRITE', 'FAILURE', 'migration-test'),
+                ('00000000-0000-0000-0000-000000000103', '2026-06-23 10:00:02+00', '$TENANT',
+                 'AcknowledgeGenerationResults', 'WRITE', 'SUCCESS', 'migration-test'),
+                ('00000000-0000-0000-0000-000000000104', '2026-06-23 10:00:03+00', '$TENANT',
+                 'AcknowledgeGenerationResults', 'WRITE', 'FAILURE', 'migration-test'),
+                ('00000000-0000-0000-0000-000000000105', '2026-06-23 10:00:04+00', '$TENANT',
+                 'CreateTheme', 'WRITE', 'SUCCESS', 'migration-test');
+        """.trimIndent()
+
         /**
          * The last migration shipped in 1.0.0-RC1 — the frozen baseline this fixture's
          * SQL is written against. Do NOT bump this when adding migrations; the whole
          * point is that data seeded on this schema must survive everything after it.
          */
-        private const val RC1_LAST_MIGRATION = "20260622102813"
+        internal const val RC1_LAST_MIGRATION = "20260622102813"
 
         /** The last migration 1.x shipped (1.4.0 and 1.5.0 both end on it): where a 2.0 upgrade starts. */
         private const val LAST_1X_MIGRATION = "20260923150918"
 
-        private const val TENANT = "preserve-tenant"
+        internal const val TENANT = "preserve-tenant"
         private const val THEME_STYLES = """{"fontFamily": "serif", "fontSize": 11}"""
         private const val TEMPLATE_MODEL =
             """{"rootNodeId": "root-1", "nodes": {"root-1": {"type": "page"}}, "marker": "rc1-preservation"}"""
