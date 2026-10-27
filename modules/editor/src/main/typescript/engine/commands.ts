@@ -786,10 +786,20 @@ function applyRemoveColumnSlot(
   const newColumnSizes = columnSizes.slice(0, -1);
   const newSlotIds = node.slots.slice(0, -1);
 
+  // `columnStyles` may be shorter than the columns but not longer (contract), so the removed
+  // column's entry goes with it.
+  const columnStyles = props.columnStyles as unknown[] | undefined;
+  const newProps: Record<string, unknown> = { ...props, columnSizes: newColumnSizes };
+  if (columnStyles && columnStyles.length > newColumnSizes.length) {
+    const trimmed = columnStyles.slice(0, newColumnSizes.length);
+    if (trimmed.length > 0) newProps.columnStyles = trimmed;
+    else delete newProps.columnStyles;
+  }
+
   newNodes[cmd.nodeId] = {
     ...node,
     slots: newSlotIds,
-    props: { ...props, columnSizes: newColumnSizes },
+    props: newProps,
   };
 
   const inverse: AddColumnSlot = {

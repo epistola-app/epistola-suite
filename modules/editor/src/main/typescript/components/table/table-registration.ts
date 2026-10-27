@@ -19,6 +19,8 @@ import './TableInspector.js';
 import { nanoid } from 'nanoid';
 import { html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
+import { boxStylesToCss } from '../../ui/inputs/box-style-fields.js';
+import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 import { findMergeAt, isCellCovered, type CellMerge, type CellSelection } from './table-utils.js';
 
 /** Layout style properties available on table nodes. */
@@ -95,6 +97,7 @@ export function createTableDefinition(): ComponentDefinition {
       const columnWidths = (props.columnWidths as number[]) ?? [];
       const merges = (props.merges as CellMerge[]) ?? [];
       const headerRows = (props.headerRows as number) ?? 0;
+      const spacingUnit = engine.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
 
       if (rows <= 0 || columns <= 0) return html`<div class="table-canvas-empty">Empty table</div>`;
 
@@ -177,19 +180,14 @@ export function createTableDefinition(): ComponentDefinition {
             if (merge.rowSpan > 1) cellStyle['grid-row'] = `span ${merge.rowSpan}`;
           }
 
-          // Apply per-cell styles from props
-          const perCellStyles = (props.cellStyles as Record<string, Record<string, string>>)?.[
+          // Per-cell styles from props: background, padding, border, vertical alignment.
+          const perCellStyles = (props.cellStyles as Record<string, Record<string, unknown>>)?.[
             `${r}-${c}`
           ];
-          if (perCellStyles) {
-            if (perCellStyles.backgroundColor)
-              cellStyle['background-color'] = perCellStyles.backgroundColor;
-            if (perCellStyles.textAlign) cellStyle['text-align'] = perCellStyles.textAlign;
-            if (perCellStyles.borderTop) cellStyle['border-top'] = perCellStyles.borderTop;
-            if (perCellStyles.borderRight) cellStyle['border-right'] = perCellStyles.borderRight;
-            if (perCellStyles.borderBottom) cellStyle['border-bottom'] = perCellStyles.borderBottom;
-            if (perCellStyles.borderLeft) cellStyle['border-left'] = perCellStyles.borderLeft;
-          }
+          Object.assign(
+            cellStyle,
+            boxStylesToCss(perCellStyles, (v) => convertSpToPt(v, spacingUnit)),
+          );
 
           const slotName = cellSlotName(r, c);
           const slotId = slotsByName.get(slotName);

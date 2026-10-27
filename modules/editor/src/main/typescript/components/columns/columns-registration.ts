@@ -15,6 +15,13 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { html } from 'lit';
 import { nanoid } from 'nanoid';
+import { styleMap } from 'lit/directives/style-map.js';
+import {
+  boxStylesToCss,
+  renderBoxStyleFields,
+  type BoxStyles,
+} from '../../ui/inputs/box-style-fields.js';
+import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
 /** Layout style properties available on columns nodes. */
 const LAYOUT_STYLES = [
@@ -144,18 +151,23 @@ export function createColumnsDefinition(): ComponentDefinition {
     ],
 
     // ----- Canvas hook -----
-    renderCanvas: ({ node, renderSlot }) => {
+    renderCanvas: ({ node, engine: eng, renderSlot }) => {
       const props = node.props ?? {};
       const columnSizes = (props.columnSizes as number[] | undefined) ?? [];
+      const columnStyles = (props.columnStyles as BoxStyles[] | undefined) ?? [];
       const gap = (props.gap as number | undefined) ?? 0;
       const gapStyle = gap > 0 ? `${gap}pt` : '0';
+      const spacingUnit = (eng as EditorEngine).theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
 
       return html`
         <div class="canvas-columns" style="gap: ${gapStyle}">
           ${node.slots.map((slotId, i) => {
-            const flex = columnSizes[i] ?? 1;
+            const style = {
+              flex: String(columnSizes[i] ?? 1),
+              ...boxStylesToCss(columnStyles[i], (v) => convertSpToPt(v, spacingUnit)),
+            };
             return html`
-              <div class="canvas-column" style="flex: ${flex}">${renderSlot(slotId)}</div>
+              <div class="canvas-column" style=${styleMap(style)}>${renderSlot(slotId)}</div>
             `;
           })}
         </div>
@@ -185,6 +197,21 @@ export function createColumnsDefinition(): ComponentDefinition {
           type: 'UpdateNodeProps',
           nodeId: node.id,
           props: { ...props, columnSizes: newSizes },
+        });
+      };
+
+      // Per-column styles (`columnStyles`, entry i styles column i): an array as long as the
+      // columns at most, with `{}` for a column without styles.
+      const columnStyles = (props.columnStyles as BoxStyles[] | undefined) ?? [];
+      const updateColumnStyles = (index: number, mutate: (styles: BoxStyles) => void) => {
+        const next = Array.from({ length: count }, (_, i) => ({ ...columnStyles[i] }));
+        mutate(next[index]);
+        while (next.length > 0 && Object.keys(next[next.length - 1]).length === 0) next.pop();
+        const { columnStyles: _omit, ...rest } = props;
+        engine.dispatch({
+          type: 'UpdateNodeProps',
+          nodeId: node.id,
+          props: next.length > 0 ? { ...rest, columnStyles: next } : rest,
         });
       };
 
@@ -257,6 +284,23 @@ export function createColumnsDefinition(): ComponentDefinition {
               @change=${(e: Event) => handleGapChange(Number((e.target as HTMLInputElement).value))}
             />
           </div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="inspector-section-label">Column Styles</div>
+          ${Array.from(
+            { length: count },
+            (_, i) => html`
+              <details class="inspector-column-styles">
+                <summary>Column ${i + 1}</summary>
+                ${renderBoxStyleFields(
+                  columnStyles[i] ?? {},
+                  (mutate) => updateColumnStyles(i, mutate),
+                  `columns-${node.id}-${i}`,
+                )}
+              </details>
+            `,
+          )}
         </div>
       `;
     },

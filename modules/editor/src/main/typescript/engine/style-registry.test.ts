@@ -27,7 +27,7 @@ describe('editor style registry', () => {
     expect(keys).toEqual(['border', 'borderRadius']);
   });
 
-  it('offers no control for a property the renderer does not apply yet', () => {
+  it('offers min height and vertical align now that the renderer applies them', () => {
     const contractKeys = styleRegistry.groups.flatMap((group) =>
       group.properties.map((p) => p.key),
     );
@@ -36,8 +36,8 @@ describe('editor style registry', () => {
     );
 
     expect(contractKeys).toEqual(expect.arrayContaining(['minHeight', 'verticalAlign']));
-    expect(editorKeys).not.toContain('minHeight');
-    expect(editorKeys).not.toContain('verticalAlign');
+    expect(editorKeys).toContain('minHeight');
+    expect(editorKeys).toContain('verticalAlign');
     expect(defaultStyleRegistry.groups.every((group) => group.properties.length > 0)).toBe(true);
   });
 
