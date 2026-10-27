@@ -1,0 +1,1302 @@
+{
+  "description": "Golden vectors of the frozen toolkit the 2.0 upgrade converts 1.x data with (db.migration.core.frozen; ADR 0033, ADR 0035), recorded from the conversions as first written. bytes: a file's SHA-256. envelopes: what each 1.x resource is stored as, from its columns, with its canonical JSON and content hash. released: a document in the released form of a template variant (releasedModel) and of a stencil (releasedForm). dataExampleKeys: a key from a name, given the keys taken (the contract's CatalogKeys derives the same). examples: a 1.x data contract's examples as stored. A changed output for an existing input fails FrozenToolkitGoldenVectorsTest: the toolkit is frozen.",
+  "bytes": [
+    {
+      "base64": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "base64": "aGVsbG8=",
+      "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    },
+    {
+      "base64": "AP8gYmluYXJ5",
+      "sha256": "4c73750779898bd2cce93988207d83ffebeca763e66c2edc6e937afcaf25c86b"
+    }
+  ],
+  "envelopes": [
+    {
+      "name": "theme brand",
+      "type": "theme",
+      "input": {
+        "key": "brand",
+        "name": "Brand",
+        "description": null,
+        "documentStyles": "{\"fontFamily\":{\"key\":\"inter\"},\"fontSize\":\"11pt\"}",
+        "pageSettings": null,
+        "blockStylePresets": null,
+        "spacingUnit": null
+      },
+      "payload": {
+        "resource": {
+          "key": "brand",
+          "name": "Brand",
+          "description": null,
+          "documentStyles": {
+            "fontFamily": {
+              "key": "inter"
+            },
+            "fontSize": "11pt"
+          },
+          "pageSettings": null,
+          "blockStylePresets": null,
+          "spacingUnit": null,
+          "type": "theme"
+        }
+      },
+      "canonical": "{\"resource\":{\"blockStylePresets\":null,\"description\":null,\"documentStyles\":{\"fontFamily\":{\"key\":\"inter\"},\"fontSize\":\"11pt\"},\"key\":\"brand\",\"name\":\"Brand\",\"pageSettings\":null,\"spacingUnit\":null,\"type\":\"theme\"}}",
+      "contentHash": "a3f8d8bb9414f31cde6635ac2de696a0a4394dda3ef26e7c54179cd3cfa8a450"
+    },
+    {
+      "name": "theme letter",
+      "type": "theme",
+      "input": {
+        "key": "letter",
+        "name": "Lëtter",
+        "description": "Notes",
+        "documentStyles": "{}",
+        "pageSettings": "{\"format\":\"A4\",\"margins\":{\"top\":20}}",
+        "blockStylePresets": "{\"quote\":{\"label\":\"Quote\",\"styles\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}}}}",
+        "spacingUnit": "4.50"
+      },
+      "payload": {
+        "resource": {
+          "key": "letter",
+          "name": "Lëtter",
+          "description": "Notes",
+          "documentStyles": {},
+          "pageSettings": {
+            "format": "A4",
+            "margins": {
+              "top": 20
+            }
+          },
+          "blockStylePresets": {
+            "quote": {
+              "label": "Quote",
+              "styles": {
+                "fontFamily": {
+                  "catalogKey": "shared",
+                  "key": "serif"
+                }
+              }
+            }
+          },
+          "spacingUnit": 4.5,
+          "type": "theme"
+        }
+      },
+      "canonical": "{\"resource\":{\"blockStylePresets\":{\"quote\":{\"label\":\"Quote\",\"styles\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}}}},\"description\":\"Notes\",\"documentStyles\":{},\"key\":\"letter\",\"name\":\"Lëtter\",\"pageSettings\":{\"format\":\"A4\",\"margins\":{\"top\":20}},\"spacingUnit\":4.5,\"type\":\"theme\"}}",
+      "contentHash": "64b80bc95530c4a24cc0444a8b3cce5870339c0442261d1698c5136ec71d1ab9"
+    },
+    {
+      "name": "code list INLINE",
+      "type": "codeList",
+      "input": {
+        "key": "languages",
+        "name": "Languages",
+        "description": null,
+        "sourceType": "INLINE",
+        "sourceUrl": null,
+        "authType": "NONE",
+        "credentialId": null,
+        "entries": [
+          {
+            "code": "nl",
+            "hidden": false,
+            "label": "Nederlands",
+            "sortOrder": 0
+          },
+          {
+            "code": "en",
+            "hidden": true,
+            "label": "English",
+            "sortOrder": 1
+          }
+        ]
+      },
+      "payload": {
+        "resource": {
+          "key": "languages",
+          "name": "Languages",
+          "description": null,
+          "entries": [
+            {
+              "code": "nl",
+              "label": "Nederlands",
+              "sortOrder": 0,
+              "hidden": false
+            },
+            {
+              "code": "en",
+              "label": "English",
+              "sortOrder": 1,
+              "hidden": true
+            }
+          ],
+          "type": "codeList"
+        }
+      },
+      "canonical": "{\"resource\":{\"description\":null,\"entries\":[{\"code\":\"nl\",\"hidden\":false,\"label\":\"Nederlands\",\"sortOrder\":0},{\"code\":\"en\",\"hidden\":true,\"label\":\"English\",\"sortOrder\":1}],\"key\":\"languages\",\"name\":\"Languages\",\"type\":\"codeList\"}}",
+      "contentHash": "79c61f1531e066d8b80753fda9b1c7327ebeef9350f92bbc932f3181aa1d8a8c"
+    },
+    {
+      "name": "code list URL",
+      "type": "codeList",
+      "input": {
+        "key": "languages",
+        "name": "Languages",
+        "description": "From a URL",
+        "sourceType": "URL",
+        "sourceUrl": "https://example.org/languages.json",
+        "authType": "BEARER",
+        "credentialId": "0190a2b4-0000-7000-8000-000000000001",
+        "entries": [
+          {
+            "code": "nl",
+            "hidden": false,
+            "label": "Nederlands",
+            "sortOrder": 0
+          },
+          {
+            "code": "en",
+            "hidden": true,
+            "label": "English",
+            "sortOrder": 1
+          }
+        ]
+      },
+      "payload": {
+        "resource": {
+          "key": "languages",
+          "name": "Languages",
+          "description": "From a URL",
+          "entries": [
+            {
+              "code": "nl",
+              "label": "Nederlands",
+              "sortOrder": 0,
+              "hidden": false
+            },
+            {
+              "code": "en",
+              "label": "English",
+              "sortOrder": 1,
+              "hidden": true
+            }
+          ],
+          "type": "codeList"
+        },
+        "source": {
+          "type": "URL",
+          "url": "https://example.org/languages.json",
+          "auth": "BEARER",
+          "credential": "0190a2b4-0000-7000-8000-000000000001"
+        }
+      },
+      "canonical": "{\"resource\":{\"description\":\"From a URL\",\"entries\":[{\"code\":\"nl\",\"hidden\":false,\"label\":\"Nederlands\",\"sortOrder\":0},{\"code\":\"en\",\"hidden\":true,\"label\":\"English\",\"sortOrder\":1}],\"key\":\"languages\",\"name\":\"Languages\",\"type\":\"codeList\"},\"source\":{\"auth\":\"BEARER\",\"credential\":\"0190a2b4-0000-7000-8000-000000000001\",\"type\":\"URL\",\"url\":\"https://example.org/languages.json\"}}",
+      "contentHash": "c42586be661e53b2c494f741b5a2c21e10efb6285a64d85ff164b987fcbdfac0"
+    },
+    {
+      "name": "attribute bound to own/null",
+      "type": "attribute",
+      "input": {
+        "key": "language",
+        "name": "Language",
+        "allowedValues": "[\"nl\",\"en\"]",
+        "bindingAlias": null,
+        "bindingKey": null
+      },
+      "payload": {
+        "resource": {
+          "key": "language",
+          "name": "Language",
+          "allowedValues": ["nl", "en"],
+          "codeListBinding": null,
+          "type": "attribute"
+        }
+      },
+      "canonical": "{\"resource\":{\"allowedValues\":[\"nl\",\"en\"],\"codeListBinding\":null,\"key\":\"language\",\"name\":\"Language\",\"type\":\"attribute\"}}",
+      "contentHash": "0d1a67976756350c26c14def506402c335b626de10ba86c6749239deb62167da"
+    },
+    {
+      "name": "attribute bound to own/languages",
+      "type": "attribute",
+      "input": {
+        "key": "language",
+        "name": "Language",
+        "allowedValues": "[\"nl\",\"en\"]",
+        "bindingAlias": null,
+        "bindingKey": "languages"
+      },
+      "payload": {
+        "resource": {
+          "key": "language",
+          "name": "Language",
+          "allowedValues": ["nl", "en"],
+          "codeListBinding": {
+            "catalogKey": null,
+            "key": "languages"
+          },
+          "type": "attribute"
+        }
+      },
+      "canonical": "{\"resource\":{\"allowedValues\":[\"nl\",\"en\"],\"codeListBinding\":{\"catalogKey\":null,\"key\":\"languages\"},\"key\":\"language\",\"name\":\"Language\",\"type\":\"attribute\"}}",
+      "contentHash": "6656e4032137f777d348cf955077e9fecaaef4505502f137891e29832cc47816"
+    },
+    {
+      "name": "attribute bound to shared/countries",
+      "type": "attribute",
+      "input": {
+        "key": "language",
+        "name": "Language",
+        "allowedValues": "[\"nl\",\"en\"]",
+        "bindingAlias": "shared",
+        "bindingKey": "countries"
+      },
+      "payload": {
+        "resource": {
+          "key": "language",
+          "name": "Language",
+          "allowedValues": ["nl", "en"],
+          "codeListBinding": {
+            "catalogKey": "shared",
+            "key": "countries"
+          },
+          "type": "attribute"
+        }
+      },
+      "canonical": "{\"resource\":{\"allowedValues\":[\"nl\",\"en\"],\"codeListBinding\":{\"catalogKey\":\"shared\",\"key\":\"countries\"},\"key\":\"language\",\"name\":\"Language\",\"type\":\"attribute\"}}",
+      "contentHash": "ad408e699671a51adc732d96ae471e55ec53d7f74c9f8cbec7245e349ef8137e"
+    },
+    {
+      "name": "font with three faces",
+      "type": "font",
+      "input": {
+        "key": "inter",
+        "name": "Inter",
+        "kind": "SANS_SERIF",
+        "faces": [
+          {
+            "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "italic": true,
+            "mediaType": "font/ttf",
+            "weight": 700
+          },
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "italic": false,
+            "mediaType": "font/otf",
+            "weight": 400
+          },
+          {
+            "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "italic": false,
+            "mediaType": "font/ttf",
+            "weight": 700
+          }
+        ]
+      },
+      "payload": {
+        "resource": {
+          "key": "inter",
+          "name": "Inter",
+          "kind": "SANS_SERIF",
+          "variants": [
+            {
+              "weight": 400,
+              "italic": false,
+              "mediaType": "font/otf",
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            {
+              "weight": 700,
+              "italic": false,
+              "mediaType": "font/ttf",
+              "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
+            {
+              "weight": 700,
+              "italic": true,
+              "mediaType": "font/ttf",
+              "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          ],
+          "type": "font"
+        }
+      },
+      "canonical": "{\"resource\":{\"key\":\"inter\",\"kind\":\"SANS_SERIF\",\"name\":\"Inter\",\"type\":\"font\",\"variants\":[{\"contentHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"italic\":false,\"mediaType\":\"font/otf\",\"weight\":400},{\"contentHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"italic\":false,\"mediaType\":\"font/ttf\",\"weight\":700},{\"contentHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"italic\":true,\"mediaType\":\"font/ttf\",\"weight\":700}]}}",
+      "contentHash": "eefa67343f55347b7b4bedc5d065a1e78c3933adddf11089a83049e9cf5d9af6"
+    },
+    {
+      "name": "image dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "type": "image",
+      "input": {
+        "key": "logo",
+        "name": "Logo",
+        "mediaType": "image/png",
+        "width": 120,
+        "height": 80,
+        "contentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "payload": {
+        "resource": {
+          "key": "logo",
+          "name": "Logo",
+          "mediaType": "image/png",
+          "width": 120,
+          "height": 80,
+          "contentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "type": "image"
+        }
+      },
+      "canonical": "{\"resource\":{\"contentHash\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"height\":80,\"key\":\"logo\",\"mediaType\":\"image/png\",\"name\":\"Logo\",\"type\":\"image\",\"width\":120}}",
+      "contentHash": "e22d88bfc6effa7843c35d7ee5b4d00a69c799f6f503d5b9172100133ddf5049"
+    },
+    {
+      "name": "image without bytes",
+      "type": "image",
+      "input": {
+        "key": "logo",
+        "name": "Logo",
+        "mediaType": "image/png",
+        "width": null,
+        "height": null,
+        "contentHash": null
+      },
+      "payload": {
+        "resource": {
+          "key": "logo",
+          "name": "Logo",
+          "mediaType": "image/png",
+          "width": null,
+          "height": null,
+          "contentHash": null,
+          "type": "image"
+        }
+      },
+      "canonical": "{\"resource\":{\"contentHash\":null,\"height\":null,\"key\":\"logo\",\"mediaType\":\"image/png\",\"name\":\"Logo\",\"type\":\"image\",\"width\":null}}",
+      "contentHash": "5db07e4f80198e4e7cb4b59b261a91c49f07e98ffdfe05d1d4c20b89fc7b484a"
+    },
+    {
+      "name": "stencil reads=false",
+      "type": "stencil",
+      "input": {
+        "key": "header",
+        "catalogKey": "letters",
+        "name": "Header",
+        "description": null,
+        "tags": "[\"a\",\"b\"]",
+        "content": "{\"modelVersion\":1,\"root\":\"root\",\"nodes\":{\"root\":{\"id\":\"root\",\"type\":\"root\",\"slots\":[\"s\"]},\"i\":{\"id\":\"i\",\"type\":\"image\",\"props\":{\"imageKey\":\"logo\",\"catalogKey\":\"letters\"}},\"st\":{\"id\":\"st\",\"type\":\"stencil\",\"props\":{\"stencilKey\":\"footer\",\"catalogKey\":\"letters\",\"namespace\":\"acme\"}}},\"slots\":{\"s\":{\"id\":\"s\",\"nodeId\":\"root\",\"name\":\"children\",\"children\":[\"i\",\"st\"]}},\"themeRef\":{\"type\":\"override\",\"themeKey\":\"brand\",\"catalogKey\":\"letters\"},\"documentStylesOverride\":{\"fontFamily\":{\"key\":\"serif\",\"catalogKey\":\"shared\",\"registry\":\"x.example\"}}}",
+        "parameterSchema": null,
+        "readsTemplateData": false
+      },
+      "payload": {
+        "resource": {
+          "key": "header",
+          "name": "Header",
+          "description": null,
+          "tags": ["a", "b"],
+          "content": {
+            "modelVersion": 1,
+            "root": "root",
+            "nodes": {
+              "root": {
+                "id": "root",
+                "type": "root",
+                "slots": ["s"]
+              },
+              "i": {
+                "id": "i",
+                "type": "image",
+                "props": {
+                  "imageKey": "logo",
+                  "catalogKey": "letters"
+                }
+              },
+              "st": {
+                "id": "st",
+                "type": "stencil",
+                "props": {
+                  "stencilKey": "footer"
+                }
+              }
+            },
+            "slots": {
+              "s": {
+                "id": "s",
+                "nodeId": "root",
+                "name": "children",
+                "children": ["i", "st"]
+              }
+            },
+            "themeRef": {
+              "type": "override",
+              "themeKey": "brand"
+            },
+            "documentStylesOverride": {
+              "fontFamily": {
+                "key": "serif",
+                "catalogKey": "shared"
+              }
+            }
+          },
+          "parameterSchema": null,
+          "type": "stencil"
+        }
+      },
+      "canonical": "{\"resource\":{\"content\":{\"documentStylesOverride\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}},\"modelVersion\":1,\"nodes\":{\"i\":{\"id\":\"i\",\"props\":{\"catalogKey\":\"letters\",\"imageKey\":\"logo\"},\"type\":\"image\"},\"root\":{\"id\":\"root\",\"slots\":[\"s\"],\"type\":\"root\"},\"st\":{\"id\":\"st\",\"props\":{\"stencilKey\":\"footer\"},\"type\":\"stencil\"}},\"root\":\"root\",\"slots\":{\"s\":{\"children\":[\"i\",\"st\"],\"id\":\"s\",\"name\":\"children\",\"nodeId\":\"root\"}},\"themeRef\":{\"themeKey\":\"brand\",\"type\":\"override\"}},\"description\":null,\"key\":\"header\",\"name\":\"Header\",\"parameterSchema\":null,\"tags\":[\"a\",\"b\"],\"type\":\"stencil\"}}",
+      "contentHash": "910748b50ea929b58faf7d640cc8686986814dcee3d88ef82f1011a9b5d29b77"
+    },
+    {
+      "name": "stencil reads=true",
+      "type": "stencil",
+      "input": {
+        "key": "header",
+        "catalogKey": "letters",
+        "name": "Header",
+        "description": "Reads data",
+        "tags": "[\"a\",\"b\"]",
+        "content": "{\"modelVersion\":1,\"root\":\"root\",\"nodes\":{\"root\":{\"id\":\"root\",\"type\":\"root\",\"slots\":[\"s\"]},\"i\":{\"id\":\"i\",\"type\":\"image\",\"props\":{\"imageKey\":\"logo\",\"catalogKey\":\"letters\"}},\"st\":{\"id\":\"st\",\"type\":\"stencil\",\"props\":{\"stencilKey\":\"footer\",\"catalogKey\":\"letters\",\"namespace\":\"acme\"}}},\"slots\":{\"s\":{\"id\":\"s\",\"nodeId\":\"root\",\"name\":\"children\",\"children\":[\"i\",\"st\"]}},\"themeRef\":{\"type\":\"override\",\"themeKey\":\"brand\",\"catalogKey\":\"letters\"},\"documentStylesOverride\":{\"fontFamily\":{\"key\":\"serif\",\"catalogKey\":\"shared\",\"registry\":\"x.example\"}}}",
+        "parameterSchema": "{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"}}}",
+        "readsTemplateData": true
+      },
+      "payload": {
+        "resource": {
+          "key": "header",
+          "name": "Header",
+          "description": "Reads data",
+          "tags": ["a", "b"],
+          "content": {
+            "modelVersion": 1,
+            "root": "root",
+            "nodes": {
+              "root": {
+                "id": "root",
+                "type": "root",
+                "slots": ["s"]
+              },
+              "i": {
+                "id": "i",
+                "type": "image",
+                "props": {
+                  "imageKey": "logo",
+                  "catalogKey": "letters"
+                }
+              },
+              "st": {
+                "id": "st",
+                "type": "stencil",
+                "props": {
+                  "stencilKey": "footer"
+                }
+              }
+            },
+            "slots": {
+              "s": {
+                "id": "s",
+                "nodeId": "root",
+                "name": "children",
+                "children": ["i", "st"]
+              }
+            },
+            "themeRef": {
+              "type": "override",
+              "themeKey": "brand"
+            },
+            "documentStylesOverride": {
+              "fontFamily": {
+                "key": "serif",
+                "catalogKey": "shared"
+              }
+            }
+          },
+          "parameterSchema": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "readsTemplateData": true,
+          "type": "stencil"
+        }
+      },
+      "canonical": "{\"resource\":{\"content\":{\"documentStylesOverride\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}},\"modelVersion\":1,\"nodes\":{\"i\":{\"id\":\"i\",\"props\":{\"catalogKey\":\"letters\",\"imageKey\":\"logo\"},\"type\":\"image\"},\"root\":{\"id\":\"root\",\"slots\":[\"s\"],\"type\":\"root\"},\"st\":{\"id\":\"st\",\"props\":{\"stencilKey\":\"footer\"},\"type\":\"stencil\"}},\"root\":\"root\",\"slots\":{\"s\":{\"children\":[\"i\",\"st\"],\"id\":\"s\",\"name\":\"children\",\"nodeId\":\"root\"}},\"themeRef\":{\"themeKey\":\"brand\",\"type\":\"override\"}},\"description\":\"Reads data\",\"key\":\"header\",\"name\":\"Header\",\"parameterSchema\":{\"properties\":{\"title\":{\"type\":\"string\"}},\"type\":\"object\"},\"readsTemplateData\":true,\"tags\":[\"a\",\"b\"],\"type\":\"stencil\"}}",
+      "contentHash": "9d70cd6456514baa9e4d6af6961761abbfe86a6b6c9521637ae9a6d56f989b65"
+    },
+    {
+      "name": "template description=null theme=null",
+      "type": "template",
+      "input": {
+        "key": "invoice",
+        "name": "Invoice",
+        "description": null,
+        "themeKey": "brand",
+        "themeCatalogKey": null,
+        "pdfaEnabled": true,
+        "dataModel": "{\"type\":\"object\"}",
+        "dataExamples": "[{\"id\":\"e1\",\"name\":\"Ëxample one\",\"data\":{\"a\":1}},{\"name\":\"Ëxample one\",\"data\":{}},{\"key\":\"given\",\"name\":\"Given\"},{\"data\":{\"b\":2}}]",
+        "variants": [
+          {
+            "key": "default",
+            "attributes": "{\"language\":\"nl\"}",
+            "isDefault": true
+          },
+          {
+            "key": "english",
+            "attributes": null,
+            "isDefault": false
+          }
+        ]
+      },
+      "payload": {
+        "resource": {
+          "key": "invoice",
+          "name": "Invoice",
+          "themeKey": "brand",
+          "themeCatalogKey": null,
+          "pdfaEnabled": true,
+          "dataModel": {
+            "type": "object"
+          },
+          "dataExamples": [
+            {
+              "name": "Ëxample one",
+              "data": {
+                "a": 1
+              },
+              "key": "example-one"
+            },
+            {
+              "name": "Ëxample one",
+              "data": {},
+              "key": "example-one-2"
+            },
+            {
+              "name": "Given",
+              "data": {},
+              "key": "given"
+            },
+            {
+              "name": "Unnamed",
+              "data": {
+                "b": 2
+              },
+              "key": "unnamed"
+            }
+          ],
+          "variants": [
+            {
+              "key": "default",
+              "attributes": {
+                "language": "nl"
+              },
+              "isDefault": true
+            },
+            {
+              "key": "english",
+              "attributes": {},
+              "isDefault": false
+            }
+          ],
+          "type": "template"
+        }
+      },
+      "canonical": "{\"resource\":{\"dataExamples\":[{\"data\":{\"a\":1},\"key\":\"example-one\",\"name\":\"Ëxample one\"},{\"data\":{},\"key\":\"example-one-2\",\"name\":\"Ëxample one\"},{\"data\":{},\"key\":\"given\",\"name\":\"Given\"},{\"data\":{\"b\":2},\"key\":\"unnamed\",\"name\":\"Unnamed\"}],\"dataModel\":{\"type\":\"object\"},\"key\":\"invoice\",\"name\":\"Invoice\",\"pdfaEnabled\":true,\"themeCatalogKey\":null,\"themeKey\":\"brand\",\"type\":\"template\",\"variants\":[{\"attributes\":{\"language\":\"nl\"},\"isDefault\":true,\"key\":\"default\"},{\"attributes\":{},\"isDefault\":false,\"key\":\"english\"}]}}",
+      "contentHash": "e2801f0e825b7447260f2f0a24583410e7f15e2c4c3d4b9a726eb0cbe7193ef0"
+    },
+    {
+      "name": "template description=About theme=shared",
+      "type": "template",
+      "input": {
+        "key": "invoice",
+        "name": "Invoice",
+        "description": "About",
+        "themeKey": "brand",
+        "themeCatalogKey": "shared",
+        "pdfaEnabled": true,
+        "dataModel": "{\"type\":\"object\"}",
+        "dataExamples": "[{\"id\":\"e1\",\"name\":\"Ëxample one\",\"data\":{\"a\":1}},{\"name\":\"Ëxample one\",\"data\":{}},{\"key\":\"given\",\"name\":\"Given\"},{\"data\":{\"b\":2}}]",
+        "variants": [
+          {
+            "key": "default",
+            "attributes": "{\"language\":\"nl\"}",
+            "isDefault": true
+          },
+          {
+            "key": "english",
+            "attributes": null,
+            "isDefault": false
+          }
+        ]
+      },
+      "payload": {
+        "resource": {
+          "key": "invoice",
+          "name": "Invoice",
+          "themeKey": "brand",
+          "themeCatalogKey": "shared",
+          "pdfaEnabled": true,
+          "dataModel": {
+            "type": "object"
+          },
+          "dataExamples": [
+            {
+              "name": "Ëxample one",
+              "data": {
+                "a": 1
+              },
+              "key": "example-one"
+            },
+            {
+              "name": "Ëxample one",
+              "data": {},
+              "key": "example-one-2"
+            },
+            {
+              "name": "Given",
+              "data": {},
+              "key": "given"
+            },
+            {
+              "name": "Unnamed",
+              "data": {
+                "b": 2
+              },
+              "key": "unnamed"
+            }
+          ],
+          "variants": [
+            {
+              "key": "default",
+              "attributes": {
+                "language": "nl"
+              },
+              "isDefault": true
+            },
+            {
+              "key": "english",
+              "attributes": {},
+              "isDefault": false
+            }
+          ],
+          "description": "About",
+          "type": "template"
+        }
+      },
+      "canonical": "{\"resource\":{\"dataExamples\":[{\"data\":{\"a\":1},\"key\":\"example-one\",\"name\":\"Ëxample one\"},{\"data\":{},\"key\":\"example-one-2\",\"name\":\"Ëxample one\"},{\"data\":{},\"key\":\"given\",\"name\":\"Given\"},{\"data\":{\"b\":2},\"key\":\"unnamed\",\"name\":\"Unnamed\"}],\"dataModel\":{\"type\":\"object\"},\"description\":\"About\",\"key\":\"invoice\",\"name\":\"Invoice\",\"pdfaEnabled\":true,\"themeCatalogKey\":\"shared\",\"themeKey\":\"brand\",\"type\":\"template\",\"variants\":[{\"attributes\":{\"language\":\"nl\"},\"isDefault\":true,\"key\":\"default\"},{\"attributes\":{},\"isDefault\":false,\"key\":\"english\"}]}}",
+      "contentHash": "6a0717a1659a2dd591821c82656e40b4af9c02f6ccd77c6e5cab85b45d5d8359"
+    },
+    {
+      "name": "variant default",
+      "type": "variant",
+      "input": {
+        "title": "Default",
+        "metadata": null,
+        "description": "The usual",
+        "model": {
+          "modelVersion": 1,
+          "root": "root",
+          "nodes": {
+            "root": {
+              "id": "root",
+              "type": "root",
+              "slots": ["s"]
+            },
+            "i": {
+              "id": "i",
+              "type": "image",
+              "props": {
+                "imageKey": "logo",
+                "catalogKey": "letters"
+              }
+            },
+            "st": {
+              "id": "st",
+              "type": "stencil",
+              "props": {
+                "stencilKey": "footer"
+              }
+            }
+          },
+          "slots": {
+            "s": {
+              "id": "s",
+              "nodeId": "root",
+              "name": "children",
+              "children": ["i", "st"]
+            }
+          },
+          "themeRef": {
+            "type": "override",
+            "themeKey": "brand",
+            "catalogKey": null
+          },
+          "documentStylesOverride": {
+            "fontFamily": {
+              "key": "serif",
+              "catalogKey": "shared"
+            }
+          }
+        }
+      },
+      "payload": {
+        "resource": {
+          "title": "Default",
+          "templateModel": {
+            "modelVersion": 1,
+            "root": "root",
+            "nodes": {
+              "root": {
+                "id": "root",
+                "type": "root",
+                "slots": ["s"]
+              },
+              "i": {
+                "id": "i",
+                "type": "image",
+                "props": {
+                  "imageKey": "logo",
+                  "catalogKey": "letters"
+                }
+              },
+              "st": {
+                "id": "st",
+                "type": "stencil",
+                "props": {
+                  "stencilKey": "footer"
+                }
+              }
+            },
+            "slots": {
+              "s": {
+                "id": "s",
+                "nodeId": "root",
+                "name": "children",
+                "children": ["i", "st"]
+              }
+            },
+            "themeRef": {
+              "type": "override",
+              "themeKey": "brand",
+              "catalogKey": null
+            },
+            "documentStylesOverride": {
+              "fontFamily": {
+                "key": "serif",
+                "catalogKey": "shared"
+              }
+            }
+          },
+          "description": "The usual"
+        }
+      },
+      "canonical": "{\"resource\":{\"description\":\"The usual\",\"templateModel\":{\"documentStylesOverride\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}},\"modelVersion\":1,\"nodes\":{\"i\":{\"id\":\"i\",\"props\":{\"catalogKey\":\"letters\",\"imageKey\":\"logo\"},\"type\":\"image\"},\"root\":{\"id\":\"root\",\"slots\":[\"s\"],\"type\":\"root\"},\"st\":{\"id\":\"st\",\"props\":{\"stencilKey\":\"footer\"},\"type\":\"stencil\"}},\"root\":\"root\",\"slots\":{\"s\":{\"children\":[\"i\",\"st\"],\"id\":\"s\",\"name\":\"children\",\"nodeId\":\"root\"}},\"themeRef\":{\"catalogKey\":null,\"themeKey\":\"brand\",\"type\":\"override\"}},\"title\":\"Default\"}}",
+      "contentHash": "390925f80d3d544d3ccf8a6780fd3966007aadf17d7f35fdde5dcb27aa2532e0"
+    },
+    {
+      "name": "variant english",
+      "type": "variant",
+      "input": {
+        "title": "English",
+        "metadata": "{\"com.example\":{\"x\":1}}",
+        "description": null,
+        "model": {
+          "modelVersion": 1,
+          "root": "root",
+          "nodes": {
+            "root": {
+              "id": "root",
+              "type": "root",
+              "slots": ["s"]
+            },
+            "i": {
+              "id": "i",
+              "type": "image",
+              "props": {
+                "imageKey": "logo",
+                "catalogKey": "letters"
+              }
+            },
+            "st": {
+              "id": "st",
+              "type": "stencil",
+              "props": {
+                "stencilKey": "footer"
+              }
+            }
+          },
+          "slots": {
+            "s": {
+              "id": "s",
+              "nodeId": "root",
+              "name": "children",
+              "children": ["i", "st"]
+            }
+          },
+          "themeRef": {
+            "type": "override",
+            "themeKey": "brand",
+            "catalogKey": null
+          },
+          "documentStylesOverride": {
+            "fontFamily": {
+              "key": "serif",
+              "catalogKey": "shared"
+            }
+          }
+        }
+      },
+      "payload": {
+        "resource": {
+          "title": "English",
+          "templateModel": {
+            "modelVersion": 1,
+            "root": "root",
+            "nodes": {
+              "root": {
+                "id": "root",
+                "type": "root",
+                "slots": ["s"]
+              },
+              "i": {
+                "id": "i",
+                "type": "image",
+                "props": {
+                  "imageKey": "logo",
+                  "catalogKey": "letters"
+                }
+              },
+              "st": {
+                "id": "st",
+                "type": "stencil",
+                "props": {
+                  "stencilKey": "footer"
+                }
+              }
+            },
+            "slots": {
+              "s": {
+                "id": "s",
+                "nodeId": "root",
+                "name": "children",
+                "children": ["i", "st"]
+              }
+            },
+            "themeRef": {
+              "type": "override",
+              "themeKey": "brand",
+              "catalogKey": null
+            },
+            "documentStylesOverride": {
+              "fontFamily": {
+                "key": "serif",
+                "catalogKey": "shared"
+              }
+            }
+          },
+          "metadata": {
+            "com.example": {
+              "x": 1
+            }
+          }
+        }
+      },
+      "canonical": "{\"resource\":{\"metadata\":{\"com.example\":{\"x\":1}},\"templateModel\":{\"documentStylesOverride\":{\"fontFamily\":{\"catalogKey\":\"shared\",\"key\":\"serif\"}},\"modelVersion\":1,\"nodes\":{\"i\":{\"id\":\"i\",\"props\":{\"catalogKey\":\"letters\",\"imageKey\":\"logo\"},\"type\":\"image\"},\"root\":{\"id\":\"root\",\"slots\":[\"s\"],\"type\":\"root\"},\"st\":{\"id\":\"st\",\"props\":{\"stencilKey\":\"footer\"},\"type\":\"stencil\"}},\"root\":\"root\",\"slots\":{\"s\":{\"children\":[\"i\",\"st\"],\"id\":\"s\",\"name\":\"children\",\"nodeId\":\"root\"}},\"themeRef\":{\"catalogKey\":null,\"themeKey\":\"brand\",\"type\":\"override\"}},\"title\":\"English\"}}",
+      "contentHash": "338af01d69d602e16f468b5888965f6cd36d8f3dff11e849b5b44ef72aa2b661"
+    }
+  ],
+  "released": [
+    {
+      "name": "a model of catalog letters",
+      "catalogKey": "letters",
+      "document": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer",
+              "catalogKey": "letters",
+              "namespace": "acme"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand",
+          "catalogKey": "letters"
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif",
+            "catalogKey": "shared",
+            "registry": "x.example"
+          }
+        }
+      },
+      "releasedModel": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand",
+          "catalogKey": null
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif",
+            "catalogKey": "shared"
+          }
+        }
+      },
+      "releasedForm": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand"
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif",
+            "catalogKey": "shared"
+          }
+        }
+      }
+    },
+    {
+      "name": "a model of another catalog",
+      "catalogKey": "shared",
+      "document": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer",
+              "catalogKey": "letters",
+              "namespace": "acme"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand",
+          "catalogKey": "letters"
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif",
+            "catalogKey": "shared",
+            "registry": "x.example"
+          }
+        }
+      },
+      "releasedModel": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer",
+              "catalogKey": "letters"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand",
+          "catalogKey": "letters"
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif"
+          }
+        }
+      },
+      "releasedForm": {
+        "modelVersion": 1,
+        "root": "root",
+        "nodes": {
+          "root": {
+            "id": "root",
+            "type": "root",
+            "slots": ["s"]
+          },
+          "i": {
+            "id": "i",
+            "type": "image",
+            "props": {
+              "imageKey": "logo",
+              "catalogKey": "letters"
+            }
+          },
+          "st": {
+            "id": "st",
+            "type": "stencil",
+            "props": {
+              "stencilKey": "footer",
+              "catalogKey": "letters"
+            }
+          }
+        },
+        "slots": {
+          "s": {
+            "id": "s",
+            "nodeId": "root",
+            "name": "children",
+            "children": ["i", "st"]
+          }
+        },
+        "themeRef": {
+          "type": "override",
+          "themeKey": "brand",
+          "catalogKey": "letters"
+        },
+        "documentStylesOverride": {
+          "fontFamily": {
+            "key": "serif"
+          }
+        }
+      }
+    }
+  ],
+  "dataExampleKeys": [
+    {
+      "name": "Ëxample one",
+      "taken": [],
+      "key": "example-one"
+    },
+    {
+      "name": "Ëxample one",
+      "taken": ["example-one"],
+      "key": "example-one-2"
+    },
+    {
+      "name": "a",
+      "taken": [],
+      "key": "a00"
+    },
+    {
+      "name": "!!!",
+      "taken": [],
+      "key": "example"
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "taken": [],
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "taken": ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-2"
+    },
+    {
+      "name": "Straße & Café",
+      "taken": [],
+      "key": "stra-e-cafe"
+    }
+  ],
+  "examples": [
+    {
+      "input": [
+        {
+          "id": "e1",
+          "name": "Ëxample one",
+          "data": {
+            "a": 1
+          }
+        },
+        {
+          "name": "Ëxample one",
+          "data": {}
+        },
+        {
+          "key": "given",
+          "name": "Given"
+        },
+        {
+          "data": {
+            "b": 2
+          }
+        },
+        {
+          "name": "",
+          "data": {}
+        }
+      ],
+      "output": [
+        {
+          "name": "Ëxample one",
+          "data": {
+            "a": 1
+          },
+          "key": "example-one"
+        },
+        {
+          "name": "Ëxample one",
+          "data": {},
+          "key": "example-one-2"
+        },
+        {
+          "name": "Given",
+          "data": {},
+          "key": "given"
+        },
+        {
+          "name": "Unnamed",
+          "data": {
+            "b": 2
+          },
+          "key": "unnamed"
+        },
+        {
+          "name": "Unnamed",
+          "data": {},
+          "key": "example"
+        }
+      ]
+    },
+    {
+      "input": [],
+      "output": []
+    },
+    {
+      "input": null,
+      "output": []
+    }
+  ]
+}
