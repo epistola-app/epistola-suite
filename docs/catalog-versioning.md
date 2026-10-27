@@ -737,20 +737,22 @@ publisher's. Every pinned
 release must be present, carried in the archive or installed already
 (`CatalogImportDependenciesMissingException`, REST `release-dependencies-missing`).
 
-**Upgrading from 1.x** declares what 1.x left undeclared, and cuts each catalog's first release:
-1.x had no declarations, and no 1.x release kept its content. The upgrade queues every authored
-catalog that exists then (`catalog_upgrade_queue`), and a background task (`CatalogUpgradeRunner`)
-gives each a declaration for every catalog it references, pinned to that catalog's highest
-release (as a move does), and pins every declaration still unpinned (`pinUnpinned`), then releases it from what was last published before 2.0, numbered the
-patch after its highest 1.x release, or 1.0.0. The upgrade migration records that number in the queue
-(`continues_after`) and removes the 1.x releases, which kept no content, so each catalog starts 2.0
-with that one release and its next release on top. A template whose default variant was never published, and a stencil never published, are left
-out of that release; unpublished work stays in the draft. Nothing is deployed: operators deploy the
-first releases. Catalogs are taken in rounds, so one is released after the catalogs it depends on;
-one that cannot be released yet stays queued with the reason (`last_error`) and is retried. A catalog
-created after the upgrade is never queued. A subscribed catalog with an installed release is queued too, and gets
-that release recorded as one it can render from; a legacy fingerprint is replaced by the qualified one
-of the installed content, so dependents can pin it.
+**Upgrading from 1.x** cuts no release, and runs nothing after startup (ADR 0035). In the migration
+step (`V20261027112414`) each authored 1.x catalog keeps its next draft, the working copy with any
+unpublished 1.x work, and gets a named draft **Published in 1.x** holding what each template and
+stencil last published (from `catalog_upgrade_published`, then dropped); a template whose default
+variant was never published, and a stencil never published, are left out, and the draft is not made
+when it would hold what the next draft holds. Everything in it is marked ready: it was published. Both
+drafts name the catalog's highest 1.x release by number as their base (`base_version`, the 1.x
+release kept no content), so a release of either is numbered above it, by default its patch. 1.x had
+no declarations, so both declare, by name and pinning nothing, every other catalog their content
+references; **releasing pins each such declaration to its catalog's highest release**
+(`ReleaseCatalogDraft`, `pinnedDependencies`, shown in the release dialog), and refuses, naming it, one
+whose catalog has no release. The upgrade migration removes the 1.x releases, which kept no content.
+Nothing is deployed: authors release "Published in 1.x" and operators deploy it; the tenant home
+lists the 1.x catalogs (`upgrade-1x-catalogs` in `app_metadata`) that have no release yet. A catalog
+1.x subscribed to from a URL receives its source's release at boot through the one install core
+(`ReceiveOneXSubscribedReleases`), retried at the next boot when its source fails.
 
 ## Ready marks
 

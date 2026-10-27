@@ -29,8 +29,8 @@ Other applications take one of two approaches:
   the time they were written, not the current ones.
 
 What the suite has today: Flyway SQL migrations in the migration step (`MigrationLauncher`, an
-isolated context without the domain); `CatalogUpgradeRunner`, a cluster task that cuts each 1.x
-catalog's first 2.0 release with the suite's code after startup; the upgrade preflight that refuses an upgrade that
+isolated context without the domain); `CatalogUpgradeRunner`, a cluster task that cut each 1.x
+catalog's first 2.0 release with the suite's code after startup (since removed, below); the upgrade preflight that refuses an upgrade that
 could not finish (#1115); a refusal to start on a schema the build cannot run against (#1123); and
 `DataPreservationMigrationIT`, which upgrades a 1.x database to the current version on every build.
 
@@ -98,9 +98,21 @@ it does the rest, with no `flyway repair` (`FailedMigrationRerunIT` holds that f
 
 The release content-hash backfill (`ReleaseContentHashBackfill`) was dropped instead: it had nothing
 to hash. 1.x kept no release content, the 2.0 upgrade deletes the 1.x releases (`V20261018201400`)
-before each catalog's first 2.0 release is cut, and cutting or receiving a release records its content
+and the upgrade cuts no release, and cutting or receiving a release records its content
 hash, so `catalog_releases.content_hash` is NOT NULL (`V20261025143621`) and nothing computes one
 later.
+
+**The 2.0 upgrade cuts no release, so nothing runs after startup.** `CatalogUpgradeRunner` cut each
+1.x catalog's first release with the suite's release code after startup; it is gone. Cutting a
+release needs a great deal of live code (building the released form, checks, storage, pins), which no
+migration may call, and a frozen copy of it was rejected below. So the migration step only drafts:
+`V20261027112414` keeps each authored 1.x catalog's next draft and makes a named draft "Published in
+1.x" of what it last published (JDBC, a JSON tree and the frozen conversions of the storage
+migrations), declares by name what each uses, and lists the 1.x catalogs for the tenant home. Their
+authors release those drafts through the normal flow, which pins a dependency declared by name to its
+catalog's highest release. A catalog 1.x subscribed to from a URL receives its source's release at
+boot, as any install does. After an upgrade environments start empty anyway, so a release cut by hand
+costs one step that deploying needed already.
 
 ### Stops, when they cannot be avoided
 
@@ -130,8 +142,8 @@ from the 1.x content tables during the 1.x → 2.0 upgrade.
 
 - **Required stops at every major.** Simpler for us, and the usual choice, but every customer more than
   one major behind steps through each one, with a backup and a check each time. Kept as the exception.
-- **Migrations that run with the application's code after startup** (as the content backfill did,
-  and `CatalogUpgradeRunner` still does). They need no freezing, but they run with the code of the version being installed: a 2.x
+- **Migrations that run with the application's code after startup** (as the content backfill and
+  `CatalogUpgradeRunner` did). They need no freezing, but they run with the code of the version being installed: a 2.x
   conversion run by 3.x code breaks the first time the classes it calls change, and the application
   serves while they run. Rejected: what they need is fixed knowledge, and belongs in the migration.
 - **Keeping replaced tables in their own schema** until the versions they came from reach end of life,

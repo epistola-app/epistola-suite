@@ -53,24 +53,27 @@ class CatalogUpgradeQueueMigrationTest {
                 )
             }
         }
-        flyway(null).migrate()
+        flyway(UPGRADE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val queued = connection.createStatement().use { st ->
                 st.executeQuery(
                     """
-                    SELECT c.catalog_key, q.installed_version FROM catalog_upgrade_queue q
+                    SELECT c.catalog_key FROM catalog_upgrade_queue q
                     JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
                     """,
-                ).use { rs -> buildList { while (rs.next()) add(rs.getString(1) to rs.getString(2)) } }
+                ).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
             }
-            // A subscribed one carries its installed release to the runner, which records it.
-            assertThat(queued).containsExactlyInAnyOrder("default" to null, "letters" to null, "forms" to "3.1.0")
+            // The authored ones, and a subscribed one with an installed release; V20261027112414 drafts and drops them.
+            assertThat(queued).containsExactlyInAnyOrder("default", "letters", "forms")
         }
     }
 
     private companion object {
         /** The migration before `core_catalog_upgrade_queue`. */
         const val BEFORE = "20261018201300"
+
+        /** `core_upgrade_to_2_0`, which queues them. */
+        const val UPGRADE = "20261018201400"
     }
 }

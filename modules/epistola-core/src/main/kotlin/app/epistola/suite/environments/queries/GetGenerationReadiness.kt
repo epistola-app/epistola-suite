@@ -19,14 +19,23 @@ import org.springframework.stereotype.Component
  * @property idleEnvironments environments that serve no catalog version, by name: every
  *   request naming one fails. A new environment starts so, and after an upgrade from 1.x every
  *   environment does until its catalogs' first 2.0 releases are deployed.
- * @property catalogsUpgrading catalogs still waiting for their first 2.0 release.
+ * @property publishedIn1x the catalogs, by name, an upgrade from 1.x brought over that have no release
+ *   yet (the upgrade cuts none, ADR 0035): publishing what they last published, their draft
+ *   [PUBLISHED_IN_1X] where they have one, else their next draft, and deploying it restores what was
+ *   live.
  */
 data class GenerationReadiness(
     val idleEnvironments: List<Pair<EnvironmentKey, String>>,
-    val catalogsUpgrading: Int,
+    val publishedIn1x: List<String>,
 ) {
-    val ready: Boolean get() = idleEnvironments.isEmpty() && catalogsUpgrading == 0
+    val ready: Boolean get() = idleEnvironments.isEmpty() && publishedIn1x.isEmpty()
 }
+
+/** The name of the draft the 2.0 upgrade makes of what a 1.x catalog last published (`V20261027112414`). */
+const val PUBLISHED_IN_1X = "Published in 1.x"
+
+/** The `app_metadata` key the 2.0 upgrade lists its authored 1.x catalogs under (`V20261027112414`). */
+const val ONE_X_CATALOGS = "upgrade-1x-catalogs"
 
 data class GetGenerationReadiness(
     override val tenantKey: TenantKey,
@@ -51,10 +60,20 @@ class GetGenerationReadinessHandler(
             .bind("t", query.tenantKey)
             .map { rs, _ -> EnvironmentKey.of(rs.getString("id")) to rs.getString("name") }
             .list()
-        val upgrading = handle.createQuery("SELECT count(*) FROM catalog_upgrade_queue WHERE tenant_key = :t")
+        val publishedIn1x = handle.createQuery(
+            """
+            SELECT c.name FROM catalogs c
+            JOIN app_metadata m ON m.key = :key
+                AND m.value @> jsonb_build_array(jsonb_build_object('tenant', c.tenant_key, 'catalog', c.catalog_id::text))
+            WHERE c.tenant_key = :t
+              AND NOT EXISTS (SELECT 1 FROM catalog_versions r WHERE r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.state = 'released')
+            ORDER BY c.name
+            """,
+        )
             .bind("t", query.tenantKey)
-            .mapTo(Int::class.java)
-            .one()
-        GenerationReadiness(idle, upgrading)
+            .bind("key", ONE_X_CATALOGS)
+            .mapTo(String::class.java)
+            .list()
+        GenerationReadiness(idle, publishedIn1x)
     }
 }

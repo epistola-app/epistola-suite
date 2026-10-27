@@ -9,8 +9,9 @@ import java.sql.Connection
 /**
  * The references between catalogs in a 1.x database, as the 1.x-to-2.0 checks read them.
  *
- * The upgrade gives every authored catalog a first release after the catalogs it uses
- * (`CatalogUpgradeRunner`); these are the uses that order it. Read from what the upgrade keeps: each
+ * After the upgrade an authored catalog's first release, its "Published in 1.x" draft released by
+ * its author, pins the catalogs it uses, so they are released first; these are the uses that order
+ * it. Read from what the upgrade keeps: each
  * variant's and stencil's latest published version and its draft, every theme, attribute definition
  * and template, and the catalogs' details. Only an authored catalog's uses count: a subscribed
  * catalog has its installed release recorded as it is, and waits for nothing.

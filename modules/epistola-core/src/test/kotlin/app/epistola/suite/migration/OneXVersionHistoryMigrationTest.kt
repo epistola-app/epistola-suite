@@ -67,7 +67,8 @@ class OneXVersionHistoryMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // To the upgrade migration: what it keeps of what was published, until V20261027112414 drafts it and drops it.
+        flyway(UPGRADE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(connection.rows("SELECT kind, part, payload->'templateModel'->>'marker', payload->'dataModel'->>'marker' FROM catalog_upgrade_published ORDER BY kind"))
@@ -125,5 +126,8 @@ class OneXVersionHistoryMigrationTest {
     private companion object {
         /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
         const val BEFORE = "20260923150918"
+
+        /** The 2.0 upgrade migration (`core_upgrade_to_2_0`). */
+        const val UPGRADE = "20261018201400"
     }
 }

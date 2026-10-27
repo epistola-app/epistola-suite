@@ -1,48 +1,26 @@
 -- The catalogs of a 1.x installation, queued for what 2.0 needs of them and SQL cannot do; and the
 -- alpha toggle 2.0 retires.
 
--- The catalogs of a 1.x installation, queued for what 2.0 needs of them and SQL cannot do: which
--- catalogs a catalog references is read from its content by application code, and a release is cut
--- or recorded by it. For an authored catalog:
---
--- - Declarations: a 1.x catalog references other catalogs (the system catalog's fonts and
---   attributes, a shared theme) without declaring them, and 2.0 refuses to release it until it does
---   (contract ADR 0003).
--- - A first release: no 1.x release kept its content, so nothing could render. Each catalog gets one,
---   cut from what was last published, numbered the patch after its highest 1.x release (or 1.0.0),
---   and deployed nowhere.
---
--- For a subscribed catalog with an installed release: that release recorded as one it can render
--- from, with the content the install put in place. 1.x kept none, so its templates could not render.
---
--- CatalogUpgradeRunner does both and removes the catalog from the queue; a catalog it cannot do yet
--- (a dependency not released) stays, with the reason. A catalog created under 2.0 is never queued.
+-- The catalogs of a 1.x installation, held until the 2.0 upgrade has drafted what each last
+-- published (V20261027112414, which drops this table): an authored catalog gets beside its next
+-- draft a named draft "Published in 1.x", which its author releases and deploys; no release is cut
+-- (ADR 0035). A subscribed catalog receives its source's release at boot. A catalog created under
+-- 2.0 is never queued.
 CREATE TABLE catalog_upgrade_queue (
     tenant_key TENANT_KEY NOT NULL,
     catalog_id UUID       NOT NULL,
-    last_error TEXT,
     continues_after VARCHAR(50),
-    installed_version VARCHAR(128),
-    installed_fingerprint VARCHAR(80),
     PRIMARY KEY (tenant_key, catalog_id),
     FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs (tenant_key, catalog_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE catalog_upgrade_queue IS
-    'Catalogs from before 2.0 still to be given what 2.0 needs (declarations and a first release, or a recorded installed release); emptied by CatalogUpgradeRunner.';
-COMMENT ON COLUMN catalog_upgrade_queue.last_error IS
-    'Why the last attempt did not finish; the runner tries again.';
+    'Catalogs from before 2.0, until the 2.0 upgrade has drafted what each last published (V20261027112414 drops it).';
 COMMENT ON COLUMN catalog_upgrade_queue.continues_after IS
-    'The highest SemVer release of the catalog in 1.x; its first 2.0 release is the patch after it, so numbering does not go back.';
-COMMENT ON COLUMN catalog_upgrade_queue.installed_version IS
-    'A subscribed catalog''s installed release in 1.x, recorded by the runner from the content in place; the release its next version is then based on.';
-COMMENT ON COLUMN catalog_upgrade_queue.installed_fingerprint IS
-    'The fingerprint 1.x recorded for installed_version.';
+    'The highest SemVer release of the catalog in 1.x: the base its drafts name, so a 2.0 release is numbered above it.';
 
-INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after, installed_version, installed_fingerprint)
-SELECT c.tenant_key, c.catalog_id, latest.version,
-       CASE WHEN c.type = 'SUBSCRIBED' THEN c.installed_release_version END,
-       CASE WHEN c.type = 'SUBSCRIBED' THEN c.installed_fingerprint END
+INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after)
+SELECT c.tenant_key, c.catalog_id, latest.version
 FROM catalogs c
 LEFT JOIN LATERAL (
     SELECT r.version
@@ -75,12 +53,12 @@ WHERE feature_key = 'catalog-context';
 -- The 1.x versions -------------------------------------------------------------------------------
 -- 1.x kept versions per template variant, data contract and stencil, and activated template versions
 -- per environment. 2.0 keeps none of that: the working copy holds what each author was working on
--- (the working-copy migration), and each catalog's first 2.0 release is cut from what was last
--- published. So the tables go, and two things are kept:
+-- (the working-copy migration), and what was last published becomes a draft of its own,
+-- "Published in 1.x". So the tables go, and two things are kept:
 --
--- 1. What the first release is cut from, until it is: each variant's, data contract's and stencil's
---    latest published content, in v8 already (the template-content migration converted it). The
---    upgrade removes a catalog's rows once it has released it, so the table ends up empty.
+-- 1. What that draft is made from: each variant's, data contract's and stencil's latest published
+--    content, in v8 already (the template-content migration converted it). V20261027112414 makes
+--    the drafts and drops the table.
 -- 2. A summary of the history, as one record in app_metadata (`upgrade-1x-history`): every version's
 --    number, status and dates, and what each environment had activated, so documents and load-test
 --    runs that name a 1.x version number can still be traced. Content of older versions is not kept.
@@ -97,7 +75,7 @@ CREATE TABLE catalog_upgrade_published (
 );
 
 COMMENT ON TABLE catalog_upgrade_published IS
-    'What each 1.x resource last published, which the 2.0 upgrade cuts a catalog''s first release from; emptied per catalog by CatalogUpgradeRunner.';
+    'What each 1.x resource last published, which the 2.0 upgrade drafts as "Published in 1.x" (V20261027112414 drops it).';
 COMMENT ON COLUMN catalog_upgrade_published.kind IS
     '''variant'': a template variant''s model (part = the variant key); ''contract'': a template''s data contract; ''stencil'': a stencil''s content.';
 COMMENT ON COLUMN catalog_upgrade_published.payload IS

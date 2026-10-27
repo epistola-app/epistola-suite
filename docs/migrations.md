@@ -55,10 +55,11 @@ Rules:
 - **One destructive exception: 1.x versioning.** The 2.0 upgrade
   (`V20261018201400`) deletes every `catalog_releases` row 1.x wrote. They held
   no content, only a number, a fingerprint and notes, and Exchange was not in
-  use; each catalog gets a first 2.0 release numbered after the highest of them.
+  use; a release cut in 2.0 is numbered after the highest of them.
   It also drops `template_versions`, `contract_versions`, `stencil_versions`
-  and `environment_activations`, after keeping what the first release is cut
-  from (`catalog_upgrade_published`) and a summary of the rest (the
+  and `environment_activations`, after keeping what was last published, which
+  becomes the draft "Published in 1.x" (`catalog_upgrade_published`, dropped by
+  `V20261027112414`), and a summary of the rest (the
   `upgrade-1x-history` record in `app_metadata`). Decided for 2.0; it is not a
   precedent.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway

@@ -379,14 +379,14 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT count(*)::text FROM catalog_upgrade_published p
-                    JOIN current_stencils stencil ON stencil.tenant_key = p.tenant_key AND stencil.resource_id = p.resource_id
-                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id IN ('header', 'draft-only') AND p.kind = 'stencil'
+                    SELECT string_agg(r.resource_key, ',' ORDER BY r.resource_key) FROM release_resources r
+                    JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id
+                    WHERE r.tenant_key = '$TENANT' AND v.name = 'Published in 1.x' AND r.resource_type = 'stencil' AND r.resource_key IN ('header', 'draft-only')
                     """,
                 ),
             )
-                .describedAs("the published stencil is kept for the first release; the draft-only one has nothing published")
-                .isEqualTo("1")
+                .describedAs("the published stencil is in the draft of what 1.x published (V20261027112414); the draft-only one has nothing published")
+                .isEqualTo("header")
             assertThat(one("SELECT count(*)::text FROM information_schema.tables WHERE table_name IN ('template_versions', 'contract_versions', 'stencil_versions', 'environment_activations')"))
                 .isEqualTo("0")
             assertThat(
@@ -408,13 +408,15 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT (p.payload->'templateModel')::text FROM catalog_upgrade_published p
-                    JOIN current_templates dt ON dt.tenant_key = p.tenant_key AND dt.resource_id = p.resource_id
-                    WHERE dt.tenant_key = '$TENANT' AND dt.id = 'invoice' AND p.kind = 'variant' AND p.part = 'main'
+                    SELECT (c.payload->'resource'->'templateModel')::text FROM release_resources r
+                    JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id
+                    JOIN release_resources t ON t.tenant_key = r.tenant_key AND t.version_id = r.version_id AND t.resource_id = r.parent_id
+                    JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+                    WHERE r.tenant_key = '$TENANT' AND v.name = 'Published in 1.x' AND t.resource_key = 'invoice' AND r.resource_key = 'main'
                     """,
                 ),
             )
-                .describedAs("the variant's last published model is what its first release is cut from")
+                .describedAs("the variant's last published model is in the draft of what 1.x published")
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
             assertThat(history("templateVersions", "v->>'template' = 'invoice' AND v->>'variant' = 'main'"))
                 .contains("\"status\": \"published\"").contains("\"status\": \"draft\"")
@@ -465,8 +467,9 @@ class DataPreservationMigrationIT {
                 """
                 SELECT (m.digest IS NOT DISTINCT FROM d.digest)::text
                 FROM resource_content_digests d
-                LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
+                LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.version_id = d.version_id AND m.resource_id = d.resource_id AND m.part = d.part
                 WHERE d.tenant_key = '$TENANT' AND d.resource_id = ($resource) AND d.part = '$part'
+                  AND d.version_id IN (SELECT next_version_id FROM catalogs WHERE tenant_key = '$TENANT')
                 """,
             )
             val invoice = "SELECT resource_id FROM current_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"
@@ -482,11 +485,15 @@ class DataPreservationMigrationIT {
             // Every authored catalog has the draft it works in, its next version, which has no number
             // until it is released (V20261018200900; `state` since V20261026162943).
             assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.version_id = c.next_version_id THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.state = 'draft'"))
-                .isEqualTo("default@next,shared@next")
+                .describedAs("default, which has unpublished 1.x work, also has a draft of what it published; shared, whose draft is what it published, does not")
+                .isEqualTo("default@next,default@Published in 1.x,shared@next")
 
-            // Every authored 1.x catalog is queued for its declarations and first release (V20261018201400).
-            assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id WHERE q.tenant_key = '$TENANT'"))
+            // Every authored 1.x catalog is listed for the tenant home to ask for its release (V20261027112414),
+            // and the upgrade's tables are gone: no release is cut.
+            assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM app_metadata m, jsonb_array_elements(m.value) e JOIN catalogs c ON c.catalog_id::text = e->>'catalog' AND c.tenant_key = e->>'tenant' WHERE m.key = 'upgrade-1x-catalogs' AND c.tenant_key = '$TENANT'"))
                 .isEqualTo("default,shared")
+            assertThat(one("SELECT count(*)::text FROM information_schema.tables WHERE table_name IN ('catalog_upgrade_queue', 'catalog_upgrade_published')")).isEqualTo("0")
+            assertThat(one("SELECT count(*)::text FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE c.tenant_key = '$TENANT' AND v.state = 'released' AND c.catalog_key IN ('default', 'shared')")).isEqualTo("0")
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.

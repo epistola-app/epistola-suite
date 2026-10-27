@@ -14,7 +14,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
-import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
@@ -103,12 +102,6 @@ data class ReleaseCatalogDraft(
     val version: String? = null,
     val notes: String? = null,
     val publication: ReleasePublication = ReleasePublication.DEFAULT,
-    /**
-     * What the release contains. Only the 2.0 upgrade releases anything but the working copy
-     * ([ContentSource.PUBLISHED_BEFORE_2_0]): content that was published already, so it is not held
-     * to ready marks. Internal so no API can set it.
-     */
-    internal val source: ContentSource = ContentSource.WORKING_COPY,
     /** The releases the caller confirms this draft may be behind; naming others changes nothing. */
     val acknowledgedBehind: Set<String> = emptySet(),
     /** The draft to release; null for the next version. */
@@ -172,7 +165,12 @@ data class ReleaseCatalogDraftResult(
     val releasedDependencies: List<ReleasedDependency> = emptyList(),
     /** The release's id (contract `CatalogVersionId`): the id the draft had. */
     val versionId: String = "",
+    /** Declarations that pinned no release and were pinned to their catalog's highest release by this release. */
+    val pinnedDependencies: List<PinnedDependency> = emptyList(),
 )
+
+/** A declaration this release pinned: the catalog it names and the release it now pins. */
+data class PinnedDependency(val registry: String, val namespace: String, val catalogKey: String, val releaseVersion: String)
 
 /** A draft of another catalog released along with a release, and the release it became. */
 data class ReleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val releaseVersion: String)
@@ -213,12 +211,9 @@ class ReleaseCatalogDraftHandler(
         // RecordInstalledRelease instead.
         requireCatalogEditable(command.catalog)
         // The holder of a namespace issues its numbers (ADR 0034, section 2): releasing needs the
-        // tenant to hold the catalog's, or the catalog to be local. The 2.0 upgrade records what was
-        // released before namespaces were granted, and is not held to it.
-        if (command.source == ContentSource.WORKING_COPY) {
-            val holding = jdbi.withHandle<CatalogNamespaceHolding, Exception> { holdingOf(it, grants, command.catalog) }
-            holding.refusal?.let { throw ValidationException("namespace", it, ValidationCode.CATALOG_NAMESPACE_NOT_HELD) }
-        }
+        // tenant to hold the catalog's, or the catalog to be local.
+        val holding = jdbi.withHandle<CatalogNamespaceHolding, Exception> { holdingOf(it, grants, command.catalog) }
+        holding.refusal?.let { throw ValidationException("namespace", it, ValidationCode.CATALOG_NAMESPACE_NOT_HELD) }
 
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.catalog, command.catalogVersion?.draft ?: DraftRef.Next)
@@ -234,7 +229,7 @@ class ReleaseCatalogDraftHandler(
         // that changed nothing against it, no resource and no catalog-level content, has nothing to
         // release. A draft without a base always has its first release.
         val base = draft.base
-        if (command.requireChange && command.source == ContentSource.WORKING_COPY && base != null &&
+        if (command.requireChange && base != null &&
             !GetCatalogResourceChanges(command.catalog, catalogVersion = app.epistola.suite.catalog.releases.CatalogReleaseRef(command.catalog, draft.ref)).query().hasUnreleasedChanges
         ) {
             throw app.epistola.suite.catalog.releases.CatalogDraftUnchangedException(command.catalogKey, draft.label, base)
@@ -242,14 +237,12 @@ class ReleaseCatalogDraftHandler(
 
         val existing = loadReleases(command.catalog)
         val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
-        val newVersion = number(command, draft, existing, latest)
+        val newVersion = number(command, draft, existing)
         val others = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.catalog) }.filter { it.versionId != draft.versionId }
-        if (command.source == ContentSource.WORKING_COPY) {
-            val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, command.catalog) }
-            val behind = lineage.behind(draft.base, draft.merged, newVersion.toString())
-            val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
-            if (unacknowledged.isNotEmpty()) throw CatalogReleaseBehindException(command.catalogKey, draft.label, unacknowledged)
-        }
+        val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, command.catalog) }
+        val behind = lineage.behind(draft.base, draft.merged, newVersion.toString())
+        val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
+        if (unacknowledged.isNotEmpty()) throw CatalogReleaseBehindException(command.catalogKey, draft.label, unacknowledged)
         // The other drafts this release puts behind: those numbered above it once it has its number.
         val draftsBehind = others.filter { other ->
             val assessment = AssessDraftNumber(command.catalog, other.ref).query() ?: return@filter false
@@ -342,18 +335,11 @@ class ReleaseCatalogDraftHandler(
     }
 
     /**
-     * The number [draft] is released as: the one asked for, or the one its changes need. An upgrade
-     * from before 2.0 releases what was published already, under the number it was given then, so it
-     * is held only to being new and above every release.
+     * The number [draft] is released as: the one asked for, or the one its changes need.
      */
-    private fun number(command: ReleaseCatalogDraft, draft: CatalogDraft, existing: List<ReleaseRow>, latest: SemVer?): SemVer {
+    private fun number(command: ReleaseCatalogDraft, draft: CatalogDraft, existing: List<ReleaseRow>): SemVer {
         val asked = command.version
         if (asked != null && existing.any { it.version == asked.trim() }) throw CatalogReleaseVersionException("Version ${asked.trim()} is released already")
-        if (command.source != ContentSource.WORKING_COPY) {
-            val wanted = asked?.let(SemVer::parseOrNull)?.takeUnless { it.isPatchRelease } ?: throw CatalogReleaseVersionException("Version '$asked' must be MAJOR.MINOR.PATCH")
-            if (latest != null && wanted <= latest) throw CatalogReleaseVersionException("Version $wanted must be greater than the last release $latest")
-            return wanted
-        }
         val assessment = AssessDraftNumber(command.catalog, draft.ref).query()
             ?: throw CatalogReleaseNotFoundException(command.catalogKey, draft.label)
         val chosen = asked?.trim() ?: assessment.suggested
@@ -370,9 +356,10 @@ class ReleaseCatalogDraftHandler(
         draft: CatalogDraft,
         draftsBehind: List<String>,
     ): ReleaseCatalogDraftResult {
-        if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.catalog)
+        requireChangesReady(command.catalog)
+        val pinnedNow = pinUnpinned(command.catalog)
         val pins = pinDependencies(command.catalog)
-        val content = contentBuilder.build(command.catalog, command.source)
+        val content = contentBuilder.build(command.catalog)
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.catalog, content)
         val fingerprint = fingerprintService.fingerprint(content)
@@ -529,7 +516,28 @@ class ReleaseCatalogDraftHandler(
             publicationId = publicationId,
             draftsBehind = draftsBehind,
             versionId = draft.key,
+            pinnedDependencies = pinnedNow,
         )
+    }
+
+    /**
+     * Pins every declaration of [catalog] that pins no release and names no draft to the highest
+     * release of the catalog it names, when that catalog has one: a declaration made by name (the
+     * 2.0 upgrade declares what a 1.x catalog used before any of them had a release) is pinned when
+     * the catalog is released, as the release dialog says. One whose catalog has no release stays
+     * unpinned, which [pinDependencies] refuses, naming it.
+     */
+    private fun pinUnpinned(catalog: CatalogId): List<PinnedDependency> = jdbi.inTransaction<List<PinnedDependency>, Exception> { handle ->
+        val declarations = dependencyStore.declarations(handle, catalog)
+        val pinned = mutableListOf<PinnedDependency>()
+        val updated = declarations.map { declaration ->
+            if (declaration.pinned || declaration.namesDraft) return@map declaration
+            val highest = dependencyStore.highest(handle, catalog.tenantKey, declaration) ?: return@map declaration
+            pinned += PinnedDependency(declaration.registry, declaration.namespace, declaration.catalogKey, highest.version)
+            declaration.copy(releaseVersion = highest.version, releaseFingerprint = highest.fingerprint)
+        }
+        if (pinned.isNotEmpty()) dependencyStore.replace(handle, catalog, updated)
+        pinned
     }
 
     /**
@@ -555,7 +563,7 @@ class ReleaseCatalogDraftHandler(
         val declarations = dependencyStore.declarations(handle, catalog)
         val problems = declarations.mapNotNull { declaration ->
             when {
-                !declaration.pinned -> "$declaration pins no release"
+                !declaration.pinned -> "${declaration.catalogKey} has no release to pin; release ${declaration.catalogKey} first"
 
                 !dependencyStore.pinHolds(handle, catalog.tenantKey, declaration) ->
                     "$declaration pins ${declaration.releaseVersion}, which this tenant no longer has as it was pinned"
