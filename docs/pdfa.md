@@ -92,12 +92,9 @@ PDF/A requires an output intent declaring the color space. Epistola embeds the s
 
 ## Database
 
-The setting is stored as a boolean column on the `document_templates` table:
-
-```sql
--- V10__template_pdfa_setting.sql
-ALTER TABLE document_templates ADD COLUMN pdfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-```
+The setting is part of the template's content, `resource.pdfaEnabled`
+([ADR 0038](adr/0038-catalogs-in-2-0.md)); in 1.x it was the `document_templates.pdfa_enabled`
+column, converted by the 2.0 migration chain.
 
 ## Key files
 

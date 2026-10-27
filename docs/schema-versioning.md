@@ -28,8 +28,9 @@ templates/
 
 ## Storage
 
-- `document_templates.data_model` — the JSON Schema, `NULL` when the template has none.
-- `document_templates.data_examples` — the examples, each with a key; at least one is required.
+- The template's content (`resource.dataModel`, [ADR 0038](adr/0038-catalogs-in-2-0.md)) — the JSON
+  Schema, absent when the template has none.
+- `resource.dataExamples` — the examples, each with a key; at least one is required.
 - `template_variants.referenced_paths` — the data paths the variant's working model reads,
   recomputed on every model save.
 

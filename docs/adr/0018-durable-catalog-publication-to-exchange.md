@@ -1,7 +1,7 @@
 # ADR 0018: Durable catalog publication to Epistola Exchange
 
-- Status: Accepted
-- Date: 2026-08-24
+- **Status:** Accepted
+- **Date:** 2026-08-24
 
 ## Context
 

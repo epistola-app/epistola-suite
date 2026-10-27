@@ -1,6 +1,7 @@
 # ADR 0032: Catalogs are drafts and releases, moved between installations and merged
 
-- **Status:** Accepted (merging and the registry route ship as alpha)
+- **Status:** Accepted (merging and the registry route ship as alpha) — superseded in part by ADR 0038
+- **Addendum (2026-10-27):** Superseded in part by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27): §9 (the table fold, done the other way round) and the storage terms; merging, the Exchange, the registry and files stand.
 - **Date:** 2026-10-21
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, exchange, installations, merging, database

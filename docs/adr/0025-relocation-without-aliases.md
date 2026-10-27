@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0025: Relocation without aliases, until published content stands on its own
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0037](0037-resource-identity-and-relocation.md) (2026-10-27)
 - **Superseded on template versions** by contract ADR 0002 (2.0): variants have one working model
   and ready marks, and generation renders releases; see
   [catalog versioning](../catalog-versioning.md#ready-marks).

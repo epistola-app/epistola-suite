@@ -1,6 +1,6 @@
 # ADR 0033: Reading any release, draft or released
 
-- **Status:** Accepted (2026-10-23: one JSON storage, built per type, #1125; 2026-10-24: in 2.0)
+- **Status:** Superseded by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27)
 - **Date:** 2026-10-21
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, storage, database, performance

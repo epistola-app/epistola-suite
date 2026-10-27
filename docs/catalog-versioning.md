@@ -233,9 +233,9 @@ live side by side, with no switch to turn on.
 
 ## Catalog versions and drafts
 
-A catalog consists of **versions** (contract ADR 0002): released ones, kept in
-`catalog_releases` with their retained content, and the versions whose content is in the content
-tables, identified by `catalog_versions`: the catalog's open **drafts**. A draft has **no number
+A catalog consists of **versions** (contract ADR 0002), one row each in `catalog_versions`
+([ADR 0038](adr/0038-catalogs-in-2-0.md)): its **releases** (`state = released`, frozen) and its open
+**drafts**. A draft has **no number
 until it is released**; only releases are numbered.
 
 - **Every draft is the same; one is the next release.** Any draft can be released (contract ADR
@@ -556,12 +556,12 @@ deployments and version ranges use.
   a catalog's highest release; null for a draft), and
   `listCatalogReleases?contentHash=` lists the releases with that content: a filter, so none is an
   empty list, and anything but a `v6:` hash is a 400. The database answers it
-  (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), so a
-  release whose hash is not computed yet is no match. MCP `list_catalog_releases` (with the same
+  (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), . Every
+  release records its hash. MCP `list_catalog_releases` (with the same
   `contentHash` filter), `release_draft`, `list_catalogs` and `list_catalog_dependencies` return it
   likewise.
-- The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release
-  under its catalog and number, which in ADR 0034's terms is the binding of that number to the hash.
+- A release is its row in `catalog_versions`, under its catalog and number, which in ADR 0034's
+  terms is the binding of that number to the hash.
 
 ### Fingerprint algorithm
 
@@ -789,8 +789,8 @@ changes are catalog settings is publishable as it is, and "Mark all ready" has n
 The 2.0 upgrade (`V20261101000700`, `V20261101000800`) gives each variant its
 draft model, else its latest published, else its latest archived; each template its draft contract,
 else its latest published. What was publishable before is marked ready: a variant with no unfinished
-draft, a stencil without a draft, and every other resource. `template_versions` and
-`contract_versions` stay as history nobody reads.
+draft, a stencil without a draft, and every other resource. The 1.x `template_versions` and
+`contract_versions` are dropped once converted; their history is a summary in `app_metadata`.
 
 ## Cutting a release
 
@@ -963,7 +963,7 @@ template per variant or per block, an editor merge tool — adds to it rather th
   for a release it merged; for an older merge base that one descends from, the same wherever the two
   releases are alike; else the base as released. A baseline another function stored is ignored.
 - **Merge base** (`MergeInputReader`, `ReleaseLineage.closestIn`). Found by the lineage releases record
-  (`catalog_releases.base_version`, `base_fingerprint`, and `catalog_release_merges`), checked against the installed release of that
+  (`catalog_versions.base_version_id`, `base_version`, `base_fingerprint`, and `catalog_release_merges`), checked against the installed release of that
   number by fingerprint; missing, it is `MergeInputs.missingBase` and the planner classifies nothing.
 - **Mergers** (`ResourceMerger`, found by type in `ResourceMergers`). One classifies an entry from its
   three sides (`MergeEntrySides`) and plans what to write for a `MergeResolution` (`MergeAction`:

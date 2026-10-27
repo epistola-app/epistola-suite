@@ -6,7 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Catalog release model v2: the migration plan
 
-> **Status:** Proposed, 1 October 2026. The agreed direction: the catalog release becomes the only
+> **Status:** Record (2026-10-27): carried out in 2.0; the current design is [ADR 0038](adr/0038-catalogs-in-2-0.md). Written as
+> a proposal, 1 October 2026. The agreed direction: the catalog release becomes the only
 > version, and the old world — numbered template and stencil versions, per-template environment
 > activations — is **removed in the next major, with no bridges**. This page is the work sequence
 > for that major and the upgrade path into it. It supersedes the goal sequence in

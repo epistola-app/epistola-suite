@@ -157,6 +157,11 @@ a container registry configured for the installation, or the Epistola Exchange t
 connected to (named `exchange`). Without one they refuse every call; an unknown name is refused with
 the names there are. REST has the same operations (contract ADR 0008).
 
+Installing over MCP is only this, from a registry. Importing an archive file and subscribing to a
+catalog by URL are offered in the UI and REST, not over MCP; every route installs through the same
+core ([ADR 0038](adr/0038-catalogs-in-2-0.md) §5). `list_catalog_releases` lists a catalog's versions,
+drafts as well as releases.
+
 | Tool                            | Purpose                                                                                                                                                                                                                 | Permission        |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `list_release_registries`       | Alpha. The release registries the tenant has: `name`, `kind` (`container`, `exchange`) and `location`.                                                                                                                  | `CATALOG_VIEW`    |

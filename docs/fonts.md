@@ -198,6 +198,6 @@ Open considerations:
   or via an `ital`/`slnt` axis; ingest must handle both.
 - **No `is_variable` in the model.** A variable font is a _transient input
   format_, never a stored face type — there is deliberately no
-  `variable`/`is_variable` field on `FontVariantEntry` / `font_variants`. (A
+  `variable`/`is_variable` field on `FontVariantEntry` or a stored face. (A
   reserved flag existed briefly as render-time future-proofing and was
   removed once this ingest-instancing direction was decided.)

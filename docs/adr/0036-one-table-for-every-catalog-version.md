@@ -1,6 +1,6 @@
 # ADR 0036: One table for every catalog version
 
-- **Status:** Proposed (2026-10-26; the last structural step of 2.0's storage, after ADR 0033)
+- **Status:** Superseded by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27) — implemented in 2.0
 - **Date:** 2026-10-26
 - **Deciders:** Epistola team
 - **Tags:** catalogs, releases, drafts, storage, database

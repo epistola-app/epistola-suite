@@ -1,6 +1,7 @@
 # ADR 0034: Releases are content-addressed; names point at them
 
-- **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 done but for aliases other than the key)
+- **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 done but for aliases other than the key) — superseded in part by ADR 0038
+- **Addendum (2026-10-27):** Superseded in part by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27): the suite's storage and the release-hash backfill (removed; every release records its hash). The naming model stands.
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange

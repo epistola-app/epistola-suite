@@ -1,6 +1,6 @@
 # ADR 0003: Stencil Version in Catalog Export
 
-- **Status:** Accepted
+- **Status:** Superseded by contract ADR 0006 (2.0)
 - **Superseded in 2.0** by contract ADR 0006: stencils have no versions; instances reference the
   stencil's working copy and wire v8 strips the pins. See [stencils](../stencils.md).
 - **Date:** 2026-05-20

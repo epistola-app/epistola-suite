@@ -74,11 +74,11 @@ under its title. That banner, not this table, is authoritative.
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.                                            |
 | [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                                                           |
 | [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming a resource; its old address stops working.                                                  |
-| [Resource identity migration](catalog-resource-identity-migration.md) | Proposed | Separating identity from address, per ADR 0014; superseded where unfinished.                                   |
-| [Immutable publication plan](catalog-immutable-publication.md)        | Proposed | Where relocation and publication go next: self-contained published artifacts.                                  |
-| [Release model v2 plan](catalog-release-model-v2.md)                  | Proposed | The major that removes template and stencil versions: work packages, data migration, upgrade path.             |
+| [Resource identity migration](catalog-resource-identity-migration.md) | Record   | Separating identity from address, per ADR 0014; superseded where unfinished.                                   |
+| [Immutable publication plan](catalog-immutable-publication.md)        | Record   | Where relocation and publication go next: self-contained published artifacts.                                  |
+| [Release model v2 plan](catalog-release-model-v2.md)                  | Record   | The major that removes template and stencil versions: work packages, data migration, upgrade path.             |
 | [Catalog workspace navigation](catalog-workspace-navigation.md)       | Record   | Working in a catalog version like a branch: context bar, releases read-only, search across catalogs.           |
-| [Working on catalogs: the model](catalog-working-model.md)            | Proposed | Work freely, control what goes out: next version, published, live, side work; hotfix, stash, shared catalogs.  |
+| [Working on catalogs: the model](catalog-working-model.md)            | Record   | Work freely, control what goes out: next version, published, live, side work; hotfix, stash, shared catalogs.  |
 | [The workspace shell](workspace-shell.md)                             | Proposed | The context bar and side nav: inside a catalog (its version, Publish, its pages) and outside one (the tenant). |
 | [Version axes](version-axes.md)                                       | Current  | The independent "version" concepts and which question each answers.                                            |
 | [Exchange publication](catalog-exchange-publication.md)               | Alpha    | Publishing catalog releases cut here to Epistola Exchange.                                                     |
