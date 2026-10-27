@@ -21,11 +21,14 @@ state model landed in April 2026, and the ProseMirror object model predates the
 current production period. Therefore content created only through the editor
 during the last month is expected to remain compatible.
 
-The catalog-v5 Flyway migration removes false or stale `isDraft` markers and
-resolves true markers in draft rows against the owning catalog's exact
-`stencil_versions` row. It preserves the embedded subtree and published base,
-and aborts with a row/node diagnostic when provenance is missing, ambiguous,
-or inconsistent.
+The catalog-v5 Flyway migration (1.x, `V20260729150000`) removed false or stale
+`isDraft` markers and resolved true markers in draft rows against the owning
+catalog's exact `stencil_versions` row, the per-stencil version table 1.x kept.
+It preserved the embedded subtree and published base, and aborted with a
+row/node diagnostic when provenance was missing, ambiguous, or inconsistent.
+In 2.0 stencils have no versions (contract ADR 0006): a stencil is stored as
+JSON in the catalog version that holds it
+([ADR 0038](adr/0038-catalogs-in-2-0.md)), and an instance references it.
 
 This is not an unconditional backward-compatibility guarantee. The following
 historical or malformed shapes are intentionally rejected when they cross a

@@ -18,6 +18,41 @@ Authored catalogs had no real version: the ZIP export stamped
 "this is now a new version" with any meaning, and re-export produced a
 different "version" even when nothing changed (or the same one when it did).
 
+## Working on catalogs
+
+Most people who change a catalog are not technical: they want to change a letter and see it. The
+model puts control only where it pays off — **work freely, control what goes out**. While working,
+nothing is numbered and nothing is locked; control applies when a version is **released** (frozen,
+numbered, tied to exact releases of what it uses) and when an environment is made to **serve** it.
+The storage behind it is [ADR 0038](adr/0038-catalogs-in-2-0.md).
+
+The words the screens use:
+
+| Word              | Is                                                                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Next release**  | The everyday work on a catalog, one per catalog (`catalogs.next_version_id`). What a page edits unless its catalog segment names another draft. No number.                                      |
+| **Release**       | A frozen, numbered version (`v1.3.0`). Never changes; what applications get.                                                                                                                    |
+| **Deployed**      | What an environment serves: releases side by side, at most one draft (see [What an environment uses](#what-an-environment-uses)).                                                               |
+| **Parallel work** | Another draft, always with a name: a fix of a release (the bar says "Fix of v1.2.0"), work set aside, or a second line of work (see [Choosing a draft in the UI](#choosing-a-draft-in-the-ui)). |
+
+How the everyday cases map onto it:
+
+- **Change a template and have the application use it:** edit it in the next release, release it
+  (the dialog picks the number from the kind of change), deploy the release.
+- **Two catalogs, one using the other's stencil:** both previews show the change at once. Releasing
+  the catalog that uses it can release the other along (`releaseDependencies`), dependencies first,
+  in one transaction (see [Declared dependencies](#declared-dependencies)).
+- **A fix while the next release is half done:** start parallel work from the released version,
+  fix, release it as the next patch and deploy it. The next release is then behind that release;
+  its release dialog lists what it is behind, and merging brings the fix in
+  ([Merge internals](#merge-internals)).
+- **Put work aside, or run two lines at once:** make another draft the next release and keep the
+  previous one as parallel work (`keepPreviousAs`), or start parallel work beside it; either is
+  released as it is ([Everyday work continuing from parallel work](#everyday-work-continuing-from-parallel-work)).
+
+Nothing is lost silently: setting work aside keeps it as a named draft, and discarding is a separate,
+confirmed action.
+
 ## Model
 
 A catalog is **one row per `(tenant_key, slug)`**, with one live resource set per open draft (see
