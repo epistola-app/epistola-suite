@@ -26,7 +26,6 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Sets (or clears) the default theme for a tenant.
@@ -64,7 +63,6 @@ data class SetTenantDefaultTheme(
 class SetTenantDefaultThemeHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetTenantDefaultTheme, Tenant> {
-    @Transactional
     override fun handle(command: SetTenantDefaultTheme): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         if (command.themeId == null) {
             return@withHandle handle.createQuery(

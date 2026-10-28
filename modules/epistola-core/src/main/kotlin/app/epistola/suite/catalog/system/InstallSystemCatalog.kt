@@ -39,7 +39,7 @@ fun systemCatalog(tenantKey: app.epistola.suite.common.ids.TenantKey): app.epist
 /**
  * Idempotent installer for the bundled system catalog. Two callers:
  *
- *  - `CreateTenant` invokes it inside its `@Transactional` boundary for
+ *  - `CreateTenant` invokes it inside its command transaction for
  *    each new tenant, so a tenant never exists without its system catalog.
  *  - `SystemCatalogBootstrap` walks every tenant on application start;
  *    each call is a cheap fingerprint-comparison + no-op in steady state.

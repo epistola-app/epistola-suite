@@ -13,7 +13,6 @@ import app.epistola.suite.security.TenantRole
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Syncs tenant memberships from the IDP (JWT/OIDC) into the `tenant_memberships` table.
@@ -32,7 +31,6 @@ class SyncTenantMembershipsHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SyncTenantMemberships, Unit> {
 
-    @Transactional
     override fun handle(command: SyncTenantMemberships) {
         jdbi.withHandleUnchecked { handle ->
             for ((tenantKey, roles) in command.memberships) {
