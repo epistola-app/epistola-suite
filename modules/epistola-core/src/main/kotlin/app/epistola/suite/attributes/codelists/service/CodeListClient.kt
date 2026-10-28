@@ -13,7 +13,6 @@ import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
@@ -62,7 +61,7 @@ class CodeListClient(
         return try {
             validateUrl(url, SOURCE_SCHEMES)
             guard.checkSource(url, allowHttp)
-            val bytes = sourceReader.readSource(url, authHeaders(authType, credential), allowHttp)
+            val bytes = sourceReader.readSource(url, authType.headers(credential), allowHttp)
             objectMapper.readValue(bytes, ENTRIES_TYPE)
         } catch (e: CodeListFetchException) {
             throw e
@@ -71,12 +70,6 @@ class CodeListClient(
             // and logs this one. Transport, refusal, status and parse failures all land here.
             throw CodeListFetchException("Fetch failed for $url: ${e.message}", e)
         }
-    }
-
-    private fun authHeaders(authType: AuthType, credential: String?): Map<String, String> = when (authType) {
-        AuthType.NONE -> emptyMap()
-        AuthType.BEARER -> mapOf(HttpHeaders.AUTHORIZATION to "Bearer $credential")
-        AuthType.API_KEY -> mapOf("X-API-Key" to (credential ?: ""))
     }
 
     companion object {

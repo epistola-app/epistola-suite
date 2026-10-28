@@ -153,6 +153,18 @@ enum class AuthType {
     NONE,
     API_KEY,
     BEARER,
+    ;
+
+    /**
+     * The request headers that send [credential] to a catalog or code-list source. An API key goes
+     * both as `Authorization: ApiKey <key>`, the only form an Epistola server reads since 2.0, and
+     * as `X-API-Key`, which other sources read.
+     */
+    fun headers(credential: String?): Map<String, String> = when (this) {
+        NONE -> emptyMap()
+        BEARER -> mapOf("Authorization" to "Bearer $credential")
+        API_KEY -> (credential ?: "").let { mapOf("Authorization" to "ApiKey $it", "X-API-Key" to it) }
+    }
 }
 
 /**
