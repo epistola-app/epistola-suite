@@ -16,6 +16,16 @@
  */
 
 @layer app {
+  :root {
+    /* The workspace bar: one row on desktop, two on phones (the context row sits below). */
+    --app-nav-height: 48px;
+  }
+
+  /* Keep anchors and scrollIntoView clear of whatever the bar currently occupies. */
+  html {
+    scroll-padding-top: var(--app-nav-height, 48px);
+  }
+
   /* ── App shell layout ────────────────────────────────────────────────── */
 
   .app-shell {
@@ -469,7 +479,7 @@
     align-items: center;
     gap: var(--ep-space-3);
     min-width: 0;
-    flex: 1;
+    flex: 0 0 auto;
     height: 100%;
   }
 
@@ -485,6 +495,7 @@
     align-items: center;
     gap: var(--ep-space-0-5);
     min-width: 0;
+    flex: 1 1 auto;
     height: 100%;
   }
 
@@ -637,12 +648,12 @@
 
   .ws-nav {
     position: sticky;
-    top: var(--ep-sticky-offset, 48px);
+    top: var(--app-nav-height, var(--ep-sticky-offset, 48px));
     /* The bar above and the footer below bound the nav: it starts where the bar ends and ends where
        the footer begins. --app-footer-height is measured by app-shell.js (the footer wraps on narrow
        screens and can carry a support badge); the 3rem fallback covers the first paint. */
-    height: calc(100vh - var(--ep-sticky-offset, 48px) - var(--app-footer-height, 3rem));
-    height: calc(100dvh - var(--ep-sticky-offset, 48px) - var(--app-footer-height, 3rem));
+    height: calc(100vh - var(--app-nav-height, 48px) - var(--app-footer-height, 3rem));
+    height: calc(100dvh - var(--app-nav-height, 48px) - var(--app-footer-height, 3rem));
     overflow-y: auto;
     padding: var(--ep-space-4) var(--ep-space-2-5);
     background: var(--ep-white);
@@ -767,6 +778,67 @@
   /* ── Responsive: the side nav becomes a panel behind the menu button ── */
 
   @media (max-width: 56rem) {
+    :root {
+      /* Two rows: 48px bar + 40px context row + the bar's 1px bottom border. */
+      --app-nav-height: 89px;
+    }
+
+    /* The bar wraps: navigation and actions on row one, the context row underneath, so the
+       breadcrumbs never have to shrink or scroll. */
+    .app-nav {
+      height: auto;
+      flex-wrap: wrap;
+      align-items: center;
+      row-gap: 0;
+    }
+
+    .ws-bar-left {
+      flex: 1 1 auto;
+      order: 1;
+      height: 48px;
+    }
+
+    .ws-bar-right {
+      order: 2;
+      height: 48px;
+      gap: var(--ep-space-2);
+    }
+
+    .ws-crumbs {
+      order: 3;
+      flex: 0 0 100%;
+      height: 40px;
+      border-top: 1px solid var(--ep-border-color);
+      overflow: visible;
+    }
+
+    /* The context menus open as a panel under the bar. In the 40px context row their absolutely
+       positioned menus were clipped by the row (and ran off the viewport), so on phones they drop
+       from the bar's edge, full width, with their own scroll. */
+    .ws-crumbs .app-nav-dropdown-menu {
+      position: fixed;
+      top: var(--app-nav-height);
+      left: var(--ep-space-4);
+      right: var(--ep-space-4);
+      min-width: 0;
+      max-height: calc(100dvh - var(--app-nav-height) - var(--ep-space-8));
+      overflow-y: auto;
+    }
+
+    /* An icon-only back button in the bar; the label stays the accessible name. */
+    .ws-back {
+      padding: 0 var(--ep-space-2);
+    }
+
+    .ws-back span {
+      display: none;
+    }
+
+    /* The user icon is the account trigger on phones; the chevron would not earn its width. */
+    .ws-account .app-nav-dropdown-trigger svg:last-of-type {
+      display: none;
+    }
+
     .app-nav-hamburger {
       display: flex;
     }
@@ -778,7 +850,7 @@
     .ws-nav {
       display: none;
       position: fixed;
-      top: var(--ep-sticky-offset, 48px);
+      top: var(--app-nav-height, var(--ep-sticky-offset, 48px));
       bottom: var(--app-footer-height, 3rem);
       left: 0;
       width: min(18rem, 85vw);
@@ -793,10 +865,6 @@
 
     body:has(.app-nav.nav-open) .ws-nav {
       display: block;
-    }
-
-    .ws-crumbs {
-      overflow-x: auto;
     }
 
     /* Inside a catalog the tenant gives way, so the catalog and the version stay in view;
