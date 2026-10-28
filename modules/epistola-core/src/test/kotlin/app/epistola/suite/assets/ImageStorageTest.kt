@@ -84,7 +84,7 @@ class ImageStorageTest : IntegrationTestBase() {
                 UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1).execute()
             }
         }
-        assertThat(one("SELECT count(*) FROM asset_content WHERE content_hash = '${app.epistola.suite.fonts.model.sha256Hex(bytes)}'")).isEqualTo("1")
+        assertThat(one("SELECT count(*) FROM asset_content WHERE content_hash = '${app.epistola.suite.common.sha256Hex(bytes)}'")).isEqualTo("1")
     }
 
     @Test

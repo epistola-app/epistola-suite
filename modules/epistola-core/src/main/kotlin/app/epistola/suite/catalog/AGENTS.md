@@ -4,10 +4,14 @@ Catalog exchange lives here, in `app.epistola.suite.catalog`: import/export, rem
 the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), the tenant snapshot
 primitives in `snapshot/`, and reference discovery in `graph/`. There is no separate catalog module.
 
-## The one dependency rule
+## The dependency rules
 
 `catalog` must **not** reference `exchange`. `CatalogExchangeIndependenceTest` checks this in
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
+
+The domains depend on `catalog`, not the reverse: where catalog must reach a domain, the domain
+implements a catalog SPI that catalog collects (`CatalogDraftLifecycle`, which environments
+implements). `CatalogBoundaryTest` lists what is still left, the per-type stores; the list only shrinks.
 
 Every SQL statement reading or writing catalog content names the catalog version it means, since a
 catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.

@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.merge
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.model.sha256Hex
+import app.epistola.suite.common.sha256Hex
 import org.springframework.stereotype.Component
 
 /**

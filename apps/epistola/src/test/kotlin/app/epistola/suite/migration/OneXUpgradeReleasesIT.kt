@@ -18,9 +18,9 @@ import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.environments.queries.GetGenerationReadiness
 import app.epistola.suite.environments.queries.PUBLISHED_IN_1X
-import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query

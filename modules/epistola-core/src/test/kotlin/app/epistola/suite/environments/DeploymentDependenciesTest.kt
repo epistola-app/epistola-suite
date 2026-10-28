@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.dependencies.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -17,7 +18,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.commands.UndeployCatalogRelease

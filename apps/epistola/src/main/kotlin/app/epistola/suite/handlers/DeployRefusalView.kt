@@ -4,7 +4,7 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.environments.MissingDependencyReason
+import app.epistola.suite.catalog.dependencies.MissingDependencyReason
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 
 /**
