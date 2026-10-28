@@ -365,6 +365,20 @@ integration tests. `CatalogBoundaryTest.ALLOWED` went from 39 to 33 entries.
 4. **The stencil pre-parse** in `CatalogArchiveResources` was there for a stencil version conflict
    (FAIL or RENUMBER). Stencil versions are gone, and only the comment remains. Confirm, then drop it
    with the rest of the per-type import.
+5. **Stored content carries no wire version.** Storage keeps each resource in the contract's wire
+   form (ADR 0038), deliberately: a release must keep the form it was published and fingerprinted in
+   (a received one byte for byte), and one format means no translation between storage and export
+   that can drift. Suite-only data goes beside it in the envelope. But `resource_contents` does not
+   record which wire version a content is in. It is implicitly the current one, and export stamps
+   `CATALOG_SCHEMA_VERSION` on it. Archives are upgraded on import (`CatalogSchemaMigrator`); stored
+   content is not. Before the next wire version, decide:
+   - **migrate stored content forward** with a code migration (ADR 0035). Simple, but a release's
+     stored bytes then change, so its recorded fingerprint must remain the one it was published
+     with, never recomputed; or
+   - **record the wire version with each content and upgrade on read**, through the migrator archives
+     use. A release stays byte-identical, at the cost of a migration on every read of old content.
+
+   Either way, the stability contract holds: stored content is never broken, only moved forward.
 
 ## Order
 
