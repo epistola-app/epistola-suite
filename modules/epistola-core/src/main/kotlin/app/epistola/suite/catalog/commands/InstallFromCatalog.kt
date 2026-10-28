@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.sources.ManifestUrlReleaseSource
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
@@ -68,12 +69,12 @@ class InstallFromCatalogHandler(
  * no longer publishes goes, subject to the conflict check; with changes, the release is recorded beside
  * the next version, to be merged (ADR 0032).
  */
-internal fun installFromSource(source: ManifestUrlReleaseSource, catalog: CatalogId): ImportCatalogZipResult {
+internal fun installFromSource(source: ManifestUrlReleaseSource, catalog: CatalogId, provenance: ReleaseProvenance? = null): ImportCatalogZipResult {
     val existing = GetCatalog(catalog).query()
         ?: throw IllegalArgumentException("Catalog not found: ${catalog.key.value}")
     requireNotNull(existing.sourceUrl) { "Catalog has no source URL: ${catalog.key.value}" }
     val version = source.offered(existing).single()
-    return source.install(existing, version)
+    return source.install(existing, version, provenance ?: source.provenance(existing))
 }
 
 /**

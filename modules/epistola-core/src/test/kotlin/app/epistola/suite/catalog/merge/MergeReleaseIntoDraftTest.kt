@@ -17,6 +17,8 @@ import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -75,7 +77,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
 
             // The two installations of one organisation hold the catalog's namespace both.
             TestNamespaces.share(a, b).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = v1).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(theme(b, catalog, "thx"), name = "B's x").execute()
             CreateTheme(id = theme(b, catalog, "thw"), name = "B's w").execute()
             DeleteTheme(theme(b, catalog, "thz")).execute()
@@ -85,7 +87,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
 
             UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
             UpdateTheme(theme(a, catalog, "thy"), name = "A's y").execute()
-            ImportCatalogZip(tenantKey = a, zipBytes = v2).execute()
+            ImportCatalogZip(tenantKey = a, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         return Installations(a, catalog)
     }

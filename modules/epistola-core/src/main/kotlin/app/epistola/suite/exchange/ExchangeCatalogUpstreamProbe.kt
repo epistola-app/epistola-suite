@@ -10,6 +10,10 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.CatalogUpstreamProbe
 import app.epistola.suite.catalog.CatalogUpstreamState
 import app.epistola.suite.catalog.UpstreamAvailability
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.installation.InstallationService
+import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.ResourceAccessException
@@ -34,6 +38,8 @@ class ExchangeCatalogUpstreamProbe(
     private val credentials: ExchangeCredentialService,
     private val client: ExchangeClient,
     private val availability: ExchangeAvailability,
+    private val jdbi: Jdbi,
+    private val installation: InstallationService,
 ) : CatalogUpstreamProbe {
 
     override fun supports(catalog: Catalog): Boolean = ExchangeSourceUri.matches(catalog.sourceUrl)
@@ -59,7 +65,7 @@ class ExchangeCatalogUpstreamProbe(
             )
 
         return try {
-            read(connection.baseUrl, token, coordinates, catalog.installedReleaseVersion)
+            read(connection.baseUrl, token, coordinates, catalog.latestReleaseVersion) { cutHere(catalog) }
         } catch (e: HttpClientErrorException.NotFound) {
             // Either the catalog is gone or this connection may no longer see it. Exchange answers
             // both the same way on purpose, and so must this: a 404 is not evidence of which.
@@ -85,6 +91,7 @@ class ExchangeCatalogUpstreamProbe(
         token: String,
         coordinates: ExchangeCatalogCoordinates,
         installedVersion: String?,
+        latestCutHere: () -> Boolean,
     ): CatalogUpstreamState {
         val summary = client.catalog(baseUrl, token, coordinates.namespace, coordinates.catalogKey)
         val advertised = summary.latestVersion
@@ -107,15 +114,32 @@ class ExchangeCatalogUpstreamProbe(
             availablePublishedAt = newest?.publishedAt,
             // Absent from the list at all is treated as withdrawn: for a consumer the two are the
             // same fact — the bytes it is running are no longer offered — and Exchange stops
-            // returning a release to everyone except the installation that publishes it.
-            installedAvailability = when {
+            // returning a release to everyone except the installation that publishes it. A release
+            // this installation cut was never the Exchange's to offer or withdraw: it has no answer.
+            upstreamAvailability = when {
                 installedVersion == null -> null
 
-                installed == null -> UpstreamAvailability.WITHDRAWN
+                installed == null -> if (latestCutHere()) null else UpstreamAvailability.WITHDRAWN
 
                 else -> runCatching { UpstreamAvailability.valueOf(installed.availability) }
                     .getOrDefault(UpstreamAvailability.AVAILABLE)
             },
         )
+    }
+
+    /** Whether [catalog]'s highest release was cut by this installation, however it reached the tenant. */
+    private fun cutHere(catalog: Catalog): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT EXISTS (SELECT 1 FROM catalog_versions
+                           WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'released' AND version = :v
+                             AND released_by_installation = :me)
+            """,
+        )
+            .bind("t", catalog.tenantKey).bindCatalog("c", catalog.catalogId)
+            .bind("v", catalog.latestReleaseVersion)
+            .bind("me", installation.get().id)
+            .mapTo(Boolean::class.java)
+            .one()
     }
 }

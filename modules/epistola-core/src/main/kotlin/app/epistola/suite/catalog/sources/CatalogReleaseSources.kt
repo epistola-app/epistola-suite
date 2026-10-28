@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.publishedContent
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import org.springframework.core.annotation.Order
@@ -35,14 +36,11 @@ interface CatalogReleaseSource {
     /** The archive of release [version]. @throws CatalogSourceUnavailableException */
     fun archive(catalog: Catalog, version: String): ByteArray
 
+    /** How a release installed from this source arrives, as its release records it (shown, never decided by). */
+    fun provenance(catalog: Catalog): ReleaseProvenance = ReleaseProvenance.ofSource(catalog)
+
     /** Installs release [version], beside the catalog's others; an older wire schema is migrated, as nobody is asked. */
-    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(
-        catalog.tenantKey,
-        archive(catalog, version),
-        confirmMigration = true,
-        // A release from before wire v8 names no catalog: it is this one.
-        legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(catalog.registry, catalog.namespace),
-    ).execute()
+    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = importRelease(catalog, archive(catalog, version), provenance(catalog))
 
     /**
      * Installs release [version] of the catalog named [registry]/[namespace]/[catalogKey], which the
@@ -62,6 +60,16 @@ class CatalogSourceUnavailableException(
     val retryAfterSeconds: Long? = null,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
+
+/** Imports [archive], a release of [catalog] that arrived as [provenance] says. */
+internal fun importRelease(catalog: Catalog, archive: ByteArray, provenance: ReleaseProvenance): ImportCatalogZipResult = ImportCatalogZip(
+    catalog.tenantKey,
+    archive,
+    confirmMigration = true,
+    // A release from before wire v8 names no catalog: it is this one.
+    legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(catalog.registry, catalog.namespace),
+    provenance = provenance,
+).execute()
 
 /** The sources a subscribed catalog may have, asked in order. */
 @Component
@@ -85,6 +93,9 @@ class ManifestUrlReleaseSource(
     private val archiveBuilder: CatalogArchiveBuilder,
 ) : CatalogReleaseSource {
     override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl != null
+
+    /** Installs release [version] as having arrived as [provenance] says (the upgrade from 1.x names its own). */
+    fun install(catalog: Catalog, version: String, provenance: ReleaseProvenance): ImportCatalogZipResult = importRelease(catalog, archive(catalog, version), provenance)
 
     override fun offered(catalog: Catalog): List<String> = listOf(fetch { manifest(catalog) }.release.version)
 

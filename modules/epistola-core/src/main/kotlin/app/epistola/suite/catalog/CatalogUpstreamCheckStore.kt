@@ -22,6 +22,7 @@ import java.time.OffsetDateTime
 @Component
 class CatalogUpstreamCheckStore(
     private val jdbi: Jdbi,
+    private val metrics: CatalogMetrics,
 ) {
     /** Every recorded check for a tenant, by catalog (namespace and key, ADR 0034), for rendering a whole list at once. */
     fun statesFor(tenantKey: TenantKey): Map<CatalogId, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogId, CatalogUpstreamCheck>, Exception> { handle ->
@@ -45,15 +46,20 @@ class CatalogUpstreamCheckStore(
      * count over already-recorded state — never a call to anybody's server.
      */
     fun countUpgradesAvailable(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
+        // One indexed read of the offers that differ from the catalog's highest release; which of
+        // them are newer is decided by the one definition of that ([CatalogUpstreamCheck.upgradeAvailable]).
         handle.createQuery(
             """
-            SELECT COUNT(*) FROM catalog_upstream_checks u
-            LEFT JOIN catalog_installed_releases ir ON ir.tenant_key = u.tenant_key AND ir.catalog_id = u.catalog_id
+            SELECT u.available_release_version, cr.version FROM catalog_upstream_checks u
+            LEFT JOIN catalog_current_releases cr ON cr.tenant_key = u.tenant_key AND cr.catalog_id = u.catalog_id
             WHERE u.tenant_key = :t
               AND u.available_release_version IS NOT NULL
-              AND u.available_release_version IS DISTINCT FROM ir.version
+              AND u.available_release_version IS DISTINCT FROM cr.version
             """,
-        ).bind("t", tenantKey).mapTo(Int::class.java).one()
+        ).bind("t", tenantKey)
+            .map { rs, _ -> SemVer.isNewer(rs.getString(1), rs.getString(2)) }
+            .list()
+            .count { it }
     }
 
     /**
@@ -68,16 +74,16 @@ class CatalogUpstreamCheckStore(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_upstream_checks (
-                    tenant_key, catalog_id, available_release_version, installed_availability,
-                    installed_availability_checked_at, installed_archive_sha256,
+                    tenant_key, catalog_id, available_release_version, upstream_availability,
+                    upstream_availability_checked_at, received_archive_sha256,
                     last_checked_at, next_check_at, check_attempts, error_code, error_detail
                 )
                 VALUES (:t, ${catalogAt("t", "c")}, :version, 'AVAILABLE', NOW(), :sha, NOW(), NOW() + :interval * INTERVAL '1 second', 0, NULL, NULL)
                 ON CONFLICT (tenant_key, catalog_id) DO UPDATE
                 SET available_release_version = :version,
-                    installed_availability = 'AVAILABLE',
-                    installed_availability_checked_at = NOW(),
-                    installed_archive_sha256 = :sha,
+                    upstream_availability = 'AVAILABLE',
+                    upstream_availability_checked_at = NOW(),
+                    received_archive_sha256 = :sha,
                     last_checked_at = NOW(),
                     next_check_at = NOW() + :interval * INTERVAL '1 second',
                     check_attempts = 0,
@@ -165,9 +171,9 @@ class CatalogUpstreamCheckStore(
                 SET available_release_version = :version,
                     available_schema_version = :schemaVersion,
                     available_published_at = :publishedAt,
-                    installed_availability = COALESCE(:availability, installed_availability),
-                    installed_availability_checked_at = CASE
-                        WHEN :availability IS NULL THEN installed_availability_checked_at ELSE NOW() END,
+                    upstream_availability = COALESCE(:availability, upstream_availability),
+                    upstream_availability_checked_at = CASE
+                        WHEN :availability IS NULL THEN upstream_availability_checked_at ELSE NOW() END,
                     last_checked_at = NOW(),
                     next_check_at = $JITTERED_NEXT_CHECK,
                     check_attempts = 0,
@@ -182,10 +188,11 @@ class CatalogUpstreamCheckStore(
                 .bind("version", state.availableVersion)
                 .bind("schemaVersion", state.availableSchemaVersion)
                 .bind("publishedAt", state.availablePublishedAt)
-                .bind("availability", state.installedAvailability?.name)
+                .bind("availability", state.upstreamAvailability?.name)
                 .bind("interval", interval.toSeconds())
                 .execute()
         }
+        metrics.upstreamChecked(CatalogMetrics.OUTCOME_OK)
     }
 
     /**
@@ -223,14 +230,15 @@ class CatalogUpstreamCheckStore(
                 .bind("interval", interval.toSeconds())
                 .execute()
         }
+        metrics.upstreamChecked(failure.name.lowercase())
     }
 
     private fun map(rs: ResultSet, ctx: StatementContext) = CatalogUpstreamCheck(
         catalogKey = CatalogKey.of(rs.getString("catalog_key")),
         availableVersion = rs.getString("available_release_version"),
         availableSchemaVersion = rs.getObject("available_schema_version") as Int?,
-        installedAvailability = rs.getString("installed_availability")?.let(UpstreamAvailability::valueOf),
-        installedArchiveSha256 = rs.getString("installed_archive_sha256"),
+        upstreamAvailability = rs.getString("upstream_availability")?.let(UpstreamAvailability::valueOf),
+        receivedArchiveSha256 = rs.getString("received_archive_sha256"),
         lastCheckedAt = rs.getObject("last_checked_at", OffsetDateTime::class.java),
         failure = rs.getString("error_code")?.let { code ->
             runCatching { CatalogUpstreamCheckFailure.valueOf(code) }.getOrNull()
@@ -241,7 +249,7 @@ class CatalogUpstreamCheckStore(
     private companion object {
         const val SELECT_CHECK = """
             SELECT c.catalog_key, c.namespace, u.available_release_version, u.available_schema_version,
-                   u.installed_availability, u.installed_archive_sha256, u.last_checked_at,
+                   u.upstream_availability, u.received_archive_sha256, u.last_checked_at,
                    u.error_code, u.error_detail
             FROM catalog_upstream_checks u
             JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
@@ -269,12 +277,15 @@ data class CatalogUpstreamCheck(
     val catalogKey: CatalogKey,
     val availableVersion: String?,
     val availableSchemaVersion: Int?,
-    val installedAvailability: UpstreamAvailability?,
-    val installedArchiveSha256: String?,
+    val upstreamAvailability: UpstreamAvailability?,
+    val receivedArchiveSha256: String?,
     val lastCheckedAt: OffsetDateTime?,
     val failure: CatalogUpstreamCheckFailure?,
     val failureDetail: String?,
 ) {
-    /** Whether the recorded answer names a release other than the one installed. */
-    fun upgradeAvailable(installedVersion: String?): Boolean = availableVersion != null && availableVersion != installedVersion
+    /**
+     * Whether the recorded answer names a release newer than [latestVersion], the catalog's highest
+     * release ([SemVer.isNewer]): one cut here above its source's keeps it current.
+     */
+    fun upgradeAvailable(latestVersion: String?): Boolean = availableVersion != null && SemVer.isNewer(availableVersion, latestVersion)
 }

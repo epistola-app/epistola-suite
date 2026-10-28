@@ -29,22 +29,21 @@ data class Catalog(
     val sourceAuthType: AuthType = AuthType.NONE,
     /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
     val sourceAuthCredential: Secret? = null,
-    /**
-     * The release it installed: the one its next version is based on, if received from its publisher
-     * (`catalog_installed_releases`, ADR 0036). Null for a catalog that never received a release.
-     */
-    val installedReleaseVersion: String? = null,
-    val installedFingerprint: String? = null,
     @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
-    val installedAt: OffsetDateTime? = null,
-    val releasedVersion: String? = null,
-    val releasedFingerprint: String? = null,
-    val releasedAt: OffsetDateTime? = null,
+    /**
+     * Its highest release by number (`catalog_current_releases`, ADR 0036), released here or
+     * received: a release is a release however it arrived. Null for a catalog without one.
+     */
+    val latestReleaseVersion: String? = null,
+    /** The fingerprint of [latestReleaseVersion]. */
+    val latestReleaseFingerprint: String? = null,
+    /** When [latestReleaseVersion] became a release in this tenant. */
+    val latestReleasedAt: OffsetDateTime? = null,
     val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
-     * [releasedAt] it forms the drift baseline
-     * `GREATEST(releasedAt, importedAt)`: a resource changed after it = the
+     * [latestReleasedAt] it forms the drift baseline
+     * `GREATEST(latestReleasedAt, importedAt)`: a resource changed after it = the
      * working copy has unreleased changes (the catalog list's "pending
      * changes" hint). A no-op re-import advances this in lockstep with the
      * imported resources, so it does not register as drift.
@@ -68,17 +67,6 @@ data class Catalog(
 
     /** Its releases come from a source that can be asked for newer ones (ADR 0032, section 7). */
     val hasSource: Boolean get() = sourceUrl != null
-
-    /**
-     * Its highest release, released here or received ([installedReleaseVersion]), by version
-     * number; null when it has none. A received catalog can be released here too (ADR 0032), so
-     * neither pointer alone is the highest.
-     */
-    val highestReleaseVersion: String? get() = listOfNotNull(releasedVersion, installedReleaseVersion)
-        .maxWithOrNull(compareBy(nullsFirst()) { SemVer.parseOrNull(it) })
-
-    /** The fingerprint of [highestReleaseVersion]. */
-    val highestReleaseFingerprint: String? get() = if (highestReleaseVersion != null && highestReleaseVersion == releasedVersion) releasedFingerprint else installedFingerprint
 
     companion object {
         const val CLASSPATH_SOURCE = "classpath:"
@@ -153,6 +141,18 @@ enum class AuthType {
     NONE,
     API_KEY,
     BEARER,
+    ;
+
+    /**
+     * The request headers that send [credential] to a catalog or code-list source. An API key goes
+     * both as `Authorization: ApiKey <key>`, the only form an Epistola server reads since 2.0, and
+     * as `X-API-Key`, which other sources read.
+     */
+    fun headers(credential: String?): Map<String, String> = when (this) {
+        NONE -> emptyMap()
+        BEARER -> mapOf("Authorization" to "Bearer $credential")
+        API_KEY -> (credential ?: "").let { mapOf("Authorization" to "ApiKey $it", "X-API-Key" to it) }
+    }
 }
 
 /**

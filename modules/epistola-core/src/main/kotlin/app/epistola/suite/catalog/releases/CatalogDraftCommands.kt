@@ -239,6 +239,8 @@ class CatalogReleaseCopier(
                 validateCrossCatalogDeps = false,
                 confirmMigration = true,
                 intoDraft = true,
+                // A release copied into a draft: nothing arrives.
+                provenance = null,
             ).execute()
         }
         val failed = imported.results.filter { it.status == InstallStatus.FAILED }

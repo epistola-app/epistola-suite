@@ -25,7 +25,6 @@ CREATE TABLE catalog_versions (
     version_key                VARCHAR(36)  NOT NULL DEFAULT epistola_version_key(),
     catalog_id                 UUID         NOT NULL,
     state                      VARCHAR(16)  NOT NULL,
-    origin                     VARCHAR(16)  NOT NULL DEFAULT 'authored',
     version                    VARCHAR(128),
     name                       VARCHAR(100),
     base_version               VARCHAR(128),
@@ -46,6 +45,9 @@ CREATE TABLE catalog_versions (
     released_at                TIMESTAMPTZ,
     released_by                UUID,
     released_by_installation   UUID,
+    -- How the release came to be in this tenant (provenance, descriptive only).
+    released_via               VARCHAR(16),
+    released_from              TEXT,
     -- A release sorts as SemVer says, a patch release labelled with a namespace and a sequence
     -- number (1.3.1-gemeente-x.1, ADR 0034) above its core's predecessor and below the next core.
     version_major              INTEGER GENERATED ALWAYS AS ((substring(version, '^(\d+)\.\d+\.\d+(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'))::integer) STORED,
@@ -59,13 +61,10 @@ CREATE TABLE catalog_versions (
     CONSTRAINT uq_catalog_versions_key UNIQUE (tenant_key, catalog_id, version_key),
     CONSTRAINT uq_catalog_versions_number UNIQUE (tenant_key, catalog_id, version),
     CONSTRAINT chk_catalog_versions_state CHECK (state IN ('draft', 'released')),
-    CONSTRAINT chk_catalog_versions_origin CHECK (origin IN ('authored', 'installed')),
     -- A released version has its number and record; a draft has none of them.
     CONSTRAINT chk_catalog_versions_released CHECK (
         (state = 'released') = (version IS NOT NULL AND fingerprint IS NOT NULL AND content_hash IS NOT NULL AND released_at IS NOT NULL)),
     CONSTRAINT chk_catalog_versions_draft_unnumbered CHECK (state = 'released' OR version IS NULL),
-    -- An installed version is a release: a subscribed catalog's next draft is authored here.
-    CONSTRAINT chk_catalog_versions_installed_is_released CHECK (origin <> 'installed' OR state = 'released'),
     -- The version this one was made from, by its row: lineage, not ownership, so it survives the
     -- base being deleted (base_version and base_fingerprint keep what it was).
     CONSTRAINT fk_catalog_versions_base FOREIGN KEY (tenant_key, base_version_id)
@@ -86,7 +85,6 @@ COMMENT ON TABLE catalog_versions IS
 COMMENT ON COLUMN catalog_versions.version_key IS
     'The version''s id (contract CatalogVersionId), given when it is started as a draft and kept when it is released.';
 COMMENT ON COLUMN catalog_versions.state IS 'draft or released (ADR 0036): releasing a draft freezes its row.';
-COMMENT ON COLUMN catalog_versions.origin IS 'authored here, or installed: received from an archive, a registry or the Exchange.';
 COMMENT ON COLUMN catalog_versions.version IS 'The release number; NULL for a draft, which is numbered when it is released.';
 COMMENT ON COLUMN catalog_versions.name IS
     'What people call a draft that is long-term work (not the next version), e.g. "Redesign 2027". NULL for the next version, which is always "Next version".';
@@ -106,7 +104,13 @@ COMMENT ON COLUMN catalog_versions.content_hash IS
     'A release''s content hash (its V6 fingerprint, ADR 0034): what identifies it, whatever its number or route.';
 COMMENT ON COLUMN catalog_versions.rendering_defaults_version IS
     'The rendering defaults a release was cut against (RenderingDefaults.version), so an engine upgrade does not change what it renders.';
-COMMENT ON COLUMN catalog_versions.released_by IS 'users.id of the user who released it in this installation; NULL for a received release. No FK, as for the other audit columns.';
+COMMENT ON COLUMN catalog_versions.released_at IS 'When the version became a release in this tenant: released here, or received.';
+COMMENT ON COLUMN catalog_versions.released_by IS
+    'users.id of the user who released it here or installed it: the system user for the system (a bundled catalog, an upgrade), NULL when not known (a 1.x release, an old snapshot). No FK, as for the other audit columns.';
+COMMENT ON COLUMN catalog_versions.released_via IS
+    'How the release came to be in this tenant: released (here), upload, api, registry, exchange, source (a URL source), bundled, upgrade-1x or snapshot. Descriptive only: nothing decides by it, a release is a release however it arrived.';
+COMMENT ON COLUMN catalog_versions.released_from IS
+    'Where it came from, in the terms of released_via: the source URL, the registry reference or the Exchange address; NULL when there is no such place (released here, an upload).';
 COMMENT ON COLUMN catalog_versions.released_by_installation IS
     'The installation that cut the release (app_metadata installation id): this one, or the publisher''s for a received release.';
 COMMENT ON COLUMN catalog_versions.version_label IS

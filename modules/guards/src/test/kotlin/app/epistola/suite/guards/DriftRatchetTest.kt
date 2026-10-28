@@ -44,9 +44,6 @@ class DriftRatchetTest {
         Counter("handler files using require(", 23, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
-        Counter("handler files annotated @Transactional", 9, "the mediator's transaction") {
-            handlerFiles(Regex("""@Transactional"""))
-        },
         Counter("mediator.send/query in epistola-mcp", 22, "execute() / query() extensions") {
             mainLines(Regex("""\bmediator\.(send|query)\(""")) { it.startsWith("modules/epistola-mcp/") }
         },
@@ -64,9 +61,6 @@ class DriftRatchetTest {
             RepoSources.mainKotlinFiles().count { path ->
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }
-        },
-        Counter("Pagination.paginate( in rest-api", 9, "database LIMIT/OFFSET") {
-            mainLines(Regex("""Pagination\.paginate\(""")) { it.startsWith("modules/rest-api/") }
         },
         Counter("handlers/*.kt declaring another package", 21, "directory matches package") {
             RepoSources.mainKotlinFiles().count { path ->

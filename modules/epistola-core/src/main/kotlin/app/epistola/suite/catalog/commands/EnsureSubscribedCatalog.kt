@@ -101,29 +101,29 @@ class EnsureSubscribedCatalogHandler(
         // (legacy / hand-rolled external) can't be drift-detected, so fall
         // back to the version string instead of re-upgrading on every boot.
         val contentCurrent = if (bundledFingerprint != null) {
-            // The installed release is the bundled one when their content is (ADR 0034), however each was fingerprinted.
-            existing.installedFingerprint == bundledFingerprint ||
-                (existing.installedReleaseVersion == bundledVersion && jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, catalog, bundledVersion, bundledFingerprint) })
+            // Current when the catalog has the bundled release, by its content (ADR 0034), however each was fingerprinted.
+            existing.latestReleaseFingerprint == bundledFingerprint ||
+                jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, catalog, bundledVersion, bundledFingerprint) }
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection (no content drift detection) for tenant {}",
                 catalogKey.value,
                 command.tenantKey.value,
             )
-            existing.installedReleaseVersion == bundledVersion
+            existing.latestReleaseVersion == bundledVersion
         }
-        // The installed release is the source's: nothing to receive. What the next version changed on
+        // The catalog has the source's release: nothing to receive. What the next version changed on
         // top of it is its own (ADR 0032), kept as an import keeps it.
         if (contentCurrent) {
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,
-                existing.installedReleaseVersion,
+                existing.latestReleaseVersion,
                 bundledVersion,
                 catalog,
             )
         }
-        val previousVersion = existing.installedReleaseVersion
+        val previousVersion = existing.latestReleaseVersion
         val upgrade = UpgradeCatalog(catalog = existing.catalogId).execute()
         if (upgrade.aborted) {
             // Loud + self-retrying: SystemCatalogBootstrap's catch counts this

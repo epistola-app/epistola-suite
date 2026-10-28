@@ -49,6 +49,7 @@ class ContainerNodeRenderer : NodeRenderer {
                 is com.itextpdf.layout.element.Image -> div.add(element)
             }
         }
+        if (context.renderingDefaults.collapseBlockMargins) BlockMarginCollapse.collapse(div)
 
         return listOf(div)
     }

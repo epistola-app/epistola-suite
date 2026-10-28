@@ -75,6 +75,7 @@ import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.queries.ListCatalogPage
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseContentHashes
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
@@ -95,8 +96,11 @@ import app.epistola.suite.catalog.releases.GetCatalogNames
 import app.epistola.suite.catalog.releases.GetCatalogRelease
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.catalog.releases.GetReleasedThemeSettings
+import app.epistola.suite.catalog.releases.ListCatalogReleasePage
 import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.releases.ListReleasesByContentHash
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.RenameCatalogDraft
 import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.catalog.releases.UpdateCatalogDraft
@@ -145,11 +149,15 @@ class EpistolaCatalogApi(
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val tenant = TenantKey.of(tenantKey)
-        val catalogs = ListCatalogs(tenant).query()
-        val slice = Pagination.paginate(catalogs, page, size)
+        val catalogs = ListCatalogPage(tenant, Pagination.requestOf(page, size)).query()
         val editability = ListCatalogEditability(tenant).query()
         val hashes = ListReleaseContentHashes(tenant).query()
-        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.catalogId), hashes) }))
+        return ResponseEntity.ok(
+            CatalogListResponse(
+                page = Pagination.pageMeta(page, size, catalogs.total),
+                items = catalogs.items.map { it.toDto(editability.of(it.catalogId), hashes) },
+            ),
+        )
     }
 
     /**
@@ -226,6 +234,7 @@ class EpistolaCatalogApi(
             confirmMigration = true,
             registry = registry?.let { if (it == DEFAULT_REGISTRY_SEGMENT) identity.defaultRegistry else it },
             namespace = namespace,
+            provenance = ReleaseProvenance.ofFile(ReleaseChannel.API, file.originalFilename),
         ).execute()
         if (result.aborted) throw IllegalStateException("Importing ${result.catalogKey.value} ${result.releaseVersion} failed; nothing changed")
 
@@ -290,11 +299,9 @@ class EpistolaCatalogApi(
                 ),
             )
         }
-        // The versions come in SemVer order, which SQL does not sort by; a catalog's version count
-        // is bounded by its release history, so the page is cut here.
-        val versions = ListCatalogReleases(catalog.catalogId, status?.toDomain()).query()
-        val slice = Pagination.paginate(versions, page, size)
-        return ResponseEntity.ok(CatalogReleaseListResponse(items = slice.items.map { it.toDto(catalog) }, page = slice.page))
+        // Drafts first, then releases highest first: ordered and cut in the database.
+        val versions = ListCatalogReleasePage(catalog.catalogId, status?.toDomain(), Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(CatalogReleaseListResponse(items = versions.items.map { it.toDto(catalog) }, page = Pagination.pageMeta(page, size, versions.total.toLong())))
     }
 
     override fun getCatalogRelease(
@@ -610,9 +617,9 @@ class EpistolaCatalogApi(
             editable = reason == null,
             readOnlyReason = reason?.let { CatalogDto.ReadOnlyReason.forValue(it.wire) },
             source = sourceUrl,
-            highestVersion = highestReleaseVersion,
-            fingerprint = highestReleaseFingerprint,
-            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(catalogId, highestReleaseVersion),
+            highestVersion = latestReleaseVersion,
+            fingerprint = latestReleaseFingerprint,
+            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(catalogId, latestReleaseVersion),
         )
     }
 

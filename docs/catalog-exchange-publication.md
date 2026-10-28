@@ -344,8 +344,8 @@ so there is never a queue of work waiting on configuration.
 computes its canonical fingerprint, and constructs the same portable ZIP used
 by export. When the resolved policy says publish, one database transaction:
 
-1. inserts the immutable `catalog_releases` row;
-2. advances the catalog's released-version pointer;
+1. freezes the draft's row in `catalog_versions` as the release (ADR 0038);
+2. opens the next draft;
 3. stores the exact ZIP in `catalog_release_publications` with a fresh
    idempotency key, `READY` to submit.
 

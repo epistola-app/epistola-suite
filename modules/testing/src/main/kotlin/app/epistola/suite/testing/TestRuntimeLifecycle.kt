@@ -81,7 +81,16 @@ object TestRuntimeLifecycle {
             // sharing it down as a context-load failure. The pools are also bounded (see each
             // module's application-test) — this is the headroom, not the fix.
             .withCommand("postgres", "-c", "max_connections=400")
+            // Starting a container is a few calls to the container engine, and one of them sometimes
+            // gets no answer: a full local suite on Podman failed once with `NoHttpResponseException`
+            // while starting this container, and passed on its own. Testcontainers removes a failed
+            // attempt's container and tries again, so a start gets two more tries; a real failure
+            // (a bad image, a server that will not come up) still fails all three.
+            .withStartupAttempts(STARTUP_ATTEMPTS)
     }
+
+    /** How many times a container start is tried; see [newPostgresContainer]. */
+    const val STARTUP_ATTEMPTS = 3
 
     fun postgres(): PostgreSQLContainer {
         sharedPostgres?.let { return it }

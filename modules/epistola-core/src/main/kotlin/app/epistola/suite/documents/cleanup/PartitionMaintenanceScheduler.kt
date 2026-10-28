@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.time.YearMonth
+import java.time.ZoneOffset
 
 /**
  * Scheduled maintenance for RANGE-partitioned tables.
@@ -142,7 +143,7 @@ class PartitionMaintenanceScheduler(
      * Ensure the current and next month partitions exist for [config]. Idempotent.
      */
     private fun createRequiredPartitions(config: PartitionedTable) {
-        val now = YearMonth.from(EpistolaClock.offsetDateTime())
+        val now = currentMonthUtc()
         createPartitionForMonth(config, now)
         createPartitionForMonth(config, now.plusMonths(1))
     }
@@ -156,13 +157,20 @@ class PartitionMaintenanceScheduler(
      * `EXECUTE` on the function (issue #438). The month is computed here from
      * [EpistolaClock] and passed as a typed `date`; the function derives the
      * partition name and bounds.
+     *
+     * The bounds are `date` literals the function writes into `FOR VALUES FROM … TO …`, and Postgres
+     * reads them against the `timestamptz` partition key in the session's time zone, which pgjdbc takes
+     * from the JVM. So the statement runs with `SET LOCAL TIME ZONE 'UTC'` in its own transaction:
+     * every monthly partition spans UTC midnights whatever zone a node runs in, and nothing leaks to
+     * other statements on the pooled connection.
      */
     private fun createPartitionForMonth(
         config: PartitionedTable,
         month: YearMonth,
     ) {
         try {
-            val partitionName = jdbi.withHandle<String, Exception> { handle ->
+            val partitionName = jdbi.inTransaction<String, Exception> { handle ->
+                handle.execute("SET LOCAL TIME ZONE 'UTC'")
                 handle.createQuery("SELECT epistola_create_partition(:parent::regclass, :month)")
                     .bind("parent", config.tableName)
                     .bind("month", month.atDay(1))
@@ -188,7 +196,7 @@ class PartitionMaintenanceScheduler(
      */
     private fun dropOldPartitions(config: PartitionedTable) {
         val retentionMonths = config.retentionMonths ?: return
-        val cutoff = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(retentionMonths.toLong()).atDay(1)
+        val cutoff = currentMonthUtc().minusMonths(retentionMonths.toLong()).atDay(1)
 
         val dropped = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery("SELECT * FROM epistola_drop_partitions_before(:parent::regclass, :cutoff)")
@@ -204,6 +212,9 @@ class PartitionMaintenanceScheduler(
             logger.debug("No old partitions to drop for table {}", config.tableName)
         }
     }
+
+    /** The current month in UTC, the zone every partition is bounded in, whatever zone the JVM runs in. */
+    private fun currentMonthUtc(): YearMonth = YearMonth.from(EpistolaClock.instant().atOffset(ZoneOffset.UTC))
 
     companion object {
         const val TASK_KEY = "core.partition-maintenance"

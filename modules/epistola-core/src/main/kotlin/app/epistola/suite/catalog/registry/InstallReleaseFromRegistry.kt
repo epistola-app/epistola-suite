@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.LegacyCatalogName
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -144,6 +146,7 @@ class InstallReleaseFromRegistryHandler(
             // One from before wire v8 names no catalog: the namespace it is published under here, on
             // the default registry, which every catalog was on then.
             legacyName = LegacyCatalogName(identity.defaultRegistry, namespace),
+            provenance = ReleaseProvenance(ReleaseChannel.REGISTRY, source.toString()),
         ).execute()
 
         if (imported.aborted) {

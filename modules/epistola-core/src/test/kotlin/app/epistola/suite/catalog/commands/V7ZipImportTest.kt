@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -37,12 +39,12 @@ class V7ZipImportTest : IntegrationTestBase() {
         val tenant = createTenant("V7 zip import")
 
         withMediator {
-            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true).execute() }
+            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOfSatisfying(CatalogNameRequiredException::class.java) { assertThat(it.missing).containsExactlyInAnyOrder("registry", "namespace") }
-            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), registry = identity.defaultRegistry, namespace = "letters-ns").execute() }
+            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOf(CatalogMigrationConfirmationRequiredException::class.java)
 
-            val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns").execute()
+            val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(result.results.map { it.status }).containsOnly(InstallStatus.INSTALLED)
             val catalog = GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()!!
@@ -63,13 +65,13 @@ class V7ZipImportTest : IntegrationTestBase() {
         }
 
         withMediator {
-            assertThatThrownBy { ImportCatalogZip(consumer, archive, namespace = "another-ns").execute() }
+            assertThatThrownBy { ImportCatalogZip(consumer, archive, namespace = "another-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOfSatisfying(CatalogNameMismatchException::class.java) { assertThat(it.named).isEqualTo("v8-named-ns") }
-            assertThatThrownBy { ImportCatalogZip(consumer, archive, registry = "registry.elsewhere.example").execute() }
+            assertThatThrownBy { ImportCatalogZip(consumer, archive, registry = "registry.elsewhere.example", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOf(CatalogNameMismatchException::class.java)
             assertThat(GetCatalog(testCatalog(consumer, catalog)).query()).isNull()
 
-            ImportCatalogZip(consumer, archive, registry = identity.defaultRegistry, namespace = "v8-named-ns").execute()
+            ImportCatalogZip(consumer, archive, registry = identity.defaultRegistry, namespace = "v8-named-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(GetCatalog(testCatalog(consumer, catalog)).query()!!.namespace).isEqualTo("v8-named-ns")
         }
     }

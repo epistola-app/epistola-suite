@@ -177,13 +177,11 @@ Attribute definitions are managed through the UI. The attribute registry is tena
 | `created_at`     | `TIMESTAMPTZ`  | Creation timestamp                      |
 | `last_modified`  | `TIMESTAMPTZ`  | Last modification timestamp             |
 
-### `template_variants.attributes`
+### A variant's attributes and the default variant
 
-The `attributes` column (JSONB) stores the variant's attribute map as `{"key": "value", ...}`.
-
-### `template_variants.is_default`
-
-Boolean flag indicating the default variant for a template. Enforced by a partial unique index `WHERE is_default = TRUE` to guarantee exactly one default per template. The first variant created for a template is automatically the default.
+A template's content (its `resource`, [ADR 0038](adr/0038-catalogs-in-2-0.md)) lists its variants
+with each variant's attribute map (`{"key": "value", ...}`) and which variant is the default. A
+template has exactly one default; the first variant created is the default.
 
 ## Key Files
 

@@ -99,7 +99,7 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
         assertThat(count("SELECT count(*) FROM catalogs WHERE tenant_key = :t AND catalog_key = 'partner'", SUBSCRIBER))
             .`as`("the tenant's 1.x catalog receives it, renamed to the name its source gives it; no second catalog").isOne()
         val partner = CatalogId(PUBLISHER_NAMESPACE, PARTNER, TenantId(SUBSCRIBER))
-        assertThat(releases(SUBSCRIBER, PARTNER)).`as`("received at boot from its source, as an installed release").containsExactly("1.1.0" to "installed")
+        assertThat(releases(SUBSCRIBER, PARTNER)).`as`("received at boot from its source, on the upgrade from 1.x").containsExactly("1.1.0" to "upgrade-1x")
         val theme = requireNotNull(asTenant(SUBSCRIBER) { GetTheme(ThemeId(ThemeKey.of("partner-theme"), partner)).query() })
         assertThat(theme.documentStyles["fontSize"]).`as`("its next version fast-forwarded to the received release").isEqualTo("12pt")
     }
@@ -148,7 +148,7 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
 
     private fun releases(tenant: TenantKey, catalog: CatalogKey): List<Pair<String, String>> = jdbi.withHandle<List<Pair<String, String>>, Exception> { handle ->
         handle.createQuery(
-            "SELECT v.version, v.origin FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id WHERE v.tenant_key = :t AND c.catalog_key = :k AND v.state = 'released' ORDER BY v.version",
+            "SELECT v.version, v.released_via FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id WHERE v.tenant_key = :t AND c.catalog_key = :k AND v.state = 'released' ORDER BY v.version",
         ).bind("t", tenant).bind("k", catalog.value).map { rs, _ -> rs.getString(1) to rs.getString(2) }.list()
     }
 

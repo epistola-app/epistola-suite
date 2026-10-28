@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.outbound.OutboundFetchException
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.ResourceAccessException
 
 /**
@@ -48,6 +49,16 @@ class ManifestCatalogUpstreamProbe(
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNAUTHORIZED, e.message, e)
         } catch (e: HttpClientErrorException.Forbidden) {
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNAUTHORIZED, e.message, e)
+        } catch (e: HttpClientErrorException.Gone) {
+            throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.NOT_FOUND, e.message, e)
+        } catch (e: HttpClientErrorException.TooManyRequests) {
+            // The source is there but busy: as transient as an outage, and checked again on schedule.
+            throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNREACHABLE, e.message, e)
+        } catch (e: HttpServerErrorException) {
+            throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNREACHABLE, e.message, e)
+        } catch (e: HttpClientErrorException) {
+            // Any other refusal of a plain GET: the source answered, with nothing this check can use.
+            throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.PROTOCOL_ERROR, e.message, e)
         } catch (e: OutboundFetchException) {
             // Refused by the outbound source rules, or an over-long redirect chain or response: the
             // source cannot be read from here, whichever it was.
@@ -60,7 +71,7 @@ class ManifestCatalogUpstreamProbe(
             availableSchemaVersion = migrated.catalog.sourceVersion,
             // A manifest describes only what it currently publishes, so it can say nothing about
             // whether the release this catalog sits on is still offered.
-            installedAvailability = null,
+            upstreamAvailability = null,
         )
     }
 

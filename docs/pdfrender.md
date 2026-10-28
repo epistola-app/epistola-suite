@@ -50,9 +50,7 @@ it can connect as a limited role with **no** `CREATE`/`ALTER`/`DROP` privileges.
 - `SELECT`: the render read-set — a request renders a catalog release, so `catalog_versions`,
   `release_resources`, `environment_catalog_deployments`, `resource_contents`, `resource_binaries` and
   `asset_content`; `tenants`; plus
-  `flyway_schema_history` for the validate check. Requests accepted before 2.0 still read
-  `template_versions`/`template_variants`, `document_templates`, `catalogs`, `contract_versions`,
-  `assets`.
+  `flyway_schema_history` for the validate check.
 
 (A hardened `GRANT` script and Helm wiring are tracked as follow-ups.)
 

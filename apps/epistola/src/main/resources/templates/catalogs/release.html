@@ -94,6 +94,10 @@
                     <span class="catalog-detail-label">Released by</span>
                     <p class="catalog-detail-value" data-testid="release-released-by" th:text="${release.releasedByLine}">Released here by Ann</p>
                 </div>
+                <div class="catalog-detail-summary-item" th:if="${release.arrivalLine != null}">
+                    <span class="catalog-detail-label">How it got here</span>
+                    <p class="catalog-detail-value" data-testid="release-arrival" th:text="${release.arrivalLine}">Installed from oci://registry.example/letters by Ann</p>
+                </div>
                 <!--/* What identifies the release (ADR 0034): a fingerprint of its content alone, so
                        releases with the same one have the same content, whatever their number.
                        Every release records one when it is cut or received. */-->

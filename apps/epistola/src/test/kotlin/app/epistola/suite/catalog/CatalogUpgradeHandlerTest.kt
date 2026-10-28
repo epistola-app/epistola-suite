@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -415,7 +417,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             // …then import it into a fresh tenant → a received catalog with no source URL.
             consumer = tenant("Zip Mirror Consumer")
             withMediator {
-                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip).execute()
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }
         }
 

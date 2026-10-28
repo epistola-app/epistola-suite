@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.sources.ManifestUrlReleaseSource
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
@@ -35,6 +36,8 @@ import org.springframework.stereotype.Component
  */
 data class UpgradeCatalog(
     val catalog: CatalogId,
+    /** How the release arrives, when not as its source says (the upgrade from 1.x): shown, never decided by. */
+    val provenance: ReleaseProvenance? = null,
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission,
     // Re-fetches the remote catalog over HTTP mid-command.
@@ -88,9 +91,9 @@ class UpgradeCatalogHandler(
         if (catalog.sourceUrl == null) {
             throw CatalogNotUpgradeableException(command.catalogKey, "only a catalog with a source URL can be upgraded")
         }
-        val previousVersion = catalog.installedReleaseVersion
+        val previousVersion = catalog.latestReleaseVersion
         val before = analyzer.installedResources(command.catalog)
-        val imported = installFromSource(source, command.catalog)
+        val imported = installFromSource(source, command.catalog, command.provenance)
         val removed = if (imported.aborted) {
             emptyList()
         } else {

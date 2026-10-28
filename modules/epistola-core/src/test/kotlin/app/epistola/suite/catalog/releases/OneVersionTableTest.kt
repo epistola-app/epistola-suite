@@ -156,9 +156,6 @@ class OneVersionTableTest : IntegrationTestBase() {
         assertThatThrownBy {
             jdbi.useHandle<Exception> { it.createUpdate("UPDATE catalog_versions SET state = 'released' WHERE version_id = :v").bind("v", draft.versionId).execute() }
         }.hasMessageContaining("chk_catalog_versions")
-        assertThatThrownBy {
-            jdbi.useHandle<Exception> { it.createUpdate("UPDATE catalog_versions SET origin = 'installed' WHERE version_id = :v").bind("v", draft.versionId).execute() }
-        }.hasMessageContaining("chk_catalog_versions")
     }
 
     @Test

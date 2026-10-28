@@ -20,6 +20,8 @@ import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewExcepti
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -192,9 +194,9 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             (release.get("metadata") as ObjectNode).putObject("org.example.producer").put("batch", 7)
         }
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = withForeign).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = withForeign, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             // A release below it is received beside it, and keeps its own id too.
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val received = recorded(b, catalog, "1.1.0")!!
             assertThat(received.versionKey).isEqualTo(sent.releaseId)
@@ -217,12 +219,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         val (_, catalog, v100, v110) = lineage("Release Id Taken")
         val b = createTenant("Release Id Taken B").id
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = v110).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             // The same release again is the release the tenant has.
-            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = v110).execute().newlyInstalled).isFalse()
+            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isFalse()
 
             val taken = withRelease(v100) { it.put("releaseId", manifestOf(v110).release.releaseId) }
-            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = taken).execute() }
+            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = taken, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOf(CatalogImportConflictException::class.java)
                 .hasMessageContaining("one id names one release")
         }
@@ -237,15 +239,15 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             (release.get("metadata").get("app.epistola.suite") as ObjectNode).put("renderingDefaultsVersion", version)
         }
         withMediator {
-            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, RenderingDefaults.CURRENT.version + 1)).execute() }
+            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, RenderingDefaults.CURRENT.version + 1), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOf(ReleaseRenderingDefaultsTooNewException::class.java)
                 .hasMessageContaining("Upgrade Epistola to receive this release")
             assertThat(GetCatalog(testCatalog(b, catalog)).query()).isNull()
 
-            ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, 5)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, 5), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(recorded(b, catalog, "1.1.0")!!.renderingDefaults).isEqualTo(5)
             // Without metadata a release renders with this installation's current defaults, as before.
-            ImportCatalogZip(tenantKey = b, zipBytes = withRelease(v100) { it.remove("metadata") }).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = withRelease(v100) { it.remove("metadata") }, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(recorded(b, catalog, "1.0.0")!!.renderingDefaults).isEqualTo(RenderingDefaults.CURRENT.version)
         }
     }

@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
@@ -169,7 +171,7 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
                 .containsExactly("1.0.1" to true)
 
             listOf("1.0.0", "1.0.1", "1.1.0", "1.2.0").forEach { version ->
-                ImportCatalogZip(tenantKey = receiver, zipBytes = ExportCatalogZip(testCatalog(publisher, catalog), version).execute().zipBytes).execute()
+                ImportCatalogZip(tenantKey = receiver, zipBytes = ExportCatalogZip(testCatalog(publisher, catalog), version).execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }
 
             assertThat(merged(receiver, catalog, "1.2.0").map { it.version }).containsExactly("1.0.1")

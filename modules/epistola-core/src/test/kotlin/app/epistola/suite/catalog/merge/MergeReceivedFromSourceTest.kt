@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -79,7 +81,7 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
 
             // A changes a template, so 1.1.0 is received beside its releases, to be merged.
             UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(a), depKey)), name = "A's no-deps").execute()
-            ImportCatalogZip(tenantKey = a, zipBytes = archive).execute()
+            ImportCatalogZip(tenantKey = a, zipBytes = archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val preview = PreviewDraftMerge(testCatalog(a, depKey), "1.1.0").query()
             assertThat(preview.base).isEqualTo("1.0.0")

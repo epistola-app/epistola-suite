@@ -91,6 +91,7 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 | `list_images`                     | Discover images in the current tenant, optionally filtered by catalog or name. Returns image IDs, media types, dimensions, sizes, and catalog provenance without binary content.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `get_image`                       | Fetch metadata for one exact image reference by catalog and UUID. Use this to verify image identity and dimensions while tracing template and stencil dependencies.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `list_catalog_releases`           | A catalog's drafts and releases: its next release, then its other drafts (each with its `versionId`, its base and the releases it is `behind`, with their changes), then its releases, highest first, each with its `contentHash` (ADR 0034: releases with the same one have the same content; null while it is being computed). `contentHash` lists only the releases with that content (none: an empty list; anything but a `v6:` hash is refused). See [Catalog versions](#catalog-versions-beta).                                                                                                                         |
+| `list_environments`               | The tenant's environments, each with the catalog versions deployed to it: releases (`version`) and drafts rendered live (`version` null, `draftName`), with `documentsRequested` and `lastUsedAt`. An environment's `id` is the `environmentId` that `preview_document` and `analyze_template_data` take; a `production` one serves releases only. Read-only.                                                                                                                                                                                                                                                                 |
 | `get_authoring_schemas`           | The JSON Schemas the write tools accept — `templateDocument`, `theme`, the `shared` definitions both refer to — and the style registry (every style key, type and unit). Ships in the `epistola-catalog` artifact.                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## Write tools (beta)
@@ -157,6 +158,11 @@ a container registry configured for the installation, or the Epistola Exchange t
 connected to (named `exchange`). Without one they refuse every call; an unknown name is refused with
 the names there are. REST has the same operations (contract ADR 0008).
 
+Installing over MCP is only this, from a registry. Importing an archive file and subscribing to a
+catalog by URL are offered in the UI and REST, not over MCP; every route installs through the same
+core ([ADR 0038](adr/0038-catalogs-in-2-0.md) §5). `list_catalog_releases` lists a catalog's versions,
+drafts as well as releases.
+
 | Tool                            | Purpose                                                                                                                                                                                                                 | Permission        |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `list_release_registries`       | Alpha. The release registries the tenant has: `name`, `kind` (`container`, `exchange`) and `location`.                                                                                                                  | `CATALOG_VIEW`    |
@@ -195,7 +201,7 @@ does not fit its stencil: a fill for a placeholder the stencil does not have, or
 left unbound. `get_catalog_changes` shows what is still not ready. A template has no versions: the
 catalog release is the only one, and an edit makes a mark stale.
 
-Not available over MCP: deploying releases to environments, and deleting resources or releases.
+Not available over MCP: deploying releases to environments, generating documents (other than `preview_document`), and deleting resources or releases. `list_environments` shows what is deployed where; generation is the REST API's, for the systems that send documents.
 
 ## Concurrent edits
 

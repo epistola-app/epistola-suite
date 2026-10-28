@@ -1,6 +1,6 @@
 # ADR 0024: Where a catalog resource identity is allocated
 
-- **Status:** Proposed
+- **Status:** Superseded by [ADR 0037](0037-resource-identity-and-relocation.md) (2026-10-27)
 - **Date:** 2026-09-17
 - **Deciders:** Epistola team
 - **Tags:** catalog, identity, database, relocation

@@ -6,6 +6,8 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -145,7 +147,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
 
         val other = createTenant("Theme Settings Import")
         val imported = withMediator {
-            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip).execute()
+            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             GetCatalogThemeSettings(testCatalog(other.id, letters)).query()
         }
 
@@ -165,7 +167,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
 
         val other = createTenant("Spacing Unit Import")
         val imported = withMediator {
-            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip).execute()
+            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             app.epistola.suite.themes.queries.GetTheme(ThemeId(ThemeKey.of("airy"), testCatalog(TenantId(other.id), letters))).query()
         }
 

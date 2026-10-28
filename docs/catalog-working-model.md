@@ -6,7 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Working on catalogs: the model (2.0)
 
-> **Status:** proposal, 18 October 2026. The screens say _deployed_ where this page says _live_
+> **Status:** Record (2026-10-27), superseded by [catalog versioning](catalog-versioning.md), the canonical
+> page, and [ADR 0038](adr/0038-catalogs-in-2-0.md). Written as a proposal, 18 October 2026. The screens say _deployed_ where this page says _live_
 > (see [workspace-shell.md](workspace-shell.md)). Supersedes the "simple model" section of
 > [catalog-workspace-navigation.md](catalog-workspace-navigation.md) where they differ. Needs an
 > amendment to contract ADR 0002 (drafts) and a change to how dependencies are locked (ADR 0003).

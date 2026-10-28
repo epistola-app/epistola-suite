@@ -13,7 +13,6 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 data class DeleteTenant(
     val id: TenantKey,
@@ -35,7 +34,6 @@ class DeleteTenantHandler(
      * Returns true if a tenant was deleted, false if not found.
      * Note: Due to CASCADE, this will also delete all associated templates.
      */
-    @Transactional
     override fun handle(command: DeleteTenant): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate("DELETE FROM tenants WHERE id = :id")
             .bind("id", command.id)

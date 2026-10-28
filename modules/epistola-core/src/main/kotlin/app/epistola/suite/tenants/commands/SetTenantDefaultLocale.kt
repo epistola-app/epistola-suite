@@ -21,7 +21,6 @@ import app.epistola.suite.themes.updateTenantReturningTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Sets or clears the tenant's default locale override. A null [locale] clears
@@ -51,7 +50,6 @@ class InvalidLocaleException(
 class SetTenantDefaultLocaleHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetTenantDefaultLocale, Tenant> {
-    @Transactional
     override fun handle(command: SetTenantDefaultLocale): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         if (command.locale != null) {
             val exists = CodeListEntryExists(

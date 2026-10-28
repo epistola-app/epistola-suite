@@ -176,7 +176,7 @@ class CatalogReleaseHandler {
         // No release named: its highest, or its next version while it has none (contract ADR 0002).
         val target = runCatching { CatalogKey.of(key) }.getOrNull()?.let { GetCatalog(app.epistola.suite.common.ids.CatalogId(namespace, it, tenantId)).query() } ?: return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = "")
         // Released here or received, whichever is higher (ADR 0032).
-        val highest = target.highestReleaseVersion
+        val highest = target.latestReleaseVersion
         if (highest != null) return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = highest)
         val next = GetCatalogDraft(target.catalogId).query()
         return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = if (next == null) "" else null, versionId = next?.versionId)

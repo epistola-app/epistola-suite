@@ -25,6 +25,7 @@ import type { StyleRegistry } from '@epistola.app/epistola-catalog';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
 import { type AnyCommand, type CommandResult, applyCommand } from './commands.js';
 import { UndoStack } from './undo.js';
+import { type MarginTree, collapseMargins } from './margin-collapse.js';
 import type { Change, ChangeContext } from './change.js';
 import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
@@ -383,6 +384,24 @@ export class EditorEngine {
 
   /** Resolve a single node's final styles through the full cascade. */
   getResolvedNodeStyles(nodeId: NodeId): Record<string, unknown> {
+    return collapseMargins(nodeId, this._marginTree(), this._resolveOwnNodeStyles(nodeId));
+  }
+
+  /** The tree the margin collapse reads: each node's styles before collapsing, its children and parent. */
+  private _marginTree(): MarginTree {
+    return {
+      ownStyles: (id) => this._resolveOwnNodeStyles(id as NodeId),
+      type: (id) => this._doc.nodes[id as NodeId]?.type,
+      children: (id) =>
+        (this._doc.nodes[id as NodeId]?.slots ?? []).flatMap(
+          (slotId) => this._doc.slots[slotId]?.children ?? [],
+        ),
+      parent: (id) => this._indexes.parentNodeByNodeId.get(id as NodeId),
+      spacingUnit: this._theme?.spacingUnit ?? 4,
+    };
+  }
+
+  private _resolveOwnNodeStyles(nodeId: NodeId): Record<string, unknown> {
     const node = this._doc.nodes[nodeId];
     if (!node) return {};
 

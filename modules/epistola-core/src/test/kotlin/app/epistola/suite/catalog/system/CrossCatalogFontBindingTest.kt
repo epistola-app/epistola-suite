@@ -14,6 +14,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -103,6 +105,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
             assertThat(result.results).allSatisfy { r ->

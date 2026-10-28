@@ -58,9 +58,10 @@ class TwoZeroChainEquivalenceIT {
         connect(url, postgres.username, postgres.password).use { c -> c.createStatement().use { it.execute(WIDE_SEED) } }
         migrate(url, postgres.username, postgres.password)
 
+        val intended = Intended.load()
         val schema = ChainSnapshot.schema(postgres, database)
-        val data = connect(url, postgres.username, postgres.password).use { ChainSnapshot.data(it) }
-        val ambiguous = connect(url, postgres.username, postgres.password).use { ChainSnapshot.ambiguousRows(it) }
+        val data = connect(url, postgres.username, postgres.password).use { ChainSnapshot.data(it, intended::asRecorded) }
+        val ambiguous = connect(url, postgres.username, postgres.password).use { ChainSnapshot.ambiguousRows(it, intended::asRecorded) }
 
         System.getenv("EPISTOLA_MIGRATION_CHAIN_RECORD")?.let { resources ->
             val dir = Path.of(resources, "migration-chain")
@@ -77,7 +78,6 @@ class TwoZeroChainEquivalenceIT {
             Files.writeString(dir.resolve("data.txt"), data.joinToString("\n", postfix = "\n"))
         }
 
-        val intended = Intended.load()
         val goldenSchema = ChainSnapshot.statements(resource("schema.sql")).map { it.trim() }.filter { it.isNotEmpty() }.map(ChainSnapshot::monthless).sorted()
         Path.of("build", "migration-chain").also { dir ->
             Files.writeString(dir.resolve("schema-added.txt"), (schema.toSet() - goldenSchema.toSet()).sorted().joinToString("\n;;\n"))
@@ -111,7 +111,11 @@ class TwoZeroChainEquivalenceIT {
     /**
      * The deliberate differences from the old chain: `+ statement` it adds, `- statement` it no longer
      * makes, `+ row line` and `- row line` a row it makes or no longer makes (as `data.txt` writes it),
-     * `column table.column` a column whose values are no longer compared because it is gone.
+     * `column table.column` a column whose values are no longer compared because it is gone,
+     * `was table.column value` a column the old chain wrote with that JSON value on every row and this
+     * one no longer has, and `new table.column` a column this chain adds that no migrated row has a
+     * value in: a row is read as the old chain wrote it ([asRecorded]), so what it is described as,
+     * and the label of every id it names, does not change.
      */
     private class Intended(
         val added: List<String>,
@@ -119,7 +123,20 @@ class TwoZeroChainEquivalenceIT {
         val addedRows: List<String>,
         val removedRows: List<String>,
         private val droppedColumns: Set<String>,
+        private val removedColumns: Map<String, String>,
+        private val addedColumns: Set<String>,
     ) {
+        /** [row] of [table] as the old chain wrote it: its removed columns back, its added ones left out while empty. */
+        fun asRecorded(table: String, row: tools.jackson.databind.node.ObjectNode): tools.jackson.databind.node.ObjectNode {
+            removedColumns.filterKeys { it.startsWith("$table.") }.forEach { (column, value) ->
+                val name = column.substringAfter('.')
+                if (!row.has(name)) row.set(name, json.readTree(value))
+            }
+            addedColumns.filter { it.startsWith("$table.") }.map { it.substringAfter('.') }
+                .forEach { name -> if (row.get(name)?.isNull == true) row.remove(name) }
+            return row
+        }
+
         fun withoutDroppedColumns(line: String): String {
             val table = line.substringBefore(": ")
             val dropped = droppedColumns.filter { it.startsWith("$table.") }.map { it.substringAfter('.') }
@@ -128,9 +145,11 @@ class TwoZeroChainEquivalenceIT {
         }
 
         companion object {
+            private val json = tools.jackson.databind.json.JsonMapper.builder().build()
+
             fun load(): Intended {
                 val text = TwoZeroChainEquivalenceIT::class.java.getResource("/migration-chain/intended.txt")?.readText().orEmpty()
-                val entries = text.split(Regex("\n(?=[+\\-] |column |#)")).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+                val entries = text.split(Regex("\n(?=[+\\-] |column |was |new |#)")).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
                 val rows = entries.filter { it.startsWith("+ row ") || it.startsWith("- row ") }
                 val statements = entries - rows.toSet()
                 return Intended(
@@ -139,6 +158,8 @@ class TwoZeroChainEquivalenceIT {
                     addedRows = rows.filter { it.startsWith("+ ") }.map { it.removePrefix("+ row ").trim() },
                     removedRows = rows.filter { it.startsWith("- ") }.map { it.removePrefix("- row ").trim() },
                     droppedColumns = entries.filter { it.startsWith("column ") }.map { it.removePrefix("column ").trim() }.toSet(),
+                    removedColumns = entries.filter { it.startsWith("was ") }.associate { it.removePrefix("was ").trim().substringBefore(' ') to it.removePrefix("was ").trim().substringAfter(' ') },
+                    addedColumns = entries.filter { it.startsWith("new ") }.map { it.removePrefix("new ").trim() }.toSet(),
                 )
             }
         }

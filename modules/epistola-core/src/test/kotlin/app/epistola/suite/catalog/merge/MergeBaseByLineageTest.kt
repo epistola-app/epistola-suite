@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -72,8 +74,8 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
             val v100 = ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single { it.version == "1.0.0" }
 
             // B received 1.1.0 only, then the fix 1.0.1, made from 1.0.0 on the other line.
-            ImportCatalogZip(tenantKey = b, zipBytes = lines.v110).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = lines.v101).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val missing = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(missing.missingBase).isEqualTo(MergeBaseRef("1.0.0", v100.fingerprint))
@@ -88,7 +90,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
                 .hasMessage("To merge v1.0.1, this installation needs v1.0.0, the release both come from. Get it first (from a registry, the Exchange or a file).")
 
             // Once B has 1.0.0, beside the others, the merge compares against it.
-            ImportCatalogZip(tenantKey = b, zipBytes = lines.v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = lines.v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.missingBase).isNull()
             assertThat(preview.base).isEqualTo("1.0.0")
@@ -118,9 +120,9 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
             // An archive from before releases named their base.
             val v110 = withoutBase(ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes)
 
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(theme(b, catalog, "thy"), name = "B's y").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = v110).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.1.0").query()
             assertThat(preview.base).isNull()

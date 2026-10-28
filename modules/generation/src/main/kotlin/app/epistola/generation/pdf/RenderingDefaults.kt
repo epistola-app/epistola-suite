@@ -146,6 +146,14 @@ data class RenderingDefaults(
      */
     val themeBlockSpacing: Boolean = false,
 
+    /**
+     * When true, a container's bottom margin and its last child's collapse into the larger of the
+     * two, and its top margin and its first child's likewise, as CSS margins do (see
+     * [BlockMarginCollapse]). Nesting then adds a theme's block baseline once, not once per level.
+     * When false, the container and its child each keep their own margin, inside one another.
+     */
+    val collapseBlockMargins: Boolean = false,
+
     /** What this version changes, in a sentence for an author choosing to release with it. */
     val summary: String = "",
 ) {
@@ -299,8 +307,18 @@ data class RenderingDefaults(
             ),
         )
 
+        /**
+         * V8: a container's margins collapse with its first and last child's, as in CSS
+         * ([collapseBlockMargins]), so a theme's block baseline is not added twice where blocks nest.
+         */
+        val V8 = V7.copy(
+            version = 8,
+            collapseBlockMargins = true,
+            summary = "Where a container's spacing meets the spacing of the block inside it, the larger counts instead of both, as on the web.",
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V7
+        val CURRENT = V8
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
@@ -310,6 +328,7 @@ data class RenderingDefaults(
             5 to V5,
             6 to V6,
             7 to V7,
+            8 to V8,
         )
 
         /**

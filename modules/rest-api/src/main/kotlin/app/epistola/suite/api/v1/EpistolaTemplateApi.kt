@@ -75,6 +75,7 @@ import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContentAtRevision
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
+import app.epistola.suite.templates.queries.variants.ListVariantPage
 import app.epistola.suite.templates.queries.variants.ListVariants
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -305,12 +306,15 @@ class EpistolaTemplateApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val id = at.templateId(templateKey)
         workingCopy(at, templateKey)
-        // Bounded per-template collection: fetch and slice in application code.
         val ready = readiness(at, id)
         val statuses = ResourceStatuses.of(at)
-        val variants = ListVariants(templateId = id, catalogVersion = at.readRef).query().map { it.toDto(statuses.of(TEMPLATE, templateKey, ready[it.id])) }
-        val slice = Pagination.paginate(variants, page, size)
-        return ResponseEntity.ok(VariantListResponse(items = slice.items, page = slice.page))
+        val variants = ListVariantPage(templateId = id, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(
+            VariantListResponse(
+                items = variants.items.map { it.toDto(statuses.of(TEMPLATE, templateKey, ready[it.id])) },
+                page = Pagination.pageMeta(page, size, variants.total),
+            ),
+        )
     }
 
     override fun createVariant(

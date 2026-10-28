@@ -15,6 +15,8 @@ import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -123,8 +125,8 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         assertThat(fingerprintIn(presentedOtherwise)).isEqualTo(fingerprintIn(released.v100))
 
         withMediator {
-            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = released.v100).execute().newlyInstalled).isTrue()
-            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = presentedOtherwise).execute().newlyInstalled)
+            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = released.v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isTrue()
+            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = presentedOtherwise, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled)
                 .`as`("the same release, by its content").isFalse()
         }
     }
@@ -139,11 +141,11 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val a = createTenant("Identity V5 A").id
         val b = createTenant("Identity V5 B").id
         val released = withMediator { mediator.parallelReleaseLines(a, lines) }
-        withMediator { ImportCatalogZip(tenantKey = b, zipBytes = released.v100).execute() }
+        withMediator { ImportCatalogZip(tenantKey = b, zipBytes = released.v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         val v5 = v5Of(released.v100)
         recordedBeforeV6(b, lines, "1.0.0", v5)
 
-        val again = withMediator { ImportCatalogZip(tenantKey = b, zipBytes = released.v100).execute() }
+        val again = withMediator { ImportCatalogZip(tenantKey = b, zipBytes = released.v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         assertThat(again.newlyInstalled).isFalse()
         assertThat(recorded(b, lines, "1.0.0")).`as`("keeps the fingerprint it was received with, and has its content hash now")
@@ -164,7 +166,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val exported = withMediator { ExportCatalogZip(testCatalog(a, lines), "1.0.0").execute().zipBytes }
 
         assertThat(fingerprintIn(exported)).isEqualTo(fingerprintIn(released.v100)).startsWith("v6:")
-        withMediator { assertThat(ImportCatalogZip(tenantKey = c, zipBytes = exported).execute().newlyInstalled).isTrue() }
+        withMediator { assertThat(ImportCatalogZip(tenantKey = c, zipBytes = exported, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isTrue() }
         assertThat(recorded(c, lines, "1.0.0").second).isEqualTo(fingerprintIn(released.v100))
     }
 
@@ -182,10 +184,10 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         assertThat(fingerprintIn(renumbered)).isEqualTo(fingerprintIn(released.v100))
 
         val preview = withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = renumbered).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = renumbered, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             // Changes of its own, so 1.1.0 is recorded beside and the next release is behind it.
             CreateTheme(ThemeId(ThemeKey.of("local"), testCatalog(TenantId(b), lines)), "Local").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released.v110).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             PreviewDraftMerge(testCatalog(b, lines), "1.1.0").query()
         }
 

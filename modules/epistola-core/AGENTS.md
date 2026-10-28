@@ -20,7 +20,8 @@ registered by hand; `SpringMediator` resolves handlers by generic type. Copy
   the problem body. Use `FieldLimits` constants. `require(...)` throws the wrong type — it is not
   validation.
 - **Data access lives in the handler**, with raw JDBI. Commands already run in one transaction, so
-  do not add `@Transactional`; implement `SelfManagedTransaction` when you truly must manage it.
+  do not add `@Transactional` (`HandlerTransactionTest`); implement `SelfManagedTransaction` when you
+  truly must manage it.
 - **Audit columns**: bind `created_by` / `updated_by` from `currentUserIdOrNull()?.value`.
 - Domains keep their handlers under `commands/` and `queries/`; a handler must not import another
   domain's handler.

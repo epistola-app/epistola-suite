@@ -258,12 +258,16 @@ class RefreshCodeListTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `refresh sends X-API-Key when auth_type is API_KEY`() {
+    fun `refresh sends the API key as Authorization ApiKey and as X-API-Key when auth_type is API_KEY`() {
+        val seenAuth = AtomicReference<String?>()
         val seenApiKey = AtomicReference<String?>()
-        installCapturingHandler(
-            captureHeader = "X-API-Key",
-            into = seenApiKey,
-            body = """[{ "code": "ok", "label": "OK" }]""",
+        server.createContext(
+            "/",
+            HttpHandler { exchange ->
+                seenAuth.set(exchange.requestHeaders.getFirst("Authorization"))
+                seenApiKey.set(exchange.requestHeaders.getFirst("X-API-Key"))
+                respond(exchange, 200, "application/json", """[{ "code": "ok", "label": "OK" }]""")
+            },
         )
 
         val tenant = createTenant("Refresh4")
@@ -282,6 +286,7 @@ class RefreshCodeListTest : IntegrationTestBase() {
 
             RefreshCodeList(id).execute()
 
+            assertThat(seenAuth.get()).isEqualTo("ApiKey k-12345")
             assertThat(seenApiKey.get()).isEqualTo("k-12345")
         }
     }

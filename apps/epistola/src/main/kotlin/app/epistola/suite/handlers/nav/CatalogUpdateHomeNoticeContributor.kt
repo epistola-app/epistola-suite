@@ -38,10 +38,10 @@ class CatalogUpdateHomeNoticeContributor : HomeNoticeContributor {
             val catalog = installed[key] ?: return@mapNotNull null
             val name = catalog.name
             when {
-                check.installedAvailability == UpstreamAvailability.WITHDRAWN ->
+                check.upstreamAvailability == UpstreamAvailability.WITHDRAWN ->
                     CatalogUpdateNotice(name, check, withdrawn = true)
 
-                check.upgradeAvailable(catalog.installedReleaseVersion) ->
+                check.upgradeAvailable(catalog.latestReleaseVersion) ->
                     CatalogUpdateNotice(name, check, withdrawn = false)
 
                 else -> null

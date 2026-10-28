@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.catalog.commands.RecordedRelease
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -69,9 +71,10 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
             RecordInstalledRelease(
                 testCatalog(tenant, SYSTEM_CATALOG_KEY),
                 installed = RecordedRelease("1.3.0", "74c0b2d145c4a970830b5ccbeb092b20abe7c8e9559f1d6b368147bac4bc09ba"),
+                provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
         }
-        assertThat(withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.installedReleaseVersion })
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.latestReleaseVersion })
             .`as`("the release it installed, its next version based on it").isEqualTo("1.3.0")
 
         val (fingerprint, contentHash) = recorded(tenant, "1.3.0")
@@ -89,7 +92,7 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
         // publisher unchecked.
         val claimed = "v6:" + "0".repeat(64)
 
-        withMediator { RecordInstalledRelease(testCatalog(tenant, SYSTEM_CATALOG_KEY), installed = RecordedRelease("1.3.0", claimed)).execute() }
+        withMediator { RecordInstalledRelease(testCatalog(tenant, SYSTEM_CATALOG_KEY), installed = RecordedRelease("1.3.0", claimed), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         val (fingerprint, contentHash) = recorded(tenant, "1.3.0")
         assertThat(fingerprint).isNotEqualTo(claimed)
@@ -99,13 +102,13 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
     @Test
     fun `a catalog upgraded from 1x that received a release since keeps it installed`() {
         val tenant = createTenant("Recorded 1x release, received since").id
-        val installed = withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.installedReleaseVersion }!!
+        val installed = withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.latestReleaseVersion }!!
 
         // The upgrade runner after the boot install received the bundled system catalog.
-        val recordedVersion = withMediator { RecordInstalledRelease(testCatalog(tenant, SYSTEM_CATALOG_KEY), installed = RecordedRelease("1.3.0", null)).execute() }
+        val recordedVersion = withMediator { RecordInstalledRelease(testCatalog(tenant, SYSTEM_CATALOG_KEY), installed = RecordedRelease("1.3.0", null), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         assertThat(recordedVersion).isEqualTo(installed)
-        assertThat(withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.installedReleaseVersion }).isEqualTo(installed)
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!!.latestReleaseVersion }).isEqualTo(installed)
         val versions = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery(
                 "SELECT v.version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id WHERE v.tenant_key = :t AND c.catalog_key = :c AND v.state = 'released'",

@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -34,9 +36,9 @@ import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 /**
- * A release records who released it: the user and this installation for one cut here, the
- * installation that cut it for one received, which travels in `release.metadata`
- * (`app.epistola.suite.releasedByInstallation`).
+ * A release records who released it: the user and this installation for one cut here; for one
+ * received, the user who installed it and the installation that cut it, which travels in
+ * `release.metadata` (`app.epistola.suite.releasedByInstallation`).
  */
 class ReleasedByTest : IntegrationTestBase() {
 
@@ -79,7 +81,7 @@ class ReleasedByTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a received release records the installation that cut it, nobody here, and keeps it on the way on`() {
+    fun `a received release records the installation that cut it and who installed it, and keeps the installation on the way on`() {
         val a = createTenant("Released By Producer").id
         val b = createTenant("Released By Receiver").id
         val c = createTenant("Released By Third").id
@@ -97,9 +99,9 @@ class ReleasedByTest : IntegrationTestBase() {
                 .put(ReleaseDescription.RELEASED_BY_INSTALLATION, elsewhere.toString())
             all["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
-            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = archives.zip(all)).execute().aborted).isFalse()
+            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = archives.zip(all), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().aborted).isFalse()
 
-            assertThat(releasedBy(b, catalog, "1.0.0")).isEqualTo(null to elsewhere)
+            assertThat(releasedBy(b, catalog, "1.0.0")).isEqualTo(TestPrincipalUser.ID.value to elsewhere)
             val detail = GetCatalogReleaseDetail(testCatalog(b, catalog), "1.0.0").query()!!
             assertThat(detail.releasedHere).isFalse()
             assertThat(detail.releasedByLine).isEqualTo("Released by installation $elsewhere")
@@ -107,8 +109,8 @@ class ReleasedByTest : IntegrationTestBase() {
             // Passed on, it still names the installation that cut it, not this one.
             val passedOn = ExportCatalogZip(testCatalog(b, catalog), "1.0.0").execute().zipBytes
             assertThat(manifestOf(passedOn).release.metadata?.get(ReleaseDescription.NAMESPACE)?.get(ReleaseDescription.RELEASED_BY_INSTALLATION)).isEqualTo(elsewhere.toString())
-            ImportCatalogZip(tenantKey = c, zipBytes = passedOn).execute()
-            assertThat(releasedBy(c, catalog, "1.0.0")).isEqualTo(null to elsewhere)
+            ImportCatalogZip(tenantKey = c, zipBytes = passedOn, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            assertThat(releasedBy(c, catalog, "1.0.0")).isEqualTo(TestPrincipalUser.ID.value to elsewhere)
         }
     }
 }

@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -47,7 +49,7 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
             CreateTheme(id = theme(a), name = "base").execute()
             MarkCatalogReady(testCatalog(a, catalog)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1).execute()
             MarkCatalogReady(testCatalog(b, catalog)).execute()
             TestNamespaces.share(a, b).execute()
@@ -55,7 +57,7 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
             val v2 = ExportCatalogZip(testCatalog(b, catalog), "2.0.0").execute().zipBytes
 
             UpdateTheme(theme(a), name = "A's own").execute()
-            ImportCatalogZip(tenantKey = a, zipBytes = v2).execute()
+            ImportCatalogZip(tenantKey = a, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val content = assembler.assemble(testCatalog(a, catalog), "2.0.0")!!.content
             val image = content.resourceDetails.values.map { it.resource }.filterIsInstance<ImageResource>().single()

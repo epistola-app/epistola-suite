@@ -248,8 +248,8 @@ Backend tests live under
 - `RefreshCodeListTest` — `RefreshCodeList` end-to-end against a real
   `com.sun.net.httpserver.HttpServer`: happy path (entries fetched,
   `last_refreshed_at` advances), failure path (server 500 leaves entries
-  intact and populates `last_refresh_error`), `Bearer` and `X-API-Key`
-  auth header propagation, INLINE-refresh refusal.
+  intact and populates `last_refresh_error`), `Bearer` and API-key
+  auth header propagation (`Authorization: ApiKey` and `X-API-Key`), INLINE-refresh refusal.
 - `SuppliedCatalogCodeListsReadOnlyTest` — every mutating code-list command
   (Create / Update / Delete / Refresh / UpdateCodeListEntryHidden) raises
   `CatalogReadOnlyException` against a catalog Epistola supplies.

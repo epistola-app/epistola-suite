@@ -701,7 +701,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 .isEqualTo("/tenants/${consumer.id}/catalogs/epistola/epistola-demo/browse")
             // A catalog the tenant did not have is created holding the release, and can be changed here.
             val imported = withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("epistola-demo"))).query() }
-            assertThat(imported?.installedReleaseVersion).isNotNull()
+            assertThat(imported?.latestReleaseVersion).isNotNull()
             assertThat(withMediator { GetCatalogEditability(testCatalog(consumer.id, CatalogKey.of("epistola-demo"))).query().editable }).isTrue()
         }
     }

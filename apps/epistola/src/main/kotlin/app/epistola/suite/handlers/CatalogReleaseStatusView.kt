@@ -67,12 +67,12 @@ data class CatalogReleaseStatusView(
             currentSchemaVersion: Int,
             fromExchange: Boolean,
         ): CatalogReleaseStatusView {
-            // What was last received decides whether the source offers something newer; the cell
-            // shows the catalog's highest release, received or released here.
-            val installed = catalog.installedReleaseVersion
+            // The catalog's highest release, received or released here, is what the source's offer is
+            // newer than or not, and what the cell shows.
+            val latest = catalog.latestReleaseVersion
             val base = CatalogReleaseStatusView(
                 state = UNCHECKED,
-                installedVersion = catalog.highestReleaseVersion,
+                installedVersion = latest,
                 availableVersion = null,
                 sourceSchemaVersion = null,
                 currentSchemaVersion = currentSchemaVersion,
@@ -86,10 +86,10 @@ data class CatalogReleaseStatusView(
             val state = when {
                 check.failure == CatalogUpstreamCheckFailure.SCHEMA_TOO_NEW -> SOURCE_AHEAD
                 check.failure != null -> CHECK_FAILED
-                check.installedAvailability == UpstreamAvailability.WITHDRAWN -> WITHDRAWN
+                check.upstreamAvailability == UpstreamAvailability.WITHDRAWN -> WITHDRAWN
                 sourceSchema != null && sourceSchema < currentSchemaVersion -> NOT_IN_SYNC
                 sourceSchema != null && sourceSchema > currentSchemaVersion -> SOURCE_AHEAD
-                check.upgradeAvailable(installed) -> UPDATE_AVAILABLE
+                check.upgradeAvailable(latest) -> UPDATE_AVAILABLE
                 check.availableVersion != null -> UP_TO_DATE
                 else -> UNCHECKED
             }

@@ -62,6 +62,16 @@ DB query required.
 `epistola.generation.document.*` are the **only** meters carrying a `tenant`
 tag — see [Per-tenant tagging](#per-tenant-tagging).
 
+### Collect
+
+| Meter                            | Type  | Tags                                 |
+| -------------------------------- | ----- | ------------------------------------ |
+| `epistola.collect.inflight.wait` | Timer | `outcome` (`settled` \| `timed_out`) |
+
+Polls that found results still being emitted and waited for them before delivering: the count is
+how many, the time how long; `timed_out` counts the polls that gave up after two seconds and
+delivered nothing (the next poll retries). See [`docs/collect.md`](collect.md#what-to-watch).
+
 ### Font cache
 
 The renderer's parsed-font cache, per node; see [fonts](fonts.md) for what it holds and why.
@@ -149,6 +159,32 @@ its job. See [`docs/storage.md`](storage.md#the-content-collector).
 | Meter                        | Type    | Tags     |
 | ---------------------------- | ------- | -------- |
 | `epistola.api.auth.attempts` | Counter | `result` |
+
+### Catalogs
+
+| Meter                              | Type    | Tags                                                                                                                                             |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `epistola.catalog.releases`        | Counter | `via` (`released`, `upload`, `api`, `registry`, `exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`)                                       |
+| `epistola.catalog.upstream.checks` | Counter | `outcome` (`ok`, or the failure recorded: `unreachable`, `not_found`, `unauthorized`, `schema_too_new`, `withdrawn`, `paused`, `protocol_error`) |
+
+`releases{via}` counts every release that came to be in a tenant, cut here (`released`) or
+received, once its transaction commits. A tenant snapshot restore reinstalls each of its releases,
+counted as `snapshot`. `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
+the background worker or the "check for updates" button.
+
+What the command timers already count is not repeated here. Read it from
+`epistola.mediator.command.duration{command=…}`, whose count is the number of dispatches and whose
+`outcome` says how they ended:
+
+| To see               | `command`                                |
+| -------------------- | ---------------------------------------- |
+| Releases cut         | `ReleaseCatalogDraft`                    |
+| Installs and imports | `ImportCatalogZip`, `InstallFromCatalog` |
+| Deployments          | `DeployCatalogRelease`                   |
+| Quality runs         | `RunQualityChecks`                       |
+
+The nightly content collector is `epistola.scheduled.task.duration{task=…}`, with its two orphan
+gauges under Storage.
 
 ### Catalog publication (Exchange)
 

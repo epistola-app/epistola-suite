@@ -14,6 +14,8 @@ import app.epistola.suite.catalog.commands.ImportTemplates
 import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -187,7 +189,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
 
         // Installing a release is all or nothing: the template is refused, and so is the release, and
         // the catalog the import would have created is not left behind.
-        val result = withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries)).execute() }
+        val result = withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         assertThat(result.aborted).isTrue()
         assertThat(result.results.mapNotNull { it.errorMessage }).anyMatch { it.contains("JavaScript expressions are no longer supported") }
         assertThat(withMediator { GetCatalog(testCatalog(target.id, catalogKey)).query() }).isNull()

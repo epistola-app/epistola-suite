@@ -89,5 +89,18 @@ data class SemVer(
                 SemVer(a.toInt(), b.toInt(), c.toInt(), namespace.ifEmpty { null }, sequence.ifEmpty { null }?.toInt())
             }.getOrNull()
         }
+
+        /**
+         * Whether release [candidate] is newer than [current], a catalog's highest release: above it as
+         * releases sort, or any release when it has none. A number that does not parse is newer when
+         * it differs. A lower number is not, so a release cut here above its source's keeps the
+         * catalog current (ADR 0036: a release is a release however it arrived).
+         */
+        fun isNewer(candidate: String, current: String?): Boolean {
+            if (current == null) return true
+            val a = parseOrNull(candidate)
+            val b = parseOrNull(current)
+            return if (a != null && b != null) a > b else candidate != current
+        }
     }
 }

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlin.math.abs
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -55,8 +54,8 @@ class ThemeBlockSpacingTest {
     }
 
     @Test
-    fun `V7 is the version new releases are cut with`() {
-        assertEquals(7, RenderingDefaults.CURRENT.version)
+    fun `theme block spacing stays on in the version new releases are cut with`() {
+        assertTrue(RenderingDefaults.CURRENT.version >= 7)
         assertTrue(RenderingDefaults.CURRENT.themeBlockSpacing)
     }
 

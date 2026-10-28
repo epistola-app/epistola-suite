@@ -15,6 +15,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -121,6 +123,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
 

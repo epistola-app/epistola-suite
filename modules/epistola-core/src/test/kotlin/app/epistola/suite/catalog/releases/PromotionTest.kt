@@ -105,7 +105,7 @@ class PromotionTest : IntegrationTestBase() {
 
         assertThat(withMediator { GetCatalogDraft(testCatalog(tenant, letters), DraftRef.Id(fix), withBehind = true).query()!! }.behind).isEmpty()
         assertThat(releaseWork(tenant, fix).version).`as`("1.0.1 while 2.0.0 exists").isEqualTo("1.0.1")
-        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.releasedVersion).`as`("the highest stays the catalog's").isEqualTo("2.0.0")
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.latestReleaseVersion).`as`("the highest stays the catalog's").isEqualTo("2.0.0")
     }
 
     @Test

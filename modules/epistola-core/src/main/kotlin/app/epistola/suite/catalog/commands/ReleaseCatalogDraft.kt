@@ -443,7 +443,7 @@ class ReleaseCatalogDraftHandler(
             val servedDraft = DraftDeploymentStore.servingDraft(handle, command.tenantKey, draft.versionId)
             drafts.freeze(
                 handle,
-                command.tenantKey,
+                command.catalog,
                 draft.versionId,
                 FrozenRelease(
                     version = newVersion.toString(),

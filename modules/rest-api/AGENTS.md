@@ -15,8 +15,8 @@ interface, it needs a contract release first.
 - **Errors are RFC 9457 problem details.** Use `ProblemDetails.kt` — `problemDetail()`,
   `toValidationProblemDetail`, `ApiProblemTypes` — and register new mappings in
   `ApiExceptionMappings.kt`. There is no `ApiErrorResponse` type.
-- Paginate in SQL with an ordered `LIMIT`/`OFFSET`, not in memory. Several endpoints still paginate
-  in memory via `Pagination.paginate` `(unenforced)`; do not add more.
+- Paginate in SQL with an ordered `LIMIT`/`OFFSET`, never by slicing a fetched list: a `…Page` query
+  built on `common/Paging.kt` answers the page and its total. `RestPagingInDatabaseTest` is the guard.
 - This is a **GA surface**: breaking it needs a major release and a deprecation path.
 
 ## Bumping the contract

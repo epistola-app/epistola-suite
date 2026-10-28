@@ -245,22 +245,6 @@ AS $$
 SELECT EXISTS (SELECT 1 FROM catalog_versions v WHERE v.tenant_key = p_tenant AND v.version_id = p_version_id AND v.state = 'released')
 $$;
 
--- The received release version [version_id] descends from, nearest first: itself, its base, its
--- base's base, until one received from the publisher.
-CREATE FUNCTION catalog_installed_release_id(p_tenant TENANT_KEY, p_version UUID) RETURNS UUID AS $$
-    WITH RECURSIVE chain AS (
-        SELECT v.version_id, v.base_version_id, v.state, v.origin, 0 AS depth
-        FROM catalog_versions v
-        WHERE v.tenant_key = p_tenant AND v.version_id = p_version
-        UNION ALL
-        SELECT b.version_id, b.base_version_id, b.state, b.origin, chain.depth + 1
-        FROM chain
-        JOIN catalog_versions b ON b.tenant_key = p_tenant AND b.version_id = chain.base_version_id
-        WHERE NOT (chain.state = 'released' AND chain.origin = 'installed')
-    )
-    SELECT version_id FROM chain WHERE state = 'released' AND origin = 'installed' ORDER BY depth LIMIT 1;
-$$ LANGUAGE sql STABLE;
-
 -- The version a caller means: the targeted release, else the targeted draft, else the catalog's next.
 CREATE VIEW catalog_current_versions AS
 SELECT DISTINCT ON (tenant_key, catalog_id) tenant_key, catalog_id, version_id
@@ -279,20 +263,13 @@ CREATE VIEW catalog_current_releases AS
 SELECT DISTINCT ON (v.tenant_key, v.catalog_id)
        v.tenant_key, v.catalog_id, v.version_id, v.version, v.fingerprint, v.released_at
 FROM catalog_versions v
-WHERE v.state = 'released' AND v.origin = 'authored'
+WHERE v.state = 'released'
 ORDER BY v.tenant_key, v.catalog_id,
          v.version_major DESC NULLS LAST, v.version_minor DESC NULLS LAST, v.version_patch DESC NULLS LAST,
          (v.version_label IS NULL) DESC, v.version_label COLLATE "C" DESC NULLS LAST,
          v.version_label_number DESC NULLS LAST, v.released_at DESC;
 
-COMMENT ON VIEW catalog_current_releases IS 'Per catalog, its highest release cut here (ADR 0036): what catalogs.released_version and its companions pointed at.';
-
-CREATE VIEW catalog_installed_releases AS
-SELECT c.tenant_key, c.catalog_id, r.version_id, r.version, r.fingerprint, r.released_at
-FROM catalogs c
-JOIN catalog_versions r ON r.tenant_key = c.tenant_key AND r.version_id = catalog_installed_release_id(c.tenant_key, c.next_version_id);
-
-COMMENT ON VIEW catalog_installed_releases IS 'Per catalog, the release it installed (ADR 0036): the nearest release received from its publisher that its next version descends from. What catalogs.installed_release_version and its companions pointed at.';
+COMMENT ON VIEW catalog_current_releases IS 'Per catalog, its highest release (ADR 0036), released here or received: a release is a release however it arrived.';
 
 -- 5. A variant and its template are of one version: its row.
 CREATE FUNCTION release_resource_variant_parent() RETURNS trigger LANGUAGE plpgsql AS $$

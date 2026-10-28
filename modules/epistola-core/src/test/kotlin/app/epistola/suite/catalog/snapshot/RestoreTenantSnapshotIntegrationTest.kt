@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
@@ -237,7 +238,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             val restored = GetCatalog(testCatalog(tenant.id, catalog)).query()!!
-            assertThat(restored.installedReleaseVersion).`as`("not installed as a received release").isNull()
+            assertThat(restored.latestReleaseVersion).`as`("not installed as a received release").isNull()
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, catalog)).query()).isEmpty()
             assertThat(GetCatalogEditability(testCatalog(tenant.id, catalog)).query().editable).isTrue()
         }
@@ -278,9 +279,12 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(releasesOf(tenant.id, catalog)).`as`("number, id, fingerprint and base of each").isEqualTo(before)
             val next = ListCatalogReleases(testCatalog(tenant.id, catalog)).query().single { it.isNext }
             assertThat(next.base).`as`("the next release is on the release it was on").isEqualTo("1.1.0")
-            assertThat(GetCatalog(testCatalog(tenant.id, catalog)).query()!!.releasedVersion).isEqualTo("1.1.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, catalog)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
             assertThat(GetTheme(theme).query()!!.name).`as`("the working copy as it was").isEqualTo("Brand 3, not released")
             assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, catalog), "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
+            // How each got here, as it was: released here, not "restored from a snapshot".
+            assertThat(ListCatalogReleases(testCatalog(tenant.id, catalog), app.epistola.suite.catalog.releases.CatalogReleaseStatus.RELEASED).query().map { it.releasedVia }.distinct())
+                .containsExactly(ReleaseChannel.RELEASED)
             // The releases kept their content: they export, and the next one is cut on 1.1.0.
             assertThat(ExportCatalogZip(testCatalog(tenant.id, catalog), "1.0.0").execute().zipBytes).isNotEmpty()
             MarkCatalogReady(testCatalog(tenant.id, catalog)).execute()
@@ -304,7 +308,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             val restored = GetCatalog(testCatalog(tenant.id, catalog)).query()!!
             assertThat(restored.sourceUrl).isEqualTo(source)
             assertThat(restored.sourceAuthType).isEqualTo(before.sourceAuthType)
-            assertThat(restored.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
+            assertThat(restored.latestReleaseVersion).isEqualTo(before.latestReleaseVersion)
             assertThat(releasesOf(tenant.id, catalog)).isEqualTo(releases)
         }
     }
@@ -332,6 +336,60 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator {
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, catalog)).query()).isEmpty()
             assertThat(GetCatalog(testCatalog(tenant.id, catalog)).query()!!.sourceUrl).isNull()
+        }
+    }
+
+    /**
+     * A restore is destructive and runs as one transaction: when it fails after the purge, nothing of
+     * the purge stays. The snapshot passes every check made before the purge, but one catalog's
+     * archive is not a zip, which the restore finds only after it deleted the tenant's catalogs.
+     */
+    @Test
+    fun `a restore that fails after the purge leaves the tenant as it was`() {
+        val tenant = createTenant("Restore atomic")
+        val main = CatalogKey.of("main")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, main)), name = "Brand").execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalog = testCatalog(tenant.id, main)).execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }.bytes
+        val mainZip = readManifest(snapshot).catalogs.single { it.catalogKey == "main" }.zipPath
+        val broken = rewriteEntry(snapshot, mainZip) { "not a zip".toByteArray() }
+        withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("stray"), name = "Stray").execute() }
+
+        val failure = withMediator { runCatching { RestoreTenantSnapshot(tenant.id, broken).execute() } }
+
+        assertThat(failure.isFailure).describedAs("the broken archive fails the restore").isTrue()
+        withMediator {
+            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).contains("main", "stray")
+            assertThat(GetTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, main))).query()).isNotNull()
+            assertThat(GetTenant(tenant.id).query()!!.defaultThemeKey?.value).isEqualTo("brand")
+        }
+    }
+
+    /**
+     * The default theme is re-applied after a restore only when its theme is in the snapshot. When it
+     * is not, setting it fails inside the restore, which carries on without it: that failure must not
+     * take the restore down with it.
+     */
+    @Test
+    fun `a default theme the snapshot does not hold is left cleared, and the restore commits`() {
+        val tenant = createTenant("Restore no theme")
+        withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("main"), name = "Main").execute() }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }.bytes
+        val late = CatalogKey.of("late")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = late, name = "Late").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, late)), name = "Brand").execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalog = testCatalog(tenant.id, late)).execute()
+        }
+
+        withMediator { RestoreTenantSnapshot(tenant.id, snapshot).execute() }
+
+        withMediator {
+            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).contains("main").doesNotContain("late")
+            assertThat(GetTenant(tenant.id).query()!!.defaultThemeKey).isNull()
         }
     }
 

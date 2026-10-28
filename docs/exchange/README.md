@@ -152,29 +152,25 @@ follow-up for RC3 stencil draft markers.
 | `created_at`             | timestamptz       | Creation timestamp.                            |
 | `updated_at`             | timestamptz       | Last modification timestamp.                   |
 
-Primary key: `(tenant_key, id)`. The release it installed is a view, `catalog_installed_releases`:
-the nearest received release its next version descends from (ADR 0036).
+Primary key: `(tenant_key, id)`. Its release is its highest, a view (`catalog_current_releases`,
+ADR 0036); a release installed from the Exchange records `released_via = 'exchange'` and the
+Exchange address it came from.
 
 ### Releases (`catalog_versions`, released rows)
 
-Immutable release history of a catalog, released here or received — one released row of
-`catalog_versions` per release (ADR 0036; `catalog_releases` is gone). Not parallel installs; the changelog + Phase 2 upgrade-diff
-source. PK `(tenant_key, catalog_key, version)`, columns `version` (SemVer),
-`fingerprint`, `notes`, `manifest_snapshot` (jsonb), `released_at`,
-`released_by`. See [`catalog-versioning.md`](../catalog-versioning.md).
+Immutable release history of a catalog, released here or received: one released row of
+`catalog_versions` per release, keyed by `version_id`, with its number (`version`, SemVer),
+`fingerprint`, `content_hash`, `notes`, `manifest_snapshot`, `released_at` and `released_by`. Not
+parallel installs; the changelog and upgrade-diff source. See
+[ADR 0038](../adr/0038-catalogs-in-2-0.md) and [`catalog-versioning.md`](../catalog-versioning.md).
 
-### Resource Tables
+### Resources
 
-Resources have `catalog_key` as part of their primary key:
-
-- `document_templates (tenant_key, catalog_key, id)`
-- `template_variants (tenant_key, catalog_key, template_key, id)`
-- `template_versions (tenant_key, catalog_key, template_key, variant_key, id)` — history from before 2.0, no longer read
-- `themes (tenant_key, catalog_key, id)`
-- `stencils (tenant_key, catalog_key, id)`
-- `stencil_versions (tenant_key, catalog_key, stencil_key, id)`
-- `variant_attribute_definitions (tenant_key, catalog_key, id)`
-- `assets (tenant_key, catalog_key, id)` — Note: assets are catalog-scoped for ownership but can be referenced by any template in the tenant.
+Every resource of every version is a row in `release_resources` (template variants as rows of their
+own) naming its JSON content in `resource_contents`, stored once by hash; binaries are in
+`asset_content` by hash. The 1.x per-type tables (`document_templates`, `template_versions`,
+`themes`, `stencils`, `assets`, …) are converted and dropped by the 2.0 migration chain
+([migrations](../migrations.md)).
 
 ## Protocol Specification
 

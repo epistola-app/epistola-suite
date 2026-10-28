@@ -15,7 +15,6 @@ import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import java.net.URI
 
@@ -56,7 +55,7 @@ class CatalogClient(
         // wire-format upgrade chain) before binding. This is the single remote
         // chokepoint, so every consumer — install, browse, upgrade-check,
         // fingerprint — sees a current-shape manifest.
-        val bytes = sourceReader.readSource(url, authHeaders(authType, credential), allowHttp)
+        val bytes = sourceReader.readSource(url, authType.headers(credential), allowHttp)
         // A classpath catalog is one Epistola ships; a remote one from before wire v8 has no namespace
         // this installation could give it, so it is refused until its publisher moves to v8.
         val namespace = CatalogIdentityProperties.BUNDLED_NAMESPACE.takeIf { url.startsWith("classpath:") }
@@ -98,7 +97,7 @@ class CatalogClient(
         catalog: CatalogMigrationContext,
     ): Pair<ResourceDetail, Int> {
         logger.debug("Fetching resource detail from {}", resolvedUrl)
-        val bytes = sourceReader.readDerived(resolvedUrl, manifestUrl, authHeaders(authType, credential), allowHttp)
+        val bytes = sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
         return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog) to bytes.size
     }
 
@@ -122,13 +121,7 @@ class CatalogClient(
 
     private fun loadBinary(resolvedUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         logger.debug("Fetching binary content from {}", resolvedUrl)
-        return sourceReader.readDerived(resolvedUrl, manifestUrl, authHeaders(authType, credential), allowHttp)
-    }
-
-    private fun authHeaders(authType: AuthType, credential: String?): Map<String, String> = when (authType) {
-        AuthType.NONE -> emptyMap()
-        AuthType.BEARER -> mapOf(HttpHeaders.AUTHORIZATION to "Bearer $credential")
-        AuthType.API_KEY -> mapOf("X-API-Key" to (credential ?: ""))
+        return sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
     }
 
     companion object {
