@@ -174,8 +174,17 @@ tasks.register<Test>("unitTest") {
 // full tiered compilation with a 2g heap doubled every context boot on the
 // 4-core runner (single-context modules went from 24-30 s to 52-61 s), because
 // four JVMs' C2 compiler threads compete with the boots for the same cores. The
-// C1-only cap and the 1g heap are the configuration whose numbers are known.
-val springTestJvmArgs = listOf("-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx1g")
+// C1-only cap is the configuration whose numbers are known.
+//
+// The heap is 1.5g, not 1g. Spring keeps up to 32 test contexts per JVM, each with
+// its own pool, caches and beans, and the full suite reaches that: sampled in one
+// epistola-core test JVM (28 October), the live heap after a full GC grew from about
+// 270 MB with 1 cached context to about 470 MB in its 12 largest classes alone with
+// 24, beside the coverage agent's data. At 1g a test allocating on top of that ran
+// out of memory (ExchangeCatalogInstallTest reading a blob) and passed on its own.
+// The heap is sized for the cache, rather than the cache cut, because evicting a
+// context only means booting it again for the next class that needs it.
+val springTestJvmArgs = listOf("-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx1536m")
 
 tasks.register<Test>("integrationTest") {
     description = "Runs integration tests (Spring + Testcontainers, no browser)"
