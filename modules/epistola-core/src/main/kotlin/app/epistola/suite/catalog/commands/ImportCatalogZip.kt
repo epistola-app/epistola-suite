@@ -228,9 +228,10 @@ data class ImportCatalogZipResult(
 
 @Component
 class ImportCatalogZipHandler(
+    private val archives: ImportArchiveReader,
+    private val resources: CatalogArchiveResources,
     private val objectMapper: ObjectMapper,
     private val protocolMapper: ProtocolMapper,
-    private val sizeLimits: CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
     private val schemaMigrator: CatalogSchemaMigrator,
@@ -239,17 +240,10 @@ class ImportCatalogZipHandler(
     private val readyMarks: ReadyMarks,
     private val rows: CatalogImportRows,
     private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
-    private val installer: CatalogResourceInstaller,
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
     private val releaseIdentity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
-    transactionManager: org.springframework.transaction.PlatformTransactionManager,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
-
-    /** A savepoint inside the command's transaction, for a received release's resources. */
-    private val resourcesSavepoint = org.springframework.transaction.support.TransactionTemplate(transactionManager).apply {
-        propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_NESTED
-    }
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -263,7 +257,7 @@ class ImportCatalogZipHandler(
 
     /** What [handle] does for an archive: receives its release (see [ImportCatalogZip]). */
     private fun install(command: ImportCatalogZip): ImportCatalogZipResult {
-        val parsed = parse(command)
+        val parsed = archives.read(command)
         val manifest = parsed.manifest
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         // The archive's name: its own (wire v8), or the one the caller gave a migrated one.
@@ -278,7 +272,7 @@ class ImportCatalogZipHandler(
         return install(command, parsed, CatalogId(namespace, catalogKey, TenantId(command.tenantKey)), registry)
     }
 
-    private fun install(command: ImportCatalogZip, parsed: Parsed, catalog: CatalogId, registry: String): ImportCatalogZipResult {
+    private fun install(command: ImportCatalogZip, parsed: ParsedCatalogArchive, catalog: CatalogId, registry: String): ImportCatalogZipResult {
         val manifest = parsed.manifest
         val catalogKey = catalog.key
         val namespace = catalog.namespace
@@ -370,136 +364,6 @@ class ImportCatalogZipHandler(
         return result(newly = true)
     }
 
-    private data class Parsed(
-        val entries: Map<String, ByteArray>,
-        val manifest: app.epistola.catalog.protocol.CatalogManifest,
-        val catalogCtx: app.epistola.suite.catalog.migrations.CatalogMigrationContext,
-        /** The releases the archive carries for its pins, each as an archive of its own, in install order. */
-        val carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList(),
-    )
-
-    private fun parse(command: ImportCatalogZip): Parsed {
-        // Size checks: compressed ZIP and decompressed total
-        val maxZipSize = sizeLimits.maxZipSize.toBytes()
-        val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()
-
-        require(command.zipBytes.size <= maxZipSize) {
-            "Catalog ZIP exceeds maximum size of ${sizeLimits.maxZipSize} " +
-                "(actual: ${command.zipBytes.size / 1024 / 1024} MB)"
-        }
-
-        // epistola-catalog owns ZIP safety and path normalization. Suite
-        // materializes the already-checked entries because the persistence
-        // orchestration below consumes them more than once.
-        // An archive from before wire v8 names no registry or namespace: it takes the ones the caller
-        // names, and without them is refused (contract ADR 0003: the migrator never invents them).
-        // The reader migrates it, so it is told here, not only the manifest binding below.
-        val migration = CatalogMigrationOptions(
-            namespace = command.namespace ?: command.legacyName?.namespace,
-            registry = command.registry ?: command.legacyName?.registry,
-        )
-        val read = CatalogArchiveReader.read(
-            ByteArrayInputStream(command.zipBytes),
-            CatalogArchivePolicy(
-                maxCompressedBytes = maxZipSize,
-                maxExpandedBytes = maxDecompressedSize,
-            ),
-            migration,
-        )
-        val unnamed = read.findings.filter { it.code == CatalogMigrationCodes.REGISTRY_MISSING || it.code == CatalogMigrationCodes.NAMESPACE_MISSING }
-        if (unnamed.isNotEmpty()) {
-            throw CatalogNameRequiredException(unnamed.map { if (it.code == CatalogMigrationCodes.REGISTRY_MISSING) "registry" else "namespace" }.distinct())
-        }
-        val migrationFinding = read.findings.firstOrNull {
-            it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
-                it.code == CatalogMigrationCodes.SCHEMA_TOO_OLD ||
-                it.code == CatalogMigrationCodes.SCHEMA_TOO_NEW ||
-                it.code == CatalogMigrationCodes.SCHEMA_VERSION_MISMATCH ||
-                it.code == CatalogMigrationCodes.RESOURCE_TYPE_MISMATCH
-        }
-        if (migrationFinding != null) {
-            throw schemaMigrator.asSuiteException(migrationFinding.code, migrationFinding.message)
-        }
-        val archive = read.archive ?: throw CatalogImportValidationException(
-            read.findings.map {
-                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
-            },
-        )
-        var carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList()
-        val entries = archive.use { safeArchive ->
-            val validation = CatalogValidator.validate(
-                safeArchive,
-                CatalogValidationPolicy(verifyFingerprint = true, migration = migration),
-            )
-            val validationFindings = read.findings.map {
-                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
-            } + validation.findings.map {
-                CatalogImportValidationFinding(it.code, it.severity, it.path, it.message)
-            }
-            if (read.findings.isNotEmpty() || !validation.valid) {
-                throw CatalogImportValidationException(validationFindings)
-            }
-            carried = safeArchive.dependencies.map { release ->
-                release to java.io.ByteArrayOutputStream().also {
-                    app.epistola.catalog.archive.CatalogArchiveWriter.write(
-                        release.archive,
-                        it,
-                        CatalogArchivePolicy(maxCompressedBytes = maxZipSize, maxExpandedBytes = maxDecompressedSize),
-                    )
-                }.toByteArray()
-            }
-            safeArchive.paths.associateWith { path ->
-                safeArchive.content.open(path).use { it.readAllBytes() }
-            }
-        }
-
-        // Parse manifest
-        val manifestBytes = entries["catalog.json"]
-            ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
-        // Catalog-wide version gate + wire-format upgrade chain before binding
-        // (see CatalogSchemaMigrator): the manifest carries the authoritative
-        // schemaVersion and every resource detail echoes it, so details are gated
-        // against the same version below. The chain is empty today, so
-        // current-shape payloads pass straight through to binding.
-        // An archive from before wire v8 takes the name the caller gave it (ADR 0003).
-        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace, migration.registry)
-        val manifest = migratedManifest.manifest
-        val catalogCtx = migratedManifest.catalog
-        // Content names other catalogs by alias; this installation stores references by catalog key,
-        // so an alias that is not the key cannot be stored as it is received (DependencyAliases).
-        DependencyAliases.unsupported(manifest.catalogDependencies.orEmpty()).takeIf { it.isNotEmpty() }?.let { refused ->
-            throw CatalogImportValidationException(
-                refused.map { (path, message) -> CatalogImportValidationFinding(DependencyAliases.ALIAS_UNSUPPORTED, ValidationSeverity.ERROR, path, message) },
-            )
-        }
-        // Decide what to do about an outdated-schema archive (a source-less transport we can't
-        // re-fetch): one with no migration path is rejected; one the chain can upgrade prompts for
-        // confirmation (migrating mutates content) and then imports, whoever receives it.
-        // `sourceVersion` is the pre-migration version; `manifest.schemaVersion` is current iff a
-        // chain upgraded it. Covers the UI and REST import paths.
-        when (
-            CatalogImportSchemaAction.decide(
-                sourceVersion = catalogCtx.sourceVersion,
-                migratedVersion = manifest.schemaVersion,
-                current = CATALOG_SCHEMA_VERSION,
-                confirmed = command.confirmMigration,
-            )
-        ) {
-            CatalogImportSchemaAction.BLOCK_TOO_OLD ->
-                throw CatalogSchemaTooOldException(catalogCtx.sourceVersion, CATALOG_SCHEMA_VERSION)
-
-            CatalogImportSchemaAction.CONFIRM_MIGRATION ->
-                throw CatalogMigrationConfirmationRequiredException(
-                    catalogCtx.sourceVersion,
-                    CATALOG_SCHEMA_VERSION,
-                    read.migrationNotices,
-                )
-
-            CatalogImportSchemaAction.IMPORT -> {} // proceed
-        }
-        return Parsed(entries, manifest, catalogCtx, carried)
-    }
-
     /**
      * Writes the archive's content into the version the transaction targets: a received release's
      * fast-forward into the next version (pruning what the release no longer has and moving the
@@ -507,11 +371,11 @@ class ImportCatalogZipHandler(
      * catalog restored ([ImportCatalogZip.restore]).
      */
     private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult {
-        val parsed = parse(command)
+        val parsed = archives.read(command)
         return importArchive(command, parsed)
     }
 
-    private fun importArchive(command: ImportCatalogZip, parsed: Parsed): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+    private fun importArchive(command: ImportCatalogZip, parsed: ParsedCatalogArchive): ImportCatalogZipResult = CatalogImportContext.runAsImport {
         val (entries, manifest, catalogCtx) = parsed
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         val catalog = CatalogId(manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey), catalogKey, TenantId(command.tenantKey))
@@ -588,74 +452,7 @@ class ImportCatalogZipHandler(
             )
         }
 
-        val ordered = manifest.resources
-            .sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
-
-        // Pre-parse every stencil detail once. Each detail is routed through the
-        // migrator (catalog-wide version gate + chain) before binding; the chain
-        // is empty today, so current-shape details pass through unchanged.
-        // Missing / corrupt stencil JSON is still a hard import failure before any
-        // mutation, and the parsed StencilResource objects are reused by the
-        // install loop below so each stencil detail is deserialized only once.
-        // Other resource types stay in the per-resource try/catch so a
-        // missing/corrupt detail surfaces as a single failed install rather than
-        // aborting the whole import — but a wire-version gate failure
-        // (CatalogSchemaException) is rethrown there to reject the whole import,
-        // matching the manifest gate. Stencil-version conflicts remain the only
-        // deliberate group-decision (FAIL vs RENUMBER).
-        val parsedStencilsBySlug: Map<String, StencilResource> = ordered
-            .filter { it.type == "stencil" }
-            .associate { entry ->
-                val detailBytes = entries[entry.detailUrl.removePrefix("./")]
-                    ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
-                val stencil = parsed as? StencilResource
-                    ?: throw IllegalArgumentException(
-                        "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
-                    )
-                entry.key to stencil
-            }
-        // Install resources in dependency order. What each binds to is kept as well: a received
-        // release is recorded from the archive as published, not from the rows it is put in place as.
-        val bound = linkedMapOf<String, CatalogResource>()
-        // A received release is all or nothing (issue #850): its resources install in a savepoint of
-        // their own, rolled back when any one fails, so an aborted receive leaves none of them behind.
-        val results = requireNotNull(
-            resourcesSavepoint.execute { savepoint ->
-                ordered.map { entry ->
-                    try {
-                        val resource: CatalogResource = if (entry.type == "stencil") {
-                            parsedStencilsBySlug[entry.key]
-                                ?: error("Pre-scan produced no stencil for slug '${entry.key}' (manifest/pre-scan out of sync)")
-                        } else {
-                            val detailPath = entry.detailUrl.removePrefix("./")
-                            val detailBytes = entries[detailPath]
-                                ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                            schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
-                        }
-                        bound["${entry.type}/${entry.key}"] = resource
-
-                        val status = installer.install(
-                            catalog = catalog,
-                            resource = resource,
-                            version = manifest.release.version,
-                            binaries = entries::get,
-                            declarations = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
-                        )
-                        InstallResult(type = entry.type, slug = entry.key, status = status)
-                    } catch (e: CatalogSchemaException) {
-                        // A wire-version gate failure (too new/old/unknown) rejects the
-                        // whole import and surfaces the dedicated operator remediation
-                        // (UI fragment / RFC 9457 problem) — never downgraded to a single
-                        // FAILED resource by the generic catch below.
-                        throw e
-                    } catch (e: Exception) {
-                        logger.error("Failed to import {} '{}': {}", entry.type, entry.key, e.message, e)
-                        InstallResult(type = entry.type, slug = entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
-                    }
-                }.also { results -> if (receiving && results.any { it.status == InstallStatus.FAILED }) savepoint.setRollbackOnly() }
-            },
-        )
+        val (results, bound) = resources.install(catalog, parsed, receiving)
 
         val anyFailed = results.any { it.status == InstallStatus.FAILED }
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
