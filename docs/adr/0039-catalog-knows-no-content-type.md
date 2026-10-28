@@ -365,7 +365,9 @@ integration tests. `CatalogBoundaryTest.ALLOWED` went from 39 to 33 entries.
 4. **The stencil pre-parse** in `CatalogArchiveResources` was there for a stencil version conflict
    (FAIL or RENUMBER). Stencil versions are gone, and only the comment remains. Confirm, then drop it
    with the rest of the per-type import.
-5. **Stored content carries no wire version.** Storage keeps each resource in the contract's wire
+5. **Stored content carries no wire version.** Decided in [ADR 0040](0040-storage-and-contracts.md):
+   record it, migrate once at upgrade, keep the published form. The reasoning, kept for context:
+   storage keeps each resource in the contract's wire
    form (ADR 0038), deliberately: a release must keep the form it was published and fingerprinted in
    (a received one byte for byte), and one format means no translation between storage and export
    that can drift. Suite-only data goes beside it in the envelope. But `resource_contents` does not
