@@ -76,6 +76,27 @@ class VersionResourceReader(
         }
     }
 
+    /**
+     * What the version [catalog]'s callers mean keeps beside each resource's released form (ADR 0033:
+     * the envelope's other members, a code list's `source`), by content key; resources with none are
+     * left out. A release stores the content its draft does, so it retains these with it.
+     */
+    fun settings(handle: Handle, catalog: CatalogId): Map<String, tools.jackson.databind.node.ObjectNode> = handle.createQuery(
+        """
+        SELECT r.resource_type, r.resource_key, (c.payload - 'resource')::text AS settings
+        FROM release_wire_resources r
+        JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+        WHERE r.tenant_key = :t AND r.version_id = ${versionAt("t", "c")}
+          AND r.resource_type IN (<types>) AND c.payload - 'resource' <> '{}'::jsonb
+        """,
+    )
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .bindList("types", types.names.toList())
+        .map { rs, _ -> "${rs.getString("resource_type")}/${rs.getString("resource_key")}" to objectMapper.readTree(rs.getString("settings")) as tools.jackson.databind.node.ObjectNode }
+        .list()
+        .toMap()
+
     /** [resource] bound to its type's contract class. */
     fun bind(resource: VersionResource): CatalogResource = objectMapper.treeToValue(resource.resource, types.of(resource.type).wireClass)
 

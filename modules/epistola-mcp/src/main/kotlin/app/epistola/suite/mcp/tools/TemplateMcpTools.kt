@@ -32,7 +32,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.commands.variants.validateAttributes
+import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries

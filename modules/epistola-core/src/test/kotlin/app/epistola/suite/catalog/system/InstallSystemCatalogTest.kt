@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.system
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
+import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -16,7 +17,6 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException

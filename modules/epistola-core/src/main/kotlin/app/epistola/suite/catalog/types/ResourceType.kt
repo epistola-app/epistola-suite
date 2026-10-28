@@ -34,7 +34,24 @@ interface ResourceType<R : CatalogResource> {
      * authorised as changing one of these is. Throws when it cannot be put there.
      */
     fun receive(catalog: CatalogId, resource: R, arrival: Arrival): InstallStatus
+
+    /**
+     * Marks [key] of the version [catalog]'s messages target ready through this type's own checks
+     * (a template's or a stencil's command), and returns true; false for a type with no checks of its
+     * own, whose ready mark the catalog sets itself.
+     */
+    fun markReady(catalog: CatalogId, key: String): Boolean = false
+
+    /**
+     * What changing [old] into [new] means for a version number, each reason with its kind (contract
+     * ADR 0002): a removed variant is breaking, an added code-list entry additive. Empty for a type
+     * whose changes are all fixes.
+     */
+    fun changes(old: R, new: R): List<ResourceChange> = emptyList()
 }
+
+/** One reason a resource's change is of [kind], said in [text] ("variant 'b' removed"). */
+data class ResourceChange(val kind: app.epistola.suite.catalog.releases.ChangeKind, val text: String)
 
 /**
  * What a resource arrives with: the release [version] that brings it, the [binaries] it names by
@@ -94,6 +111,14 @@ class ResourceTypes(types: List<ResourceType<*>>) {
 
     /** [type]'s [ResourceType.receive] of [resource], which is of that type. */
     fun <R : CatalogResource> receive(type: ResourceType<R>, catalog: CatalogId, resource: CatalogResource, arrival: Arrival): InstallStatus = type.receive(catalog, type.wireClass.cast(resource), arrival)
+
+    /** What changing [old] into [new] means, as their type says; empty when they are of different types. */
+    fun changes(old: CatalogResource, new: CatalogResource): List<ResourceChange> {
+        val type = of(new)
+        return if (type.wireClass.isInstance(old)) changesOf(type, old, new) else emptyList()
+    }
+
+    private fun <R : CatalogResource> changesOf(type: ResourceType<R>, old: CatalogResource, new: CatalogResource): List<ResourceChange> = type.changes(type.wireClass.cast(old), type.wireClass.cast(new))
 
     /**
      * Every type, each after the ones it is installed after, ties by name. A cycle fails at startup.

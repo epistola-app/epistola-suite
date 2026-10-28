@@ -15,6 +15,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -29,7 +30,6 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.testing.AttributeStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.templates.commands.variants
+package app.epistola.suite.attributes
 
 import app.epistola.suite.attributes.codelists.queries.CodeListEntryExists
 import app.epistola.suite.attributes.model.VariantAttributeDefinition

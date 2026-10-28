@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.catalog
+package app.epistola.suite.stencils
 
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.CatalogReferences
+import app.epistola.suite.catalog.releases.ReleaseCheck
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -29,9 +32,9 @@ class ReleaseStencilCheck(
     private val assembler: ReleaseContentAssembler,
     private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
     private val jdbi: org.jdbi.v3.core.Jdbi,
-) {
+) : ReleaseCheck {
     /** @throws ValidationException naming every instance that does not fit, when one does not. */
-    fun requireInstancesFit(catalog: CatalogId, content: CatalogContent) {
+    override fun requireSatisfied(catalog: CatalogId, content: CatalogContent) {
         val own = content.resourceDetails.values.mapNotNull { it.resource as? StencilResource }.associateBy { it.key }
         // Each reference by alias from the catalog of the content it is in (ADR 0034, section 9): the
         // release's own declarations, and for a stencil of another catalog, that release's pins.

@@ -60,17 +60,7 @@ class CatalogBoundaryTest {
 
         val ALLOWED = sortedSetOf(
             "catalog.CatalogUpgradeAnalyzer -> attributes",
-            "catalog.commands.MarkCatalogReadyHandler -> stencils",
-            "catalog.commands.MarkCatalogReadyHandler -> templates",
-            "catalog.commands.ReleaseCatalogDraftHandler -> attributes",
-            "catalog.commands.UpdateCatalogMetadataHandler -> assets",
-            "catalog.commands.UpdateCatalogMetadataHandler -> templates",
             "catalog.graph.TenantResourceGraphBuilder -> templates",
-            "catalog.ProtocolMapper -> themes",
-            "catalog.queries.ListCatalogsForManagementKt -> templates",
-            "catalog.releases.ChangeKindEvaluator -> stencils",
-            "catalog.releases.ChangeKindEvaluator -> templates",
-            "catalog.ReleaseStencilCheck -> stencils",
             "catalog.relocation.CatalogResourceMovePlanner -> templates",
             "catalog.relocation.MoveCatalogResourcesHandler -> assets",
             "catalog.relocation.MoveCatalogResourcesHandler -> attributes",

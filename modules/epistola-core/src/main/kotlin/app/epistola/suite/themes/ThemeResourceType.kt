@@ -5,7 +5,6 @@
 package app.epistola.suite.themes
 
 import app.epistola.catalog.protocol.ThemeResource
-import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceType
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Component
 
 /** A theme as a catalog resource type (ADR 0039): its styles name fonts and images. */
 @Component
-class ThemeResourceType(private val protocolMapper: ProtocolMapper) : ResourceType<ThemeResource> {
+class ThemeResourceType : ResourceType<ThemeResource> {
     override val name = ThemeStore.THEME
     override val wireClass = ThemeResource::class.java
     override val installedAfter = setOf("font", "image")
@@ -26,9 +25,10 @@ class ThemeResourceType(private val protocolMapper: ProtocolMapper) : ResourceTy
         slug = resource.key,
         name = resource.name,
         description = resource.description,
-        documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
+        // The wire's styles allow nulls; a theme stores only the styles it sets.
+        documentStyles = resource.documentStyles?.filterValues { it != null }?.mapValues { (_, v) -> v!! } ?: emptyMap(),
         pageSettings = resource.pageSettings,
-        blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
+        blockStylePresets = resource.blockStylePresets?.let(::BlockStylePresets),
         spacingUnit = resource.spacingUnit,
         defaultBlockStyles = resource.defaultBlockStyles,
         // As received: none clears what the draft held.
