@@ -34,6 +34,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
+import app.epistola.suite.attributes.codelists.queries.ListCodeListPage
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
@@ -69,9 +70,8 @@ class EpistolaCodeListApi : CodeListsApi {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033); a release is read-only.
         val readOnly = !at.isDraft || at.catalog.readOnlyHere()
-        val items = ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef).query().map { it.toDto(at.catalog, readOnly) }
-        val slice = Pagination.paginate(items, page, size)
-        return ResponseEntity.ok(CodeListListResponse(items = slice.items, page = slice.page))
+        val codeLists = ListCodeListPage(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(CodeListListResponse(items = codeLists.items.map { it.toDto(at.catalog, readOnly) }, page = Pagination.pageMeta(page, size, codeLists.total)))
     }
 
     override fun createCodeList(

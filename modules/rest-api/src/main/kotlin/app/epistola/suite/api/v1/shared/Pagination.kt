@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.PageMeta
+import app.epistola.suite.common.PageRequest
 
 /**
  * Pagination helpers for the v1 REST list endpoints.
@@ -14,15 +15,9 @@ import app.epistola.api.model.PageMeta
  * [PageMeta] and translate page/size into SQL `LIMIT`/`OFFSET`, coercing `size`
  * into the contract's allowed range so a hostile or absent value can't escape it.
  *
- * Two strategies, both producing an identical envelope:
- *  - [paginate] — slice an already-materialised list in application code. Use for
- *    the bounded per-tenant/per-catalog config collections (variants, versions,
- *    activations, …) where fetching the full list is cheap and the query is shared
- *    with internal callers that need every row.
- *  - [limitOf] + [offsetOf] + [pageMeta] — push `LIMIT`/`OFFSET` into the query and
- *    obtain the total from a sibling `Count…` query. Use for the large, unbounded
- *    history tables (documents, generation jobs) where materialising everything is
- *    not acceptable.
+ * Every list is paged in the database, never by slicing a list fetched in full: a
+ * `…Page` query takes [requestOf] and answers one page and its total, [pageMeta] makes
+ * the envelope of it. [limitOf] + [offsetOf] serve the queries that take the two apart.
  */
 object Pagination {
     const val DEFAULT_PAGE_SIZE = 20
@@ -46,18 +41,6 @@ object Pagination {
         )
     }
 
-    /** One page sliced from a fully-materialised list, plus the matching [PageMeta]. */
-    data class Slice<T>(val items: List<T>, val page: PageMeta)
-
-    /**
-     * Slice [all] to the requested page in application code. `totalElements` is the
-     * full (already-filtered) list size, so callers must apply any filtering before
-     * calling this.
-     */
-    fun <T> paginate(all: List<T>, page: Int, size: Int): Slice<T> {
-        val safeSize = limitOf(size)
-        val from = offsetOf(page, size).coerceAtMost(all.size)
-        val to = (from.toLong() + safeSize).coerceAtMost(all.size.toLong()).toInt()
-        return Slice(all.subList(from, to), pageMeta(page, size, all.size.toLong()))
-    }
+    /** The rows a 0-based `page` of `size` asks for, clamped as [limitOf] and [offsetOf]. */
+    fun requestOf(page: Int, size: Int): PageRequest = PageRequest(limit = limitOf(size), offset = offsetOf(page, size))
 }

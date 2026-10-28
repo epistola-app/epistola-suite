@@ -43,6 +43,7 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
+import app.epistola.suite.attributes.queries.ListAttributeDefinitionPage
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
@@ -81,6 +82,7 @@ import app.epistola.suite.environments.queries.CountDeploymentHistory
 import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.environments.queries.ListEnvironmentPage
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -89,6 +91,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.commands.RenameTenant
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.tenants.queries.ListTenantPage
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -118,12 +121,11 @@ class EpistolaTenantApi(
     ): ResponseEntity<TenantListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenants = ListTenants(searchTerm = q).query()
-        val slice = Pagination.paginate(tenants, page, size)
+        val tenants = ListTenantPage(searchTerm = q, page = Pagination.requestOf(page, size)).query()
         return ResponseEntity.ok(
             TenantListResponse(
-                items = slice.items.map { it.toDto() },
-                page = slice.page,
+                items = tenants.items.map { it.toDto() },
+                page = Pagination.pageMeta(page, size, tenants.total),
             ),
         )
     }
@@ -195,10 +197,8 @@ class EpistolaTenantApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033); a release is read-only.
         val readOnly = !at.isDraft || at.catalog.readOnlyHere()
-        val items = ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef).query()
-            .map { it.toDto(at.catalog, readOnly) }
-        val slice = Pagination.paginate(items, page, size)
-        return ResponseEntity.ok(AttributeListResponse(items = slice.items, page = slice.page))
+        val attributes = ListAttributeDefinitionPage(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(AttributeListResponse(items = attributes.items.map { it.toDto(at.catalog, readOnly) }, page = Pagination.pageMeta(page, size, attributes.total)))
     }
 
     override fun createAttribute(
@@ -321,9 +321,8 @@ class EpistolaTenantApi(
     ): ResponseEntity<EnvironmentListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val environments = ListEnvironments(tenantId = TenantId(TenantKey.of(tenantKey))).query()
-        val slice = Pagination.paginate(environments, page, size)
-        return ResponseEntity.ok(EnvironmentListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
+        val environments = ListEnvironmentPage(tenantId = TenantId(TenantKey.of(tenantKey)), page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(EnvironmentListResponse(items = environments.items.map { it.toDto() }, page = Pagination.pageMeta(page, size, environments.total)))
     }
 
     override fun createEnvironment(
