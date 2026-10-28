@@ -21,6 +21,13 @@ against those ADRs.
 
 ## Touched
 
+### The catalog handler and the catalog import split by concern (28 October; branch `refactor/split-catalog-handler`)
+
+| What                                                                                                                                                                                                                                          | Where                                                                                  | Covered                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `CatalogHandler` (1,626 lines) split into the catalog page, the catalogs list, releasing, deployments, upgrades, metadata and install/export, with the shared rendering in `CatalogViews`; every method moved word for word, routes unchanged | `apps/epistola/.../handlers/Catalog*Handler.kt`, `CatalogViews.kt`, `CatalogRoutes.kt` | ✅ the catalog handler and UI tests, unchanged      |
+| `ImportCatalogZip` reads its archive through `ImportArchiveReader` and installs its resources through `CatalogArchiveResources`; plan and orchestration stay in the handler (receiving and importing recurse for a carried release)           | `catalog/commands/`                                                                    | ✅ the import, install and upgrade tests, unchanged |
+
 ### Catalog no longer depends on environments or on fonts' digest (28 October; branch `refactor/catalog-boundaries`)
 
 | What                                                                                                                                                                                 | Where                                                                                   | Covered                                                    |

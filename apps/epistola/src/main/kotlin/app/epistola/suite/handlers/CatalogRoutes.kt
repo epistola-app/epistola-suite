@@ -17,6 +17,12 @@ import org.springframework.web.servlet.function.router
 @Configuration
 class CatalogRoutes(
     private val handler: CatalogHandler,
+    private val catalogList: CatalogListHandler,
+    private val releaseActions: CatalogReleaseActionsHandler,
+    private val deployments: CatalogDeploymentHandler,
+    private val upgrades: CatalogUpgradeHandler,
+    private val metadata: CatalogMetadataHandler,
+    private val transfers: CatalogTransferHandler,
     private val exchange: ExchangeCatalogHandler,
     private val organise: CatalogOrganiseHandler,
     private val nextRelease: CatalogReleaseHandler,
@@ -31,7 +37,7 @@ class CatalogRoutes(
     @Order(Ordered.LOWEST_PRECEDENCE - 2)
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
-            GET("", handler::list)
+            GET("", catalogList::list)
             // Served before the per-catalog routes ([catalogScopedRouterFunction], which
             // CatalogScopedRouting serves after every other router): `exchange` is a legal catalog
             // slug, and relying on verb suffixes alone is one route away from an ambush.
@@ -45,10 +51,10 @@ class CatalogRoutes(
             GET("/registry", registry::getDialog)
             GET("/registry/releases", registry::releases)
             POST("/registry/install", registry::install)
-            GET("/new", handler::newForm)
-            GET("/subscribe", handler::registerForm)
-            POST("/subscribe", handler::register)
-            POST("/create", handler::createCatalog)
+            GET("/new", catalogList::newForm)
+            GET("/subscribe", catalogList::registerForm)
+            POST("/subscribe", catalogList::register)
+            POST("/create", catalogList::createCatalog)
             GET("/import", importer::importForm)
             POST("/import", importer::importZip)
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
@@ -64,9 +70,9 @@ class CatalogRoutes(
     /** A catalog's own pages and actions, by key and by namespace and key ([CatalogScopedRoutes]). */
     @Bean
     fun catalogScopedRouterFunction(): CatalogScopedRoutes = catalogScopedRoutes {
-        POST("/{catalogId}/delete", handler::deleteCatalog)
-        GET("/{catalogId}/release", handler::releaseDialog)
-        POST("/{catalogId}/release", handler::release)
+        POST("/{catalogId}/delete", catalogList::deleteCatalog)
+        GET("/{catalogId}/release", releaseActions::releaseDialog)
+        POST("/{catalogId}/release", releaseActions::release)
         // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name parallel
         // work as `key@<draft id>`, on these routes and every other per-catalog and per-resource route.
         GET("/{catalogId}/drafts/new", drafts::createForm)
@@ -89,8 +95,8 @@ class CatalogRoutes(
         GET("/{catalogId}/merge", merge::mergeDialog)
         GET("/{catalogId}/merge/sides", merge::mergeSides)
         POST("/{catalogId}/merge", merge::merge)
-        POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
-        POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
+        POST("/{catalogId}/publish-current", releaseActions::publishCurrentRelease)
+        POST("/{catalogId}/publications/{publicationId}/cancel", releaseActions::cancelPublication)
         GET("/{catalogId}/browse", handler::browse)
         // A draft's own page: the next version at a plain segment, another draft at key@version.
         GET("/{catalogId}/draft", handler::draftPage)
@@ -103,23 +109,23 @@ class CatalogRoutes(
         GET("/{catalogId}/theme-settings", themeSettings::show)
         POST("/{catalogId}/theme-settings", themeSettings::save)
         GET("/{catalogId}/bar-status", handler::barStatus)
-        GET("/{catalogId}/releases/{version}", handler::releaseDetail)
-        POST("/{catalogId}/releases/{version}/delete", handler::deleteRelease)
-        POST("/{catalogId}/deployments", handler::deploy)
-        POST("/{catalogId}/deployments/{environmentId}/undeploy", handler::undeploy)
-        POST("/{catalogId}/deployments/{environmentId}/unfollow", handler::unfollow)
-        GET("/{catalogId}/metadata", handler::metadataForm)
-        POST("/{catalogId}/metadata", handler::updateMetadata)
-        GET("/{catalogId}/usages", handler::resourceUsages)
-        GET("/{catalogId}/export-check", handler::exportCheck)
-        GET("/{catalogId}/export", handler::export)
+        GET("/{catalogId}/releases/{version}", releaseActions::releaseDetail)
+        POST("/{catalogId}/releases/{version}/delete", releaseActions::deleteRelease)
+        POST("/{catalogId}/deployments", deployments::deploy)
+        POST("/{catalogId}/deployments/{environmentId}/undeploy", deployments::undeploy)
+        POST("/{catalogId}/deployments/{environmentId}/unfollow", deployments::unfollow)
+        GET("/{catalogId}/metadata", metadata::metadataForm)
+        POST("/{catalogId}/metadata", metadata::updateMetadata)
+        GET("/{catalogId}/usages", transfers::resourceUsages)
+        GET("/{catalogId}/export-check", transfers::exportCheck)
+        GET("/{catalogId}/export", transfers::export)
         GET("/{catalogId}/registry-publish", registry::publishDialog)
         POST("/{catalogId}/registry-publish", registry::publish)
-        GET("/{catalogId}/install-preview", handler::installPreview)
-        POST("/{catalogId}/install", handler::install)
-        GET("/{catalogId}/upgrade-check", handler::upgradeCheck)
-        GET("/{catalogId}/upgrade-preview", handler::upgradePreview)
-        POST("/{catalogId}/upgrade", handler::upgrade)
+        GET("/{catalogId}/install-preview", transfers::installPreview)
+        POST("/{catalogId}/install", transfers::install)
+        GET("/{catalogId}/upgrade-check", upgrades::upgradeCheck)
+        GET("/{catalogId}/upgrade-preview", upgrades::upgradePreview)
+        POST("/{catalogId}/upgrade", upgrades::upgrade)
         GET("/{catalogId}/exchange-upgrade", exchange::upgradeDialog)
         POST("/{catalogId}/exchange-upgrade", exchange::upgrade)
     }
