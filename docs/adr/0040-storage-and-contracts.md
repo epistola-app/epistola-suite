@@ -69,6 +69,11 @@ refuses a content outside the envelope.
 
 ### 2. Stored content records its wire version, and is migrated once
 
+> Amended by [ADR 0041](0041-upgrading-installed-catalogs-to-a-new-wire-version.md): the published
+> form is not kept. Identity and fingerprints, not bytes, are what anyone verifies, and every
+> fingerprint stays computable from migrated content, so content is migrated in place and the
+> replaced contents are kept only until the next minor release.
+
 - Every stored content records the wire version it is in. Content stored before the column exists
   is the current version (v8).
 - A new wire version comes with a **migration of stored content**, run once at upgrade (a code
