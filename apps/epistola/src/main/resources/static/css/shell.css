@@ -111,21 +111,34 @@
     gap: var(--ep-space-4);
   }
 
-  /* Logo */
+  /* Logo: a 24px mark with the wordmark beside it. The link is padded to a comfortable target; on
+     narrow screens the wordmark gives way to the breadcrumbs (media query further down). */
   .app-nav-logo {
     display: flex;
     align-items: center;
     gap: var(--ep-space-2);
+    margin-left: calc(-1 * var(--ep-space-1-5));
+    padding: var(--ep-space-1-5);
+    border-radius: var(--ep-radius-md);
     text-decoration: none;
     color: var(--ep-foreground);
     font-weight: 600;
     font-size: var(--ep-text-sm);
     white-space: nowrap;
+    transition: var(--ep-transition-colors);
   }
 
   .app-nav-logo:hover {
     color: var(--ep-foreground);
+    background: var(--ep-muted);
     text-decoration: none;
+  }
+
+  .app-nav-logo-mark {
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
   }
 
   /* Navigation links */
@@ -624,8 +637,12 @@
 
   .ws-nav {
     position: sticky;
-    top: 48px;
-    height: calc(100vh - 48px);
+    top: var(--ep-sticky-offset, 48px);
+    /* The bar above and the footer below bound the nav: it starts where the bar ends and ends where
+       the footer begins. --app-footer-height is measured by app-shell.js (the footer wraps on narrow
+       screens and can carry a support badge); the 3rem fallback covers the first paint. */
+    height: calc(100vh - var(--ep-sticky-offset, 48px) - var(--app-footer-height, 3rem));
+    height: calc(100dvh - var(--ep-sticky-offset, 48px) - var(--app-footer-height, 3rem));
     overflow-y: auto;
     padding: var(--ep-space-4) var(--ep-space-2-5);
     background: var(--ep-white);
@@ -668,6 +685,16 @@
     color: var(--ep-foreground);
     font-size: var(--ep-text-sm);
     text-decoration: none;
+    min-width: 0;
+  }
+
+  /* A long catalog name takes the row and clips; the read-only lock keeps its place. */
+  .ws-nav-item-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ws-nav-item:hover {
@@ -696,8 +723,15 @@
   }
 
   .ws-nav-note {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
     font-size: var(--ep-text-xs);
     color: var(--ep-muted-foreground);
+  }
+
+  .ws-nav-note .ep-icon {
+    color: inherit;
   }
 
   .ws-main {
@@ -744,13 +778,17 @@
     .ws-nav {
       display: none;
       position: fixed;
-      top: 48px;
-      bottom: 0;
+      top: var(--ep-sticky-offset, 48px);
+      bottom: var(--app-footer-height, 3rem);
       left: 0;
       width: min(18rem, 85vw);
       height: auto;
       z-index: var(--ep-z-overlay);
       box-shadow: var(--ep-shadow-xl);
+    }
+
+    .app-nav-logo-wordmark {
+      display: none;
     }
 
     body:has(.app-nav.nav-open) .ws-nav {

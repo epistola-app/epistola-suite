@@ -14,6 +14,10 @@ The people using Epistola build templates, stencils and themes, and spend most o
 one catalog. The shell keeps that context in view on every page, so nobody has to remember which
 catalog, or which version of it, they are changing.
 
+The context bar spans the top and the footer spans the bottom; the side nav and the page sit between
+them, so the nav ends where each begins. An installation notice (maintenance, demo warning) belongs
+to the page column below the bar, not to the shell's chrome, so it never shifts the nav or the footer.
+
 ## Two places
 
 | Where                | Context bar                                            | Side nav                                                                                                   |

@@ -339,3 +339,44 @@ document.addEventListener('htmx:responseError', function (event) {
   banner.style.alignItems = 'center';
   main.insertBefore(banner, main.firstChild);
 });
+
+// ── Shell metrics ──────────────────────────────────────────────
+//
+// The side nav ends where the footer begins (layout/shell.html: the footer is a full-width row
+// under the body). The footer's height depends on its content and on the viewport — it wraps on
+// narrow screens and can gain a support badge — so measure it into --app-footer-height instead of
+// hard-coding a value; shell.css subtracts it from the nav's height.
+(function () {
+  var footerObserver = null;
+
+  function syncFooterHeight() {
+    var footer = document.querySelector('.app-footer');
+    var root = document.documentElement;
+    if (!footer) {
+      root.style.removeProperty('--app-footer-height');
+      return;
+    }
+    root.style.setProperty('--app-footer-height', footer.offsetHeight + 'px');
+  }
+
+  function observeFooter() {
+    var footer = document.querySelector('.app-footer');
+    if (footerObserver) {
+      footerObserver.disconnect();
+      footerObserver = null;
+    }
+    if (footer && 'ResizeObserver' in window) {
+      footerObserver = new ResizeObserver(syncFooterHeight);
+      footerObserver.observe(footer);
+    }
+    syncFooterHeight();
+  }
+
+  // A boosted navigation can replace the whole body, so re-bind after swaps too.
+  document.addEventListener('htmx:afterSwap', observeFooter);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observeFooter);
+  } else {
+    observeFooter();
+  }
+})();

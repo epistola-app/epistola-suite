@@ -19,8 +19,8 @@
             <a th:href="${ws != null} ? @{${ws.homeHref}} : @{/}" class="app-nav-logo"
                th:title="${ws != null} ? 'Home of ' + ${ws.tenantName} : 'Epistola home'"
                th:aria-label="${ws != null} ? 'Epistola — home of ' + ${ws.tenantName} : 'Epistola home'">
-                <img id="ws-logo" hx-preserve="true" class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
-                <span th:if="${ws == null}">Epistola</span>
+                <img id="ws-logo" hx-preserve="true" class="app-nav-logo-mark" th:src="@{/design-system/epistola-logo.svg}" alt="" />
+                <span class="app-nav-logo-wordmark">Epistola</span>
             </a>
 
             <div th:if="${ws != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
@@ -159,7 +159,7 @@
                 <a th:each="item : ${section}" th:href="@{${item.href}}" class="ws-nav-item"
                    th:classappend="${item.active} ? 'active' : ''" th:attr="data-testid=${'ws-nav-' + item.key},aria-current=${item.active} ? 'page' : null">
                     <th:block th:replace="~{epistola-web/icon :: icon(name=${item.icon}, class='ep-icon ep-icon-sm')}" />
-                    <span th:text="${item.label}">Templates</span>
+                    <span class="ws-nav-item-label" th:text="${item.label}">Templates</span>
                 </a>
             </div>
         </th:block>
@@ -178,14 +178,18 @@
                 <th:block th:if="${group.key == 'authoring'}">
                     <a th:each="c : ${ws.recentCatalogs}" th:href="@{${c.href}}" class="ws-nav-item" th:attr="data-catalog=${c.key},data-testid='ws-nav-catalog'"
                        th:title="${c.readOnlyLabel}">
-                        <span th:text="${c.name}">Letters</span>
-                        <span th:unless="${c.editable}" class="ws-nav-note">Read-only</span>
+                        <span class="ws-nav-item-label" th:text="${c.name}">Letters</span>
+                        <span th:unless="${c.editable}" class="ws-nav-note"
+                              th:title="${c.readOnlyLabel != null ? 'Read-only — ' + c.readOnlyLabel : 'Read-only'}"
+                              th:attr="aria-label=${c.readOnlyLabel != null ? 'Read-only: ' + c.readOnlyLabel : 'Read-only'}" role="img">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='pencil-off', class='ep-icon ep-icon-sm')}" />
+                        </span>
                     </a>
                 </th:block>
                 <a th:each="item : ${group.items}" th:href="@{/tenants/{id}/{p}(id=${ws.tenantKey}, p=${item.pathSuffix})}"
                    class="ws-nav-item" th:classappend="${item.active} ? 'active' : ''"
                    th:attr="data-testid=${'nav-item-' + item.sectionKey},aria-current=${item.active} ? 'page' : null">
-                    <span th:text="${item.label}">Environments</span>
+                    <span class="ws-nav-item-label" th:text="${item.label}">Environments</span>
                     <span th:if="${item.stage.badgeClass != null}" th:class="${'badge ' + item.stage.badgeClass}" th:text="${item.stage.label}">Beta</span>
                     <!-- A count beside the label, so something waiting is visible from any page. -->
                     <span th:if="${item.indicator != null}" th:class="${'badge ws-nav-count ' + item.indicator.badgeClass}"

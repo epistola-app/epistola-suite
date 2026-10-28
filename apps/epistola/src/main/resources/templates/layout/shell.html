@@ -10,22 +10,23 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <!--/* The workspace shell (docs/workspace-shell.md): the context bar on top, the side nav for the
-       place someone is in, the page beside it. Pages without a tenant have no side nav. A boosted
-       navigation inside the workspace replaces only #ws-page, with the nav and, when it changed, the
-       bar out of band (layout/boosted, ShellModelInterceptor). */-->
+       place someone is in, the page beside it, the footer under both. Pages without a tenant have no
+       side nav. A boosted navigation inside the workspace replaces only #ws-page, with the nav and,
+       when it changed, the bar out of band (layout/boosted, ShellModelInterceptor). */-->
 <body class="app-shell" hx-boost="true">
 
     <th:block th:replace="~{layout/nav :: nav}" />
-
-    <th:block th:if="${siteBanner != null}">
-        <th:block th:replace="~{fragments/site-banner :: banner}" />
-    </th:block>
 
     <div class="ws-body" th:classappend="${workspace == null} ? 'ws-body-plain' : ''">
         <th:block th:if="${workspace != null}">
             <th:block th:replace="~{layout/nav :: side}" />
         </th:block>
         <div class="ws-main">
+            <!--/* An installation notice belongs to the page column: it must not shift the context
+                   bar, the side nav or the footer. Outside #ws-page, so a boosted navigation keeps it. */-->
+            <th:block th:if="${siteBanner != null}">
+                <th:block th:replace="~{fragments/site-banner :: banner}" />
+            </th:block>
             <!--/* What a boosted navigation replaces (layout/boosted): the page, and what belongs to it. */-->
             <div id="ws-page" class="ws-page" th:fragment="page">
                 <th:block th:if="${workspace?.catalog?.sideWork}">
@@ -44,9 +45,11 @@
                        navigation so the server sends them again only when they change. */-->
                 <span id="ws-shell-key" hidden th:attr="data-key=${workspace != null} ? 'nav:' + ${workspace.barKey} : 'plain'"></span>
             </div>
-            <th:block th:replace="~{fragments/footer :: footer}" />
         </div>
     </div>
+    <!--/* The footer spans the shell under the side nav, so the nav ends where it begins, as it ends
+           where the context bar begins. Sticky, it stays a status bar while the page scrolls. */-->
+    <th:block th:replace="~{fragments/footer :: footer}" />
     <!--/* The one confirm dialog (window.epistolaConfirm, data-confirm-*), on every page: without it
            a confirmation falls back to the browser's own confirm(). Outside #ws-page, so a boosted
            navigation keeps it. */-->
