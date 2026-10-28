@@ -20,7 +20,8 @@ import org.jdbi.v3.core.kotlin.mapTo
  * at that moment: those are the only ones that can hold a sequence at or below it. Once they are
  * gone, everything up to that sequence is committed or rolled back, and can be delivered.
  *
- * Emits never wait on a poll: the poll reads `pg_locks` instead of taking the lock itself.
+ * Emits never wait on a poll: the poll reads `pg_locks` instead of taking the lock itself, and
+ * nothing ever takes the lock exclusively, so it cannot deadlock. See `docs/collect.md`.
  */
 object EmitsInFlight {
     // The two-key form of the advisory lock, so it shows in pg_locks as classid/objid/objsubid = 2.

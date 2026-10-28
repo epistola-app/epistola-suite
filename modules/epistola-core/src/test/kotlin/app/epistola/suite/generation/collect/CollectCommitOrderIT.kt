@@ -20,10 +20,12 @@ import app.epistola.suite.generation.collect.domain.GenerationResultRow
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.generation.collect.queries.FetchGenerationResults
+import app.epistola.suite.generation.collect.queries.FetchGenerationResultsHandler
 import app.epistola.suite.generation.collect.queries.FetchResultsPage
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -49,6 +51,9 @@ class CollectCommitOrderIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var meterRegistry: MeterRegistry
 
     @Test
     fun `a result that commits after a later one is still delivered`() {
@@ -77,13 +82,55 @@ class CollectCommitOrderIT : IntegrationTestBase() {
         val second = emit(tenant)
 
         // Held open longer than a poll waits: the poll returns, but without the second result.
+        val timedOutBefore = waits(FetchGenerationResultsHandler.OUTCOME_TIMED_OUT)
         val page = fetch(tenant, consumer)
+        assertThat(waits(FetchGenerationResultsHandler.OUTCOME_TIMED_OUT)).isEqualTo(timedOutBefore + 1)
         assertThat(page.rows.map { it.sequence }).doesNotContain(second.sequence)
         assertThat(page.hasMore).isTrue
 
         first.commit()
         assertThat(collectAll(tenant, consumer)).contains(first.row.sequence, second.sequence)
     }
+
+    @Test
+    fun `an emit is never held up by a poll waiting for another one`() {
+        val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
+        val consumer = "cons-${UUID.randomUUID()}"
+
+        val first = EmitHeldOpen(tenant).start()
+        emit(tenant)
+        val settledBefore = waits(FetchGenerationResultsHandler.OUTCOME_SETTLED)
+
+        // The poll waits for the first emit, which stays open; meanwhile a third emit commits.
+        val poll = CompletableFuture.supplyAsync { fetch(tenant, consumer) }
+        val third = CompletableFuture.supplyAsync { emit(tenant) }.get(5, TimeUnit.SECONDS)
+        // The third emit is done while the poll still waits: an emit never waits for a poll.
+        assertThat(poll).isNotDone
+
+        first.commit()
+        poll.get(5, TimeUnit.SECONDS)
+        assertThat(waits(FetchGenerationResultsHandler.OUTCOME_SETTLED)).isGreaterThan(settledBefore)
+        assertThat(collectAll(tenant, consumer) + poll.get().rows.map { it.sequence })
+            .contains(first.row.sequence, third.sequence)
+    }
+
+    @Test
+    fun `an emit that rolls back leaves a gap that does not stall delivery`() {
+        val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
+        val consumer = "cons-${UUID.randomUUID()}"
+
+        val rolledBack = EmitHeldOpen(tenant).start()
+        val later = emit(tenant)
+        rolledBack.rollBack()
+
+        // The rolled-back sequence never appears; the later result is delivered on the first poll,
+        // without waiting, since nothing is in flight any more.
+        val page = fetch(tenant, consumer)
+        assertThat(page.rows.map { it.sequence }).contains(later.sequence).doesNotContain(rolledBack.row.sequence)
+    }
+
+    /** Polls that waited for emits in flight so far, by outcome. */
+    private fun waits(outcome: String): Long = meterRegistry.find(FetchGenerationResultsHandler.WAIT_METER).tag("outcome", outcome).timer()?.count() ?: 0L
 
     /** Poll and acknowledge like a consumer until a poll comes back empty; returns what arrived. */
     private fun collectAll(tenant: TenantKey, consumer: String): List<Long> {
@@ -109,6 +156,8 @@ class CollectCommitOrderIT : IntegrationTestBase() {
     private inner class EmitHeldOpen(private val tenant: TenantKey) {
         private val inserted = CompletableFuture<GenerationResultRow>()
         private val proceed = CountDownLatch(1)
+
+        @Volatile private var rollBack = false
         private lateinit var done: CompletableFuture<Void>
 
         lateinit var row: GenerationResultRow
@@ -119,6 +168,7 @@ class CollectCommitOrderIT : IntegrationTestBase() {
                     TransactionTemplate(transactionManager).executeWithoutResult {
                         inserted.complete(emitCommand(tenant).execute())
                         check(proceed.await(20, TimeUnit.SECONDS)) { "the test never released the emit" }
+                        if (rollBack) it.setRollbackOnly()
                     }
                 }
             }
@@ -129,6 +179,11 @@ class CollectCommitOrderIT : IntegrationTestBase() {
         fun commit() {
             proceed.countDown()
             done.get(10, TimeUnit.SECONDS)
+        }
+
+        fun rollBack() {
+            rollBack = true
+            commit()
         }
     }
 

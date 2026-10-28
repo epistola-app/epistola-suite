@@ -11,12 +11,15 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 /**
  * Fetch a page of pending generation results for a consumer.
@@ -73,6 +76,7 @@ data class FetchResultsPage(
 @Component
 class FetchGenerationResultsHandler(
     private val jdbi: Jdbi,
+    private val meterRegistry: MeterRegistry,
 ) : QueryHandler<FetchGenerationResults, FetchResultsPage> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -150,20 +154,41 @@ class FetchGenerationResultsHandler(
     private fun awaitEmitsInFlight(handle: Handle): Boolean {
         val holders = EmitsInFlight.holders(handle)
         if (holders.isEmpty()) return true
-        val deadline = System.nanoTime() + IN_FLIGHT_WAIT.toNanos()
+        val started = System.nanoTime()
+        val deadline = started + IN_FLIGHT_WAIT.toNanos()
         while (EmitsInFlight.anyStillInFlight(handle, holders)) {
             if (System.nanoTime() > deadline) {
+                recordWait(started, OUTCOME_TIMED_OUT)
                 logger.warn("Results are still being emitted after {}; this poll delivers none", IN_FLIGHT_WAIT)
                 return false
             }
             Thread.sleep(IN_FLIGHT_POLL)
         }
+        recordWait(started, OUTCOME_SETTLED)
         return true
+    }
+
+    /**
+     * One poll that found emits in flight and waited for them (`epistola.collect.inflight.wait`):
+     * its count is the polls that waited, its time how long; `outcome=timed_out` counts the polls
+     * that hit [IN_FLIGHT_WAIT] and delivered nothing.
+     */
+    private fun recordWait(started: Long, outcome: String) {
+        Timer.builder(WAIT_METER)
+            .description("Polls that waited for results still being emitted, and how long")
+            .tag("outcome", outcome)
+            .register(meterRegistry)
+            .record(System.nanoTime() - started, TimeUnit.NANOSECONDS)
     }
 
     companion object {
         /** How long a poll waits for the emits in flight before it returns an empty page. */
         val IN_FLIGHT_WAIT: Duration = Duration.ofSeconds(2)
         private val IN_FLIGHT_POLL: Duration = Duration.ofMillis(2)
+
+        /** Timer of polls that waited for emits in flight, tagged `outcome`. */
+        const val WAIT_METER: String = "epistola.collect.inflight.wait"
+        const val OUTCOME_SETTLED: String = "settled"
+        const val OUTCOME_TIMED_OUT: String = "timed_out"
     }
 }
