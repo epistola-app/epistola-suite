@@ -50,7 +50,7 @@ class PartitionMaintenanceTimeZoneIT : IntegrationTestBase() {
             val contributor = object : PartitionedTableContributor {
                 override fun partitionedTables() = listOf(PartitionedTable(parent, retentionMonths = null))
             }
-            PartitionMaintenanceScheduler(tokyo, SimpleMeterRegistry(), listOf(contributor), "0 0 2 * * ?")
+            PartitionMaintenanceScheduler(tokyo, SimpleMeterRegistry(), listOf(contributor), PartitionProperties())
                 .maintainPartitions()
 
             val month = YearMonth.from(EpistolaClock.instant().atOffset(ZoneOffset.UTC))

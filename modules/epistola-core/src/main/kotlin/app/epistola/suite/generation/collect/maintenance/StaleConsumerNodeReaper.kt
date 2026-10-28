@@ -9,18 +9,18 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.generation.collect.CollectProperties
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
  * Daily DELETE for `consumer_node_assignments` rows whose last heartbeat is
- * older than [retentionHours]. Without this the table only ever grows: every
+ * older than [CollectProperties.staleNodeRetentionHours]. Without this the table only ever grows: every
  * pod that ever polled — including renamed instances, decommissioned hosts,
  * CI runners — leaves a permanent ghost row. They're already excluded from
  * ring computation by [TouchConsumerNode]'s `last_seen_at > active_since`
@@ -42,10 +42,7 @@ import org.springframework.stereotype.Component
 class StaleConsumerNodeReaper(
     private val jdbi: Jdbi,
     private val meterRegistry: MeterRegistry,
-    @Value("\${epistola.collect.stale-node-retention-hours:24}")
-    private val retentionHours: Long,
-    @Value("\${epistola.collect.reaper.cron:0 0 3 * * *}")
-    private val cron: String,
+    private val collect: CollectProperties,
 ) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
@@ -55,7 +52,7 @@ class StaleConsumerNodeReaper(
         taskKey = TASK_KEY,
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
-        schedule = ClusterScheduledTaskSchedule.Cron(cron),
+        schedule = ClusterScheduledTaskSchedule.Cron(collect.reaper.cron),
         executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     )
 
@@ -66,9 +63,9 @@ class StaleConsumerNodeReaper(
     fun reap() = meterRegistry.recordScheduledTask("stale-consumer-reaper") {
         val deleted = deleteStaleNodes()
         if (deleted > 0) {
-            logger.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, retentionHours)
+            logger.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, collect.staleNodeRetentionHours)
         } else {
-            logger.debug("No stale consumer_node_assignments rows to reap (retentionHours={})", retentionHours)
+            logger.debug("No stale consumer_node_assignments rows to reap (retentionHours={})", collect.staleNodeRetentionHours)
         }
     }
 
@@ -83,7 +80,7 @@ class StaleConsumerNodeReaper(
             WHERE last_seen_at < now() - make_interval(hours => :retentionHours)
             """,
         )
-            .bind("retentionHours", retentionHours.toInt())
+            .bind("retentionHours", collect.staleNodeRetentionHours.toInt())
             .execute()
     }
 

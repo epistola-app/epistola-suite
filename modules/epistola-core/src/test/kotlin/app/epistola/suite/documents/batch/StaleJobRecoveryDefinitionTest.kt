@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.documents.JobPollingProperties
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -25,7 +26,7 @@ class StaleJobRecoveryDefinitionTest {
         val recovery = StaleJobRecovery(
             jdbi = mock(Jdbi::class.java),
             meterRegistry = SimpleMeterRegistry(),
-            staleTimeoutMinutes = 10,
+            polling = JobPollingProperties(staleTimeoutMinutes = 10),
         )
 
         val definition = recovery.staleJobRecoveryScheduledTaskDefinition()

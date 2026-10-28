@@ -18,7 +18,6 @@ import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.SmartInitializingSingleton
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
@@ -52,8 +51,7 @@ class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
     private val meterRegistry: MeterRegistry,
     private val tableContributors: List<PartitionedTableContributor>,
-    @Value("\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
-    private val maintenanceCron: String,
+    private val partitions: PartitionProperties,
 ) : ClusterScheduledTaskHandler,
     SmartInitializingSingleton {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -77,7 +75,7 @@ class PartitionMaintenanceScheduler(
         taskKey = TASK_KEY,
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
-        schedule = ClusterScheduledTaskSchedule.Cron(maintenanceCron),
+        schedule = ClusterScheduledTaskSchedule.Cron(partitions.maintenanceCron),
         // The recurring path is single-owner; the advisory lock below additionally
         // guards the ApplicationReadyEvent startup path, which runs on every node.
         executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,

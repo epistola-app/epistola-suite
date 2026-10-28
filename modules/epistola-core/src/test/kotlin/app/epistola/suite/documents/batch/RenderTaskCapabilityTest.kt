@@ -43,7 +43,7 @@ class RenderTaskCapabilityTest {
         val recovery = StaleJobRecovery(
             jdbi = mock(Jdbi::class.java),
             meterRegistry = SimpleMeterRegistry(),
-            staleTimeoutMinutes = 10,
+            polling = JobPollingProperties(staleTimeoutMinutes = 10),
         )
 
         assertThat(recovery.staleJobRecoveryScheduledTaskDefinition().requiredCapability)
