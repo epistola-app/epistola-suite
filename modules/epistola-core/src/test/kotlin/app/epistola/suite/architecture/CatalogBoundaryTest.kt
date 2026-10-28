@@ -59,9 +59,6 @@ class CatalogBoundaryTest {
         val DOMAINS = listOf("templates", "themes", "stencils", "assets", "attributes", "fonts", "environments", "documents", "generation")
 
         val ALLOWED = sortedSetOf(
-            "catalog.CatalogContentBuilder -> assets",
-            "catalog.CatalogContentBuilder -> fonts",
-            "catalog.CatalogContentBuilder -> templates",
             "catalog.CatalogUpgradeAnalyzer -> attributes",
             "catalog.commands.CatalogResourceInstaller -> assets",
             "catalog.commands.CatalogResourceInstaller -> attributes",
@@ -80,7 +77,6 @@ class CatalogBoundaryTest {
             "catalog.commands.UpdateCatalogMetadataHandler -> templates",
             "catalog.graph.TenantResourceGraphBuilder -> templates",
             "catalog.ProtocolMapper -> themes",
-            "catalog.queries.ExportThemesHandler -> themes",
             "catalog.queries.ListCatalogsForManagementKt -> templates",
             "catalog.releases.ChangeKindEvaluator -> stencils",
             "catalog.releases.ChangeKindEvaluator -> templates",

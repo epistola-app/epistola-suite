@@ -24,7 +24,6 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.BrowseCatalog
-import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
@@ -817,7 +816,8 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 readsTemplateData = true,
             ).execute()
 
-            val exported = ExportStencils(tenantKey = tenant.id, catalog = testCatalog(tenant.id, catalogKey)).query().associateBy { it.key }
+            val exported = contentBuilder.build(testCatalog(tenant.id, catalogKey)).resourceDetails.values
+                .map { it.resource }.filterIsInstance<app.epistola.catalog.protocol.StencilResource>().associateBy { it.key }
 
             assertThat(exported.keys).containsExactlyInAnyOrder("plain", "reader")
             assertThat(exported.getValue("plain").content.root).isEqualTo("edited-root")
