@@ -71,7 +71,7 @@ class EmitGenerationResultHandler(
 
         val inserted = jdbi.withHandle<GenerationResultRow, Exception> { handle ->
             // Before the INSERT draws its sequence, so a poll knows to wait for this emit.
-            EmitsInFlight.enter(handle)
+            EmitsInFlight.enter(handle, req.tenantKey)
             handle.createQuery(
                 """
                 INSERT INTO generation_results (

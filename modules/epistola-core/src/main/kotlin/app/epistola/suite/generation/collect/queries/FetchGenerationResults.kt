@@ -112,7 +112,7 @@ class FetchGenerationResultsHandler(
             // Nothing handed out past every cursor: an idle poll ends here.
             val upTo = EmitsInFlight.highestIssued(handle)
             if (upTo <= (cursorList.minOrNull() ?: 0L)) return@inTransaction emptyList()
-            if (!awaitEmitsInFlight(handle, query.inFlightWait)) return@inTransaction null
+            if (!awaitEmitsInFlight(handle, query.tenantId, query.inFlightWait)) return@inTransaction null
             handle.createQuery(
                 """
                 WITH cursors(p, cur) AS (
@@ -150,16 +150,17 @@ class FetchGenerationResultsHandler(
     }
 
     /**
-     * Wait until the emits in flight now have committed or rolled back. They are the only ones that
-     * can hold a sequence up to the highest one read just before; emits that start later draw a
-     * higher one. False when they are still in flight after [wait].
+     * Wait until [tenant]'s emits in flight now have committed or rolled back. They are the only ones
+     * that can hold one of its sequences up to the highest one read just before; emits that start
+     * later draw a higher one, and another tenant's rows are never in this feed. False when they are
+     * still in flight after [wait].
      */
-    private fun awaitEmitsInFlight(handle: Handle, wait: Duration): Boolean {
-        val holders = EmitsInFlight.holders(handle)
+    private fun awaitEmitsInFlight(handle: Handle, tenant: TenantKey, wait: Duration): Boolean {
+        val holders = EmitsInFlight.holders(handle, tenant)
         if (holders.isEmpty()) return true
         val started = System.nanoTime()
         val deadline = started + wait.toNanos()
-        while (EmitsInFlight.anyStillInFlight(handle, holders)) {
+        while (EmitsInFlight.anyStillInFlight(handle, tenant, holders)) {
             if (System.nanoTime() > deadline) {
                 recordWait(started, OUTCOME_TIMED_OUT)
                 logger.warn("Results are still being emitted after {}; this poll delivers none", wait)
