@@ -135,6 +135,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Data shared with Epistola](outbound-traffic.md)           | Current  | What an installation shares, every outbound call, the support badge.     |
 | [SBOM](sbom.md)                                            | Current  | CycloneDX SBOM generation for backend and frontend, and scanning it.     |
 | [Load testing](loadtesting.md)                             | Current  | The embedded load-test feature for measuring installation capacity.      |
+| [Collect](collect.md)                                      | Current  | How the collect feed delivers every result once, and the lock it uses.   |
 | [Collect performance](collect-performance.md)              | Record   | Measured limits of the v0.3 collect mechanism.                           |
 | [Adaptive batch polling logs](adaptive-batch-logging.md)   | Record   | Sample log output showing the shape of adaptive-poll logging.            |
 | [v0.4 coordinated rebalance](v04-coordinated-rebalance.md) | Proposed | Closing the collect affinity gap with a coordinated ring handover.       |

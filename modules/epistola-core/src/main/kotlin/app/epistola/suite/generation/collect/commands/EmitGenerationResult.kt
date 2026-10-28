@@ -7,6 +7,7 @@ package app.epistola.suite.generation.collect.commands
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.generation.collect.domain.EmitsInFlight
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.ResultStatus
@@ -69,6 +70,8 @@ class EmitGenerationResultHandler(
         val partition = Partition.partitionFor(routingKey)
 
         val inserted = jdbi.withHandle<GenerationResultRow, Exception> { handle ->
+            // Before the INSERT draws its sequence, so a poll knows to wait for this emit.
+            EmitsInFlight.enter(handle)
             handle.createQuery(
                 """
                 INSERT INTO generation_results (
