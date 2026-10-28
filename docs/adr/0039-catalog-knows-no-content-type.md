@@ -380,6 +380,15 @@ integration tests. `CatalogBoundaryTest.ALLOWED` went from 39 to 33 entries.
 
    Either way, the stability contract holds: stored content is never broken, only moved forward.
 
+   Upgrading on every read would put a migration in front of every render. It need not: content is
+   addressed by its hash and never changes, so its upgrade to a given wire version is always the
+   same and can be made once. The likely answer combines both: keep each content as published
+   (immutable, for its fingerprint and a byte-identical re-export), and migrate it once, at upgrade,
+   into a current-version copy that rendering and editing read. The copy is one more row of
+   `resource_contents`. Whether a re-export of a received release must match its published
+   fingerprint, or the contract defines that fingerprint independently of the wire version, decides
+   whether the published form must be kept at all.
+
 ## Order
 
 Each step leaves the build green and shortens `ALLOWED`:
