@@ -71,7 +71,7 @@
                            pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
                            data-testid="catalog-namespace-local-name"
                            th:value="${formData?.get('localNamespace') ?: namespaces.suggestedLocalNamespace}">
-                    <span class="form-hint">A catalog under local never leaves this organisation: it is not published to Epistola Exchange, and until the catalog format carries local, it is not exported or copied by file.</span>
+                    <span class="form-hint">A catalog under local is never published to Epistola Exchange. It can still be released, and exported to another installation of your organisation as a file.</span>
                 </div>
                 <span class="form-hint" th:if="${#lists.isEmpty(namespaces.held)}" data-testid="catalog-namespace-none-held">
                     This tenant holds no namespace yet; a platform administrator can grant one.

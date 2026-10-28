@@ -792,8 +792,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         val asked = upload()
         assertThat(asked.headers.getFirst("HX-Redirect")).isNull()
         val prompt = asked.body!!.substringAfter("data-testid=\"import-name-required\"")
-        assertThat(prompt).`as`("proposed: the default registry and this tenant's namespace")
-            .contains("name=\"registry\"", "value=\"exchange.epistola.app\"", "name=\"namespace\"", "value=\"${app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(consumer.id)}\"")
+        assertThat(prompt).`as`("proposed: what the 2.0 migration named this tenant's own catalogs, local in its namespace")
+            .contains("name=\"registry\"", "value=\"local\"", "name=\"namespace\"", "value=\"${app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(consumer.id)}\"")
             .contains("name=\"confirmMigration\" value=\"true\"")
         assertThat(withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("old-letters"))).query() }).`as`("nothing decided silently").isNull()
 

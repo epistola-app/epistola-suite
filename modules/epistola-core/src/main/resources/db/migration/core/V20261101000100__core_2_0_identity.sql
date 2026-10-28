@@ -54,18 +54,27 @@ ALTER TABLE variant_attribute_definitions DROP CONSTRAINT fk_variant_attributes_
 
 -- 2. A catalog's name and identity ----------------------------------------------------------------
 
--- Existing catalogs are named on the default registry, exchange.epistola.app: in the namespace
--- `epistola` for the catalogs Epistola ships (installed from the classpath); in their publisher's for
--- one installed from Exchange (`exchange:<namespace>/<key>`); in the Exchange namespace a catalog is
--- bound to for publishing, which the registry granted; otherwise in their tenant's key, padded with
--- `0` to the 3 characters a namespace needs, as the contract pads a short key.
+-- Existing catalogs are named under `local` (ADR 0034, section 7), in their tenant's key, padded with
+-- `0` to the 3 characters a namespace needs, as the contract pads a short key: until now a catalog
+-- never left its installation but through the Exchange, so a name valid only within the organisation
+-- is the one it had. Only Exchange names a catalog on exchange.epistola.app: in the namespace
+-- `epistola` for the catalogs Epistola ships (installed from the classpath, as their manifests name
+-- them); in their publisher's for one installed from Exchange (`exchange:<namespace>/<key>`); in the
+-- Exchange namespace a catalog is bound to for publishing, which the registry granted. A 1.x catalog
+-- subscribed to from a URL takes the name its source gives it at the first boot
+-- (`ReceiveOneXSubscribedReleases`).
 ALTER TABLE catalogs
     ADD COLUMN registry TEXT,
     ADD COLUMN namespace TEXT,
     ADD COLUMN catalog_id UUID NOT NULL DEFAULT epistola_uuidv7();
 
 UPDATE catalogs c
-SET registry  = 'exchange.epistola.app',
+SET registry  = CASE
+        WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' OR c.source_url LIKE 'exchange:%/%'
+            OR EXISTS (SELECT 1 FROM catalog_exchange_bindings b WHERE b.tenant_key = c.tenant_key AND b.catalog_key = c.id)
+            THEN 'exchange.epistola.app'
+        ELSE 'local'
+    END,
     namespace = CASE
         WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
         WHEN c.source_url LIKE 'exchange:%/%' THEN split_part(substring(c.source_url FROM length('exchange:') + 1), '/', 1)
@@ -86,7 +95,7 @@ ALTER TABLE catalogs ALTER COLUMN type SET DEFAULT 'AUTHORED';
 COMMENT ON COLUMN catalogs.registry IS
     'The registry the catalog is named on (contract ADR 0003): a DNS name, written in full.';
 COMMENT ON COLUMN catalogs.namespace IS
-    'The catalog''s namespace on its registry (contract ADR 0003). Defaults to the tenant key for an authored catalog; fixed once the catalog is published.';
+    'The catalog''s namespace on its registry (contract ADR 0003). An authored catalog from before 2.0 is local/<tenant key>; fixed once the catalog is published.';
 COMMENT ON COLUMN catalogs.catalog_id IS
     'Opaque identity of the catalog. Never shown and never a name: a catalog is named by (registry, namespace, catalog_key).';
 COMMENT ON COLUMN catalogs.type IS

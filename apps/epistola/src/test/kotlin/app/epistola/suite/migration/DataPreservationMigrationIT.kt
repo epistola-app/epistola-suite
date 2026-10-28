@@ -311,10 +311,10 @@ class DataPreservationMigrationIT {
                 .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
                 .isEqualTo("0")
 
-            // 2.0 names every catalog (V20261101000100): an authored catalog on the default
-            // registry, in the tenant's namespace.
+            // 2.0 names every catalog (V20261101000100): an authored catalog under local, in the
+            // tenant's namespace.
             assertThat(one("SELECT registry || '~' || namespace FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = 'shared'"))
-                .isEqualTo("exchange.epistola.app~$TENANT")
+                .isEqualTo("local~$TENANT")
 
             // 2.0 keeps one working copy (V20261101000700, V20261101000800): what each author was
             // working on, the draft where there is one, else the published version.
