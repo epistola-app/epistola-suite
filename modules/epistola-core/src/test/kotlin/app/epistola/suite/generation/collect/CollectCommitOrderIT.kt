@@ -27,16 +27,19 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.node.JsonNodeFactory
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
@@ -54,6 +57,9 @@ class CollectCommitOrderIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var meterRegistry: MeterRegistry
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     @Test
     fun `a result that commits after a later one is still delivered`() {
@@ -83,7 +89,7 @@ class CollectCommitOrderIT : IntegrationTestBase() {
 
         // Held open longer than a poll waits: the poll returns, but without the second result.
         val timedOutBefore = waits(FetchGenerationResultsHandler.OUTCOME_TIMED_OUT)
-        val page = fetch(tenant, consumer)
+        val page = fetch(tenant, consumer, inFlightWait = Duration.ofMillis(300))
         assertThat(waits(FetchGenerationResultsHandler.OUTCOME_TIMED_OUT)).isEqualTo(timedOutBefore + 1)
         assertThat(page.rows.map { it.sequence }).doesNotContain(second.sequence)
         assertThat(page.hasMore).isTrue
@@ -101,9 +107,12 @@ class CollectCommitOrderIT : IntegrationTestBase() {
         emit(tenant)
         val settledBefore = waits(FetchGenerationResultsHandler.OUTCOME_SETTLED)
 
-        // The poll waits for the first emit, which stays open; meanwhile a third emit commits.
-        val poll = CompletableFuture.supplyAsync { fetch(tenant, consumer) }
-        val third = CompletableFuture.supplyAsync { emit(tenant) }.get(5, TimeUnit.SECONDS)
+        // The poll waits for the first emit, which stays open; meanwhile a third emit commits. Only
+        // once the poll is seen waiting: a poll that has not started yet proves nothing.
+        val pollStarted = databaseNow()
+        val poll = CompletableFuture.supplyAsync({ fetch(tenant, consumer) }, Executors.newVirtualThreadPerTaskExecutor())
+        awaitPollWaiting(since = pollStarted)
+        val third = emit(tenant)
         // The third emit is done while the poll still waits: an emit never waits for a poll.
         assertThat(poll).isNotDone
 
@@ -129,6 +138,34 @@ class CollectCommitOrderIT : IntegrationTestBase() {
         assertThat(page.rows.map { it.sequence }).contains(later.sequence).doesNotContain(rolledBack.row.sequence)
     }
 
+    private fun databaseNow(): OffsetDateTime = jdbi.withHandle<OffsetDateTime, Exception> {
+        it.createQuery("SELECT clock_timestamp()").mapTo(OffsetDateTime::class.java).one()
+    }
+
+    /**
+     * Until a poll that began after [since] sits in its wait for emits in flight: its transaction
+     * has run the in-flight check (`EmitsInFlight.anyStillInFlight`), which only the wait does.
+     */
+    private fun awaitPollWaiting(since: OffsetDateTime) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (System.nanoTime() < deadline) {
+            val waiting = jdbi.withHandle<Boolean, Exception> {
+                it.createQuery(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM pg_stat_activity
+                        WHERE datname = current_database() AND pid <> pg_backend_pid()
+                          AND xact_start >= :since AND query LIKE '%virtualtransaction = ANY(%'
+                    )
+                    """,
+                ).bind("since", since).mapTo(Boolean::class.java).one()
+            }
+            if (waiting) return
+            Thread.sleep(5)
+        }
+        error("the poll never started waiting for the emit in flight")
+    }
+
     /** Polls that waited for emits in flight so far, by outcome. */
     private fun waits(outcome: String): Long = meterRegistry.find(FetchGenerationResultsHandler.WAIT_METER).tag("outcome", outcome).timer()?.count() ?: 0L
 
@@ -146,8 +183,12 @@ class CollectCommitOrderIT : IntegrationTestBase() {
         return delivered
     }
 
-    private fun fetch(tenant: TenantKey, consumer: String): FetchResultsPage = withMediator {
-        FetchGenerationResults(tenant, consumer, ALL_PARTITIONS, limit = 100).query()
+    /**
+     * One poll. It waits [PATIENT] by default rather than the production limit, so a slow machine
+     * cannot turn a poll the test means to settle into one that gives up.
+     */
+    private fun fetch(tenant: TenantKey, consumer: String, inFlightWait: Duration = PATIENT): FetchResultsPage = withMediator {
+        FetchGenerationResults(tenant, consumer, ALL_PARTITIONS, limit = 100, inFlightWait = inFlightWait).query()
     }
 
     private fun emit(tenant: TenantKey): GenerationResultRow = withMediator { emitCommand(tenant).execute() }
@@ -222,6 +263,9 @@ class CollectCommitOrderIT : IntegrationTestBase() {
 
     private companion object {
         val ALL_PARTITIONS = (0 until Partition.TOTAL_PARTITIONS).toSet()
+
+        /** Long enough that no poll in these tests gives up unless the test asks it to. */
+        val PATIENT: Duration = Duration.ofSeconds(15)
         const val MAX_POLLS = 10
     }
 }
