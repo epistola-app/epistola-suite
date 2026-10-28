@@ -124,6 +124,23 @@ class CollectCommitOrderIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a poll does not wait for another tenant's emit in flight`() {
+        val other = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
+        val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
+        val consumer = "cons-${UUID.randomUUID()}"
+
+        val held = EmitHeldOpen(other).start()
+        val mine = emit(tenant)
+
+        // The other tenant's emit stays open past this poll's wait: had the poll waited for it, it
+        // would give up and deliver nothing.
+        val page = fetch(tenant, consumer, inFlightWait = Duration.ofSeconds(3))
+        assertThat(page.rows.map { it.sequence }).contains(mine.sequence)
+
+        held.commit()
+    }
+
+    @Test
     fun `an emit that rolls back leaves a gap that does not stall delivery`() {
         val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
         val consumer = "cons-${UUID.randomUUID()}"

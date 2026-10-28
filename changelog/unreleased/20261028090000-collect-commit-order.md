@@ -9,5 +9,6 @@ A result's sequence is drawn when it is stored, but results commit in the order 
 finish. A consumer that was given sequence n + 1 while n had not committed yet acknowledged it, and
 n was never delivered: under load, about one result in four thousand. A poll now delivers only up
 to the highest sequence handed out when it started, after waiting for the results still being
-stored at that moment — normally a few milliseconds. If they take longer than two seconds, the
+stored for the same tenant at that moment — normally a few milliseconds; another tenant's results
+never hold it up. If they take longer than two seconds, the
 poll returns an empty page with `hasMore: true`.
