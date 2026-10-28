@@ -4,49 +4,22 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.archive.CatalogArchivePolicy
-import app.epistola.catalog.archive.CatalogArchiveReader
-import app.epistola.catalog.migration.CatalogMigrationCodes
-import app.epistola.catalog.migration.CatalogMigrationOptions
-import app.epistola.catalog.protocol.AttributeResource
-import app.epistola.catalog.protocol.CatalogManifest
-import app.epistola.catalog.protocol.CatalogResource
-import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.StencilResource
-import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.catalog.protocol.ThemeResource
-import app.epistola.catalog.validation.CatalogValidationPolicy
-import app.epistola.catalog.validation.CatalogValidator
-import app.epistola.catalog.validation.ValidationSeverity
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
-import app.epistola.suite.catalog.CatalogImportSchemaAction
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
-import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
-import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
-import app.epistola.suite.catalog.dependencies.DependencyAliases
-import app.epistola.suite.catalog.inCurrentVersion
-import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
-import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.ReleaseProvenance
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
-import app.epistola.suite.common.ids.CodeListKey
-import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -55,13 +28,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.validation.ValidationCode
-import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.io.ByteArrayInputStream
 
 /**
  * Receives the release a catalog archive carries (contract `importCatalog`, ADR 0003 and 0032): at its

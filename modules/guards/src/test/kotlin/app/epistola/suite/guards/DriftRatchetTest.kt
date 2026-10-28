@@ -41,7 +41,7 @@ class DriftRatchetTest {
         Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {
             mainLines(Regex("""\bval tenantId: TenantKey\b"""))
         },
-        Counter("handler files using require(", 23, "validate(...) with a ValidationCode") {
+        Counter("handler files using require(", 22, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
         Counter("mediator.send/query in epistola-mcp", 22, "execute() / query() extensions") {
@@ -57,7 +57,7 @@ class DriftRatchetTest {
         Counter("UUID.randomUUID() in main", 7, "UUIDv7.generate()") {
             mainLines(Regex("""UUID\.randomUUID\(\)"""))
         },
-        Counter("files importing the catalog.CatalogKey typealias", 34, "common.ids.CatalogKey") {
+        Counter("files importing the catalog.CatalogKey typealias", 33, "common.ids.CatalogKey") {
             RepoSources.mainKotlinFiles().count { path ->
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }
@@ -71,7 +71,7 @@ class DriftRatchetTest {
                 declared != null && !declared.endsWith(".handlers")
             }
         },
-        Counter("Kotlin main files over 1000 lines", 1, "split the file") {
+        Counter("Kotlin main files over 1000 lines", 0, "split the file") {
             RepoSources.mainKotlinFiles().count { Files.readAllLines(it).size > 1000 }
         },
         Counter("editor TypeScript files over 1000 lines", 5, "split the file") {
