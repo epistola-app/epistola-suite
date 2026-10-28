@@ -512,7 +512,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """
             SELECT DISTINCT template_catalog.catalog_key::text
             FROM $table owned
-            ${app.epistola.suite.templates.currentTemplateViewJoin("owned")}
+            ${app.epistola.suite.catalog.currentTemplateViewJoin("owned")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE owned.tenant_key = :tenantKey
@@ -871,7 +871,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT variants.attributes::text FROM current_template_variants variants
-                ${app.epistola.suite.templates.currentTemplateViewJoin("variants")}
+                ${app.epistola.suite.catalog.currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantKey AND template.id = :templateKey AND variants.id = :variantKey
                 """,
         )

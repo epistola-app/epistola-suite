@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -16,7 +17,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.currentTemplateViewJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 

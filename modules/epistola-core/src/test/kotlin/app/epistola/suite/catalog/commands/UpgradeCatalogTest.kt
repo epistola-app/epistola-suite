@@ -263,6 +263,42 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * A variant of another catalog's template selects by the subscribed catalog's attribute; the
+     * analyser finds that use in the reference index (ADR 0039), where variant attributes are references.
+     */
+    @Test
+    fun `an upgrade is refused when an attribute the publisher dropped is used by another catalog's variant`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Attribute Conflict Test")
+        val tenantId = TenantId(tenant.id)
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
+            CreateDocumentTemplate(id = templateId, name = "Attribute User").execute()
+            app.epistola.suite.templates.commands.variants.CreateVariant(
+                app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("dutch"), templateId),
+                "Dutch",
+                null,
+                attributes = mapOf("dep-test.language" to "nl"),
+            ).execute()
+            // 1.1.0 no longer publishes the attribute, nor selects by it itself.
+            fixture(tmp.resolve("next"), "1.1.0") { dir ->
+                drop(dir, "attribute", "language")
+                val template = dir.resolve("resources/templates/full-deps.json")
+                template.writeText(template.readText().replace(Regex("\"attributes\": \\{[^}]*\\}"), "\"attributes\": {}"))
+            }
+            publish(source, tmp.resolve("next"))
+
+            assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
+                .isInstanceOf(CatalogUpgradeConflictException::class.java)
+                .hasMessageContaining("Attribute 'language' is used by template 'Attribute User'")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
     @Test
     fun `an upgrade of a catalog with changes of its own records the release beside its next version`(@TempDir tmp: Path) {
         val tenant = createTenant("Upgrade Beside Test")

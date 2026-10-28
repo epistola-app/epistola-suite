@@ -4,9 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.attributes.AttributeReferences
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -153,20 +150,21 @@ class CatalogUpgradeAnalyzer(
     }
 
     private fun findAttributeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
-        val attribute = AttributeId(AttributeKey.of(slug), catalog)
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM current_template_variants v
-            JOIN current_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_id = v.catalog_id AND dt.resource_id = v.template_resource_id
-            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
-              AND ${AttributeReferences.uses("v")}
+            -- What another catalog's current version uses it for, from the reference index (ADR 0039):
+            -- a variant names it as `catalog.attribute` (that catalog's alias) or by its key alone.
+            SELECT DISTINCT r.resource_type, r.name, dc.catalog_key AS catalog_key
+            FROM release_wire_resources r
+            JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+            JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
+            JOIN catalogs dc ON dc.tenant_key = r.tenant_key AND dc.catalog_id = r.catalog_id
+            WHERE r.tenant_key = :t AND r.catalog_id != ${catalogAt("t", "c")}
+              AND x.resource_type = 'attribute' AND x.resource_key = :slug
+              AND (x.alias = :cStr OR x.alias IS NULL)
             """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
-            .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(attribute))
-            .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(attribute))
-            .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("cStr", catalog.key.value).bind("slug", slug)
+            .map { rs, _ -> "Attribute '$slug' is used by ${rs.getString("resource_type")} '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
     }
 

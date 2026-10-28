@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.revisions.ContentReference
 import app.epistola.suite.catalog.revisions.TemplateContents
 import app.epistola.suite.catalog.revisions.VariantRows
 import app.epistola.suite.catalog.types.Arrival
@@ -98,6 +99,23 @@ class TemplateResourceType(
             if (was != now) reason(ChangeKind.BREAKING, "variant '$variant' attributes changed from ${was.describe()} to ${now.describe()}")
         }
     }
+
+    /**
+     * Its theme, beside its models, and the attributes its variants select by: a key `catalog.attribute`
+     * names that catalog's, a bare one an attribute found by its key alone (as [app.epistola.suite.attributes.validateAttributes]
+     * resolves it).
+     */
+    override fun references(resource: JsonNode): Set<ContentReference> = buildSet {
+        resource.text("themeKey")?.let { add(ContentReference(resource.text("themeCatalogKey"), "theme", it)) }
+        resource.path("variants").forEach { variant ->
+            variant.path("attributes").properties().map { it.key }.forEach { name ->
+                val alias = name.substringBefore('.', missingDelimiterValue = "").ifEmpty { null }
+                add(ContentReference(alias, "attribute", name.substringAfter('.')))
+            }
+        }
+    }
+
+    private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotBlank() }
 
     private val schemas = SchemaCompatibilityChecker()
 

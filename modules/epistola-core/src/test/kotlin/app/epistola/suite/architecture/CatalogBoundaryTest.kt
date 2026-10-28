@@ -21,9 +21,10 @@ import org.junit.jupiter.api.Test
  * reference counts too. Tenants is not in the list: a catalog belongs to a tenant, so catalog may
  * read it.
  *
- * [ALLOWED] is what is left to untangle, mostly the per-type import, export and relocation, which
- * still call each type's store. It may only shrink: the test fails as much for a dependency that is
- * gone and still listed as for a new one, so whoever removes one takes it off the list.
+ * [ALLOWED] is empty (ADR 0039): what is particular to a content type is its domain's
+ * [app.epistola.suite.catalog.types.ResourceType] or
+ * [app.epistola.suite.catalog.relocation.ResourceRelocator], and anything else catalog needs from a
+ * domain is an SPI catalog owns. A new dependency belongs behind one of those, not on this list.
  */
 class CatalogBoundaryTest {
     private val classes: JavaClasses =
@@ -58,17 +59,7 @@ class CatalogBoundaryTest {
 
         val DOMAINS = listOf("templates", "themes", "stencils", "assets", "attributes", "fonts", "environments", "documents", "generation")
 
-        val ALLOWED = sortedSetOf(
-            "catalog.CatalogUpgradeAnalyzer -> attributes",
-            "catalog.graph.TenantResourceGraphBuilder -> templates",
-            "catalog.relocation.CatalogResourceMovePlanner -> templates",
-            "catalog.relocation.MoveCatalogResourcesHandler -> assets",
-            "catalog.relocation.MoveCatalogResourcesHandler -> attributes",
-            "catalog.relocation.MoveCatalogResourcesHandler -> fonts",
-            "catalog.relocation.MoveCatalogResourcesHandler -> stencils",
-            "catalog.relocation.MoveCatalogResourcesHandler -> templates",
-            "catalog.relocation.MoveCatalogResourcesHandler -> themes",
-        )
+        val ALLOWED = sortedSetOf<String>()
 
         /** Version targeting and the log context read the catalog version a message names. */
         val MEDIATOR_ALLOWED = sortedSetOf(

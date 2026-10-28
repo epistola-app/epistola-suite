@@ -48,6 +48,14 @@ interface ResourceType<R : CatalogResource> {
      * whose changes are all fixes.
      */
     fun changes(old: R, new: R): List<ResourceChange> = emptyList()
+
+    /**
+     * The references [resource] (its released form, as stored) carries outside the reference sites
+     * every document has ([app.epistola.suite.catalog.graph.ResourceReferenceSites]): a template's
+     * theme and its variants' attributes. Indexed with them in `resource_references` when stored; a
+     * new one in content that already exists needs a migration indexing it there too.
+     */
+    fun references(resource: JsonNode): Set<app.epistola.suite.catalog.revisions.ContentReference> = emptySet()
 }
 
 /** One reason a resource's change is of [kind], said in [text] ("variant 'b' removed"). */

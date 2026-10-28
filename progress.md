@@ -90,14 +90,13 @@ Decided and closed:
 | Ready marks (`markReady`), change kinds (`changes`) and the stencil release check (`ReleaseCheck` SPI) through the types; release settings read generically; `CatalogAttributeValues` SPI; `validateAttributes` moved to attributes; `ALLOWED` 19 → 9 | `catalog/types/`, `<domain>/*ResourceType.kt`, `stencils/ReleaseStencilCheck.kt` | ✅ 953 content-domain integration tests, `ChangeKindEvaluatorTest`, `CatalogBoundaryTest` |
 | ADR 0041 (proposed): upgrading installed catalogs to a new wire version; amends ADR 0040 §2                                                                                                                                                           | `docs/adr/0041-…`                                                                | ➖                                                                                        |
 
-Left in `ALLOWED` (9), each waiting on a decision:
+| Variant attributes are references: `ResourceType.references` (a template's theme and variant attributes), indexed when stored; `V20261101001800` indexes stored ones; the upgrade analyser asks the index | `TemplateResourceType`, `ContentReferences`, `CatalogUpgradeAnalyzer`, migration | ✅ `VariantAttributeReferencesMigrationTest` (fails without the migration), `UpgradeCatalogTest` attribute case (fails without the index), `ReferenceWalkerGoldenVectorsTest` new case |
+| Relocation through a `ResourceRelocator` per domain (move, rewrite, follow a move); the handler names no type, its dead relational branch gone; `currentTemplateViewJoin` moved to catalog; `ALLOWED` 9 → 0 | `<domain>/*Relocator.kt`, `CatalogResourceRelocation.kt` | 🟡 full core integration run pending at the time of writing |
 
-- **Relocation (7):** `CatalogResourceMovePlanner` builds per-type rewrites (variant models, stencil
-  documents, theme styles, attribute bindings, variant attributes) applied through each store.
-  Generic means rebuilding the planner on the reference index (ADR 0039, step 6).
-- **`CatalogUpgradeAnalyzer` and the resource graph (2):** both ask who uses an attribute, and
-  variant attributes are no reference site, so the index cannot answer. Needs a variant-attribute
-  reference kind and a forward migration backfilling `resource_references` for existing templates.
+Not generic yet, though no class dependency (ADR 0039, "Where it landed"): SQL naming each type's view
+or members in the relocation planner, the upgrade analyser's theme/stencil/font checks, the resource
+graph and the catalog list's activity query. Move each to the reference index when next touched, the
+planner first. The unified writer (`VersionResources.put`) is not built.
 
 Noticed, not done:
 

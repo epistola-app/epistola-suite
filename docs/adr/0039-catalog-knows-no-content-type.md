@@ -352,6 +352,44 @@ Evidence: the generic export ran beside the per-type export inside `CatalogConte
 and failed on any difference, across the catalog, template, theme, validation and exchange
 integration tests. `CatalogBoundaryTest.ALLOWED` went from 39 to 33 entries.
 
+## Where it landed (2026-10-28)
+
+On `refactor/resource-types-spike`, `CatalogBoundaryTest.ALLOWED` is empty: `catalog` depends on no
+content domain. What a type says, and where:
+
+| Hook or SPI                                                  | Owner                                       | Used by                                             |
+| ------------------------------------------------------------ | ------------------------------------------- | --------------------------------------------------- |
+| `ResourceType.name`, `wireClass`, `installedAfter`, `layout` | each domain                                 | the generic reader, export, install order           |
+| `ResourceType.receive`                                       | each domain                                 | import, upgrade, merge (`CatalogResourceInstaller`) |
+| `ResourceType.markReady`                                     | templates, stencils                         | `MarkCatalogReady`                                  |
+| `ResourceType.changes`                                       | templates, stencils, attributes, code lists | `ChangeKindEvaluator`                               |
+| `ResourceType.references`                                    | templates (theme, variant attributes)       | the reference index (`ResourceContentStore`)        |
+| `ResourceRelocator` (move, rewrite, follow a move)           | each domain                                 | `MoveCatalogResourcesHandler`                       |
+| `ReleaseCheck`                                               | stencils                                    | `ReleaseCatalogDraft`                               |
+| `CatalogAttributeValues`                                     | attributes                                  | `UpdateCatalogMetadata`                             |
+
+Three decisions the work made:
+
+- **Relocation is an SPI of its own, not part of `ResourceType`.** A relocator writes through its
+  domain's store, and the content store reads the types to index references, so putting it on the
+  type would make the beans depend on each other in a circle. It is also an alpha feature.
+- **Variant attributes are references.** A template's variants name the attributes they select by;
+  they are indexed in `resource_references` like every other reference (`TemplateResourceType.references`),
+  and `V20261101001800` indexes those stored before. The upgrade analyser asks the index who uses an
+  attribute, as it already did for code lists. `ReferenceWalkerGoldenVectorsTest` has the new case,
+  `VariantAttributeReferencesMigrationTest` fails without the migration, and the new attribute case of
+  `UpgradeCatalogTest` fails without the index.
+- **Read-model helpers live with the read model.** `currentTemplateViewJoin` joins two views the
+  catalog's migrations define, so it moved from `templates` to `catalog`; `validateAttributes` reads
+  only attributes, so it moved from `templates` to `attributes`.
+
+What is not generic yet, and is not a class dependency, so the boundary test cannot see it: SQL that
+names a type's view or members. The relocation planner builds its rewrites per type from the views;
+the upgrade analyser's theme, stencil and font checks scan JSON per type; the resource graph reads
+each type's view for per-variant evidence; the catalog list's activity query names each view. Each
+can move to the reference index as it is next touched, the planner first (step 6). The unified
+writer (`VersionResources.put`) is not built: domain stores still write through `DraftResources`.
+
 ## Open questions
 
 1. **`UpdateCatalogMetadataHandler`** validates the catalog's presentation images (asset media
