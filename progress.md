@@ -75,6 +75,30 @@ Decided and closed:
 
 ## Touched
 
+### 1.x archives import with the stencil scope they rendered with (28 October; branch `fix/v7-import-stencil-scope`)
+
+Found by an end-to-end run of real 1.x catalogs (the catalogs of a customer and the 1.x demo): imported into
+an empty 2.0, their letters rendered without the template's data (blank name, date, reference).
+
+| What                                                                                                                                                                                                                                            | Where                                                                                                                                                                                                                            | Covered                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A stencil from an archive before wire v8 gets `readsTemplateData`, and each of its placeholders `passParameters`: 1.x gave a stencil's content and every fill the template's data and the instance's parameters. The wire migration set neither | the contract's `CatalogV7ToV8Migration` (`CATALOG_STENCIL_SCOPE_KEPT`), with `passParameters` left out of the legacy fingerprints (`CatalogV8Additions`); branch `fix/v7-stencil-scope` of `epistola-contract`, not yet released | 🟡 here `OneXStencilScopeTest` and `V7ZipImportTest`, both failing on contract `2.0.0-alpha.3` and passing on the fixed contract (local build); by hand on that build: the four archives of that customer in an empty 2.0 render pixel-identical to the same catalogs upgraded from 1.x (17/17). Green on CI once the contract is released and bumped |
+
+Noticed, not done:
+
+- After the 1.x upgrade three of those letters shift layout on page 2: 1.x content rendered with rendering defaults V6
+  and renders with V8 in 2.0. Accepted (28 October).
+- A 1.x export of an unreleased catalog is numbered `X.Y.Z-dev`, which 2.0 refuses (`CATALOG_RELEASE_VERSION_INVALID`,
+  contract rule). Decided: full versions are required; release in 1.x or renumber the archive.
+- The 1.x demo catalog cannot be exported from 1.x (data example 3 of `demo-invoice` lacks `taxRate`), and its bundled
+  directory is not a valid archive (a resource name differs from the manifest; fingerprint mismatch).
+- The 2.0 demo's traffic fine (`officiele-snelheidsbekeuring`) renders squeezed into a narrow column, 4 pages instead of
+  1, also on a fresh install.
+- REST: creating a tenant that exists answers 500, not 409 (`DuplicateIdException` has no mapping); 1.x does the same
+  for an environment.
+- Locally `:modules:epistola-core:unitTest` ends in `OutOfMemoryError` in the JUnit engine after about 1,045 tests, its
+  test JVM having 512 MB (`epistola-kotlin-conventions`); seen on an untouched `release/2.0` too, three times.
+
 ### The catalog handler and the catalog import split by concern (28 October; branch `refactor/split-catalog-handler`)
 
 | What                                                                                                                                                                                                                                          | Where                                                                                  | Covered                                             |
