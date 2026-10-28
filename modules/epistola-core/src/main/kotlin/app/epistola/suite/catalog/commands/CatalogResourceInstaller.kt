@@ -9,10 +9,10 @@ import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.StencilResource
-import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.ProtocolMapper
+import app.epistola.suite.catalog.types.Arrival
+import app.epistola.suite.catalog.types.ResourceTypes
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -20,7 +20,6 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.model.DataExample
 import org.springframework.stereotype.Component
 
 /**
@@ -36,6 +35,7 @@ import org.springframework.stereotype.Component
 class CatalogResourceInstaller(
     private val protocolMapper: ProtocolMapper,
     private val references: app.epistola.suite.catalog.CatalogReferences,
+    private val types: ResourceTypes,
 ) {
 
     /**
@@ -57,34 +57,7 @@ class CatalogResourceInstaller(
         version: String,
         binaries: (String) -> ByteArray?,
         resolve: (String?) -> CatalogId?,
-    ): InstallStatus = when (resource) {
-        is TemplateResource -> {
-            val input = templateImportInput(resource, version, protocolMapper, resolve)
-            val results = ImportTemplates(
-                catalog = catalog,
-                templates = listOf(input),
-            ).execute()
-            val result = results.first()
-            if (result.status == ImportStatus.FAILED) {
-                throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
-            }
-            if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
-        }
-
-        is ThemeResource -> ImportTheme(
-            catalog = catalog,
-            slug = resource.key,
-            name = resource.name,
-            description = resource.description,
-            documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
-            pageSettings = resource.pageSettings,
-            blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
-            spacingUnit = resource.spacingUnit,
-            defaultBlockStyles = resource.defaultBlockStyles,
-            // As received: none clears what the draft held.
-            metadata = resource.metadata.orEmpty(),
-        ).execute()
-
+    ): InstallStatus = types.receive(types.of(resource), catalog, resource, Arrival(version, binaries, resolve)) ?: when (resource) {
         is StencilResource -> ImportStencil(
             catalog = catalog,
             slug = resource.key,
@@ -168,42 +141,7 @@ class CatalogResourceInstaller(
                 metadata = resource.metadata.orEmpty(),
             ).execute()
         }
+
+        else -> error("Resource type ${types.of(resource).name} received nothing")
     }
 }
-
-/**
- * A received template as [ImportTemplates] writes it: every member the protocol carries, the wire v8
- * ones (description, metadata, a data example's key) included. The one translation, so
- * everything that puts a received template in a version stores the same members.
- */
-internal fun templateImportInput(
-    resource: TemplateResource,
-    version: String,
-    protocolMapper: ProtocolMapper,
-    /** The catalog an alias of [resource] means, its own without one. */
-    resolve: (String?) -> CatalogId?,
-): ImportTemplateInput = ImportTemplateInput(
-    slug = resource.key,
-    name = resource.name,
-    version = version,
-    themeId = resource.themeKey,
-    themeCatalog = if (resource.themeKey != null) resolve(resource.themeCatalogKey) else null,
-    pdfaEnabled = resource.pdfaEnabled,
-    dataModel = protocolMapper.toObjectNode(resource.dataModel),
-    dataExamples = resource.dataExamples?.map {
-        DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
-    } ?: emptyList(),
-    templateModel = resource.templateModel,
-    variants = resource.variants.map { variant ->
-        ImportVariantInput(
-            id = variant.key,
-            title = variant.title,
-            attributes = variant.attributes ?: emptyMap(),
-            templateModel = variant.templateModel,
-            isDefault = variant.isDefault,
-            description = variant.description,
-        )
-    },
-    description = resource.description,
-    metadata = resource.metadata,
-)

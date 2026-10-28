@@ -93,7 +93,38 @@ class CatalogContentBuilder(
     private val dependencyStore: CatalogDependencyStore,
     private val fontStore: app.epistola.suite.fonts.FontStore,
     private val templateStore: app.epistola.suite.templates.TemplateStore,
+    private val versionResources: app.epistola.suite.catalog.revisions.VersionResourceReader,
 ) {
+    /** SPIKE (ADR 0039): the generic read of [catalog]'s version must say what the per-type one says. */
+    private fun spikeParity(catalog: CatalogId, entries: List<ResourceEntry>, details: Map<String, ResourceDetail>) {
+        val generic = jdbi.withHandle<List<app.epistola.suite.catalog.revisions.VersionResourceReader.VersionResource>, Exception> { versionResources.read(it, catalog) }
+        val genericDetails = generic.associate { resource ->
+            // As a release reads it (ReleaseContentAssembler.detailOf): stored as it travels, name qualifiers dropped.
+            val root = resource.resource
+            ResourceReferenceSites.dropNameQualifiers(root)
+            val envelope = objectMapper.createObjectNode().put("schemaVersion", CATALOG_SCHEMA_VERSION)
+            envelope.set("resource", root)
+            resource.contentKey to objectMapper.treeToValue(envelope, ResourceDetail::class.java)
+        }
+        fun canonical(detail: ResourceDetail) = objectMapper.writeValueAsString(sortKeys(objectMapper.valueToTree(detail)))
+        val problems = mutableListOf<String>()
+        if (details.keys != genericDetails.keys) problems += "keys: per-type ${details.keys - genericDetails.keys} generic ${genericDetails.keys - details.keys}"
+        details.forEach { (key, detail) ->
+            val other = genericDetails[key] ?: return@forEach
+            val a = canonical(detail)
+            val b = canonical(other)
+            if (a != b) problems += "$key:\n  per-type $a\n  generic  $b"
+        }
+        val genericEntries = generic.map { ResourceEntry(type = it.type, key = it.key, name = it.name, description = it.description, detailUrl = "./resources/${it.type}/${it.key}.json") }
+        if (entries.toSet() != genericEntries.toSet()) problems += "entries: per-type ${entries.toSet() - genericEntries.toSet()} generic ${genericEntries.toSet() - entries.toSet()}"
+        check(problems.isEmpty()) { "SPIKE PARITY ${catalog.address}: ${problems.joinToString("\n")}" }
+    }
+
+    private fun sortKeys(node: JsonNode): JsonNode = when {
+        node.isObject -> objectMapper.createObjectNode().also { out -> node.properties().sortedBy { it.key }.forEach { (k, v) -> out.set(k, sortKeys(v)) } }
+        node.isArray -> objectMapper.createArrayNode().also { out -> node.forEach { out.add(sortKeys(it)) } }
+        else -> node
+    }
 
     fun build(catalog: CatalogId): CatalogContent {
         val found = GetCatalog(catalog).query()
@@ -135,6 +166,8 @@ class CatalogContentBuilder(
         for (image in assets) addResource("image", image.key, image.name, null, image)
         // The manifest entry's description is the template's own (wire v8: equal when both are present).
         for (template in templates) addResource("template", template.key, template.name, template.description, template)
+
+        spikeParity(catalog, resourceEntries, resourceDetails)
 
         // Keyed by the archive path each binary takes, which is what the canonicaliser and the
         // writer both ask for. It used to key by a filename parsed out of contentUrl and recover

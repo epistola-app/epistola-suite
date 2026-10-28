@@ -266,7 +266,7 @@ targeting (`CatalogReleaseScoped`), the edit guard, dependency declarations and 
 
 | Operation  | Becomes                                                                                                                                                                                                 | Replaces                                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Export     | `VersionContentReader.read`: every row of the version, each envelope's `resource` (assembled by its layout), relativised for travel. The same for a draft and a release.                                | `CatalogContentBuilder`'s per-type loading, the `Export*` queries, `ProtocolMapper`, `ReleaseContentAssembler` |
+| Export     | `VersionContentReader.read`: every row of the version, each envelope's `resource` (assembled by its layout), as stored, with name qualifiers dropped. The same for a draft and a release.               | `CatalogContentBuilder`'s per-type loading, the `Export*` queries, `ProtocolMapper`, `ReleaseContentAssembler` |
 | Import     | `ArchiveInstaller`: for each type in `installOrder`, bind each detail to `wireClass` through the schema migrator, check `editPermission`, run `check`, then `VersionResources.put(Envelope(resource))`. | `CatalogResourceInstaller`, the six `Import*` commands, the stencil pre-parse                                  |
 | Relocation | `ReferenceRewriter`: the contents that name a moved address (`resource_references`) are rewritten through `ResourceReferenceSites` and stored again; the moved rows go by `VersionResources.move`.      | The per-type `JsonRewrite` cases, the per-type store moves                                                     |
 | Release    | Freezes the draft's rows (ADR 0038). Settings travel in the envelope, so nothing is rebuilt or looked up.                                                                                               | The code-list `source` lookup in `ReleaseCatalogDraftHandler`                                                  |
@@ -318,6 +318,39 @@ and images bring `binaries`. Code lists bring the `source` setting, which stays 
   allowed up to the column ceiling, not the interactive limit.
 - Typed hooks (`R : CatalogResource`) mean a bind from JSON per call. Import binds anyway. Change
   evaluation over a whole version binds every resource twice, as it does today.
+
+## What the spike showed (2026-10-28)
+
+A spike on branch `refactor/resource-types-spike` built `ResourceType`, `ResourceTypes`, one type
+per domain, a generic `VersionResourceReader`, and import for themes and templates through their
+type. It changes the decision above in two places.
+
+- **Import needs a hook the type owns: `receive`.** Import is not a round trip of the wire form.
+  `ImportTemplatesHandler` validates (the model is publishable, the data-contract schema and its
+  property names, exactly one default variant) and rewrites (`TemplateDocumentPreparation.prepare`
+  per variant, a title-less variant titled by its key, the template's model for a variant without
+  one, a ready mark). `ThemeStore` rounds `spacingUnit` to two decimals. A generic
+  `put(Envelope(resource))` would skip all of that, and `check` would have to repeat each domain's
+  import rules. So each type has
+  `fun receive(catalog: CatalogId, resource: R, arrival: Arrival): InstallStatus`, where `Arrival`
+  carries the release version, the archive's binaries and an alias resolver. In the spike it
+  dispatches the domain's own import command, moved into the domain unchanged (`ImportTheme` into
+  `themes.commands`, `ImportTemplates` into `templates.commands`), so authorisation, transactions
+  and validation stay as they are. `editPermission` and the import half of `check` are not needed.
+  This is the one per-operation hook, because it is the one operation whose per-type logic is
+  domain behaviour and not plumbing. Export, release and relocation stay generic.
+- **Export reads what is stored, and relativises nothing.** The spike's first generic export
+  relativised every resource's own-catalog references. It disagreed with the per-type export for
+  the system catalog's theme, whose own font reference has always travelled as stored
+  (`"catalogKey": "system"`). Stencils and templates store their references relative already
+  (ADR 0038). The rule that agrees with both paths is the one `ReleaseContentAssembler` applies:
+  the envelope's `resource`, name qualifiers dropped. So a draft exports by the same rule as its
+  release, and `DraftReleaseSameContentTest` now holds that a draft's export equals the export of the
+  release cut from it.
+
+Evidence: the generic export ran beside the per-type export inside `CatalogContentBuilder.build()`
+and failed on any difference, across the catalog, template, theme, validation and exchange
+integration tests. `CatalogBoundaryTest.ALLOWED` went from 39 to 33 entries.
 
 ## Open questions
 

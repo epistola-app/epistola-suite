@@ -8,10 +8,6 @@ import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
-import app.epistola.suite.catalog.commands.ImportStatus
-import app.epistola.suite.catalog.commands.ImportTemplateInput
-import app.epistola.suite.catalog.commands.ImportTemplates
-import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.ReleaseChannel
@@ -31,6 +27,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.ImportStatus
+import app.epistola.suite.templates.commands.ImportTemplateInput
+import app.epistola.suite.templates.commands.ImportTemplates
+import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
