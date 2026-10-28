@@ -754,3 +754,11 @@ new catalog_versions.released_from
     upstream_availability text,
     upstream_availability_checked_at timestamp with time zone
 )
+
+# ADR 0039: a template's variants name the attributes they select by, and those are references,
+# indexed in resource_references (TemplateResourceType.references); V20261101001800 indexes the
+# templates stored before it. The wide tenant's letter selects by lists.tone and size.
++ row resource_references: {"alias":"lists","content_hash":"16cd3447dc848b3c2c988a89c253621c57ea2d6f810ac6dddc1a21c83c529bc4","resource_key":"tone","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":"lists","content_hash":"374a829f2fd1eeac7bc84b9a7ef1117727cd4358690f3a230198a386ffb77db2","resource_key":"tone","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":null,"content_hash":"16cd3447dc848b3c2c988a89c253621c57ea2d6f810ac6dddc1a21c83c529bc4","resource_key":"size","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":null,"content_hash":"374a829f2fd1eeac7bc84b9a7ef1117727cd4358690f3a230198a386ffb77db2","resource_key":"size","resource_type":"attribute","tenant_key":"wide"}
