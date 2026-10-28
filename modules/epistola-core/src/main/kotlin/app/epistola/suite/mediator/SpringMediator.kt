@@ -76,8 +76,12 @@ class SpringMediator(
     private val eventHandlersCache: MutableMap<KClass<*>, List<EventHandler<*>>> =
         ConcurrentHashMap()
 
-    @Suppress("UNCHECKED_CAST")
     override fun <R> send(command: Command<R>): R = withExecutionContext {
+        DispatchMdc.around(DispatchMdc.COMMAND, command::class.simpleName ?: "Unknown", command) { dispatch(command) }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <R> dispatch(command: Command<R>): R {
         enforceAuthorization(command)
         refuseWriteToRelease(command)
 
@@ -93,7 +97,7 @@ class SpringMediator(
 
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
-        try {
+        return try {
             // One transaction around handler + IMMEDIATE events + event publication:
             // a throwing IMMEDIATE handler rolls the command back, and AFTER_COMMIT
             // listeners (EventLogSubscriber) bind to this transaction.
@@ -134,8 +138,12 @@ class SpringMediator(
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
     override fun <R> query(query: Query<R>): R = withExecutionContext {
+        DispatchMdc.around(DispatchMdc.QUERY, query::class.simpleName ?: "Unknown", query) { ask(query) }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <R> ask(query: Query<R>): R {
         enforceAuthorization(query)
 
         val queryName = query::class.simpleName ?: "Unknown"
@@ -150,7 +158,7 @@ class SpringMediator(
 
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
-        try {
+        return try {
             val result = if (targetOf(query) == null) {
                 handler.handle(query)
             } else {

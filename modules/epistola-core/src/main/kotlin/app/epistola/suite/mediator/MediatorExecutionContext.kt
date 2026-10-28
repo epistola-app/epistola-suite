@@ -14,8 +14,10 @@ internal data class MediatorExecutionContext(
     val mediator: Mediator,
     val clock: Clock = Clock.systemUTC(),
     val principal: EpistolaPrincipal? = null,
+    /** The dispatch's log context ([DispatchMdc]), carried to the thread this context is bound on. */
+    val mdc: Map<String, String> = emptyMap(),
 ) {
-    fun <T> bind(block: () -> T): T = MediatorContext.runWithContext(this, block)
+    fun <T> bind(block: () -> T): T = DispatchMdc.with(mdc) { MediatorContext.runWithContext(this, block) }
 
     fun runnable(block: () -> Unit): Runnable = Runnable { bind(block) }
 
@@ -35,7 +37,7 @@ internal data class MediatorExecutionContext(
                     principal = SecurityContext.currentOrNull(),
                 )
             }
-            return context.copy(principal = principal)
+            return context.copy(principal = principal, mdc = DispatchMdc.capture())
         }
     }
 }

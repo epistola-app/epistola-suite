@@ -17,6 +17,13 @@ environment uses human-readable output by default and can opt into Logstash, ECS
 `SecurityContext` source used by database capture whenever a tenant is bound. Selecting a console
 format does not change which events are stored or forwarded over OTLP.
 
+Around every command and query, the mediator puts what the line was written for in the MDC:
+`command` or `query` (the message's name) and, for a message on one catalog version, `catalog`
+(`namespace/key`). A nested dispatch names itself and restores its caller's values when it returns,
+and work handed to another thread through `MediatorContext.runnable/callable` carries them across.
+Structured console records write them as fields, and the database capture keeps them in
+`attributes`. The tenant is not among them: it has one source, below.
+
 See [Deployment — Logging](deployment.md#logging) for format selection, Helm configuration, output
 behavior, and local verification commands.
 

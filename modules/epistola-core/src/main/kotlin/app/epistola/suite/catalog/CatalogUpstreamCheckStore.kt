@@ -22,6 +22,7 @@ import java.time.OffsetDateTime
 @Component
 class CatalogUpstreamCheckStore(
     private val jdbi: Jdbi,
+    private val metrics: CatalogMetrics,
 ) {
     /** Every recorded check for a tenant, by catalog (namespace and key, ADR 0034), for rendering a whole list at once. */
     fun statesFor(tenantKey: TenantKey): Map<CatalogId, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogId, CatalogUpstreamCheck>, Exception> { handle ->
@@ -191,6 +192,7 @@ class CatalogUpstreamCheckStore(
                 .bind("interval", interval.toSeconds())
                 .execute()
         }
+        metrics.upstreamChecked(CatalogMetrics.OUTCOME_OK)
     }
 
     /**
@@ -228,6 +230,7 @@ class CatalogUpstreamCheckStore(
                 .bind("interval", interval.toSeconds())
                 .execute()
         }
+        metrics.upstreamChecked(failure.name.lowercase())
     }
 
     private fun map(rs: ResultSet, ctx: StatementContext) = CatalogUpstreamCheck(

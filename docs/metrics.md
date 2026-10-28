@@ -160,6 +160,32 @@ its job. See [`docs/storage.md`](storage.md#the-content-collector).
 | ---------------------------- | ------- | -------- |
 | `epistola.api.auth.attempts` | Counter | `result` |
 
+### Catalogs
+
+| Meter                              | Type    | Tags                                                                                                                                             |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `epistola.catalog.releases`        | Counter | `via` (`released`, `upload`, `api`, `registry`, `exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`)                                       |
+| `epistola.catalog.upstream.checks` | Counter | `outcome` (`ok`, or the failure recorded: `unreachable`, `not_found`, `unauthorized`, `schema_too_new`, `withdrawn`, `paused`, `protocol_error`) |
+
+`releases{via}` counts every release that came to be in a tenant, cut here (`released`) or
+received, once its transaction commits. A tenant snapshot restore reinstalls each of its releases,
+counted as `snapshot`. `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
+the background worker or the "check for updates" button.
+
+What the command timers already count is not repeated here. Read it from
+`epistola.mediator.command.duration{command=…}`, whose count is the number of dispatches and whose
+`outcome` says how they ended:
+
+| To see               | `command`                                |
+| -------------------- | ---------------------------------------- |
+| Releases cut         | `ReleaseCatalogDraft`                    |
+| Installs and imports | `ImportCatalogZip`, `InstallFromCatalog` |
+| Deployments          | `DeployCatalogRelease`                   |
+| Quality runs         | `RunQualityChecks`                       |
+
+The nightly content collector is `epistola.scheduled.task.duration{task=…}`, with its two orphan
+gauges under Storage.
+
 ### Catalog publication (Exchange)
 
 Only present when `epistola.exchange.enabled=true`.

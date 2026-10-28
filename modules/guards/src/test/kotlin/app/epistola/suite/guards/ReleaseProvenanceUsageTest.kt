@@ -36,6 +36,8 @@ class ReleaseProvenanceUsageTest {
         "ExchangeCatalogInstaller.kt",
         "CatalogImportHandler.kt",
         "EpistolaCatalogApi.kt",
+        // Counted: releases by how they arrived, a tag on a counter.
+        "CatalogMetrics.kt",
         // Carried through a tenant snapshot as it was.
         "TenantSnapshot.kt",
         "BuildTenantSnapshot.kt",
