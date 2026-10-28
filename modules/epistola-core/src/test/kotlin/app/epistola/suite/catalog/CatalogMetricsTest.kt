@@ -73,10 +73,10 @@ class CatalogMetricsTest : IntegrationTestBase() {
     @Test
     fun `an upstream check is counted by what it found`(@TempDir tmp: Path) {
         val tenant = createTenant("Counted Upstream").id
-        val catalog = testCatalog(tenant, CatalogKey.of("dep-test"))
-        withMediator {
+        val catalog = withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = fixture(tmp), authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = catalog).execute()
+            // Its namespace is the one the source gave it, so it is named once registered.
+            testCatalog(tenant, CatalogKey.of("dep-test")).also { InstallFromCatalog(catalog = it).execute() }
         }
 
         val okBefore = checks(CatalogMetrics.OUTCOME_OK)
