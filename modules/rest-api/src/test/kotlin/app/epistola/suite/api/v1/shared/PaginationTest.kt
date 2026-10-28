@@ -4,6 +4,7 @@
 
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.suite.common.PageRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -37,28 +38,9 @@ class PaginationTest {
     }
 
     @Test
-    fun `paginate slices the requested page and reports the full total`() {
-        val all = (1..5).toList()
-
-        val first = Pagination.paginate(all, page = 0, size = 2)
-        assertThat(first.items).containsExactly(1, 2)
-        assertThat(first.page.total).isEqualTo(5)
-        assertThat(first.page.totalPages).isEqualTo(3)
-
-        val last = Pagination.paginate(all, page = 2, size = 2)
-        assertThat(last.items).containsExactly(5)
-
-        // A page past the end yields no items but still the true total.
-        val beyond = Pagination.paginate(all, page = 9, size = 2)
-        assertThat(beyond.items).isEmpty()
-        assertThat(beyond.page.total).isEqualTo(5)
-    }
-
-    @Test
-    fun `paginate on an empty list yields no items and zero pages`() {
-        val slice = Pagination.paginate(emptyList<Int>(), page = 0, size = 20)
-        assertThat(slice.items).isEmpty()
-        assertThat(slice.page.total).isEqualTo(0)
-        assertThat(slice.page.totalPages).isEqualTo(0)
+    fun `a page request is the clamped limit and offset`() {
+        assertThat(Pagination.requestOf(page = 2, size = 10)).isEqualTo(PageRequest(limit = 10, offset = 20))
+        assertThat(Pagination.requestOf(page = -1, size = 500)).isEqualTo(PageRequest(limit = Pagination.MAX_PAGE_SIZE, offset = 0))
+        assertThat(Pagination.requestOf(page = 0, size = 0)).isEqualTo(PageRequest(limit = 1, offset = 0))
     }
 }

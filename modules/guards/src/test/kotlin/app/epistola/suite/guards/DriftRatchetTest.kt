@@ -65,9 +65,6 @@ class DriftRatchetTest {
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }
         },
-        Counter("Pagination.paginate( in rest-api", 9, "database LIMIT/OFFSET") {
-            mainLines(Regex("""Pagination\.paginate\(""")) { it.startsWith("modules/rest-api/") }
-        },
         Counter("handlers/*.kt declaring another package", 21, "directory matches package") {
             RepoSources.mainKotlinFiles().count { path ->
                 val relative = RepoSources.relativize(path)
