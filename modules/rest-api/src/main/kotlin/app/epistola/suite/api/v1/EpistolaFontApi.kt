@@ -23,6 +23,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.queries.GetFontVariants
+import app.epistola.suite.fonts.queries.ListFontPage
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
 import org.springframework.http.ResponseEntity
@@ -58,9 +59,8 @@ class EpistolaFontApi : FontsApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033).
-        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef).query()
-        val slice = Pagination.paginate(fonts, page, size)
-        return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
+        val fonts = ListFontPage(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(FontListResponse(items = fonts.items.map { it.toDto(at) }, page = Pagination.pageMeta(page, size, fonts.total)))
     }
 
     override fun getFont(

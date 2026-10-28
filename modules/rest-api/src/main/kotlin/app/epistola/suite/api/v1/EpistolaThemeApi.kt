@@ -32,6 +32,7 @@ import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
+import app.epistola.suite.themes.queries.ListThemePage
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -58,9 +59,8 @@ class EpistolaThemeApi : ThemesApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033).
-        val items = ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.readRef).query().map { it.toDto() }
-        val slice = Pagination.paginate(items, page, size)
-        return ResponseEntity.ok(ThemeListResponse(items = slice.items, page = slice.page))
+        val themes = ListThemePage(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()
+        return ResponseEntity.ok(ThemeListResponse(items = themes.items.map { it.toDto() }, page = Pagination.pageMeta(page, size, themes.total)))
     }
 
     override fun createTheme(

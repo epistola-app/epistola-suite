@@ -13,6 +13,9 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.PageRequest
+import app.epistola.suite.common.Paging
+import app.epistola.suite.common.ResultPage
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -21,6 +24,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -49,19 +53,57 @@ data class ListCodeLists(
     override val tenantKey get() = tenantId.key
 }
 
+/** [ListCodeLists], one page of it, cut in the database. */
+data class ListCodeListPage(
+    val tenantId: TenantId,
+    val catalog: CatalogId? = null,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogReleaseRef? = null,
+    val page: PageRequest,
+) : ReleaseReadable,
+    Query<ResultPage<CodeList>>,
+    RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantId == tenantId) { "The catalog is of the tenant" }
+    }
+    override val permission get() = Permission.REFERENCE_VIEW
+    override val tenantKey get() = tenantId.key
+}
+
 @Component
 class ListCodeListsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListCodeLists, List<CodeList>> {
     override fun handle(query: ListCodeLists): List<CodeList> = jdbi.withHandle<List<CodeList>, Exception> { handle ->
-        // A draft or a release, read the same way (ADR 0033).
+        CodeListList.query(handle, query.tenantId, query.catalog, paged = false).mapTo<CodeList>().list()
+    }
+}
+
+@Component
+class ListCodeListPageHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ListCodeListPage, ResultPage<CodeList>> {
+    override fun handle(query: ListCodeListPage): ResultPage<CodeList> = jdbi.withHandle<ResultPage<CodeList>, Exception> { handle ->
+        Paging.read(query.page, CodeList::class.java) { CodeListList.query(handle, query.tenantId, query.catalog, paged = true) }
+    }
+}
+
+/**
+ * The code lists of a tenant, or of one of its catalogs, by name; [paged] selects one page of them.
+ * A draft or a release, read the same way (ADR 0033).
+ */
+private object CodeListList {
+    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, paged: Boolean): org.jdbi.v3.core.statement.Query {
         val sql = buildString {
-            append("SELECT $CODE_LIST_COLUMNS FROM current_code_lists t WHERE t.tenant_key = :t")
-            if (query.catalogKey != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
-            append(" ORDER BY t.display_name ASC")
+            append("SELECT $CODE_LIST_COLUMNS")
+            if (paged) append(", ${Paging.TOTAL}")
+            append(" FROM current_code_lists t WHERE t.tenant_key = :t")
+            if (catalog != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
+            append(" ORDER BY t.display_name ASC, t.catalog_id, t.id")
+            if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
-        val q = handle.createQuery(sql).bind("t", query.tenantId.key)
-        if (query.catalogKey != null) q.bindCatalog("c", query.catalog)
-        q.mapTo<CodeList>().list()
+        val q = handle.createQuery(sql).bind("t", tenantId.key)
+        if (catalog != null) q.bindCatalog("c", catalog)
+        return q
     }
 }
