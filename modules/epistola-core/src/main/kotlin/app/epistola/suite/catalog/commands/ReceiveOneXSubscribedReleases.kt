@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -83,7 +85,7 @@ class ReceiveOneXSubscribedReleasesHandler(
             runCatching {
                 val named = namedAsItsSource(catalog)
                 SecurityContext.runWithPrincipal(SystemUser.principalForTenant(command.tenantKey)) {
-                    UpgradeCatalog(named, app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.UPGRADE_FROM_1X, jdbi.withHandle<Catalog?, Exception> { it.findCatalog(named) }?.sourceUrl)).execute()
+                    UpgradeCatalog(named, ReleaseProvenance(ReleaseChannel.UPGRADE_FROM_1X, jdbi.withHandle<Catalog?, Exception> { it.findCatalog(named) }?.sourceUrl)).execute()
                 }
                 named
             }

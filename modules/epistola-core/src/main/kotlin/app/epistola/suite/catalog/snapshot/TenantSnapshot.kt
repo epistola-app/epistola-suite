@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.snapshot
 
+import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.common.ids.TenantKey
 import java.time.Instant
 
@@ -141,7 +142,7 @@ data class SnapshotRelease(
     val releasedBy: String? = null,
     val notes: String? = null,
     val zipPath: String? = null,
-    /** How it came to be in the tenant (`released_via`, [app.epistola.suite.catalog.releases.ReleaseChannel]); null in older snapshots. */
+    /** How it came to be in the tenant (`released_via`, [ReleaseChannel]); null in older snapshots. */
     val releasedVia: String? = null,
     /** Where it came from (`released_from`); null when nowhere, and in older snapshots. */
     val releasedFrom: String? = null,

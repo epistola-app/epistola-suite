@@ -99,6 +99,8 @@ import app.epistola.suite.catalog.releases.GetReleasedThemeSettings
 import app.epistola.suite.catalog.releases.ListCatalogReleasePage
 import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.releases.ListReleasesByContentHash
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.RenameCatalogDraft
 import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.catalog.releases.UpdateCatalogDraft
@@ -232,7 +234,7 @@ class EpistolaCatalogApi(
             confirmMigration = true,
             registry = registry?.let { if (it == DEFAULT_REGISTRY_SEGMENT) identity.defaultRegistry else it },
             namespace = namespace,
-            provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.API, file.originalFilename?.takeIf { it.isNotBlank() }?.take(255)),
+            provenance = ReleaseProvenance.ofFile(ReleaseChannel.API, file.originalFilename),
         ).execute()
         if (result.aborted) throw IllegalStateException("Importing ${result.catalogKey.value} ${result.releaseVersion} failed; nothing changed")
 

@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.publishedContent
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import org.springframework.core.annotation.Order
@@ -36,7 +37,7 @@ interface CatalogReleaseSource {
     fun archive(catalog: Catalog, version: String): ByteArray
 
     /** How a release installed from this source arrives, as its release records it (shown, never decided by). */
-    fun provenance(catalog: Catalog): app.epistola.suite.catalog.releases.ReleaseProvenance = app.epistola.suite.catalog.releases.ReleaseProvenance.ofSource(catalog)
+    fun provenance(catalog: Catalog): ReleaseProvenance = ReleaseProvenance.ofSource(catalog)
 
     /** Installs release [version], beside the catalog's others; an older wire schema is migrated, as nobody is asked. */
     fun install(catalog: Catalog, version: String): ImportCatalogZipResult = importRelease(catalog, archive(catalog, version), provenance(catalog))
@@ -61,7 +62,7 @@ class CatalogSourceUnavailableException(
 ) : RuntimeException(message, cause)
 
 /** Imports [archive], a release of [catalog] that arrived as [provenance] says. */
-internal fun importRelease(catalog: Catalog, archive: ByteArray, provenance: app.epistola.suite.catalog.releases.ReleaseProvenance): ImportCatalogZipResult = ImportCatalogZip(
+internal fun importRelease(catalog: Catalog, archive: ByteArray, provenance: ReleaseProvenance): ImportCatalogZipResult = ImportCatalogZip(
     catalog.tenantKey,
     archive,
     confirmMigration = true,
@@ -94,7 +95,7 @@ class ManifestUrlReleaseSource(
     override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl != null
 
     /** Installs release [version] as having arrived as [provenance] says (the upgrade from 1.x names its own). */
-    fun install(catalog: Catalog, version: String, provenance: app.epistola.suite.catalog.releases.ReleaseProvenance): ImportCatalogZipResult = importRelease(catalog, archive(catalog, version), provenance)
+    fun install(catalog: Catalog, version: String, provenance: ReleaseProvenance): ImportCatalogZipResult = importRelease(catalog, archive(catalog, version), provenance)
 
     override fun offered(catalog: Catalog): List<String> = listOf(fetch { manifest(catalog) }.release.version)
 

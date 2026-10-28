@@ -41,6 +41,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -153,7 +154,7 @@ data class ImportCatalogZip(
      * decided by. Every caller that receives a release names it; only filling a draft ([intoDraft]),
      * which receives none, leaves it null.
      */
-    val provenance: app.epistola.suite.catalog.releases.ReleaseProvenance?,
+    val provenance: ReleaseProvenance?,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a

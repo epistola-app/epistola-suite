@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
@@ -141,7 +142,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.sourceUrl).isEqualTo("oci:local/${r.namespace}/reg-roundtrip")
             assertThat(catalog.namespace).isEqualTo(r.namespace)
             val release = app.epistola.suite.catalog.releases.ListCatalogReleases(testCatalog(r.b, r.catalog), app.epistola.suite.catalog.releases.CatalogReleaseStatus.RELEASED).query().single()
-            assertThat(release.releasedVia).`as`("how it got here").isEqualTo(app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY)
+            assertThat(release.releasedVia).`as`("how it got here").isEqualTo(ReleaseChannel.REGISTRY)
             assertThat(release.releasedFrom).isEqualTo("oci:local/${r.namespace}/reg-roundtrip")
 
             assertThat(ListRegistryReleases(r.b, "local", r.namespace, "reg-roundtrip").query().releases.single().present).isTrue()

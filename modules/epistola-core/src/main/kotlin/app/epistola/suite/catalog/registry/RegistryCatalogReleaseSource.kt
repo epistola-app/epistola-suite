@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckException
 import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.CatalogUpstreamProbe
 import app.epistola.suite.catalog.CatalogUpstreamState
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.sources.CatalogReleaseSource
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.validation.ValidationException
@@ -29,7 +31,7 @@ class RegistryCatalogReleaseSource(
     private val registries: CatalogRegistries,
     private val sizeLimits: CatalogSizeLimits,
 ) : CatalogReleaseSource {
-    override fun provenance(catalog: Catalog): app.epistola.suite.catalog.releases.ReleaseProvenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY, catalog.sourceUrl)
+    override fun provenance(catalog: Catalog): ReleaseProvenance = ReleaseProvenance(ReleaseChannel.REGISTRY, catalog.sourceUrl)
 
     override fun supports(catalog: Catalog): Boolean = RegistrySourceUri.matches(catalog.sourceUrl)
 

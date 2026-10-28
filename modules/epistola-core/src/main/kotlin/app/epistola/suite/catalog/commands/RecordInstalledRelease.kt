@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.revisions.ResourceContentStore
@@ -81,7 +82,7 @@ data class RecordInstalledRelease(
      */
     val installed: RecordedRelease? = null,
     /** How the release arrived (`released_via`, `released_from`): shown, never decided by. */
-    val provenance: app.epistola.suite.catalog.releases.ReleaseProvenance,
+    val provenance: ReleaseProvenance,
 ) : Command<String?>,
     SystemInternal {
     val tenantKey: TenantKey get() = catalog.tenantKey

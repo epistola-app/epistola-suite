@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
@@ -283,7 +284,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, catalog), "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
             // How each got here, as it was: released here, not "restored from a snapshot".
             assertThat(ListCatalogReleases(testCatalog(tenant.id, catalog), app.epistola.suite.catalog.releases.CatalogReleaseStatus.RELEASED).query().map { it.releasedVia }.distinct())
-                .containsExactly(app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED)
+                .containsExactly(ReleaseChannel.RELEASED)
             // The releases kept their content: they export, and the next one is cut on 1.1.0.
             assertThat(ExportCatalogZip(testCatalog(tenant.id, catalog), "1.0.0").execute().zipBytes).isNotEmpty()
             MarkCatalogReady(testCatalog(tenant.id, catalog)).execute()

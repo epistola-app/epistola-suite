@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -85,7 +87,7 @@ class ExchangeCatalogInstaller(
             confirmMigration = true,
             // One from before wire v8 names no catalog; the Exchange names it: its namespace there.
             legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(identity.defaultRegistry, namespace),
-            provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.EXCHANGE, sourceUri),
+            provenance = ReleaseProvenance(ReleaseChannel.EXCHANGE, sourceUri),
         ).execute()
 
         if (imported.aborted) {

@@ -15,6 +15,8 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -103,7 +105,7 @@ class CatalogImportHandler(
                 confirmMigration = confirmMigration,
                 registry = registry,
                 namespace = namespace,
-                provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.UPLOAD, fileName),
+                provenance = ReleaseProvenance.ofFile(ReleaseChannel.UPLOAD, fileName),
             ).execute()
 
             if (result.aborted) {

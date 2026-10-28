@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.revisions.ReleaseResource
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
@@ -59,7 +60,7 @@ data class CatalogReleaseDetail(
     /** The display name of the user who released it here or installed it; null for the system or when unknown. */
     val releasedByUser: String? = null,
     /** How it came to be in the tenant (`released_via`); null when nothing says. Shown, never decided by. */
-    val releasedVia: app.epistola.suite.catalog.releases.ReleaseChannel? = null,
+    val releasedVia: ReleaseChannel? = null,
     /** Where it came from (`released_from`): a source URL, a registry reference, a file name. */
     val releasedFrom: String? = null,
     /**
@@ -86,7 +87,7 @@ data class CatalogReleaseDetail(
      * nothing says.
      */
     val releasedByLine: String? get() = when {
-        releasedHere -> releasedByUser?.takeIf { releasedVia == null || releasedVia == app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED }?.let { "Released here by $it" } ?: "Released here"
+        releasedHere -> releasedByUser?.takeIf { releasedVia == null || releasedVia == ReleaseChannel.RELEASED }?.let { "Released here by $it" } ?: "Released here"
         releasedByInstallation != null -> "Released by installation $releasedByInstallation"
         else -> null
     }
@@ -104,23 +105,23 @@ data class CatalogReleaseDetail(
             null -> null
 
             // [releasedByLine] says it already.
-            app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED -> null
+            ReleaseChannel.RELEASED -> null
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.UPLOAD -> "Uploaded${from?.let { " as $it" }.orEmpty()}$by"
+            ReleaseChannel.UPLOAD -> "Uploaded${from?.let { " as $it" }.orEmpty()}$by"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.API -> "Imported through the API${from?.let { " as $it" }.orEmpty()}$by"
+            ReleaseChannel.API -> "Imported through the API${from?.let { " as $it" }.orEmpty()}$by"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY -> "Installed from ${from ?: "a registry"}$by"
+            ReleaseChannel.REGISTRY -> "Installed from ${from ?: "a registry"}$by"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.EXCHANGE -> "Installed from Epistola Exchange$by"
+            ReleaseChannel.EXCHANGE -> "Installed from Epistola Exchange$by"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.SOURCE -> "Received from ${from ?: "the catalog's source"}$by"
+            ReleaseChannel.SOURCE -> "Received from ${from ?: "the catalog's source"}$by"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.BUNDLED -> "Supplied with Epistola"
+            ReleaseChannel.BUNDLED -> "Supplied with Epistola"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.UPGRADE_FROM_1X -> "Received from ${from ?: "the catalog's source"} on the upgrade from 1.x"
+            ReleaseChannel.UPGRADE_FROM_1X -> "Received from ${from ?: "the catalog's source"} on the upgrade from 1.x"
 
-            app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT -> "Restored from a tenant snapshot$by"
+            ReleaseChannel.SNAPSHOT -> "Restored from a tenant snapshot$by"
         }
     }
 }
@@ -158,7 +159,7 @@ class GetCatalogReleaseDetailHandler(
                     resources = emptyList(),
                     releasedByInstallation = rs.getObject("released_by_installation", UUID::class.java),
                     releasedByUser = rs.getString("released_by_name"),
-                    releasedVia = app.epistola.suite.catalog.releases.ReleaseChannel.of(rs.getString("released_via")),
+                    releasedVia = ReleaseChannel.of(rs.getString("released_via")),
                     releasedFrom = rs.getString("released_from"),
                     contentHash = rs.getString("content_hash"),
                 )

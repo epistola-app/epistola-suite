@@ -51,6 +51,12 @@ enum class ReleaseChannel(val code: String) {
 /** How a release arrives: its [via] channel and, where there is one, the place it came [from]. */
 data class ReleaseProvenance(val via: ReleaseChannel, val from: String? = null) {
     companion object {
+        /** The longest [from] a release keeps; an uploaded file's name is the caller's to choose. */
+        const val MAX_FROM: Int = 255
+
+        /** Arrived through [via] as the file [fileName], whose name is kept up to [MAX_FROM] characters. */
+        fun ofFile(via: ReleaseChannel, fileName: String?): ReleaseProvenance = ReleaseProvenance(via, fileName?.takeIf { it.isNotBlank() }?.take(MAX_FROM))
+
         /** Received from [catalog]'s own source: bundled for a catalog Epistola supplies, else its URL. */
         fun ofSource(catalog: Catalog): ReleaseProvenance = ofSource(catalog.sourceUrl)
 

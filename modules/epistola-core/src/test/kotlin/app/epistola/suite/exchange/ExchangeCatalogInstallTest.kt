@@ -86,7 +86,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThat(installed.sourceUrl).isEqualTo("exchange:acme/invoices")
             // Its release says so too: how it got here, and from where (shown, never decided by).
             val release = app.epistola.suite.catalog.releases.ListCatalogReleases(testCatalog(consumer, CatalogKey.of("invoices")), app.epistola.suite.catalog.releases.CatalogReleaseStatus.RELEASED).query().single()
-            assertThat(release.releasedVia).isEqualTo(app.epistola.suite.catalog.releases.ReleaseChannel.EXCHANGE)
+            assertThat(release.releasedVia).isEqualTo(ReleaseChannel.EXCHANGE)
             assertThat(release.releasedFrom).isEqualTo("exchange:acme/invoices")
         }
     }

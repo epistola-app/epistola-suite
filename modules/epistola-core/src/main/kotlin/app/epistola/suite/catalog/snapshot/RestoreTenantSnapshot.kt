@@ -15,6 +15,8 @@ import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -135,7 +137,7 @@ class RestoreTenantSnapshotHandler(
                     confirmMigration = true,
                     legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
                     restoreRelease = true,
-                    provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT),
+                    provenance = ReleaseProvenance(ReleaseChannel.SNAPSHOT),
                 ).execute()
             }
             ImportCatalogZip(
@@ -146,7 +148,7 @@ class RestoreTenantSnapshotHandler(
                 restore = true,
                 // An archive from before wire v8 is named as its catalog row was created above.
                 legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
-                provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT),
+                provenance = ReleaseProvenance(ReleaseChannel.SNAPSHOT),
             ).execute()
         }
 
@@ -211,7 +213,7 @@ class RestoreTenantSnapshotHandler(
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", release.version)
                     .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
-                    .bind("via", release.releasedVia?.takeIf { app.epistola.suite.catalog.releases.ReleaseChannel.of(it) != null })
+                    .bind("via", release.releasedVia?.takeIf { ReleaseChannel.of(it) != null })
                     .bind("from", release.releasedFrom)
                     .execute()
             }
