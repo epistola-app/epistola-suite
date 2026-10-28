@@ -35,7 +35,6 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         gotoAndReady(editorUrl)
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
-        page.context().grantPermissions(listOf("clipboard-read", "clipboard-write"))
 
         val block = page.locator(".canvas-block[data-node-id='text']")
         val proseMirror = block.locator(".ProseMirror")
@@ -48,9 +47,14 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         dragSelection(selectionStart, selectionEnd)
         assertThatJ(browserSelectionText().withoutWhitespace()).contains("Before{{customer.name}}after")
 
+        // The copy is caught as the editor writes it, not read back from the system clipboard, which
+        // the machine shares with everything else running: whatever writes to it between the copy and
+        // the paste would be pasted instead.
+        captureCopies()
         page.keyboard().press("$shortcutModifier+C")
-        val clipboardText = page.evaluate("() => navigator.clipboard.readText()") as String
-        assertThatJ(clipboardText.withoutWhitespace()).contains("Before{{customer.name}}after")
+        page.waitForFunction("() => window.__copied != null")
+        val copiedText = page.evaluate("() => window.__copied.text") as String
+        assertThatJ(copiedText.withoutWhitespace()).contains("Before{{customer.name}}after")
 
         // A normal click collapses the range and places the caret before the rich paste. Wait for
         // the collapse to land: ProseMirror takes the browser selection over from its
@@ -59,7 +63,7 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         selectionEnd.click()
         page.waitForFunction("() => window.getSelection()?.isCollapsed === true")
         page.keyboard().press("End")
-        page.keyboard().press("$shortcutModifier+V")
+        pasteCopied(proseMirror)
         assertThat(expressionChips).hasCount(2)
 
         dragSelection(selectionStart, selectionEnd)
@@ -70,7 +74,9 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         dragSelection(selectionStart, selectionEnd)
         expressionChips.first().click()
         assertThat(page.locator("ep-expression-dialog dialog")).isVisible()
-        assertThatJ(browserSelectionCollapsed()).isTrue()
+        // The click on the chip clears the selection as the editor handles it; wait for that rather
+        // than reading the selection once.
+        page.waitForFunction("() => window.getSelection()?.isCollapsed ?? true")
     }
 
     private fun dragSelection(start: com.microsoft.playwright.Locator, end: com.microsoft.playwright.Locator) {
@@ -84,6 +90,31 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
             Mouse.MoveOptions().setSteps(10),
         )
         page.mouse().up()
+    }
+
+    /** Keeps what the next copy puts on the clipboard, every flavour of it, in `window.__copied`. */
+    private fun captureCopies() {
+        page.evaluate(
+            """() => {
+                window.__copied = null;
+                document.addEventListener('copy', (event) => {
+                    const data = event.clipboardData;
+                    window.__copied = { html: data.getData('text/html'), text: data.getData('text/plain') };
+                }, { once: true });
+            }""",
+        )
+    }
+
+    /** Pastes what [captureCopies] kept into [target], as the browser hands a paste to the editor. */
+    private fun pasteCopied(target: com.microsoft.playwright.Locator) {
+        target.evaluate(
+            """(element) => {
+                const data = new DataTransfer();
+                data.setData('text/html', window.__copied.html);
+                data.setData('text/plain', window.__copied.text);
+                element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+            }""",
+        )
     }
 
     private fun browserSelectionText(): String = page.evaluate("() => window.getSelection()?.toString() ?? ''") as String
