@@ -9,6 +9,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.documents.cleanup.PartitionProperties
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -36,8 +37,7 @@ import org.springframework.stereotype.Component
 class DocumentRetentionReaper(
     private val meterRegistry: MeterRegistry,
     private val maintainers: List<ContentRetentionMaintainer>,
-    @Value("\${epistola.partitions.retention-months:3}")
-    private val retentionMonths: Int,
+    private val partitions: PartitionProperties,
     @Value("\${epistola.storage.reaper.cron:0 30 3 * * ?}")
     private val reaperCron: String,
 ) : ClusterScheduledTaskHandler {
@@ -61,7 +61,7 @@ class DocumentRetentionReaper(
         meterRegistry.recordScheduledTask("document-retention") {
             maintainers.forEach { maintainer ->
                 try {
-                    maintainer.reclaim(retentionMonths)
+                    maintainer.reclaim(partitions.retentionMonths)
                 } catch (e: Exception) {
                     logger.error("Content retention maintainer {} failed: {}", maintainer.javaClass.simpleName, e.message, e)
                 }

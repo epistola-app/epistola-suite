@@ -4,6 +4,7 @@
 
 package app.epistola.suite.storage
 
+import app.epistola.suite.documents.cleanup.PartitionProperties
 import app.epistola.suite.testing.IntegrationTestBase
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -35,7 +36,7 @@ class DocumentRetentionReaperIT : IntegrationTestBase() {
     private fun reaperWith(vararg maintainers: ContentRetentionMaintainer, retentionMonths: Int = 7) = DocumentRetentionReaper(
         meterRegistry = SimpleMeterRegistry(),
         maintainers = maintainers.toList(),
-        retentionMonths = retentionMonths,
+        partitions = PartitionProperties(retentionMonths = retentionMonths),
         reaperCron = "0 30 3 * * ?",
     )
 

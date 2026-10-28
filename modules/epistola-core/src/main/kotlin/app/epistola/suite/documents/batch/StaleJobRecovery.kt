@@ -10,12 +10,12 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
@@ -48,8 +48,7 @@ import java.util.UUID
 class StaleJobRecovery(
     private val jdbi: Jdbi,
     private val meterRegistry: MeterRegistry,
-    @Value("\${epistola.generation.polling.stale-timeout-minutes:10}")
-    private val staleTimeoutMinutes: Long,
+    private val polling: JobPollingProperties,
 ) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
@@ -85,7 +84,7 @@ class StaleJobRecovery(
         if (shuttingDown) return
 
         meterRegistry.recordScheduledTask("stale-job-recovery") {
-            val staleInterval = "$staleTimeoutMinutes minutes"
+            val staleInterval = "${polling.staleTimeoutMinutes} minutes"
             // Single atomic conditional UPDATE — the staleness predicate must live in the
             // UPDATE itself, not just a prior SELECT. This task runs on EVERY node
             // (EACH_CAPABLE_NODE), so a SELECT-then-update-by-id could reset a row that a

@@ -5,13 +5,13 @@
 package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.generation.collect.CollectProperties
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
@@ -139,20 +139,17 @@ data class CursorSummary(
 class ListConsumerStatusHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    @Value("\${epistola.collect.idle-timeout-ms:60000}")
-    private val idleTimeoutMs: Long,
-    @Value("\${epistola.collect.show-stale-window-hours:1}")
-    private val showStaleWindowHours: Long,
+    private val collect: CollectProperties,
 ) : QueryHandler<ListConsumerStatus, ConsumerStatusReport> {
 
     override fun handle(query: ListConsumerStatus): ConsumerStatusReport {
         val now = EpistolaClock.offsetDateTime()
-        val activeSince = now.minusNanos(idleTimeoutMs * 1_000_000)
+        val activeSince = now.minusNanos(collect.idleTimeoutMs * 1_000_000)
         // Nodes whose last heartbeat is older than this disappear from the report
         // entirely (not just from the totals). The page is for "what's currently
         // happening"; the durable record is the database itself, swept by the
         // separate StaleConsumerNodeReaper at a longer horizon.
-        val visibleSince = now.minusHours(showStaleWindowHours)
+        val visibleSince = now.minusHours(collect.showStaleWindowHours)
 
         return jdbi.inTransaction<ConsumerStatusReport, Exception> { handle ->
             val tenantName = handle.createQuery("SELECT name FROM tenants WHERE id = :tenantKey")

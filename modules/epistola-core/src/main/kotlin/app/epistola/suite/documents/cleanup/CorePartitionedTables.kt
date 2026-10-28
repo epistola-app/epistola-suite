@@ -6,7 +6,6 @@ package app.epistola.suite.documents.cleanup
 
 import app.epistola.suite.partitions.PartitionedTable
 import app.epistola.suite.partitions.PartitionedTableContributor
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 /**
@@ -19,22 +18,15 @@ import org.springframework.stereotype.Component
  * `epistola.partitions.event-log-retention-months` (default 6).
  */
 @Component
-class CorePartitionedTables(
-    @param:Value("\${epistola.partitions.retention-months:3}")
-    private val retentionMonths: Int,
-    @param:Value("\${epistola.partitions.generation-results-retention-months:1}")
-    private val generationResultsRetentionMonths: Int,
-    @param:Value("\${epistola.partitions.event-log-retention-months:6}")
-    private val eventLogRetentionMonths: Int,
-) : PartitionedTableContributor {
+class CorePartitionedTables(private val partitions: PartitionProperties) : PartitionedTableContributor {
     override fun partitionedTables(): List<PartitionedTable> = listOf(
-        PartitionedTable("documents", retentionMonths),
+        PartitionedTable("documents", partitions.retentionMonths),
         // document_content holds the ephemeral document blobs (PostgreSQL backend);
         // it MUST share the exact retention of `documents` so its monthly partitions
         // are dropped in lockstep and blobs are reclaimed with their metadata (#738).
-        PartitionedTable("document_content", retentionMonths),
-        PartitionedTable("document_generation_requests", retentionMonths),
-        PartitionedTable("generation_results", generationResultsRetentionMonths),
-        PartitionedTable("event_log", eventLogRetentionMonths),
+        PartitionedTable("document_content", partitions.retentionMonths),
+        PartitionedTable("document_generation_requests", partitions.retentionMonths),
+        PartitionedTable("generation_results", partitions.generationResultsRetentionMonths),
+        PartitionedTable("event_log", partitions.eventLogRetentionMonths),
     )
 }

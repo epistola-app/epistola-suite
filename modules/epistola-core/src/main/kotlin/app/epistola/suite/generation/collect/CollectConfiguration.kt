@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.collect
 
 import app.epistola.suite.generation.collect.ring.ConsistentHashRing
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Configuration
  * [ConsistentHashRing] that don't carry a Spring stereotype themselves.
  */
 @Configuration
+@EnableConfigurationProperties(CollectProperties::class)
 class CollectConfiguration {
 
     /**

@@ -6,6 +6,7 @@ package app.epistola.suite.generation.collect.commands
 
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.generation.collect.CollectProperties
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.PartitionAssignment
 import app.epistola.suite.generation.collect.ring.ConsistentHashRing
@@ -16,7 +17,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 /**
@@ -53,13 +53,12 @@ data class TouchConsumerNode(
 class TouchConsumerNodeHandler(
     private val jdbi: Jdbi,
     private val ring: ConsistentHashRing,
-    @Value("\${epistola.collect.idle-timeout-ms:60000}")
-    private val idleTimeoutMs: Long,
+    private val collect: CollectProperties,
 ) : CommandHandler<TouchConsumerNode, PartitionAssignment> {
 
     override fun handle(command: TouchConsumerNode): PartitionAssignment {
         val now = EpistolaClock.offsetDateTime()
-        val activeSince = now.minusNanos(idleTimeoutMs * 1_000_000)
+        val activeSince = now.minusNanos(collect.idleTimeoutMs * 1_000_000)
 
         // Read other active nodes; build the union with this node so that this
         // call is idempotent — calling TouchConsumerNode for a node not yet in
