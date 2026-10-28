@@ -20,7 +20,6 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Renames a tenant. Returns the updated [Tenant], or null when no tenant with
@@ -51,7 +50,6 @@ data class RenameTenant(
 class RenameTenantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<RenameTenant, Tenant?> {
-    @Transactional
     override fun handle(command: RenameTenant): Tenant? = jdbi.withHandle<Tenant?, Exception> { handle ->
         handle.createQuery(
             updateTenantReturningTenant("name = :name", "id = :tenantId AND ${Revisions.MATCHES}"),

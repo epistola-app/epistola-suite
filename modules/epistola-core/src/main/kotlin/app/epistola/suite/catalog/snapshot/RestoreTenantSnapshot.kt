@@ -29,7 +29,6 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
@@ -38,7 +37,7 @@ import java.util.zip.ZipInputStream
  * Restores a tenant from a snapshot archive. **Destructive**: every existing catalog for the
  * tenant is deleted and replaced with the snapshot's contents.
  *
- * The whole operation runs in one transaction (`@Transactional`; JDBI joins it via the Spring
+ * The whole operation runs in the mediator's one transaction (JDBI joins it via the Spring
  * connection factory), so a failure rolls the tenant back to its pre-restore state. The sequence:
  *  1. **Validate the archive before touching anything** — supported schema version, the snapshot
  *     belongs to this tenant, and every catalog's bytes are present.
@@ -81,7 +80,6 @@ class RestoreTenantSnapshotHandler(
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
     override fun handle(command: RestoreTenantSnapshot): RestoreResult = CatalogImportContext.runAsImport {
         val (parsed, identities, innerZips) = parseArchive(command.archiveBytes)
         // A snapshot from before schema 4 names no namespace in its entries: its archives do.

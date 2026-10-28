@@ -338,6 +338,60 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * A restore is destructive and runs as one transaction: when it fails after the purge, nothing of
+     * the purge stays. The snapshot passes every check made before the purge, but one catalog's
+     * archive is not a zip, which the restore finds only after it deleted the tenant's catalogs.
+     */
+    @Test
+    fun `a restore that fails after the purge leaves the tenant as it was`() {
+        val tenant = createTenant("Restore atomic")
+        val main = CatalogKey.of("main")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, main)), name = "Brand").execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalog = testCatalog(tenant.id, main)).execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }.bytes
+        val mainZip = readManifest(snapshot).catalogs.single { it.catalogKey == "main" }.zipPath
+        val broken = rewriteEntry(snapshot, mainZip) { "not a zip".toByteArray() }
+        withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("stray"), name = "Stray").execute() }
+
+        val failure = withMediator { runCatching { RestoreTenantSnapshot(tenant.id, broken).execute() } }
+
+        assertThat(failure.isFailure).describedAs("the broken archive fails the restore").isTrue()
+        withMediator {
+            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).contains("main", "stray")
+            assertThat(GetTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, main))).query()).isNotNull()
+            assertThat(GetTenant(tenant.id).query()!!.defaultThemeKey?.value).isEqualTo("brand")
+        }
+    }
+
+    /**
+     * The default theme is re-applied after a restore only when its theme is in the snapshot. When it
+     * is not, setting it fails inside the restore, which carries on without it: that failure must not
+     * take the restore down with it.
+     */
+    @Test
+    fun `a default theme the snapshot does not hold is left cleared, and the restore commits`() {
+        val tenant = createTenant("Restore no theme")
+        withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("main"), name = "Main").execute() }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }.bytes
+        val late = CatalogKey.of("late")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = late, name = "Late").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(tenant.id, late)), name = "Brand").execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalog = testCatalog(tenant.id, late)).execute()
+        }
+
+        withMediator { RestoreTenantSnapshot(tenant.id, snapshot).execute() }
+
+        withMediator {
+            assertThat(ListCatalogs(tenant.id).query().map { it.id.value }).contains("main").doesNotContain("late")
+            assertThat(GetTenant(tenant.id).query()!!.defaultThemeKey).isNull()
+        }
+    }
+
     private data class RestoredRelease(val version: String, val releaseId: String, val fingerprint: String, val baseVersion: String?, val baseFingerprint: String?)
 
     private fun releasesOf(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<RestoredRelease> = ListCatalogReleases(testCatalog(tenant, catalog)).query()
