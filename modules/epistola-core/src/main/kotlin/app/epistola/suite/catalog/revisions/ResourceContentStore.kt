@@ -10,7 +10,7 @@ import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.model.sha256Hex
+import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.storage.AssetContentStore
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component

@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -161,6 +160,7 @@ class NextVersionHandOver(
     private val drafts: CatalogDrafts,
     private val holdersCheck: DeleteCatalogDraftHandler,
     private val dependencyStore: CatalogDependencyStore,
+    private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) {
     /**
      * Refuses the hand-over before anything is released: for a name another draft has, and while the
@@ -186,7 +186,7 @@ class NextVersionHandOver(
     fun apply(handle: Handle, catalog: CatalogId, work: CatalogDraft, keepAs: String?) {
         val previous = drafts.drafts(handle, catalog).firstOrNull { it.isNext }
         // A discarded next version stops being served where it was deployed, in the history.
-        if (previous != null && keepAs == null) DraftDeploymentStore.endFor(handle, catalog.tenantKey, previous.versionId)
+        if (previous != null && keepAs == null) draftLifecycle.forEach { it.draftDiscarded(handle, catalog.tenantKey, previous.versionId) }
         drafts.promote(handle, catalog.tenantKey, work.versionId, previous?.versionId, keepAs)
     }
 }
@@ -282,6 +282,7 @@ class DeleteCatalogDraftHandler(
     private val drafts: CatalogDrafts,
     private val nextVersions: NextVersionOpener,
     private val dependencyStore: CatalogDependencyStore,
+    private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) : CommandHandler<DeleteCatalogDraft, Unit> {
     override fun handle(command: DeleteCatalogDraft) {
         requireCatalogEditable(command.catalog)
@@ -296,7 +297,7 @@ class DeleteCatalogDraftHandler(
             val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
             if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
             // Environments serving it stop: recorded in their history.
-            DraftDeploymentStore.endFor(handle, tenantKey, draft.versionId)
+            draftLifecycle.forEach { it.draftDiscarded(handle, tenantKey, draft.versionId) }
             drafts.delete(handle, tenantKey, draft.versionId)
             draft
         }

@@ -7,19 +7,7 @@ package app.epistola.suite.fonts.model
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import java.security.MessageDigest
 import java.time.OffsetDateTime
-
-/**
- * Lowercase hex SHA-256 of [bytes]. The single digest used both to pin a
- * face's bytes in [content_hash][FontVariantRow] (at import) and to derive a
- * family fingerprint (at publish) — so a delete+re-upload under the same
- * `(slug, weight, italic)` with different bytes flips the fingerprint and a
- * published render fails loudly.
- */
-fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
-    .digest(bytes)
-    .joinToString("") { "%02x".format(it) }
 
 /**
  * A font family: a thin, catalog-scoped grouping over N font-face binaries,

@@ -10,7 +10,7 @@ import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
-import app.epistola.suite.fonts.model.sha256Hex
+import app.epistola.suite.common.sha256Hex
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jsonMapper

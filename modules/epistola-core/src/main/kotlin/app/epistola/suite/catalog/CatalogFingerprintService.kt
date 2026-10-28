@@ -94,7 +94,7 @@ class CatalogFingerprintService(
     fun resourceFingerprints(archive: app.epistola.catalog.archive.CatalogArchive): Map<String, String> = app.epistola.catalog.canonical.CatalogCanonicalizer.completePerResourceFingerprints(archive)
 
     /** The fingerprint of a catalog setting's value given in its fixed [canonical] shape. */
-    fun settingFingerprint(canonical: Any?): String = app.epistola.suite.fonts.model.sha256Hex(objectMapper.writeValueAsBytes(canonical))
+    fun settingFingerprint(canonical: Any?): String = app.epistola.suite.common.sha256Hex(objectMapper.writeValueAsBytes(canonical))
 
     /**
      * Every entry of [content] a merge compares, by `type/key`: its resources ([resourceFingerprints])

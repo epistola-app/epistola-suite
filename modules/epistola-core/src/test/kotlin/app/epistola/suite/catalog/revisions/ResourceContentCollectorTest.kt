@@ -152,7 +152,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val logo = requireNotNull(assembler.assemble(catalog, "1.0.0")).content.resourceDetails.getValue("image/logo").resource as ImageResource
         // An image only an orphaned content needs: its bytes are held by that content alone.
         val loose = png(0x654321)
-        val looseHash = app.epistola.suite.fonts.model.sha256Hex(loose)
+        val looseHash = app.epistola.suite.common.sha256Hex(loose)
         blobs.putIfAbsent(looseHash, loose, "image/png", loose.size.toLong())
         val content = requireNotNull(assembler.assemble(catalog, "1.0.0")).content
         val orphanHash = jdbi.inTransaction<String, Exception> { handle ->
@@ -224,7 +224,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val registry = SimpleMeterRegistry()
         val collector = ResourceContentCollector(jdbi, StorageGcProperties(grace = Duration.ofDays(1), pause = Duration.ZERO), registry)
         val loose = png(0x0badf0)
-        val hash = app.epistola.suite.fonts.model.sha256Hex(loose)
+        val hash = app.epistola.suite.common.sha256Hex(loose)
         blobs.putIfAbsent(hash, loose, "image/png", loose.size.toLong())
 
         collector.collectAll()

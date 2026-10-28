@@ -15,6 +15,8 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.dependencies.MissingDependencyReason
+import app.epistola.suite.catalog.dependencies.MissingReleaseDependency
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
@@ -22,8 +24,6 @@ import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.MissingDependencyReason
-import app.epistola.suite.environments.MissingReleaseDependency
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query

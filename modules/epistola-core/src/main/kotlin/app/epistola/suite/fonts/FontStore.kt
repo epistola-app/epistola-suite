@@ -15,11 +15,11 @@ import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
+import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.storage.AssetContentStore
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.jdbi.v3.core.Handle
