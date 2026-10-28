@@ -35,17 +35,23 @@ load test lost 13 of 50,000 results this way before the fix, and 1 of 5,000 with
 moves past their numbers.
 
 1. **An emit** takes a **shared**, transaction-scoped advisory lock
-   (`pg_advisory_xact_lock_shared`, one fixed key, `EPIS`/1) before it draws its sequence. Postgres
-   releases it when the transaction commits or rolls back. The lock protects no data: it only makes
-   the open emit visible in `pg_locks`, across every node, since all nodes share the database.
-2. **A poll**:
+   (`pg_advisory_xact_lock_shared`, keyed per tenant: `EPIS` and `hashtext(tenant_key)`) before it
+   draws its sequence. Postgres releases it when the transaction commits or rolls back. The lock
+   protects no data: it only makes the open emit visible in `pg_locks`, across every node, since all
+   nodes share the database.
+2. **A poll**, which serves one tenant:
    1. reads the highest sequence handed out so far (`generation_results_sequence_seq`);
-   2. reads, from `pg_locks`, which transactions hold the lock at that moment;
+   2. reads, from `pg_locks`, which transactions hold that tenant's lock at that moment;
    3. waits until those transactions have finished, then delivers rows up to that sequence.
 
 **Why that is watertight:** a sequence at or below the one read in step 1 was drawn before step 1,
 by an emit that already held the lock then, so it is one the poll waits for. An emit that starts
 after step 1 draws a higher sequence, which the poll does not deliver this time.
+
+**Why per tenant:** a poll only delivers its own tenant's rows, so only that tenant's open emits
+can hold one back. Another tenant's slow emit therefore never delays this feed. Two tenants whose
+keys hash to the same value share a lock; a poll then also waits for the other's emits, which is
+slower but still correct.
 
 ### No deadlocks, no waiting emits
 
