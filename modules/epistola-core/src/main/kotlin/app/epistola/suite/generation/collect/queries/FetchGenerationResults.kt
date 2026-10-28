@@ -43,6 +43,8 @@ data class FetchGenerationResults(
     val consumerId: String,
     val partitions: Set<Int>,
     val limit: Int,
+    /** How long the poll waits for emits in flight before it returns an empty page. */
+    val inFlightWait: Duration = FetchGenerationResultsHandler.IN_FLIGHT_WAIT,
 ) : Query<FetchResultsPage>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -50,6 +52,7 @@ data class FetchGenerationResults(
 
     init {
         require(limit in 1..MAX_LIMIT) { "limit must be in 1..$MAX_LIMIT, got $limit" }
+        require(!inFlightWait.isNegative) { "inFlightWait must not be negative, got $inFlightWait" }
     }
 
     companion object {
@@ -109,7 +112,7 @@ class FetchGenerationResultsHandler(
             // Nothing handed out past every cursor: an idle poll ends here.
             val upTo = EmitsInFlight.highestIssued(handle)
             if (upTo <= (cursorList.minOrNull() ?: 0L)) return@inTransaction emptyList()
-            if (!awaitEmitsInFlight(handle)) return@inTransaction null
+            if (!awaitEmitsInFlight(handle, query.inFlightWait)) return@inTransaction null
             handle.createQuery(
                 """
                 WITH cursors(p, cur) AS (
@@ -149,17 +152,17 @@ class FetchGenerationResultsHandler(
     /**
      * Wait until the emits in flight now have committed or rolled back. They are the only ones that
      * can hold a sequence up to the highest one read just before; emits that start later draw a
-     * higher one. False when they are still in flight after [IN_FLIGHT_WAIT].
+     * higher one. False when they are still in flight after [wait].
      */
-    private fun awaitEmitsInFlight(handle: Handle): Boolean {
+    private fun awaitEmitsInFlight(handle: Handle, wait: Duration): Boolean {
         val holders = EmitsInFlight.holders(handle)
         if (holders.isEmpty()) return true
         val started = System.nanoTime()
-        val deadline = started + IN_FLIGHT_WAIT.toNanos()
+        val deadline = started + wait.toNanos()
         while (EmitsInFlight.anyStillInFlight(handle, holders)) {
             if (System.nanoTime() > deadline) {
                 recordWait(started, OUTCOME_TIMED_OUT)
-                logger.warn("Results are still being emitted after {}; this poll delivers none", IN_FLIGHT_WAIT)
+                logger.warn("Results are still being emitted after {}; this poll delivers none", wait)
                 return false
             }
             Thread.sleep(IN_FLIGHT_POLL)
@@ -171,7 +174,7 @@ class FetchGenerationResultsHandler(
     /**
      * One poll that found emits in flight and waited for them (`epistola.collect.inflight.wait`):
      * its count is the polls that waited, its time how long; `outcome=timed_out` counts the polls
-     * that hit [IN_FLIGHT_WAIT] and delivered nothing.
+     * that hit their wait limit and delivered nothing.
      */
     private fun recordWait(started: Long, outcome: String) {
         Timer.builder(WAIT_METER)
@@ -182,7 +185,7 @@ class FetchGenerationResultsHandler(
     }
 
     companion object {
-        /** How long a poll waits for the emits in flight before it returns an empty page. */
+        /** How long a poll waits for the emits in flight before it returns an empty page, by default. */
         val IN_FLIGHT_WAIT: Duration = Duration.ofSeconds(2)
         private val IN_FLIGHT_POLL: Duration = Duration.ofMillis(2)
 
