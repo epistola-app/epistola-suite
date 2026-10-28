@@ -49,6 +49,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
+import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -440,10 +441,11 @@ class EpistolaTenantApi(
         return ResponseEntity.ok(
             DeploymentHistoryResponse(
                 items = history.map { entry ->
-                    // An entry recorded the catalog's name; one from before it did reads the catalog's current name.
+                    // An entry recorded the catalog's name; one from before it did reads the catalog's current
+                    // name, else the one the 2.0 migration gave the tenant's own catalogs.
                     val catalog = if (entry.registry == null || entry.namespace == null) catalogs[entry.catalogKey] else null
                     DeploymentEventDto(
-                        registry = entry.registry ?: catalog?.registry ?: identity.defaultRegistry,
+                        registry = entry.registry ?: catalog?.registry ?: LocalAuthority.NAME,
                         namespace = entry.namespace ?: catalog?.namespace ?: CatalogIdentityProperties.defaultNamespace(environment.tenantKey),
                         catalogKey = entry.catalogKey.value,
                         action = when (entry.action) {

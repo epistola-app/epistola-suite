@@ -157,7 +157,7 @@ class CatalogNameMismatchException(val field: String, val given: String, val nam
 class CatalogImportDependenciesMissingException(
     val catalogKey: CatalogKey,
     val version: String,
-    val missing: List<app.epistola.suite.environments.MissingReleaseDependency>,
+    val missing: List<app.epistola.suite.catalog.dependencies.MissingReleaseDependency>,
 ) : RuntimeException("${catalogKey.value} $version renders with releases that cannot be had: " + missing.joinToString())
 
 /** What filling a version from an archive does with resources the version has and the archive does not. */
@@ -295,10 +295,10 @@ class ImportCatalogZipHandler(
             )
         }
 
-        val missing = jdbi.withHandle<List<app.epistola.suite.environments.MissingReleaseDependency>, Exception> { handle ->
+        val missing = jdbi.withHandle<List<app.epistola.suite.catalog.dependencies.MissingReleaseDependency>, Exception> { handle ->
             manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
                 .filter { it.pinned && !dependencyStore.pinHolds(handle, command.tenantKey, it) }
-                .map { app.epistola.suite.environments.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE) }
+                .map { app.epistola.suite.catalog.dependencies.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.catalog.dependencies.MissingDependencyReason.UNAVAILABLE) }
         }
         if (missing.isNotEmpty() && !command.restoreRelease) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
         // The release is kept as it says it is (its id, rendering defaults, base), or refused before

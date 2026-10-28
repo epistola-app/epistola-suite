@@ -152,18 +152,18 @@ COMMENT ON COLUMN generation_results.draft_label IS 'The draft''s name when it w
 COMMENT ON COLUMN generation_results.catalog_version_id IS 'Id (version_key) of the catalog version rendered, copied from its request.';
 
 -- History names its catalog in full (contract ADR 0003): registry, namespace and key. A row whose
--- catalog no longer exists keeps its key and is named on the default registry in its tenant's
--- namespace, which is what a catalog of that tenant was named on the move to 2.0 (step 1).
+-- catalog no longer exists keeps its key and is named under `local` in its tenant's namespace,
+-- which is what an authored catalog of that tenant was named on the move to 2.0 (step 1).
 ALTER TABLE documents ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 ALTER TABLE document_generation_requests ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 
-UPDATE documents d SET registry = COALESCE(c.registry, 'exchange.epistola.app'),
+UPDATE documents d SET registry = COALESCE(c.registry, 'local'),
                        namespace = COALESCE(c.namespace, CASE WHEN length(d.tenant_key) < 3 THEN rpad(d.tenant_key, 3, '0') ELSE d.tenant_key END)
 FROM (SELECT DISTINCT tenant_key, catalog_key FROM documents) k
 LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.catalog_key = k.catalog_key
 WHERE d.tenant_key = k.tenant_key AND d.catalog_key = k.catalog_key;
 
-UPDATE document_generation_requests d SET registry = COALESCE(c.registry, 'exchange.epistola.app'),
+UPDATE document_generation_requests d SET registry = COALESCE(c.registry, 'local'),
                        namespace = COALESCE(c.namespace, CASE WHEN length(d.tenant_key) < 3 THEN rpad(d.tenant_key, 3, '0') ELSE d.tenant_key END)
 FROM (SELECT DISTINCT tenant_key, catalog_key FROM document_generation_requests) k
 LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.catalog_key = k.catalog_key

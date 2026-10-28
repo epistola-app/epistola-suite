@@ -15,7 +15,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
-import app.epistola.suite.fonts.model.sha256Hex
+import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.storage.AssetContentStore
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.mapper.RowMapper

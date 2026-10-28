@@ -117,8 +117,8 @@
     </th:block>
 
     <!-- Inline "name it" prompt for the Import ZIP dialog: an archive from before wire v8 names no
-         registry or namespace, which are the catalog's name. The importer proposes the default
-         registry and this tenant's namespace; the operator decides. Renders into the in-form
+         registry or namespace, which are the catalog's name. The importer proposes local and
+         this tenant's namespace, the name its own catalogs got on the move to 2.0; the operator decides. Renders into the in-form
          `#import-error` slot, so its fields and button belong to the import form and re-submit the
          same file with them, the migration to the current format confirmed. -->
     <th:block th:fragment="import-name-required">

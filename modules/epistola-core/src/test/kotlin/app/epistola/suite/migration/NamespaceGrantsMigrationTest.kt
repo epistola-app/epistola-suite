@@ -24,7 +24,7 @@ import java.sql.DriverManager
 class NamespaceGrantsMigrationTest {
 
     @Test
-    fun `each tenant holds the namespaces of the catalogs it authors and of its Exchange connection, and nothing it received`() {
+    fun `each tenant holds the namespaces of the catalogs it authors on the Exchange and of its Exchange connection, and nothing it received or authored locally`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "namespace_grants_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -46,7 +46,7 @@ class NamespaceGrantsMigrationTest {
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme'), ('beta', 'Beta'), ('idle', 'Idle');
 
-                -- acme authors these: two named in its own namespace, and one bound for publishing to an Exchange namespace.
+                -- acme authors these: two under local, which needs no grant, and one bound for publishing to an Exchange namespace.
                 INSERT INTO catalogs (id, tenant_key, name, type) VALUES
                     ('letters', 'acme', 'Letters', 'AUTHORED'),
                     ('drafts', 'acme', 'Drafts', 'AUTHORED'),
@@ -78,7 +78,6 @@ class NamespaceGrantsMigrationTest {
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(connection.rows("SELECT tenant_key, authority, namespace, granted_through, granted_by FROM tenant_namespace_grants ORDER BY tenant_key, namespace, authority"))
                 .containsExactly(
-                    listOf("acme", "exchange.epistola.app", "acme", "EXISTING", null),
                     listOf("acme", "exchange.epistola.app", "acme-forms", "EXISTING", null),
                     listOf("acme", "exchange.epistola.app", "public-services", "EXCHANGE_CONNECTION", null),
                     listOf("beta", "exchange.epistola.app", "acme", "EXCHANGE_CONNECTION", null),

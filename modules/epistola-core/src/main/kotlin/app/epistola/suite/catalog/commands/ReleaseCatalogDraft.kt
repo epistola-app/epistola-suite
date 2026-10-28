@@ -31,6 +31,7 @@ import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.releases.AssessDraftNumber
 import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDraftLifecycle
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
@@ -54,7 +55,6 @@ import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
-import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -200,6 +200,7 @@ class ReleaseCatalogDraftHandler(
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
     private val grants: NamespaceGrantStore,
     private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
+    private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -440,7 +441,7 @@ class ReleaseCatalogDraftHandler(
             // The draft becomes the release (ADR 0036): its row is frozen, keeping its id and name, and
             // its content rows become the release's below. Environments serving the draft name its row,
             // so they serve the release once it is frozen; they are read first, to log each.
-            val servedDraft = DraftDeploymentStore.servingDraft(handle, command.tenantKey, draft.versionId)
+            val onReleased = draftLifecycle.map { it.draftReleasing(handle, command.tenantKey, draft.versionId) }
             drafts.freeze(
                 handle,
                 command.catalog,
@@ -484,7 +485,7 @@ class ReleaseCatalogDraftHandler(
             dependencyStore.pinDeclarationsOf(handle, command.tenantKey, draft.versionId, CatalogDependencyRelease(newVersion.toString(), fingerprint))
             // The draft became the release, keeping its id: environments serving it serve the release
             // (contract ADR 0003), logged as released.
-            DraftDeploymentStore.released(handle, command.tenantKey, draft.versionId, servedDraft, newVersion.toString())
+            onReleased.forEach { it(newVersion.toString()) }
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

@@ -9,11 +9,11 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
+import app.epistola.suite.catalog.releases.CatalogDraftLifecycle
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
@@ -35,6 +35,7 @@ data class DeleteCatalog(
 @Component
 class DeleteCatalogHandler(
     private val jdbi: Jdbi,
+    private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) : CommandHandler<DeleteCatalog, Boolean> {
 
     override fun handle(command: DeleteCatalog): Boolean {
@@ -56,7 +57,7 @@ class DeleteCatalogHandler(
             // bypassed by force: force overrides references from authoring content, not rendering.
             ReleaseInUse.requireCatalogUnused(handle, command.catalog)
             // A draft an environment serves goes with the catalog, its deployment ended and logged.
-            DraftDeploymentStore.endForCatalog(handle, command.catalog)
+            draftLifecycle.forEach { it.catalogDeleted(handle, command.catalog) }
             // Declarations in other catalogs' drafts that build on one of its drafts go with those
             // drafts: such a draft names the catalog's content, so forcing past it drops them.
             handle.createUpdate(

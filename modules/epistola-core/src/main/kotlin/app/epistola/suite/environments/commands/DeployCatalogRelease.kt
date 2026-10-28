@@ -7,6 +7,7 @@ package app.epistola.suite.environments.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.dependencies.MissingDependencyReason
 import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
@@ -20,7 +21,6 @@ import app.epistola.suite.environments.DeploymentLog
 import app.epistola.suite.environments.DeploymentRows
 import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
-import app.epistola.suite.environments.MissingDependencyReason
 import app.epistola.suite.environments.ReleaseDependencies
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException

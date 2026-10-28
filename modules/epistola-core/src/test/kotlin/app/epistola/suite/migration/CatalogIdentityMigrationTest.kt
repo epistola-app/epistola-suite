@@ -46,13 +46,15 @@ class CatalogIdentityMigrationTest {
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(rows(connection, "SELECT tenant_key, catalog_key, registry, namespace FROM catalogs ORDER BY 1, 2"))
                 .containsExactly(
-                    listOf("ab", "default", "exchange.epistola.app", "ab0"),
+                    // Authored: local, in the tenant's key, padded to a namespace's 3 characters.
+                    listOf("ab", "default", "local", "ab0"),
                     // Installed from Exchange: named by its publisher, as its source says.
                     listOf("acme", "brand", "exchange.epistola.app", "huisstijl"),
-                    listOf("acme", "default", "exchange.epistola.app", "acme"),
+                    listOf("acme", "default", "local", "acme"),
                     // Bound for publishing to Exchange: that is its namespace.
                     listOf("acme", "forms", "exchange.epistola.app", "acme-corp"),
-                    listOf("acme", "letters", "exchange.epistola.app", "acme"),
+                    listOf("acme", "letters", "local", "acme"),
+                    // Shipped by Epistola: as its manifest names it.
                     listOf("acme", "system", "exchange.epistola.app", "epistola"),
                 )
             assertThat(rows(connection, "SELECT count(DISTINCT catalog_id) FROM catalogs")).containsExactly(listOf("6"))

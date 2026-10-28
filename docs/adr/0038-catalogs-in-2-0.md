@@ -114,8 +114,12 @@ The upgrade from 1.x is the Flyway chain alone (ADR 0035; the steps are in
 [migrations](../migrations.md)). Every authored 1.x catalog keeps its draft — what its authors were
 working on — and gets a named draft **"Published in 1.x"** holding what was last published, where it
 differs. No release is cut automatically and nothing is deployed: environments start empty, and the
-tenant home lists the catalogs to release and deploy. Subscribed 1.x catalogs receive their release
-from their source at boot. 1.x releases are not kept; their history is a summary in `app_metadata`.
+tenant home lists the catalogs to release and deploy. A catalog a tenant authored is named
+`local/<tenant key>/<key>` (the tenant key padded to 3 characters): until 2.0 a catalog left its
+installation only through the Exchange, so only the catalogs the Exchange named (shipped, installed
+from or bound to it) are named on `exchange.epistola.app`. Subscribed 1.x catalogs receive their
+release from their source at boot. 1.x releases are not kept; their history is a summary in
+`app_metadata`.
 
 ## Consequences
 
