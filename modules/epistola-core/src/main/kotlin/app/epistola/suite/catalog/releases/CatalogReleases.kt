@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogMetrics
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
@@ -150,7 +151,7 @@ data class CatalogDraft(
  * (contract ADR 0002, amendment 2).
  */
 @Component
-class CatalogDrafts {
+class CatalogDrafts(private val metrics: CatalogMetrics) {
 
     /**
      * The draft a caller means: the one its message targets (see [CatalogReleaseTargeting]), else the
@@ -245,7 +246,7 @@ class CatalogDrafts {
             .bind("base", record.base)
             .bind("baseFingerprint", record.baseFingerprint)
             .execute()
-        if (frozen == 1) return
+        if (frozen == 1) return metrics.releaseCut()
         val releasedAs = handle.createQuery("SELECT version FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND state = 'released'")
             .bind("t", catalog.tenantKey)
             .bind("v", versionId)

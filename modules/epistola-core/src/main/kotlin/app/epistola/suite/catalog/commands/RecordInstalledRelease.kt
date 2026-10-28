@@ -13,6 +13,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.CatalogMetrics
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
@@ -127,6 +128,7 @@ class RecordInstalledReleaseHandler(
     private val rows: CatalogImportRows,
     private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
     private val receivedReleases: ReceivedReleases,
+    private val metrics: CatalogMetrics,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -268,6 +270,7 @@ class RecordInstalledReleaseHandler(
                 .bind("baseVersion", received?.base?.version)
                 .bind("baseFingerprint", received?.base?.fingerprint)
                 .execute()
+            metrics.releaseArrived(command.provenance.via)
             // The releases merged into it where it was cut, as it names them: its line contains them.
             app.epistola.suite.catalog.releases.ReleaseLineage.recordMerged(handle, command.catalog, version, ReleaseDescription.merged(received?.metadata))
 
