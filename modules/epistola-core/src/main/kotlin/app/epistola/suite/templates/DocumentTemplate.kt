@@ -50,23 +50,6 @@ data class DocumentTemplate(
 }
 
 /**
- * Template with variant summaries for API responses.
- */
-data class DocumentTemplateWithVariants(
-    val id: TemplateKey,
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
-    val name: String,
-    val themeKey: ThemeKey? = null,
-    val pdfaEnabled: Boolean = true,
-    val variants: List<VariantSummary>,
-    val createdAt: OffsetDateTime,
-    val updatedAt: OffsetDateTime,
-    val createdBy: UserKey? = null,
-    val updatedBy: UserKey? = null,
-)
-
-/**
  * Whether [this], a template description, fits its ceiling
  * ([app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH], counted in code
  * points as the catalog contract counts it); no description always fits.
