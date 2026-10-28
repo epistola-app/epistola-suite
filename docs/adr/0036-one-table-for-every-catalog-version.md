@@ -59,15 +59,15 @@ freezes the row; it copies nothing.** Every table that names a version names tha
 | `default_theme_resource_id`, `presets`                                                    | The version's settings, frozen once released; a release recorded from a manifest takes them from it |
 | `version` (+ generated major, minor, patch, label)                                        | The number: NULL for a draft, unique per catalog once set                                           |
 | `fingerprint`, `content_hash`, `notes`, `manifest_snapshot`, `rendering_defaults_version` | The release record                                                                                  |
-| `released_at`, `released_by`, `released_by_installation`                                  | Who released it, and when                                                                           |
+| `released_at`, `released_by`, `released_by_installation`                                  | When it became a release here, who released or installed it, and the installation that cut it       |
+| `released_via`, `released_from`                                                           | How it came to be here (released here, an upload, a registry, a source, …) and from where           |
 | `created_at`                                                                              |                                                                                                     |
 
 Invariants, as `CHECK`s:
 
 - `state = 'released'` ⇔ `version`, `fingerprint`, `content_hash` and `released_at` are set;
 - a draft has no number;
-- `origin = 'installed'` ⇒ `state = 'released'` (an installed version is a release; a subscribed
-  catalog's next draft is authored);
+- `state = 'released'` ⇔ `released_via` is set: every release says how it came to be here;
 - `(tenant_key, catalog_id, version)` unique where `version` is set;
   `(tenant_key, catalog_id, version_key)` unique.
 
@@ -77,10 +77,9 @@ Invariants, as `CHECK`s:
   `is_next`. A trigger or a deferred check keeps it a draft of the same catalog.
 - `released_version`, `released_fingerprint`, `released_at` and `installed_release_version` go.
   "The catalog's current release" becomes a query over its released rows (the highest number), in
-  one view, so it cannot drift. So does the release it installed (`catalog_installed_releases`):
-  the nearest received release its next version descends from. Receiving records the release, then
-  moves the next version to it; `installed_fingerprint`, `installed_resource_fingerprints` and
-  `installed_at` go with the pointer.
+  one view, so it cannot drift: the catalog's highest release, however it arrived. Receiving records
+  the release, then moves the next version to it; `installed_fingerprint`,
+  `installed_resource_fingerprints` and `installed_at` go with the pointer.
 
 ### 3. `release_resources`: keyed by the version row only
 
@@ -152,8 +151,29 @@ Releasing a draft sets its number, record and `state = 'released'` in place. Its
   is deployed or used. A draft started from it may stay: `base_version_id` is set to NULL, as
   lineage, not ownership. The current-release view follows on its own.
 - **Deleting a draft** is the same, without a number.
-- **Installing** a release from elsewhere inserts a row with `state = 'released'`,
-  `origin = 'installed'` and the publisher's `version_key`, and its resources.
+- **Installing** a release from elsewhere inserts a row with `state = 'released'`, the publisher's
+  `version_key` and how it arrived (`released_via`, `released_from`), and its resources.
+
+### A release is a release, however it arrived (amendment of 2026-10-28)
+
+The first form of this decision kept an `origin` column, `authored` or `installed`, and a second
+view, `catalog_installed_releases`: the nearest release received from elsewhere that the next draft
+descends from. Every question it answered is answered by the releases themselves, so both are gone.
+
+- A catalog has one release that counts: its **highest**, by number (`catalog_current_releases`,
+  `Catalog.latestReleaseVersion`). The upgrade check asks whether a source offers a release newer
+  than it (`SemVer.isNewer`): a release cut here above its source's keeps the catalog current, and
+  a lower one offered by the source is not an upgrade.
+- Whether a release was **withdrawn** is asked of that release: an Exchange release absent from the
+  Exchange is withdrawn, one this installation cut (`released_by_installation`) never was the
+  Exchange's to withdraw.
+- An upgrade moves on from the catalog's highest release; a merge finds its base by lineage, as
+  before (`base_version`, `base_fingerprint`, ADR 0032).
+- **Provenance** is recorded on every release instead, and only shown: `released_via` (released
+  here, `upload`, `api`, `registry`, `exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`),
+  `released_from` (the source URL, registry reference or file name), `released_by` (who released or
+  installed it; the system user for the system) and `released_at`. Nothing decides by it
+  (`ReleaseProvenanceUsageTest`); the release page says "Installed from … by …".
 
 ### Freezing is the application's
 

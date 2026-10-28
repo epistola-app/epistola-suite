@@ -2488,6 +2488,22 @@ cannot clear a default theme through generated clients (null and omitted are the
 
 ## Review follow-ups (27 October)
 
+- **Done: a release is a release however it arrived** (user decision, 28 October). `catalog_versions.origin`,
+  its two checks, the view `catalog_installed_releases` and the function `catalog_installed_release_id` are
+  gone (2.0 chain edited in place); `catalog_current_releases` is the catalog's highest release of any kind,
+  and `Catalog` has one release (`latestReleaseVersion`, fingerprint, released at) instead of three
+  pointers. Upgrade checks compare against it (`SemVer.isNewer`): a release cut here above the source's
+  keeps the catalog current. The Exchange's withdrawn check never reports a release this installation cut.
+  Provenance on every release, shown only: `released_via` (released, upload, api, registry, exchange,
+  source, bundled, upgrade-1x, snapshot), `released_from`, `released_by` (the installer for a received
+  release), `released_at`; on the release page, in `list_catalog_releases` and in tenant snapshots.
+  `catalog_upstream_checks` columns renamed by a forward migration (`V20261101001700`). Tests:
+  `ReleaseProvenanceTest`, `SemVerTest`, `UpgradeCatalogTest` (mixed catalog, ahead of source: failed
+  without `isNewer`), `ExchangeUpstreamCheckTest` (cut here: failed without the authorship check),
+  channel assertions in the Exchange, registry, snapshot and 1.x scenario tests, `ReleaseProvenanceUsageTest`
+  (guard), `TwoZeroChainEquivalenceIT` (`was`/`new` directives: rows read as the old chain wrote them).
+  Not done: REST has no provenance field (the contract has none; no bump).
+
 - **Done: monthly partitions in UTC.** `PartitionMaintenanceScheduler` creates every monthly
   partition (`documents`, `document_content`, `document_generation_requests`, `generation_results`,
   `event_log`, `audit_log`) through `epistola_create_partition`, whose `date` bounds Postgres reads

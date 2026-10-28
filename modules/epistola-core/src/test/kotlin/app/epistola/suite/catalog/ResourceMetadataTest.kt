@@ -17,6 +17,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -107,7 +109,7 @@ class ResourceMetadataTest : IntegrationTestBase() {
         assertThat(releaseFingerprint(described)).`as`("metadata counts in no fingerprint").isEqualTo(releaseFingerprint(plain))
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = described).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = described, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val installed = contentBuilder.build(testCatalog(b, catalog))
             val keys = installed.resourceDetails.keys.toList()
             assertThat(keys.map { it.substringBefore('/') }).`as`("one of each type").containsExactlyInAnyOrder("theme", "stencil", "codeList", "attribute", "image")

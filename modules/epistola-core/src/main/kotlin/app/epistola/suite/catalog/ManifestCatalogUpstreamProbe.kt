@@ -60,7 +60,7 @@ class ManifestCatalogUpstreamProbe(
             availableSchemaVersion = migrated.catalog.sourceVersion,
             // A manifest describes only what it currently publishes, so it can say nothing about
             // whether the release this catalog sits on is still offered.
-            installedAvailability = null,
+            upstreamAvailability = null,
         )
     }
 

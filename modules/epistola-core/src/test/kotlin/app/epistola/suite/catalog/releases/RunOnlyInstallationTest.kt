@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -65,7 +67,7 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("received")
         withMediator {
             listOf("1.0.0", "1.1.0").forEach { version ->
-                val received = ImportCatalogZip(tenantKey = tenant, zipBytes = emptyRelease(catalog.value, version)).execute()
+                val received = ImportCatalogZip(tenantKey = tenant, zipBytes = emptyRelease(catalog.value, version), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
                 assertThat(received.aborted).`as`("receiving $version").isFalse()
             }
             assertThat(GetLatestCatalogRelease(testCatalog(tenant, catalog)).query().latestVersion).isEqualTo("1.1.0")

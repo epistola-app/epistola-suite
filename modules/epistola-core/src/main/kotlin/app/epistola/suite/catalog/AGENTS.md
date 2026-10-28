@@ -16,6 +16,11 @@ A released version never changes (ADR 0036, the freeze): every writer of a versi
 released one first (`requireWritableVersion`, `Handle.writable` or `inDraft`), or belongs to the
 release path; `FrozenVersionWriteGuardTest` holds that.
 
+A release is a release however it arrived (ADR 0036): a catalog's version is its highest release.
+How a release came here (`released_via`, `released_from`, `ReleaseChannel`) is recorded where it
+arrives and shown where it is described, never branched on; `ReleaseProvenanceUsageTest` lists the
+files that may name it.
+
 - **Outbound**: `ReleaseCatalogDraft` records publication intent through
   `CatalogReleasePublicationPort` (owned by `catalog`), handed the open release transaction so the
   outbox write stays atomic without inverting the dependency.

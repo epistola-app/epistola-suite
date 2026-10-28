@@ -23,7 +23,7 @@ import app.epistola.suite.testing.testCatalog
  */
 fun declareDependency(tenantKey: TenantKey, catalogKey: CatalogKey, on: CatalogKey, release: String? = null): List<CatalogDependencyDeclaration> {
     val target = requireNotNull(GetCatalog(testCatalog(tenantKey, on)).query()) { "No catalog '${on.value}'" }
-    val pinned = release ?: target.releasedVersion ?: target.installedReleaseVersion
+    val pinned = release ?: target.latestReleaseVersion ?: target.latestReleaseVersion
     val draft = if (pinned == null) requireNotNull(GetCatalogDraft(testCatalog(tenantKey, on)).query()) { "Catalog '${on.value}' has neither a release nor a draft" }.versionId else null
     val others = ListCatalogDependencies(testCatalog(tenantKey, catalogKey)).query()
         .filter { it.catalogKey != on.value }

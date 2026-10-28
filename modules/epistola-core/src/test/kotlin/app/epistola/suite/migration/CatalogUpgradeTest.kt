@@ -110,7 +110,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
                 .execute()
         }
         assertThat(withMediator { ListCatalogDependencies(catalog).query() }.single().releaseVersion).isNull()
-        val installed = requireNotNull(withMediator { GetCatalog(system).query() }?.installedReleaseVersion)
+        val installed = requireNotNull(withMediator { GetCatalog(system).query() }?.latestReleaseVersion)
 
         val result = withMediator { ReleaseCatalogDraft(catalog).execute() }
 
@@ -176,7 +176,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         assertThat(first.failed).isEmpty()
         assertThat(first.received).containsExactly(subscribed)
-        assertThat(withMediator { GetCatalog(subscribed).query() }?.installedReleaseVersion).isEqualTo("1.0.0")
+        assertThat(withMediator { GetCatalog(subscribed).query() }?.latestReleaseVersion).isEqualTo("1.0.0")
         assertThat(withMediator { ReceiveOneXSubscribedReleases(tenant).execute() }.received).`as`("once received, nothing to do").isEmpty()
     }
 

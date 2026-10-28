@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -40,7 +42,7 @@ class InstalledReleaseExportTest : IntegrationTestBase() {
 
         val export = withMediator { ExportCatalogZip(testCatalog(tenant, key)).execute() }
 
-        assertThat(manifest(export.zipBytes)).contains("\"fingerprint\":\"${catalog.installedFingerprint}\"")
+        assertThat(manifest(export.zipBytes)).contains("\"fingerprint\":\"${catalog.latestReleaseFingerprint}\"")
     }
 
     @Test
@@ -55,7 +57,7 @@ class InstalledReleaseExportTest : IntegrationTestBase() {
         val target = createTenant("installed-export-target").id
 
         val again = withMediator {
-            ImportCatalogZip(target, zip).execute()
+            ImportCatalogZip(target, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ExportCatalogZip(testCatalog(target, key)).execute().zipBytes
         }
 

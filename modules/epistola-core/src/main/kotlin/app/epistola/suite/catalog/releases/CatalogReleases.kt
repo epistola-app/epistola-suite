@@ -70,6 +70,10 @@ data class CatalogRelease(
      * `ETag` / `If-Match`); a release does not change, so it stays at 1.
      */
     val revision: Long = 1,
+    /** How a release came to be in the tenant (`released_via`); null for a draft. Shown, never decided by. */
+    val releasedVia: ReleaseChannel? = null,
+    /** Where a release came from (`released_from`), in the terms of [releasedVia]. */
+    val releasedFrom: String? = null,
 ) {
     /** What people call it: "Next release", parallel work's name, or a release's number. */
     val label: String get() = when {
@@ -221,7 +225,7 @@ class CatalogDrafts {
             UPDATE catalog_versions v SET state = 'released', version = :version,
                 fingerprint = :fingerprint, content_hash = :contentHash, notes = :notes, manifest_snapshot = CAST(:snapshot AS JSONB),
                 rendering_defaults_version = :renderingDefaults, released_at = :releasedAt, released_by = :releasedBy,
-                released_by_installation = :releasedByInstallation, base_version = :base, base_fingerprint = :baseFingerprint,
+                released_by_installation = :releasedByInstallation, released_via = 'released', released_from = NULL, base_version = :base, base_fingerprint = :baseFingerprint,
                 base_version_id = (SELECT b.version_id FROM catalog_versions b
                                    WHERE b.tenant_key = v.tenant_key AND b.catalog_id = v.catalog_id AND b.version = :base AND b.state = 'released')
             WHERE v.tenant_key = :t AND v.version_id = :v AND v.state = 'draft'

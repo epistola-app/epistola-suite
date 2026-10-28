@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -94,7 +96,7 @@ class ExportReleaseTest : IntegrationTestBase() {
             ExportCatalogZip(testCatalog(publisher.tenantKey, publisher.key)).execute()
         }
         val subscriber = createTenant("exp-subscriber").id
-        withMediator { ImportCatalogZip(subscriber, archive.zipBytes).execute() }
+        withMediator { ImportCatalogZip(subscriber, archive.zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         val export = withMediator { ExportCatalogZip(testCatalog(subscriber, publisher.key)).execute() }
 

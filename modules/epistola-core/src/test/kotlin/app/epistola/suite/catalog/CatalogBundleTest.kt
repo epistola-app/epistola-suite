@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -92,16 +94,16 @@ class CatalogBundleTest : IntegrationTestBase() {
         val bundle = fat(chain("bundle-source")).zipBytes
         val target = withMediator { createTenant("bundle-target").id }
 
-        val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
+        val imported = withMediator { ImportCatalogZip(target, bundle, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         assertThat(imported.catalogKey).isEqualTo(letters)
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
-        assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.installedReleaseVersion })
+        assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.latestReleaseVersion })
             .contains(base.value to "1.0.0", shared.value to "1.0.0", letters.value to "1.0.0")
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(target), letters))).query()!! }.themeCatalogKey)
             .isEqualTo(shared)
 
-        val again = withMediator { ImportCatalogZip(target, bundle).execute() }
+        val again = withMediator { ImportCatalogZip(target, bundle, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         assertThat(again.installedDependencies).isEmpty()
         assertThat(again.presentDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
     }
@@ -116,7 +118,7 @@ class CatalogBundleTest : IntegrationTestBase() {
             target
         }
 
-        val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
+        val imported = withMediator { ImportCatalogZip(target, bundle, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
 
         // ADR 0034, section 9: within a tenant a catalog is named by namespace and key.
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
@@ -126,7 +128,7 @@ class CatalogBundleTest : IntegrationTestBase() {
         withMediator {
             val template = GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), app.epistola.suite.common.ids.CatalogId(carried.namespace, letters, TenantId(target)))).query()!!
             assertThat(template.themeCatalogId).isEqualTo(carried.catalogId)
-            assertThat(GetCatalog(carried.catalogId).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(carried.catalogId).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
         }
     }
 

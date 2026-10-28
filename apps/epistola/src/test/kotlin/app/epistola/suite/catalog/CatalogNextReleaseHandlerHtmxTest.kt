@@ -104,7 +104,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release", mapOf("version" to "1.0.0")) }
 
         then {
-            assertThat(withMediator { GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }!!.releasedVersion).isEqualTo("1.0.0")
+            assertThat(withMediator { GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }!!.latestReleaseVersion).isEqualTo("1.0.0")
         }
     }
 

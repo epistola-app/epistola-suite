@@ -175,7 +175,7 @@ class CatalogMcpTools(
                 target.registry,
                 target.namespace,
                 key.value,
-                releaseVersion = release ?: if (draft == null) target.highestReleaseVersion else null,
+                releaseVersion = release ?: if (draft == null) target.latestReleaseVersion else null,
                 versionId = draft,
             )
         }

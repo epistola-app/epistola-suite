@@ -26,6 +26,8 @@ import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -143,7 +145,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
 
         withMediator {
-            ImportCatalogZip(target.id, export.zipBytes).execute()
+            ImportCatalogZip(target.id, export.zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val imported = GetCatalog(testCatalog(target.id, catalogKey)).query()!!
 
             assertThat(imported.name).isEqualTo("Metadata Catalog Renamed")
@@ -280,6 +282,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = tenantKey,
                 zipBytes = exportResult.zipBytes,
+                provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
 
             // The import creates the catalog from the manifest slug, which is the same as the original.
@@ -329,6 +332,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
             val finding = exception.findings.single()
@@ -388,6 +392,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
                     zipBytes = zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
             val finding = exception.findings.first { it.code == "TEMPLATE_GRAPH_INVALID" }
@@ -458,6 +463,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = tenantKey,
                 zipBytes = exportResult.zipBytes,
+                provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
             assertThat(importResult.catalogKey).isEqualTo(catalogKey)
             assertThat(importResult.results).allSatisfy { result ->
@@ -647,6 +653,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
             val importedCatalogId = testCatalog(targetId, result.catalogKey)
@@ -781,6 +788,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     ImportCatalogZip(
                         tenantKey = tenant.id,
                         zipBytes = baos.toByteArray(),
+                        provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                     ).execute()
                 }
             }.isInstanceOf(IllegalArgumentException::class.java)
@@ -901,6 +909,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = target.id,
                 zipBytes = zipBytes,
+                provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
             // Received under the name its archive gives it: its producer's namespace (ADR 0034, section 9).
             val targetCatalogId = importResult.catalog!!

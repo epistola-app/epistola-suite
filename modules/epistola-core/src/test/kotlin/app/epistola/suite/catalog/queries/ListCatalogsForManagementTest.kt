@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -92,7 +94,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
             // Re-import bumps resources' updated_at, but also imported_at (set
             // after the upserts) — so the baseline keeps pace and this is NOT
             // mistaken for drift. (The regression the design targets.)
-            ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip).execute()
+            ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
@@ -123,7 +125,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author.id), key)), name = "Brand").execute()
             val zip = mediator.exportReleased(testCatalog(TenantId(author.id), key)).zipBytes
 
-            ImportCatalogZip(tenantKey = receiver.id, zipBytes = zip).execute()
+            ImportCatalogZip(tenantKey = receiver.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(pendingKeys(receiver.id)).`as`("what it received is its release").doesNotContain(key)
 
             CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver.id), key)), name = "Ours").execute()

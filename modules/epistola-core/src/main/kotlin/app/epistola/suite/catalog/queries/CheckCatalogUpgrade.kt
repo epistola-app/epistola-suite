@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -39,7 +40,8 @@ data class CheckCatalogUpgrade(
 
 data class CatalogUpgradeAvailability(
     val available: Boolean,
-    val installedVersion: String?,
+    /** The catalog's highest release, released here or received; null when it has none. */
+    val latestVersion: String?,
     val availableVersion: String,
     /** The catalog **schema** version the source published (pre-migration). */
     val sourceSchemaVersion: Int,
@@ -91,22 +93,26 @@ class CheckCatalogUpgradeHandler(
         val sourceSchemaVersion = migrated.catalog.sourceVersion
         val manifestFingerprint = manifest.release.fingerprint
 
+        val offered = manifest.release.version
+        val latest = catalog.latestReleaseVersion
         val available = if (manifestFingerprint != null) {
-            // Another release unless the installed one is the release it names, by content (ADR 0034).
-            catalog.installedFingerprint != manifestFingerprint &&
-                catalog.installedReleaseVersion?.let { installed -> jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.catalog, installed, manifestFingerprint) } } != true
+            // Not when the catalog has the release it names, by content (ADR 0034); else when it is
+            // newer than the catalog's highest release, or that release's number with other content.
+            val held = catalog.latestReleaseFingerprint == manifestFingerprint ||
+                jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.catalog, offered, manifestFingerprint) }
+            !held && (offered == latest || SemVer.isNewer(offered, latest))
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection for upgrade availability (tenant {})",
                 query.catalogKey.value,
                 query.tenantKey.value,
             )
-            catalog.installedReleaseVersion != manifest.release.version
+            SemVer.isNewer(offered, latest)
         }
 
         return CatalogUpgradeAvailability(
             available = available,
-            installedVersion = catalog.installedReleaseVersion,
+            latestVersion = latest,
             availableVersion = manifest.release.version,
             sourceSchemaVersion = sourceSchemaVersion,
             currentSchemaVersion = CATALOG_SCHEMA_VERSION,

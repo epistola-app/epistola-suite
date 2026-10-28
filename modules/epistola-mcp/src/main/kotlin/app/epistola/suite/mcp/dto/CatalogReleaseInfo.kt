@@ -31,6 +31,14 @@ data class CatalogReleaseInfo(
     val notes: String?,
     val deployedTo: List<String>,
     val contentHash: String? = null,
+    /**
+     * How a release came to be in the tenant: `released` (here), `upload`, `api`, `registry`,
+     * `exchange`, `source`, `bundled`, `upgrade-1x` or `snapshot`. Null for a draft. A release is a
+     * release however it arrived: this describes it, nothing depends on it.
+     */
+    val releasedVia: String? = null,
+    /** Where a release came from, in the terms of [releasedVia]: a source URL, a registry reference, a file name. */
+    val releasedFrom: String? = null,
 ) {
     /** A release a draft is behind, with what it changed (`type/key` and `added`/`modified`/`removed`). */
     data class BehindInfo(val version: String, val changes: List<String>)
@@ -49,6 +57,8 @@ data class CatalogReleaseInfo(
             notes = version.notes,
             deployedTo = version.deployedTo,
             contentHash = version.contentHash,
+            releasedVia = version.releasedVia?.code,
+            releasedFrom = version.releasedFrom,
         )
     }
 }

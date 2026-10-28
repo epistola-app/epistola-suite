@@ -53,7 +53,7 @@ data class CatalogUpstreamState(
      * says nothing about older ones. A withdrawn release keeps working locally, so this is reported
      * rather than acted on.
      */
-    val installedAvailability: UpstreamAvailability? = null,
+    val upstreamAvailability: UpstreamAvailability? = null,
 )
 
 /** What a source says about a particular release, in the only three states that change what we do. */

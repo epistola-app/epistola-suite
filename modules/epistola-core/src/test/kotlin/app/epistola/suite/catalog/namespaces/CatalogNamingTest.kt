@@ -14,6 +14,8 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -129,7 +131,7 @@ class CatalogNamingTest : IntegrationTestBase() {
             CreateCatalog(author, letters, "Letters").execute()
             release(author, letters, "1.0.0")
             // Receiving needs no grant.
-            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(receiver), letters)), "Fix").execute()
             MarkCatalogReady(testCatalog(receiver, letters)).execute()
@@ -158,7 +160,7 @@ class CatalogNamingTest : IntegrationTestBase() {
 
             // The catalog format carries local (contract feature/v2 0fe54cc): the archive names it.
             val archive = ExportCatalogZip(testCatalog(tenant, letters), "1.0.0").execute().zipBytes
-            ImportCatalogZip(elsewhere, archive).execute()
+            ImportCatalogZip(elsewhere, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val received = GetCatalog(testCatalog(elsewhere, letters)).query()!!
             assertThat(received.registry to received.namespace).isEqualTo("local" to "personnel")
 

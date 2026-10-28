@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -102,7 +104,7 @@ class CatalogNamespaceHtmxTest : BaseIntegrationTest() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author), letters)), "Brand").execute()
             MarkCatalogReady(testCatalog(author, letters)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(author, letters), version = "1.0.0").execute()
-            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver), letters)), "Ours").execute()
             MarkCatalogReady(testCatalog(receiver, letters)).execute()
         }

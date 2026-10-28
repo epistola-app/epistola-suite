@@ -79,7 +79,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val catalog = withMediator { GetCatalog(testCatalog(testTenant.id, CatalogKey.of("rel-cat"))).query() }
-            assertThat(catalog!!.releasedVersion).isEqualTo("1.0.0")
+            assertThat(catalog!!.latestReleaseVersion).isEqualTo("1.0.0")
         }
     }
 
@@ -108,7 +108,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("release-dialog")
             assertThat(response.body).containsIgnoringCase("SemVer")
             val catalog = withMediator { GetCatalog(testCatalog(testTenant.id, CatalogKey.of("bad-cat"))).query() }
-            assertThat(catalog!!.releasedVersion).isNull()
+            assertThat(catalog!!.latestReleaseVersion).isNull()
         }
     }
 

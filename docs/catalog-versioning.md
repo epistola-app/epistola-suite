@@ -111,16 +111,20 @@ still in the table, defaulted and unused, and goes in a later major release.
   content (title, model, metadata, description) and its own revision; manifests read
   `release_wire_resources`, which leaves the variant rows out; read through `current_templates` and
   `current_template_variants`, and assembled into the wire form for export and the fingerprint.
-- **Released here** — the catalog's current release is its highest release cut here, a view over its
-  released rows (`catalog_current_releases`, ADR 0036) rather than a pointer kept by hand.
+- **Released here** — releasing a draft freezes its row as a release.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
-  source) records it first, then moves the next release to it. The installed release is a view as
-  well (`catalog_installed_releases`, ADR 0036): the nearest received release the next release
-  descends from, through its base and, after a release cut here, that release's base. Its
-  fingerprint is the one the import checked, or computed here, never a publisher's taken as given.
+  source) records it first, then moves the next release to it. Its fingerprint is the one the import
+  checked, or computed here, never a publisher's taken as given.
 
-A catalog can carry both pointers: one received from elsewhere and then released here has both.
-Its version is its **highest release**, by number (`Catalog.highestReleaseVersion`). A
+Either way it is a release like any other (ADR 0036): the catalog's version is its **highest
+release**, by number, a view over its released rows (`catalog_current_releases`,
+`Catalog.latestReleaseVersion`) rather than a pointer kept by hand. Every release records how it
+came to be here and only shows it: `released_via` (`released` here, `upload`, `api`, `registry`,
+`exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`), `released_from` (the source URL,
+registry reference or file name), `released_by` (who released or installed it) and `released_at`.
+The release page says how it got here; nothing decides by it (`ReleaseProvenanceUsageTest`). A
+source offers an upgrade when its release is newer than the highest (`SemVer.isNewer`), so a
+release cut here above the source's keeps the catalog current. A
 `1.4.0` exported and received elsewhere flows its version and fingerprint through the manifest into
 the receiver's release, so values stay coherent end to end.
 
@@ -160,7 +164,7 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   the release its content is on. What depends on a source stays keyed on having one
   (`Catalog.hasSource`): checking for and installing newer releases. Lists ask once per page
   (`ListCatalogEditability`), and a catalog's version is its highest release, released here or
-  received (`Catalog.highestReleaseVersion`). No import asks for a type: every import receives the
+  received (`Catalog.latestReleaseVersion`). No import asks for a type: every import receives the
   release (see [Importing a ZIP](#importing-a-zip)).
 - **What else follows editability**: moving resources between catalogs (both must be changeable),
   the house theme (applied to the next release of every catalog that can be changed), declaring a
@@ -1221,8 +1225,8 @@ recomputes the fingerprint from classpath content and asserts it equals the
 committed value — the drift gate (analogous to the `pg_dump --schema-only`
 migration check). Editing a bundled resource without regenerating the committed
 fingerprint fails the build. `DemoLoader` and `InstallSystemCatalog` decide
-install/upgrade/no-op by **fingerprint** (`manifest.release.fingerprint` vs the installed
-release's, `catalog_installed_releases`), logging the SemVer transition for humans.
+install/upgrade/no-op by **fingerprint** (`manifest.release.fingerprint` vs the release the catalog
+has of that number), logging the SemVer transition for humans.
 
 To regenerate after an intentional change: run the test, paste the reported
 "actual" fingerprint into the catalog's `catalog.json`, and bump

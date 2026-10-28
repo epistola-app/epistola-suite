@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -50,7 +52,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
                     MarkCatalogReady(testCatalog(author.id, received)).execute()
                     ReleaseCatalogDraft(catalog = testCatalog(author.id, received), version = "1.0.0").execute()
                     val archive = ExportCatalogZip(testCatalog(author.id, received), "1.0.0").execute().zipBytes
-                    ImportCatalogZip(tenant.id, archive).execute()
+                    ImportCatalogZip(tenant.id, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
                 }
             }
         }

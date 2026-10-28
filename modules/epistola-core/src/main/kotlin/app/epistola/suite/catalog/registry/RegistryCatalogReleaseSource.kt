@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckException
 import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.CatalogUpstreamProbe
 import app.epistola.suite.catalog.CatalogUpstreamState
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.sources.CatalogReleaseSource
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.validation.ValidationException
@@ -29,6 +31,8 @@ class RegistryCatalogReleaseSource(
     private val registries: CatalogRegistries,
     private val sizeLimits: CatalogSizeLimits,
 ) : CatalogReleaseSource {
+    override fun provenance(catalog: Catalog): ReleaseProvenance = ReleaseProvenance(ReleaseChannel.REGISTRY, catalog.sourceUrl)
+
     override fun supports(catalog: Catalog): Boolean = RegistrySourceUri.matches(catalog.sourceUrl)
 
     override fun offered(catalog: Catalog): List<String> = at(catalog) { client, repository -> releaseVersionsNewestFirst(client.tags(repository)) }
@@ -77,7 +81,7 @@ class RegistryCatalogUpstreamProbe(
             return CatalogUpstreamState(
                 availableVersion = newest,
                 availableFingerprint = manifest?.fingerprint,
-                installedAvailability = null,
+                upstreamAvailability = null,
             )
         } catch (e: ValidationException) {
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.NOT_FOUND, e.message, e)

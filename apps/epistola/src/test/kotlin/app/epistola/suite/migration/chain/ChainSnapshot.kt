@@ -47,15 +47,17 @@ object ChainSnapshot {
      * generates is replaced by a label made of the row it identifies (the rows naming it in their
      * primary key, described in turn a few levels deep), so a row and the rows that name it keep naming
      * each other without depending on what a run generated; a time within a day of now reads `<now>`.
+     * Each row is read as [project] makes it: as the chain the snapshot was recorded from would have
+     * written it, so a column added or removed since does not change what any row is described as.
      */
-    fun data(connection: Connection): List<String> {
-        val graph = Graph.read(connection)
+    fun data(connection: Connection, project: (String, ObjectNode) -> ObjectNode = { _, row -> row }): List<String> {
+        val graph = Graph.read(connection, project)
         return graph.rows.flatMap { (table, rows) -> rows.map { "$table: ${graph.render(table, it, DEPTH)}" } }.sorted()
     }
 
     /** Rows the snapshot still cannot tell apart: two runs could pair them up differently. */
-    fun ambiguousRows(connection: Connection): List<String> {
-        val graph = Graph.read(connection)
+    fun ambiguousRows(connection: Connection, project: (String, ObjectNode) -> ObjectNode = { _, row -> row }): List<String> {
+        val graph = Graph.read(connection, project)
         return graph.rows.flatMap { (table, rows) -> rows.map { "$table: ${graph.render(table, it, DEPTH)}" } }
             .groupingBy { it }.eachCount().filterValues { it > 1 }.keys.toList()
     }
@@ -90,7 +92,7 @@ object ChainSnapshot {
         }
 
         companion object {
-            fun read(connection: Connection): Graph {
+            fun read(connection: Connection, project: (String, ObjectNode) -> ObjectNode): Graph {
                 // Times render in the session time zone, which pgjdbc takes from the JVM: fixed to UTC so a
                 // CET and a UTC run write the same snapshot.
                 connection.createStatement().use { it.execute("SET TIME ZONE 'UTC'") }
@@ -98,7 +100,7 @@ object ChainSnapshot {
                 val generated = generatedColumns(connection)
                 val keys = primaryKeys(connection)
                 val referencing = foreignKeyColumns(connection)
-                val rows = tables.associateWith { rows(connection, it) }
+                val rows = tables.associateWith { table -> rows(connection, table).map { project(table, it) } }
                 val definers = HashMap<String, MutableList<Pair<String, ObjectNode>>>()
                 rows.forEach { (table, list) ->
                     // A row defines the ids its own key generates; a key column that references another

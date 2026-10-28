@@ -22,6 +22,8 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -150,7 +152,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val built = contentBuilder.build(testCatalog(b, catalog))
             val template = letter(built)
 
@@ -182,7 +184,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val v100 = released(publish(a), "1.0.0", null) { template -> template.get("variants").forEach { (it as ObjectNode).put("description", "For courts") } }
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val built = contentBuilder.build(testCatalog(b, catalog))
 
             assertThat(letter(built).variants.single().description).isEqualTo("For courts")
@@ -197,7 +199,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val draft = CreateCatalogDraft(testCatalog(b, catalog), name = "Redesign", from = "1.0.0").execute()
             val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, catalog), DraftRef.Id(draft.versionId)))
             val built = targeting.within(id) { contentBuilder.build(testCatalog(b, catalog)) }
@@ -216,9 +218,9 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val fingerprint = withMediator { ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single().fingerprint }
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withMetadata(metadata).put("description", "Described again") }).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withMetadata(metadata).put("description", "Described again") }, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
@@ -237,7 +239,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
         val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(v100)).archive!!.use { it.manifest.release.fingerprint!! }
 
-        withMediator { ImportCatalogZip(tenantKey = b, zipBytes = v100).execute() }
+        withMediator { ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         // A next version whose baseline is as good as none (one recorded by another function), so it
         // is compared with the release's content itself: a template that lost a member there is a
         // change of its own. No command produces that state, so it is put in place directly.
@@ -247,7 +249,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         }
         withMediator {
             UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.put("description", "Described again") }).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.put("description", "Described again") }, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)

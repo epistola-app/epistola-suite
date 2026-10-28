@@ -21,6 +21,8 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -351,8 +353,8 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Lineage Receiver")
             withMediator {
                 val lines = mediator.parallelReleaseLines(producer.id, CatalogKey.of("lines-ui"))
-                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110).execute()
-                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v101).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }
         }
         whenever { getHtmx("/tenants/${tenant.id}/catalogs/lines-ui/merge?release=1.0.1").body!! }
@@ -374,8 +376,8 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge No Lineage Receiver")
             withMediator {
                 val lines = mediator.parallelReleaseLines(producer.id, CatalogKey.of("no-lines-ui"))
-                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110).execute()
-                ImportCatalogZip(tenantKey = tenant.id, zipBytes = withoutBase(lines.v101)).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = withoutBase(lines.v101), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }
         }
         whenever { getHtmx("/tenants/${tenant.id}/catalogs/no-lines-ui/merge?release=1.0.1").body!! }

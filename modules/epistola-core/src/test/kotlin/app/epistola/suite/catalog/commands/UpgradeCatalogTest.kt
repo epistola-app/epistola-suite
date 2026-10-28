@@ -148,7 +148,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             assertThat(result.newVersion).isEqualTo("1.1.0")
             assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "no-deps"))
             assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNull()
-            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.1.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
         }
     }
 
@@ -173,30 +173,64 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "full-deps"))
-            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.2.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.2.0")
+        }
+    }
+
+    /** Receives 1.0.0 of the dependency-test fixture into [tenant], changes it and releases it here as [local]. */
+    private fun receivedThenReleasedHere(tenant: app.epistola.suite.common.ids.TenantKey, source: Path, local: String) {
+        val depKey = CatalogKey.of("dep-test")
+        RegisterCatalog(tenantKey = tenant, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+        InstallFromCatalog(catalog = testCatalog(tenant, depKey)).execute()
+        CatalogImportContext.runAsImport {
+            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant), depKey)), name = "Ours").execute()
+        }
+        // Released here in the publisher's namespace, which this tenant is granted.
+        app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, "exchange.epistola.app", "epistola").execute()
+        MarkCatalogReady(testCatalog(tenant, depKey)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, depKey), local).execute()
+    }
+
+    @Test
+    fun `a release cut here on a received one is the catalog's release, and a newer one from its source still upgrades it`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Local Release Test")
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            receivedThenReleasedHere(tenant.id, source, "1.0.1")
+            // A release is a release however it arrived: the one cut here is the catalog's highest.
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.1")
+
+            fixture(tmp.resolve("next"), "1.1.0")
+            publish(source, tmp.resolve("next"))
+            assertThat(app.epistola.suite.catalog.queries.CheckCatalogUpgrade(testCatalog(tenant.id, depKey)).query().available)
+                .`as`("1.1.0 is newer than the 1.0.1 cut here").isTrue()
+
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+
+            assertThat(result.previousVersion).isEqualTo("1.0.1")
+            assertThat(result.newVersion).isEqualTo("1.1.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, depKey)).query().map { it.version }).contains("1.0.0", "1.0.1", "1.1.0")
         }
     }
 
     @Test
-    fun `a release cut here keeps the installed release it descends from`(@TempDir tmp: Path) {
-        val tenant = createTenant("Upgrade Local Release Test")
+    fun `a release cut here above its source's keeps the catalog current`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Ahead Test")
         val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
         withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(tmp.resolve("source"), "1.0.0"), authType = AuthType.NONE).execute()
-            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
-            CatalogImportContext.runAsImport {
-                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey)), name = "Ours").execute()
-            }
+            receivedThenReleasedHere(tenant.id, source, "1.1.0")
+            // The source moves on to a patch of the line the catalog has passed.
+            fixture(tmp.resolve("next"), "1.0.1")
+            publish(source, tmp.resolve("next"))
 
-            // Released here in the publisher's namespace, which this tenant is granted.
-            app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant.id, "exchange.epistola.app", "epistola").execute()
-            MarkCatalogReady(testCatalog(tenant.id, depKey)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, depKey), "1.0.1").execute()
+            val check = app.epistola.suite.catalog.queries.CheckCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
-            // Its next version is based on 1.0.1 now, which is based on the release it received.
-            val catalog = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
-            assertThat(catalog.releasedVersion).isEqualTo("1.0.1")
-            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(check.latestVersion).isEqualTo("1.1.0")
+            assertThat(check.availableVersion).isEqualTo("1.0.1")
+            assertThat(check.available).`as`("1.0.1 is below the 1.1.0 cut here").isFalse()
         }
     }
 
@@ -225,7 +259,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 .isInstanceOf(CatalogUpgradeConflictException::class.java)
                 .hasMessageContaining("test-theme")
                 .hasMessageContaining("Cross-Ref Template")
-            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
         }
     }
 
@@ -251,7 +285,10 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             assertThat(result.removedResources).isEmpty()
             assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey))).query()!!.name).isEqualTo("Ours")
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, depKey)).query().map { it.version }).contains("1.0.0", "1.1.0")
-            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            // A release is a release however it arrived: the one received beside is the catalog's highest,
+            // while its next version stays on 1.0.0, behind it, to merge.
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
+            assertThat(app.epistola.suite.catalog.releases.ListCatalogReleases(testCatalog(tenant.id, depKey), app.epistola.suite.catalog.releases.CatalogReleaseStatus.DRAFT).query().single { it.isNext }.base).isEqualTo("1.0.0")
         }
     }
 
@@ -270,7 +307,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             // A catalog is one install unit: the release is fetched whole before anything is written.
             assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
                 .isInstanceOfAny(app.epistola.suite.catalog.outbound.OutboundUrlRejectedException::class.java, app.epistola.suite.catalog.sources.CatalogSourceUnavailableException::class.java)
-            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNotNull()
         }
     }

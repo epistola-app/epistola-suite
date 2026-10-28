@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -121,13 +123,13 @@ class PatchReleaseTest : IntegrationTestBase() {
         val receiver = createTenant("Patch receiver").id
         val (v100, v101) = produce(producer)
 
-        withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = v100).execute() }
-        val patch = withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1-municipality.1")).execute() }
+        withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
+        val patch = withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1-municipality.1"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         assertThat(patch.newlyInstalled).isTrue()
 
         assertThat(versions(receiver)).containsExactly("1.0.1-municipality.1", "1.0.0")
         withMediator {
-            assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.highestReleaseVersion).isEqualTo("1.0.1-municipality.1")
+            assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.latestReleaseVersion).isEqualTo("1.0.1-municipality.1")
             assertThat(GetLatestCatalogRelease(testCatalog(receiver, letters)).query().latestVersion).isEqualTo("1.0.1-municipality.1")
         }
         // A range takes a patch release as npm takes a pre-release (contract "Version ranges").
@@ -137,9 +139,9 @@ class PatchReleaseTest : IntegrationTestBase() {
         assertThat(generate(receiver, null)).`as`("no range: the highest").isEqualTo("1.0.1-municipality.1")
 
         // The holder's 1.0.1 supersedes it.
-        withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1")).execute() }
+        withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
         assertThat(versions(receiver)).containsExactly("1.0.1", "1.0.1-municipality.1", "1.0.0")
-        withMediator { assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.highestReleaseVersion).isEqualTo("1.0.1") }
+        withMediator { assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.latestReleaseVersion).isEqualTo("1.0.1") }
         assertThat(generate(receiver, "^1.0.0")).isEqualTo("1.0.1")
         assertThat(generate(receiver, ">=1.0.1-municipality.1 <1.0.1")).isEqualTo("1.0.1-municipality.1")
     }
@@ -153,8 +155,8 @@ class PatchReleaseTest : IntegrationTestBase() {
         assertThat(long.length).isGreaterThan(50)
 
         withMediator {
-            ImportCatalogZip(tenantKey = receiver, zipBytes = v100).execute()
-            ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, long)).execute()
+            ImportCatalogZip(tenantKey = receiver, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, long), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
 
         assertThat(versions(receiver)).containsExactly(long, "1.0.0")

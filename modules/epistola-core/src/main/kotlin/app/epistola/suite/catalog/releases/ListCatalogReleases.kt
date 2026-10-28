@@ -251,7 +251,7 @@ class CatalogReleaseReader(
             .groupBy({ it.first }, { it.second })
         return handle.createQuery(
             """
-            SELECT version_id, version, version_key, released_at, notes, fingerprint, content_hash, base_version
+            SELECT version_id, version, version_key, released_at, notes, fingerprint, content_hash, base_version, released_via, released_from
             FROM catalog_versions tv WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}$only
             """,
         )
@@ -270,6 +270,8 @@ class CatalogReleaseReader(
                     fingerprint = rs.getString("fingerprint"),
                     contentHash = rs.getString("content_hash"),
                     deployedTo = deployments[version].orEmpty(),
+                    releasedVia = ReleaseChannel.of(rs.getString("released_via")),
+                    releasedFrom = rs.getString("released_from"),
                 )
             }
             .list()
