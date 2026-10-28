@@ -75,6 +75,25 @@ Decided and closed:
 
 ## Touched
 
+### ADR 0039 spike: resource types, a generic version reader, receive for themes and templates (28 October; branch `refactor/resource-types-spike`, on `docs/adr-catalog-resource-types`, not pushed)
+
+| What                                                                                                                                                                                              | Where                                                                 | Covered                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| ADR 0039 (proposed): the catalog knows no content type; each domain contributes a `ResourceType`                                                                                                  | `docs/adr/0039-…`                                                     | ➖                                                                                        |
+| `ResourceType`, `ContentLayout`, `ResourceTypes`; one type per domain (seven); a template's layout is `Parts`                                                                                     | `catalog/types/`, `<domain>/*ResourceType.kt`                         | ✅ boots in every integration test                                                        |
+| `VersionResourceReader`: any version's resources from its rows, by the release rule (as stored, name qualifiers dropped); checked against the per-type export inside `build()` (SPIKE, temporary) | `catalog/revisions/VersionResourceReader.kt`, `CatalogContentBuilder` | ✅ 789 catalog, template, theme, validation and exchange integration tests, no difference |
+| Themes and templates received through their type; `ImportTheme`, `ImportTemplates` moved into their domains unchanged; `ALLOWED` 39 → 33                                                          | `themes/`, `templates/`, `CatalogResourceInstaller`                   | ✅ the same run; `CatalogBoundaryTest`                                                    |
+| A draft exports what the release cut from it exports                                                                                                                                              | `DraftReleaseSameContentTest`                                         | ✅                                                                                        |
+
+Noticed, not done:
+
+- `ResourceInstallOrderTest` explains the order by stencil renumbering and font variants FK'd to
+  assets, neither of which exists any more; rewrite it when the order is derived from the types.
+- The stencil pre-parse in `CatalogArchiveResources` exists for a stencil version conflict (FAIL or
+  RENUMBER) that is gone; only its comment remains.
+- `:modules:epistola-core:unitTest` runs out of memory locally in the system-font tests, on
+  `release/2.0` as well (checked at `3f7bd21ec`); not caused by the spike.
+
 ### The catalog handler and the catalog import split by concern (28 October; branch `refactor/split-catalog-handler`)
 
 | What                                                                                                                                                                                                                                          | Where                                                                                  | Covered                                             |
