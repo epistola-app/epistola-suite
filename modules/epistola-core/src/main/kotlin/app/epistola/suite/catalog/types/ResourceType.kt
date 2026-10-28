@@ -32,10 +32,8 @@ interface ResourceType<R : CatalogResource> {
      * Puts [resource], as a release brings it, into the version [catalog]'s messages target: created,
      * or updated in place when the version holds it. Checked and normalised as the type requires, and
      * authorised as changing one of these is. Throws when it cannot be put there.
-     *
-     * SPIKE: null while the type still installs through `CatalogResourceInstaller`'s own branch.
      */
-    fun receive(catalog: CatalogId, resource: R, arrival: Arrival): InstallStatus? = null
+    fun receive(catalog: CatalogId, resource: R, arrival: Arrival): InstallStatus
 }
 
 /**
@@ -95,7 +93,7 @@ class ResourceTypes(types: List<ResourceType<*>>) {
         ?: throw IllegalArgumentException("No resource type for ${resource::class.simpleName}")
 
     /** [type]'s [ResourceType.receive] of [resource], which is of that type. */
-    fun <R : CatalogResource> receive(type: ResourceType<R>, catalog: CatalogId, resource: CatalogResource, arrival: Arrival): InstallStatus? = type.receive(catalog, type.wireClass.cast(resource), arrival)
+    fun <R : CatalogResource> receive(type: ResourceType<R>, catalog: CatalogId, resource: CatalogResource, arrival: Arrival): InstallStatus = type.receive(catalog, type.wireClass.cast(resource), arrival)
 
     /**
      * Every type, each after the ones it is installed after, ties by name. A cycle fails at startup.

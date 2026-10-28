@@ -5,15 +5,15 @@
 package app.epistola.suite.validation
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.ImportAsset
 import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.catalog.commands.ImportAsset
-import app.epistola.suite.catalog.commands.ImportAttribute
-import app.epistola.suite.catalog.commands.ImportCodeList
-import app.epistola.suite.catalog.commands.ImportStencil
+import app.epistola.suite.attributes.codelists.commands.ImportCodeList
+import app.epistola.suite.attributes.commands.ImportAttribute
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.stencils.commands.ImportStencil
 import app.epistola.suite.templates.commands.ImportTemplateInput
 import app.epistola.suite.templates.commands.ImportTemplates
 import app.epistola.suite.templates.commands.ImportVariantInput

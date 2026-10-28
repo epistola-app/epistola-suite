@@ -4,36 +4,23 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogResource
-import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.StencilResource
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceTypes
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
-import app.epistola.suite.common.ids.CodeListKey
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.mediator.execute
 import org.springframework.stereotype.Component
 
 /**
  * Writes one catalog resource, as the protocol models it, into the version the transaction targets:
  * created, or updated in place when the version has it. Shared by everything that puts released
  * content in a version — an archive's import ([ImportCatalogZip]) and a merge taking a release's
- * resource — so both write a resource the same way.
+ * resource — so both write a resource the same way. Each type receives its own (ADR 0039).
  *
  * [binaries] gives the bytes the resource names by archive path (an image's content, a font's faces).
  * Throws when a resource cannot be written; the caller decides whether that fails the whole.
  */
 @Component
 class CatalogResourceInstaller(
-    private val protocolMapper: ProtocolMapper,
     private val references: app.epistola.suite.catalog.CatalogReferences,
     private val types: ResourceTypes,
 ) {
@@ -49,99 +36,10 @@ class CatalogResourceInstaller(
         version: String,
         binaries: (String) -> ByteArray?,
         declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>? = null,
-    ): InstallStatus = installAs(catalog, resource, version, binaries) { alias -> references.resolveReceived(catalog, alias, declarations) }
-
-    private fun installAs(
-        catalog: CatalogId,
-        resource: CatalogResource,
-        version: String,
-        binaries: (String) -> ByteArray?,
-        resolve: (String?) -> CatalogId?,
-    ): InstallStatus = types.receive(types.of(resource), catalog, resource, Arrival(version, binaries, resolve)) ?: when (resource) {
-        is StencilResource -> ImportStencil(
-            catalog = catalog,
-            slug = resource.key,
-            name = resource.name,
-            description = resource.description,
-            tags = resource.tags,
-            content = resource.content,
-            parameterSchema = resource.parameterSchema,
-            readsTemplateData = resource.readsTemplateData,
-            // As received: none clears what the draft held.
-            metadata = resource.metadata.orEmpty(),
-        ).execute()
-
-        is AttributeResource -> {
-            val bindingCatalog = resource.codeListBinding?.let { resolve(it.catalogKey) }
-            val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
-            ImportAttribute(
-                catalog = catalog,
-                slug = resource.key,
-                displayName = resource.name,
-                allowedValues = resource.allowedValues,
-                codeListCatalog = bindingCatalog,
-                codeListSlug = bindingSlug,
-                // As received: none clears what the draft held.
-                metadata = resource.metadata.orEmpty(),
-            ).execute()
-        }
-
-        is app.epistola.catalog.protocol.CodeListResource -> ImportCodeList(
-            catalog = catalog,
-            slug = resource.key,
-            displayName = resource.name,
-            description = resource.description,
-            entries = resource.entries.map { wire ->
-                app.epistola.suite.attributes.codelists.model.CodeListEntry(
-                    code = wire.code,
-                    label = wire.label,
-                    sortOrder = wire.sortOrder,
-                    hidden = wire.hidden,
-                )
-            },
-            // As received: none clears what the draft held.
-            metadata = resource.metadata.orEmpty(),
-        ).execute()
-
-        is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
-            catalog = catalog,
-            slug = resource.key,
-            name = resource.name,
-            kind = resource.kind,
-            // Every face's file rode the archive; it is the font's own binary (ADR 0033).
-            variants = resource.variants.map { entry ->
-                val faceBytes = binaries(entry.contentPath())
-                    ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
-                app.epistola.suite.fonts.commands.ImportFontVariant(entry.weight, entry.italic, entry.mediaType, faceBytes)
-            },
-            // As received: none clears what the draft held.
-            metadata = resource.metadata.orEmpty(),
-        ).execute()
-
-        is ImageResource -> {
-            // Resolve binary content from ZIP entries
-            val contentPath = resource.contentPath()
-            val contentBytes = binaries(contentPath)
-                ?: throw IllegalArgumentException("Missing image content: ${resource.contentPath()}")
-            val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
-            // A published catalog may name its images the way a person would -- `municipality-mark`
-            // -- and this accepts them. It used to parse the slug as a UUID, because the REST
-            // surface could not represent anything else; `/images` addresses an image by `slug`,
-            // a plain string, and the asset operations that forced the UUID are gone.
-            val assetId = AssetKey.of(resource.key)
-            ImportAsset(
-                catalog = catalog,
-                id = assetId,
-                name = resource.name,
-                mediaType = mediaType,
-                content = contentBytes,
-                width = resource.width,
-                height = resource.height,
-                // As received: none clears what the draft held.
-                metadata = resource.metadata.orEmpty(),
-            ).execute()
-        }
-
-        else -> error("Resource type ${types.of(resource).name} received nothing")
-    }
+    ): InstallStatus = types.receive(
+        types.of(resource),
+        catalog,
+        resource,
+        Arrival(version, binaries) { alias -> references.resolveReceived(catalog, alias, declarations) },
+    )
 }
