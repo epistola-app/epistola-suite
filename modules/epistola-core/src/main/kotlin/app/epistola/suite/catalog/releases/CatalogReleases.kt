@@ -210,8 +210,12 @@ class CatalogDrafts {
      * Draft [versionId] becomes the release [record] describes (ADR 0036): its row is frozen in place,
      * keeping its id, key and name, and carries the release record. It stops being the next version;
      * [startNext] opens the one that continues on it.
+     *
+     * Two releases of one draft at once: the second waits on the first's row lock, then finds no draft
+     * to freeze. It is told the draft was just released ([CatalogReleaseIsReleasedException], a 409),
+     * or, when it was discarded meanwhile, that there is no such draft.
      */
-    fun freeze(handle: Handle, tenantKey: TenantKey, versionId: UUID, record: FrozenRelease) {
+    fun freeze(handle: Handle, catalog: CatalogId, versionId: UUID, record: FrozenRelease) {
         val frozen = handle.createUpdate(
             """
             UPDATE catalog_versions v SET state = 'released', version = :version,
@@ -223,7 +227,7 @@ class CatalogDrafts {
             WHERE v.tenant_key = :t AND v.version_id = :v AND v.state = 'draft'
             """,
         )
-            .bind("t", tenantKey)
+            .bind("t", catalog.tenantKey)
             .bind("v", versionId)
             .bind("version", record.version)
             .bind("fingerprint", record.fingerprint)
@@ -237,7 +241,15 @@ class CatalogDrafts {
             .bind("base", record.base)
             .bind("baseFingerprint", record.baseFingerprint)
             .execute()
-        check(frozen == 1) { "no draft $versionId to release as ${record.version}" }
+        if (frozen == 1) return
+        val releasedAs = handle.createQuery("SELECT version FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND state = 'released'")
+            .bind("t", catalog.tenantKey)
+            .bind("v", versionId)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
+        if (releasedAs != null) throw CatalogReleaseIsReleasedException(catalog.key, releasedAs)
+        throw CatalogReleaseNotFoundException(catalog.key, versionId.toString())
     }
 
     /**
