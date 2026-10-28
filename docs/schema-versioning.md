@@ -18,12 +18,10 @@ templates/
     commands/UpdateDataContract.kt     # Replace schema and/or examples
     queries/GetDataContract.kt         # The template's contract
     SchemaCompatibilityChecker.kt      # Schema structural diff
-    TemplateCompatibilityEvaluator.kt  # Referenced paths vs an old and a new schema
     SchemaPathNavigator.kt             # JSON Schema tree navigation
   commands/UpdateDataExample.kt, DeleteDataExample.kt
   analysis/
     TemplatePathExtractor.kt           # Extracts data paths from expressions
-    TemplateCompatibilityResult.kt
 ```
 
 ## Storage
@@ -52,14 +50,10 @@ The 2.0 upgrade gave each template its draft contract, else its latest published
    removal, type changes, required changes and constraint narrowing.
 2. **Template field usage** (`TemplatePathExtractor`): extracts which data paths a template's
    expressions reference, computed from the model.
-3. **Template compatibility** (`TemplateCompatibilityEvaluator`): cross-references a variant's
-   referenced paths against an old and a new schema, reporting `FIELD_REMOVED` and
-   `TYPE_CHANGED` only for fields the template uses.
 
-These are pure comparisons, and nothing in the application calls the extractor or the evaluator at
-the moment: with no contract versions there is no publish step that runs them, and the web UI's
-contract editor is still being moved to this model. `ChangeKindEvaluator` uses
-`SchemaCompatibilityChecker` alone.
+`ChangeKindEvaluator` uses `SchemaCompatibilityChecker` alone to compare a draft with its base
+release. 1.x also cross-referenced a variant's paths against the old and new schema when a contract
+version was published; 2.0 has no contract versions, so that check was removed.
 
 ### Breaking change rules (schema level)
 

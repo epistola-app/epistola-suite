@@ -152,8 +152,6 @@ class FullPageBuilder {
     internal fun build(): ServerResponse? = response
 }
 
-typealias NonHtmxBuilder = FullPageBuilder
-
 /**
  * Main builder for constructing HTMX responses.
  *
