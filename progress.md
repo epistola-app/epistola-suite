@@ -10,14 +10,68 @@ against those ADRs.
 **Coverage legend:** ✅ test exists and was run green · 🟡 test exists, not run since the change ·
 ❌ no test · ➖ no test needed (docs, deletion, merge).
 
-## Current state (16 October 2026)
+## Current state (28 October 2026)
 
-- `release/2.0` = main up to v1.5.0 + #1003, #1056, #1057, #1060, #1061, #1088. Version
-  `1.5.1-SNAPSHOT`.
-- **CI on `release/2.0` is red by design**: contract `2.0.0-SNAPSHOT` exists only in the local Maven
-  repository, not on Sonatype snapshots.
-- Active branch `feat/contract-v2-catchup` (worktree `.claude/worktrees/contract-v2-catchup`, not
-  pushed): catching up with the contract snapshot of 16 October.
+- `release/2.0` builds on contract `2.0.0-alpha.3` (published), and CI is green. The version is still
+  `1.5.1-SNAPSHOT`; the release process sets 2.0.0.
+- In since 16 October:
+  - the ADR 0036 fold (one `catalog_versions` table);
+  - one install core;
+  - the 1.x upgrade as "Published in 1.x" drafts;
+  - the 2.0 migration chain written again (#1176);
+  - rendering defaults V7 and V8;
+  - one kind of release, with provenance (#1192);
+  - the collect commit-order fix (#1183, #1198);
+  - the architecture review and its three batches of fixes (#1186–#1204).
+- Load tests (the external tool `epistola-suite-loadtest`, branch `feat/epistola-2-0`) were run on a
+  single node and on three JVMs against one database, with and without a node killed. Nothing was
+  lost after the collect fix; on one machine the rate was 7–9k documents a minute.
+
+## Still to do (28 October 2026)
+
+Open work, roughly by size. The "Noticed, not done" notes in the sections below predate this list and
+have not all been checked against today's code; item 1 is to do that.
+
+1. **Triage the older "Noticed" notes.** There are about 40 of them in the sections below, most
+   written before the fold, the chain rewrite and #1192. Mark each one done, still open (move it
+   here), or obsolete.
+2. **Catalog → content types, the remaining coupling.** `CatalogBoundaryTest` allows 42 class
+   dependencies from `catalog` into templates (13), attributes (7), assets (6), stencils (5),
+   themes (5) and fonts (3). They are import, export, relocation and content building calling each
+   type's store. Breaking them needs a per-type catalog SPI that each domain implements, the
+   pattern `CatalogDraftLifecycle` set. That fits with the per-type apply now in
+   `CatalogArchiveResources`.
+3. **Tags in the UI and REST for every type.** Generic tags are stored (ADR 0033) but only partly
+   surfaced.
+4. **"Don't keep every save."** Bound the history a draft keeps instead of one row per save.
+5. **#1135, editing by several users at once.** Optimistic locking exists (`revision`); there is no
+   presence or merging in the editor.
+6. **Channels.** Parked earlier, no design yet.
+7. **Leftovers from #97:**
+   - undo for column styles;
+   - a datatable `verticalAlign` preview in the editor;
+   - removing an else branch.
+8. **Margin collapse inside keep-together blocks.** V8 collapses block margins like CSS, except
+   within keep-together.
+9. **REST provenance.** `released_via` and `released_from` show in the UI and MCP only; REST needs a
+   contract field (#1192).
+10. **The upgrade-pin path in REST.** `releaseCatalogDraft` cannot return the dependencies it pinned
+    without a contract field (see the 1.x upgrade section).
+11. **The theme and stencil editors on a 409.** They show the "released" message but do not offer the
+    next draft (see the freeze-guard section).
+12. **Local test tooling:**
+    - `:apps:epistola:uiTest` stops at its 5-minute task timeout locally (about 120 tests in); CI
+      runs it fully;
+    - a fresh worktree needs `pnpm build` before app-level Gradle tasks.
+13. **Optional:** run the embedded load test (`docs/loadtesting.md`) through the demo app's UI on 2.0,
+    to check the real flow (it is covered by `LoadTestReleaseIT`).
+
+Decided and closed:
+
+- the embedded load-test module stays in the product;
+- MCP may deploy and undeploy, but never generate (preview only);
+- release channels carry no database check;
+- `origin = installed` is gone rather than renamed.
 
 ## Touched
 
