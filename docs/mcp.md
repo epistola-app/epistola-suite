@@ -6,7 +6,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 ## Status
 
-- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author a draft — templates, variants, data contracts, stencils, themes, images and fonts — mark it ready, and manage a catalog's [drafts](#catalog-versions-beta), including releasing one; they may still change their arguments in a minor release. Nothing over MCP deploys a release or deletes a resource: whether a release is used to generate documents is still decided in the UI.
+- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author a draft — templates, variants, data contracts, stencils, themes, images and fonts — mark it ready, and manage a catalog's [drafts](#catalog-versions-beta), including releasing one; they may still change their arguments in a minor release. An assistant can also [deploy a release](#deploying-beta) to an environment. Nothing over MCP generates documents — `preview_document` is the only rendering — or deletes a resource.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
@@ -91,7 +91,7 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 | `list_images`                     | Discover images in the current tenant, optionally filtered by catalog or name. Returns image IDs, media types, dimensions, sizes, and catalog provenance without binary content.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `get_image`                       | Fetch metadata for one exact image reference by catalog and UUID. Use this to verify image identity and dimensions while tracing template and stencil dependencies.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `list_catalog_releases`           | A catalog's drafts and releases: its next release, then its other drafts (each with its `versionId`, its base and the releases it is `behind`, with their changes), then its releases, highest first, each with its `contentHash` (ADR 0034: releases with the same one have the same content; null while it is being computed). `contentHash` lists only the releases with that content (none: an empty list; anything but a `v6:` hash is refused). See [Catalog versions](#catalog-versions-beta).                                                                                                                         |
-| `list_environments`               | The tenant's environments, each with the catalog versions deployed to it: releases (`version`) and drafts rendered live (`version` null, `draftName`), with `documentsRequested` and `lastUsedAt`. An environment's `id` is the `environmentId` that `preview_document` and `analyze_template_data` take; a `production` one serves releases only. Read-only.                                                                                                                                                                                                                                                                 |
+| `list_environments`               | The tenant's environments, each with the catalog versions deployed to it: releases (`version`) and drafts rendered live (`version` null, `draftName`), with `documentsRequested` and `lastUsedAt`. An environment's `id` is the `environmentId` that `preview_document` and `analyze_template_data` take; a `production` one serves releases only. Change it with `deploy_release` and `undeploy_release`.                                                                                                                                                                                                                    |
 | `get_authoring_schemas`           | The JSON Schemas the write tools accept — `templateDocument`, `theme`, the `shared` definitions both refer to — and the style registry (every style key, type and unit). Ships in the `epistola-catalog` artifact.                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## Write tools (beta)
@@ -151,6 +151,20 @@ that draft's working copy, and cannot be combined with `releaseVersion` or `envi
 Releasing and discarding change what can be generated and cannot be undone, so an assistant does
 them only when the user asks.
 
+### Deploying (beta)
+
+What an environment serves decides which release documents generated there use. These tools
+dispatch the commands the UI's environment page and REST's `deployRelease`/`undeployRelease` use,
+with the same refusals; each returns the environment as `list_environments` shows it.
+
+| Tool               | Purpose                                                                                                                                                                                                                                                                                                                                                                          | Permission           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `deploy_release`   | Deploy a release (`version`), or a draft by its `versionId` to serve it live (refused in a `production` environment), beside the catalog's other releases there or in their place (`replace`). Refused while a release it is pinned to is not served there, naming them, unless `includeDependencies` deploys those along. An unknown release or environment is refused by name. | `ENVIRONMENT_DEPLOY` |
+| `undeploy_release` | Stop an environment serving a release or draft of a catalog. Refused when it does not serve it.                                                                                                                                                                                                                                                                                  | `ENVIRONMENT_DEPLOY` |
+
+Deploying and undeploying change which documents are generated, so an assistant does them only when
+the user asks.
+
 ### Catalog registries (alpha)
 
 Releases move between installations through a release registry ([catalog-registry.md](catalog-registry.md)):
@@ -201,7 +215,7 @@ does not fit its stencil: a fill for a placeholder the stencil does not have, or
 left unbound. `get_catalog_changes` shows what is still not ready. A template has no versions: the
 catalog release is the only one, and an edit makes a mark stale.
 
-Not available over MCP: deploying releases to environments, generating documents (other than `preview_document`), and deleting resources or releases. `list_environments` shows what is deployed where; generation is the REST API's, for the systems that send documents.
+Not available over MCP: generating documents (`preview_document` is the only rendering; generation is the REST API's, for the systems that send documents), and deleting resources or releases.
 
 ## Concurrent edits
 
@@ -269,13 +283,13 @@ returns the new `revision`, for the next one.
   The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
 
 - **Data contract on creation.** Creating a template gives it an empty data contract. `get_data_contract` returns it even before the contract has been authored.
-- **Deploying stays in the UI.** An assistant can release a draft when asked, but deploying a release to an environment, and deleting resources and releases, stay in the UI (or the REST API), so a person decides when a release is used to generate documents.
+- **No generation over MCP.** An assistant can release and deploy when asked, but generating documents stays with the REST API, and `preview_document` is the only rendering. Deleting resources and releases stays in the UI and REST.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
 
 ## Troubleshooting
 
 - **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. An `X-API-Key` header is not read.
-- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`CATALOG_RELEASE` comes with the content publisher role, the edit permissions with the content author role, `CATALOG_MANAGE` for `create_catalog` with the tenant administrator role).
+- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`CATALOG_RELEASE` and `ENVIRONMENT_DEPLOY` come with the content publisher role, the edit permissions with the content author role, `CATALOG_MANAGE` for `create_catalog` with the tenant administrator role).
 - **Tool errors mentioning a read-only catalog**: Write tools only write to a catalog that can be changed here (`editable` in `list_catalogs`). The catalogs Epistola supplies, such as `system`, never can, and none can in an installation that only runs releases (`epistola.catalog.editing.enabled: false`); `readOnlyReason` says which.
 - **A tool this page lists is missing in the client**: MCP clients cache the tool list from when they connected. After upgrading Epistola, reconnect the server in the client (in Claude Code, `/mcp`) to pick up new tools and changed descriptions.
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
