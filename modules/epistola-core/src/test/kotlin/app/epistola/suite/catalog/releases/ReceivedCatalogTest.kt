@@ -22,6 +22,8 @@ import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -88,7 +90,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received B").id
         val catalog = CatalogKey.of("received-edit")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog)).execute()
+            ImportCatalogZip(receiver, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
             assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).`as`("what was installed is the release").isEmpty()
@@ -110,8 +112,8 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received FF B").id
         val catalog = CatalogKey.of("received-ff")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog)).execute()
-            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
+            ImportCatalogZip(receiver, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.1")
             assertThat(themeName(receiver, catalog)).isEqualTo("Brand 2")
@@ -125,10 +127,10 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received Merge B").id
         val catalog = CatalogKey.of("received-merge")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog)).execute()
+            ImportCatalogZip(receiver, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
 
-            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
+            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
             assertThat(next(receiver, catalog).let { it.base to it.behind.map { b -> b.version } }).isEqualTo("1.0.0" to listOf("1.0.1"))
@@ -147,12 +149,12 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received Setting B").id
         val catalog = CatalogKey.of("received-setting")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog)).execute()
+            ImportCatalogZip(receiver, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             // The only change here: the catalog's default theme.
             SetCatalogDefaultTheme(testCatalog(receiver, catalog), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(receiver, catalog))).execute()
             assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).containsExactly("catalog/defaultTheme")
 
-            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
+            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(next(receiver, catalog).let { it.base to it.behind.map { b -> b.version } }).isEqualTo("1.0.0" to listOf("1.0.1"))
             assertThat(GetCatalogThemeSettings(testCatalog(receiver, catalog)).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
@@ -165,7 +167,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         withMediator {
             val author = createTenant("Received Upgrade A").id
             val catalog = CatalogKey.of("received-upgrade")
-            ImportCatalogZip(tenant, authored(author, catalog)).execute()
+            ImportCatalogZip(tenant, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThatThrownBy { UpgradeCatalog(testCatalog(tenant, catalog)).execute() }
                 .isInstanceOf(CatalogNotUpgradeableException::class.java)
@@ -190,7 +192,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received List B").id
         val catalog = CatalogKey.of("received-list")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog)).execute()
+            ImportCatalogZip(receiver, authored(author, catalog), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val all = ListCatalogEditability(receiver).query()
             assertThat(all.byCatalog.keys.map { it.key }).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
@@ -210,11 +212,11 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             val archive = authored(author, catalog)
             val published = ListCatalogReleaseSummaries(testCatalog(author, catalog)).query().single().fingerprint
 
-            assertThat(ImportCatalogZip(receiver, archive).execute().newlyInstalled).isTrue()
+            assertThat(ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isTrue()
 
             val received = GetCatalog(testCatalog(receiver, catalog)).query()!!
             assertThat(received.namespace).`as`("named as its archive names it").isEqualTo(GetCatalog(testCatalog(author, catalog)).query()!!.namespace)
-            assertThat(received.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(received.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version to it.fingerprint }).containsExactly("1.0.0" to published)
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
             assertThat(GetCatalogEditability(testCatalog(receiver, catalog)).query().editable).isTrue()
@@ -231,10 +233,10 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         withMediator {
             val archive = authored(author, catalog)
 
-            assertThat(ImportCatalogZip(author, archive).execute().newlyInstalled).isFalse()
+            assertThat(ImportCatalogZip(author, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isFalse()
 
             val own = GetCatalog(testCatalog(author, catalog)).query()!!
-            assertThat(own.releasedVersion to own.installedReleaseVersion).isEqualTo("1.0.0" to null)
+            assertThat(own.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(ListCatalogReleaseSummaries(testCatalog(author, catalog)).query().map { it.version }).containsExactly("1.0.0")
             assertThat(next(author, catalog).base).isEqualTo("1.0.0")
         }
@@ -252,7 +254,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = receiver, id = catalog, name = "Ours", namespace = namespace).execute()
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
 
-            ImportCatalogZip(receiver, archive).execute()
+            ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version }).containsExactly("1.0.0")
             assertThat(next(receiver, catalog).base).`as`("the next version stays where it was").isNull()

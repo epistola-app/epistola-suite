@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -103,5 +104,16 @@ class SemVerTest {
         assertEquals(SemVer(1, 3, 1), patch.bumpPatch())
         assertEquals(SemVer(1, 4, 0), patch.bumpMinor())
         assertEquals(SemVer(2, 0, 0), patch.bumpMajor())
+    }
+
+    @Test
+    fun `a release is newer than a catalog's highest only when it sorts above it`() {
+        assertTrue(SemVer.isNewer("1.1.0", null), "any release, for a catalog without one")
+        assertTrue(SemVer.isNewer("1.1.0", "1.0.1"))
+        assertTrue(SemVer.isNewer("1.0.1", "1.0.1-gemeente-x.1"), "the core above its patch release")
+        assertFalse(SemVer.isNewer("1.0.1", "1.0.1"))
+        assertFalse(SemVer.isNewer("1.0.1", "1.1.0"), "a release cut here above the source's keeps the catalog current")
+        assertTrue(SemVer.isNewer("5.5", "5.4"), "a number that does not parse is newer when it differs")
+        assertFalse(SemVer.isNewer("5.5", "5.5"))
     }
 }

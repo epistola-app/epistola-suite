@@ -137,6 +137,7 @@ class RestoreTenantSnapshotHandler(
                     confirmMigration = true,
                     legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
                     restoreRelease = true,
+                    provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT),
                 ).execute()
             }
             ImportCatalogZip(
@@ -147,6 +148,7 @@ class RestoreTenantSnapshotHandler(
                 restore = true,
                 // An archive from before wire v8 is named as its catalog row was created above.
                 legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
+                provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT),
             ).execute()
         }
 
@@ -202,16 +204,17 @@ class RestoreTenantSnapshotHandler(
                     """
                     UPDATE catalog_versions
                     SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes,
-                        -- Cut here or received, as it was (the restore brings every release back by
-                        -- installing it): the catalog's current release cut here is named by the
-                        -- snapshot, and a received one carries the note installing gave it.
-                        origin = CASE WHEN version = :current OR COALESCE(:notes, '') NOT LIKE 'Installed from %' THEN 'authored' ELSE 'installed' END
+                        -- How it arrived, as it was: a snapshot from before it said so keeps the
+                        -- snapshot as its channel (the restore brings every release back by installing it).
+                        released_via = COALESCE(CAST(:via AS VARCHAR), released_via),
+                        released_from = COALESCE(CAST(:from AS TEXT), released_from)
                     WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", release.version)
                     .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
-                    .bind("current", entry.version)
+                    .bind("via", release.releasedVia?.takeIf { app.epistola.suite.catalog.releases.ReleaseChannel.of(it) != null })
+                    .bind("from", release.releasedFrom)
                     .execute()
             }
             // The installed release is the one the next version is based on (ADR 0036).

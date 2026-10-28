@@ -82,6 +82,8 @@ class CatalogImportHandler(
             ?: return importError(request, "No file provided")
 
         val zipBytes = filePart.inputStream.use { it.readAllBytes() }
+        // The file's name, recorded on the release it brings as where it came from.
+        val fileName = filePart.submittedFileName?.takeIf { it.isNotBlank() }?.take(MAX_FILE_NAME)
 
         // Set when the operator confirmed updating a ZIP that is below the
         // current catalog schema version but migratable (re-submitted from the
@@ -101,6 +103,7 @@ class CatalogImportHandler(
                 confirmMigration = confirmMigration,
                 registry = registry,
                 namespace = namespace,
+                provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.UPLOAD, fileName),
             ).execute()
 
             if (result.aborted) {
@@ -223,4 +226,9 @@ class CatalogImportHandler(
 
     /** A text field of the multipart form, trimmed; null when absent or blank. */
     private fun MultiValueMap<String, Part>.text(name: String): String? = this[name]?.firstOrNull()?.let { String(it.inputStream.readAllBytes()).trim() }?.ifBlank { null }
+
+    private companion object {
+        /** The longest file name a release records as where it came from. */
+        const val MAX_FILE_NAME = 255
+    }
 }

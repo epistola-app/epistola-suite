@@ -85,6 +85,7 @@ class ExchangeCatalogInstaller(
             confirmMigration = true,
             // One from before wire v8 names no catalog; the Exchange names it: its namespace there.
             legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(identity.defaultRegistry, namespace),
+            provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.EXCHANGE, sourceUri),
         ).execute()
 
         if (imported.aborted) {

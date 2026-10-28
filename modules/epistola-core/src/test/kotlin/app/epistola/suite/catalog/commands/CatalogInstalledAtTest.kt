@@ -33,10 +33,10 @@ class CatalogInstalledAtTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
-            assertThat(GetCatalog(catalog).query()!!.installedAt).`as`("nothing received yet").isNull()
+            assertThat(GetCatalog(catalog).query()!!.latestReleasedAt).`as`("nothing received yet").isNull()
 
             InstallFromCatalog(catalog = catalog).execute()
-            assertThat(GetCatalog(catalog).query()!!.installedAt).isNotNull()
+            assertThat(GetCatalog(catalog).query()!!.latestReleasedAt).isNotNull()
         }
     }
 
@@ -48,11 +48,11 @@ class CatalogInstalledAtTest : IntegrationTestBase() {
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
-            val registered = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.installedAt!!
+            val registered = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.latestReleasedAt!!
 
             UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
-            val upgraded = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.installedAt!!
+            val upgraded = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.latestReleasedAt!!
             assertThat(upgraded).isAfterOrEqualTo(registered)
         }
     }
@@ -67,7 +67,7 @@ class CatalogInstalledAtTest : IntegrationTestBase() {
 
             // Nothing installed it — it was authored here, so the column stays null rather than
             // reporting the moment the row happened to be created.
-            assertThat(GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.installedAt).isNull()
+            assertThat(GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.latestReleasedAt).isNull()
         }
     }
 }

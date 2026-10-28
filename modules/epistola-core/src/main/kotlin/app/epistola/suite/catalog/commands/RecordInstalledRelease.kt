@@ -80,6 +80,8 @@ data class RecordInstalledRelease(
      * recorded: its content is in place in the next version and is rebuilt from it.
      */
     val installed: RecordedRelease? = null,
+    /** How the release arrived (`released_via`, `released_from`): shown, never decided by. */
+    val provenance: app.epistola.suite.catalog.releases.ReleaseProvenance,
 ) : Command<String?>,
     SystemInternal {
     val tenantKey: TenantKey get() = catalog.tenantKey
@@ -162,8 +164,8 @@ class RecordInstalledReleaseHandler(
 
     override fun handle(command: RecordInstalledRelease): String? {
         val catalog = GetCatalog(command.catalog).query() ?: return null
-        // A catalog upgraded from 1.x that received a release since (the system catalog at boot) has it installed already.
-        if (command.release == null && command.received == null && catalog.installedReleaseVersion != null) return catalog.installedReleaseVersion
+        // A catalog upgraded from 1.x that received a release since (the system catalog at boot) has one already.
+        if (command.release == null && command.received == null && catalog.latestReleaseVersion != null) return catalog.latestReleaseVersion
         val version = command.release?.version ?: command.received?.version ?: command.installed?.version ?: return null
         check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
@@ -232,22 +234,26 @@ class RecordInstalledReleaseHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO catalog_versions (tenant_key, catalog_id, version_key, state, origin, version, fingerprint, content_hash, notes,
+                INSERT INTO catalog_versions (tenant_key, catalog_id, version_key, state, version, fingerprint, content_hash, notes,
                                               manifest_snapshot, released_at, rendering_defaults_version, base_version, base_version_id,
-                                              base_fingerprint, released_by_installation, created_at)
-                -- Received, whoever cut it: the catalog's current release is the highest cut here.
-                SELECT :t, c.catalog_id, :releaseId, 'released', 'installed',
+                                              base_fingerprint, released_by_installation, released_by, released_via, released_from, created_at)
+                -- Received, whoever cut it: a release like any other, which says how it arrived.
+                SELECT :t, c.catalog_id, :releaseId, 'released',
                        :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults,
                        :baseVersion,
                        (SELECT b.version_id FROM catalog_versions b
                         WHERE b.tenant_key = :t AND b.catalog_id = c.catalog_id AND b.version = :baseVersion AND b.state = 'released'),
-                       :baseFingerprint, CAST(:releasedByInstallation AS UUID), :releasedAt
+                       :baseFingerprint, CAST(:releasedByInstallation AS UUID), CAST(:releasedBy AS UUID), :releasedVia, :releasedFrom, :releasedAt
                 FROM catalogs c WHERE c.tenant_key = :t AND c.catalog_id = ${catalogAt("t", "c")}
                 """,
             )
                 .bind("contentHash", contentHash)
                 // Received: the installation that cut it, as the release names it; nobody here released it.
                 .bind("releasedByInstallation", ReleaseDescription.releasedByInstallation(received?.metadata))
+                // Its provenance: who installed it here (nobody for the system), how and from where.
+                .bind("releasedBy", app.epistola.suite.security.currentUserIdOrNull()?.value)
+                .bind("releasedVia", command.provenance.via.code)
+                .bind("releasedFrom", command.provenance.from)
                 .bind("t", command.tenantKey)
                 .bindCatalog("c", command.catalog)
                 .bind("version", version)

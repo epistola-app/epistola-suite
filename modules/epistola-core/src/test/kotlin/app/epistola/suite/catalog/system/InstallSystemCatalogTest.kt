@@ -50,7 +50,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             assertThat(catalog).isNotNull()
             assertThat(catalog!!.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(SYSTEM_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isNotBlank()
+            assertThat(catalog.latestReleaseVersion).isNotBlank()
         }
     }
 
@@ -140,7 +140,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
             // After the upgrade the row reflects the bundled version again.
             val catalog = GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
-            assertThat(catalog!!.installedReleaseVersion).isEqualTo(result.installedVersion)
+            assertThat(catalog!!.latestReleaseVersion).isEqualTo(result.installedVersion)
         }
     }
 

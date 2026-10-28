@@ -22,6 +22,8 @@ import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.GetReleasedResource
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -133,7 +135,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val zip1 = mediator.exportReleased(testCatalog(TenantId(src.id), catalogKey)).zipBytes
             val published = manifestOf(zip1).release
 
-            ImportCatalogZip(tenantKey = dst.id, zipBytes = zip1).execute()
+            ImportCatalogZip(tenantKey = dst.id, zipBytes = zip1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val zip2 = ExportCatalogZip(catalog = testCatalog(dst.id, catalogKey), version = published.version).execute().zipBytes
 
             // Same release ⇒ the same fingerprint, end to end and tenant-independent.
@@ -152,12 +154,11 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("tee"), testCatalog(TenantId(src.id), catalogKey)), name = "T").execute()
             val zip = mediator.exportReleased(testCatalog(TenantId(src.id), catalogKey)).zipBytes
 
-            val imported = ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip).execute()
+            val imported = ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(imported.releaseVersion to imported.newlyInstalled).isEqualTo("1.0.0" to true)
             val catalog = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!
-            assertThat(catalog.installedReleaseVersion).`as`("received, not released here").isEqualTo("1.0.0")
-            assertThat(catalog.releasedVersion).isNull()
+            assertThat(catalog.latestReleaseVersion).`as`("the release it received").isEqualTo("1.0.0")
             assertThat(catalog.sourceUrl).isNull()
             assertThat(ListCatalogReleases(testCatalog(tenant.id, catalogKey), CatalogReleaseStatus.DRAFT).query().map { it.isNext to it.base })
                 .`as`("its next version continues on the release")
@@ -191,7 +192,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
             assertThatThrownBy {
-                ImportCatalogZip(tenantKey = consumer.id, zipBytes = rezip(entries)).execute()
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = rezip(entries), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }.isInstanceOf(CatalogSchemaTooOldException::class.java)
                 .hasMessageContaining("predates the oldest supported version")
 
@@ -218,10 +219,10 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
             val conflicting = rezip(entries)
 
-            assertThat(ImportCatalogZip(consumer.id, zip).execute().newlyInstalled).isTrue()
-            assertThat(ImportCatalogZip(consumer.id, zip).execute().newlyInstalled).`as`("already present; the type may be left out").isFalse()
+            assertThat(ImportCatalogZip(consumer.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).isTrue()
+            assertThat(ImportCatalogZip(consumer.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute().newlyInstalled).`as`("already present; the type may be left out").isFalse()
 
-            assertThatThrownBy { ImportCatalogZip(consumer.id, conflicting).execute() }
+            assertThatThrownBy { ImportCatalogZip(consumer.id, conflicting, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOf(CatalogImportConflictException::class.java)
                 .hasMessageContaining("one number names one release")
             assertThat(ListCatalogReleaseSummaries(testCatalog(consumer.id, catalogKey)).query().map { it.version }).containsExactly("1.0.0")
@@ -239,10 +240,10 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             UpdateTheme(ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher.id), catalogKey)), name = "Pub Th 2").execute()
             val v2 = mediator.exportReleased(testCatalog(TenantId(publisher.id), catalogKey)).zipBytes
 
-            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v1).execute()
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(consumer.id), catalogKey)), name = "Our edit").execute()
 
-            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v2).execute()
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(ListCatalogReleaseSummaries(testCatalog(consumer.id, catalogKey)).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
             assertThat(themeName(consumer.id, catalogKey, "thm")).`as`("the draft is not filled").isEqualTo("Our edit")
@@ -272,12 +273,12 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val zip = publishZip(pub.id, "zipsub-mirror", "1.0.0", mapOf("brand" to "Brand"))
             val manifestFp = manifestOf(zip).release.fingerprint
 
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val catalog = GetCatalog(testCatalog(sub.id, catalogKey)).query()!!
             assertThat(catalog.sourceUrl).isNull() // ZIP-sourced, no URL
-            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
-            assertThat(catalog.installedFingerprint).isEqualTo(manifestFp)
+            assertThat(catalog.latestReleaseVersion).isEqualTo("1.0.0")
+            assertThat(catalog.latestReleaseFingerprint).isEqualTo(manifestFp)
         }
     }
 
@@ -289,7 +290,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             val v1 = publishZip(pub.id, "zipsub-prune", "1.0.0", mapOf("keep" to "Keep", "drop" to "Drop"))
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
 
             // Publisher's next release drops `drop`.
@@ -302,13 +303,13 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             entries.remove("resources/theme/drop.json")
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries)).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             // The next version had no changes of its own, so it moves to the release (a
             // fast-forward, UpgradeCatalog parity): stale pruned, installed version advanced.
             assertThat(themeName(sub.id, catalogKey, "drop")).isNull()
             assertThat(themeName(sub.id, catalogKey, "keep")).isEqualTo("Keep")
-            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.latestReleaseVersion).isEqualTo("2.0.0")
         }
     }
 
@@ -320,7 +321,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             val v1 = publishZip(pub.id, "zipsub-conflict", "1.0.0", mapOf("pinned" to "Pinned"))
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             // A template in another catalog pins the received theme.
             val tplId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(sub.id), CatalogKey.DEFAULT))
@@ -336,11 +337,11 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
             assertThatThrownBy {
-                ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries)).execute()
+                ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             }.isInstanceOf(CatalogUpgradeConflictException::class.java).hasMessageContaining("pinned")
 
             // Conflict thrown before any mutation: version + theme unchanged.
-            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(themeName(sub.id, catalogKey, "pinned")).isEqualTo("Pinned")
         }
     }
@@ -353,7 +354,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             val v1 = publishZip(pub.id, "zipsub-abort", "1.0.0", mapOf("keep" to "Keep", "drop" to "Drop"))
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             // Next "release": drop `drop` (would be pruned on success) and bump
             // to 2.0.0 — but corrupt `keep` by removing its detail file so its
@@ -372,13 +373,14 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = sub.id,
                     zipBytes = rezip(entries),
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }.isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("CATALOG_MANIFEST_DETAIL_MISSING")
 
             // Whole-catalog validation fails before mutation: version is not
             // advanced and stale `drop` is not pruned.
-            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
         }
     }
@@ -391,7 +393,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             val zip = publishZip(pub.id, "zipsub-browse", "1.0.0", mapOf("brand" to "Brand", "alt" to "Alt"))
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             // Regression: a catalog imported from a ZIP has no source URL — browsing
             // must NOT throw "Subscribed catalog has no source URL"; it lists
@@ -424,7 +426,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(pub.id, catalogKey), version = "1.0.0").execute()
             val zip = ExportCatalogZip(catalog = testCatalog(pub.id, catalogKey), version = "1.0.0").execute().zipBytes
 
-            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             // Regression: BrowseCatalog's installed-detection union omitted
             // code_lists (and fonts), so an installed code list showed as

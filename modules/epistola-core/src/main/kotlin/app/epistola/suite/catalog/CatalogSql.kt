@@ -71,17 +71,13 @@ fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.v
 
 /**
  * The columns of a [Catalog] row over `catalogs c` joined with [CATALOG_RELEASE_JOIN]: the catalog's
- * own, its current release cut here as `released_version`, `released_fingerprint` and
- * `released_at`, and the release it installed (the one its next version is based on) as
- * `installed_release_version`, `installed_fingerprint` and `installed_at` (ADR 0036: queries over its
- * released rows, not pointers that could drift).
+ * own, and its highest release as `latest_release_version`, `latest_release_fingerprint` and
+ * `latest_released_at` (ADR 0036: a query over its released rows, not a pointer that could drift).
  */
-const val CATALOG_ROW_COLUMNS = "c.*, cr.version AS released_version, cr.fingerprint AS released_fingerprint, cr.released_at AS released_at, " +
-    "ir.version AS installed_release_version, ir.fingerprint AS installed_fingerprint, ir.released_at AS installed_at"
+const val CATALOG_ROW_COLUMNS = "c.*, cr.version AS latest_release_version, cr.fingerprint AS latest_release_fingerprint, cr.released_at AS latest_released_at"
 
-/** Joins `catalogs c` to its current release cut here (`catalog_current_releases`, `cr`) and its installed one (`catalog_installed_releases`, `ir`). */
-const val CATALOG_RELEASE_JOIN = "LEFT JOIN catalog_current_releases cr ON cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id " +
-    "LEFT JOIN catalog_installed_releases ir ON ir.tenant_key = c.tenant_key AND ir.catalog_id = c.catalog_id"
+/** Joins `catalogs c` to its highest release (`catalog_current_releases`, `cr`). */
+const val CATALOG_RELEASE_JOIN = "LEFT JOIN catalog_current_releases cr ON cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id"
 
 /**
  * Whether version row [alias] is its catalog's next version (ADR 0036): `catalogs.next_version_id`

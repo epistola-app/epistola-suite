@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.queries.FindCatalogsByKey
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -110,7 +112,7 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
 
         withMediator {
             val archive = ExportCatalogZip(letters(author, "acme"), "1.0.0").execute().zipBytes
-            ImportCatalogZip(receiver, archive).execute()
+            ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(ListCatalogs(receiver).query().filter { it.id == letters }.map { it.namespace }).containsExactlyInAnyOrder("acme", "bureau")
             assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "acme"))).query()!!.name).isEqualTo("Acme invoice")

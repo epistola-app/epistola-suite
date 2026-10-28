@@ -125,9 +125,9 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_upstream_checks (tenant_key, catalog_id, installed_availability, last_checked_at)
+                INSERT INTO catalog_upstream_checks (tenant_key, catalog_id, upstream_availability, last_checked_at)
                 VALUES (:t, ${catalogAt("t", "c")}, 'WITHDRAWN', NOW())
-                ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET installed_availability = 'WITHDRAWN'
+                ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET upstream_availability = 'WITHDRAWN'
                 """,
             ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, CatalogKey.of("epistola-demo"))).execute()
         }

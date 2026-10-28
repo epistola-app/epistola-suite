@@ -152,8 +152,9 @@ follow-up for RC3 stencil draft markers.
 | `created_at`             | timestamptz       | Creation timestamp.                            |
 | `updated_at`             | timestamptz       | Last modification timestamp.                   |
 
-Primary key: `(tenant_key, id)`. The release it installed is a view, `catalog_installed_releases`:
-the nearest received release its next version descends from (ADR 0036).
+Primary key: `(tenant_key, id)`. Its release is its highest, a view (`catalog_current_releases`,
+ADR 0036); a release installed from the Exchange records `released_via = 'exchange'` and the
+Exchange address it came from.
 
 ### Releases (`catalog_versions`, released rows)
 

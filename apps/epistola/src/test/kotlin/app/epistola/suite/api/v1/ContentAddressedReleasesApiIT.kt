@@ -14,6 +14,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -180,7 +182,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
             TestNamespaces.createTenant(tenant, "Content hash receiver").execute()
             // Receiving needs no grant.
-            ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours").execute()
             Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-receiver").execute().plaintextKey)
         }
@@ -238,7 +240,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val patch = "1.1.1-municipality.1"
         withMediator {
             val archive = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes
-            ImportCatalogZip(tenantKey = seeded.tenant, zipBytes = numbered(archive, patch)).execute()
+            ImportCatalogZip(tenantKey = seeded.tenant, zipBytes = numbered(archive, patch), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
 
         val one = exchange(HttpMethod.GET, "$catalog/releases/$patch", seeded)

@@ -99,7 +99,11 @@ data class SnapshotCatalogEntry(
      * it again after a restore. Null for a catalog without a source, and in older snapshots.
      */
     val source: SnapshotCatalogSource? = null,
-    /** The release it received last, as `catalogs.installed_*` records it (schema 3); null for none. */
+    /**
+     * The release it received last, as `catalogs.installed_*` recorded it (schema 3): read from older
+     * snapshots, which may name no [nextBase], and no longer written (a release is a release however
+     * it arrived, ADR 0036).
+     */
     val installed: SnapshotInstalledRelease? = null,
     /** The release its next release is on (schema 3); null when it is on none. */
     val nextBase: String? = null,
@@ -137,4 +141,8 @@ data class SnapshotRelease(
     val releasedBy: String? = null,
     val notes: String? = null,
     val zipPath: String? = null,
+    /** How it came to be in the tenant (`released_via`, [app.epistola.suite.catalog.releases.ReleaseChannel]); null in older snapshots. */
+    val releasedVia: String? = null,
+    /** Where it came from (`released_from`); null when nowhere, and in older snapshots. */
+    val releasedFrom: String? = null,
 )

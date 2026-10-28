@@ -217,7 +217,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
             UpgradeCatalog(testCatalog(tenant.id, depKey)).execute()
             val upgraded = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
-            assertThat(upgraded.installedReleaseVersion).isEqualTo("1.1.0")
+            assertThat(upgraded.latestReleaseVersion).isEqualTo("1.1.0")
             assertThat(PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query().hasChanges).isFalse()
         }
     }

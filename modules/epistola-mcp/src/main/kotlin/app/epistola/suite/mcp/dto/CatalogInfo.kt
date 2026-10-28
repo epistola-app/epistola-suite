@@ -38,7 +38,9 @@ data class CatalogInfo(
     val readOnlyReason: String?,
     /** Where its releases come from (an Exchange, manifest or `classpath:` URI); null for one only released here or imported from files. */
     val source: String?,
+    /** [releasedVersion] by its older name, kept for the clients that read it: a release is a release however it arrived. */
     val installedReleaseVersion: String?,
+    /** When [releasedVersion] became a release in this tenant, however it arrived. */
     val installedAt: OffsetDateTime?,
     /** Its highest release, released here or received; null when it has none. */
     val releasedVersion: String?,
@@ -76,11 +78,11 @@ data class CatalogInfo(
             editable = editability.editable,
             readOnlyReason = editability.reason?.explanation,
             source = catalog.sourceUrl,
-            installedReleaseVersion = catalog.installedReleaseVersion,
-            installedAt = catalog.installedAt,
-            releasedVersion = catalog.highestReleaseVersion,
-            fingerprint = catalog.highestReleaseFingerprint,
-            contentHash = hashes.of(catalog.catalogId, catalog.highestReleaseVersion),
+            installedReleaseVersion = catalog.latestReleaseVersion,
+            installedAt = catalog.latestReleasedAt,
+            releasedVersion = catalog.latestReleaseVersion,
+            fingerprint = catalog.latestReleaseFingerprint,
+            contentHash = hashes.of(catalog.catalogId, catalog.latestReleaseVersion),
             createdAt = catalog.createdAt,
             updatedAt = catalog.updatedAt,
         )

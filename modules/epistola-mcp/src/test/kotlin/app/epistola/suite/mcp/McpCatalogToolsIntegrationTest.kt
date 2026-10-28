@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -116,7 +118,7 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0").execute()
             val archive = ExportCatalogZip(testCatalog(author, catalog), "1.0.0").execute().zipBytes
             // Received from a file, then changed and released here: it is a catalog like any other.
-            ImportCatalogZip(receiver.key, archive).execute()
+            ImportCatalogZip(receiver.key, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
             MarkCatalogReady(testCatalog(receiver.key, catalog)).execute()
             // Releasing it here needs its namespace: the two tenants share it.

@@ -144,6 +144,7 @@ class InstallReleaseFromRegistryHandler(
             // One from before wire v8 names no catalog: the namespace it is published under here, on
             // the default registry, which every catalog was on then.
             legacyName = LegacyCatalogName(identity.defaultRegistry, namespace),
+            provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY, source.toString()),
         ).execute()
 
         if (imported.aborted) {

@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
@@ -51,6 +53,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
             ImportCatalogZip(
                 tenantKey = tenant.id,
                 zipBytes = archiveDependingOnImage(BRAND.value),
+                provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
 
             assertThat(GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()).isNotNull()
@@ -78,6 +81,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
                     zipBytes = archiveDependingOnImage("house"),
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
                 .isInstanceOf(IllegalArgumentException::class.java)

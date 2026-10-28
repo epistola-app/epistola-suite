@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -288,6 +290,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 val result = ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = exportResult.zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
                 assertThat(result.results).allSatisfy { r ->
                     assertThat(r.status)
@@ -351,6 +354,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 val result = ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
+                    provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
 
                 assertThat(result.results).allSatisfy { r ->

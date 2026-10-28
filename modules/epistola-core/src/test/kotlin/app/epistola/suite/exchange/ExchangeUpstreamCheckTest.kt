@@ -22,6 +22,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
@@ -139,9 +140,34 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         worker.run()
 
         val state = store.stateFor(testCatalog(tenant, catalogKey))!!
-        assertThat(state.installedAvailability).isEqualTo(UpstreamAvailability.WITHDRAWN)
+        assertThat(state.upstreamAvailability).isEqualTo(UpstreamAvailability.WITHDRAWN)
         // The way forward is the newest release still offered, even though it is older.
         assertThat(state.availableVersion).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `a release cut here is never the Exchange's to withdraw, and keeps the catalog current`() {
+        val tenant = installed("check-cut-here")
+        withMediator {
+            // Released here on top of what the Exchange gave it, in the catalog's namespace, granted.
+            val catalog = app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenant, catalogKey)).query()!!
+            app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, catalog.registry, catalog.namespace).execute()
+            app.epistola.suite.catalog.CatalogImportContext.runAsImport {
+                CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), catalogKey)), name = "Ours").execute()
+            }
+            MarkCatalogReady(testCatalog(tenant, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalogKey), "1.1.0").execute()
+        }
+        makeDue(tenant)
+
+        worker.run()
+
+        val state = store.stateFor(testCatalog(tenant, catalogKey))!!
+        // The Exchange lists 1.0.0 only: 1.1.0 is absent from it, and was never its release.
+        assertThat(state.availableVersion).isEqualTo("1.0.0")
+        assertThat(state.upstreamAvailability).isNotEqualTo(UpstreamAvailability.WITHDRAWN)
+        assertThat(state.upgradeAvailable("1.1.0")).isFalse()
+        assertThat(store.countUpgradesAvailable(tenant)).isZero()
     }
 
     @Test

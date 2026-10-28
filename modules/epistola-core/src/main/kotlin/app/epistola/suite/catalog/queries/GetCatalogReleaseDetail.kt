@@ -56,8 +56,12 @@ data class CatalogReleaseDetail(
     val releasedByInstallation: UUID? = null,
     /** Whether [releasedByInstallation] is this installation: the release was cut here. */
     val releasedHere: Boolean = false,
-    /** The display name of the user who released it here; null for a received release or when unknown. */
+    /** The display name of the user who released it here or installed it; null for the system or when unknown. */
     val releasedByUser: String? = null,
+    /** How it came to be in the tenant (`released_via`); null when nothing says. Shown, never decided by. */
+    val releasedVia: app.epistola.suite.catalog.releases.ReleaseChannel? = null,
+    /** Where it came from (`released_from`): a source URL, a registry reference, a file name. */
+    val releasedFrom: String? = null,
     /**
      * What identifies it (ADR 0034): the V6 fingerprint of its content alone. Null while it is being
      * computed, for a release recorded before content hashes that the backfill has not reached.
@@ -82,9 +86,42 @@ data class CatalogReleaseDetail(
      * nothing says.
      */
     val releasedByLine: String? get() = when {
-        releasedHere -> releasedByUser?.let { "Released here by $it" } ?: "Released here"
+        releasedHere -> releasedByUser?.takeIf { releasedVia == null || releasedVia == app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED }?.let { "Released here by $it" } ?: "Released here"
         releasedByInstallation != null -> "Released by installation $releasedByInstallation"
         else -> null
+    }
+
+    /**
+     * How it got here, in one sentence for the release page: "Installed from oci://… by Ann", "Uploaded
+     * as letters-1.2.0.zip by Ann", "Supplied with Epistola"; null when nothing says (a release from
+     * before 2.0 recorded it) and for a release cut here, which [releasedByLine] describes. The date
+     * is the page's own line.
+     */
+    val arrivalLine: String? get() {
+        val by = releasedByUser?.let { " by $it" }.orEmpty()
+        val from = releasedFrom
+        return when (releasedVia) {
+            null -> null
+
+            // [releasedByLine] says it already.
+            app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED -> null
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.UPLOAD -> "Uploaded${from?.let { " as $it" }.orEmpty()}$by"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.API -> "Imported through the API${from?.let { " as $it" }.orEmpty()}$by"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY -> "Installed from ${from ?: "a registry"}$by"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.EXCHANGE -> "Installed from Epistola Exchange$by"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.SOURCE -> "Received from ${from ?: "the catalog's source"}$by"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.BUNDLED -> "Supplied with Epistola"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.UPGRADE_FROM_1X -> "Received from ${from ?: "the catalog's source"} on the upgrade from 1.x"
+
+            app.epistola.suite.catalog.releases.ReleaseChannel.SNAPSHOT -> "Restored from a tenant snapshot$by"
+        }
     }
 }
 
@@ -100,15 +137,17 @@ class GetCatalogReleaseDetailHandler(
         val row = handle.createQuery(
             """
             SELECT r.version, r.released_at, r.notes, r.fingerprint, r.content_hash, r.manifest_snapshot::text AS snapshot,
-                   r.released_by_installation, u.display_name AS released_by_name
+                   r.released_by_installation, r.released_via, r.released_from, u.display_name AS released_by_name
             FROM catalog_versions r
-            LEFT JOIN users u ON u.id = r.released_by
+            -- The system is nobody to name: a bundled catalog, an upgrade.
+            LEFT JOIN users u ON u.id = r.released_by AND u.id <> CAST(:system AS UUID)
             WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
             .bind("t", query.tenantKey)
             .bindCatalog("c", query.catalog)
             .bind("version", query.version)
+            .bind("system", app.epistola.suite.security.SystemUser.ID.value)
             .map { rs, _ ->
                 CatalogReleaseDetail(
                     version = rs.getString("version"),
@@ -119,6 +158,8 @@ class GetCatalogReleaseDetailHandler(
                     resources = emptyList(),
                     releasedByInstallation = rs.getObject("released_by_installation", UUID::class.java),
                     releasedByUser = rs.getString("released_by_name"),
+                    releasedVia = app.epistola.suite.catalog.releases.ReleaseChannel.of(rs.getString("released_via")),
+                    releasedFrom = rs.getString("released_from"),
                     contentHash = rs.getString("content_hash"),
                 )
             }

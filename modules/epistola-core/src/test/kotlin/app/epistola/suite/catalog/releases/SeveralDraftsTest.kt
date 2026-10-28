@@ -352,7 +352,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThat(withMediator { GetReleasedResource(testCatalog(tenant, letters), "1.0.1", "theme", "brand").query() }?.name).isEqualTo("Brand, fixed")
         assertThat(themeName(tenant, DraftRef.Next)).isEqualTo("Brand, fixed")
         assertThat(themeName(tenant, redesign)).isEqualTo("Brand")
-        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.releasedVersion).isEqualTo("1.0.1")
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.latestReleaseVersion).isEqualTo("1.0.1")
 
         val work = withMediator { GetCatalogDraft(testCatalog(tenant, letters), redesign, withBehind = true).query()!! }
         assertThat(work.behind.map { it.version }).`as`("its number is 1.0.2 now 1.0.1 is taken").containsExactly("1.0.1")

@@ -105,7 +105,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
 
         assertThat(currentInView(tenantKey, installed)).isEqualTo(nextRow)
         assertThat(versionAtOf(tenantKey, installed)).isEqualTo(nextRow)
-        assertThat(base).isEqualTo(withMediator { app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenantKey, installed)).query()!!.installedReleaseVersion })
+        assertThat(base).isEqualTo(withMediator { app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenantKey, installed)).query()!!.latestReleaseVersion })
     }
 
     @Test

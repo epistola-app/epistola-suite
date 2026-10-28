@@ -237,7 +237,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             val restored = GetCatalog(testCatalog(tenant.id, catalog)).query()!!
-            assertThat(restored.installedReleaseVersion).`as`("not installed as a received release").isNull()
+            assertThat(restored.latestReleaseVersion).`as`("not installed as a received release").isNull()
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, catalog)).query()).isEmpty()
             assertThat(GetCatalogEditability(testCatalog(tenant.id, catalog)).query().editable).isTrue()
         }
@@ -278,9 +278,12 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(releasesOf(tenant.id, catalog)).`as`("number, id, fingerprint and base of each").isEqualTo(before)
             val next = ListCatalogReleases(testCatalog(tenant.id, catalog)).query().single { it.isNext }
             assertThat(next.base).`as`("the next release is on the release it was on").isEqualTo("1.1.0")
-            assertThat(GetCatalog(testCatalog(tenant.id, catalog)).query()!!.releasedVersion).isEqualTo("1.1.0")
+            assertThat(GetCatalog(testCatalog(tenant.id, catalog)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
             assertThat(GetTheme(theme).query()!!.name).`as`("the working copy as it was").isEqualTo("Brand 3, not released")
             assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, catalog), "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
+            // How each got here, as it was: released here, not "restored from a snapshot".
+            assertThat(ListCatalogReleases(testCatalog(tenant.id, catalog), app.epistola.suite.catalog.releases.CatalogReleaseStatus.RELEASED).query().map { it.releasedVia }.distinct())
+                .containsExactly(app.epistola.suite.catalog.releases.ReleaseChannel.RELEASED)
             // The releases kept their content: they export, and the next one is cut on 1.1.0.
             assertThat(ExportCatalogZip(testCatalog(tenant.id, catalog), "1.0.0").execute().zipBytes).isNotEmpty()
             MarkCatalogReady(testCatalog(tenant.id, catalog)).execute()
@@ -304,7 +307,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             val restored = GetCatalog(testCatalog(tenant.id, catalog)).query()!!
             assertThat(restored.sourceUrl).isEqualTo(source)
             assertThat(restored.sourceAuthType).isEqualTo(before.sourceAuthType)
-            assertThat(restored.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
+            assertThat(restored.latestReleaseVersion).isEqualTo(before.latestReleaseVersion)
             assertThat(releasesOf(tenant.id, catalog)).isEqualTo(releases)
         }
     }

@@ -49,9 +49,9 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
             // Registered, nothing received: its release arrives with the install.
-            assertThat(catalog.installedReleaseVersion).isNull()
+            assertThat(catalog.latestReleaseVersion).isNull()
             InstallFromCatalog(catalog = catalog.catalogId).execute()
-            assertThat(GetCatalog(catalog.catalogId).query()!!.installedReleaseVersion).isEqualTo("5.17.4")
+            assertThat(GetCatalog(catalog.catalogId).query()!!.latestReleaseVersion).isEqualTo("5.17.4")
         }
     }
 
@@ -66,7 +66,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             assertThat(ListCatalogs(tenant.id).query().filter { it.id == key }.map { it.namespace }).containsExactlyInAnyOrder(TestNamespaces.of(tenant.id).namespace, "epistola")
             val ours = GetCatalog(app.epistola.suite.common.ids.CatalogId(TestNamespaces.of(tenant.id).namespace, key, app.epistola.suite.common.ids.TenantId(tenant.id))).query()!!
-            assertThat(listOf(ours.name, ours.sourceUrl, ours.installedReleaseVersion)).containsExactly("Ours", null, null)
+            assertThat(listOf(ours.name, ours.sourceUrl, ours.latestReleaseVersion)).containsExactly("Ours", null, null)
 
             assertThatThrownBy { RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute() }
                 .isInstanceOf(DuplicateIdException::class.java)

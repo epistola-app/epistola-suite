@@ -151,7 +151,7 @@ class PreviewCatalogUpgradeHandler(
 
         return UpgradeDiff(
             catalogKey = query.catalogKey,
-            previousVersion = catalog.installedReleaseVersion,
+            previousVersion = catalog.latestReleaseVersion,
             newVersion = manifest.release.version,
             added = added,
             removed = removed,
@@ -163,9 +163,10 @@ class PreviewCatalogUpgradeHandler(
     }
 
     /**
-     * The installed release's per-resource baseline, in the function [incoming] was computed with:
-     * of its retained content, else of the source while it still serves that release. Nothing for a
-     * catalog that installed none, so everything it is offered is added.
+     * The per-resource baseline of the catalog's highest release, what an upgrade moves on from, in
+     * the function [incoming] was computed with: of its retained content, else of the source while it
+     * still serves that release. Nothing for a catalog without a release, so everything it is offered
+     * is added.
      */
     private fun installedBaseline(
         query: PreviewCatalogUpgrade,
@@ -173,9 +174,9 @@ class PreviewCatalogUpgradeHandler(
         offered: app.epistola.catalog.protocol.ReleaseInfo,
         incoming: Map<String, String>,
     ): Map<String, String>? {
-        val sourceServesInstalled = catalog.installedReleaseVersion == offered.version &&
-            (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
-        val version = catalog.installedReleaseVersion ?: return emptyMap()
+        val sourceServesInstalled = catalog.latestReleaseVersion == offered.version &&
+            (offered.fingerprint == null || offered.fingerprint == catalog.latestReleaseFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
+        val version = catalog.latestReleaseVersion ?: return emptyMap()
         return assembler.assemble(query.catalog, version)?.content?.let(fingerprintService::resourceFingerprints)
             ?: incoming.takeIf { sourceServesInstalled }
     }

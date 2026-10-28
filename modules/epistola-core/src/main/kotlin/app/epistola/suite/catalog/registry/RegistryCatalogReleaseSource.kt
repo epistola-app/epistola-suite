@@ -29,6 +29,8 @@ class RegistryCatalogReleaseSource(
     private val registries: CatalogRegistries,
     private val sizeLimits: CatalogSizeLimits,
 ) : CatalogReleaseSource {
+    override fun provenance(catalog: Catalog): app.epistola.suite.catalog.releases.ReleaseProvenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.REGISTRY, catalog.sourceUrl)
+
     override fun supports(catalog: Catalog): Boolean = RegistrySourceUri.matches(catalog.sourceUrl)
 
     override fun offered(catalog: Catalog): List<String> = at(catalog) { client, repository -> releaseVersionsNewestFirst(client.tags(repository)) }
@@ -77,7 +79,7 @@ class RegistryCatalogUpstreamProbe(
             return CatalogUpstreamState(
                 availableVersion = newest,
                 availableFingerprint = manifest?.fingerprint,
-                installedAvailability = null,
+                upstreamAvailability = null,
             )
         } catch (e: ValidationException) {
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.NOT_FOUND, e.message, e)

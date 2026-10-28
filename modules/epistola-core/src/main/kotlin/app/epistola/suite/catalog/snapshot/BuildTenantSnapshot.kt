@@ -100,13 +100,12 @@ class BuildTenantSnapshotHandler(
                     name = catalog.name,
                     type = if (catalog.hasSource) "SUBSCRIBED" else "AUTHORED",
                     catalogFingerprint = fingerprint,
-                    version = catalog.releasedVersion,
+                    version = catalog.latestReleaseVersion,
                     zipPath = zipPath,
                     zipSizeBytes = export.zipBytes.size.toLong(),
                     dependsOnCatalogKeys = crossCatalogDependencies(content, catalog.id.value),
                     dependsOnCatalogs = content.catalogDependencies.orEmpty().map { "${it.namespace}/${it.catalogKey}" }.filter { it != "${catalog.namespace}/${catalog.id.value}" }.distinct(),
                     source = catalog.sourceUrl?.let { SnapshotCatalogSource(it, catalog.sourceAuthType.name) },
-                    installed = catalog.installedReleaseVersion?.let { SnapshotInstalledRelease(it, catalog.installedFingerprint) },
                     nextBase = nextBaseOf(id),
                     releases = releases,
                 ),
@@ -182,7 +181,7 @@ class BuildTenantSnapshotHandler(
     private fun releasesOf(catalog: CatalogId): List<SnapshotRelease> = jdbi.withHandle<List<SnapshotRelease>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT version, version_key, fingerprint, base_version, base_fingerprint, released_at, released_by, notes
+            SELECT version, version_key, fingerprint, base_version, base_fingerprint, released_at, released_by, notes, released_via, released_from
             FROM catalog_versions
             WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder(descending = false)}
@@ -200,6 +199,8 @@ class BuildTenantSnapshotHandler(
                     releasedAt = rs.getObject("released_at", java.time.OffsetDateTime::class.java)?.toString(),
                     releasedBy = rs.getObject("released_by", java.util.UUID::class.java)?.toString(),
                     notes = rs.getString("notes"),
+                    releasedVia = rs.getString("released_via"),
+                    releasedFrom = rs.getString("released_from"),
                 )
             }
             .list()

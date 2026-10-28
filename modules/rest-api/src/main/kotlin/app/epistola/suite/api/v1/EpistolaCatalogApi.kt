@@ -232,6 +232,7 @@ class EpistolaCatalogApi(
             confirmMigration = true,
             registry = registry?.let { if (it == DEFAULT_REGISTRY_SEGMENT) identity.defaultRegistry else it },
             namespace = namespace,
+            provenance = app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.API, file.originalFilename?.takeIf { it.isNotBlank() }?.take(255)),
         ).execute()
         if (result.aborted) throw IllegalStateException("Importing ${result.catalogKey.value} ${result.releaseVersion} failed; nothing changed")
 
@@ -614,9 +615,9 @@ class EpistolaCatalogApi(
             editable = reason == null,
             readOnlyReason = reason?.let { CatalogDto.ReadOnlyReason.forValue(it.wire) },
             source = sourceUrl,
-            highestVersion = highestReleaseVersion,
-            fingerprint = highestReleaseFingerprint,
-            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(catalogId, highestReleaseVersion),
+            highestVersion = latestReleaseVersion,
+            fingerprint = latestReleaseFingerprint,
+            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(catalogId, latestReleaseVersion),
         )
     }
 

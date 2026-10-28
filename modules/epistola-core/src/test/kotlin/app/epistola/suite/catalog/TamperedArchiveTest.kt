@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
@@ -52,7 +54,7 @@ class TamperedArchiveTest : IntegrationTestBase() {
         // Other bytes under the same name: the manifest and the image still declare the original hash.
         entries[binary] = entries.getValue(binary) + byteArrayOf(0)
 
-        val refused = withMediator { catchThrowableOfType(CatalogImportValidationException::class.java) { ImportCatalogZip(tenantKey = b, zipBytes = zip(entries)).execute() } }
+        val refused = withMediator { catchThrowableOfType(CatalogImportValidationException::class.java) { ImportCatalogZip(tenantKey = b, zipBytes = zip(entries), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() } }
 
         assertThat(refused).isNotNull
         assertThat(refused.findings.map { it.code }).contains("CATALOG_ASSET_CONTENT_HASH_MISMATCH")

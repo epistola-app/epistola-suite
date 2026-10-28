@@ -18,6 +18,8 @@ import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
 import app.epistola.suite.catalog.releases.CatalogDraftUnchangedException
 import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -394,8 +396,8 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = newTenant()
         withMediator {
             val lines = mediator.parallelReleaseLines(producer, CatalogKey.of("mcp-lines"))
-            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v110).execute()
-            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v101).execute()
+            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
 
         val preview = runAsApiKey(tenantId) { versionTools.previewMerge("mcp-lines", "1.0.1", null) }

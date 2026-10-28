@@ -18,6 +18,8 @@ import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.NextVersionChanges
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -127,9 +129,9 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
             val v100 = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
             val fingerprint = ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single().fingerprint
 
-            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             UpdateTheme(theme(b, catalog, "brand"), name = "B's brand").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = describedRelease(v100, "letter", fingerprint)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = describedRelease(v100, "letter", fingerprint), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.base).isEqualTo("1.0.0")
@@ -148,7 +150,7 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             MarkCatalogReady(testCatalog(a, catalog)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         // What a next version recorded before baselines named their function: V3 values, a plain map.
         // No command writes that form any more, so it is put in place directly.

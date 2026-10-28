@@ -17,6 +17,8 @@ import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -467,8 +469,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val slug = "merge-base-api"
         val fingerprint = withMediator {
             val lines = mediator.parallelReleaseLines(producer, CatalogKey.of(slug))
-            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110).execute()
-            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ListCatalogReleaseSummaries(testCatalog(producer, CatalogKey.of(slug))).query().single { it.version == "1.0.0" }.fingerprint
         }
         val next = versionPath(tenantKey, slug, "next")

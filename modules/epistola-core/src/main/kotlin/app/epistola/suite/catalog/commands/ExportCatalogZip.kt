@@ -182,9 +182,9 @@ class ExportCatalogZipHandler(
         val fingerprint = fingerprintService.fingerprint(content)
         val catalog = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-        val version = catalog.highestReleaseVersion ?: UNRELEASED
-        // When it was received, for a release received from elsewhere; a release made here is not dated.
-        val releasedAt = catalog.installedAt?.takeIf { version == catalog.installedReleaseVersion }?.toString()
+        val version = catalog.latestReleaseVersion ?: UNRELEASED
+        // When the release it is labelled by became one here, however it arrived.
+        val releasedAt = catalog.latestReleasedAt?.toString()
         val zipBytes = archiveBuilder.build(
             content,
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
@@ -202,6 +202,6 @@ class ExportCatalogZipHandler(
     /** The catalog's highest release, released here or received (ADR 0032). */
     private fun highestRelease(command: ExportCatalogZip): String {
         val catalog = GetCatalog(command.catalog).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        return catalog.highestReleaseVersion ?: throw CatalogReleaseNotFoundException(command.catalogKey, "release")
+        return catalog.latestReleaseVersion ?: throw CatalogReleaseNotFoundException(command.catalogKey, "release")
     }
 }

@@ -59,11 +59,11 @@ class InstalledReleaseTest : IntegrationTestBase() {
         val tenant = createTenant("Installed system release").id
 
         val catalog = withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!! }
-        val version = catalog.installedReleaseVersion!!
+        val version = catalog.latestReleaseVersion!!
         val fingerprint = releaseFingerprint(tenant, SYSTEM_CATALOG_KEY, version)
         val recorded = jdbi.withHandle<List<String>, Exception> { entries.entriesOf(it, testCatalog(tenant, SYSTEM_CATALOG_KEY), version).map { e -> e.contentKey } }
 
-        assertThat(fingerprint).`as`("the publisher's fingerprint, not a recomputation").isEqualTo(catalog.installedFingerprint)
+        assertThat(fingerprint).`as`("the publisher's fingerprint, not a recomputation").isEqualTo(catalog.latestReleaseFingerprint)
         assertThat(recorded).contains("theme/default")
         assertThat(recorded.filter { it.startsWith("font/") })
             .`as`("fonts are seeded after the manifest installs; the release is recorded after them")

@@ -49,9 +49,10 @@ resources live, how releasing, receiving and upgrading work. The earlier ADRs st
 - Deleting a release removes its row; it is refused while another release pins it or an
   environment deploys it. A release a draft was started from may be deleted.
 - Reads by role go through views: `catalog_current_versions` (the version a caller means: the
-  targeted one, else the next), `catalog_current_releases` (the highest release cut here) and
-  `catalog_installed_releases` (the received release the next version descends from, which the
-  upstream check compares with what the source offers).
+  targeted one, else the next) and `catalog_current_releases` (the catalog's highest release,
+  released here or received, which the upstream check compares with what the source offers). A
+  release is a release however it arrived; how it did is recorded on it (`released_via`,
+  `released_from`) and shown, never decided by (ADR 0036, amendment of 2026-10-28).
 
 ### 2. Resources are JSON, stored once
 

@@ -19,6 +19,8 @@ import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -192,8 +194,8 @@ class MergedContentTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("sides-lines")
         withMediator {
             val lines = mediator.parallelReleaseLines(producer, catalog)
-            ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v110).execute()
-            ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v101).execute()
+            ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThatThrownBy { GetDraftMergeSides(testCatalog(tenant, catalog), "1.0.1", "theme/brand").query() }
                 .isInstanceOfSatisfying(MergeBaseMissingException::class.java) { assertThat(it.version).isEqualTo("1.0.0") }
         }

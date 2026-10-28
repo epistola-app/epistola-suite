@@ -148,6 +148,12 @@ data class ImportCatalogZip(
      * copy fills. Its pins are not checked: the snapshot restores what was. Internal.
      */
     internal val restoreRelease: Boolean = false,
+    /**
+     * How the release arrives (`released_via`, `released_from`): recorded on it and shown, never
+     * decided by. Every caller that receives a release names it; only filling a draft ([intoDraft]),
+     * which receives none, leaves it null.
+     */
+    val provenance: app.epistola.suite.catalog.releases.ReleaseProvenance?,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
@@ -251,6 +257,9 @@ class ImportCatalogZipHandler(
         return install(command)
     }
 
+    /** How the release [command] receives arrived; every receiving caller names it. */
+    private fun provenanceOf(command: ImportCatalogZip) = checkNotNull(command.provenance) { "An import that receives a release names how it arrived" }
+
     /** What [handle] does for an archive: receives its release (see [ImportCatalogZip]). */
     private fun install(command: ImportCatalogZip): ImportCatalogZipResult {
         val parsed = parse(command)
@@ -288,7 +297,7 @@ class ImportCatalogZipHandler(
         for ((release, bytes) in parsed.carried) {
             val label = "${release.catalogKey} v${release.releaseVersion}"
             // A release it carries from before wire v8 is in the namespace the caller named for it.
-            val dependency = install(ImportCatalogZip(tenantKey = command.tenantKey, zipBytes = bytes, confirmMigration = true, legacyName = LegacyCatalogName(registry, namespace)))
+            val dependency = install(ImportCatalogZip(tenantKey = command.tenantKey, zipBytes = bytes, confirmMigration = true, legacyName = LegacyCatalogName(registry, namespace), provenance = command.provenance))
             if (dependency.newlyInstalled) installedDependencies += label else presentDependencies += label
         }
 
@@ -332,7 +341,7 @@ class ImportCatalogZipHandler(
         // anything is written.
         receivedReleases.requireKeepable(catalog, manifest.release)
 
-        val highest = existing?.highestReleaseVersion?.let(SemVer::parseOrNull)
+        val highest = existing?.latestReleaseVersion?.let(SemVer::parseOrNull)
         val incoming = SemVer.parseOrNull(version)
         // Recorded beside the others (contract `installCatalogRelease`): a release below the highest
         // one, or any while the next version has changes of its own (ADR 0032), is recorded from the
@@ -344,6 +353,7 @@ class ImportCatalogZipHandler(
                 published = publishedContent(manifest, bound, parsed.entries),
                 release = RecordedRelease(version, published),
                 received = manifest.release,
+                provenance = provenanceOf(command),
             ).execute()
             return result(newly = true)
         }
@@ -671,9 +681,8 @@ class ImportCatalogZipHandler(
             jdbi.useHandle<Exception> { dependencyStore.replace(it, catalog, declared) }
             rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
             markReady(catalog, manifest.resources)
-            // Recorded first, then the next version moves to it: the installed release is the one the
-            // next version is based on (ADR 0036, `catalog_installed_releases`).
-            RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
+            // Recorded first, then the next version moves to it: the next version is based on it.
+            RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release, provenance = provenanceOf(command)).execute()
         } else if (!anyFailed) {
             if (!command.intoDraft) {
                 rows.updateMetadata(

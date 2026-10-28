@@ -282,3 +282,173 @@ $$
                    FROM public.resource_contents c_1
                   WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
                  OFFSET 0) c)) u
+
+# Decided after the rewrite (ADR 0036): a release is a release however it arrived. catalog_versions
+# loses origin (authored or installed), its two checks, and the view and function that found the
+# release a catalog "installed"; catalog_current_releases is its highest release of any kind. Every
+# release says how it came to be in the tenant instead (released_via, released_from: provenance,
+# shown and never decided by). The upgrade makes no release: every migrated row is a draft, which
+# the old chain wrote as authored and which says nothing of how it arrived.
+- CREATE FUNCTION public.catalog_installed_release_id(p_tenant public.tenant_key, p_version uuid) RETURNS uuid
+    LANGUAGE sql STABLE
+    AS $$
+    WITH RECURSIVE chain AS (
+        SELECT v.version_id, v.base_version_id, v.state, v.origin, 0 AS depth
+        FROM catalog_versions v
+        WHERE v.tenant_key = p_tenant AND v.version_id = p_version
+        UNION ALL
+        SELECT b.version_id, b.base_version_id, b.state, b.origin, chain.depth + 1
+        FROM chain
+        JOIN catalog_versions b ON b.tenant_key = p_tenant AND b.version_id = chain.base_version_id
+        WHERE NOT (chain.state = 'released' AND chain.origin = 'installed')
+    )
+    SELECT version_id FROM chain WHERE state = 'released' AND origin = 'installed' ORDER BY depth LIMIT 1;
+$$
+- CREATE TABLE public.catalog_versions (
+    CONSTRAINT chk_catalog_versions_draft_unnumbered CHECK ((((state)::text = 'released'::text) OR (version IS NULL))),
+    CONSTRAINT chk_catalog_versions_installed_is_released CHECK ((((origin)::text <> 'installed'::text) OR ((state)::text = 'released'::text))),
+    CONSTRAINT chk_catalog_versions_origin CHECK (((origin)::text = ANY ((ARRAY['authored'::character varying, 'installed'::character varying])::text[]))),
+    CONSTRAINT chk_catalog_versions_released CHECK ((((state)::text = 'released'::text) = ((version IS NOT NULL) AND (fingerprint IS NOT NULL) AND (content_hash IS NOT NULL) AND (released_at IS NOT NULL)))),
+    CONSTRAINT chk_catalog_versions_state CHECK (((state)::text = ANY ((ARRAY['draft'::character varying, 'released'::character varying])::text[]))),
+    base_fingerprint character varying(80),
+    base_fingerprints jsonb,
+    base_version character varying(128),
+    base_version_id uuid,
+    catalog_id uuid NOT NULL,
+    content_hash character varying(80),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_from character varying(128),
+    default_theme_resource_id uuid,
+    fingerprint character varying(80),
+    manifest_snapshot jsonb,
+    name character varying(100),
+    notes text,
+    origin character varying(16) DEFAULT 'authored'::character varying NOT NULL,
+    presets jsonb DEFAULT '[]'::jsonb NOT NULL,
+    released_at timestamp with time zone,
+    released_by uuid,
+    released_by_installation uuid,
+    rendering_defaults_version integer,
+    revision bigint DEFAULT 1 NOT NULL,
+    state character varying(16) NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    version character varying(128),
+    version_id uuid DEFAULT public.epistola_uuidv7() NOT NULL,
+    version_key character varying(36) DEFAULT public.epistola_version_key() NOT NULL,
+    version_label text GENERATED ALWAYS AS ("substring"((version)::text, '^\d+\.\d+\.\d+-([a-z][a-z0-9-]*)\.[1-9][0-9]*$'::text)) STORED,
+    version_label_number integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.\d+\.\d+-[a-z][a-z0-9-]*\.([1-9][0-9]*)$'::text))::integer) STORED,
+    version_major integer GENERATED ALWAYS AS (("substring"((version)::text, '^(\d+)\.\d+\.\d+(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED,
+    version_minor integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.(\d+)\.\d+(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED,
+    version_patch integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.\d+\.(\d+)(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED
+)
+- CREATE VIEW public.catalog_current_releases AS
+ SELECT DISTINCT ON (tenant_key, catalog_id) tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    fingerprint,
+    released_at
+   FROM public.catalog_versions v
+  WHERE (((state)::text = 'released'::text) AND ((origin)::text = 'authored'::text))
+  ORDER BY tenant_key, catalog_id, version_major DESC NULLS LAST, version_minor DESC NULLS LAST, version_patch DESC NULLS LAST, (version_label IS NULL) DESC, (version_label COLLATE "C") DESC NULLS LAST, version_label_number DESC NULLS LAST, released_at DESC
+- CREATE VIEW public.catalog_installed_releases AS
+ SELECT c.tenant_key,
+    c.catalog_id,
+    r.version_id,
+    r.version,
+    r.fingerprint,
+    r.released_at
+   FROM (public.catalogs c
+     JOIN public.catalog_versions r ON ((((r.tenant_key)::text = (c.tenant_key)::text) AND (r.version_id = public.catalog_installed_release_id(c.tenant_key, c.next_version_id)))))
++ CREATE TABLE public.catalog_versions (
+    CONSTRAINT chk_catalog_versions_draft_unnumbered CHECK ((((state)::text = 'released'::text) OR (version IS NULL))),
+    CONSTRAINT chk_catalog_versions_released CHECK ((((state)::text = 'released'::text) = ((version IS NOT NULL) AND (fingerprint IS NOT NULL) AND (content_hash IS NOT NULL) AND (released_at IS NOT NULL)))),
+    CONSTRAINT chk_catalog_versions_released_via CHECK (((((state)::text = 'released'::text) = (released_via IS NOT NULL)) AND ((released_via)::text = ANY ((ARRAY['released'::character varying, 'upload'::character varying, 'api'::character varying, 'registry'::character varying, 'exchange'::character varying, 'source'::character varying, 'bundled'::character varying, 'upgrade-1x'::character varying, 'snapshot'::character varying])::text[])))),
+    CONSTRAINT chk_catalog_versions_state CHECK (((state)::text = ANY ((ARRAY['draft'::character varying, 'released'::character varying])::text[]))),
+    base_fingerprint character varying(80),
+    base_fingerprints jsonb,
+    base_version character varying(128),
+    base_version_id uuid,
+    catalog_id uuid NOT NULL,
+    content_hash character varying(80),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_from character varying(128),
+    default_theme_resource_id uuid,
+    fingerprint character varying(80),
+    manifest_snapshot jsonb,
+    name character varying(100),
+    notes text,
+    presets jsonb DEFAULT '[]'::jsonb NOT NULL,
+    released_at timestamp with time zone,
+    released_by uuid,
+    released_by_installation uuid,
+    released_from text,
+    released_via character varying(16),
+    rendering_defaults_version integer,
+    revision bigint DEFAULT 1 NOT NULL,
+    state character varying(16) NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    version character varying(128),
+    version_id uuid DEFAULT public.epistola_uuidv7() NOT NULL,
+    version_key character varying(36) DEFAULT public.epistola_version_key() NOT NULL,
+    version_label text GENERATED ALWAYS AS ("substring"((version)::text, '^\d+\.\d+\.\d+-([a-z][a-z0-9-]*)\.[1-9][0-9]*$'::text)) STORED,
+    version_label_number integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.\d+\.\d+-[a-z][a-z0-9-]*\.([1-9][0-9]*)$'::text))::integer) STORED,
+    version_major integer GENERATED ALWAYS AS (("substring"((version)::text, '^(\d+)\.\d+\.\d+(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED,
+    version_minor integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.(\d+)\.\d+(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED,
+    version_patch integer GENERATED ALWAYS AS (("substring"((version)::text, '^\d+\.\d+\.(\d+)(?:-[a-z][a-z0-9-]*\.[1-9][0-9]*)?$'::text))::integer) STORED
+)
++ CREATE VIEW public.catalog_current_releases AS
+ SELECT DISTINCT ON (tenant_key, catalog_id) tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    fingerprint,
+    released_at
+   FROM public.catalog_versions v
+  WHERE ((state)::text = 'released'::text)
+  ORDER BY tenant_key, catalog_id, version_major DESC NULLS LAST, version_minor DESC NULLS LAST, version_patch DESC NULLS LAST, (version_label IS NULL) DESC, (version_label COLLATE "C") DESC NULLS LAST, version_label_number DESC NULLS LAST, released_at DESC
+was catalog_versions.origin "authored"
+new catalog_versions.released_via
+new catalog_versions.released_from
+
+# Decided with it: catalog_upstream_checks names its columns for what they hold, the availability of
+# the catalog's highest release and the digest of the archive last received, not of an "installed"
+# one (V20261101001700). No row of the seed has a check.
+- CREATE TABLE public.catalog_upstream_checks (
+    CONSTRAINT catalog_upstream_checks_installed_availability_check CHECK ((installed_availability = ANY (ARRAY['AVAILABLE'::text, 'BLOCKED'::text, 'WITHDRAWN'::text]))),
+    available_published_at timestamp with time zone,
+    available_release_version text,
+    available_schema_version integer,
+    catalog_id uuid NOT NULL,
+    check_attempts integer DEFAULT 0 NOT NULL,
+    claimed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    error_code text,
+    error_detail text,
+    installed_archive_sha256 character(64),
+    installed_availability text,
+    installed_availability_checked_at timestamp with time zone,
+    last_checked_at timestamp with time zone,
+    next_check_at timestamp with time zone DEFAULT now() NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+)
++ CREATE TABLE public.catalog_upstream_checks (
+    CONSTRAINT catalog_upstream_checks_upstream_availability_check CHECK ((upstream_availability = ANY (ARRAY['AVAILABLE'::text, 'BLOCKED'::text, 'WITHDRAWN'::text]))),
+    available_published_at timestamp with time zone,
+    available_release_version text,
+    available_schema_version integer,
+    catalog_id uuid NOT NULL,
+    check_attempts integer DEFAULT 0 NOT NULL,
+    claimed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    error_code text,
+    error_detail text,
+    last_checked_at timestamp with time zone,
+    next_check_at timestamp with time zone DEFAULT now() NOT NULL,
+    received_archive_sha256 character(64),
+    tenant_key public.tenant_key NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    upstream_availability text,
+    upstream_availability_checked_at timestamp with time zone
+)

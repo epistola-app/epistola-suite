@@ -82,7 +82,9 @@ class ReceiveOneXSubscribedReleasesHandler(
         for (catalog in waiting) {
             runCatching {
                 val named = namedAsItsSource(catalog)
-                SecurityContext.runWithPrincipal(SystemUser.principalForTenant(command.tenantKey)) { UpgradeCatalog(named).execute() }
+                SecurityContext.runWithPrincipal(SystemUser.principalForTenant(command.tenantKey)) {
+                    UpgradeCatalog(named, app.epistola.suite.catalog.releases.ReleaseProvenance(app.epistola.suite.catalog.releases.ReleaseChannel.UPGRADE_FROM_1X, jdbi.withHandle<Catalog?, Exception> { it.findCatalog(named) }?.sourceUrl)).execute()
+                }
                 named
             }
                 .onSuccess { received += it }

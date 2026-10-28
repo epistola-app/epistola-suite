@@ -16,6 +16,8 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.AttributeId
@@ -169,8 +171,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         assertThat(qualifier(reference(detail(released.letters, key)))).isEqualTo(expected)
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.letters, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val received = contentBuilder.build(testCatalog(b, letters))
             assertThat(qualifier(reference(detail(received, key)))).isEqualTo(expected)
             assertThat(fingerprints.resourceFingerprints(received).getValue(key)).isEqualTo(archiveFingerprints(released.letters).getValue(key))
@@ -255,8 +257,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         assertThat(sent.get("key").asString()).isEqualTo("default")
 
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.letters, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(testCatalog(b, letters)).catalog.defaultTheme)).isEqualTo(sent)
             // The installed release keeps it on its row (ADR 0036), resolved to the theme its alias names.
             val onRow = jdbi.withHandle<String?, Exception> { handle ->
@@ -284,8 +286,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         val b = createTenant("Qualified resolve B").id
         val released = publish(a)
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.letters, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(resolvedTargets(b, testAddress(b, CatalogResourceType.TEMPLATE, letters.value, "letter"))).contains(
                 testAddress(b, CatalogResourceType.THEME, "system", "default"),
@@ -333,8 +335,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         val released = publish(a)
         val renamed = withAlias(released.letters, from = "parts", to = "shop")
         withMediator {
-            ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
-            org.assertj.core.api.Assertions.assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renamed).execute() }
+            ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            org.assertj.core.api.Assertions.assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renamed, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
                 .isInstanceOfSatisfying(app.epistola.suite.catalog.commands.CatalogImportValidationException::class.java) { refused ->
                     assertThat(refused.findings.map { it.code }).contains(app.epistola.suite.catalog.dependencies.DependencyAliases.ALIAS_UNSUPPORTED)
                     assertThat(refused.findings.first { it.code == app.epistola.suite.catalog.dependencies.DependencyAliases.ALIAS_UNSUPPORTED }.message)

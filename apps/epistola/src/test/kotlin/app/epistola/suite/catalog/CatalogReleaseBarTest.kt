@@ -148,7 +148,7 @@ class CatalogReleaseBarTest : BaseIntegrationTest() {
     @Test
     fun `the system catalog's page shows the release it is on and that Epistola supplies it, with nothing to publish`() {
         val tenant = seed("Version Bar Supplied")
-        val installed: String = withMediator { GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()!!.installedReleaseVersion!! }
+        val installed: String = withMediator { GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()!!.latestReleaseVersion!! }
         val theme: String = withMediator { ListThemes(TenantId(tenant.id)).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
 
         val body = get(tenant, "/catalogs/system/themes/$theme")

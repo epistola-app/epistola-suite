@@ -178,7 +178,7 @@ class ExchangeCatalogHandler {
                 "catalogId" to catalogId.address,
                 "catalog" to catalog,
                 // The catalog's highest release, received or released here, as the catalog list shows it.
-                "highestRelease" to catalog?.highestReleaseVersion,
+                "highestRelease" to catalog?.latestReleaseVersion,
                 "detail" to detail,
                 "canInstall" to canInstall(tenantKey),
             ),

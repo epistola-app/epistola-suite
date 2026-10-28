@@ -20,6 +20,8 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -69,7 +71,7 @@ class MergeContentKindsTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             // The two installations of one organisation hold the catalog's namespace both.
             TestNamespaces.share(a, b).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             inB(b, catalog)
             MarkCatalogReady(testCatalog(b, catalog)).execute()
@@ -79,7 +81,7 @@ class MergeContentKindsTest : IntegrationTestBase() {
             // A change of A's own, so 2.0.0 is received beside its releases rather than moved to.
             UpdateTheme(theme(a, catalog, "tha"), name = "A's a").execute()
             inA(a, catalog)
-            ImportCatalogZip(tenantKey = a, zipBytes = v2).execute()
+            ImportCatalogZip(tenantKey = a, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         return a to catalog
     }

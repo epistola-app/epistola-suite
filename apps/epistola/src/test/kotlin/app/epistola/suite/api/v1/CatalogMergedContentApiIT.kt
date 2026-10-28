@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -171,8 +173,8 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
         val slug = "merged-base-api"
         withMediator {
             val lines = mediator.parallelReleaseLines(producer, CatalogKey.of(slug))
-            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110).execute()
-            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         val seeded = Seeded(tenantKey, apiKey, CatalogKey.of(slug), withMediator { CatalogApiPaths.version(tenantKey, slug, "next") })
 

@@ -20,6 +20,8 @@ import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
@@ -273,8 +275,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
         val target = createTenant("deps-target").id
         withMediator {
-            sharedArchives.forEach { ImportCatalogZip(target, it).execute() }
-            ImportCatalogZip(target, lettersArchive).execute()
+            sharedArchives.forEach { ImportCatalogZip(target, it, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
+            ImportCatalogZip(target, lettersArchive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
 
         val pin = withMediator { ListReleaseDependencies(testCatalog(target, letters), "1.0.0").query() }.single()
