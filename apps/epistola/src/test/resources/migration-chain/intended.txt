@@ -363,7 +363,6 @@ $$
 + CREATE TABLE public.catalog_versions (
     CONSTRAINT chk_catalog_versions_draft_unnumbered CHECK ((((state)::text = 'released'::text) OR (version IS NULL))),
     CONSTRAINT chk_catalog_versions_released CHECK ((((state)::text = 'released'::text) = ((version IS NOT NULL) AND (fingerprint IS NOT NULL) AND (content_hash IS NOT NULL) AND (released_at IS NOT NULL)))),
-    CONSTRAINT chk_catalog_versions_released_via CHECK (((((state)::text = 'released'::text) = (released_via IS NOT NULL)) AND ((released_via)::text = ANY ((ARRAY['released'::character varying, 'upload'::character varying, 'api'::character varying, 'registry'::character varying, 'exchange'::character varying, 'source'::character varying, 'bundled'::character varying, 'upgrade-1x'::character varying, 'snapshot'::character varying])::text[])))),
     CONSTRAINT chk_catalog_versions_state CHECK (((state)::text = ANY ((ARRAY['draft'::character varying, 'released'::character varying])::text[]))),
     base_fingerprint character varying(80),
     base_fingerprints jsonb,

@@ -65,10 +65,6 @@ CREATE TABLE catalog_versions (
     CONSTRAINT chk_catalog_versions_released CHECK (
         (state = 'released') = (version IS NOT NULL AND fingerprint IS NOT NULL AND content_hash IS NOT NULL AND released_at IS NOT NULL)),
     CONSTRAINT chk_catalog_versions_draft_unnumbered CHECK (state = 'released' OR version IS NULL),
-    -- Every release says how it came to be here; a draft says nothing yet.
-    CONSTRAINT chk_catalog_versions_released_via CHECK (
-        (state = 'released') = (released_via IS NOT NULL)
-        AND released_via IN ('released', 'upload', 'api', 'registry', 'exchange', 'source', 'bundled', 'upgrade-1x', 'snapshot')),
     -- The version this one was made from, by its row: lineage, not ownership, so it survives the
     -- base being deleted (base_version and base_fingerprint keep what it was).
     CONSTRAINT fk_catalog_versions_base FOREIGN KEY (tenant_key, base_version_id)
