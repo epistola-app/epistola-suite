@@ -34,7 +34,6 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Updates a template's metadata (name, description, theme, pdfaEnabled).
@@ -77,7 +76,6 @@ class UpdateDocumentTemplateHandler(
     private val usedCatalogs: UsedCatalogDeclarer,
     private val templates: TemplateStore,
 ) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
-    @Transactional
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.

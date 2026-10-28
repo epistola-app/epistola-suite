@@ -44,9 +44,6 @@ class DriftRatchetTest {
         Counter("handler files using require(", 23, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
-        Counter("handler files annotated @Transactional", 9, "the mediator's transaction") {
-            handlerFiles(Regex("""@Transactional"""))
-        },
         Counter("mediator.send/query in epistola-mcp", 22, "execute() / query() extensions") {
             mainLines(Regex("""\bmediator\.(send|query)\(""")) { it.startsWith("modules/epistola-mcp/") }
         },

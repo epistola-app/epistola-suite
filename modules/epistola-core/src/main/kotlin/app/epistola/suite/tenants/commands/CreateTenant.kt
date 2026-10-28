@@ -27,7 +27,6 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 /**
  * Creates a tenant, with its default catalog and the system catalog. [namespaces] are granted to it
@@ -64,7 +63,6 @@ class CreateTenantHandler(
     private val jdbi: Jdbi,
     private val grants: NamespaceGrantStore,
 ) : CommandHandler<CreateTenant, Tenant> {
-    @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
         val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
             // Insert tenant. Themes are optional — `default_theme_resource_id` stays NULL
@@ -105,7 +103,7 @@ class CreateTenantHandler(
         }
 
         // Install the bundled system catalog (reserved attributes, canonical code
-        // lists, and the `default` theme). Runs in the same `@Transactional`
+        // lists, and the `default` theme). Runs in the same command transaction
         // boundary, so a failure to install rolls back the tenant creation — a
         // tenant should never exist without its system catalog.
         // `InstallSystemCatalog` is idempotent.
