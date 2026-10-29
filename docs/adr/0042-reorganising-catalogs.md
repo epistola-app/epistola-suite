@@ -158,10 +158,13 @@ Per affected draft:
 Generically, on ADR 0039, replacing the per-type planner and relocators:
 
 - the references to re-point come from `resource_references`, in the one draft of each catalog, by
-  alias and key;
-- content is stored through one writer of a version's resources (`VersionResources.put`,
-  ADR 0039 §2, built for this), guarded by the content hash the plan saw;
-- a type stored as parts (a template and its variants) moves with its parts;
+  alias and key (`ReferenceRepointer`);
+- each row's content is re-pointed where `ContentReferences.repoint` finds its references (the
+  reference sites and what a type carries itself, `ResourceType.repoint`), stored again, and the row
+  pointed at it, guarded by the content hash the plan saw (`DraftResources.repoint`). The content is
+  the wire form (ADR 0040), so this is one path for every type, with no per-type store: the planned
+  `VersionResources.put` is not needed for it;
+- a type stored as parts (a template and its variants) moves with its parts, each re-pointed;
 - re-pointing declares the dependencies it needs, naming the target's draft;
 - the drafts the operation changes come from the message targeting the draft worked in
   (`CatalogReleaseScoped`): its own catalog reads and writes that draft, every other catalog its next
@@ -171,9 +174,9 @@ Generically, on ADR 0039, replacing the per-type planner and relocators:
 selection into it: the move's preview needs the catalog to exist, and an empty catalog left behind
 when the move is not applied costs nothing worth a combined transaction.
 
-It stays alpha, behind `resource-relocation`. When the new one lands, the old one is removed in the
-same change, the toggle reused: the old planner, the `ResourceRelocator`s and the move command go. As
-an alpha feature off by default, it carries no compatibility promise.
+It stays alpha, behind `resource-relocation`, and carries no compatibility promise. The per-type
+rewriting it replaces (the planner's queries per content kind, the `ResourceRelocator`s and their
+`JsonRewrite`s) is gone; the move messages stay, with the draft worked in added.
 
 ## Consequences
 
@@ -184,7 +187,6 @@ an alpha feature off by default, it carries no compatibility promise.
   a new one (keeping the source's copy, say) is a small composition.
 - The relocation code becomes generic: no per-type planner or relocator, and the SQL-level type
   knowledge in the planner goes (ADR 0039, "Where it landed").
-- `VersionResources.put` is built, which ADR 0039 left for later.
 - Following a refactoring across installations is still not offered.
 
 ## Settled

@@ -22,9 +22,8 @@ import org.junit.jupiter.api.Test
  * read it.
  *
  * [ALLOWED] is empty (ADR 0039): what is particular to a content type is its domain's
- * [app.epistola.suite.catalog.types.ResourceType] or
- * [app.epistola.suite.catalog.relocation.ResourceRelocator], and anything else catalog needs from a
- * domain is an SPI catalog owns. A new dependency belongs behind one of those, not on this list.
+ * [app.epistola.suite.catalog.types.ResourceType], and anything else catalog needs from a domain is
+ * an SPI catalog owns. A new dependency belongs behind one of those, not on this list.
  */
 class CatalogBoundaryTest {
     private val classes: JavaClasses =

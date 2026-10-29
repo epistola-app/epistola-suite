@@ -10,8 +10,8 @@ primitives in `snapshot/`, and reference discovery in `graph/`. There is no sepa
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
 
 The domains depend on `catalog`, never the reverse (ADR 0039; `CatalogBoundaryTest` allows none): a
-type's particulars are its domain's `ResourceType` and `ResourceRelocator`, anything else an SPI
-catalog owns (`CatalogDraftLifecycle`, `ReleaseCheck`, `CatalogAttributeValues`).
+type's particulars are its domain's `ResourceType` (relocation re-points every type through its
+`repoint`, ADR 0042), anything else an SPI catalog owns (`CatalogDraftLifecycle`, `ReleaseCheck`, `CatalogAttributeValues`).
 
 Every SQL statement reading or writing catalog content names the catalog version it means, since a
 catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
