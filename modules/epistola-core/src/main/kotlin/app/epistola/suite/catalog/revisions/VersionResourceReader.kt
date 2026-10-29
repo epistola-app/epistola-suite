@@ -133,4 +133,52 @@ class VersionResourceReader(
         val description: String?,
         val payload: JsonNode,
     )
+
+    /**
+     * One reference a resource of a current version holds (`resource_references`, ADR 0033): the
+     * resource by its catalog's address (`namespace/key`), type and key (a template's for what one of
+     * its parts holds), and what it names: the [alias] of a catalog (null for its own) and the type
+     * and key there.
+     */
+    data class HeldReference(
+        val catalogAddress: String,
+        val type: String,
+        val key: String,
+        val alias: String?,
+        val referencedType: String,
+        val referencedKey: String,
+    )
+
+    /**
+     * Every reference held by a resource of the version each catalog of [tenantKey] means (the
+     * targeted version, else the current one), parts included, as stored contents index them: what
+     * uses what, for the resource graph.
+     */
+    fun currentReferences(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey): List<HeldReference> = handle.createQuery(
+        """
+        SELECT DISTINCT c.namespace || '/' || c.catalog_key AS catalog_address,
+               COALESCE(parent.resource_type, r.resource_type) AS resource_type,
+               COALESCE(parent.resource_key, r.resource_key) AS resource_key,
+               rr.alias, rr.resource_type AS referenced_type, rr.resource_key AS referenced_key
+        FROM release_resources r
+        JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+        JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+        JOIN resource_references rr ON rr.tenant_key = r.tenant_key AND rr.content_hash = r.content_hash
+        LEFT JOIN release_resources parent ON parent.tenant_key = r.tenant_key AND parent.version_id = r.version_id
+             AND parent.resource_id = r.parent_id AND parent.parent_id IS NULL
+        WHERE r.tenant_key = :t
+        """,
+    )
+        .bind("t", tenantKey)
+        .map { rs, _ ->
+            HeldReference(
+                rs.getString("catalog_address"),
+                rs.getString("resource_type"),
+                rs.getString("resource_key"),
+                rs.getString("alias"),
+                rs.getString("referenced_type"),
+                rs.getString("referenced_key"),
+            )
+        }
+        .list()
 }

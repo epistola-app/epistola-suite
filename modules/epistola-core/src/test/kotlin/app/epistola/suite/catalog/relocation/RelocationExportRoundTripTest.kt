@@ -204,7 +204,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             ImportCatalogZip(fresh, sharedZip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ImportCatalogZip(fresh, lettersZip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
-        val edge = withMediator { GetTenantResourceGraph(fresh, includeHistory = true).query() }.edges
+        val edge = withMediator { GetTenantResourceGraph(fresh).query() }.edges
             .single { it.source == address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice") && it.targetSelector.type == moved.type }
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         assertThat(edge.target).isEqualTo(moved.copy(catalogKey = shared.value))
