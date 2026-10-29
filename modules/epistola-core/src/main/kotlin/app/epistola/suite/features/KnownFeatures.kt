@@ -10,18 +10,11 @@ object KnownFeatures {
     val SUPPORT_FEEDBACK = FeatureKey.of("support-feedback")
 
     /**
-     * The compatibility-check feature (Support → Upgrading). The toggle/entitlement key is
-     * `support-compatibility-check`; the UI/module is still named "upgrading" internally pending a
-     * follow-up rename.
-     */
-    val SUPPORT_COMPATIBILITY_CHECK = FeatureKey.of("support-compatibility-check")
-
-    /**
      * Quality checks — the findings ledger, its report, and the editor panel.
      *
      * Deliberately named `quality`, not `support-quality`: this is **not** a support-tier feature.
      * The ledger and its in-process check sources work with the support tier off, so the key must
-     * stay out of [SUPPORT_TIER] and [HUB_ONLY]. A key in [SUPPORT_TIER] is gated by a hub
+     * stay out of [SUPPORT_TIER]. A key in [SUPPORT_TIER] is gated by a hub
      * entitlement, and the hub wire contract has no `QUALITY` feature to grant — so a quality key
      * there would be *permanently unavailable* on every `epistola.support.enabled=true`
      * installation. `KnownFeaturesTest` guards that; note `WireContractAlignmentTest` would **not**
@@ -52,7 +45,7 @@ object KnownFeatures {
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
      *
      * A purely client-side onboarding aid: no hub, no server component. Like [QUALITY] it is
-     * deliberately toggle-only and must stay out of [SUPPORT_TIER]/[HUB_ONLY] — the hub wire contract
+     * deliberately toggle-only and must stay out of [SUPPORT_TIER] — the hub wire contract
      * has no feature to grant for it, so a key in [SUPPORT_TIER] would make it *permanently
      * unavailable* on every `epistola.support.enabled=true` installation. `KnownFeaturesTest` guards
      * that. The resolved toggle is threaded into the editor bundle as an `EditorFeatureFlags` flag.
@@ -61,7 +54,6 @@ object KnownFeatures {
 
     val all: List<FeatureKey> = listOf(
         SUPPORT_FEEDBACK,
-        SUPPORT_COMPATIBILITY_CHECK,
         QUALITY,
         AI_CHAT,
         EDITOR_WALKTHROUGH,
@@ -73,16 +65,9 @@ object KnownFeatures {
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
      * (the [FeatureEntitlementGate.gatedFeatures] set). With no tier present (OSS) they fall through to
-     * their plain toggle — feedback is freely usable, compatibility-check is simply off by default.
+     * their plain toggle: feedback is freely usable.
      */
-    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK, SUPPORT_COMPATIBILITY_CHECK)
-
-    /**
-     * Support features that are **inert without a live hub** (unlike feedback, which is freely usable
-     * locally). Their toggle default follows `epistola.support.enabled`: on with the tier, off in OSS.
-     * Resolved in [FeatureToggleService.defaultFor].
-     */
-    val HUB_ONLY: Set<FeatureKey> = setOf(SUPPORT_COMPATIBILITY_CHECK)
+    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK)
 
     /**
      * Release maturity of a feature. [STABLE] shows no marker; [BETA]/[ALPHA] render a badge in the
@@ -110,11 +95,6 @@ object KnownFeatures {
         SUPPORT_FEEDBACK to FeatureMetadata(
             "Feedback",
             "Enables the Support → Feedback feature (sync to epistola-hub).",
-        ),
-        SUPPORT_COMPATIBILITY_CHECK to FeatureMetadata(
-            "Upgrading",
-            "Enables the Support → Upgrading feature (compatibility checks against upcoming Epistola releases). " +
-                "Ships its own catalog-export snapshots to the hub for the checks.",
         ),
         QUALITY to FeatureMetadata(
             "Quality",

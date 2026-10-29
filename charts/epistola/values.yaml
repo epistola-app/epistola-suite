@@ -344,8 +344,7 @@ oidc:
 
 # Optional commercial support tier (epistola-hub integration).
 # When enabled, the application registers itself with epistola-hub on startup
-# for feedback sync, monitoring, quality checks, and version-compatibility
-# services. OSS deployments leave this disabled — the support module ships in
+# for feedback sync, monitoring and quality checks. OSS deployments leave this disabled — the support module ships in
 # the image but never constructs any beans. See modules/epistola-support.
 support:
   enabled: false

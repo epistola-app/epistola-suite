@@ -170,9 +170,6 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   the house theme (applied to the next release of every catalog that can be changed), declaring a
   catalog a write starts using (its next release when it can be changed, else its highest release),
   the catalog list's _pending changes_ hint, getting started, and the ordering of usage lists.
-- **A tenant snapshot** still writes `SUBSCRIBED` for a catalog with a source and `AUTHORED` for any
-  other in `snapshot.json`, because the hub shares the format; a restore ignores it and fills every
-  catalog's next release.
 
 ## Who names a catalog: namespaces granted to tenants
 
@@ -429,7 +426,7 @@ until it is released**; only releases are numbered.
   merged into its draft (`catalog_draft_merges`) when it is released, each with its fingerprint. The
   manifest says them too, in `release.metadata` under `app.epistola.suite` as
   `merged: [{"version": "1.0.1", "fingerprint": "v6:…"}]` (a bare version is read as well), so an
-  archive, an installation receiving it and a tenant snapshot keep them: receiving records them, and an
+  archive and an installation receiving it keep them: receiving records them, and an
   export of a release recorded without them in its snapshot names them from the table. Lineage is base
   plus merge parents (`ReleaseLineage`); the merge base and `behind` both follow it.
 - **Releasing** (`ReleaseCatalogDraft`, contract `releaseCatalogDraft`) releases any draft,
@@ -574,7 +571,7 @@ same release, whatever number, name or route they came by; the number stays what
 deployments and version ranges use.
 
 - **New releases** are fingerprinted with V6, so their fingerprint is their content hash. Every
-  archive this installation writes (an export, the Exchange, a registry, a tenant snapshot) names
+  archive this installation writes (an export, the Exchange, a registry) names
   the release by its content hash, as wire v8 requires (`ReleaseIdentity.travelling`), whatever
   fingerprint the release was cut with.
 - **Every release** keeps the fingerprint it was cut or received with (a received one may be V5 or
@@ -662,7 +659,7 @@ Catalog wire v6 stores discovery metadata alongside catalog identity:
 
 A catalog that can be changed here edits these fields from the catalog browse page; one that
 cannot (Epistola supplies it, or the installation is run-only) shows them read-only. URL registration, URL upgrade, ZIP
-import, export, release snapshots, and tenant snapshots preserve the same typed
+import, export and release snapshots preserve the same typed
 value. A metadata-only publisher edit appears in the upgrade preview and can be
 applied without fabricating a resource change.
 
@@ -1170,22 +1167,10 @@ import takes the same path; none names a type.
   import first), the release is recorded, and everything it put in place is marked ready. A resource
   that fails to install aborts it without advancing anything.
 
-`intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`: starting a draft from a release) and
-`restore` (snapshots) are internal, and fill the version the transaction targets (`DraftFillMode`
+`intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`: starting a draft from a release) is
+internal, and fills the version the transaction targets (`DraftFillMode`
 `MERGE` or `REPLACE`). Each resource is written by `CatalogResourceInstaller`, which a merge uses
 too.
-
-A tenant snapshot exports each catalog's next release as a working copy, labelled with its highest
-release or `0.0.0`; that is the only export of a draft. From snapshot schema 3 it also carries, per
-catalog, where it receives releases from (`source`: its URI and auth type; never the credential, as
-a snapshot carries no secrets, so a source that needs one is given it again), the release it
-received last (`installed`), the release its next release is on (`nextBase`), and its releases
-(`releases`: number, id, fingerprint, base, when and by whom, notes), each with its archive at
-`catalogs/<key>/releases/<version>.zip`. A restore records each release beside the others as it says
-it is (`ImportCatalogZip.restoreRelease`), fills the next release from the working copy, and puts
-it back on its base, so the restored catalog renders, merges and releases on as it did. Every member
-is optional: a schema 2 snapshot restores with no sources and no releases, as before. The rolled-up
-snapshot fingerprint covers the releases too, so a new release makes a new backup.
 
 ## Publishing a release to Epistola Exchange
 

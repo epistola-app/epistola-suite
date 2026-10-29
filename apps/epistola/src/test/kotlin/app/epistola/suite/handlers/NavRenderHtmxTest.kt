@@ -92,11 +92,9 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     @Test
     fun `support group is hidden when no support feature is enabled`() {
         val tenant = createTenant("Nav No Support")
-        // feedback defaults on (freely usable), so disable every support feature to
-        // leave the Support group empty.
+        // feedback defaults on (freely usable), so disable it to leave the Support group empty.
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = false).execute()
         }
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
@@ -118,7 +116,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("nav-dropdown-support")
         assertThat(body).contains("/tenants/${tenant.id.value}/support") // Overview
         assertThat(body).contains("/tenants/${tenant.id.value}/feedback")
-        // Backups/Upgrading toggles are off, so their items are absent.
+        // Backups and Upgrading were withdrawn: no items of theirs.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/backups")
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/upgrading")
         // Feedback is a stable feature, so its nav item carries no maturity badge.

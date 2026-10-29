@@ -66,14 +66,6 @@ enum class Permission {
     /** Audit trail: view the PII-free "who did what, when" command log. */
     AUDIT_VIEW,
 
-    /**
-     * Irreversible, data-destroying operations: restore a snapshot,
-     * purge catalogs. Held only by MANAGER and deliberately withheld from
-     * API keys by default — named to signal danger and to be granted/audited
-     * independently of ordinary settings.
-     */
-    TENANT_RESTORE,
-
     /** Tenant configuration: feature toggles, defaults, environments, entitlements. */
     TENANT_SETTINGS,
     TENANT_USERS,
@@ -119,7 +111,6 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.DIAGNOSTICS_VIEW,
         Permission.DIAGNOSTICS_MANAGE,
         Permission.AUDIT_VIEW,
-        Permission.TENANT_RESTORE,
     )
 }
 

@@ -168,8 +168,8 @@ its job. See [`docs/storage.md`](storage.md#the-content-collector).
 | `epistola.catalog.upstream.checks` | Counter | `outcome` (`ok`, or the failure recorded: `unreachable`, `not_found`, `unauthorized`, `schema_too_new`, `withdrawn`, `paused`, `protocol_error`) |
 
 `releases{via}` counts every release that came to be in a tenant, cut here (`released`) or
-received, once its transaction commits. A tenant snapshot restore reinstalls each of its releases,
-counted as `snapshot`. `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
+received, once its transaction commits; `snapshot` names releases a tenant snapshot restored, before
+2.0 withdrew snapshots. `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
 the background worker or the "check for updates" button.
 
 What the command timers already count is not repeated here. Read it from
