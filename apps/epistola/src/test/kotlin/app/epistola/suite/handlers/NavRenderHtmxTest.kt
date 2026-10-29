@@ -136,7 +136,6 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("nav-item-catalog-organise")
         assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/organise")
 
-
         // The organise page claims its own section rather than lighting up Catalogs: the
         // aggregator resolves by longest matching path suffix, so "catalogs/organise" must win
         // over "catalogs" here.
