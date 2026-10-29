@@ -53,9 +53,13 @@ consequences for releases shown before anything happens.
 
 ### The core operation: re-point references
 
-Across every draft of the tenant, every reference to address A becomes a reference to address B:
+In one draft of each catalog involved, every reference to address A becomes a reference to address B:
 
-- **Every draft**, not only each catalog's current one. Released content is never touched.
+- **One draft per catalog**: its everyday draft (the next version), or for the source a draft the
+  person picks. A catalog's other drafts (parallel work, a hotfix) are left entirely alone, the
+  resource and its references both, so each stays a coherent snapshot at the old address; they get
+  the change when they are merged or rebased. Forcing it into a hotfix draft would make a small fix a
+  breaking change with a new dependency. Released content is never touched.
 - A reference is rewritten where `ResourceReferenceSites` finds it, or by its type for the ones the
   type carries itself (a template's theme and variant attributes: `ResourceType.references` gains a
   rewrite).
@@ -107,8 +111,8 @@ Per affected draft:
   major release;
 - the release order this implies (a catalog before those that now depend on it), with **Release
   with its dependencies** as the one action that carries it out;
-- where the old address lives on: the source's releases, and the source's other drafts, which a
-  refactoring does not change;
+- where the old address lives on: the source's releases, and every catalog's other drafts, named
+  ("Hotfix 1.4.1 of Letters still uses `house`; it is not changed");
 - what stops resolving: released content and other installations that name the old address
   (unchanged from ADR 0037: they cannot follow).
 
@@ -116,14 +120,16 @@ Per affected draft:
 
 Generically, on ADR 0039, replacing the per-type planner and relocators:
 
-- the references to re-point come from `resource_references`, every draft, by alias and key;
+- the references to re-point come from `resource_references`, in the one draft of each catalog, by
+  alias and key;
 - content is stored through one writer of a version's resources (`VersionResources.put`,
   ADR 0039 §2, built for this), guarded by the content hash the plan saw;
 - a type stored as parts (a template and its variants) moves with its parts;
 - re-pointing declares the dependencies it needs, naming the target's draft.
 
-It stays alpha, behind `resource-relocation`, until the new one replaces the old; the old planner,
-the `ResourceRelocator`s and the move command go with it.
+It stays alpha, behind `resource-relocation`. When the new one lands, the old one is removed in the
+same change, the toggle reused: the old planner, the `ResourceRelocator`s and the move command go. As
+an alpha feature off by default, it carries no compatibility promise.
 
 ## Consequences
 
@@ -139,9 +145,10 @@ the `ResourceRelocator`s and the move command go with it.
 
 ## Open questions
 
-1. **The source's other drafts.** A refactoring changes the draft it is given. Should it refuse,
-   warn, or apply the same change to the source's other drafts that hold the resource?
-2. **Merging different content.** Merge into discards X's content. Should the preview show how X and
-   Y differ, and refuse when they differ beyond a threshold?
-3. **The old implementation.** Removed when the new one lands, or kept off behind its toggle for one
-   release?
+1. **Merge into.** It serves copies of one resource in several catalogs (a theme copied once, now
+   wanted from the shared catalog): re-point the copy's users at the shared one, remove the copy. Is
+   that common enough to build now, or added later? If built: show how the copies differ and ask for
+   confirmation when they do.
+
+Settled on 2026-10-29: a refactoring changes one draft per catalog and leaves the others alone (see
+"The core operation"); the old implementation is removed when the new one lands.
