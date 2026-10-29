@@ -44,7 +44,7 @@ record states the model as it holds now, in one place.
 
 > Amended by [ADR 0042](0042-reorganising-catalogs.md) (proposed): in the 2.0 model a move changes one
 > draft, not a catalog, and its consequences for releases are invisible here. Relocation is redone
-> as a reorganisation of drafts whose preview shows change kinds and release order.
+> as refactorings of drafts (rename, move, merge, create a shared catalog) whose preview shows change kinds and release order.
 
 - Relocation moves a resource to another catalog, renames its key, or both, in catalogs that can be
   changed here. It is alpha, off by default, behind `resource-relocation`
