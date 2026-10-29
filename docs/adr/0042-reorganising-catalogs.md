@@ -174,7 +174,8 @@ Generically, on ADR 0039, replacing the per-type planner and relocators:
 selection into it: the move's preview needs the catalog to exist, and an empty catalog left behind
 when the move is not applied costs nothing worth a combined transaction.
 
-It stays alpha, behind `resource-relocation`, and carries no compatibility promise. The per-type
+It leaves alpha: Stable and on by default, `resource-relocation` kept as the switch that turns it off
+for a tenant. It is a UI operation, not a REST or MCP one, so no GA API carries it. The per-type
 rewriting it replaces (the planner's queries per content kind, the `ResourceRelocator`s and their
 `JsonRewrite`s) is gone; the move messages stay, with the draft worked in added.
 

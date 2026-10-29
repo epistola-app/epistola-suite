@@ -40,14 +40,16 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("<ep-resource-graph", "Resource graph")
-        assertThat(response.body).contains("data-relocation-enabled=\"false\"")
+        // Organising catalogs is on by default, so the graph offers its hand-off.
+        assertThat(response.body).contains("data-relocation-enabled=\"true\"")
     }
 
     @Test
-    fun `relocation controls require their independent alpha toggle`() {
+    fun `relocation controls require their independent toggle`() {
         val tenant = createTenant("Graph relocation")
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute()
         }
 
         // The graph links to the organise page rather than hosting the move, so what the toggle

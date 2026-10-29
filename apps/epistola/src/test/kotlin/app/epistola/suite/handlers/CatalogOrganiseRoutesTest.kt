@@ -49,6 +49,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the page is absent without the relocation toggle`() {
         val tenant = createTenant("Organise off")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute() }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/organise", String::class.java)
 
@@ -142,6 +143,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the single-resource move is absent without the relocation toggle`() {
         val tenant = createTenant("Organise single off")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute() }
 
         val response = restTemplate.getForEntity(
             "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:${tenant.id}/letters/header",

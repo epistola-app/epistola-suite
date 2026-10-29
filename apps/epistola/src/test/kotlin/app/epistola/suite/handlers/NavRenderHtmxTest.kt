@@ -131,17 +131,11 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     fun `relocation contributes an Organise nav item and owns its active section`() {
         val tenant = createTenant("Nav Organise")
 
-        // Off by default: enabling the toggle is the only thing that reveals it.
-        val without = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
-        assertThat(without).doesNotContain("nav-item-catalog-organise")
-
-        withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
-        }
-
+        // On by default; switching the toggle off is the only thing that hides it.
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
         assertThat(body).contains("nav-item-catalog-organise")
         assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/organise")
+
 
         // The organise page claims its own section rather than lighting up Catalogs: the
         // aggregator resolves by longest matching path suffix, so "catalogs/organise" must win
@@ -153,6 +147,13 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         val catalogsAnchor = Regex("""<a[^>]*nav-item-catalogs[^>]*>""").find(normalised)?.value
         assertThat(organiseAnchor).isNotNull().contains("active")
         assertThat(catalogsAnchor).isNotNull().doesNotContain("active")
+
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute()
+        }
+
+        val without = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        assertThat(without).doesNotContain("nav-item-catalog-organise")
     }
 
     @Test

@@ -35,7 +35,7 @@ class TemplateMoveActionHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant(name)
         val key = TestIdHelpers.nextTemplateId()
         CreateDocumentTemplate(TemplateId(key, CatalogId.default(TenantId(tenant.id))), "Invoice").execute()
-        if (relocation) SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+        SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = relocation).execute()
         tenant.id.value to key.value
     }
 
