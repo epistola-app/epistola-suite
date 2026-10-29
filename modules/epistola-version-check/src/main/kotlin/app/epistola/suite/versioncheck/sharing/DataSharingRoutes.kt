@@ -36,6 +36,7 @@ class DataSharingRoutes(private val handler: DataSharingHandler) {
 class DataSharingHandler {
     fun show(request: ServerRequest): ServerResponse = ServerResponse.ok().page("versioncheck/sharing") {
         "pageTitle" to "Shared with Epistola - Epistola"
+        "platformPage" to "Shared with Epistola"
         "overview" to GetDataSharingOverview().query()
     }
 

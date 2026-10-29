@@ -2,39 +2,37 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
     <th:block th:fragment="footer">
+        <!--/* Product/installation chrome only: identity and account actions live in the header's
+               account menu. Module chrome arrives through FooterContributor below. The pipes sit
+               inside the two groups, so a wrapped footer never starts or ends a line with one. */-->
         <footer class="app-footer">
-            <span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span>
-            <span class="separator">|</span>
-            <a th:href="@{/api-docs}" target="_blank" rel="noopener">API Docs</a>
-            <span class="separator">|</span>
-            <button type="button"
-                    class="link-button"
-                    id="changelog-button"
-                    aria-haspopup="dialog"
-                    aria-controls="changelog-dialog"
-                    data-open-dialog="changelog-dialog"
-                    th:hx-get="@{/changelog}"
-                    hx-target="#changelog-dialog-content"
-                    hx-swap="innerHTML"
-                    hx-trigger="click once">
-                Changelog
-            </button>
+            <span class="app-footer-product">
+                <span class="app-footer-brand"><span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span></span>
+                <span class="app-footer-separator" aria-hidden="true">|</span>
+                <a th:href="@{/api-docs}" target="_blank" rel="noopener">API Docs</a>
+                <span class="app-footer-separator" aria-hidden="true">|</span>
+                <button type="button"
+                        class="link-button"
+                        id="changelog-button"
+                        aria-haspopup="dialog"
+                        aria-controls="changelog-dialog"
+                        data-open-dialog="changelog-dialog"
+                        th:hx-get="@{/changelog}"
+                        hx-target="#changelog-dialog-content"
+                        hx-swap="innerHTML"
+                        hx-trigger="click once">
+                    Changelog
+                </button>
+            </span>
             <!-- Installation-wide status (see FooterStatusContributor), e.g. the support badge. -->
             <th:block sec:authorize="isAuthenticated()">
-                <th:block th:each="frag : ${footerStatusFragments}">
-                    <span class="separator">|</span>
-                    <th:block th:replace="~{__${frag.ref}__}" />
-                </th:block>
+                <span class="app-footer-status" th:if="${!#lists.isEmpty(footerStatusFragments)}">
+                    <th:block th:each="frag : ${footerStatusFragments}">
+                        <span class="app-footer-separator" aria-hidden="true">|</span>
+                        <th:block th:replace="~{__${frag.ref}__}" />
+                    </th:block>
+                </span>
             </th:block>
-            <span sec:authorize="isAuthenticated()" class="user-info">
-                <span class="separator">|</span>
-                <a th:href="@{/profile}" th:text="${currentUserDisplayName}" title="Your profile">username</a>
-                <span class="separator">|</span>
-                <!--/* Not boosted: logging out may end at the identity provider, which HTMX cannot follow (LogoutNotBoostedTest). */-->
-                <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Logout</button>
-                </form>
-            </span>
         </footer>
 
         <dialog id="changelog-dialog" class="ep-dialog ep-dialog-wide" aria-labelledby="changelog-title">
@@ -48,7 +46,6 @@
             <th:block th:replace="~{fragments/session-dialogs :: session-dialogs}" />
             <script type="module" th:src="@{/js/modules/session-monitor-boot.js}"></script>
         </th:block>
-
 
         <!-- Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) -->
         <th:block sec:authorize="isAuthenticated()">

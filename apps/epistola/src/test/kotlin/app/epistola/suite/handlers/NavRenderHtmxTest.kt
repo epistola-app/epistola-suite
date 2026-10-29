@@ -83,10 +83,12 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
         val navUser = body.substringAfter("""class="ws-account-name"""").substringBefore("</span>")
-        val footerUser = body.substringAfter("""class="user-info"""").substringBefore("</footer>")
+        val footer = body.substringAfter("""class="app-footer"""").substringBefore("</footer>")
 
         assertThat(navUser).contains(">${TestPrincipalUser.DISPLAY_NAME}")
-        assertThat(footerUser).contains(">${TestPrincipalUser.DISPLAY_NAME}</a>")
+        // Identity and account actions live in the header's account menu now; the footer is product
+        // chrome only (version, docs, changelog, status).
+        assertThat(footer).doesNotContain("user-info").doesNotContain("/logout")
     }
 
     @Test

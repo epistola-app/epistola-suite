@@ -16,6 +16,7 @@ import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -120,20 +121,20 @@ class TenantNamespaceHandler(
         openDialog: Boolean,
         formData: FormData? = null,
         status: Int = 200,
-    ): ServerResponse = ServerResponse.status(status).render(
-        "platform/namespaces",
-        buildMap {
-            put("pageTitle", "Namespaces of ${tenant.name} - Epistola")
-            put("tenant", tenant)
-            put("grants", grants)
-            put("defaultAuthority", identity.defaultRegistry)
-            if (openDialog) put("openDialog", true)
-            if (formData != null) {
-                put("formData", formData.formData)
-                put("errors", formData.errors)
-            }
-        },
-    )
+    ): ServerResponse = ServerResponse.status(status).page("platform/namespaces") {
+        "pageTitle" to "Namespaces of ${tenant.name} - Epistola"
+        "platformPage" to "Namespaces"
+        "tenant" to tenant
+        "grants" to grants
+        "defaultAuthority" to identity.defaultRegistry
+        if (openDialog) {
+            "openDialog" to true
+        }
+        if (formData != null) {
+            "formData" to formData.formData
+            "errors" to formData.errors
+        }
+    }
 
     /** The tenant in the path, read through the platform's list, since the administrator need not be a member. */
     private fun tenant(request: ServerRequest): Tenant {

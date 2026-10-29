@@ -24,6 +24,29 @@
             </a>
         </div>
 
+        <!--/* A platform page has no workspace: the bar says Platform and the page, with the
+               platform pages in a menu, and the account menu. */-->
+        <div th:if="${ws == null and platformPage != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
+            <th:block th:if="${auth.has('TENANT_MANAGER')}">
+                <div class="app-nav-dropdown ws-menu">
+                    <button type="button" class="app-nav-dropdown-trigger ws-crumb" id="ws-platform-trigger"
+                            aria-expanded="false" aria-haspopup="true" aria-controls="ws-platform-menu"
+                            data-testid="ws-crumb-platform">
+                        <span>Platform</span>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
+                    </button>
+                    <div class="app-nav-dropdown-menu ws-menu-panel" id="ws-platform-menu" role="menu"
+                         aria-label="Platform pages" data-testid="ws-platform-menu">
+                        <a th:href="@{/}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Tenants</a>
+                        <a th:href="@{/platform/banner}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Site banner</a>
+                        <a th:href="@{/platform/sharing}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Shared with Epistola</a>
+                    </div>
+                </div>
+                <span class="ws-crumb-sep" aria-hidden="true">/</span>
+            </th:block>
+            <span class="ws-crumb ws-crumb-here" th:text="${platformPage}" data-testid="ws-crumb-platform-page">Tenants</span>
+        </div>
+
         <div th:if="${ws != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
             <a class="ws-crumb" th:href="@{${ws.homeHref}}" data-testid="ws-crumb-tenant" th:text="${ws.tenantName}">Acme</a>
 
@@ -34,7 +57,7 @@
                     <button type="button" class="app-nav-dropdown-trigger ws-crumb" data-testid="ws-crumb-catalog"
                             aria-expanded="false" aria-haspopup="true">
                         <span th:text="${scope.name}">Letters</span>
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
                     </button>
                     <div class="app-nav-dropdown-menu ws-menu-panel" role="menu" data-testid="ws-catalog-menu">
                         <th:block th:unless="${ws.editableCatalogs.isEmpty()}">
@@ -65,7 +88,7 @@
                             th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
                             aria-expanded="false" aria-haspopup="true">
                         <span th:text="${scope.versionLabel}">Next release</span>
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
                     </button>
                     <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-wide" role="menu" data-testid="ws-version-menu">
                         <a th:each="v : ${scope.versions}" th:href="@{${v.href}}" data-version-switch class="app-nav-dropdown-item ws-menu-item" role="menuitem"
@@ -131,7 +154,7 @@
                         aria-expanded="false" aria-haspopup="true" aria-label="Your account">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='user', class='ep-icon ep-icon-sm')}" />
                     <span class="ws-account-name" th:text="${currentUserDisplayName}">user</span>
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
                 </button>
                 <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-right" role="menu">
                     <a th:href="@{/profile}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Profile</a>

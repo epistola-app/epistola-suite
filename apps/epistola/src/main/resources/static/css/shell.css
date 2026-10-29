@@ -220,12 +220,14 @@
     background: var(--ep-muted);
   }
 
-  .app-nav-dropdown-trigger .ep-icon {
+  /* Only the chevron turns when the menu opens. A trigger can hold another icon — the account's
+     user icon — which would read wrong upside down. */
+  .app-nav-dropdown-trigger .app-nav-chevron {
     transition: transform var(--ep-transition-fast);
   }
 
-  .app-nav-dropdown:hover .app-nav-dropdown-trigger .ep-icon,
-  .app-nav-dropdown.open .app-nav-dropdown-trigger .ep-icon {
+  .app-nav-dropdown:hover .app-nav-dropdown-trigger .app-nav-chevron,
+  .app-nav-dropdown.open .app-nav-dropdown-trigger .app-nav-chevron {
     transform: rotate(180deg);
   }
 
@@ -835,7 +837,7 @@
     }
 
     /* The user icon is the account trigger on phones; the chevron would not earn its width. */
-    .ws-account .app-nav-dropdown-trigger svg:last-of-type {
+    .ws-account .app-nav-dropdown-trigger .app-nav-chevron {
       display: none;
     }
 

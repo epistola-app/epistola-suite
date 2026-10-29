@@ -53,24 +53,62 @@ main.regular .empty-message {
 
 /* ── Footer ───────────────────────────────────────────────────────────── */
 
+/* Product chrome only (version, docs, changelog, status) — full width under the shell. It wraps
+   rather than forcing one line: row-gap keeps a two-line footer readable on phones. The items sit in
+   two groups — the product links and the status — with the pipes inside each group, so a wrap can only
+   happen between the groups and never leaves a pipe at the start or end of a line. */
 .app-footer {
   position: sticky;
   bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: var(--ep-space-3);
+  row-gap: var(--ep-space-1);
   background-color: var(--ep-white);
   border-top: 1px solid var(--ep-border-color);
   padding: var(--ep-space-2) var(--ep-space-4);
   font-size: var(--ep-text-xs);
+  line-height: var(--ep-leading-snug);
   color: var(--ep-muted-foreground);
   text-align: center;
 }
 
-.app-footer .version {
-  font-family: var(--ep-font-mono);
+.app-footer .app-footer-product,
+.app-footer .app-footer-status {
+  display: inline-flex;
+  align-items: center;
+  column-gap: var(--ep-space-3);
+  white-space: nowrap;
 }
 
-.app-footer .separator {
-  margin: 0 var(--ep-space-2);
+.app-footer .app-footer-separator {
   color: var(--ep-border-color);
+}
+
+/* Once the footer would wrap, the status takes its own centred row — and the pipe that separates it
+   from the product links would start that row, so it is dropped. 40rem leaves room for the longest
+   product line plus the badge, with the pipe, on one line. */
+@media (max-width: 40rem) {
+  .app-footer .app-footer-status {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+
+  .app-footer .app-footer-status > .app-footer-separator:first-child {
+    display: none;
+  }
+}
+
+.app-footer .app-footer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ep-space-1);
+}
+
+.app-footer .version {
+  font-family: var(--ep-font-mono);
 }
 
 .app-footer a {
