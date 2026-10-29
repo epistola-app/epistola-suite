@@ -52,6 +52,15 @@ A catalog whose content now uses a resource that moved into another catalog depe
 catalog's next version, not on a release of it: no release holds the resource yet. Releasing with
 its dependencies releases that catalog first.
 
+A draft left alone gets the move when a release made after it is merged into it, and a release made
+from a draft left alone (a hotfix) merges into the draft that moved the resource. The merge deduces
+the move from identities instead of recording it (`MergeMoves`): the merge base's rows keep the
+identity they were cut with, and the registry says where that identity is now. The merge base and
+the release are rebased through the moves before anything is classified, so a fix to a template that
+names a moved theme is taken pointing at the theme where it went, and a fix to the moved theme
+itself is a conflict that says where it went (`MergeResource.movedTo`). In another installation,
+whose identities are its own, a move stays a removal and an addition.
+
 ## What follows a move, and what breaks
 
 Follows the move:

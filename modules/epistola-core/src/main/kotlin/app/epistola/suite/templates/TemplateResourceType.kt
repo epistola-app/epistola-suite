@@ -115,6 +115,31 @@ class TemplateResourceType(
         }
     }
 
+    /** Its theme, and each variant's attributes, keeping a value under the attribute's new name. */
+    override fun repoint(resource: ObjectNode, to: (ContentReference) -> ContentReference?): Boolean {
+        var changed = false
+        resource.text("themeKey")?.let { key ->
+            to(ContentReference(resource.text("themeCatalogKey"), "theme", key))?.let { moved ->
+                resource.put("themeKey", moved.key)
+                if (moved.alias == null) resource.remove("themeCatalogKey") else resource.put("themeCatalogKey", moved.alias)
+                changed = true
+            }
+        }
+        resource.path("variants").forEach { variant ->
+            val attributes = variant.get("attributes") as? ObjectNode ?: return@forEach
+            val renamed = attributes.properties().map { it.key }.mapNotNull { name ->
+                val alias = name.substringBefore('.', missingDelimiterValue = "").ifEmpty { null }
+                to(ContentReference(alias, "attribute", name.substringAfter('.')))?.let { moved -> name to (moved.alias?.let { "$it.${moved.key}" } ?: moved.key) }
+            }
+            if (renamed.isEmpty()) return@forEach
+            val values = attributes.properties().associate { it.key to it.value }
+            attributes.removeAll()
+            values.forEach { (name, value) -> attributes.set(renamed.toMap()[name] ?: name, value) }
+            changed = true
+        }
+        return changed
+    }
+
     private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotBlank() }
 
     private val schemas = SchemaCompatibilityChecker()

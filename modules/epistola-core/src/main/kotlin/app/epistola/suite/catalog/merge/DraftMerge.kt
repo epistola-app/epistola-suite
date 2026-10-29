@@ -85,6 +85,11 @@ data class MergeResource(
      * theme's theme or catalog) that the merge also changes, so a choice is made with both in view.
      */
     val needs: List<String> = emptyList(),
+    /**
+     * Where the resource went when the draft moved it rather than removed it ([MergeMoves], ADR 0042):
+     * a change the release made to it is to be applied there, or left.
+     */
+    val movedTo: MergeMovedTo? = null,
 ) {
     /** `type/key`, as fingerprints and resolutions name it. */
     val contentKey: String get() = "$type/$key"

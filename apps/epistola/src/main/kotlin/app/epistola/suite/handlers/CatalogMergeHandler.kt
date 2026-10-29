@@ -208,10 +208,19 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         "taken" to preview.taken.map { rowOf(it, theirsWords(it.theirs, release)) }
         "kept" to preview.resources.filter { it.outcome == MergeOutcome.OURS }.map { rowOf(it, oursWords(it.ours)) }
         "conflicts" to preview.conflicts.map { conflict ->
-            rowOf(conflict, "${oursWords(conflict.ours)}, and it was ${changeWord(conflict.theirs)} in $release").copy(
-                keepLabel = if (conflict.ours == MergeChange.REMOVED) "Keep it removed" else "Keep yours",
-                takeLabel = if (conflict.theirs == MergeChange.REMOVED) "Remove it, as $release did" else "Take $release’s",
-            )
+            // Moved rather than removed (ADR 0042): the release's change belongs where it went.
+            val moved = conflict.movedTo
+            if (moved != null) {
+                rowOf(conflict, "You moved it to ${moved.catalogKey} as ${moved.key}, and it was ${changeWord(conflict.theirs)} in $release: apply that change there, or leave it").copy(
+                    keepLabel = "Leave it in ${moved.catalogKey}",
+                    takeLabel = if (conflict.theirs == MergeChange.REMOVED) "Remove it, as $release did" else "Bring $release’s back here",
+                )
+            } else {
+                rowOf(conflict, "${oursWords(conflict.ours)}, and it was ${changeWord(conflict.theirs)} in $release").copy(
+                    keepLabel = if (conflict.ours == MergeChange.REMOVED) "Keep it removed" else "Keep yours",
+                    takeLabel = if (conflict.theirs == MergeChange.REMOVED) "Remove it, as $release did" else "Take $release’s",
+                )
+            }
         }
         "untouchedCount" to preview.resources.count { it.outcome == MergeOutcome.UNCHANGED || it.outcome == MergeOutcome.SAME }
         // By field name, as the radios are named: SpEL reads a plain map most simply.

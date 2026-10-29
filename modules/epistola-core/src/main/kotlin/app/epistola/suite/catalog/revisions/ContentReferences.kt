@@ -32,4 +32,24 @@ object ContentReferences {
         // Content retained before its type was stored in the envelope (ADR 0033) holds the resource bare.
         if (type != null) addAll(type.references(payload.get("resource")?.takeIf { it.isObject } ?: payload))
     }
+
+    /**
+     * Points every reference in [resource] (a wire form, changed in place) for which [to] gives
+     * another at that one, where [of] would find it: the reference sites, then what its [type]
+     * carries ([ResourceType.repoint]). A reference that resolves tenant-wide when unqualified (an
+     * image) is offered only when it names a catalog. True when one changed.
+     */
+    fun repoint(resource: tools.jackson.databind.node.ObjectNode, type: ResourceType<*>?, to: (ContentReference) -> ContentReference?): Boolean {
+        var changed = false
+        for (site in ResourceReferenceSites.scan(resource)) {
+            val alias = site.catalogKey?.takeIf { it.isNotBlank() }
+            if (site.key.isBlank() || (alias == null && !site.kind.relativeWhenUnqualified)) continue
+            val moved = to(ContentReference(alias, site.kind.type.wireName, site.key)) ?: continue
+            if (moved.alias == null) site.clearCatalogKey() else site.setCatalogKey(moved.alias)
+            site.setKey(moved.key)
+            changed = true
+        }
+        if (type != null && type.repoint(resource, to)) changed = true
+        return changed
+    }
 }
