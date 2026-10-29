@@ -53,7 +53,7 @@
     },
     "variants": [
       {
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
         "isDefault": true,
         "key": "default"

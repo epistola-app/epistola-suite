@@ -32,7 +32,9 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ResourceLoader
@@ -64,6 +66,9 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private fun ttfBytes(): ByteArray = resourceLoader
         .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
@@ -152,8 +157,27 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 ),
             ).execute()
 
+            // Read as it always was: the font named with the theme's own catalog.
+            val read = requireNotNull(GetTheme(ThemeId(ThemeKey.of("own-theme"), testCatalog(tenantId, authored))).query())
+            assertThat(read.documentStyles["fontFamily"]).isEqualTo(mapOf("key" to "acme-sans", "catalogKey" to authored.value))
+
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), authored))
         }
+
+        // Released as wire v8 has it: a reference to the catalog itself names no catalog (contract 2.0.0-alpha.4).
+        val theme = objectMapper.readTree(readZipEntry(zip.zipBytes, "resources/theme/own-theme.json"))
+        assertThat(theme.at("/resource/documentStyles/fontFamily").toString()).isEqualTo("""{"key":"acme-sans"}""")
+        // Stored so too: the draft holds what its release will.
+        val stored = jdbi.withHandle<String, Exception> { h ->
+            h.createQuery(
+                """
+                SELECT c.payload::text FROM release_resources r JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+                JOIN catalogs k ON k.tenant_key = r.tenant_key AND k.catalog_id = r.catalog_id
+                WHERE r.tenant_key = :t AND k.catalog_key = :c AND r.resource_type = 'theme' AND r.resource_key = 'own-theme' LIMIT 1
+                """,
+            ).bind("t", tenant.id).bind("c", authored.value).mapTo(String::class.java).one()
+        }
+        assertThat(objectMapper.readTree(stored).at("/resource/documentStyles/fontFamily").has("catalogKey")).isFalse()
 
         val manifest = manifestOf(zip.zipBytes)
         // The font IS an own resource of this catalog...

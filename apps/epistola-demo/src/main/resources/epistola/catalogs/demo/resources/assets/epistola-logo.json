@@ -5,8 +5,6 @@
     "key": "epistola-logo",
     "name": "Epistola Logo",
     "mediaType": "image/svg+xml",
-    "width": null,
-    "height": null,
     "contentUrl": "./binaries/epistola-logo.svg",
     "contentHash": "9950f04a086b80b18a7a9ee7a0cc69a6f65739c4b564445c0d584e8ae74d9c20"
   }

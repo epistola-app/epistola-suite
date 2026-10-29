@@ -14,6 +14,7 @@ import app.epistola.api.model.ReleaseRegistryDto
 import app.epistola.api.model.ReleaseRegistryKind
 import app.epistola.api.model.ReleaseRegistryListResponse
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.registry.InstallReleaseRegistryRelease
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
@@ -73,8 +74,8 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
             version = result.releaseVersion ?: version,
             newlyInstalled = result.newlyInstalled,
             total = result.results.size,
-            installedDependencies = result.installedDependencies,
-            presentDependencies = result.presentDependencies,
+            installedDependencies = result.installedDependencies.map { it.toDto() },
+            presentDependencies = result.presentDependencies.map { it.toDto() },
         )
     }
 

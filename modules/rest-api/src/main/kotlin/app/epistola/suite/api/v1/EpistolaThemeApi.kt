@@ -10,7 +10,6 @@ import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
@@ -52,11 +51,8 @@ class EpistolaThemeApi : ThemesApi {
         q: String?,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<ThemeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033).
         val themes = ListThemePage(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()

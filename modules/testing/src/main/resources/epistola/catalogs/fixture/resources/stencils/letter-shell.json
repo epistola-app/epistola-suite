@@ -4,7 +4,6 @@
     "type": "stencil",
     "key": "letter-shell",
     "name": "Letter Shell",
-    "version": 1,
     "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
     "tags": ["layout", "letter"],
     "content": {

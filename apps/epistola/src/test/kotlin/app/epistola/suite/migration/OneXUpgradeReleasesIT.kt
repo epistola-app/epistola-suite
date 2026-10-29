@@ -204,8 +204,8 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         private val LETTERS = CatalogKey.of("letters")
 
         /** The system catalog this suite ships (`catalogs/system/catalog.json`). */
-        private const val BUNDLED_SYSTEM_VERSION = "2.1.0"
-        private const val BUNDLED_SYSTEM_FINGERPRINT = "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
+        private const val BUNDLED_SYSTEM_VERSION = "2.1.1"
+        private const val BUNDLED_SYSTEM_FINGERPRINT = "v6:97377990b50e1a973a6ceb9cd8811f3e6afa9761c5314350c3ecb05464b818f2"
 
         /** The file the authored font's uploaded face holds. */
         private const val BRAND_FACE = "epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf"

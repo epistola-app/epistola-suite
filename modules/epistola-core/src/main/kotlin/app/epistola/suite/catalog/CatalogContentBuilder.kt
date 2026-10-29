@@ -93,6 +93,11 @@ class CatalogContentBuilder(
         val resourceDetails = read.associateTo(LinkedHashMap()) { resource ->
             val root = resource.resource
             ResourceReferenceSites.dropNameQualifiers(root)
+            // Wire v8 never names the catalog itself (contract `2.0.0-alpha.4`): a reference into its own
+            // catalog travels relative, an image's too, which is stored with it (an unqualified image is
+            // looked up tenant-wide here).
+            ResourceReferenceSites.relativizeOwnCatalog(root, catalog.key.value)
+            ResourceReferenceSites.releaseOwnImages(root, catalog.key.value)
             // The catalog has one wire version: every detail (and the manifest) carries CATALOG_SCHEMA_VERSION.
             val envelope = objectMapper.createObjectNode().put("schemaVersion", CATALOG_SCHEMA_VERSION)
             envelope.set("resource", root)
@@ -193,9 +198,6 @@ class CatalogContentBuilder(
             ResourceReferenceSites.relativizeOwnCatalog(root, catalogKey)
             ResourceReferenceSites.dropNameQualifiers(root)
         }
-
-        /** [document] without name qualifiers on its references, and nothing else changed. */
-        fun withoutNameQualifiers(document: JsonNode): JsonNode = document.deepCopy().also(ResourceReferenceSites::dropNameQualifiers)
     }
 
     /**

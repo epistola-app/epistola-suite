@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.testCatalog
@@ -436,6 +437,8 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         dir.resolve("resources/themes/rollback-theme.json").writeText(theme)
         dir.resolve("resources/templates").createDirectories()
         dir.resolve("resources/templates/broken.json").writeText(template)
+        // A wire-v8 release names its fingerprint, as its publisher wrote it.
+        BundledCatalogFingerprints.sealCatalogDirectory(dir)
         return dir.resolve("catalog.json").toUri().toString()
     }
 

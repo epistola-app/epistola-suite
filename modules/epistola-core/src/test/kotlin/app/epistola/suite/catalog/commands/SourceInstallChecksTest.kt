@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -29,6 +30,9 @@ import kotlin.io.path.writeText
 class SourceInstallChecksTest : IntegrationTestBase() {
 
     private val depKey = CatalogKey.of("dep-test")
+
+    /** The release fingerprint the dependency-test fixture names (BundledCatalogFingerprintTest holds it to its content). */
+    private val dependencyTestFingerprint = "v6:f4bb79843c073a5ef221406b5ba665c1ff5d6d630fcc07e95bbc165e6c84c1db"
 
     /** A writable copy of the dependency-test fixture at [dir]; [edit] changes it first. */
     private fun fixture(dir: Path, edit: (Path) -> Unit = {}): String {
@@ -73,7 +77,7 @@ class SourceInstallChecksTest : IntegrationTestBase() {
     fun `a manifest whose fingerprint is not its content's is refused`(@TempDir tmp: Path) {
         installRefused(
             "Source Wrong Fingerprint",
-            { dir -> dir.replace("catalog.json", "\"version\": \"1.0.0\"", "\"version\": \"1.0.0\", \"fingerprint\": \"v6:${"0".repeat(64)}\"") },
+            { dir -> dir.replace("catalog.json", "\"fingerprint\": \"$dependencyTestFingerprint\"", "\"fingerprint\": \"v6:${"0".repeat(64)}\"") },
             tmp,
         )
             .isInstanceOf(CatalogImportValidationException::class.java)
@@ -82,7 +86,15 @@ class SourceInstallChecksTest : IntegrationTestBase() {
 
     @Test
     fun `a release whose pinned dependency the tenant does not have is refused`(@TempDir tmp: Path) {
-        installRefused("Source Missing Pin", { dir -> dir.replace("catalog.json", "\"releaseVersion\": \"2.1.0\"", "\"releaseVersion\": \"9.9.9\"") }, tmp)
+        installRefused(
+            "Source Missing Pin",
+            { dir ->
+                dir.replace("catalog.json", "\"releaseVersion\": \"2.1.1\"", "\"releaseVersion\": \"9.9.9\"")
+                // A release as its publisher cut it: its fingerprint covers the pin it names.
+                BundledCatalogFingerprints.sealCatalogDirectory(dir)
+            },
+            tmp,
+        )
             .isInstanceOf(CatalogImportDependenciesMissingException::class.java)
             .hasMessageContaining("9.9.9")
     }

@@ -140,7 +140,7 @@ class TemplateStore(
             variants = template.variants.map { variant ->
                 VariantEntry(
                     key = variant.key,
-                    title = variant.title,
+                    name = variant.title,
                     attributes = variant.attributes,
                     templateModel = if (variant.key == default.key) null else models[variant.key] ?: PLACEHOLDER,
                     isDefault = variant.isDefault,

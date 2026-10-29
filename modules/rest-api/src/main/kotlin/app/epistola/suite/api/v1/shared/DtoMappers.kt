@@ -5,7 +5,8 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.AttributeDto
-import app.epistola.api.model.AttributeDtoCodeListBinding
+import app.epistola.api.model.CatalogReleaseRefDto
+import app.epistola.api.model.CodeListBindingRef
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.ResourceStatus
@@ -16,6 +17,7 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.commands.CarriedReleaseRef
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataContract
@@ -37,17 +39,15 @@ internal fun VariantAttributeDefinition.toDto(catalog: Catalog, readOnly: Boolea
     registry = catalog.registry,
     namespace = catalog.namespace,
     catalogKey = catalog.id.value,
-    displayName = displayName,
+    name = displayName,
     allowedValues = allowedValues,
     readOnly = readOnly,
     createdAt = createdAt,
     lastModified = updatedAt,
-    // Attributes keep no description.
-    description = null,
     // By the alias the draft's declarations give the code list's catalog (contract ADR 0003): its key,
     // in this installation; null for the attribute's own catalog.
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
+        CodeListBindingRef(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
     },
 )
 
@@ -79,9 +79,8 @@ internal fun DocumentTemplate.toDto(
     tenantKey = tenantKey.value,
     name = name,
     description = description,
-    // The contract's `schema` (input parameters) has no counterpart in the suite: the data model is the schema.
-    schema = null,
-    dataModel = contract?.dataModel,
+    // The contract has no schema-less template: one without constraints has the empty schema.
+    dataModel = contract?.dataModel ?: objectMapper.createObjectNode(),
     dataExamples = contract?.dataExamples?.map { example ->
         DataExampleDto(
             key = example.key ?: example.id,
@@ -96,7 +95,7 @@ internal fun DocumentTemplate.toDto(
 
 internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
     key = id.value,
-    title = title,
+    name = title,
     attributes = attributes,
     isDefault = isDefault,
     status = status,
@@ -105,11 +104,19 @@ internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
 internal fun TemplateVariant.toDto(status: ResourceStatus) = VariantDto(
     key = id.value,
     templateKey = templateKey.value,
-    title = title,
+    name = title,
     description = description,
     attributes = attributes,
     isDefault = isDefault,
     status = status,
     createdAt = createdAt,
     lastModified = updatedAt,
+)
+
+internal fun CarriedReleaseRef.toDto() = CatalogReleaseRefDto(
+    registry = registry,
+    namespace = namespace,
+    catalogKey = catalogKey,
+    version = version,
+    releaseId = releaseId,
 )

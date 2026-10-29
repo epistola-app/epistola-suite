@@ -9,8 +9,10 @@ import app.epistola.api.model.DocumentGenerationItemDto
 import app.epistola.api.model.DocumentGenerationJobDto
 import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
-import app.epistola.api.model.GenerationJobDetail
+import app.epistola.api.model.GenerationItemStatus
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.api.model.GenerationJobStatus
+import app.epistola.api.model.GenerationJobType
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
@@ -40,7 +42,7 @@ import tools.jackson.databind.ObjectMapper
 
 /** [catalog] names the document's catalog in full; null when it no longer exists. */
 internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
-    id = id.value,
+    documentId = id.value,
     tenantKey = tenantId.value,
     registry = requireNotNull(registry ?: catalog?.registry) { "document $id names no registry" },
     namespace = requireNotNull(namespace ?: catalog?.namespace) { "document $id names no namespace" },
@@ -49,7 +51,7 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
     variantKey = variantId.value,
     version = releaseVersion,
     releaseId = catalogVersionId ?: draftId,
-    draftLabel = draftLabel,
+    releaseName = draftLabel,
     filename = filename,
     correlationId = correlationId,
     contentType = contentType,
@@ -61,9 +63,9 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
 // ==================== Document Generation Request ====================
 
 internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
-    id = id.value,
-    jobType = DocumentGenerationJobDto.JobType.SINGLE, // Always SINGLE in flattened structure
-    status = DocumentGenerationJobDto.Status.valueOf(status.name),
+    requestId = id.value,
+    jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
+    status = GenerationJobStatus.valueOf(status.name),
     total = 1, // Always 1 in flattened structure
     completedCount = if (status == app.epistola.suite.documents.model.RequestStatus.COMPLETED) 1 else 0,
     failedCount = if (status == app.epistola.suite.documents.model.RequestStatus.FAILED) 1 else 0,
@@ -76,16 +78,16 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     requestId = id.value,
-    status = GenerationJobResponse.Status.valueOf(status.name),
-    jobType = GenerationJobResponse.JobType.SINGLE, // Always SINGLE in flattened structure
+    status = GenerationJobStatus.valueOf(status.name),
+    jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
     total = 1, // Always 1 in flattened structure
     createdAt = createdAt,
 )
 
 internal fun BatchKey.toJobResponse() = GenerationJobResponse(
     requestId = value, // Use batch ID as request ID for API compatibility
-    status = GenerationJobResponse.Status.PENDING,
-    jobType = GenerationJobResponse.JobType.BATCH,
+    status = GenerationJobStatus.PENDING,
+    jobType = GenerationJobType.BATCH,
     total = 0, // Count not available without querying - caller should use batch endpoints
     createdAt = EpistolaClock.offsetDateTime(),
 )
@@ -93,8 +95,8 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
 // ==================== Document Generation Item ====================
 // NOTE: In the flattened structure, each request IS an item. Mapping a request to an ItemDto for API compatibility.
 
-internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, catalog: CatalogName?) = DocumentGenerationItemDto(
-    id = id.value,
+internal fun DocumentGenerationRequest.toItemDto(catalog: CatalogName?) = DocumentGenerationItemDto(
+    itemId = id.value,
     registry = requireNotNull(registry ?: catalog?.registry) { "generation request $id names no registry" },
     namespace = requireNotNull(namespace ?: catalog?.namespace) { "generation request $id names no namespace" },
     catalogKey = catalogKey.value,
@@ -102,12 +104,11 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
     variantKey = variantKey.value,
     version = releaseVersion,
     releaseId = catalogVersionId ?: draftId,
-    draftLabel = draftLabel,
+    releaseName = draftLabel,
     environmentKey = environmentKey?.value,
-    data = objectMapper.valueToTree(data),
     filename = filename,
     correlationId = correlationId,
-    status = DocumentGenerationItemDto.Status.valueOf(status.name),
+    status = GenerationItemStatus.valueOf(status.name),
     errorMessage = errorMessage,
     documentId = documentKey?.value,
     createdAt = createdAt,
@@ -116,11 +117,6 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
 )
 
 // ==================== Generation Job Result ====================
-
-internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper, catalogs: Map<CatalogKey, CatalogName>) = GenerationJobDetail(
-    request = request.toJobDto(),
-    items = items.map { it.toItemDto(objectMapper, catalogs[it.catalogKey]) },
-)
 
 // ==================== Request DTOs to Commands ====================
 

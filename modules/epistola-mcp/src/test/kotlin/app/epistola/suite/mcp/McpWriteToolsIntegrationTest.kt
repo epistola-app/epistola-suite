@@ -408,7 +408,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
             runAsApiKey(tenantId) {
                 contractTools.updateDataContract("default", "letter", null, """[{"id": "bad", "name": "Bad", "data": {"name": 7}}]""")
             }
-        }.hasMessageContaining("Data examples do not match the schema").hasMessageContaining("Bad: /name")
+        }.hasMessageContaining("Data examples do not match the schema").hasMessageContaining("bad: /name")
     }
 
     @Test

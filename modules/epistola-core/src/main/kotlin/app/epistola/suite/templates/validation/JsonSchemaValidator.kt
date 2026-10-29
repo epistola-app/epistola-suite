@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.validation
 
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.model.assignDataExampleKeys
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import com.networknt.schema.InputFormat
@@ -437,13 +438,14 @@ class JsonSchemaValidator(
      *
      * @param schema The JSON Schema as an ObjectNode
      * @param examples The list of named data examples to validate
-     * @return Map of example name to list of validation errors (only includes examples with errors)
+     * @return Map of example key to list of validation errors (only includes examples with errors); an
+     *   example without a key is keyed as storing it would key it. A name need not be unique, a key is.
      */
     fun validateExamples(
         schema: ObjectNode,
         examples: List<DataExample>,
-    ): Map<String, List<ValidationError>> = examples
-        .associate { example -> example.name to validate(schema, applyDefaults(schema, example.data)) }
+    ): Map<String, List<ValidationError>> = assignDataExampleKeys(examples)
+        .associate { example -> checkNotNull(example.key) to validate(schema, applyDefaults(schema, example.data)) }
         .filterValues { errors -> errors.isNotEmpty() }
 
     /**

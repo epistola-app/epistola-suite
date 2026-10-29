@@ -7,8 +7,7 @@
     "description": "Minimal default theme shipped with Epistola. Sensible defaults for A4 documents.",
     "documentStyles": {
       "fontFamily": {
-        "key": "inter",
-        "catalogKey": "system"
+        "key": "inter"
       },
       "fontSize": "11pt",
       "lineHeight": 1.5,

@@ -131,7 +131,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
         assertThat(both.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<String>(both.body!!, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
 
-        val kept = call(HttpMethod.PATCH, attribute, key, """{"displayName": "Colour", "codeListBinding": null}""")
+        val kept = call(HttpMethod.PATCH, attribute, key, """{"name": "Colour", "codeListBinding": null}""")
         assertThat(JsonPath.read<String>(kept.body!!, "$.codeListBinding.key")).`as`("null keeps it").isEqualTo("colors")
 
         val inline = call(HttpMethod.PATCH, attribute, key, """{"clearCodeListBinding": true, "allowedValues": ["red", "blue"]}""")

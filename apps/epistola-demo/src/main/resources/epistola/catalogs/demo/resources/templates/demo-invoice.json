@@ -1695,9 +1695,8 @@
     "variants": [
       {
         "key": "default",
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true
       }
     ]

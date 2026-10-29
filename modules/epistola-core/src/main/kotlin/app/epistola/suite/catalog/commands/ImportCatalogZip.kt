@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
+import app.epistola.suite.catalog.releases.GetCatalogRelease
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -180,11 +181,11 @@ data class ImportCatalogZipResult(
      */
     val aborted: Boolean = false,
     /**
-     * For a fat export ([CatalogBundle]): the catalogs it uses that the import installed, as
-     * `catalogKey vVERSION`, in the order it installed them, and those this installation had already.
+     * For a fat export ([CatalogBundle]): the releases it carries that the import installed, in the
+     * order it installed them, and those this installation had already.
      */
-    val installedDependencies: List<String> = emptyList(),
-    val presentDependencies: List<String> = emptyList(),
+    val installedDependencies: List<CarriedReleaseRef> = emptyList(),
+    val presentDependencies: List<CarriedReleaseRef> = emptyList(),
     /** The release the archive carries, which the tenant now has. */
     val releaseVersion: String? = null,
     /** False when the tenant had that release already, with the same fingerprint, and nothing changed. */
@@ -193,6 +194,15 @@ data class ImportCatalogZipResult(
     val published: app.epistola.suite.catalog.CatalogContent? = null,
     /** The catalog the archive was imported into, by its address (ADR 0034, section 9). */
     val catalog: CatalogId? = null,
+)
+
+/** A release an archive carried, by its catalog's full name, its version and its id here. */
+data class CarriedReleaseRef(
+    val registry: String,
+    val namespace: String,
+    val catalogKey: String,
+    val version: String,
+    val releaseId: String,
 )
 
 @Component
@@ -219,6 +229,15 @@ class ImportCatalogZipHandler(
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
         if (command.intoDraft || command.restore) return importArchive(command)
         return install(command)
+    }
+
+    /** The release a carried archive's [installed] put in place, as the tenant now has it. */
+    private fun carriedReleaseRef(installed: ImportCatalogZipResult): CarriedReleaseRef {
+        val catalog = checkNotNull(installed.catalog) { "An installed release names its catalog" }
+        val version = checkNotNull(installed.releaseVersion) { "An installed release names its version" }
+        val name = checkNotNull(GetCatalog(catalog).query()) { "Catalog ${catalog.key.value} was just installed" }
+        val release = checkNotNull(GetCatalogRelease(catalog, version).query()) { "${catalog.key.value} $version was just installed" }
+        return CarriedReleaseRef(name.registry, name.namespace, catalog.key.value, version, release.versionId)
     }
 
     /** How the release [command] receives arrived; every receiving caller names it. */
@@ -256,13 +275,13 @@ class ImportCatalogZipHandler(
 
         // The releases it carries, before it: each one this tenant lacks is received; one it has is
         // left alone.
-        val installedDependencies = mutableListOf<String>()
-        val presentDependencies = mutableListOf<String>()
-        for ((release, bytes) in parsed.carried) {
-            val label = "${release.catalogKey} v${release.releaseVersion}"
+        val installedDependencies = mutableListOf<CarriedReleaseRef>()
+        val presentDependencies = mutableListOf<CarriedReleaseRef>()
+        for ((_, bytes) in parsed.carried) {
             // A release it carries from before wire v8 is in the namespace the caller named for it.
             val dependency = install(ImportCatalogZip(tenantKey = command.tenantKey, zipBytes = bytes, confirmMigration = true, legacyName = LegacyCatalogName(registry, namespace), provenance = command.provenance))
-            if (dependency.newlyInstalled) installedDependencies += label else presentDependencies += label
+            val ref = carriedReleaseRef(dependency)
+            if (dependency.newlyInstalled) installedDependencies += ref else presentDependencies += ref
         }
 
         fun result(newly: Boolean) = ImportCatalogZipResult(

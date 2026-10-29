@@ -28,7 +28,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.releaseFingerprintOf
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.zipOf
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -147,7 +149,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         try {
             server.createContext("/catalog.json") { ex ->
-                val body = manifestJson(targetCatalogKey.value).toByteArray()
+                val body = sealedManifestJson(targetCatalogKey.value).toByteArray()
                 ex.responseHeaders.add("Content-Type", "application/json")
                 ex.sendResponseHeaders(200, body.size.toLong())
                 ex.responseBody.use { it.write(body) }
@@ -200,6 +202,17 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         error("$entryName not found in zip")
     }
 
+    /**
+     * [manifestJson] as its publisher serves it: with the fingerprint its release has, which wire v8
+     * requires, computed over the same manifest and detail.
+     */
+    private fun sealedManifestJson(slug: String): String {
+        val fingerprint = releaseFingerprintOf(
+            zipOf(mapOf("catalog.json" to manifestJson(slug).toByteArray(), "resources/attributes/lang.json" to attributeDetailJson().toByteArray())),
+        )
+        return manifestJson(slug).replace("\"releasedAt\": \"2026-05-11T00:00:00Z\" }", "\"releasedAt\": \"2026-05-11T00:00:00Z\", \"fingerprint\": \"$fingerprint\" }")
+    }
+
     private fun manifestJson(slug: String): String = """
         {
           "schemaVersion": $CATALOG_SCHEMA_VERSION,
@@ -233,9 +246,8 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
               "registry": "exchange.epistola.app",
               "namespace": "epistola",
               "catalogKey": "system",
-              "version": "*",
-              "releaseVersion": null,
-              "releaseFingerprint": null
+              "releaseVersion": "2.1.1",
+              "releaseFingerprint": "v6:97377990b50e1a973a6ceb9cd8811f3e6afa9761c5314350c3ecb05464b818f2"
             }
           ]
         }

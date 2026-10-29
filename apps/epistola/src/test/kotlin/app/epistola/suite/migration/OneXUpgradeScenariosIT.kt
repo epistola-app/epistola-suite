@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.queries.GetTheme
@@ -226,6 +227,8 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
                 dir.resolve("resources/themes/partner-theme.json"),
                 """{"schemaVersion": 8, "resource": {"type": "theme", "key": "partner-theme", "name": "Partner Theme", "documentStyles": {"fontSize": "12pt"}}}""",
             )
+            // A wire-v8 release names its fingerprint, as its publisher wrote it.
+            BundledCatalogFingerprints.sealCatalogDirectory(dir)
             return dir.resolve("catalog.json").toUri().toString()
         }
 

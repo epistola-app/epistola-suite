@@ -54,7 +54,6 @@
           "slots": [],
           "props": {
             "stencilKey": "company-header",
-            "catalogKey": "epistola-demo",
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"
@@ -147,9 +146,8 @@
     },
     "variants": [
       {
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true,
         "key": "default"
       }

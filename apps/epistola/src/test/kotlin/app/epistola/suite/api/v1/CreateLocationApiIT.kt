@@ -76,9 +76,9 @@ class CreateLocationApiIT : IntegrationTestBase() {
             "/api/tenants/${tenantKey.value}/environments" to """{"key":"staging","name":"Staging"}""",
             "$version/themes" to """{"key":"brand","name":"Brand"}""",
             "$version/templates" to """{"key":"invoice","name":"Invoice"}""",
-            "$version/templates/invoice/variants" to """{"key":"english","title":"English"}""",
+            "$version/templates/invoice/variants" to """{"key":"english","name":"English"}""",
             "$version/stencils" to """{"key":"footer","name":"Footer"}""",
-            "$version/code-lists" to """{"key":"colours","displayName":"Colours","sourceType":"inline","entries":[{"code":"red","label":"Red"}]}""",
+            "$version/code-lists" to """{"key":"colours","name":"Colours","sourceType":"inline","entries":[{"code":"red","label":"Red"}]}""",
         )
         for ((collection, request) in creates) {
             val created = call(HttpMethod.POST, collection, apiKey, request)

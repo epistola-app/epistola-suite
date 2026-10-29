@@ -44,7 +44,9 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withReleaseFingerprint
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
@@ -324,11 +326,13 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                   "schemaVersion": 8,
                   "catalog": { "key": "epistola-demo", "registry": "exchange.epistola.app", "namespace": "epistola", "name": "Epistola Demo Catalog" },
                   "publisher": { "name": "Test" },
-                  "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+                  "release": { "version": "1.0.0" },
                   "resources": []
                 }
                 """.trimIndent(),
             )
+            // A wire-v8 release names its fingerprint, as its publisher wrote it.
+            BundledCatalogFingerprints.sealCatalogDirectory(dir)
             val payload = LinkedMultiValueMap<String, String>()
             payload.add("sourceUrl", manifest.toUri().toString())
             restTemplate.postForEntity(
@@ -724,7 +728,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     zip.closeEntry()
                 }
             }
-        }.toByteArray()
+        }.toByteArray().let(::withReleaseFingerprint)
         val payload = LinkedMultiValueMap<String, Any>()
         payload.add(
             "file",
@@ -813,7 +817,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 )
                 zip.closeEntry()
             }
-        }.toByteArray()
+        }.toByteArray().let(::withReleaseFingerprint)
         val payload = LinkedMultiValueMap<String, Any>()
         payload.add(
             "file",

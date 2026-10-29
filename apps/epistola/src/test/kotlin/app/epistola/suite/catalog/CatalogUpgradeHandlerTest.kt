@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -178,11 +179,13 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 "name": "Letter",
                 "dataExamples": [ { "key": "example-1", "name": "Example 1", "data": {} } ],
                 "templateModel": $EMPTY_MODEL,
-                "variants": [ { "key": "default", "title": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
+                "variants": [ { "key": "default", "name": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
               }
             }
             """.trimIndent(),
         )
+        // A wire-v8 release names its fingerprint, as its publisher wrote it.
+        BundledCatalogFingerprints.sealCatalogDirectory(dir)
     }
 
     @Test
@@ -321,6 +324,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
             )
+            BundledCatalogFingerprints.sealCatalogDirectory(dir)
             withMediator {
                 RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
                 InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("moving-source"))).execute()
@@ -330,6 +334,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.1.0"},"resources":[]}""",
             )
+            BundledCatalogFingerprints.sealCatalogDirectory(dir)
         }
 
         whenever {

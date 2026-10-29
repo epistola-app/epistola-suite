@@ -730,13 +730,13 @@
     "variants": [
       {
         "key": "default",
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
         "isDefault": true
       },
       {
         "key": "en-us",
-        "title": "US English",
+        "name": "US English",
         "attributes": {
           "system.locale": "en-US"
         },
@@ -1281,7 +1281,7 @@
       },
       {
         "key": "nl-nl",
-        "title": "Dutch",
+        "name": "Dutch",
         "description": "The Dutch letter for residents; its wording follows the Dutch plain-language guidelines.",
         "attributes": {
           "system.locale": "nl-NL"

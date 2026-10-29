@@ -4,7 +4,6 @@
     "type": "stencil",
     "key": "letter-shell",
     "name": "Letter Shell",
-    "version": 1,
     "description": "A letter shell built from the Letterhead stencil, with a body that templates fill. Its company name reaches the letterhead and, through the body placeholder, the template's fill.",
     "tags": ["layout", "letter"],
     "content": {

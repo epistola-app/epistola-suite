@@ -106,7 +106,7 @@ class MergedContentMcpToolsIntegrationTest : IntegrationTestBase() {
         val sides = runAsApiKey(tenantId) { versionTools.getMergeSides("letters", "1.1.0", "template/invoice", null) }
         assertThat(sides.mergeBase).isEqualTo("1.0.0")
         assertThat(sides.token).isEqualTo(preview.token)
-        assertThat(variants(sides.base).associate { it["key"] to it["title"] }).containsEntry("initial", "Default").containsEntry("english", "English")
+        assertThat(variants(sides.base).associate { it["key"] to it["name"] }).containsEntry("initial", "Default").containsEntry("english", "English")
 
         // What an assistant does: each variant as the side that changed it has it.
         val base = variants(sides.base).associateBy { it["key"] }

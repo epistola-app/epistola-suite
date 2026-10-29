@@ -42,7 +42,6 @@ import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
 import app.epistola.api.model.UpdateCatalogReleaseRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
@@ -52,6 +51,7 @@ import app.epistola.suite.api.v1.shared.draftRef
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
+import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
@@ -143,11 +143,8 @@ class EpistolaCatalogApi(
         tenantKey: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<CatalogListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenant = TenantKey.of(tenantKey)
         val catalogs = ListCatalogPage(tenant, Pagination.requestOf(page, size)).query()
         val editability = ListCatalogEditability(tenant).query()
@@ -208,8 +205,8 @@ class EpistolaCatalogApi(
                 version = result.releaseVersion ?: version,
                 newlyInstalled = result.newlyInstalled,
                 total = result.results.size,
-                installedDependencies = result.installedDependencies,
-                presentDependencies = result.presentDependencies,
+                installedDependencies = result.installedDependencies.map { it.toDto() },
+                presentDependencies = result.presentDependencies.map { it.toDto() },
             ),
         )
     }
@@ -248,8 +245,8 @@ class EpistolaCatalogApi(
                 version = requireNotNull(result.releaseVersion),
                 newlyInstalled = result.newlyInstalled,
                 total = result.results.size,
-                installedDependencies = result.installedDependencies,
-                presentDependencies = result.presentDependencies,
+                installedDependencies = result.installedDependencies.map { it.toDto() },
+                presentDependencies = result.presentDependencies.map { it.toDto() },
             ),
         )
     }
