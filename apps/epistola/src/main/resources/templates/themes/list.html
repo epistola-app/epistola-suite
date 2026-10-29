@@ -96,6 +96,7 @@
                         </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
+                            <th:block th:replace="~{fragments/refactoring :: row-action('theme', ${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address}, ${theme.id})}" />
                             <span th:unless="${catalogEditing.editable(theme.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(theme.catalogKey)}">Read-only</span>
                             <form th:if="${auth.has('TEMPLATE_EDIT') and draftSegment != null and !isCatalogDefault and catalogEditing.editable(theme.catalogKey) and workspace?.catalog?.readOnly != true}"
                                   th:hx-post="@{/tenants/{t}/catalogs/{c}/default-theme(t=${tenantId},c=${draftSegment.value})}"

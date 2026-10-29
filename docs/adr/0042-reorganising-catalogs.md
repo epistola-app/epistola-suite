@@ -126,12 +126,13 @@ addition (ADR 0037), merged as such.
 
 ### What people see
 
-The word "refactoring" stays in code and docs. People see actions named for what they do, on the
-**Organise** page (the one the resource graph already hands off to) and on a resource:
+The word "refactoring" stays in code and docs. People see actions named for what they do, where
+the need for them arises, and no page or menu item called "Organise":
 
-- **Rename…**
-- **Move to catalog…**
-- **Create a shared catalog…** (choose resources, possibly from several catalogs, and a name)
+- **Rename…** and **Move to another catalog…** on every resource: on its page, and as one action in
+  its row of a list. Each works in the draft the page shows; a release offers neither.
+- **Create a shared catalog…** on the catalogs list: name the catalog, choose resources from any
+  catalog, preview, apply.
 
 Every preview opens with **"Everything that uses it will be updated"**, then says what that takes.
 

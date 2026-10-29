@@ -2,13 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <th:block th:fragment="content">
-    <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Organise catalogs')}"></div>
+    <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Create a shared catalog')}"></div>
     <p class="text-muted" style="margin-top: 0; margin-bottom: var(--ep-space-4);">
-        Browse resources across catalogs and move them. A move is previewed before it is applied, and the
-        whole selection moves together or not at all.
+        Choose the resources to gather, from any catalog, and the catalog they go to: a new one, or one
+        you have. Everything that uses them is updated. The move is previewed before it is applied, and
+        the whole selection moves together or not at all. To rename or move one resource, use Rename or
+        Move to another catalog on the resource itself.
     </p>
     <ep-catalog-organise
-            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-preselected=${preselected},data-can-apply=${canApply}">
+            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-preselected=${preselected},data-start-shared=${startShared},data-can-apply=${canApply}">
         <div class="ep-panel" style="padding: var(--ep-space-6);">Loading resources…</div>
     </ep-catalog-organise>
 </th:block>

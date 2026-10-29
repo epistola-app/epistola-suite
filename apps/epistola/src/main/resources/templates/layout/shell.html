@@ -38,6 +38,8 @@
                 <div th:if="${workspace?.catalog != null}" id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
                 <!--/* Dialogs the context bar opens on any catalog page, such as starting parallel work. */-->
                 <div th:if="${workspace?.catalog != null}" id="ws-dialog-mount" data-dialog-mount></div>
+                <!--/* Rename and Move to another catalog, opened from any resource's page or row (fragments/refactoring). */-->
+                <div id="refactoring-mount" data-dialog-mount></div>
                 <!--/* Which bar and nav this page was rendered with, sent back on the next boosted
                        navigation so the server sends them again only when they change. */-->
                 <span id="ws-shell-key" hidden th:attr="data-key=${workspace != null} ? 'nav:' + ${workspace.barKey} : 'plain'"></span>

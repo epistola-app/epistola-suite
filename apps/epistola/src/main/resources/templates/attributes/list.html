@@ -84,6 +84,7 @@
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${attr.createdAt}" th:title="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
+                            <th:block th:replace="~{fragments/refactoring :: row-action('attribute', ${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address}, ${attr.id})}" />
                             <span th:unless="${catalogEditing.editable(attr.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(attr.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(attr.catalogKey)}">
                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"

@@ -7,7 +7,6 @@ package app.epistola.suite.handlers.nav
 import app.epistola.suite.catalog.queries.CountCatalogsWithUpgradeAvailable
 import app.epistola.suite.exchange.ResolveCatalogPublishingAvailability
 import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
@@ -41,21 +40,6 @@ class CoreNavContributor : NavContributor {
         // Catalogs: the shell lists each catalog above these.
         if (context.hasPermission(Permission.CATALOG_VIEW)) {
             add(NavItem("authoring", "catalogs", "All catalogs", "catalogs", 40, indicator = catalogUpdates(context)))
-            // Its own page rather than a tab under Catalogs, so it is linkable and the Catalogs
-            // list stays about the catalogs themselves. The longer path suffix wins the
-            // active-section match, so browsing here does not light up Catalogs instead.
-            if (ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_RELOCATION] == true) {
-                add(
-                    NavItem(
-                        "authoring",
-                        "catalog-organise",
-                        "Organise",
-                        "catalogs/organise",
-                        45,
-                        stage = KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION),
-                    ),
-                )
-            }
         }
 
         // Documents: where applications get them, and what was made.

@@ -128,41 +128,15 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `relocation contributes an Organise nav item and owns its active section`() {
+    fun `organising catalogs has no nav item, and its page lights up Catalogs`() {
         val tenant = createTenant("Nav Organise")
 
-        // On by default; switching the toggle off is the only thing that hides it.
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
-        assertThat(body).contains("nav-item-catalog-organise")
-        assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/organise")
+        // Its actions are on the resources and the catalogs list (ADR 0042), not in the nav.
+        val catalogs = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        assertThat(catalogs).doesNotContain("nav-item-catalog-organise")
 
-        // The organise page claims its own section rather than lighting up Catalogs: the
-        // aggregator resolves by longest matching path suffix, so "catalogs/organise" must win
-        // over "catalogs" here.
-        val organise = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/organise", String::class.java).body!!
-        val normalised = organise.replace(Regex("\\s+"), " ")
-        // `class` is rendered before `data-testid`, so match the whole opening tag.
-        val organiseAnchor = Regex("""<a[^>]*nav-item-catalog-organise[^>]*>""").find(normalised)?.value
-        val catalogsAnchor = Regex("""<a[^>]*nav-item-catalogs[^>]*>""").find(normalised)?.value
-        assertThat(organiseAnchor).isNotNull().contains("active")
-        assertThat(catalogsAnchor).isNotNull().doesNotContain("active")
-
-        withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute()
-        }
-
-        val without = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
-        assertThat(without).doesNotContain("nav-item-catalog-organise")
-    }
-
-    @Test
-    fun `a stable feature's nav item carries no maturity badge`() {
-        val tenant = createTenant("Nav Stable")
-
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!.replace(Regex("\\s+"), " ")
-
-        // Organising catalogs is stable: its item is there, and no stage badge follows its label.
-        val organise = Regex("""<a[^>]*nav-item-catalog-organise.*?</a>""").find(body)?.value
-        assertThat(organise).isNotNull().doesNotContain("badge-alpha").doesNotContain("badge-beta")
+        val shared = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/organise", String::class.java).body!!.replace(Regex("\\s+"), " ")
+        val catalogsAnchor = Regex("""<a[^>]*nav-item-catalogs[^>]*>""").find(shared)?.value
+        assertThat(catalogsAnchor).isNotNull().contains("active")
     }
 }
