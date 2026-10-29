@@ -104,15 +104,6 @@ class KnownFeaturesTest {
     }
 
     @Test
-    fun `resource graph is toggle-only alpha and defaults off`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_GRAPH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_GRAPH)
-        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.RESOURCE_GRAPH)
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_GRAPH)).isFalse()
-        assertThat(FeatureDefaults(resourceGraph = true).isEnabled(KnownFeatures.RESOURCE_GRAPH)).isTrue()
-    }
-
-    @Test
     fun `resource relocation is toggle-only, stable and on by default`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
         assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)

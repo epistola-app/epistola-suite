@@ -7,7 +7,6 @@ package app.epistola.suite.handlers.nav
 import app.epistola.suite.catalog.queries.CountCatalogsWithUpgradeAvailable
 import app.epistola.suite.exchange.ResolveCatalogPublishingAvailability
 import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.KnownFeatures.FeatureStage
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
@@ -54,18 +53,6 @@ class CoreNavContributor : NavContributor {
                         "catalogs/organise",
                         45,
                         stage = KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION),
-                    ),
-                )
-            }
-            if (ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_GRAPH] == true) {
-                add(
-                    NavItem(
-                        "authoring",
-                        "resource-graph",
-                        "Resource graph",
-                        "resource-graph",
-                        60,
-                        stage = KnownFeatures.metadata[KnownFeatures.RESOURCE_GRAPH]?.stage ?: FeatureStage.STABLE,
                     ),
                 )
             }

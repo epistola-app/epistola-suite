@@ -248,7 +248,6 @@ epistola:
     ai-chat: false
     catalog-publishing: false
     catalog-installing: false
-    resource-graph: false
     resource-relocation: true
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
