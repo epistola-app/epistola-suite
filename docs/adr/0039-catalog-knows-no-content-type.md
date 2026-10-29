@@ -1,6 +1,6 @@
 # ADR 0039: The catalog knows no content type
 
-- **Status:** Proposed
+- **Status:** Accepted — implemented (2.0)
 - **Date:** 2026-10-28
 - **Deciders:** Epistola team
 - **Tags:** catalog, architecture, storage, import, export, relocation
