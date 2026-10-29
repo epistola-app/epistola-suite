@@ -30,7 +30,22 @@ import tools.jackson.databind.ObjectMapper
  */
 class ChangeKindEvaluatorTest {
 
-    private val evaluator = ChangeKindEvaluator(ObjectMapper())
+    /** Every content type, as the application has them (ADR 0039): each says what its changes mean. */
+    private val types = ObjectMapper().let { objectMapper ->
+        app.epistola.suite.catalog.types.ResourceTypes(
+            listOf(
+                app.epistola.suite.templates.TemplateResourceType(objectMapper, app.epistola.suite.catalog.ProtocolMapper(objectMapper)),
+                app.epistola.suite.stencils.StencilResourceType(),
+                app.epistola.suite.attributes.AttributeResourceType(),
+                app.epistola.suite.attributes.codelists.CodeListResourceType(),
+                app.epistola.suite.themes.ThemeResourceType(),
+                app.epistola.suite.fonts.FontResourceType(),
+                app.epistola.suite.assets.ImageResourceType(),
+            ),
+        )
+    }
+
+    private val evaluator = ChangeKindEvaluator(types)
 
     private val document = stencilDocument { build() }
 
@@ -118,7 +133,7 @@ class ChangeKindEvaluatorTest {
             .containsExactly(ChangeKind.NONE to "$shared: no longer used")
 
         // Which moves break is the per-use check's answer, here: only to 2.0.0, and only the footer.
-        val perUse = ChangeKindEvaluator(ObjectMapper()) { _, _, to -> if (to == "2.0.0") listOf("stencil 'footer': placeholder 'body' removed") else emptyList() }
+        val perUse = ChangeKindEvaluator(types) { _, _, to -> if (to == "2.0.0") listOf("stencil 'footer': placeholder 'body' removed") else emptyList() }
         fun lockMove(from: String, to: String, with: ChangeKindEvaluator = perUse) = with
             .evaluate(content(dependencies = listOf(dependency(from))), content(dependencies = listOf(dependency(to))))
             .reasons.map { it.kind to it.toString() }

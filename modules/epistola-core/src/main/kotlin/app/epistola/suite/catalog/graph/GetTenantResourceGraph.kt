@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
@@ -11,7 +12,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.currentTemplateViewJoin
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel

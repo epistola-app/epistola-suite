@@ -175,15 +175,6 @@ class CodeListStore(
         .orElse(null)
         ?.let { fieldsOf(objectMapper.readTree(it)) }
 
-    /** The settings beside the released form of each of [catalog]'s code lists that has a source, by key. */
-    fun sources(handle: Handle, catalog: CatalogId): Map<String, JsonNode> = handle
-        .createQuery("SELECT t.id, (t.payload -> 'source')::text AS source FROM current_code_lists t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.payload -> 'source' IS NOT NULL")
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .map { rs, _ -> rs.getString("id") to objectMapper.readTree(rs.getString("source")) }
-        .list()
-        .toMap()
-
     /** Records a refresh of code list [id] in the targeted draft: when it succeeded (null: it did not), and its error. */
     fun recordRefresh(handle: Handle, id: CodeListId, succeeded: Boolean, error: String?) {
         handle.requireWritableVersion(id.catalogId)

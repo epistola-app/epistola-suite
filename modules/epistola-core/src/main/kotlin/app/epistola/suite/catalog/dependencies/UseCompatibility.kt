@@ -24,9 +24,9 @@ import tools.jackson.databind.ObjectMapper
 @Component
 class UseCompatibility(
     private val releases: ReleaseContentAssembler,
-    objectMapper: ObjectMapper,
+    types: app.epistola.suite.catalog.types.ResourceTypes,
 ) {
-    private val changes = ChangeKindEvaluator(objectMapper)
+    private val changes = ChangeKindEvaluator(types)
 
     /**
      * What version [to] of [catalogKey] breaks, against version [from], of what is [used]. Empty when it

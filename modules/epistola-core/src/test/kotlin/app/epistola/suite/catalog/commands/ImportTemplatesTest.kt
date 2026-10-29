@@ -16,6 +16,10 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.ImportStatus
+import app.epistola.suite.templates.commands.ImportTemplateInput
+import app.epistola.suite.templates.commands.ImportTemplates
+import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants

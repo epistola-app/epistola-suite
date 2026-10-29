@@ -141,3 +141,10 @@ fun Handle.contentRevision(table: String, keyColumn: String, catalog: CatalogId,
     .mapTo(Long::class.java)
     .findOne()
     .orElse(null)
+
+/**
+ * Joins a variant aliased [alias] of `current_template_variants` to its template in
+ * `current_templates`, aliased `template`, so a query can report the template's address. The views
+ * are the read model the catalog's migrations define, so the join belongs with them.
+ */
+fun currentTemplateViewJoin(alias: String): String = "JOIN current_templates template ON template.tenant_key = $alias.tenant_key AND template.catalog_id = $alias.catalog_id AND template.resource_id = $alias.template_resource_id"

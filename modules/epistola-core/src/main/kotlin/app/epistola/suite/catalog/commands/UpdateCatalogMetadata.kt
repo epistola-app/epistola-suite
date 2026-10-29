@@ -7,13 +7,12 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.catalog.protocol.CatalogLicense
 import app.epistola.catalog.protocol.CatalogPresentation
-import app.epistola.suite.assets.AssetMediaCategory
-import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -26,7 +25,6 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.validation.FieldLimits.MAX_KEYWORDS
 import app.epistola.suite.validation.FieldLimits.MAX_KEYWORD_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
@@ -209,6 +207,7 @@ private object SpdxExpressionSyntax {
 class UpdateCatalogMetadataHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val attributeValues: app.epistola.suite.catalog.CatalogAttributeValues,
 ) : CommandHandler<UpdateCatalogMetadata, Catalog> {
 
     override fun handle(command: UpdateCatalogMetadata): Catalog {
@@ -216,7 +215,7 @@ class UpdateCatalogMetadataHandler(
             ?: throw CatalogNotFoundException(command.catalogKey)
         requireCatalogEditable(command.catalog)
 
-        validateAttributes(
+        attributeValues.validate(
             TenantId(command.tenantKey),
             command.attributes.associate { "${it.catalogKey}.${it.key}" to it.value },
         )
@@ -255,9 +254,12 @@ class UpdateCatalogMetadataHandler(
         val referenced = listOfNotNull(presentation.iconImageKey) + presentation.imageKeys
         if (referenced.isEmpty()) return
 
-        val available = ListAssets(command.tenantKey, catalog = command.catalog).query()
-            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            .mapTo(mutableSetOf()) { it.id.value }
+        // The images the version holds (ADR 0039: read as any image list reads them, not through the domain).
+        val available = jdbi.withHandle<Set<String>, Exception> { handle ->
+            handle.createQuery(
+                "SELECT id FROM current_images WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND media_type LIKE 'image/%'",
+            ).bind("t", command.tenantKey).bindCatalog("c", command.catalog).mapTo(String::class.java).set()
+        }
         validate("presentation", referenced.all(available::contains)) {
             "Presentation assets must be installed images from this catalog."
         }

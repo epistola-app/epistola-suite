@@ -190,9 +190,9 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
                 resource.set("dataModel", contract.dataModel?.takeUnless { it.isNull } ?: mapper.nullNode())
                 resource.set("dataExamples", DataExampleKeys.wireForm(contract.dataExamples ?: mapper.createArrayNode()))
             }
-            // A template's own reference, its theme, is not in what changed: it carries over.
+            // A template's own references, its theme and its variants' attributes, are not in what changed: they carry over.
             val theme = resource.text("themeKey")?.let { setOf(ReferenceWalker.Reference(resource.text("themeCatalogKey"), "theme", it)) }.orEmpty()
-            val hash = store.store(catalog.tenant, "template", head, theme)
+            val hash = store.store(catalog.tenant, "template", head, theme + variantAttributeReferences(resource.path("variants")))
             changed(store, hash, catalog.tenant, draft, "resource_id = ?::uuid AND parent_id IS NULL", template.resourceId)
         }
     }
@@ -250,6 +250,15 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
 
     private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotBlank() }
 
+    /** The attributes [variants] select by, as references (ADR 0039): `catalog.attribute` by that catalog's alias, a bare key by none. */
+    private fun variantAttributeReferences(variants: JsonNode): Set<ReferenceWalker.Reference> = buildSet {
+        variants.forEach { slot ->
+            slot.get("attributes")?.takeIf { it.isObject }?.properties()?.forEach { (name, _) ->
+                add(ReferenceWalker.Reference(name.substringBefore('.', "").ifEmpty { null }, "attribute", name.substringAfter('.')))
+            }
+        }
+    }
+
     companion object {
         /** The name of the draft of what a 1.x catalog last published. */
         const val NAME = "Published in 1.x"
@@ -258,6 +267,6 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
         const val ONE_X_CATALOGS = "upgrade-1x-catalogs"
 
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -368030369
+        const val CHECKSUM: Int = -558387706
     }
 }

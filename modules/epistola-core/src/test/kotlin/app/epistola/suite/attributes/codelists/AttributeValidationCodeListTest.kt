@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -17,7 +18,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog

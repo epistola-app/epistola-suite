@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindCatalogs
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.catalogsAt
+import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
@@ -18,7 +19,6 @@ import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
-import app.epistola.suite.templates.currentTemplateViewJoin
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -703,7 +703,10 @@ internal data class CatalogResourceMovePlan(
     val rewrites: List<JsonRewrite>,
 )
 
-internal sealed interface JsonRewrite {
+sealed interface JsonRewrite {
+    /** The wire name of the type whose resource this rewrites: its [ResourceRelocator] applies it. */
+    val ownerType: String
+
     /** The holder's catalog address, `namespace/key` (ADR 0034, section 9). */
     val catalogKey: String
     val ownerKey: String
@@ -725,6 +728,7 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val version: Int get() = 0
+        override val ownerType get() = "template"
         override val identity get() = "template:$catalogKey:$ownerKey:$variantKey"
     }
 
@@ -737,6 +741,7 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val version: Int get() = 0
+        override val ownerType get() = "stencil"
         override val identity get() = "stencil:$catalogKey:$ownerKey"
     }
 
@@ -757,6 +762,7 @@ internal sealed interface JsonRewrite {
         override val version = 0
         override val expected get() = "$expectedDocumentStyles|$expectedPresets"
         override val replacement get() = "$replacementDocumentStyles|$replacementPresets"
+        override val ownerType get() = "theme"
         override val identity get() = "theme-styles:$catalogKey:$ownerKey"
     }
 
@@ -769,6 +775,7 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val version = 0
+        override val ownerType get() = "attribute"
         override val identity get() = "attribute:$catalogKey:$ownerKey"
     }
 
@@ -782,6 +789,7 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val version = 0
+        override val ownerType get() = "template"
         override val identity get() = "variant-attributes:$catalogKey:$ownerKey:$variantKey"
     }
 }

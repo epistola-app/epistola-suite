@@ -43,6 +43,7 @@ import tools.jackson.databind.node.ObjectNode
 class ResourceContentStore(
     private val objectMapper: ObjectMapper,
     private val contentStore: AssetContentStore,
+    private val types: app.epistola.suite.catalog.types.ResourceTypes,
 ) {
 
     /**
@@ -130,7 +131,7 @@ class ResourceContentStore(
             .bind("kind", kind)
             .bind("payload", canonical)
             .execute()
-        writeReferences(handle, tenantKey, digest, ContentReferences.of(kind, payload))
+        writeReferences(handle, tenantKey, digest, ContentReferences.of(payload, types.find(kind)))
         linkBinaries(handle, tenantKey, digest, binaryHashes(kind, payload))
         return digest
     }
