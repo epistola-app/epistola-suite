@@ -178,7 +178,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 "name": "Letter",
                 "dataExamples": [ { "key": "example-1", "name": "Example 1", "data": {} } ],
                 "templateModel": $EMPTY_MODEL,
-                "variants": [ { "key": "default", "title": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
+                "variants": [ { "key": "default", "name": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
               }
             }
             """.trimIndent(),

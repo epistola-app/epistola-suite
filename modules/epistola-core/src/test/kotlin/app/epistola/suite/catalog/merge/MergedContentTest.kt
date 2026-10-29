@@ -95,12 +95,12 @@ class MergedContentTest : IntegrationTestBase() {
     @Suppress("UNCHECKED_CAST")
     private fun variantsOf(side: Map<String, Any?>?): List<Map<String, Any?>> = side!!["variants"] as List<Map<String, Any?>>
 
-    private fun titles(side: Map<String, Any?>?): Map<Any?, Any?> = variantsOf(side).associate { it["key"] to it["title"] }
+    private fun titles(side: Map<String, Any?>?): Map<Any?, Any?> = variantsOf(side).associate { it["key"] to it["name"] }
 
-    /** The draft's side with each variant's title [from] the side that changed it. */
+    /** The draft's side with each variant's name [from] the side that changed it. */
     private fun combined(sides: DraftMergeSides): Map<String, Any?> {
         val theirs = variantsOf(sides.release).associateBy { it["key"] }
-        return sides.draft!! + ("variants" to variantsOf(sides.draft).map { if (it["key"] == "english") it + ("title" to theirs.getValue("english")["title"]) else it })
+        return sides.draft!! + ("variants" to variantsOf(sides.draft).map { if (it["key"] == "english") it + ("name" to theirs.getValue("english")["name"]) else it })
     }
 
     @Test

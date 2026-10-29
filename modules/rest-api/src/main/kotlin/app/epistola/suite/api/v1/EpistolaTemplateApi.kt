@@ -36,6 +36,7 @@ import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.requestField
 import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -333,13 +334,15 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VariantDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val templateId = draft.templateId(templateKey)
-        val variant = CreateVariant(
-            id = VariantId(VariantKey.of(createVariantRequest.key), templateId),
-            title = createVariantRequest.title,
-            description = createVariantRequest.description,
-            attributes = createVariantRequest.attributes ?: emptyMap(),
-            catalogVersion = draft.ref,
-        ).execute() ?: throw TemplateNotFoundException(templateId.tenantKey, templateId.key)
+        val variant = requestField("title", "name") {
+            CreateVariant(
+                id = VariantId(VariantKey.of(createVariantRequest.key), templateId),
+                title = createVariantRequest.name,
+                description = createVariantRequest.description,
+                attributes = createVariantRequest.attributes ?: emptyMap(),
+                catalogVersion = draft.ref,
+            ).execute() ?: throw TemplateNotFoundException(templateId.tenantKey, templateId.key)
+        }
         return variantDto(draft, variant).let { created(it.key, it) }
     }
 
@@ -372,14 +375,16 @@ class EpistolaTemplateApi(
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val current = workingVariant(draft, templateKey, variantKey)
         val id = draft.variantId(templateKey, variantKey)
-        val variant = UpdateVariant(
-            variantId = id,
-            title = updateVariantRequest.title,
-            attributes = updateVariantRequest.attributes ?: current.attributes,
-            catalogVersion = draft.ref,
-            // The merge above read the variant at `current`; a write in between must not be lost.
-            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-        ).execute() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        val variant = requestField("title", "name") {
+            UpdateVariant(
+                variantId = id,
+                title = updateVariantRequest.name ?: current.title,
+                attributes = updateVariantRequest.attributes ?: current.attributes,
+                catalogVersion = draft.ref,
+                // The merge above read the variant at `current`; a write in between must not be lost.
+                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+            ).execute() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        }
         return okWithETag(variant.revision, variantDto(draft, variant))
     }
 

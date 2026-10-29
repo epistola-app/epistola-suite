@@ -23,6 +23,7 @@ import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.requestField
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
@@ -83,20 +84,22 @@ class EpistolaCodeListApi : CodeListsApi {
         createCodeListRequest: CreateCodeListRequest,
     ): ResponseEntity<CodeListDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val codeList = CreateCodeList(
-            id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
-            displayName = createCodeListRequest.displayName,
-            description = createCodeListRequest.description,
-            sourceType = when (createCodeListRequest.sourceType) {
-                CreateCodeListRequest.SourceType.INLINE -> CodeListSource.INLINE
-                CreateCodeListRequest.SourceType.URL -> CodeListSource.URL
-            },
-            sourceUrl = createCodeListRequest.sourceUrl,
-            authType = createCodeListRequest.authType?.toModel() ?: AuthType.NONE,
-            credential = createCodeListRequest.credential,
-            entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
-            catalogVersion = draft.ref,
-        ).execute()
+        val codeList = requestField("displayName", "name") {
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
+                displayName = createCodeListRequest.name,
+                description = createCodeListRequest.description,
+                sourceType = when (createCodeListRequest.sourceType) {
+                    CreateCodeListRequest.SourceType.INLINE -> CodeListSource.INLINE
+                    CreateCodeListRequest.SourceType.URL -> CodeListSource.URL
+                },
+                sourceUrl = createCodeListRequest.sourceUrl,
+                authType = createCodeListRequest.authType?.toModel() ?: AuthType.NONE,
+                credential = createCodeListRequest.credential,
+                entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
+                catalogVersion = draft.ref,
+            ).execute()
+        }
         return codeList.toDto(draft.catalog).let { created(it.key, it) }
     }
 
@@ -128,18 +131,20 @@ class EpistolaCodeListApi : CodeListsApi {
         // PATCH semantics — fetch current, merge with the request body, then
         // replay through the full UpdateCodeList command (it isn't partial).
         val current = GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
-        val updated = UpdateCodeList(
-            id = id,
-            displayName = updateCodeListRequest.displayName ?: current.displayName,
-            description = updateCodeListRequest.description ?: current.description,
-            sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
-            authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
-            credential = updateCodeListRequest.credential ?: current.credential?.value,
-            entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
-            catalogVersion = draft.ref,
-            // The merge above read the list at `current`; a write in between must not be lost.
-            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-        ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        val updated = requestField("displayName", "name") {
+            UpdateCodeList(
+                id = id,
+                displayName = updateCodeListRequest.name ?: current.displayName,
+                description = updateCodeListRequest.description ?: current.description,
+                sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
+                authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
+                credential = updateCodeListRequest.credential ?: current.credential?.value,
+                entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
+                catalogVersion = draft.ref,
+                // The merge above read the list at `current`; a write in between must not be lost.
+                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+            ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        }
         return okWithETag(updated.revision, updated.toDto(draft.catalog))
     }
 

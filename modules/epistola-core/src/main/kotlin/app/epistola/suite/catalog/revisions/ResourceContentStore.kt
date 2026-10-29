@@ -69,7 +69,7 @@ class ResourceContentStore(
                 variants[key] = resource.variants.map { variant ->
                     val model = if (variant.key == default?.key) resource.templateModel else variant.templateModel
                     val hash = write(handle, tenantKey, TemplateContents.VARIANT_KIND, TemplateContents.part(variant, model, objectMapper))
-                    VariantRows.Released(variant.key, hash, variant.title ?: variant.key, variant.description)
+                    VariantRows.Released(variant.key, hash, variant.name ?: variant.key, variant.description)
                 }
                 return@mapValues write(handle, tenantKey, resource.type, TemplateContents.head(resource, objectMapper))
             }

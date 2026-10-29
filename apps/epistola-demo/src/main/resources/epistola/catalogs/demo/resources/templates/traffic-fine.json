@@ -1076,7 +1076,7 @@
     "variants": [
       {
         "key": "notice-of-speeding-violation",
-        "title": "Engels",
+        "name": "Engels",
         "attributes": {
           "system.locale": "en-GB"
         },
@@ -1950,7 +1950,7 @@
       },
       {
         "key": "officiele-snelheidsbekeuring-default",
-        "title": "Nederlands",
+        "name": "Nederlands",
         "attributes": {
           "system.locale": "nl-NL"
         },

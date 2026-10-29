@@ -40,7 +40,7 @@ import tools.jackson.databind.ObjectMapper
 
 /** [catalog] names the document's catalog in full; null when it no longer exists. */
 internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
-    id = id.value,
+    documentId = id.value,
     tenantKey = tenantId.value,
     registry = requireNotNull(registry ?: catalog?.registry) { "document $id names no registry" },
     namespace = requireNotNull(namespace ?: catalog?.namespace) { "document $id names no namespace" },
@@ -49,7 +49,7 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
     variantKey = variantId.value,
     version = releaseVersion,
     releaseId = catalogVersionId ?: draftId,
-    draftLabel = draftLabel,
+    releaseName = draftLabel,
     filename = filename,
     correlationId = correlationId,
     contentType = contentType,
@@ -61,7 +61,7 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
 // ==================== Document Generation Request ====================
 
 internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
-    id = id.value,
+    requestId = id.value,
     jobType = DocumentGenerationJobDto.JobType.SINGLE, // Always SINGLE in flattened structure
     status = DocumentGenerationJobDto.Status.valueOf(status.name),
     total = 1, // Always 1 in flattened structure
@@ -94,7 +94,7 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
 // NOTE: In the flattened structure, each request IS an item. Mapping a request to an ItemDto for API compatibility.
 
 internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, catalog: CatalogName?) = DocumentGenerationItemDto(
-    id = id.value,
+    itemId = id.value,
     registry = requireNotNull(registry ?: catalog?.registry) { "generation request $id names no registry" },
     namespace = requireNotNull(namespace ?: catalog?.namespace) { "generation request $id names no namespace" },
     catalogKey = catalogKey.value,
@@ -102,7 +102,7 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
     variantKey = variantKey.value,
     version = releaseVersion,
     releaseId = catalogVersionId ?: draftId,
-    draftLabel = draftLabel,
+    releaseName = draftLabel,
     environmentKey = environmentKey?.value,
     data = objectMapper.valueToTree(data),
     filename = filename,

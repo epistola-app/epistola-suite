@@ -197,7 +197,7 @@ internal fun templateImportInput(
     variants = resource.variants.map { variant ->
         ImportVariantInput(
             id = variant.key,
-            title = variant.title,
+            title = variant.name,
             attributes = variant.attributes ?: emptyMap(),
             templateModel = variant.templateModel,
             isDefault = variant.isDefault,

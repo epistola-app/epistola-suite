@@ -1074,7 +1074,7 @@
     },
     "variants": [
       {
-        "title": "Engels",
+        "name": "Engels",
         "attributes": {
           "system.locale": "en-GB"
         },
@@ -1948,7 +1948,7 @@
         "key": "notice-of-speeding-violation"
       },
       {
-        "title": "Nederlands",
+        "name": "Nederlands",
         "attributes": {
           "system.locale": "nl-NL"
         },

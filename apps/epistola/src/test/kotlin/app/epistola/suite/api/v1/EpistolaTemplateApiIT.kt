@@ -373,7 +373,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.type"))
             .isEqualTo("https://epistola.app/errors/data-model-validation-error")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(422)
-        assertThat(JsonPath.read<Any>(problem, "$.validationErrors")).isNotNull
+        // Keyed by the example's key, not its name (contract 2.0).
+        assertThat(JsonPath.read<Map<String, Any>>(problem, "$.validationErrors")).containsOnlyKeys("ex1")
     }
 
     @Test
@@ -1275,7 +1276,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
      * Both must be a 400 that names `title` — a client cannot act on "malformed or unreadable".
      */
     @Test
-    fun `create variant without a title returns 400 naming the title field`() {
+    fun `create variant without a name returns 400 naming the name field`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "notitle-${randomSuffix()}"
         restTemplate.exchange(
@@ -1296,12 +1297,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // Assert on the errors[] entry, not a bare contains("title"): the ProblemDetail's own
         // "title":"Bad Request" member makes a substring check pass even when the field is unnamed.
         assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field"))
-            .describedAs("a 400 for a missing title must name the offending field, not just say the body is unreadable")
-            .contains("title")
+            .describedAs("a 400 for a missing name must name the offending field, not just say the body is unreadable")
+            .contains("name")
     }
 
     @Test
-    fun `create variant with a blank title returns 400 naming the title field`() {
+    fun `create variant with a blank name returns 400 naming the name field`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "blank-${randomSuffix()}"
         restTemplate.exchange(
@@ -1314,12 +1315,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val response = restTemplate.exchange(
             "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"key": "english", "title": "   "}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "name": "   "}""", baseHeaders(key)),
             String::class.java,
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).contains("title")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("name")
     }
 
     @Test
@@ -1338,7 +1339,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val response = restTemplate.exchange(
             "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"key": "english", "title": "English", "attributes": 42}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "name": "English", "attributes": 42}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1347,7 +1348,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `create variant with a valid title returns 201`() {
+    fun `create variant with a valid name returns 201`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "valid-${randomSuffix()}"
         restTemplate.exchange(
@@ -1360,12 +1361,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val response = restTemplate.exchange(
             "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"key": "english", "title": "English Invoice"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "name": "English Invoice"}""", baseHeaders(key)),
             String::class.java,
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(JsonPath.read<String>(response.body!!, "$.title")).isEqualTo("English Invoice")
+        assertThat(JsonPath.read<String>(response.body!!, "$.name")).isEqualTo("English Invoice")
     }
 
     @Test

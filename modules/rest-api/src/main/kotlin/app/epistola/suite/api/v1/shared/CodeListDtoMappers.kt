@@ -24,7 +24,7 @@ internal fun CodeList.toDto(catalog: Catalog, readOnly: Boolean = catalog.readOn
     registry = catalog.registry,
     namespace = catalog.namespace,
     catalogKey = catalogKey.value,
-    displayName = displayName,
+    name = displayName,
     sourceType = when (sourceType) {
         CodeListSource.URL -> CodeListDto.SourceType.URL
 

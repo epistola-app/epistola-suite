@@ -112,8 +112,8 @@ class UpdateDataContractTest : IntegrationTestBase() {
             ).execute()
         }
 
-        // Warnings are keyed by example name, as UpdateDataContractResult documents.
-        assertThat(result.warnings).containsKey("Jane")
+        // Warnings are keyed by example key, as UpdateDataContractResult documents: a name need not be unique.
+        assertThat(result.warnings).containsOnlyKeys("jane")
         // Stored by its key, as the wire form keeps it (ADR 0033): its id reads as its key.
         assertThat(withMediator { GetDataContract(templateId).query()!! }.dataExamples).isEqualTo(examples.map { it.copy(id = "jane") })
     }

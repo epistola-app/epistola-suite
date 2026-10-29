@@ -22,7 +22,8 @@ import tools.jackson.databind.node.ObjectNode
  *   of each variant's place in it, its producer metadata included, and no model.
  * - **A variant** (a row of its own, [VariantRows], kind [VARIANT_KIND]): `{ "resource": { title,
  *   templateModel, description } }`, its model whole (the default variant's included,
- *   which the wire form keeps on the template). A variant content stored before contract
+ *   which the wire form keeps on the template). Its name is stored as `title`, as it was before wire
+ *   v8 named it `name` (contract `2.0.0-alpha.4`), so stored contents keep their hashes. A variant content stored before contract
  *   `2.0.0-alpha.2` may keep its description beside the resource; a release holding one was
  *   fingerprinted without it.
  *
@@ -59,7 +60,7 @@ object TemplateContents {
      */
     fun part(variant: VariantEntry, model: TemplateDocument?, objectMapper: ObjectMapper): ObjectNode {
         val resource = objectMapper.createObjectNode().apply {
-            put("title", variant.title)
+            put("title", variant.name)
             model?.let { set("templateModel", objectMapper.valueToTree(it)) }
             variant.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
         }
@@ -86,7 +87,7 @@ object TemplateContents {
                     list.add(
                         objectMapper.createObjectNode().apply {
                             put("key", key)
-                            set("title", part?.get("title") ?: objectMapper.nullNode())
+                            set("name", part?.get("title") ?: objectMapper.nullNode())
                             set("attributes", slot.path("attributes"))
                             set("templateModel", if (key == default?.path("key")?.asString()) objectMapper.nullNode() else part?.get("templateModel") ?: objectMapper.nullNode())
                             put("isDefault", slot.path("isDefault").asBoolean(false))

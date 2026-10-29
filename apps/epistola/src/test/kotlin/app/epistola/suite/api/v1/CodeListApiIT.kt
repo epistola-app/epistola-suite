@@ -120,7 +120,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val body = """
             {
               "key": "should-not-stick",
-              "displayName": "Won't land",
+              "name": "Won't land",
               "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
@@ -149,7 +149,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val createBody = """
             {
               "key": "inline-refresh-test",
-              "displayName": "Inline Refresh Test",
+              "name": "Inline Refresh Test",
               "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
@@ -214,7 +214,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val createBody = """
             {
               "key": "priorities",
-              "displayName": "Priorities",
+              "name": "Priorities",
               "sourceType": "inline",
               "entries": [
                 { "code": "low", "label": "Low", "sortOrder": 1 },
@@ -269,7 +269,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val createBody = """
             {
               "key": "$slug",
-              "displayName": "Visibility",
+              "name": "Visibility",
               "sourceType": "inline",
               "entries": [
                 { "code": "shown", "label": "Shown", "sortOrder": 1 },

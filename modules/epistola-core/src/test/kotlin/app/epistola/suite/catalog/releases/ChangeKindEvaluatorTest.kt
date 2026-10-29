@@ -48,7 +48,7 @@ class ChangeKindEvaluatorTest {
         name = "Invoice",
         dataModel = dataModel,
         templateModel = document,
-        variants = variants.map { (key, attributes) -> VariantEntry(key = key, title = key, attributes = attributes, templateModel = document) },
+        variants = variants.map { (key, attributes) -> VariantEntry(key = key, name = key, attributes = attributes, templateModel = document) },
     )
 
     private fun stencil(parameters: Map<String, Any?>?) = StencilResource(key = "letterhead", name = "Letterhead", content = document, parameterSchema = parameters)

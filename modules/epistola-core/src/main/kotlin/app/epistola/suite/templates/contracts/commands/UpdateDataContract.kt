@@ -56,7 +56,7 @@ data class UpdateDataContract(
 
 data class UpdateDataContractResult(
     val contract: DataContract,
-    /** Example name -> what the schema says is wrong with it; set only with `forceUpdate`. */
+    /** Example key -> what the schema says is wrong with it; set only with `forceUpdate`. */
     val warnings: Map<String, List<String>> = emptyMap(),
     /** The template's revision after the write. */
     val revision: Long = 1,

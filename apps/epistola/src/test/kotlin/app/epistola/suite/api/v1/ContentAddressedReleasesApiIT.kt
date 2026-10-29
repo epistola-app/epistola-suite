@@ -307,12 +307,12 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val catalog = path(seeded)
         val sharedNamespace = withMediator { CatalogApiPaths.namespace(seeded.tenant, shared.value) }
 
-        val undeclared = exchange(HttpMethod.POST, "$catalog/releases/next/attributes", seeded, """{"key":"colour","displayName":"Colour","codeListBinding":{"catalogKey":"shared","key":"colours"}}""")
+        val undeclared = exchange(HttpMethod.POST, "$catalog/releases/next/attributes", seeded, """{"key":"colour","name":"Colour","codeListBinding":{"catalogKey":"shared","key":"colours"}}""")
         assertThat(undeclared.statusCode).`as`(undeclared.body).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<List<String>>(undeclared.body!!, "$.errors[*].field")).containsExactly("codeListBinding.catalogKey")
 
         exchange(HttpMethod.PUT, "$catalog/releases/next/dependencies", seeded, """{"dependencies":[{"namespace":"$sharedNamespace","catalogKey":"shared","version":"1.0.0"}]}""")
-        val bound = exchange(HttpMethod.POST, "$catalog/releases/next/attributes", seeded, """{"key":"colour","displayName":"Colour","codeListBinding":{"catalogKey":"shared","key":"colours"}}""")
+        val bound = exchange(HttpMethod.POST, "$catalog/releases/next/attributes", seeded, """{"key":"colour","name":"Colour","codeListBinding":{"catalogKey":"shared","key":"colours"}}""")
         assertThat(bound.statusCode).`as`(bound.body).isEqualTo(HttpStatus.CREATED)
         assertThat(JsonPath.read<Map<String, Any?>>(bound.body!!, "$.codeListBinding")).isEqualTo(mapOf("catalogKey" to "shared", "key" to "colours"))
 

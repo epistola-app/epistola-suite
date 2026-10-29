@@ -35,6 +35,7 @@ import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.requestField
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.attributes.AttributeNotFoundException
@@ -218,13 +219,15 @@ class EpistolaTenantApi(
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
             draft.codeListAt(binding.catalogKey, binding.key)
         }
-        val attribute = CreateAttributeDefinition(
-            id = draft.attributeId(createAttributeRequest.key),
-            displayName = createAttributeRequest.displayName,
-            allowedValues = createAttributeRequest.allowedValues ?: emptyList(),
-            codeListId = codeListId,
-            catalogVersion = draft.ref,
-        ).execute()
+        val attribute = requestField("displayName", "name") {
+            CreateAttributeDefinition(
+                id = draft.attributeId(createAttributeRequest.key),
+                displayName = createAttributeRequest.name,
+                allowedValues = createAttributeRequest.allowedValues ?: emptyList(),
+                codeListId = codeListId,
+                catalogVersion = draft.ref,
+            ).execute()
+        }
         return attribute.toDto(draft).let { created(it.key, it) }
     }
 
@@ -264,15 +267,17 @@ class EpistolaTenantApi(
         val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
             draft.codeListAt(binding.catalogKey, binding.key)
         } ?: current.codeListId.takeUnless { clearsBinding }
-        val attribute = UpdateAttributeDefinition(
-            id = id,
-            displayName = updateAttributeRequest.displayName ?: current.displayName,
-            allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
-            codeListId = codeListId,
-            catalogVersion = draft.ref,
-            // The merge above read the attribute at `current`; a write in between must not be lost.
-            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-        ).execute() ?: throw draft.attributeNotFound(attributeKey)
+        val attribute = requestField("displayName", "name") {
+            UpdateAttributeDefinition(
+                id = id,
+                displayName = updateAttributeRequest.name ?: current.displayName,
+                allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
+                codeListId = codeListId,
+                catalogVersion = draft.ref,
+                // The merge above read the attribute at `current`; a write in between must not be lost.
+                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+            ).execute() ?: throw draft.attributeNotFound(attributeKey)
+        }
         return okWithETag(attribute.revision, attribute.toDto(draft))
     }
 

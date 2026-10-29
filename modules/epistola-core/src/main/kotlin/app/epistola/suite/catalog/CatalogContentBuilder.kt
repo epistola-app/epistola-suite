@@ -248,7 +248,7 @@ class CatalogContentBuilder(
                 variants = variants.map { v ->
                     VariantEntry(
                         key = v.key,
-                        title = v.title,
+                        name = v.title,
                         attributes = v.attributes,
                         templateModel = if (v.key == default.key) null else modelOf(v),
                         isDefault = v.isDefault,

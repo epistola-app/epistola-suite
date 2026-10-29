@@ -63,7 +63,7 @@
     },
     "variants": [
       {
-        "title": "Nederlands",
+        "name": "Nederlands",
         "attributes": {
           "language": "nl"
         },
@@ -71,7 +71,7 @@
         "key": "dutch"
       },
       {
-        "title": "English",
+        "name": "English",
         "attributes": {
           "language": "en"
         },

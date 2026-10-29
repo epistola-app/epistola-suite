@@ -52,6 +52,7 @@ import app.epistola.suite.api.v1.shared.draftRef
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
+import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
@@ -208,8 +209,8 @@ class EpistolaCatalogApi(
                 version = result.releaseVersion ?: version,
                 newlyInstalled = result.newlyInstalled,
                 total = result.results.size,
-                installedDependencies = result.installedDependencies,
-                presentDependencies = result.presentDependencies,
+                installedDependencies = result.installedDependencies.map { it.toDto() },
+                presentDependencies = result.presentDependencies.map { it.toDto() },
             ),
         )
     }
@@ -248,8 +249,8 @@ class EpistolaCatalogApi(
                 version = requireNotNull(result.releaseVersion),
                 newlyInstalled = result.newlyInstalled,
                 total = result.results.size,
-                installedDependencies = result.installedDependencies,
-                presentDependencies = result.presentDependencies,
+                installedDependencies = result.installedDependencies.map { it.toDto() },
+                presentDependencies = result.presentDependencies.map { it.toDto() },
             ),
         )
     }
