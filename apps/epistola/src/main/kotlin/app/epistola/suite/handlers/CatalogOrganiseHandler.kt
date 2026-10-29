@@ -4,7 +4,6 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -19,6 +18,7 @@ import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.ResourceRelocation
 import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
