@@ -203,8 +203,11 @@ class CatalogDependenciesTest : IntegrationTestBase() {
             MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute()
         }
 
+        // On shared's draft (ADR 0042): no release of shared holds the theme yet, so its highest
+        // release, 1.0.0, would not resolve it.
         val declared = withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single()
-        assertThat(declared.catalogKey to declared.releaseVersion).`as`("pinned to its highest release").isEqualTo(shared.value to "1.0.0")
+        assertThat(declared.catalogKey to declared.releaseVersion).isEqualTo(shared.value to null)
+        assertThat(declared.namesDraft).`as`("names shared's draft").isTrue()
     }
 
     // ── Releasing ──

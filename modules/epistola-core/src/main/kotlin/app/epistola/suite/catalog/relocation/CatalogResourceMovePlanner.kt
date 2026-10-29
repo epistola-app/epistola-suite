@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.releases.ChangeKind
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
@@ -89,6 +90,9 @@ class CatalogResourceMovePlanner(
             val resourceId = resolveIdentity(handle, tenantKey, source)
             if (resourceId == null) {
                 blockers += blocker("resource-not-found", "${source.id} is not a canonical resource", source)
+            } else if (!inChangedVersion(handle, tenantKey, source)) {
+                // The registry knows the resource from another draft: the one the move changes lacks it.
+                blockers += blocker("not-in-draft", "${source.id} is not in the draft this move changes", source)
             } else {
                 identities[source] = resourceId
                 // A move changes one draft of its catalog (ADR 0042): the others keep their copy at the
@@ -150,6 +154,7 @@ class CatalogResourceMovePlanner(
         // Catalog ordering is load-bearing for snapshot restore, which throws on a cycle. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
         // part of planning, and a batch already blocked cannot introduce anything.
+        var impact = ReleaseImpact()
         if (blockers.isEmpty()) {
             val graph = graphs.buildOn(handle, tenantKey, includeHistory = false)
             CatalogDependencyCycles.introducedBy(graph, relocations)?.let { cycle ->
@@ -159,6 +164,7 @@ class CatalogResourceMovePlanner(
                         "which would leave the tenant's snapshots unrestorable",
                 )
             }
+            if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations)
         }
 
         val plans = relocations.map { relocation ->
@@ -172,10 +178,98 @@ class CatalogResourceMovePlanner(
         }
         val fingerprint = fingerprint(plans, blockers, warnings, rewrites)
         return CatalogResourceMovePlan(
-            preview = CatalogResourceMovePreview(plans, blockers.distinct(), warnings.distinct(), fingerprint),
+            preview = CatalogResourceMovePreview(plans, blockers.distinct(), warnings.distinct(), fingerprint, impact.releases, impact.order),
             rewrites = rewrites,
         )
     }
+
+    private data class ReleaseImpact(val releases: List<ReleaseConsequence> = emptyList(), val order: List<String> = emptyList())
+
+    /**
+     * What the move means for releases (ADR 0042), from the reference graph with each moving resource
+     * counted at its destination, as the cycle check counts it: a source whose changed draft's base
+     * release holds the resource no longer contains it (breaking), a target gains it (additive), and a
+     * catalog whose content now uses another it did not depends on it (additive). The catalogs are
+     * ordered for release, each after what it depends on.
+     */
+    private fun releaseImpact(handle: Handle, tenantKey: TenantKey, graph: app.epistola.suite.catalog.graph.TenantResourceGraph, relocations: List<ResourceRelocation>): ReleaseImpact {
+        val destinations = relocations.associate { it.source to it.target }
+        fun catalogEdges(moved: Boolean): Set<Pair<String, String>> = graph.edges.mapNotNull { edge ->
+            val target = edge.target ?: return@mapNotNull null
+            val from = (if (moved) destinations[edge.source] else null)?.catalogAddress ?: edge.source.catalogAddress
+            val to = (if (moved) destinations[target] else null)?.catalogAddress ?: target.catalogAddress
+            (from to to).takeIf { from != to }
+        }.toSet()
+        val before = catalogEdges(moved = false)
+        val after = catalogEdges(moved = true)
+
+        val reasons = linkedMapOf<String, MutableList<Pair<ChangeKind, String>>>()
+        fun add(catalog: String, kind: ChangeKind, reason: String) = reasons.getOrPut(catalog) { mutableListOf() }.add(kind to reason)
+        for ((source, target) in relocations) {
+            if (inBaseRelease(handle, tenantKey, source)) add(source.catalogAddress, ChangeKind.BREAKING, "no longer contains ${source.type.word()} '${source.key}'")
+            add(target.catalogAddress, ChangeKind.ADDITIVE, "gains ${target.type.word()} '${target.key}'")
+        }
+        (after - before).sortedWith(compareBy({ it.first }, { it.second })).forEach { (from, to) -> add(from, ChangeKind.ADDITIVE, "now depends on ${to.substringAfter('/')}") }
+
+        val order = releaseOrder(reasons.keys, after)
+        val releases = order.map { catalog ->
+            val list = reasons.getValue(catalog)
+            ReleaseConsequence(catalog, list.maxOf { it.first }, list.map { it.second }.distinct())
+        }
+        return ReleaseImpact(releases, order)
+    }
+
+    /** [catalogs] ordered so each comes after what it depends on by [edges]; ties by address. */
+    private fun releaseOrder(catalogs: Set<String>, edges: Set<Pair<String, String>>): List<String> {
+        val waitsFor = catalogs.associateWith { catalog -> edges.filter { it.first == catalog && it.second in catalogs }.map { it.second }.toMutableSet() }.toMutableMap()
+        val ordered = mutableListOf<String>()
+        while (waitsFor.isNotEmpty()) {
+            // A cycle is blocked before this runs; whatever remains is taken in address order.
+            val next = waitsFor.entries.filter { it.value.isEmpty() }.minByOrNull { it.key }?.key ?: waitsFor.keys.min()
+            ordered += next
+            waitsFor.remove(next)
+            waitsFor.values.forEach { it.remove(next) }
+        }
+        return ordered
+    }
+
+    /** Whether the version the move changes in [source]'s catalog (the targeted draft, else the next) holds [source]. */
+    private fun inChangedVersion(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): Boolean = handle.createQuery(
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM release_wire_resources r
+            WHERE r.tenant_key = :tenantKey AND r.version_id = ${versionAt("tenantKey", "catalogKey")}
+              AND r.resource_type = :resourceType AND r.resource_key = :resourceKey
+        )
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .bind("resourceType", source.type.wireName)
+        .bind("resourceKey", source.key)
+        .mapTo(Boolean::class.java)
+        .one()
+
+    /** Whether the release the changed draft of [source]'s catalog is based on holds [source]. */
+    private fun inBaseRelease(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): Boolean = handle.createQuery(
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM catalog_versions d
+            JOIN catalog_versions b ON b.tenant_key = d.tenant_key AND b.catalog_id = d.catalog_id AND b.state = 'released' AND b.version = d.base_version
+            JOIN release_wire_resources r ON r.tenant_key = b.tenant_key AND r.version_id = b.version_id
+            WHERE d.tenant_key = :tenantKey AND d.version_id = ${versionAt("tenantKey", "catalogKey")}
+              AND r.resource_type = :resourceType AND r.resource_key = :resourceKey
+        )
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .bind("resourceType", source.type.wireName)
+        .bind("resourceKey", source.key)
+        .mapTo(Boolean::class.java)
+        .one()
+
+    private fun CatalogResourceType.word(): String = name.lowercase().replace('_', ' ')
 
     /**
      * Members that must be applied before others, because they are vacating an address the other

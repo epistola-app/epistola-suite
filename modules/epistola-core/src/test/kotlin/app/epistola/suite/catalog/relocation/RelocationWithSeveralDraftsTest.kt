@@ -119,6 +119,32 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
     }
 
     @Test
+    fun `a stencil moves out of the draft you work in`() {
+        val tenant = tenantWith("several-drafts-stencil")
+        val header = create(tenant, MovableResource.STENCIL, letters, "header")
+        val redesign = withMediator { CatalogReleaseRef(catalogId(tenant, letters), DraftRef.Id(CreateCatalogDraft(catalogId(tenant, letters), "Redesign", DraftRef.NEXT).execute().versionId)) }
+        val relocation = header.movedTo(shared)
+
+        val plan = withMediator { PreviewCatalogResourceMove(tenant, listOf(relocation), redesign).query() }
+        assertThat(plan.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant, listOf(relocation), plan.planFingerprint, redesign).execute() }
+
+        assertThat(identityAt(tenant, address(tenant, CatalogResourceType.STENCIL, shared, "header"))).isNotNull
+    }
+
+    @Test
+    fun `a resource the draft you work in does not hold is not moved`() {
+        val tenant = tenantWith("several-drafts-absent")
+        val header = create(tenant, MovableResource.STENCIL, letters, "header")
+        // Letters has no release, so a draft started without a source is empty.
+        val empty = withMediator { CatalogReleaseRef(catalogId(tenant, letters), DraftRef.Id(CreateCatalogDraft(catalogId(tenant, letters), "Empty").execute().versionId)) }
+
+        val plan = withMediator { PreviewCatalogResourceMove(tenant, listOf(header.movedTo(shared)), empty).query() }
+
+        assertThat(plan.blockers.map { it.code }).containsExactly("not-in-draft")
+    }
+
+    @Test
     fun `the draft to work in must be of a catalog a resource moves out of`() {
         val tenant = lettersReleasedWithHotfix("several-drafts-other-catalog")
         val relocation = address(tenant, CatalogResourceType.THEME, letters, "house").movedTo(shared)

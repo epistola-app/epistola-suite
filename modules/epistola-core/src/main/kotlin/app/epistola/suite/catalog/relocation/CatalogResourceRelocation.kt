@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ChangeKind
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.CatalogId
@@ -87,6 +88,18 @@ data class ResourceRelocationPlan(
 )
 
 /**
+ * What a move means for the next release of one [catalog] (ADR 0042): the [kind] that release becomes
+ * through it, and why ("no longer contains theme 'house'", "gains theme 'house'", "now depends on
+ * shared").
+ */
+data class ReleaseConsequence(
+    /** The catalog's address, `namespace/key`. */
+    val catalog: String,
+    val kind: ChangeKind,
+    val reasons: List<String>,
+)
+
+/**
  * The batch as a whole.
  *
  * A batch is all-or-nothing: one transaction, one fingerprint, and any blocker stops every member.
@@ -99,6 +112,13 @@ data class CatalogResourceMovePreview(
     val blockers: List<ResourceMoveBlocker>,
     val warnings: List<ResourceMoveWarning>,
     val planFingerprint: String,
+    /** Every catalog the move changes, in [releaseOrder], with what it means for its next release. */
+    val releases: List<ReleaseConsequence> = emptyList(),
+    /**
+     * The catalogs the move changes, in the order they are released: a catalog before those that now
+     * depend on it, which releasing with dependencies carries out.
+     */
+    val releaseOrder: List<String> = emptyList(),
 ) {
     val executable: Boolean get() = blockers.isEmpty()
     val mutableRewriteCount: Int get() = relocations.sumOf { it.mutableRewriteCount }
