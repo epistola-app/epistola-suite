@@ -65,11 +65,11 @@ fingerprint ships unchanged content silently. See
 
 ## Resource references
 
-Tenant-wide reference discovery and traversal live in `graph/`
+What uses what has one authority: the reference index and the graph on it in `graph/`
 ([`docs/resource-reference-graph.md`](../../../../../../../../../docs/resource-reference-graph.md)).
-A new catalog-resource reference shape must be added to that authority with resolution and lifecycle
-evidence. The existing deletion and upgrade scanners stay independent until deliberately migrated
-and parity-tested.
+Used by, upgrades, merges and organising catalogs read the graph, and a new reader does too rather
+than scanning content. A new reference shape goes in `ResourceReferenceSites` or a type's
+`references`, so it is indexed.
 
 ## Verify
 

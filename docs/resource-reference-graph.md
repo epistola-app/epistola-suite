@@ -52,10 +52,19 @@ is ambiguous. Unresolved references are kept in the graph rather than silently d
 
 ## Architecture and API boundary
 
-`GetTenantResourceGraph` in `epistola-core` builds a consistent snapshot on demand inside one read
-transaction. It reads authoritative relational columns and the stored JSON content; no derived graph
-table, database migration, or cache is involved. `TenantResourceGraph.traverse` supplies a bounded
-breadth-first traversal.
+`TenantResourceGraphBuilder` in `epistola-core` builds a consistent snapshot on demand, on the
+caller's handle, so it sees what that transaction sees (`GetTenantResourceGraph` wraps it as a query).
+Its nodes are the rows of each catalog's current version; its edges are read from the reference index
+(`resource_references`), which records what each stored content refers to when it is stored, a
+template's variant contents counted as the template's. Nothing is scanned again and no cache is
+involved.
+
+It is the one answer to what uses what. **Used by** (`FindResourceUsages`), the upgrade and merge
+check that a removed resource is not still used elsewhere (`CatalogUpgradeAnalyzer.findConflicts`),
+and organising catalogs (the dependency-cycle check and the release impact) all read it. The check
+that discarding a draft does not take away what another version still names
+(`CatalogDraftCommands.holders`) reads the same index directly, limited to the references that point
+at an identity (an attribute's code list, a template's theme, the tenant's default theme).
 
 `ResourceReferenceSites` (`catalog/graph/ResourceReferenceSites.kt`) is the single authority for
 which JSON shapes count as a catalog-resource reference, and for whether an unqualified one resolves
@@ -81,11 +90,3 @@ built for export (`CatalogContentBuilder.Outbound`) and when a release retained 
 declares a catalog under another alias than its key is refused on import
 (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would mean rewriting its references, which
 changes its content hash, until catalogs are told apart by namespace and key (ADR 0034, phase 4).
-
-## Follow-up work
-
-Since 2.0 every stored content's references are indexed when it is stored (`resource_references`,
-ADR 0033), for any draft or release. The graph, the **Used by** query (`FindResourceUsages`), the
-deletion holder check and the upgrade analyser each still find references their own way; they move
-onto the index one at a time, each compared against its current behaviour, so there is one answer to
-what uses what.
