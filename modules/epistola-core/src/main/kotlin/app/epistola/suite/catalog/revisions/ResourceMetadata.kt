@@ -36,20 +36,10 @@ object ResourceMetadata {
         return copy
     }
 
-    /**
-     * What the targeted draft's row [type] [key] of [catalog] holds, as explicit metadata for a write
-     * that moves the resource to another address (empty: none), so the move keeps it.
-     */
-    fun moving(handle: Handle, catalog: CatalogId, type: String, key: String): ProducerMetadata = held(handle, catalog, type, key)
-        ?.let { MAPPER.readValue(it.toString(), PRODUCER_METADATA) }
-        .orEmpty()
-
     /** The metadata the targeted draft's row [type] [key] of [catalog] holds; null when none or no row. */
     fun held(handle: Handle, catalog: CatalogId, type: String, key: String): JsonNode? = DraftResources.metadataOf(handle, catalog, type, key)
         ?.let { MAPPER.readTree(it) }
         ?.takeIf { it.isObject && !it.isEmpty }
 
     private val MAPPER = tools.jackson.databind.json.JsonMapper.builder().build()
-
-    private val PRODUCER_METADATA = object : tools.jackson.core.type.TypeReference<ProducerMetadata>() {}
 }

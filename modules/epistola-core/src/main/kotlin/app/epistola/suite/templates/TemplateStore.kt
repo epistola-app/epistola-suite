@@ -260,32 +260,6 @@ class TemplateStore(
 
     fun delete(handle: Handle, id: TemplateId): Boolean = DraftResources.delete(handle, id.catalogId, TEMPLATE, id.key.value)
 
-    /**
-     * Moves template [key] of [source] to [targetKey] of [target], and its variants with it. Its
-     * models and its theme are read as they meant in [source] and stored in [target]'s form: what named
-     * the catalog it leaves still does, and what names the catalog it joins becomes relative. False when
-     * there is none.
-     */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val loaded = get(handle, TemplateId(TemplateKey.of(key), source)) ?: return false
-        val template = loaded.template
-        val variants = template.variants.map { variant ->
-            val model = checkNotNull(model(handle, source.tenantKey, variant)) { "Template $key names a model that is not stored" }
-            variant.copy(model = storedModel(TemplateModels.read(model, source.key.value, objectMapper), target.key.value))
-        }
-        val themeAlias = (template.themeCatalogKey ?: source.key.value).takeUnless { it == target.key.value }
-        val moved = template.copy(key = targetKey, variants = variants, themeCatalogKey = themeAlias.takeIf { template.themeKey != null })
-        val head = contents.store(handle, target.tenantKey, TEMPLATE, headPayload(moved))
-        if (!DraftResources.move(handle, source, TEMPLATE, key, target, targetKey, head)) return false
-        // Its variants move with it, by this update and no cascade (ADR 0014); each in the target's form.
-        VariantRows.move(handle, source, loaded.resourceId, target)
-        moved.variants.forEach { variant ->
-            val hash = contents.store(handle, target.tenantKey, TemplateContents.VARIANT_KIND, partPayload(moved, variant, objectMapper.treeToValue(variant.model, TemplateDocument::class.java)))
-            VariantRows.update(handle, target, loaded.resourceId, variant.key, hash, variant.title, variant.description, null)
-        }
-        return true
-    }
-
     /** Template [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: TemplateId): LoadedTemplate? {
         val row = handle

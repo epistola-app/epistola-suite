@@ -146,13 +146,6 @@ class FontStore(
 
     fun delete(handle: Handle, id: FontId): Boolean = DraftResources.delete(handle, id.catalogId, FONT, id.key.value)
 
-    /** Moves font [key] of [source] to [targetKey] of [target], its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val font = get(handle, FontId(FontKey.of(key), source)) ?: return false
-        val payload = ResourceMetadata.with(payload(targetKey, font.name, font.kind.wire, faces(handle, FontId(FontKey.of(key), source))), ResourceMetadata.held(handle, source, FONT, key))
-        return DraftResources.move(handle, source, FONT, key, target, targetKey, contents.store(handle, source.tenantKey, FONT, payload))
-    }
-
     /** Font [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: FontId): Font? = handle
         .createQuery("SELECT $FONT_COLUMNS FROM current_fonts f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")

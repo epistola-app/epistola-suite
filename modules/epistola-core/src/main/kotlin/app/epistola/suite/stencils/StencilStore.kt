@@ -94,13 +94,6 @@ class StencilStore(
 
     fun delete(handle: Handle, id: StencilId): Boolean = DraftResources.delete(handle, id.catalogId, STENCIL, id.key.value)
 
-    /** Moves stencil [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val stencil = get(handle, StencilId(StencilKey.of(key), source)) ?: return false
-        // Read qualified, stored in the target's released form: what named the catalog it leaves still does.
-        return DraftResources.move(handle, source, STENCIL, key, target, targetKey, store(handle, target, targetKey, stencil.fields().copy(metadata = ResourceMetadata.moving(handle, source, STENCIL, key))))
-    }
-
     /** Stencil [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: StencilId): Stencil? = handle
         .createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")} AND s.id = :k")

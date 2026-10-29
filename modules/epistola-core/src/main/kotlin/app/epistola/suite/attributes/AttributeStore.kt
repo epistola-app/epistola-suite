@@ -136,12 +136,6 @@ class AttributeStore(
 
     fun delete(handle: Handle, id: AttributeId): Boolean = DraftResources.delete(handle, id.catalogId, ATTRIBUTE, id.key.value)
 
-    /** Moves attribute [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val fields = fields(handle, AttributeId(AttributeKey.of(key), source)) ?: return false
-        return DraftResources.move(handle, source, ATTRIBUTE, key, target, targetKey, store(handle, source, targetKey, fields.copy(metadata = ResourceMetadata.moving(handle, source, ATTRIBUTE, key))))
-    }
-
     /** Attribute [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: AttributeId): VariantAttributeDefinition? = handle
         .createQuery("SELECT $ATTRIBUTE_COLUMNS FROM current_attributes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")

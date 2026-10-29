@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.revisions.DraftResources
+import app.epistola.suite.catalog.revisions.VariantRows
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.CatalogId
@@ -200,12 +202,8 @@ class MoveCatalogResourcesHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
     private val declarer: MissingDependencyDeclarer,
-    relocators: List<ResourceRelocator>,
+    private val repointer: ReferenceRepointer,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
-    /** Each type's relocator (ADR 0039): it moves and rewrites its type's resources, so this names no type. */
-    private val relocators: Map<String, ResourceRelocator> = relocators.associateBy { it.type }
-
-    private fun relocatorOf(type: String): ResourceRelocator = relocators[type] ?: error("No relocator for resource type $type")
 
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
         handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:tenantKey, 0))")
@@ -219,23 +217,30 @@ class MoveCatalogResourcesHandler(
         }
         if (!plan.preview.executable) throw CatalogResourceMoveBlockedException(plan.preview.blockers)
 
-        // The expected-bytes guard makes every rewrite safe against a concurrent edit.
-        for (rewrite in plan.rewrites) {
-            if (relocatorOf(rewrite.ownerType).rewrite(handle, command.tenantKey, rewrite) != 1) throw StaleCatalogResourceMovePlanException()
+        // Every row is written only while it holds the content the plan read, which makes each step
+        // safe against a concurrent edit (ADR 0042: one path for every type, ReferenceRepointer).
+        for (rewrite in plan.repoint.rewrites) {
+            if (!repointer.apply(handle, command.tenantKey, rewrite)) throw StaleCatalogResourceMovePlanException()
         }
 
         for (relocation in planner.applyOrder(plan.preview.relocations)) {
             val resourceId = requireNotNull(relocation.resourceId)
-            // What names it by alias and key follows it first, while it can still be found (a template its theme).
-            relocators.values.forEach { it.beforeMove(handle, command.tenantKey, relocation, resourceId.value) }
-            val moved = relocatorOf(relocation.source.type.wireName).move(
-                handle,
-                relocation.source.catalogIn(command.tenantKey),
-                relocation.source.key,
-                relocation.target.catalogIn(command.tenantKey),
-                relocation.target.key,
-            )
-            if (!moved) throw StaleCatalogResourceMovePlanException()
+            val move = plan.repoint.moves.firstOrNull { it.relocation.source == relocation.source } ?: throw StaleCatalogResourceMovePlanException()
+            val source = relocation.source.catalogIn(command.tenantKey)
+            val target = relocation.target.catalogIn(command.tenantKey)
+            val head = repointer.store(handle, command.tenantKey, move.head)
+            if (!DraftResources.move(handle, source, relocation.source.type.wireName, relocation.source.key, target, relocation.target.key, head, expectedHash = move.head.row.contentHash)) {
+                throw StaleCatalogResourceMovePlanException()
+            }
+            // A template's variants move with it, by this update and no cascade (ADR 0014), each then
+            // holding its content as the target is to: their template is under its new key there.
+            if (move.parts.isNotEmpty()) {
+                VariantRows.move(handle, source, resourceId.value, target)
+                for (part in move.parts) {
+                    val moved = part.copy(row = part.row.copy(parentKey = relocation.target.key))
+                    if (!repointer.apply(handle, command.tenantKey, moved, catalog = target)) throw StaleCatalogResourceMovePlanException()
+                }
+            }
         }
 
         // A reference that now crosses into another catalog makes its catalog depend on that one

@@ -115,12 +115,6 @@ class ThemeStore(
     /** Removes theme [id] from the targeted draft; false when it held none. */
     fun delete(handle: Handle, id: ThemeId): Boolean = DraftResources.delete(handle, id.catalogId, THEME, id.key.value)
 
-    /** Moves theme [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val theme = ThemeReads.get(handle, objectMapper, source, app.epistola.suite.common.ids.ThemeKey.of(key)) ?: return false
-        return DraftResources.move(handle, source, THEME, key, target, targetKey, store(handle, source, targetKey, theme.fields().copy(metadata = ResourceMetadata.moving(handle, source, THEME, key))))
-    }
-
     companion object {
         /** The resource type, and content kind, of a theme. */
         const val THEME = "theme"
