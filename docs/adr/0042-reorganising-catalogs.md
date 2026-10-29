@@ -55,8 +55,10 @@ consequences for releases shown before anything happens.
 
 In one draft of each catalog involved, every reference to address A becomes a reference to address B:
 
-- **One draft per catalog**: its everyday draft (the next version), or for the source a draft the
-  person picks. A catalog's other drafts (parallel work, a hotfix) are left entirely alone, the
+- **One draft per catalog.** In the catalog a refactoring starts from, the draft the person is
+  working in, whichever it is: any draft can be refactored, a release cannot. In every other catalog
+  involved (the target, and the catalogs whose content names the resource), its everyday draft (the
+  next version), where ongoing work lands. A catalog's other drafts (parallel work, a hotfix) are left entirely alone, the
   resource and its references both, so each stays a coherent snapshot at the old address; they get
   the change when they are merged or rebased. Forcing it into a hotfix draft would make a small fix a
   breaking change with a new dependency. Released content is never touched.
@@ -70,21 +72,23 @@ In one draft of each catalog involved, every reference to address A becomes a re
 
 Each is the core operation combined with ordinary draft edits, in one transaction:
 
-| Refactoring               | What it does                                                                       | Identity                    |
-| ------------------------- | ---------------------------------------------------------------------------------- | --------------------------- |
-| **Rename**                | copies the resource to its new key in the same catalog, re-points, removes the old | kept                        |
-| **Move to catalog**       | copies it into the target's draft, re-points, removes it from the source's draft   | kept                        |
-| **Merge into**            | re-points everything that names X at Y, removes X                                  | Y's (X's history stays X's) |
-| **Create shared catalog** | creates a catalog and moves a set of resources into it                             | kept                        |
+| Refactoring               | What it does                                                                       | Identity |
+| ------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| **Rename**                | copies the resource to its new key in the same catalog, re-points, removes the old | kept     |
+| **Move to catalog**       | copies it into the target's draft, re-points, removes it from the source's draft   | kept     |
+| **Create shared catalog** | creates a catalog and moves a set of resources into it                             | kept     |
 
 Moving content into another catalog re-expresses its own references: one to a resource that moves
 along stays relative, one to a resource left behind names its catalog by alias. A template moves
 with its variants.
 
 The resource leaves its source: a refactoring does not keep a copy behind. For a published source
-that is a breaking change for those who installed it, and the preview says so (below). Keeping the
-source's copy while everything else follows (for a published catalog that must not break) is the
-same operation without the removal, and can be added when someone needs it.
+that is a breaking change for those who installed it, and the preview says so (below).
+
+Two refactorings are left out until someone needs them, each the same core operation composed
+differently: **keeping the source's copy** while everything else follows (for a published catalog
+that must not break), and **merging** copies of one resource from several catalogs into one (re-point
+the copy's users, remove the copy).
 
 ### What people see
 
@@ -93,7 +97,6 @@ The word "refactoring" stays in code and docs. People see actions named for what
 
 - **Rename…**
 - **Move to catalog…**
-- **Merge into…** (offered where the graph or a name suggests a duplicate)
 - **Create a shared catalog…** (choose resources, possibly from several catalogs, and a name)
 
 Every preview opens with **"Everything that uses it will be updated"**, then says what that takes.
@@ -134,8 +137,8 @@ an alpha feature off by default, it carries no compatibility promise.
 ## Consequences
 
 - Both use cases get a path that breaks no one by surprise: a mistake is a rename or a move with
-  its consequences shown; a shared catalog is created, duplicates merged into it, and the release
-  order carried out by the release flow that exists.
+  its consequences shown; a shared catalog is created and the release order carried out by the
+  release flow that exists.
 - One core operation serves every refactoring, so they cannot disagree on what "updated" means, and
   a new one (keeping the source's copy, say) is a small composition.
 - The relocation code becomes generic: no per-type planner or relocator, and the SQL-level type
@@ -143,12 +146,8 @@ an alpha feature off by default, it carries no compatibility promise.
 - `VersionResources.put` is built, which ADR 0039 left for later.
 - Following a refactoring across installations is still not offered.
 
-## Open questions
+## Settled
 
-1. **Merge into.** It serves copies of one resource in several catalogs (a theme copied once, now
-   wanted from the shared catalog): re-point the copy's users at the shared one, remove the copy. Is
-   that common enough to build now, or added later? If built: show how the copies differ and ask for
-   confirmation when they do.
-
-Settled on 2026-10-29: a refactoring changes one draft per catalog and leaves the others alone (see
-"The core operation"); the old implementation is removed when the new one lands.
+On 2026-10-29: a refactoring changes one draft per catalog, any draft in the catalog it starts from,
+and leaves every other draft alone; keeping the source's copy and merging copies are left out; the
+old implementation is removed when the new one lands.
