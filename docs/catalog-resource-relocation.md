@@ -1,23 +1,20 @@
 # Catalog resource relocation
 
-> **Status:** Alpha, off by default, behind the `resource-relocation` toggle. The resource graph's
-> hand-off to it also needs `resource-graph`. A crude move by decision:
-> [ADR 0025](adr/0025-relocation-without-aliases.md) records why, and where relocation goes next.
+Organising catalogs ([ADR 0042](adr/0042-reorganising-catalogs.md)) is a tenant-local refactoring:
+rename a resource, move it to another catalog, or gather resources in a new shared catalog, between
+catalogs that can be changed here (ADR 0032). The resource keeps its identity, and everything that
+uses it in the drafts the move changes follows it. Releases keep the address they were cut with, so
+what still names the old address there, or in another installation, no longer finds the resource;
+the preview says so before anything happens.
 
-Catalog resource relocation is an experimental, tenant-local operation for moving a resource to
-another catalog, renaming its key, or both, between catalogs that can be changed here (ADR 0032). It is a **crude move**: the
-resource keeps its identity and editable references follow it, but nothing is left at the old
-address. Anything that still names the old address stops resolving — move the wrong thing and
-things break.
-
-Enable `resource-relocation` for a tenant to use it; it is alpha and defaults off. The organise page
-does not need the resource graph, but the graph's "Organise catalogs" hand-off appears only when
-both toggles are on.
+It is on by default (`resource-relocation`, Stable); switching the toggle off for a tenant hides it.
+The organise page does not need the resource graph, but the graph's "Organise catalogs" hand-off
+appears only when the graph is on too.
 
 Previewing a move needs catalog view; applying one needs catalog management. A reader who can only
 preview is told so on the page instead of being offered Move.
 
-The alpha supports all seven relocatable resource types: templates, stencils, themes, fonts,
+Every resource type can be moved: templates, stencils, themes, fonts,
 images, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
 rather than by its address, so a move is a single-row update and nothing cascades — see
 [`catalog-resource-identity-migration.md`](catalog-resource-identity-migration.md). An image is the
@@ -170,7 +167,7 @@ written before it existed resolve through their recorded address instead.
   operations are intentionally deferred until the command contract and authorization model have
   settled.
 
-The direction beyond this alpha — published content that retains its own inputs, so that a move can
+The direction beyond this — published content that retains its own inputs, so that a move can
 never break published work — is set out in [ADR 0025](adr/0025-relocation-without-aliases.md) and
 planned goal by goal in [From resource relocation to immutable publication](catalog-immutable-publication.md).
 Until it lands, a move is only as safe as the operator's knowledge of what uses the resource.

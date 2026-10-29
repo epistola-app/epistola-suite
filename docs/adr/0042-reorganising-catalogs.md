@@ -171,9 +171,10 @@ Generically, on ADR 0039, replacing the per-type planner and relocators:
 selection into it: the move's preview needs the catalog to exist, and an empty catalog left behind
 when the move is not applied costs nothing worth a combined transaction.
 
-It stays alpha, behind `resource-relocation`. When the new one lands, the old one is removed in the
-same change, the toggle reused: the old planner, the `ResourceRelocator`s and the move command go. As
-an alpha feature off by default, it carries no compatibility promise.
+It leaves alpha: Stable and on by default, `resource-relocation` kept as the switch that turns it off
+for a tenant. It is a UI operation, not a REST or MCP one, so no GA API carries it. When the new
+engine lands, the old one is removed in the same change: the old planner, the `ResourceRelocator`s and
+their rewrites go; the move messages stay.
 
 ## Consequences
 

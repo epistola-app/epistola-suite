@@ -113,12 +113,12 @@ class KnownFeaturesTest {
     }
 
     @Test
-    fun `resource relocation is toggle-only alpha and defaults off`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+    fun `resource relocation is toggle-only, stable and on by default`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
         assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
         assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isFalse()
-        assertThat(FeatureDefaults(resourceRelocation = true).isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isTrue()
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isTrue()
+        assertThat(FeatureDefaults(resourceRelocation = false).isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isFalse()
     }
 
     @Test

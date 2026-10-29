@@ -25,8 +25,12 @@ class FeatureDefaultsTest {
         val defaults = FeatureDefaults()
         assertFalse(defaults.isEnabled(KnownFeatures.QUALITY))
         assertFalse(defaults.isEnabled(KnownFeatures.AI_CHAT))
-        assertFalse(defaults.isEnabled(KnownFeatures.RESOURCE_RELOCATION))
         assertFalse(defaults.isEnabled(KnownFeatures.CATALOG_PUBLISHING))
+    }
+
+    @Test
+    fun `organising catalogs is stable and on by default`() {
+        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION))
     }
 
     @Test
