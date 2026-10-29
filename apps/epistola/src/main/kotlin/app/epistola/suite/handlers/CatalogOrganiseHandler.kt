@@ -56,10 +56,12 @@ class CatalogOrganiseHandler {
             "layout/shell",
             mapOf(
                 "contentView" to "catalogs/organise",
-                "pageTitle" to "Organise catalogs - Epistola",
+                "pageTitle" to "Create a shared catalog - Epistola",
                 "tenantId" to tenantKey.value,
                 "tenant" to GetTenant(tenantKey).query(),
-                "activeNavSection" to "catalog-organise",
+                "activeNavSection" to "catalogs",
+                // Opened as "Create a shared catalog…": the form for the new catalog starts open.
+                "startShared" to (request.param("shared").orElse("") == "new"),
                 // Deep link: ?resource=stencil:letters/header, repeatable. Rendered into the page so
                 // the component starts with a selection instead of fetching then reconciling.
                 "preselected" to request.params()["resource"].orEmpty().joinToString(","),
@@ -88,21 +90,32 @@ class CatalogOrganiseHandler {
         // The draft the resource is opened in (ADR 0042: a refactoring changes the draft you work in);
         // absent means the next version.
         val draft = request.param("draft").orElse("")
+        // Which of the two the reader chose (Rename… or Move to another catalog…); both when neither.
+        val mode = request.param("mode").orElse("").takeIf { it == "rename" || it == "move" }.orEmpty()
+        val title = when (mode) {
+            "rename" -> "Rename"
+            "move" -> "Move to another catalog"
+            else -> "Rename or move"
+        }
         return request.htmx {
             fragment("catalogs/organise-move", "dialog") {
                 "tenantId" to tenantKey.value
                 "resource" to resource
                 "draft" to draft
+                "mode" to mode
+                "title" to title
                 "canApply" to canApply
             }
             onFullPage {
                 page("catalogs/organise-move") {
-                    "pageTitle" to "Move or rename - Epistola"
+                    "pageTitle" to "$title - Epistola"
                     "tenant" to GetTenant(tenantKey).query()
-                    "activeNavSection" to "catalog-organise"
+                    "activeNavSection" to "catalogs"
                     "tenantId" to tenantKey.value
                     "resource" to resource
                     "draft" to draft
+                    "mode" to mode
+                    "title" to title
                     "canApply" to canApply
                 }
             }

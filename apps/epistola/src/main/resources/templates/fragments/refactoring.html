@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* Rename and Move to another catalog (ADR 0042), offered alike on every resource. `type` is its
+       wire type, `segment` the catalog segment its page shows (`namespace/key`, with `@version` when
+       one is open) and `key` its key. Gated on `refactoring.offered` (RefactoringView); each opens
+       the move dialog in the shell's #refactoring-mount, working in the draft the page shows. An
+       image's key is a generated id, so an image is moved but not renamed. */-->
+<th:block th:fragment="actions(type, segment, key)">
+    <th:block th:if="${refactoring != null and refactoring.offered(segment)}">
+        <button th:if="${type != 'image'}" type="button" class="ep-btn ep-btn-outline" data-testid="resource-rename"
+                th:hx-get="@{/tenants/{t}/catalogs/organise/move(t=${tenantId},resource=${refactoring.resource(type, segment, key)},draft=${refactoring.draft(segment)},mode='rename')}"
+                hx-target="#refactoring-mount" hx-swap="innerHTML">Rename…</button>
+        <button type="button" class="ep-btn ep-btn-outline" data-testid="resource-move"
+                th:hx-get="@{/tenants/{t}/catalogs/organise/move(t=${tenantId},resource=${refactoring.resource(type, segment, key)},draft=${refactoring.draft(segment)},mode='move')}"
+                hx-target="#refactoring-mount" hx-swap="innerHTML">Move to another catalog…</button>
+    </th:block>
+</th:block>
+
+<!--/* The same, compact, for a row of a list: one button opening the dialog with both choices. */-->
+<th:block th:fragment="row-action(type, segment, key)">
+    <button th:if="${refactoring != null and refactoring.offered(segment)}" type="button"
+            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" data-testid="resource-row-refactor"
+            th:title="${type == 'image'} ? 'Move to another catalog' : 'Rename or move to another catalog'"
+            th:attr="aria-label=${type == 'image'} ? 'Move to another catalog' : 'Rename or move to another catalog'"
+            th:hx-get="@{/tenants/{t}/catalogs/organise/move(t=${tenantId},resource=${refactoring.resource(type, segment, key)},draft=${refactoring.draft(segment)})}"
+            hx-target="#refactoring-mount" hx-swap="innerHTML">
+        <th:block th:replace="~{epistola-web/icon :: icon(name='redo-2', class='ep-icon')}" />
+    </button>
+</th:block>
+</body>
+</html>

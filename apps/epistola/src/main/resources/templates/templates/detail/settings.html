@@ -42,16 +42,9 @@
                     <dt>Catalog</dt>
                     <dd>
                         <code th:text="${catalogId}">default</code>
-                        <!-- Moving is its own page; this opens the focused dialog for just this
-                             template, so relocating one does not mean finding it there again. -->
-                        <button th:if="${resourceRelocationEnabled and auth.has('CATALOG_MANAGE') and editable}"
-                                type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                data-testid="template-move-action"
-                                th:hx-get="${#strings.contains(catalogSegment ?: '', '@')} ? @{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${template.catalogId.address} + '/' + ${template.id},draft=${#strings.substringAfter(catalogSegment, '@')})} : @{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${template.catalogId.address} + '/' + ${template.id})}"
-                                hx-target="#move-resource-mount" hx-swap="innerHTML"
-                                style="margin-left: var(--ep-space-2);">
-                            Move or rename…
-                        </button>
+                        <span style="margin-left: var(--ep-space-2);">
+                            <th:block th:replace="~{fragments/refactoring :: actions('template', ${catalogSegment ?: template.catalogId.address}, ${template.id})}" />
+                        </span>
                     </dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.createdAt}"></dd>
@@ -138,7 +131,6 @@
 
         <!-- Behaviors (name edit keyboard UX, delete confirm) live in
              /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
-        <div id="move-resource-mount" data-dialog-mount></div>
     </th:block>
 
     <!-- OOB companion for the rename response: syncs the page header's title

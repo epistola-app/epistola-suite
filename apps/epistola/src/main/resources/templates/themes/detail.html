@@ -56,6 +56,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML">
             View usage
         </button>
+        <th:block th:replace="~{fragments/refactoring :: actions('theme', ${catalogSegment}, ${theme.id})}" />
         <!--/* Through HTMX: a refusal (the tenant's default theme) shows in the form; done, the list. */-->
         <form th:if="${editable}" id="delete-theme-form"
               th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"

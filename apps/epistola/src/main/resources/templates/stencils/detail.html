@@ -10,7 +10,8 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${stencil.name},
             backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
-            backLinkLabel='Stencils'
+            backLinkLabel='Stencils',
+            actions=~{::stencil-detail-actions}
         )}"></div>
 
         <!-- Details: swapped as a whole after a settings change or "Mark ready" -->
@@ -151,5 +152,8 @@
         </div>
 
     </th:block>
+<th:block th:fragment="stencil-detail-actions">
+    <th:block th:replace="~{fragments/refactoring :: actions('stencil', ${catalogSegment}, ${stencil.id})}" />
+</th:block>
 </body>
 </html>

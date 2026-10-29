@@ -13,6 +13,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -22,6 +24,7 @@ import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.themes.commands.CreateTheme
 import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
@@ -94,12 +97,47 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute() }
 
         gotoAndReady("/tenants/$tenant/catalogs/letters/templates/invoice/settings")
-        val dialog = page.openDialogByTrigger(page.getByTestId("template-move-action"), "#move-resource-dialog")
+        val dialog = page.openDialogByTrigger(page.getByTestId("resource-move"), "#move-resource-dialog")
         dialog.getByTestId("organise-single-destination").selectOption(testCatalog(TenantId(tenant), shared).address)
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Preview")).click()
-        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Move 1 resource(s)")).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Move").setExact(true)).click()
 
         assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/catalogs/[^/]+/shared/templates/invoice/settings$"))
+    }
+
+    @Test
+    fun `renaming a theme from its page asks only for the new key and lands on it`() {
+        val tenant = tenant("Rename theme in browser")
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute() }
+
+        gotoAndReady("/tenants/$tenant/catalogs/letters/themes/house")
+        val dialog = page.openDialogByTrigger(page.getByTestId("resource-rename"), "#move-resource-dialog")
+        assertThat(dialog.getByTestId("organise-single-destination")).hasCount(0)
+        dialog.getByTestId("organise-single-key").fill("brand")
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Preview")).click()
+        assertThat(dialog.getByTestId("organise-everything-updated")).isVisible()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Rename").setExact(true)).click()
+
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/catalogs/[^/]+/letters/themes/brand$"))
+    }
+
+    @Test
+    fun `a shared catalog is created from the catalogs list and the selection moves into it`() {
+        val tenant = tenant("Shared catalog in browser")
+        stencil(tenant, letters, "header", "Header")
+
+        gotoAndReady("/tenants/$tenant/catalogs")
+        page.getByTestId("catalog-organise-open").click()
+        page.getByTestId("organise-new-shared-name").fill("Brand")
+        page.getByTestId("organise-new-shared-key").fill("brand")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create").setExact(true)).click()
+        page.getByLabel("Select Header").check()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Preview")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Move 1 resource(s)")).click()
+
+        assertThat(page.getByTestId("organise-applied")).containsText("Moved 1 resource to Brand")
+        val brand = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), CatalogKey.of("brand"))).query() }.map { it.id.value }
+        assertThatValue(brand).containsExactly("header")
     }
 
     @Test

@@ -38,13 +38,20 @@ Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and re
 fingerprint. It then updates mutable references and changes the resource's current catalog address
 while retaining its stable `resource_id`.
 
-## On the Organise page
+## Where it is offered
 
-The page and the single-resource dialog offer the refactorings by what they do: **Move or rename…**
-on a resource (the dialog carries the draft the resource was opened in), and on the page a selection
-moved to one catalog, or **Create a shared catalog…**, which creates the catalog (as Create catalog
-would, with the catalog management permission) and makes it the destination; the move is then
-previewed and applied as any other. A catalog created and not moved into stays, empty.
+The refactorings are offered by what they do, where the need for them arises (ADR 0042):
+
+- **Rename…** and **Move to another catalog…** on every resource's page, and as one action in its
+  row of a list, for all seven types (an image is moved, not renamed). Each opens the move dialog in
+  the draft the page shows, asking only for what it changes; a release offers neither
+  (`RefactoringView`, `fragments/refactoring`).
+- **Create a shared catalog…** on the catalogs list. It opens a page that creates the catalog (as
+  Create catalog would, with the catalog management permission), then takes resources chosen from
+  any catalog into it; the move is previewed and applied as any other. A catalog created and not
+  moved into stays, empty.
+
+There is no nav item for it.
 
 ## Which drafts a move changes
 

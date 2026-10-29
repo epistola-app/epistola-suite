@@ -292,6 +292,48 @@ describe('ep-catalog-organise', () => {
     expect(button(element, /Create a shared catalog/)).toBeUndefined();
   });
 
+  it('asks only for what the refactoring chosen changes, and names it on the button', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({
+      '/resources': { body: { catalogs, resources: [house] } },
+      '/preview': { body: executablePlan(house) },
+    });
+
+    const rename = await mount({
+      'data-single': house.id,
+      'data-mode': 'rename',
+      'data-can-apply': 'true',
+    });
+    expect(rename.querySelector('[data-testid="organise-single-destination"]')).toBeNull();
+    expect(rename.querySelector('[data-testid="organise-single-key"]')).not.toBeNull();
+    const key = rename.querySelector<HTMLInputElement>('[data-testid="organise-single-key"]');
+    if (!key) throw new Error('no key input');
+    key.value = 'brand';
+    key.dispatchEvent(new InputEvent('input'));
+    await settle(rename);
+    await click(rename, /^\s*Preview\s*$/);
+    expect(button(rename, /^\s*Rename\s*$/)).toBeDefined();
+
+    document.body.replaceChildren();
+    const move = await mount({
+      'data-single': house.id,
+      'data-mode': 'move',
+      'data-can-apply': 'true',
+    });
+    expect(move.querySelector('[data-testid="organise-single-key"]')).toBeNull();
+    expect(move.querySelector('[data-testid="organise-single-destination"]')).not.toBeNull();
+  });
+
+  it('opened to create a shared catalog, shows its form before anything is selected', async () => {
+    serve({
+      '/resources': { body: { catalogs, resources: [resource('theme', 'letters', 'house')] } },
+    });
+    const element = await mount({ 'data-start-shared': 'true', 'data-can-apply': 'true' });
+
+    expect(element.querySelector('[data-testid="organise-new-shared-start"]')).not.toBeNull();
+    expect(button(element, /^\s*Create\s*$/)).toBeDefined();
+  });
+
   it('previews and moves in the draft the resource was opened in', async () => {
     const invoice = resource('template', 'letters', 'invoice');
     const bodies: unknown[] = [];
