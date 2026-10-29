@@ -20,7 +20,7 @@ class KnownFeaturesTest {
 
     @Test
     fun `a feature carries its declared stage and is stable by default`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_GRAPH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+        assertThat(KnownFeatures.stageOf(KnownFeatures.AI_CHAT)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
         assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_FEEDBACK)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
     }
 
@@ -101,15 +101,6 @@ class KnownFeaturesTest {
     fun `ai chat default is off and resolved by its own branch`() {
         assertThat(FeatureDefaults().isEnabled(KnownFeatures.AI_CHAT)).isFalse()
         assertThat(FeatureDefaults(aiChat = true).isEnabled(KnownFeatures.AI_CHAT)).isTrue()
-    }
-
-    @Test
-    fun `resource graph is toggle-only alpha and defaults off`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_GRAPH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_GRAPH)
-        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.RESOURCE_GRAPH)
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_GRAPH)).isFalse()
-        assertThat(FeatureDefaults(resourceGraph = true).isEnabled(KnownFeatures.RESOURCE_GRAPH)).isTrue()
     }
 
     @Test

@@ -145,7 +145,7 @@ class CatalogResourceMovePlanner(
         // part of planning, and a batch already blocked cannot introduce anything.
         var impact = ReleaseImpact()
         if (blockers.isEmpty()) {
-            val graph = graphs.buildOn(handle, tenantKey, includeHistory = false)
+            val graph = graphs.buildOn(handle, tenantKey)
             CatalogDependencyCycles.introducedBy(graph, relocations)?.let { cycle ->
                 blockers += blocker(
                     "catalog-dependency-cycle",

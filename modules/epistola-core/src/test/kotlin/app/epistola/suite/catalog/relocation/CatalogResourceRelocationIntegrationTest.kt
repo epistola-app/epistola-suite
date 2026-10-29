@@ -129,7 +129,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .isEqualTo(targetCatalog.value)
 
         // Nothing names the vacated address any more: a variant has one working model, re-pointed.
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector == ReferenceSelector(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value) }
             .isEmpty()
@@ -284,7 +284,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The published dependency still names the catalog the theme actually lives in.
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
             .allSatisfy { assertThat(it.target?.catalogKey).isEqualTo(sourceCatalog.value) }
@@ -327,7 +327,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // The stencil now says what it always meant: the theme in the catalog it left.
         val moved = withMediator { GetStencil(StencilId(header.key, testCatalog(tenantId, targetCatalog))).query()!! }
         assertThat((moved.content.themeRef as ThemeRefOverride).catalogKey).isEqualTo(sourceCatalog.value)
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
             .isNotEmpty

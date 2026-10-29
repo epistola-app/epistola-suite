@@ -299,6 +299,50 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         }
     }
 
+    /** A template of another catalog places the subscribed catalog's stencil. */
+    @Test
+    fun `an upgrade is refused when a stencil the publisher dropped is placed by another catalog's template`(@TempDir tmp: Path) {
+        val tenant = createTenant("Upgrade Stencil Conflict Test")
+        val tenantId = TenantId(tenant.id)
+        val depKey = CatalogKey.of("dep-test")
+        val source = tmp.resolve("source")
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
+            CreateDocumentTemplate(id = templateId, name = "Stencil User").execute()
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(
+                app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, templateId),
+                app.epistola.suite.templates.model.TemplateDocument(
+                    modelVersion = 1,
+                    root = "root",
+                    nodes = mapOf(
+                        "root" to app.epistola.suite.templates.model.Node(id = "root", type = "root", slots = listOf("children")),
+                        "header" to app.epistola.suite.templates.model.Node(id = "header", type = "stencil", props = mapOf("stencilKey" to "header-with-logo", "catalogKey" to depKey.value)),
+                    ),
+                    slots = mapOf("children" to app.epistola.suite.templates.model.Slot(id = "children", nodeId = "root", name = "children", children = listOf("header"))),
+                    themeRef = app.epistola.suite.templates.model.ThemeRef.Inherit,
+                ),
+            ).execute()
+            // 1.1.0 no longer publishes the stencil, nor places it itself.
+            fixture(tmp.resolve("next"), "1.1.0") { dir ->
+                drop(dir, "stencil", "header-with-logo")
+                val template = dir.resolve("resources/templates/full-deps.json")
+                val json = mapper.readTree(template.readText())
+                val node = json.path("resource").path("templateModel").path("nodes").path("n-stencil") as tools.jackson.databind.node.ObjectNode
+                node.put("type", "text")
+                (node.get("props") as tools.jackson.databind.node.ObjectNode).remove("stencilKey")
+                template.writeText(mapper.writeValueAsString(json))
+            }
+            publish(source, tmp.resolve("next"))
+
+            assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
+                .isInstanceOf(CatalogUpgradeConflictException::class.java)
+                .hasMessageContaining("Stencil 'header-with-logo' is used by template 'Stencil User'")
+            assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
     @Test
     fun `an upgrade of a catalog with changes of its own records the release beside its next version`(@TempDir tmp: Path) {
         val tenant = createTenant("Upgrade Beside Test")

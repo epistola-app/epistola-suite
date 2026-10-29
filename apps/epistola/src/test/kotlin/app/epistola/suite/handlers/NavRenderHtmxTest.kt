@@ -156,17 +156,13 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `alpha feature renders a maturity badge on its nav item`() {
-        val tenant = createTenant("Nav Alpha Badge")
-        withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
-        }
+    fun `a stable feature's nav item carries no maturity badge`() {
+        val tenant = createTenant("Nav Stable")
 
-        // Render a page whose header is NOT the resource graph, so the badge in the markup is the one
-        // the nav item emits — this isolates the nav-template rendering from the feature page header.
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!.replace(Regex("\\s+"), " ")
 
-        assertThat(body).contains("/tenants/${tenant.id.value}/resource-graph")
-        assertThat(body).contains("badge badge-alpha")
+        // Organising catalogs is stable: its item is there, and no stage badge follows its label.
+        val organise = Regex("""<a[^>]*nav-item-catalog-organise.*?</a>""").find(body)?.value
+        assertThat(organise).isNotNull().doesNotContain("badge-alpha").doesNotContain("badge-beta")
     }
 }

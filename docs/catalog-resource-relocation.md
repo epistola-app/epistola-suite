@@ -8,8 +8,6 @@ what still names the old address there, or in another installation, no longer fi
 the preview says so before anything happens.
 
 It is on by default (`resource-relocation`, Stable); switching the toggle off for a tenant hides it.
-The organise page does not need the resource graph, but the graph's "Organise catalogs" hand-off
-appears only when the graph is on too.
 
 Previewing a move needs catalog view; applying one needs catalog management. A reader who can only
 preview is told so on the page instead of being offered Move.
@@ -162,8 +160,7 @@ written before it existed resolve through their recorded address instead.
 - `/tenants/{tenantId}/catalogs/organise/move?resource=<type>:<catalog>/<key>` is the focused
   single-resource surface, for linking from the resource's own page. It answers with a dialog to
   HTMX and a full page otherwise, so the same URL works embedded and pasted. After a move from the
-  resource's own page, the browser goes to that page at the new address. The resource graph links
-  to it rather than hosting the operation — the graph diagnoses, this applies. REST and MCP
+  resource's own page, the browser goes to that page at the new address. REST and MCP
   operations are intentionally deferred until the command contract and authorization model have
   settled.
 

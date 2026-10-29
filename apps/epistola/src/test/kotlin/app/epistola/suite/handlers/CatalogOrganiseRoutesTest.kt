@@ -57,10 +57,9 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the page does not require the resource graph to be enabled`() {
+    fun `the page renders the organise browser`() {
         val tenantId = tenantWithStencil("Organise standalone")
 
-        // Relocation used to live inside the graph explorer, so it needed that feature on too.
         val response = restTemplate.getForEntity("/tenants/$tenantId/catalogs/organise", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)

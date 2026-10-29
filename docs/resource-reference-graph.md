@@ -1,18 +1,13 @@
 # Resource reference graph
 
-> **Status:** Alpha, disabled by default. Breaking changes to this surface
-> may ship in a MINOR release.
+> **Status:** Current, internal: no page, REST or MCP surface of its own.
 
-The resource reference graph is a tenant-wide, read-only view of how catalog resources depend on
-one another. It is an alpha feature, disabled by default; a tenant administrator can enable
-**Resource graph** under **Settings → Features**. Then open **Resources → Resource graph**, search
-for a resource, and traverse the resources
-it uses, the resources that use it, or both. The initial view is deliberately focused rather than a
-whole-tenant “hairball”; traversal depth is limited to one through three hops.
-
-The graph is the first foundation for safe catalog-resource relocation. It does **not** move or
-rewrite resources yet. A future relocation operation can use this authority to calculate the
-closure of resources to move and the references that must be rewritten.
+The resource reference graph says how a tenant's catalog resources use one another. It is data, not
+a page: organising catalogs uses it to refuse a move that would make catalogs depend on each other
+and to say what a move means for each catalog's next release (ADR 0042), and merging uses it to
+refuse taking a removal of something the draft still uses. People see the same facts where they
+work: **Used by** on a resource, a catalog's **Dependencies** page, and the Organise preview. The
+tenant-wide explorer page it once had (alpha) was removed in 2.0, since those cover its uses.
 
 ## Graph contract
 
@@ -53,14 +48,23 @@ edge; template defaults that explicitly select a theme are represented.
 Explicit references resolve only in their named catalog. Relative theme, stencil, and font
 references resolve in the source resource's catalog. Unqualified asset IDs and variant attribute
 keys use tenant-wide lookup: one matching node resolves, no matches is missing, and multiple matches
-is ambiguous. The UI keeps unresolved references visible rather than silently dropping them.
+is ambiguous. Unresolved references are kept in the graph rather than silently dropped.
 
 ## Architecture and API boundary
 
-`GetTenantResourceGraph` in `epistola-core` builds a consistent snapshot on demand inside one read
-transaction. It reads authoritative relational columns and the stored JSON content; no derived graph
-table, database migration, or cache is involved. `TenantResourceGraph.traverse` supplies the bounded
-BFS used by the UI.
+`TenantResourceGraphBuilder` in `epistola-core` builds a consistent snapshot on demand, on the
+caller's handle, so it sees what that transaction sees (`GetTenantResourceGraph` wraps it as a query).
+Its nodes are the rows of each catalog's current version; its edges are read from the reference index
+(`resource_references`), which records what each stored content refers to when it is stored, a
+template's variant contents counted as the template's. Nothing is scanned again and no cache is
+involved.
+
+It is the one answer to what uses what. **Used by** (`FindResourceUsages`), the upgrade and merge
+check that a removed resource is not still used elsewhere (`CatalogUpgradeAnalyzer.findConflicts`),
+and organising catalogs (the dependency-cycle check and the release impact) all read it. The check
+that discarding a draft does not take away what another version still names
+(`CatalogDraftCommands.holders`) reads the same index directly, limited to the references that point
+at an identity (an attribute's code list, a template's theme, the tenant's default theme).
 
 `ResourceReferenceSites` (`catalog/graph/ResourceReferenceSites.kt`) is the single authority for
 which JSON shapes count as a catalog-resource reference, and for whether an unqualified one resolves
@@ -86,27 +90,3 @@ built for export (`CatalogContentBuilder.Outbound`) and when a release retained 
 declares a catalog under another alias than its key is refused on import
 (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would mean rewriting its references, which
 changes its content hash, until catalogs are told apart by namespace and key (ADR 0034, phase 4).
-
-The explorer uses internal UI handlers only:
-
-- `GET /tenants/{tenantId}/resource-graph`
-- `GET /tenants/{tenantId}/resource-graph/nodes`
-- `GET /tenants/{tenantId}/resource-graph/subgraph`
-- `GET /tenants/{tenantId}/resource-graph/evidence`
-
-These endpoints require `CATALOG_VIEW`. They are intentionally not a stable `/api` or MCP surface.
-The Lit explorer and Cytoscape renderer are bundled and self-hosted, and the loader remains safe for
-strict CSP and HTMX body swaps.
-
-No demo catalog content is added for this feature: the explorer visualizes the cross-catalog theme,
-stencil, asset, attribute, code-list, and font relationships already present in the bundled demo
-and system catalogs. Changing those resources solely to demonstrate the visualization would alter
-the graph rather than exercise a new resource capability.
-
-## Follow-up work
-
-Deletion and catalog-upgrade checks still use their existing specialized scanners. Migrate those
-checks only after graph output has been compared against their behavior in production-shaped data.
-Safe relocation should then add preview/execute commands with optimistic validation, compute the
-dependency closure, distinguish references that must move from those that can be rewritten, and
-make the resource writes and reference rewrites atomic.

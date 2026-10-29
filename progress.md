@@ -89,6 +89,10 @@ Decided and closed:
 | Organise page: Move or rename in the draft opened, release impact, Create a shared catalog                                                                                                                                                                                         | `CatalogOrganiseHandler`, `CatalogOrganise.ts`, templates                         | ✅ `CatalogOrganiseRoutesTest`, `CatalogOrganise.test.ts` (caught a stale-closure bug in the new form)                                                 |
 | Generic engine (stacked branch): the planner's per-type queries, `JsonRewrite`, the seven `ResourceRelocator`s and the stores' `move` replaced by `ReferenceRepointer` over `resource_references` and `DraftResources.repoint`                                                     | `ReferenceRepointer`, `DraftResources`, `MovableResource`                         | ✅ the relocation suites unchanged (140), quality, MCP and app relocation tests; full core suite run                                                   |
 
+| Organising catalogs Stable and on by default (`resource-relocation` kept as the off switch) | `KnownFeatures`, `FeatureDefaults`, `application.yaml` | ✅ `KnownFeaturesTest`, `FeatureDefaultsTest`, nav and organise route tests (off states switched off explicitly) |
+| The resource graph page removed (alpha), with its toggle, explorer and cytoscape | handler, routes, template, script, editor | ✅ nav, feature toggle and organise tests; editor suite |
+| One reference authority: the graph reads `resource_references` (parity with the scanning builder checked by a temporary test before it went); Used by and the upgrade/merge conflict check read the graph | `TenantResourceGraphBuilder`, `VersionResourceReader.currentReferences`, `FindResourceUsages`, `CatalogUpgradeAnalyzer` | ✅ `FindResourceUsagesTest` (no font use before), `UpgradeCatalogTest` stencil case (removed from under another catalog before), full core suite 1,419 |
+
 Noticed, not done:
 
 - Create a shared catalog creates the catalog before the move, not in one transaction; a catalog
