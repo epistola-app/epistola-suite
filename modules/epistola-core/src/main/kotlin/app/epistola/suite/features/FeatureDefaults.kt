@@ -39,8 +39,8 @@ data class FeatureDefaults(
     val editorWalkthrough: Boolean = true,
     /** Tenant-wide catalog resource-reference explorer. Off while the feature is ALPHA. */
     val resourceGraph: Boolean = false,
-    /** Moving resources between authored catalogs. Off while the feature is ALPHA. */
-    val resourceRelocation: Boolean = false,
+    /** Organising catalogs: renaming and moving resources (ADR 0042). Stable, so on. */
+    val resourceRelocation: Boolean = true,
     /** Publishing catalog releases to Exchange. Off while the feature is ALPHA. */
     val catalogPublishing: Boolean = false,
     /** Browsing Exchange and installing catalogs from it. Off while the feature is ALPHA. */

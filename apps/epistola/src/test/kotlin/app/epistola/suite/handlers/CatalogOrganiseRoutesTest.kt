@@ -49,6 +49,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the page is absent without the relocation toggle`() {
         val tenant = createTenant("Organise off")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute() }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/organise", String::class.java)
 
@@ -142,6 +143,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the single-resource move is absent without the relocation toggle`() {
         val tenant = createTenant("Organise single off")
+        withMediator { SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = false).execute() }
 
         val response = restTemplate.getForEntity(
             "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:${tenant.id}/letters/header",
@@ -172,6 +174,54 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         assertThat(
             objectMapper.readTree(executed.body).path("relocations").single().path("target").path("catalogKey").stringValue(),
         ).isEqualTo("shared")
+    }
+
+    @Test
+    fun `the preview says what each next release becomes and in which order`() {
+        val tenantId = tenantWithStencil("Organise releases")
+        val body = """{"relocations":[{"type":"stencil","catalog":"$tenantId/letters","key":"header","targetCatalog":"$tenantId/shared"}]}"""
+
+        val plan = objectMapper.readTree(post(tenantId, "preview", body).body)
+
+        val releases = buildList { plan.path("releases").forEach { add(it.path("catalog").stringValue() to it.path("kind").stringValue()) } }
+        assertThat(releases).contains("$tenantId/shared" to "ADDITIVE")
+        assertThat(plan.path("releaseOrder").isArray).isTrue()
+    }
+
+    @Test
+    fun `a move from a draft changes that draft, and the dialog carries the draft it was opened in`() {
+        val tenantId = tenantWithStencil("Organise draft")
+        val letters = testCatalog(TenantId(app.epistola.suite.common.ids.TenantKey.of(tenantId)), CatalogKey.of("letters"))
+        val draft = withMediator { app.epistola.suite.catalog.releases.CreateCatalogDraft(letters, "Redesign", app.epistola.suite.catalog.releases.DraftRef.NEXT).execute().versionId }
+
+        val dialog = restTemplate.exchange(
+            "/tenants/$tenantId/catalogs/organise/move?resource=stencil:$tenantId/letters/header&draft=$draft",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        )
+        assertThat(dialog.body).contains("data-draft=\"$draft\"")
+
+        val relocation = """{"type":"stencil","catalog":"$tenantId/letters","key":"header","targetCatalog":"$tenantId/shared"}"""
+        val plan = objectMapper.readTree(post(tenantId, "preview", """{"relocations":[$relocation],"draft":"$draft"}""").body)
+        // The draft worked in changes; the next version, which holds the stencil too, is left alone.
+        val warnings = buildList { plan.path("warnings").forEach { add(it.path("message").stringValue()) } }
+        assertThat(warnings).anySatisfy { assertThat(it).startsWith("The next release of ") }
+        val executed = post(tenantId, "execute", """{"relocations":[$relocation],"draft":"$draft","planFingerprint":"${plan.path("planFingerprint").stringValue()}"}""")
+        assertThat(executed.statusCode).`as`(executed.body).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `creating a shared catalog answers it as the listing names catalogs, and refuses a key in use`() {
+        val tenantId = tenantWithStencil("Organise shared")
+
+        val created = post(tenantId, "catalogs", """{"key":"brand","name":"Brand"}""")
+        assertThat(created.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(objectMapper.readTree(created.body).path("key").stringValue()).isEqualTo("$tenantId/brand")
+
+        val again = post(tenantId, "catalogs", """{"key":"brand","name":"Brand again"}""")
+        assertThat(again.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(objectMapper.readTree(again.body).path("message").stringValue()).contains("brand")
     }
 
     private fun post(tenantId: String, path: String, body: String) = restTemplate.postForEntity(

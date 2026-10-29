@@ -67,6 +67,14 @@ export interface Warning {
   sourceId?: string | null;
 }
 
+/** What a move means for one catalog's next release (ADR 0042). */
+export interface ReleaseConsequence {
+  /** The catalog's address, `<namespace>/<catalog>`. */
+  catalog: string;
+  kind: 'NONE' | 'ADDITIVE' | 'BREAKING';
+  reasons: string[];
+}
+
 export interface RelocationPreview {
   relocations: RelocationPlan[];
   mutableRewriteCount: number;
@@ -75,4 +83,8 @@ export interface RelocationPreview {
   warnings: Warning[];
   planFingerprint: string;
   executable: boolean;
+  /** Every catalog the move changes, in release order. */
+  releases?: ReleaseConsequence[];
+  /** The catalogs it changes, a catalog before those that now depend on it. */
+  releaseOrder?: string[];
 }

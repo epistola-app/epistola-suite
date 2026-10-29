@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.dependencies
 
+import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.queries.ListCatalogEditability
@@ -78,6 +79,55 @@ class MissingDependencyDeclarer(
         .groupBy { it.third }
         .mapNotNull { (key, catalogs) -> catalogs.singleOrNull()?.let { key to it } }
         .toMap()
+
+    /**
+     * After resources moved into other catalogs ([arrived]: each catalog the addresses `type/key` that
+     * moved into it), every catalog of [tenantKey] that can be changed here and now uses one of them
+     * names that catalog's next version (ADR 0042): no release of it holds them yet, so a pin of one
+     * would not resolve. A declaration that names a draft already stays; one pinned to a release, or
+     * none, becomes a declaration of the next version. Releasing with dependencies then releases
+     * that catalog first.
+     */
+    fun followMoved(tenantKey: TenantKey, arrived: Map<CatalogId, Set<String>>) {
+        if (arrived.isEmpty()) return
+        for (catalog in ListCatalogEditability(tenantKey).query().editableCatalogs) {
+            val used = used(contentBuilder.build(catalog))
+            val into = arrived.filterKeys { it != catalog && used[it.key.value].orEmpty().any(arrived.getValue(it)::contains) }.keys
+            if (into.isEmpty()) continue
+            jdbi.useTransaction<Exception> { handle ->
+                val declared = store.declarations(handle, catalog)
+                val following = into.mapNotNull { target ->
+                    val existing = declared.firstOrNull { it.alias == target.key.value }
+                    if (existing?.namesDraft == true) return@mapNotNull null
+                    val declaration = existing ?: names(handle, tenantKey)[target.key.value]?.let { (registry, namespace, key) -> CatalogDependencyDeclaration(registry, namespace, key) }
+                        ?: return@mapNotNull null
+                    val (draftId, draftName) = store.nextVersionOf(handle, tenantKey, declaration) ?: return@mapNotNull null
+                    declaration.alias to declaration.copy(releaseVersion = null, releaseFingerprint = null, draftId = draftId, draftName = draftName)
+                }.toMap()
+                if (following.isNotEmpty()) store.replace(handle, catalog, declared.filter { it.alias !in following } + following.values)
+            }
+        }
+    }
+
+    /** What [content] uses of other catalogs, by the alias it names them by: `type/key`. */
+    private fun used(content: CatalogContent): Map<String, Set<String>> {
+        val references = content.dependencies.orEmpty().map { dependency ->
+            when (dependency) {
+                is DependencyRef.Theme -> dependency.catalogKey to "theme/${dependency.key}"
+                is DependencyRef.Stencil -> dependency.catalogKey to "stencil/${dependency.key}"
+                is DependencyRef.Image -> dependency.catalogKey to "image/${dependency.key}"
+                is DependencyRef.CodeList -> dependency.catalogKey to "codeList/${dependency.key}"
+                is DependencyRef.Font -> dependency.catalogKey to "font/${dependency.key}"
+            }
+        }
+        // A variant names an attribute of another catalog by `catalog.attribute`.
+        val attributes = content.resourceDetails.values
+            .mapNotNull { it.resource as? app.epistola.catalog.protocol.TemplateResource }
+            .flatMap { template -> template.variants.flatMap { it.attributes.orEmpty().keys } }
+            .filter { '.' in it }
+            .map { it.substringBefore('.') to "attribute/${it.substringAfter('.')}" }
+        return (references + attributes).groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+    }
 
     /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032), each in its namespace. */
     fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogId, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableCatalogs

@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.CatalogId
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
 
 /**
  * One kind of catalog resource, as the contract names it, said by the domain that owns it (ADR 0039).
@@ -56,6 +57,13 @@ interface ResourceType<R : CatalogResource> {
      * new one in content that already exists needs a migration indexing it there too.
      */
     fun references(resource: JsonNode): Set<app.epistola.suite.catalog.revisions.ContentReference> = emptySet()
+
+    /**
+     * Points each reference of [references] in [resource] (its wire form, changed in place) for which
+     * [to] gives another at that one: what a refactoring does to content that names what it moved
+     * (ADR 0042). True when one changed.
+     */
+    fun repoint(resource: ObjectNode, to: (app.epistola.suite.catalog.revisions.ContentReference) -> app.epistola.suite.catalog.revisions.ContentReference?): Boolean = false
 }
 
 /** One reason a resource's change is of [kind], said in [text] ("variant 'b' removed"). */

@@ -47,10 +47,10 @@
                         <button th:if="${resourceRelocationEnabled and auth.has('CATALOG_MANAGE') and editable}"
                                 type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 data-testid="template-move-action"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${template.catalogId.address} + '/' + ${template.id})}"
+                                th:hx-get="${#strings.contains(catalogSegment ?: '', '@')} ? @{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${template.catalogId.address} + '/' + ${template.id},draft=${#strings.substringAfter(catalogSegment, '@')})} : @{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${template.catalogId.address} + '/' + ${template.id})}"
                                 hx-target="#move-resource-mount" hx-swap="innerHTML"
                                 style="margin-left: var(--ep-space-2);">
-                            Move…
+                            Move or rename…
                         </button>
                     </dd>
                     <dt>Created</dt>

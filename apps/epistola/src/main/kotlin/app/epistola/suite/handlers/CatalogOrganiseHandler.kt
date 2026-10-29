@@ -4,10 +4,13 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
 import app.epistola.suite.catalog.relocation.CatalogResourceMovePreview
 import app.epistola.suite.catalog.relocation.ListRelocatableResources
@@ -15,6 +18,7 @@ import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.ResourceRelocation
 import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanException
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -24,6 +28,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.DuplicateIdException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -80,19 +85,24 @@ class CatalogOrganiseHandler {
         val canApply = canApply(tenantKey)
         // A boosted link or a history restore also sends HX-Request, but swaps the whole page: the
         // DSL sends those to the page branch, where a bare dialog would have nothing to open it.
+        // The draft the resource is opened in (ADR 0042: a refactoring changes the draft you work in);
+        // absent means the next version.
+        val draft = request.param("draft").orElse("")
         return request.htmx {
             fragment("catalogs/organise-move", "dialog") {
                 "tenantId" to tenantKey.value
                 "resource" to resource
+                "draft" to draft
                 "canApply" to canApply
             }
             onFullPage {
                 page("catalogs/organise-move") {
-                    "pageTitle" to "Move resource - Epistola"
+                    "pageTitle" to "Move or rename - Epistola"
                     "tenant" to GetTenant(tenantKey).query()
                     "activeNavSection" to "catalog-organise"
                     "tenantId" to tenantKey.value
                     "resource" to resource
+                    "draft" to draft
                     "canApply" to canApply
                 }
             }
@@ -146,7 +156,7 @@ class CatalogOrganiseHandler {
         if (!request.relocationEnabled()) return ServerResponse.notFound().build()
         val body = request.body(RelocationBatchRequest::class.java)
         val relocations = body.toRelocations() ?: return unknownType()
-        return json(previewDto(PreviewCatalogResourceMove(request.tenantKey(), relocations).query()))
+        return json(previewDto(PreviewCatalogResourceMove(request.tenantKey(), relocations, body.workingDraft(request.tenantKey())).query()))
     }
 
     fun execute(request: ServerRequest): ServerResponse {
@@ -154,11 +164,30 @@ class CatalogOrganiseHandler {
         val body = request.body(RelocationBatchRequest::class.java)
         val relocations = body.toRelocations() ?: return unknownType()
         return try {
-            json(previewDto(MoveCatalogResources(request.tenantKey(), relocations, body.planFingerprint.orEmpty()).execute()))
+            json(previewDto(MoveCatalogResources(request.tenantKey(), relocations, body.planFingerprint.orEmpty(), body.workingDraft(request.tenantKey())).execute()))
         } catch (_: StaleCatalogResourceMovePlanException) {
             conflict(mapOf("code" to "stale-plan", "message" to "Something changed since you previewed; preview again"))
         } catch (exception: CatalogResourceMoveBlockedException) {
             conflict(mapOf("code" to "move-blocked", "blockers" to exception.blockers))
+        }
+    }
+
+    /**
+     * Creates the catalog a set of resources is to be gathered in ("Create a shared catalog…", ADR
+     * 0042): the page then makes it the destination of the selection, and the move is previewed and
+     * applied as any other. Answers the catalog as the listing names catalogs.
+     */
+    fun createSharedCatalog(request: ServerRequest): ServerResponse {
+        if (!request.relocationEnabled()) return ServerResponse.notFound().build()
+        val body = request.body(SharedCatalogRequest::class.java)
+        return try {
+            val created = CreateCatalog(request.tenantKey(), CatalogKey.of(body.key.trim()), body.name.trim()).execute()
+            json(mapOf("key" to created.address, "name" to created.name, "editable" to true))
+        } catch (exception: IllegalArgumentException) {
+            // A key that is no slug, or a name the command refuses (ValidationException is one).
+            ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON).body(mapOf("code" to "invalid", "message" to exception.message))
+        } catch (_: DuplicateIdException) {
+            conflict(mapOf("code" to "catalog-exists", "message" to "A catalog with the key '${body.key.trim()}' already exists"))
         }
     }
 
@@ -180,6 +209,9 @@ class CatalogOrganiseHandler {
         "warnings" to preview.warnings.map { mapOf("code" to it.code, "message" to it.message, "source" to it.source, "sourceId" to it.source?.id) },
         "planFingerprint" to preview.planFingerprint,
         "executable" to preview.executable,
+        // What it means for each catalog's next release, in the order they are released (ADR 0042).
+        "releases" to preview.releases.map { mapOf("catalog" to it.catalog, "kind" to it.kind.name, "reasons" to it.reasons) },
+        "releaseOrder" to preview.releaseOrder,
     )
 
     private fun ServerRequest.tenantKey() = TenantKey.of(pathVariable("tenantId"))
@@ -203,12 +235,26 @@ class CatalogOrganiseHandler {
     }
 }
 
+private data class SharedCatalogRequest(val key: String, val name: String)
+
 private data class RelocationBatchRequest(
     val relocations: List<RelocationRequest>,
     val planFingerprint: String? = null,
+    /**
+     * The id of the draft worked in, of the catalog the first resource moves out of (ADR 0042);
+     * absent means the next version.
+     */
+    val draft: String? = null,
 ) {
     /** The relocations, or null when one names a type that cannot be moved. */
     fun toRelocations(): List<ResourceRelocation>? = relocations.map { it.toRelocation() ?: return null }
+
+    /** [draft] as the version the move changes in its own catalog, or null for the next version. */
+    fun workingDraft(tenantKey: TenantKey): CatalogReleaseRef? {
+        val id = draft?.takeIf { it.isNotBlank() }?.let(DraftRef::parseDraft) ?: return null
+        val source = relocations.firstOrNull()?.toRelocation()?.source ?: return null
+        return CatalogReleaseRef(source.catalogIn(tenantKey), id)
+    }
 }
 
 private data class RelocationRequest(

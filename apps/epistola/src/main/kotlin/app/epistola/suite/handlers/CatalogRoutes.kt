@@ -64,6 +64,7 @@ class CatalogRoutes(
             GET("/organise/resources", organise::resources)
             POST("/organise/preview", organise::preview)
             POST("/organise/execute", organise::execute)
+            POST("/organise/catalogs", organise::createSharedCatalog)
         }
     }
 
