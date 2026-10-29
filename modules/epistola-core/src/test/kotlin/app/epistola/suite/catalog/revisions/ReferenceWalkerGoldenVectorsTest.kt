@@ -24,6 +24,21 @@ import tools.jackson.databind.json.JsonMapper
 class ReferenceWalkerGoldenVectorsTest {
 
     private val mapper = JsonMapper.builder().build()
+
+    /** Every content type: each names the references it carries beside the reference sites (ADR 0039). */
+    private val types = mapper.let { objectMapper ->
+        app.epistola.suite.catalog.types.ResourceTypes(
+            listOf(
+                app.epistola.suite.templates.TemplateResourceType(objectMapper, app.epistola.suite.catalog.ProtocolMapper(objectMapper)),
+                app.epistola.suite.stencils.StencilResourceType(),
+                app.epistola.suite.attributes.AttributeResourceType(),
+                app.epistola.suite.attributes.codelists.CodeListResourceType(),
+                app.epistola.suite.themes.ThemeResourceType(),
+                app.epistola.suite.fonts.FontResourceType(),
+                app.epistola.suite.assets.ImageResourceType(),
+            ),
+        )
+    }
     private val vectors: JsonNode = mapper.readTree(javaClass.getResource("/fixtures/references/v1.json")!!.readText())
 
     private fun expected(case: JsonNode): Set<ContentReference> = case.path("references").toList().map { ref ->
@@ -34,7 +49,7 @@ class ReferenceWalkerGoldenVectorsTest {
     fun `the walker finds exactly the references of every golden case`() {
         assertThat(vectors.path("cases").size()).isGreaterThan(5)
         for (case in vectors.path("cases")) {
-            assertThat(ContentReferences.of(case.path("kind").asString(), case.path("content")))
+            assertThat(ContentReferences.of(case.path("content"), types.find(case.path("kind").asString())))
                 .`as`(case.path("name").asString())
                 .isEqualTo(expected(case))
         }

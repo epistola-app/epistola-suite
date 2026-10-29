@@ -151,12 +151,23 @@ object DraftResources {
      * version, holding [contentHash] (a payload names its key). The identity follows
      * (`sync_draft_resource_identity`). False when the source has no such row.
      */
-    fun move(handle: Handle, source: CatalogId, type: String, key: String, target: CatalogId, targetKey: String, contentHash: String): Boolean = handle.writable(source).writable(target)
+    fun move(
+        handle: Handle,
+        source: CatalogId,
+        type: String,
+        key: String,
+        target: CatalogId,
+        targetKey: String,
+        contentHash: String,
+        /** The content the row must still hold (a relocation's guard against a concurrent edit); null for any. */
+        expectedHash: String? = null,
+    ): Boolean = handle.writable(source).writable(target)
         .createUpdate(
             """
             UPDATE release_resources
             SET catalog_id = ${catalogAt("t", "target")}, version_id = ${versionAt("t", "target")}, resource_key = :targetKey, content_hash = :hash
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
+              AND (CAST(:expected AS TEXT) IS NULL OR content_hash = :expected)
             """,
         )
         .bind("t", source.tenantKey)
@@ -165,6 +176,120 @@ object DraftResources {
         .bind("type", type)
         .bind("key", key)
         .bind("targetKey", targetKey)
+        .bind("hash", contentHash)
+        .bind("expected", expectedHash)
+        .execute() > 0
+
+    /**
+     * A row of a draft, with the content it names: a wire resource's (`parentKey` null) or a template's
+     * variant's (`key` the variant's, `parentKey` its template's).
+     */
+    data class Row(
+        /** Its catalog's address, `namespace/key`. */
+        val catalogAddress: String,
+        val type: String,
+        val key: String,
+        val parentId: UUID?,
+        val parentKey: String?,
+        val contentHash: String,
+        /** The kind of its content (`resource_contents.kind`): the wire type, or a part's (`variant`). */
+        val kind: String,
+        val payload: String,
+    )
+
+    private val ROW_COLUMNS = """
+        c.namespace || '/' || c.catalog_key AS catalog_address, r.resource_type, r.resource_key, r.parent_id,
+        parent.resource_key AS parent_key, r.content_hash, rc.kind, rc.payload::text AS payload
+    """
+
+    private val ROW_FROM = """
+        FROM release_resources r
+        JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+        JOIN resource_contents rc ON rc.tenant_key = r.tenant_key AND rc.content_hash = r.content_hash
+        LEFT JOIN release_resources parent ON parent.tenant_key = r.tenant_key AND parent.version_id = r.version_id
+             AND parent.resource_id = r.parent_id AND parent.parent_id IS NULL
+    """
+
+    private fun rowOf(rs: java.sql.ResultSet) = Row(
+        rs.getString("catalog_address"),
+        rs.getString("resource_type"),
+        rs.getString("resource_key"),
+        rs.getObject("parent_id", UUID::class.java),
+        rs.getString("parent_key"),
+        rs.getString("content_hash"),
+        rs.getString("kind"),
+        rs.getString("payload"),
+    )
+
+    /**
+     * The rows of the version each catalog of [tenantKey] means (the targeted draft, else the next),
+     * when it is a draft, whose content refers to one of [references] (`type` to `key`) by any
+     * catalog: what a relocation re-points (ADR 0042), read from `resource_references`.
+     */
+    fun referencing(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, references: Collection<Pair<String, String>>): List<Row> {
+        if (references.isEmpty()) return emptyList()
+        return handle.createQuery(
+            """
+            SELECT $ROW_COLUMNS
+            $ROW_FROM
+            JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+            JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id AND v.state = 'draft'
+            WHERE r.tenant_key = :t
+              AND EXISTS (
+                  SELECT 1 FROM resource_references rr
+                  WHERE rr.tenant_key = r.tenant_key AND rr.content_hash = r.content_hash
+                    AND (rr.resource_type || '/' || rr.resource_key) IN (<references>)
+              )
+            ORDER BY catalog_address, COALESCE(parent.resource_key, r.resource_key), r.resource_type, r.resource_key
+            """,
+        )
+            .bind("t", tenantKey)
+            .bindList("references", references.map { (type, key) -> "$type/$key" }.distinct())
+            .map { rs, _ -> rowOf(rs) }
+            .list()
+    }
+
+    /** The row of [type] [key] in the targeted draft of [catalog] and, for a template, its variants' rows. */
+    fun rowsOf(handle: Handle, catalog: CatalogId, type: String, key: String): List<Row> = handle.createQuery(
+        """
+        SELECT $ROW_COLUMNS
+        $ROW_FROM
+        WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+          AND ((r.parent_id IS NULL AND r.resource_type = :type AND r.resource_key = :key)
+               OR (r.parent_id IS NOT NULL AND parent.resource_type = :type AND parent.resource_key = :key))
+        ORDER BY r.parent_id NULLS FIRST, r.resource_key
+        """,
+    )
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .bind("type", type)
+        .bind("key", key)
+        .map { rs, _ -> rowOf(rs) }
+        .list()
+
+    /**
+     * Points the targeted draft's [row] of [catalog] at [contentHash], when it still holds the content
+     * it was read with: a relocation re-pointing what a row names (ADR 0042). It is not an author's
+     * edit, so who edited it last stays. False when the row changed or is gone.
+     */
+    fun repoint(handle: Handle, catalog: CatalogId, row: Row, contentHash: String): Boolean = handle.writable(catalog)
+        .createUpdate(
+            """
+            UPDATE release_resources r SET content_hash = :hash
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+              AND r.resource_type = :type AND r.resource_key = :key AND r.content_hash = :expected
+              AND (CAST(:parentKey AS TEXT) IS NULL AND r.parent_id IS NULL
+                   OR r.parent_id = (SELECT p.resource_id FROM release_resources p
+                                     WHERE p.tenant_key = r.tenant_key AND p.version_id = r.version_id AND p.parent_id IS NULL
+                                       AND p.resource_type = 'template' AND p.resource_key = :parentKey))
+            """,
+        )
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .bind("type", row.type)
+        .bind("key", row.key)
+        .bind("parentKey", row.parentKey)
+        .bind("expected", row.contentHash)
         .bind("hash", contentHash)
         .execute() > 0
 }

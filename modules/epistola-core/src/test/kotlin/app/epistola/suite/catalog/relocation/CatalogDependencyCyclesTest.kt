@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ReferenceQualification
 import app.epistola.suite.catalog.graph.ReferenceResolution
 import app.epistola.suite.catalog.graph.ReferenceSelector
-import app.epistola.suite.catalog.graph.ReferenceSemantics
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceEdge
 import app.epistola.suite.catalog.graph.ResourceNode
@@ -22,26 +21,21 @@ import java.util.UUID
 class CatalogDependencyCyclesTest {
     private fun address(catalog: String, key: String, type: CatalogResourceType = CatalogResourceType.STENCIL) = ResourceAddress(type, "acme", catalog, key)
 
-    private fun graphOf(vararg edges: Pair<ResourceAddress, ResourceAddress>): TenantResourceGraph = graphOfKinds(*edges.map { Triple(it.first, it.second, "test") }.toTypedArray())
-
-    private fun graphOfKinds(vararg edges: Triple<ResourceAddress, ResourceAddress, String>): TenantResourceGraph {
+    private fun graphOf(vararg edges: Pair<ResourceAddress, ResourceAddress>): TenantResourceGraph {
         val addresses = edges.flatMap { listOf(it.first, it.second) }.distinct()
         return TenantResourceGraph(
             nodes = addresses.map {
                 ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey)
             },
-            edges = edges.mapIndexed { index, (from, to, kind) ->
+            edges = edges.mapIndexed { index, (from, to) ->
                 ResourceEdge(
                     id = "e$index",
                     source = from,
                     target = to,
                     targetSelector = ReferenceSelector(to.type, to.catalogKey, to.key),
                     targetCandidates = listOf(to),
-                    kind = kind,
-                    semantics = ReferenceSemantics.RUNTIME,
                     qualification = ReferenceQualification.EXPLICIT,
                     resolution = ReferenceResolution.RESOLVED,
-                    evidence = emptyList(),
                 )
             },
         )
@@ -85,11 +79,8 @@ class CatalogDependencyCyclesTest {
                     target = null,
                     targetSelector = ReferenceSelector(CatalogResourceType.THEME, "gone", "missing"),
                     targetCandidates = emptyList<ResourceAddress>(),
-                    kind = "test",
-                    semantics = ReferenceSemantics.RUNTIME,
                     qualification = ReferenceQualification.EXPLICIT,
                     resolution = ReferenceResolution.MISSING,
-                    evidence = emptyList(),
                 ),
             ),
         )

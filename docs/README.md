@@ -72,8 +72,8 @@ under its title. That banner, not this table, is authoritative.
 | [Wire format v4](exchange/v4/README.md)                               | Current  | Previous wire contract, retained for compatibility.                                                            |
 | [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version, how "is this new?" is decided, and ready marks.                              |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.                                            |
-| [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                                                           |
-| [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming a resource; its old address stops working.                                                  |
+| [Resource reference graph](resource-reference-graph.md)               | Current  | Which resources use which: the data behind organising catalogs and merges (no page of its own).                |
+| [Resource relocation](catalog-resource-relocation.md)                 | Current  | Organising catalogs: renaming and moving resources, with everything that uses them updated (ADR 0042).         |
 | [Resource identity migration](catalog-resource-identity-migration.md) | Record   | Separating identity from address, per ADR 0014; superseded where unfinished.                                   |
 | [Immutable publication plan](catalog-immutable-publication.md)        | Record   | Where relocation and publication go next: self-contained published artifacts.                                  |
 | [Release model v2 plan](catalog-release-model-v2.md)                  | Record   | The major that removes template and stencil versions: work packages, data migration, upgrade path.             |

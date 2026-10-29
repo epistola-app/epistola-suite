@@ -67,6 +67,7 @@
                         <div class="asset-card-actions">
                             <span th:unless="${catalogEditing.editable(asset.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(asset.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(asset.catalogKey)}">
+                                <th:block th:replace="~{fragments/refactoring :: row-action('image', ${draftSegment?.linkFor(asset.catalogId) ?: asset.catalogId.address}, ${asset.id})}" />
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"

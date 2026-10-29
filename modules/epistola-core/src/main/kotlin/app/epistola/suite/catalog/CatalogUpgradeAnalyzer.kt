@@ -4,9 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.attributes.AttributeReferences
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -34,14 +31,14 @@ data class RemovedResource(val type: String, val slug: String)
 @Component
 class CatalogUpgradeAnalyzer(
     private val jdbi: Jdbi,
+    private val graphs: app.epistola.suite.catalog.graph.TenantResourceGraphBuilder,
 ) {
 
     private companion object {
         val STALE_PRUNED_RESOURCE_TYPES = RESOURCE_INSTALL_ORDER.keys
 
-        // A `fontFamily` reference names its font by `key` from wire v8; content stored before 2.0
-        // says `slug` until the upgrade rewrites it, and still uses the font.
-        const val FONT_REFERENCE_JSON_PATH = "\$.**.fontFamily ? ((@.key == \$slug || @.slug == \$slug) && @.catalogKey == \$catalogKey)"
+        /** How a conflict names a resource's type. */
+        val TYPE_WORDS = mapOf("codeList" to "Code list")
     }
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -84,187 +81,38 @@ class CatalogUpgradeAnalyzer(
     }
 
     /**
-     * Human-readable cross-catalog conflicts for the given stale resources
-     * (a removed resource still referenced from another catalog). Empty = safe.
+     * Human-readable cross-catalog conflicts for the given stale resources (a removed resource still
+     * used from another catalog), from the resource graph, the one reference authority: any kind of
+     * use counts (a template's theme, stencils, images and fonts, a theme's fonts, a variant's
+     * attributes, an attribute's code list, a stencil's stencils), and so does a theme that is the
+     * tenant's default. What the catalog uses of itself goes with it. Empty = safe.
      */
     fun findConflicts(
         catalog: CatalogId,
         staleResources: List<InstalledResource>,
     ): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        val conflicts = mutableListOf<String>()
-        for (resource in staleResources) {
-            when (resource.type) {
-                "theme" -> findThemeConflicts(handle, catalog, resource.slug, conflicts)
-
-                "stencil" -> findStencilConflicts(handle, catalog, resource.slug, conflicts)
-
-                // A template removed by an upgrade breaks nothing that renders: environments serve
-                // releases, which keep their content, not the working copy's templates.
-                "attribute" -> findAttributeConflicts(handle, catalog, resource.slug, conflicts)
-
-                "codeList" -> findCodeListConflicts(handle, catalog, resource.slug, conflicts)
-
-                "font" -> findFontConflicts(handle, catalog, resource.slug, conflicts)
-            }
+        if (staleResources.isEmpty()) return@withHandle emptyList()
+        val graph = graphs.buildOn(handle, catalog.tenantKey)
+        val names = graph.nodes.associate { it.address to it.name }
+        val stale = staleResources.associateBy { it.type to it.slug }
+        val conflicts = graph.edges.mapNotNull { edge ->
+            val target = edge.target ?: return@mapNotNull null
+            val resource = stale[target.type.wireName to target.key] ?: return@mapNotNull null
+            if (target.catalogAddress != catalog.address || edge.source.catalogAddress == catalog.address) return@mapNotNull null
+            val word = TYPE_WORDS[resource.type] ?: resource.type.replaceFirstChar(Char::uppercase)
+            "$word '${resource.slug}' is used by ${edge.source.type.wireName} '${names[edge.source] ?: edge.source.key}' (catalog: ${edge.source.catalogKey})"
         }
-        conflicts
-    }
-
-    private fun findThemeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
-        handle.createQuery(
-            """
-            SELECT dt.name, dc.catalog_key AS catalog_key FROM current_templates dt
-            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            WHERE dt.tenant_key = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
-            """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
-            .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-
-        handle.createQuery(
-            """
-            SELECT t.id FROM tenants t
-            JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
-            WHERE t.id = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug
-            """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
-            .mapTo(String::class.java).findOne().ifPresent {
-                conflicts.add("Theme '$slug' is the tenant default theme")
-            }
-    }
-
-    private fun findStencilConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
-        handle.createQuery(
-            """
-            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
-            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
-              AND n.value ->> 'type' = 'stencil'
-              AND n.value -> 'props' ->> 'catalog.key' = :cStr
-              AND n.value -> 'props' ->> 'stencilKey' = :slug
-            """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("cStr", catalog.key.value).bind("slug", slug)
-            .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-    }
-
-    private fun findAttributeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
-        val attribute = AttributeId(AttributeKey.of(slug), catalog)
-        handle.createQuery(
-            """
-            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM current_template_variants v
-            JOIN current_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_id = v.catalog_id AND dt.resource_id = v.template_resource_id
-            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
-              AND ${AttributeReferences.uses("v")}
-            """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
-            .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(attribute))
-            .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(attribute))
-            .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-    }
-
-    private fun findCodeListConflicts(
-        handle: Handle,
-        catalog: CatalogId,
-        slug: String,
-        conflicts: MutableList<String>,
-    ) {
-        handle.createQuery(
-            """
-            -- Resolved through the one alias resolver (catalog_version_references, ADR 0033).
-            SELECT vad.name AS display_name, vc.catalog_key AS catalog_key
-            FROM catalog_version_references('attribute') x
-            JOIN release_wire_resources vad ON vad.tenant_key = x.tenant_key AND vad.version_id = x.version_id AND vad.resource_type = 'attribute' AND vad.resource_key = x.resource_key
-            JOIN catalogs vc ON vc.tenant_key = x.tenant_key AND vc.catalog_id = x.catalog_id
-            WHERE x.tenant_key = :t
-              AND x.catalog_id != ${catalogAt("t", "c")}
-              AND x.ref_type = 'codeList' AND x.ref_catalog_id = ${catalogAt("t", "c")} AND x.ref_key = CAST(:slug AS TEXT)
-            """,
-        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
-            .map { rs, _ ->
-                "Code list '$slug' is used by attribute '${rs.getString("display_name")}' (catalog: ${rs.getString("catalog_key")})"
-            }
-            .list()
-            .let { conflicts.addAll(it) }
-    }
-
-    private fun findFontConflicts(
-        handle: Handle,
-        catalog: CatalogId,
-        slug: String,
-        conflicts: MutableList<String>,
-    ) {
-        val vars = """{"slug":"$slug","catalogKey":"${catalog.key.value}"}"""
-
-        handle.createQuery(
-            """
-            SELECT th.name, tc.catalog_key AS catalog_key
-            FROM current_themes th
-            JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
-            WHERE th.tenant_key = :t
-             
-              AND (
-                jsonb_path_exists(th.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
-                OR jsonb_path_exists(COALESCE(th.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
-              )
-            """,
-        ).bind("t", catalog.tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
-            .map { rs, _ ->
-                fontConflictIfExternal(
-                    type = "theme",
-                    name = rs.getString("name"),
-                    referencingCatalog = rs.getString("catalog_key"),
-                    owningCatalog = catalog.key,
-                    fontSlug = slug,
-                )
-            }
-            .list()
-            .filterNotNull()
-            .let { conflicts.addAll(it) }
-
-        handle.createQuery(
-            """
-            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM current_template_variants ver
-            JOIN current_templates dt
-              ON dt.tenant_key = ver.tenant_key
-             AND dt.catalog_id = ver.catalog_id
-             AND dt.resource_id = ver.template_resource_id
-            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            WHERE ver.tenant_key = :t
-              AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
-            """,
-        ).bind("t", catalog.tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
-            .map { rs, _ ->
-                fontConflictIfExternal(
-                    type = "template",
-                    name = rs.getString("name"),
-                    referencingCatalog = rs.getString("catalog_key"),
-                    owningCatalog = catalog.key,
-                    fontSlug = slug,
-                )
-            }
-            .list()
-            .filterNotNull()
-            .let { conflicts.addAll(it) }
-    }
-
-    private fun fontConflictIfExternal(
-        type: String,
-        name: String,
-        referencingCatalog: String,
-        owningCatalog: CatalogKey,
-        fontSlug: String,
-    ): String? {
-        if (referencingCatalog == owningCatalog.value) return null
-        return "Font '$fontSlug' is used by $type '$name' (catalog: $referencingCatalog)"
+        val defaultTheme = staleResources.filter { it.type == "theme" }.mapNotNull { theme ->
+            handle.createQuery(
+                """
+                SELECT t.id FROM tenants t
+                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                WHERE t.id = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug
+                """,
+            ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", theme.slug)
+                .mapTo(String::class.java).findOne().map { "Theme '${theme.slug}' is the tenant default theme" }.orElse(null)
+        }
+        (conflicts.distinct().sorted() + defaultTheme)
     }
 
     /**

@@ -51,6 +51,7 @@
                         <div class="asset-card-actions">
                             <span th:unless="${catalogEditing.editable(font.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(font.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(font.catalogKey)}">
+                                <th:block th:replace="~{fragments/refactoring :: row-action('font', ${draftSegment?.linkFor(font.catalogId) ?: font.catalogId.address}, ${font.slug})}" />
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete font"

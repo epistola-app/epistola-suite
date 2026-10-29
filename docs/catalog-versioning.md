@@ -466,8 +466,10 @@ until it is released**; only releases are numbered.
   (it decides how this catalog's templates that name no theme look, as a theme's own content does)
   and another license. The same rules
   decide whether a newer release of a catalog this one uses fits what it uses (`GetCatalogBorrowing`).
-- **Relocation** moves the next release's rows, so it is refused (`several-drafts`) while the source
-  or target catalog has another draft.
+- **Relocation** changes one draft per catalog (ADR 0042): the draft it names in the catalog a
+  resource moves out of (by default the next version), and the next version of every other catalog
+  involved. A catalog's other drafts keep their copy at the old address, under an identity of their
+  own, and the preview names them (`left-behind-draft`).
 
 ### Which version a statement means
 

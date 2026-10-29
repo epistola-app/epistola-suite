@@ -23,7 +23,6 @@
     "@epistola/design-system": "workspace:*",
     "@faker-js/faker": "^10.6.0",
     "@floating-ui/dom": "^1.8.0",
-    "cytoscape": "^3.34.3",
     "driver.js": "^1.8.0",
     "jsonata": "^2.2.2",
     "lit": "^3.3.3",

@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
+import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
@@ -36,6 +37,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -200,6 +202,37 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
 
             postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/dependencies/remove-unused", mapOf("alias" to "shared"))
             assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant.id, letters), work(tenant, work)).query().catalogs.filter { it.declared } }).isEmpty()
+        }
+    }
+
+    @Test
+    fun `a fix to a theme the draft moved says where it went`() = fixture {
+        lateinit var tenant: Tenant
+        given {
+            tenant = tenant("Merge Moved")
+            withMediator {
+                CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
+                CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("shared"), name = "Shared").execute()
+                CreateTheme(theme(tenant, "house"), "House").execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+                val fix = CreateCatalogDraft(testCatalog(tenant.id, letters), "Fix", "1.0.0").execute().versionId
+
+                // The next release moves the theme to shared (ADR 0042); the fix changes it where it was.
+                val move = listOf(app.epistola.suite.catalog.relocation.ResourceRelocation(testAddress(tenant.id, CatalogResourceType.THEME, letters.value, "house"), testAddress(tenant.id, CatalogResourceType.THEME, "shared", "house")))
+                val plan = app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove(tenant.id, move).query()
+                app.epistola.suite.catalog.relocation.MoveCatalogResources(tenant.id, move, plan.planFingerprint).execute()
+                UpdateTheme(theme(tenant, "house"), name = "House, fixed", catalogVersion = work(tenant, fix)).execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters), work(tenant, fix)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.1", catalogVersion = work(tenant, fix)).execute()
+            }
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/merge?release=1.0.1").body!! }
+        then {
+            val dialog = result<String>()
+            assertThat(dialog).contains("data-resource=\"theme/house\"")
+                .contains("You moved it to shared as house, and it was changed in v1.0.1: apply that change there, or leave it")
+                .contains("Leave it in shared").contains("Bring v1.0.1’s back here")
         }
     }
 

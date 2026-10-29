@@ -31,10 +31,14 @@ class DraftMergePlanner(
     private val inputs: MergeInputReader,
     private val mergers: ResourceMergers,
     private val references: MergeReferences,
+    private val moves: MergeMoves,
 ) {
 
     fun plan(catalog: CatalogId, release: String, draftName: String): MergePlan {
-        val read = inputs.read(catalog, release, draftName)
+        val unmoved = inputs.read(catalog, release, draftName)
+        // What the draft moved rather than removed, and the base and release naming it where it went.
+        val moved = moves.of(catalog, unmoved)
+        val read = moves.rebase(catalog, unmoved, moved)
         val (base, ours, theirs) = Triple(read.base, read.ours, read.theirs)
         // A resource is called what the draft calls it, else what the release does, else the base.
         val names = base.names + theirs.names + ours.names
@@ -44,7 +48,7 @@ class DraftMergePlanner(
             val setting = (ours.values[key] ?: theirs.values[key] ?: base.values[key]) as? MergeValue.Setting
             MergeEntrySides(key, setting?.setting?.label ?: names[key], base.values[key], ours.values[key], theirs.values[key], heldBase = read.heldBase[key])
         }
-        val classified = entries.map { mergers.of(it.type).classify(it) }
+        val classified = entries.map { sides -> mergers.of(sides.type).classify(sides).let { resource -> moved[sides.contentKey]?.let { resource.copy(movedTo = it) } ?: resource } }
         return MergePlan(
             inputs = read,
             entries = entries,

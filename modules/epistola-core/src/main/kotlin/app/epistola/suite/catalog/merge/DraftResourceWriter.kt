@@ -138,7 +138,7 @@ class DraftResourceWriter(
         val inUse = analyzer.findConflicts(catalog, stale)
         if (inUse.isNotEmpty()) throw MergeRefusedException(catalog.key, "$release removes what is still used: ${inUse.joinToString("; ")}")
         val gone = removed.toSet()
-        val users = jdbi.withHandle<_, Exception> { graph.buildOn(it, catalog.tenantKey, includeHistory = false) }.edges.filter { edge ->
+        val users = jdbi.withHandle<_, Exception> { graph.buildOn(it, catalog.tenantKey) }.edges.filter { edge ->
             val target = edge.target ?: return@filter false
             target.catalogAddress == catalog.address &&
                 (target.type.wireName to target.key) in gone &&

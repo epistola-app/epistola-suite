@@ -754,3 +754,183 @@ new catalog_versions.released_from
     upstream_availability text,
     upstream_availability_checked_at timestamp with time zone
 )
+
+# ADR 0039: a template's variants name the attributes they select by, and those are references,
+# indexed in resource_references (TemplateResourceType.references), and the 2.0 chain indexes them
+# as it stores a 1.x template (V20261101000800, V20261101000900). The wide tenant's letter selects
+# by lists.tone and size.
++ row resource_references: {"alias":"lists","content_hash":"16cd3447dc848b3c2c988a89c253621c57ea2d6f810ac6dddc1a21c83c529bc4","resource_key":"tone","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":"lists","content_hash":"374a829f2fd1eeac7bc84b9a7ef1117727cd4358690f3a230198a386ffb77db2","resource_key":"tone","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":null,"content_hash":"16cd3447dc848b3c2c988a89c253621c57ea2d6f810ac6dddc1a21c83c529bc4","resource_key":"size","resource_type":"attribute","tenant_key":"wide"}
++ row resource_references: {"alias":null,"content_hash":"374a829f2fd1eeac7bc84b9a7ef1117727cd4358690f3a230198a386ffb77db2","resource_key":"size","resource_type":"attribute","tenant_key":"wide"}
+
+# Changed for ADR 0042 (organising catalogs): a resource moved or renamed in one draft while other
+# drafts of its catalog hold it no longer refuses; its identity goes with the move and the copies left
+# behind get one of their own at the old address (split_draft_resource_identity).
++ CREATE FUNCTION public.split_draft_resource_identity(p_tenant text, p_resource uuid, p_version uuid, p_catalog uuid, p_key text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    left_behind UUID := epistola_uuidv7();
+    registered catalog_resources%ROWTYPE;
+    others UUID[];
+BEGIN
+    SELECT array_agg(DISTINCT version_id) INTO others FROM release_resources
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND parent_id IS NULL AND version_id <> p_version
+      AND release_resource_is_draft(tenant_key, version_id);
+    SELECT * INTO registered FROM catalog_resources WHERE tenant_key = p_tenant AND resource_id = p_resource;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'catalog resource % has no identity row', p_resource;
+    END IF;
+
+    -- The identity leaves the old address first, so the copies left behind can be registered there.
+    UPDATE catalog_resources SET catalog_id = p_catalog, resource_key = p_key
+    WHERE tenant_key = p_tenant AND resource_id = p_resource;
+    INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+    VALUES (p_tenant, left_behind, registered.resource_type, registered.catalog_id, registered.resource_key);
+
+    -- Re-keying a row is refused by sync_draft_resource_identity unless it is this split's.
+    PERFORM set_config('epistola.identity_split', left_behind::text, TRUE);
+    UPDATE release_resources SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND parent_id IS NULL AND version_id = ANY (others);
+    UPDATE release_resources SET parent_id = left_behind, resource_id = variant_resource_id(left_behind, resource_key)
+    WHERE tenant_key = p_tenant AND parent_id = p_resource AND version_id = ANY (others);
+    PERFORM set_config('epistola.identity_split', '', TRUE);
+
+    UPDATE resource_ready_marks SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND version_id = ANY (others);
+    UPDATE code_list_refreshes SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND version_id = ANY (others);
+    UPDATE catalog_versions SET default_theme_resource_id = left_behind
+    WHERE tenant_key = p_tenant AND default_theme_resource_id = p_resource AND version_id = ANY (others);
+    RETURN left_behind;
+END;
+$$
++ CREATE FUNCTION public.sync_draft_resource_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+
+DECLARE
+    existing_resource_id UUID;
+    held_elsewhere BOOLEAN;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id)
+            INTO held_elsewhere;
+        IF NOT held_elsewhere THEN
+            DELETE FROM catalog_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        SELECT resource_id INTO existing_resource_id
+        FROM catalog_resources
+        WHERE tenant_key = NEW.tenant_key AND resource_type = NEW.resource_type
+          AND catalog_id = NEW.catalog_id AND resource_key = NEW.resource_key;
+        IF NEW.resource_id IS NULL THEN
+            NEW.resource_id := COALESCE(existing_resource_id, epistola_uuidv7());
+        ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
+            RAISE EXCEPTION 'catalog resource % is already registered at %/% under identity %',
+                NEW.resource_id, NEW.catalog_id, NEW.resource_key, existing_resource_id;
+        END IF;
+        INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+        VALUES (NEW.tenant_key, NEW.resource_id, NEW.resource_type, NEW.catalog_id, NEW.resource_key)
+        ON CONFLICT (tenant_key, resource_id) DO UPDATE
+        SET catalog_id = EXCLUDED.catalog_id, resource_key = EXCLUDED.resource_key
+        WHERE catalog_resources.resource_type = EXCLUDED.resource_type
+          AND catalog_resources.catalog_id = EXCLUDED.catalog_id
+          AND catalog_resources.resource_key = EXCLUDED.resource_key;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % is registered with another type or at another address than %/%',
+                NEW.resource_id, NEW.catalog_id, NEW.resource_key;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.resource_id <> OLD.resource_id THEN
+        IF current_setting('epistola.identity_split', TRUE) IS DISTINCT FROM NEW.resource_id::text THEN
+            RAISE EXCEPTION 'catalog resource_id is immutable';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF NEW.catalog_id IS DISTINCT FROM OLD.catalog_id OR NEW.resource_key IS DISTINCT FROM OLD.resource_key THEN
+        SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id
+                       AND parent_id IS NULL AND version_id <> OLD.version_id AND release_resource_is_draft(tenant_key, version_id))
+            INTO held_elsewhere;
+        IF held_elsewhere THEN
+            PERFORM split_draft_resource_identity(OLD.tenant_key, OLD.resource_id, OLD.version_id, NEW.catalog_id, NEW.resource_key);
+            RETURN NEW;
+        END IF;
+        UPDATE catalog_resources SET catalog_id = NEW.catalog_id, resource_key = NEW.resource_key
+        WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % has no identity row', OLD.resource_id;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+
+$$
+- CREATE FUNCTION public.sync_draft_resource_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+
+DECLARE
+    existing_resource_id UUID;
+    held_elsewhere BOOLEAN;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id)
+            INTO held_elsewhere;
+        IF NOT held_elsewhere THEN
+            DELETE FROM catalog_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        SELECT resource_id INTO existing_resource_id
+        FROM catalog_resources
+        WHERE tenant_key = NEW.tenant_key AND resource_type = NEW.resource_type
+          AND catalog_id = NEW.catalog_id AND resource_key = NEW.resource_key;
+        IF NEW.resource_id IS NULL THEN
+            NEW.resource_id := COALESCE(existing_resource_id, epistola_uuidv7());
+        ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
+            RAISE EXCEPTION 'catalog resource % is already registered at %/% under identity %',
+                NEW.resource_id, NEW.catalog_id, NEW.resource_key, existing_resource_id;
+        END IF;
+        INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+        VALUES (NEW.tenant_key, NEW.resource_id, NEW.resource_type, NEW.catalog_id, NEW.resource_key)
+        ON CONFLICT (tenant_key, resource_id) DO UPDATE
+        SET catalog_id = EXCLUDED.catalog_id, resource_key = EXCLUDED.resource_key
+        WHERE catalog_resources.resource_type = EXCLUDED.resource_type
+          AND catalog_resources.catalog_id = EXCLUDED.catalog_id
+          AND catalog_resources.resource_key = EXCLUDED.resource_key;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % is registered with another type or at another address than %/%',
+                NEW.resource_id, NEW.catalog_id, NEW.resource_key;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.resource_id <> OLD.resource_id THEN
+        RAISE EXCEPTION 'catalog resource_id is immutable';
+    END IF;
+    IF NEW.catalog_id IS DISTINCT FROM OLD.catalog_id OR NEW.resource_key IS DISTINCT FROM OLD.resource_key THEN
+        SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id
+                       AND version_id <> OLD.version_id AND release_resource_is_draft(tenant_key, version_id))
+            INTO held_elsewhere;
+        IF held_elsewhere THEN
+            RAISE EXCEPTION 'catalog resource % is held by another version of its catalog; it cannot move or be renamed', OLD.resource_id;
+        END IF;
+        UPDATE catalog_resources SET catalog_id = NEW.catalog_id, resource_key = NEW.resource_key
+        WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % has no identity row', OLD.resource_id;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+
+$$

@@ -129,7 +129,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .isEqualTo(targetCatalog.value)
 
         // Nothing names the vacated address any more: a variant has one working model, re-pointed.
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector == ReferenceSelector(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value) }
             .isEmpty()
@@ -284,7 +284,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The published dependency still names the catalog the theme actually lives in.
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
             .allSatisfy { assertThat(it.target?.catalogKey).isEqualTo(sourceCatalog.value) }
@@ -327,7 +327,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // The stencil now says what it always meant: the theme in the catalog it left.
         val moved = withMediator { GetStencil(StencilId(header.key, testCatalog(tenantId, targetCatalog))).query()!! }
         assertThat((moved.content.themeRef as ThemeRefOverride).catalogKey).isEqualTo(sourceCatalog.value)
-        val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
+        val graph = withMediator { GetTenantResourceGraph(tenant.id).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
             .isNotEmpty
@@ -512,7 +512,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """
             SELECT DISTINCT template_catalog.catalog_key::text
             FROM $table owned
-            ${app.epistola.suite.templates.currentTemplateViewJoin("owned")}
+            ${app.epistola.suite.catalog.currentTemplateViewJoin("owned")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE owned.tenant_key = :tenantKey
@@ -871,7 +871,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT variants.attributes::text FROM current_template_variants variants
-                ${app.epistola.suite.templates.currentTemplateViewJoin("variants")}
+                ${app.epistola.suite.catalog.currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantKey AND template.id = :templateKey AND variants.id = :variantKey
                 """,
         )

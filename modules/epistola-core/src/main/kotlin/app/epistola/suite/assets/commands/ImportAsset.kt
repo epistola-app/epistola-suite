@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.catalog.commands
+package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.ImageFields
@@ -10,6 +10,7 @@ import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey

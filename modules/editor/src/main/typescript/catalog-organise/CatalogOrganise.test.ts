@@ -213,6 +213,161 @@ describe('ep-catalog-organise', () => {
     expect(element.textContent).toContain('first 50');
   });
 
+  it('says everything that uses it follows, what each next release becomes, and in which order', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({
+      '/resources': {
+        body: {
+          catalogs: [
+            { key: 'acme/letters', name: 'Letters', editable: true },
+            { key: 'acme/shared', name: 'Shared', editable: true },
+          ],
+          resources: [house],
+        },
+      },
+      '/preview': {
+        body: {
+          ...executablePlan(house),
+          releases: [
+            { catalog: 'acme/shared', kind: 'ADDITIVE', reasons: ["gains theme 'house'"] },
+            {
+              catalog: 'acme/letters',
+              kind: 'BREAKING',
+              reasons: ["no longer contains theme 'house'", 'now depends on shared'],
+            },
+          ],
+          releaseOrder: ['acme/shared', 'acme/letters'],
+        },
+      },
+    });
+    const element = await mount({ 'data-preselected': house.id, 'data-can-apply': 'true' });
+
+    await click(element, /^\s*Preview\s*$/);
+
+    expect(element.querySelector('[data-testid="organise-everything-updated"]')).not.toBeNull();
+    const releases = [...element.querySelectorAll('[data-testid="organise-release"]')].map((item) =>
+      item.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(releases).toEqual([
+      "The next release of Shared is a minor release: gains theme 'house'",
+      "The next release of Letters is a major release: no longer contains theme 'house'; now depends on shared",
+    ]);
+    expect(element.querySelector('[data-testid="organise-release-order"]')?.textContent).toContain(
+      'Shared, then Letters',
+    );
+  });
+
+  it('creates a shared catalog and makes it where the selection goes', async () => {
+    const house = resource('theme', 'letters', 'house');
+    const requested = serve({
+      '/resources': { body: { catalogs, resources: [house] } },
+      '/catalogs': { body: { key: 'acme/brand', name: 'Brand', editable: true } },
+    });
+    const element = await mount({ 'data-preselected': house.id, 'data-can-apply': 'true' });
+
+    await click(element, /Create a shared catalog/);
+    const type = (testId: string, value: string) => {
+      const input = element.querySelector<HTMLInputElement>(`[data-testid="${testId}"]`);
+      if (!input) throw new Error(`no ${testId}`);
+      input.value = value;
+      input.dispatchEvent(new InputEvent('input'));
+    };
+    type('organise-new-shared-name', 'Brand');
+    type('organise-new-shared-key', 'brand');
+    await settle(element);
+    await click(element, /Create and move here/);
+
+    expect(requested.some((url) => url.endsWith('/catalogs'))).toBe(true);
+    const destination = element.querySelector<HTMLSelectElement>(
+      '[data-testid="organise-shared-destination"]',
+    );
+    expect(destination?.value).toBe('acme/brand');
+  });
+
+  it('offers no catalog creation to a reader who cannot apply a move', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({ '/resources': { body: { catalogs, resources: [house] } } });
+    const element = await mount({ 'data-preselected': house.id, 'data-can-apply': 'false' });
+
+    expect(button(element, /Create a shared catalog/)).toBeUndefined();
+  });
+
+  it('asks only for what the refactoring chosen changes, and names it on the button', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({
+      '/resources': { body: { catalogs, resources: [house] } },
+      '/preview': { body: executablePlan(house) },
+    });
+
+    const rename = await mount({
+      'data-single': house.id,
+      'data-mode': 'rename',
+      'data-can-apply': 'true',
+    });
+    expect(rename.querySelector('[data-testid="organise-single-destination"]')).toBeNull();
+    expect(rename.querySelector('[data-testid="organise-single-key"]')).not.toBeNull();
+    const key = rename.querySelector<HTMLInputElement>('[data-testid="organise-single-key"]');
+    if (!key) throw new Error('no key input');
+    key.value = 'brand';
+    key.dispatchEvent(new InputEvent('input'));
+    await settle(rename);
+    await click(rename, /^\s*Preview\s*$/);
+    expect(button(rename, /^\s*Rename\s*$/)).toBeDefined();
+
+    document.body.replaceChildren();
+    const move = await mount({
+      'data-single': house.id,
+      'data-mode': 'move',
+      'data-can-apply': 'true',
+    });
+    expect(move.querySelector('[data-testid="organise-single-key"]')).toBeNull();
+    expect(move.querySelector('[data-testid="organise-single-destination"]')).not.toBeNull();
+  });
+
+  it('opened to create a shared catalog, shows its form before anything is selected', async () => {
+    serve({
+      '/resources': { body: { catalogs, resources: [resource('theme', 'letters', 'house')] } },
+    });
+    const element = await mount({ 'data-start-shared': 'true', 'data-can-apply': 'true' });
+
+    expect(element.querySelector('[data-testid="organise-new-shared-start"]')).not.toBeNull();
+    expect(button(element, /^\s*Create\s*$/)).toBeDefined();
+  });
+
+  it('previews and moves in the draft the resource was opened in', async () => {
+    const invoice = resource('template', 'letters', 'invoice');
+    const bodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string, init?: { body?: string }) => {
+        if (init?.body) bodies.push(JSON.parse(init.body));
+        const resources = input.includes('/resources');
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            resources ? { catalogs, resources: [invoice] } : executablePlan(invoice),
+        };
+      }),
+    );
+    const element = await mount({
+      'data-single': invoice.id,
+      'data-draft': 'hotfix-1',
+      'data-can-apply': 'true',
+    });
+
+    const destination = element.querySelector<HTMLSelectElement>(
+      '[data-testid="organise-single-destination"]',
+    );
+    if (!destination) throw new Error('no destination select');
+    destination.value = 'shared';
+    destination.dispatchEvent(new Event('change'));
+    await settle(element);
+    await click(element, /^\s*Preview\s*$/);
+
+    expect(bodies).toEqual([expect.objectContaining({ draft: 'hotfix-1' })]);
+  });
+
   it('after moving the resource its page is about, goes to that page at the new address', async () => {
     const invoice = resource('template', 'letters', 'invoice');
     serve({

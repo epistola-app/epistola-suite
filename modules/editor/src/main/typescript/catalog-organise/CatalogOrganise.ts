@@ -11,6 +11,7 @@ import type {
   OrganiseResource,
   RelocationPlan,
   RelocationPreview,
+  ReleaseConsequence,
 } from './model.js';
 
 /**
@@ -41,6 +42,18 @@ export class CatalogOrganise extends LitElement {
   /** Focus on one resource: `<type>:<catalog>/<key>`. Empty renders the browser. */
   @property({ attribute: 'data-single' }) single = '';
   /**
+   * The draft the resource was opened in, by id (ADR 0042: a refactoring changes the draft you work
+   * in, of the catalog it moves out of). Empty means the next version.
+   */
+  @property({ attribute: 'data-draft' }) draft = '';
+  /**
+   * Which refactoring the single-resource surface is for: `rename` (a new key only), `move` (another
+   * catalog only), or empty for both.
+   */
+  @property({ attribute: 'data-mode' }) mode = '';
+  /** Opened as "Create a shared catalog…": the form for the new catalog starts open. */
+  @property({ attribute: 'data-start-shared' }) startShared = 'false';
+  /**
    * Whether the reader may apply a move. Previewing needs catalog view, applying catalog
    * management; a reader without it is told so instead of being offered a Move that would fail.
    */
@@ -58,11 +71,15 @@ export class CatalogOrganise extends LitElement {
   @state() private preview?: RelocationPreview;
   @state() private busy = false;
   @state() private error = '';
+  /** The form that creates a shared catalog for the selection, open with what was typed so far. */
+  @state() private newShared?: { key: string; name: string };
   /** What the last successful move did, for a message that says more than "done". */
   @state() private applied?: { count: number; destination?: string };
 
   connectedCallback() {
     super.connectedCallback();
+    if (this.startShared === 'true' && this.canApply !== 'false')
+      this.newShared = { key: '', name: '' };
     void this.load();
   }
 
@@ -162,6 +179,108 @@ export class CatalogOrganise extends LitElement {
     </p>`;
   }
 
+  /**
+   * Creates the catalog the selection is to be gathered in ("Create a shared catalog…", ADR 0042) and
+   * makes it the destination of every row that follows the shared one; the move is then previewed and
+   * applied as any other.
+   */
+  private async createShared(): Promise<void> {
+    if (!this.newShared) return;
+    this.busy = true;
+    this.error = '';
+    try {
+      const response = await fetch(`${this.baseUrl}/catalogs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': window.getCsrfToken?.() ?? '',
+        },
+        body: JSON.stringify(this.newShared),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | (OrganiseCatalog & { message?: string })
+        | null;
+      if (!response.ok || !body) {
+        throw new Error(body?.message || `Could not create the catalog (${response.status})`);
+      }
+      this.catalogs = [...this.catalogs, { key: body.key, name: body.name, editable: true }];
+      this.sharedDestination = body.key;
+      this.newShared = undefined;
+      this.invalidatePreview();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Could not create the catalog';
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private renderNewShared() {
+    if (this.canApply === 'false') return nothing;
+    if (!this.newShared) {
+      return html`<button
+        type="button"
+        class="ep-btn ep-btn-sm ep-btn-outline"
+        data-testid="organise-new-shared"
+        @click=${() => {
+          this.newShared = { key: '', name: '' };
+        }}
+      >
+        Create a shared catalog…
+      </button>`;
+    }
+    const draft = this.newShared;
+    return html`<span
+      style="display: flex; gap: var(--ep-space-2); align-items: end; flex-wrap: wrap;"
+    >
+      <label class="ep-label"
+        >Name
+        <input
+          class="ep-input ep-input-sm"
+          type="text"
+          maxlength="100"
+          data-testid="organise-new-shared-name"
+          .value=${draft.name}
+          @input=${(event: InputEvent) => {
+            if (!(event.currentTarget instanceof HTMLInputElement)) return;
+            this.newShared = { key: this.newShared?.key ?? '', name: event.currentTarget.value };
+          }}
+        />
+      </label>
+      <label class="ep-label"
+        >Key
+        <input
+          class="ep-input ep-input-sm"
+          type="text"
+          maxlength="50"
+          placeholder="shared"
+          data-testid="organise-new-shared-key"
+          .value=${draft.key}
+          @input=${(event: InputEvent) => {
+            if (!(event.currentTarget instanceof HTMLInputElement)) return;
+            this.newShared = { name: this.newShared?.name ?? '', key: event.currentTarget.value };
+          }}
+        />
+      </label>
+      <button
+        type="button"
+        class="ep-btn ep-btn-sm ep-btn-primary"
+        ?disabled=${this.busy || !draft.key.trim() || !draft.name.trim()}
+        @click=${() => void this.createShared()}
+      >
+        ${this.selected.size > 0 ? 'Create and move here' : 'Create'}
+      </button>
+      <button
+        type="button"
+        class="ep-btn ep-btn-sm ep-btn-ghost"
+        @click=${() => {
+          this.newShared = undefined;
+        }}
+      >
+        Cancel
+      </button>
+    </span>`;
+  }
+
   private setDestination(id: string, patch: Partial<Destination>): void {
     const current = this.selected.get(id);
     if (!current) return;
@@ -215,7 +334,11 @@ export class CatalogOrganise extends LitElement {
         'Content-Type': 'application/json',
         'X-XSRF-TOKEN': window.getCsrfToken?.() ?? '',
       },
-      body: JSON.stringify({ relocations: this.batch(), planFingerprint }),
+      body: JSON.stringify({
+        relocations: this.batch(),
+        planFingerprint,
+        draft: this.draft || undefined,
+      }),
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as {
@@ -320,42 +443,51 @@ export class CatalogOrganise extends LitElement {
           <span class="text-muted">· ${resource.type} · currently in ${resource.catalogName}</span>
         </p>
         ${resource.note ? html`<p class="text-muted">${resource.note}</p>` : nothing}
-        <label class="ep-label"
-          >Move to
-          <select
-            class="ep-input ep-input-sm"
-            data-testid="organise-single-destination"
-            .value=${destination?.catalog ?? ''}
-            @change=${(event: Event) => {
-              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
-              this.setDestination(resource.id, {
-                catalog: event.currentTarget.value,
-                overridden: true,
-              });
-            }}
-          >
-            <option value="">Stay in ${resource.catalogName}</option>
-            ${destinations
-              .filter((catalog) => catalog.key !== resource.catalogKey)
-              .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
-          </select>
-        </label>
-        <label class="ep-label"
-          >New key (optional)
-          <input
-            class="ep-input ep-input-sm"
-            type="text"
-            placeholder=${resource.key}
-            .value=${destination?.key ?? ''}
-            @input=${(event: InputEvent) => {
-              if (!(event.currentTarget instanceof HTMLInputElement)) return;
-              this.setDestination(resource.id, {
-                key: event.currentTarget.value,
-                overridden: true,
-              });
-            }}
-          />
-        </label>
+        ${
+          this.mode === 'rename'
+            ? nothing
+            : html`<label class="ep-label"
+                >Move to
+                <select
+                  class="ep-input ep-input-sm"
+                  data-testid="organise-single-destination"
+                  .value=${destination?.catalog ?? ''}
+                  @change=${(event: Event) => {
+                    if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+                    this.setDestination(resource.id, {
+                      catalog: event.currentTarget.value,
+                      overridden: true,
+                    });
+                  }}
+                >
+                  <option value="">Stay in ${resource.catalogName}</option>
+                  ${destinations
+                    .filter((catalog) => catalog.key !== resource.catalogKey)
+                    .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+                </select>
+              </label>`
+        }
+        ${
+          this.mode === 'move'
+            ? nothing
+            : html`<label class="ep-label"
+                >${this.mode === 'rename' ? 'New key' : 'New key (optional)'}
+                <input
+                  class="ep-input ep-input-sm"
+                  type="text"
+                  data-testid="organise-single-key"
+                  placeholder=${resource.key}
+                  .value=${destination?.key ?? ''}
+                  @input=${(event: InputEvent) => {
+                    if (!(event.currentTarget instanceof HTMLInputElement)) return;
+                    this.setDestination(resource.id, {
+                      key: event.currentTarget.value,
+                      overridden: true,
+                    });
+                  }}
+                />
+              </label>`
+        }
       </div>
       ${this.renderSummary()}
     `;
@@ -421,7 +553,20 @@ export class CatalogOrganise extends LitElement {
    * only in their own row, so the count always explains itself without scanning the table.
    */
   private renderDestinationBar(destinations: OrganiseCatalog[]) {
-    if (this.selected.size === 0) return nothing;
+    if (this.selected.size === 0) {
+      // Opened as "Create a shared catalog…": name it first, then choose what goes into it.
+      if (!this.newShared) return nothing;
+      return html`<div
+        class="ep-panel"
+        style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);"
+        data-testid="organise-new-shared-start"
+      >
+        ${this.renderNewShared()}
+        <p class="text-muted" style="margin-bottom: 0;">
+          Then select the resources below that go into it.
+        </p>
+      </div>`;
+    }
     const overridden = [...this.selected.values()].filter(
       (destination) => destination.overridden,
     ).length;
@@ -443,9 +588,15 @@ export class CatalogOrganise extends LitElement {
           }}
         >
           <option value="">Leave where they are</option>
-          ${destinations.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+          ${destinations.map(
+            (catalog) =>
+              html`<option value=${catalog.key} ?selected=${catalog.key === this.sharedDestination}>
+                ${catalog.name}
+              </option>`,
+          )}
         </select>
       </label>
+      ${this.renderNewShared()}
       <span class="text-muted">
         ${this.selected.size}
         selected${overridden > 0 ? html` · ${overridden} with their own destination` : nothing}
@@ -590,6 +741,44 @@ export class CatalogOrganise extends LitElement {
     `;
   }
 
+  /**
+   * What the move means for releases: each catalog it changes with the kind its next release becomes
+   * and why, and, when more than one must be released, the order (a catalog before those that now
+   * depend on it).
+   */
+  private renderReleases(releases: ReleaseConsequence[], order: string[]) {
+    if (releases.length === 0) return nothing;
+    const name = (address: string) =>
+      this.catalogs.find((catalog) => catalog.key === address)?.name ?? address;
+    return html`<div data-testid="organise-releases">
+      <p style="margin-bottom: var(--ep-space-1);"><strong>What it means for releases</strong></p>
+      <ul style="margin-top: 0;">
+        ${releases.map(
+          (release) =>
+            html`<li data-testid="organise-release" data-catalog=${release.catalog}>
+              The next release of <strong>${name(release.catalog)}</strong> is
+              ${releaseKind(release.kind)}: ${release.reasons.join('; ')}
+            </li>`,
+        )}
+      </ul>
+      ${
+        order.length > 1
+          ? html`<p data-testid="organise-release-order">
+              Release in this order: ${order.map(name).join(', then ')}. Releasing a catalog with
+              its dependencies does this for you.
+            </p>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  /** What applying does, in the words of the refactoring chosen. */
+  private applyLabel(): string {
+    if (this.single && this.mode === 'rename') return 'Rename';
+    if (this.single && this.mode === 'move') return 'Move';
+    return `Move ${this.selected.size} resource(s)`;
+  }
+
   private renderSummary() {
     if (this.selected.size === 0) return nothing;
     const plans = this.preview?.relocations ?? [];
@@ -618,17 +807,23 @@ export class CatalogOrganise extends LitElement {
                   }</strong
                 >
               </p>
+              <p data-testid="organise-everything-updated">
+                Everything that uses it will be updated.
+              </p>
               ${plans.map(
                 (plan) =>
                   html`<p>
                     ${plan.source.catalogAddress}/${plan.source.key} →
-                    <strong>${plan.target.catalogAddress}/${plan.target.key}</strong> —
-                    ${plan.mutableRewriteCount} reference(s) rewritten,
-                    ${plan.immutableReferenceCount} published reference(s) keep the old address and
-                    will stop resolving; their catalog cannot be exported or released until those
-                    templates are republished
+                    <strong>${plan.target.catalogAddress}/${plan.target.key}</strong>
+                    ${
+                      plan.immutableReferenceCount > 0
+                        ? html` — ${plan.immutableReferenceCount} reference(s) in releases keep the
+                          old address and stop resolving there`
+                        : nothing
+                    }
                   </p>`,
               )}
+              ${this.renderReleases(this.preview.releases ?? [], this.preview.releaseOrder ?? [])}
               ${this.batchBlockers.map(
                 (blocker) => html`<p class="alert alert-error">${blocker.message}</p>`,
               )}
@@ -651,7 +846,7 @@ export class CatalogOrganise extends LitElement {
                       ?disabled=${this.busy}
                       @click=${() => void this.apply()}
                     >
-                      Move ${this.selected.size} resource(s)
+                      ${this.applyLabel()}
                     </button>`
                   : nothing
               }
@@ -659,6 +854,18 @@ export class CatalogOrganise extends LitElement {
           : nothing
       }
     </div>`;
+  }
+}
+
+/** How a version number moves for a release of [kind] (contract ADR 0002). */
+export function releaseKind(kind: ReleaseConsequence['kind']): string {
+  switch (kind) {
+    case 'BREAKING':
+      return 'a major release';
+    case 'ADDITIVE':
+      return 'a minor release';
+    default:
+      return 'a patch release';
   }
 }
 

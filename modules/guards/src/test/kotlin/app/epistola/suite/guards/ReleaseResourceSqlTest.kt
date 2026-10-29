@@ -49,6 +49,8 @@ class ReleaseResourceSqlTest {
             "/catalog/revisions/ReleaseResourceStore.kt",
             "/catalog/revisions/ResourceContentStore.kt",
             "/catalog/revisions/ResourceContentCollector.kt",
+            // The generic reader of a version (ADR 0039): it reads a type's part rows by the type's own part type.
+            "/catalog/revisions/VersionResourceReader.kt",
             "/src/main/kotlin/db/migration/",
             "modules/testing/",
         )

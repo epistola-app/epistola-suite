@@ -22,25 +22,12 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
-import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
-import app.epistola.suite.catalog.queries.ExportAssets
-import app.epistola.suite.catalog.queries.ExportAttributes
-import app.epistola.suite.catalog.queries.ExportCodeLists
-import app.epistola.suite.catalog.queries.ExportFonts
-import app.epistola.suite.catalog.queries.ExportStencils
-import app.epistola.suite.catalog.queries.ExportThemes
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.StoredTemplate
-import app.epistola.suite.templates.StoredVariant
-import app.epistola.suite.templates.TemplateStore
-import app.epistola.suite.templates.model.DataExamples
-import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -91,69 +78,39 @@ class CatalogContentBuilder(
     private val objectMapper: ObjectMapper,
     private val jdbi: Jdbi,
     private val dependencyStore: CatalogDependencyStore,
-    private val fontStore: app.epistola.suite.fonts.FontStore,
-    private val templateStore: app.epistola.suite.templates.TemplateStore,
+    private val versionResources: app.epistola.suite.catalog.revisions.VersionResourceReader,
+    private val assetContentStore: app.epistola.suite.storage.AssetContentStore,
 ) {
-
     fun build(catalog: CatalogId): CatalogContent {
         val found = GetCatalog(catalog).query()
             ?: throw IllegalArgumentException("Catalog not found: ${catalog.address}")
 
-        val outbound = Outbound(catalog.key.value)
-        val templates = loadTemplates(catalog, outbound)
-        val themes = ExportThemes(catalog.tenantKey, catalog = catalog).query().map { theme ->
-            // A theme's own-catalog references travel relative, as a stencil's and a template's do: wire
-            // v8 never names the catalog itself (contract `2.0.0-alpha.4`).
-            objectMapper.treeToValue(outbound.released(objectMapper.valueToTree(theme)), ThemeResource::class.java)
+        // Every resource of the version, whatever its type (ADR 0039), read as a release reads its own:
+        // as stored, which is how it travels, with the name qualifiers an earlier wire v8 draft let a
+        // reference carry dropped. So a draft exports what the release cut from it exports.
+        val read = jdbi.withHandle<List<app.epistola.suite.catalog.revisions.VersionResourceReader.VersionResource>, Exception> { versionResources.read(it, catalog) }
+        val resourceEntries = read.map { ResourceEntry(type = it.type, key = it.key, name = it.name, description = it.description, detailUrl = "./resources/${it.type}/${it.key}.json") }
+        val resourceDetails = read.associateTo(LinkedHashMap()) { resource ->
+            val root = resource.resource
+            ResourceReferenceSites.dropNameQualifiers(root)
+            // Wire v8 never names the catalog itself (contract `2.0.0-alpha.4`): a reference into its own
+            // catalog travels relative, an image's too, which is stored with it (an unqualified image is
+            // looked up tenant-wide here).
+            ResourceReferenceSites.relativizeOwnCatalog(root, catalog.key.value)
+            ResourceReferenceSites.releaseOwnImages(root, catalog.key.value)
+            // The catalog has one wire version: every detail (and the manifest) carries CATALOG_SCHEMA_VERSION.
+            val envelope = objectMapper.createObjectNode().put("schemaVersion", CATALOG_SCHEMA_VERSION)
+            envelope.set("resource", root)
+            resource.contentKey to objectMapper.treeToValue(envelope, ResourceDetail::class.java)
         }
-        val stencils = ExportStencils(catalog.tenantKey, catalog = catalog).query().map { stencil ->
-            stencil.copy(
-                content = outbound.released(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
-            )
-        }
-        val attributes = ExportAttributes(catalog.tenantKey, catalog = catalog).query()
-        val codeLists = ExportCodeLists(catalog.tenantKey, catalog = catalog).query()
-        val fonts = ExportFonts(catalog.tenantKey, catalog = catalog).query()
-        val assets = ExportAssets(catalog.tenantKey, catalog = catalog).query()
-
-        val resourceEntries = mutableListOf<ResourceEntry>()
-        val resourceDetails = LinkedHashMap<String, ResourceDetail>()
-
-        fun addResource(type: String, slug: String, name: String, description: String?, resource: CatalogResource) {
-            resourceEntries.add(
-                ResourceEntry(type = type, key = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"),
-            )
-            // The catalog has one wire version — stamp every detail (and the
-            // manifest) with the same catalog-wide CATALOG_SCHEMA_VERSION.
-            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = CATALOG_SCHEMA_VERSION, resource = resource)
-        }
-
-        for (codeList in codeLists) addResource("codeList", codeList.key, codeList.name, codeList.description, codeList)
-        for (font in fonts) addResource("font", font.key, font.name, null, font)
-        for (attr in attributes) addResource("attribute", attr.key, attr.name, null, attr)
-        for (theme in themes) addResource("theme", theme.key, theme.name, theme.description, theme)
-        for (stencil in stencils) addResource("stencil", stencil.key, stencil.name, stencil.description, stencil)
-        for (image in assets) addResource("image", image.key, image.name, null, image)
-        // The manifest entry's description is the template's own (wire v8: equal when both are present).
-        for (template in templates) addResource("template", template.key, template.name, template.description, template)
+        val resources = resourceDetails.values.map { it.resource }
 
         // Keyed by the archive path each binary takes, which is what the canonicaliser and the
-        // writer both ask for. It used to key by a filename parsed out of contentUrl and recover
-        // the asset id by parsing that as a UUID -- neither survives wire v7, where a binary is
-        // filed under its hash and an image's slug may be a readable name.
+        // writer both ask for. An image's bytes are stored under its hash.
         val assetContents = LinkedHashMap<String, ByteArray>()
-        for (detail in resourceDetails.values) {
-            when (val resource = detail.resource) {
-                is ImageResource -> {
-                    val content = GetAssetContent(tenantId = catalog.tenantKey, assetId = AssetKey.of(resource.key), catalog = catalog).query()
-                        ?: continue
-                    assetContents[resource.contentPath()] = content.content
-                }
-
-                is FontResource -> Unit
-
-                else -> Unit
-            }
+        for (image in resources.filterIsInstance<ImageResource>()) {
+            val bytes = assetContentStore.get(image.contentHash)?.content?.use { it.readAllBytes() } ?: continue
+            assetContents[image.contentPath()] = bytes
         }
 
         return CatalogContent(
@@ -163,17 +120,24 @@ class CatalogContentBuilder(
                 description = found.description,
                 // The catalog's presentation is catalog-wide, its images belong to a version: only
                 // those this version holds are named (any catalog can hold several versions, ADR 0032).
-                availableAssetSlugs = assets.mapTo(mutableSetOf()) { it.key },
+                availableAssetSlugs = resources.filterIsInstance<ImageResource>().mapTo(mutableSetOf()) { it.key },
                 namespace = found.namespace,
                 registry = found.registry,
             ).withThemeSettings(catalog),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
-            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalog.key.value),
+            dependencies = findCrossCatalogDependencies(
+                resources.filterIsInstance<TemplateResource>(),
+                resources.filterIsInstance<StencilResource>(),
+                resources.filterIsInstance<AttributeResource>(),
+                resources.filterIsInstance<ThemeResource>(),
+                resourceEntries,
+                catalog.key.value,
+            ),
             catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
                 dependencyStore.declarations(handle, catalog).map { it.toWire() }
             }.ifEmpty { null },
-            assetContents = withFaceBinaries(assetContents, catalog, fonts),
+            assetContents = withFaceBinaries(assetContents, catalog, resources.filterIsInstance<FontResource>()),
         )
     }
 
@@ -191,8 +155,20 @@ class CatalogContentBuilder(
                 .mapTo(String::class.java).set()
         }
         val lazy: Map<String, () -> ByteArray?> = faces.filterValues { it.contentHash in stored }
-            .mapValues { (_, face) -> { jdbi.withHandle<ByteArray?, Exception> { fontStore.bytes(it, catalog.tenantKey, face.contentHash) } } }
+            .mapValues { (_, face) -> { faceBytes(catalog.tenantKey, face.contentHash) } }
         return LazyBinaries(eager.mapValues { (_, bytes) -> { bytes } } + lazy)
+    }
+
+    /** The bytes of the face stored under [contentHash], as a content of [tenant] links them. */
+    private fun faceBytes(tenant: TenantKey, contentHash: String): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT c.content FROM resource_binaries b
+            JOIN asset_content c ON c.content_hash = b.binary_hash
+            WHERE b.tenant_key = :t AND b.binary_hash = :hash
+            LIMIT 1
+            """,
+        ).bind("t", tenant).bind("hash", contentHash).mapTo(ByteArray::class.java).findOne().orElse(null)
     }
 
     /** Bytes by path, each read the first time it is asked for. */
@@ -205,61 +181,6 @@ class CatalogContentBuilder(
 
         override val entries: Set<Map.Entry<String, ByteArray>>
             get() = loaders.keys.mapNotNull { key -> get(key)?.let { java.util.AbstractMap.SimpleImmutableEntry(key, it) } }.toSet()
-    }
-
-    private fun loadTemplates(
-        catalog: CatalogId,
-        outbound: Outbound,
-    ): List<TemplateResource> {
-        // A draft holds each template as its content (ADR 0033).
-        val templates = jdbi.withHandle<List<StoredTemplate>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT t.id
-                FROM current_templates t
-                WHERE t.tenant_key = :tenantKey AND t.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
-                ORDER BY t.id
-                """,
-            )
-                .bind("tenantKey", catalog.tenantKey)
-                .bindCatalog("catalogKey", catalog)
-                .map { rs, _ -> checkNotNull(templateStore.get(handle, app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(rs.getString("id")), catalog))).template }
-                .list()
-        }
-
-        return templates.mapNotNull { template ->
-            val variants = template.variants
-            val default = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull() ?: return@mapNotNull null
-            fun modelOf(variant: StoredVariant): TemplateDocument {
-                val json = jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
-                    objectMapper.valueToTree(checkNotNull(templateStore.model(handle, catalog.tenantKey, variant)) { "Template ${template.key} names a model that is not stored" })
-                }
-                // Stored relative already, an image of its own catalog aside.
-                return objectMapper.treeToValue(outbound.released(json), TemplateDocument::class.java)
-            }
-            TemplateResource(
-                key = template.key,
-                name = template.name,
-                themeKey = template.themeKey,
-                themeCatalogKey = template.themeCatalogKey.takeIf { template.themeKey != null },
-                pdfaEnabled = template.pdfaEnabled,
-                dataModel = template.dataModel,
-                dataExamples = template.dataExamples,
-                templateModel = modelOf(default),
-                variants = variants.map { v ->
-                    VariantEntry(
-                        key = v.key,
-                        name = v.title,
-                        attributes = v.attributes,
-                        templateModel = if (v.key == default.key) null else modelOf(v),
-                        isDefault = v.isDefault,
-                        description = v.description?.takeIf { it.isNotBlank() },
-                    )
-                },
-                description = template.description,
-                metadata = template.metadata?.takeIf { it.isNotEmpty() },
-            )
-        }
     }
 
     /**
@@ -277,12 +198,6 @@ class CatalogContentBuilder(
             ResourceReferenceSites.relativizeOwnCatalog(root, catalogKey)
             ResourceReferenceSites.dropNameQualifiers(root)
         }
-
-        /**
-         * [document] as a release holds it: [content], and an image of the catalog itself named
-         * relatively too, which only a release does ([ResourceReferenceSites.releaseOwnImages]).
-         */
-        fun released(document: JsonNode): JsonNode = content(document).also { ResourceReferenceSites.releaseOwnImages(it, catalogKey) }
     }
 
     /**

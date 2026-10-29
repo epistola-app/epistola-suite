@@ -77,6 +77,7 @@
                         <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
                     </td>
                     <td class="actions">
+                        <th:block th:replace="~{fragments/refactoring :: row-action('codeList', ${draftSegment?.linkFor(cl.catalogId) ?: cl.catalogId.address}, ${cl.slug})}" />
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogId) ?: cl.catalogId.address},slug=${cl.slug})}"
                            class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
                     </td>

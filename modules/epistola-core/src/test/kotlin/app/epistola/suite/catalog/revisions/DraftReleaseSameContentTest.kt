@@ -4,14 +4,17 @@
 
 package app.epistola.suite.catalog.revisions
 
+import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
@@ -32,6 +35,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 
 /**
  * A draft stores what a release of it stores (ADR 0033): released unchanged, every resource of a
@@ -44,58 +49,20 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var contentBuilder: CatalogContentBuilder
+
+    @Autowired
+    private lateinit var assembler: ReleaseContentAssembler
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
     @Test
     fun `a draft released unchanged names the same content as its release, for every type stored as JSON`() {
         val tenant = createTenant("Same content").id
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
-        withMediator {
-            CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system"))).execute()
-            CreateCodeList(CodeListId(CodeListKey.of("regions"), letters), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = CodeListId(CodeListKey.of("regions"), letters)).execute()
-            app.epistola.suite.testing.FontFixtures.importFont(
-                letters,
-                "house-sans",
-                "House Sans",
-                mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf")!!.readBytes()),
-            )
-            app.epistola.suite.assets.commands.UploadAsset(
-                letters,
-                "Mark",
-                app.epistola.suite.assets.AssetMediaType.SVG,
-                """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""".toByteArray(),
-                null,
-                null,
-                id = app.epistola.suite.common.ids.AssetKey.of("mark"),
-            ).execute()
-            // Names a theme of its own catalog: a release says that relatively.
-            CreateStencil(
-                StencilId(StencilKey.of("footer"), letters),
-                "Footer",
-                content = TemplateDocument(
-                    modelVersion = 1,
-                    root = "root",
-                    nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))),
-                    slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
-                    themeRef = ThemeRefOverride(themeKey = "brand"),
-                ),
-            ).execute()
-            // A template: its own theme by the editor's qualified name, a second variant described.
-            val template = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters)
-            app.epistola.suite.templates.commands.CreateDocumentTemplate(template, "Invoice").execute()
-            app.epistola.suite.templates.commands.UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters).execute()
-            app.epistola.suite.templates.commands.variants.CreateVariant(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("second"), template), "Second", "For courts").execute()
-            app.epistola.suite.templates.commands.variants.UpdateVariantContent(
-                app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, template),
-                TemplateDocument(
-                    modelVersion = 1,
-                    root = "root",
-                    nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))),
-                    slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
-                    themeRef = ThemeRefOverride(themeKey = "brand", catalogKey = "letters"),
-                ),
-            ).execute()
-        }
+        seed(letters)
         val version = withMediator { mediator.releaseNext(letters) }
 
         val pairs = jdbi.withHandle<List<Triple<String, String, String>>, Exception> { handle ->
@@ -120,5 +87,79 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
             "variant/initial", "variant/second",
         )
         assertThat(pairs).allSatisfy { (resource, drafted, released) -> assertThat(drafted).`as`(resource).isEqualTo(released) }
+    }
+
+    @Test
+    fun `a draft exports what the release cut from it exports, resource by resource`() {
+        val tenant = createTenant("Same export").id
+        val letters = testCatalog(tenant, CatalogKey.of("letters"))
+        seed(letters)
+        val drafted = withMediator { contentBuilder.build(letters) }
+        val version = withMediator { mediator.releaseNext(letters) }
+        val released = checkNotNull(assembler.assemble(letters, version)).content
+
+        assertThat(released.resourceEntries.map { it.type to it.key }).containsExactlyInAnyOrderElementsOf(drafted.resourceEntries.map { it.type to it.key })
+        assertThat(released.resourceDetails.keys).containsExactlyInAnyOrderElementsOf(drafted.resourceDetails.keys)
+        drafted.resourceDetails.forEach { (key, detail) ->
+            assertThat(canonical(checkNotNull(released.resourceDetails[key]))).`as`(key).isEqualTo(canonical(detail))
+        }
+    }
+
+    private fun canonical(detail: ResourceDetail): String = objectMapper.writeValueAsString(sorted(objectMapper.valueToTree(detail)))
+
+    private fun sorted(node: JsonNode): JsonNode = when {
+        node.isObject -> objectMapper.createObjectNode().also { out -> node.properties().sortedBy { it.key }.forEach { (k, v) -> out.set(k, sorted(v)) } }
+        node.isArray -> objectMapper.createArrayNode().also { out -> node.forEach { out.add(sorted(it)) } }
+        else -> node
+    }
+
+    /** A catalog holding one of every type stored as JSON, its references into itself included. */
+    private fun seed(letters: CatalogId) = withMediator {
+        CreateCatalog(letters.tenantKey, letters.key, "Letters").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system"))).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("regions"), letters), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
+        CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = CodeListId(CodeListKey.of("regions"), letters)).execute()
+        app.epistola.suite.testing.FontFixtures.importFont(
+            letters,
+            "house-sans",
+            "House Sans",
+            mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf")!!.readBytes()),
+        )
+        app.epistola.suite.assets.commands.UploadAsset(
+            letters,
+            "Mark",
+            app.epistola.suite.assets.AssetMediaType.SVG,
+            """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""".toByteArray(),
+            null,
+            null,
+            id = app.epistola.suite.common.ids.AssetKey.of("mark"),
+        ).execute()
+        // Names a theme of its own catalog: a release says that relatively.
+        CreateStencil(
+            StencilId(StencilKey.of("footer"), letters),
+            "Footer",
+            content = TemplateDocument(
+                modelVersion = 1,
+                root = "root",
+                nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))),
+                slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
+                themeRef = ThemeRefOverride(themeKey = "brand"),
+            ),
+        ).execute()
+        // A template: its own theme by the editor's qualified name, a second variant described.
+        val template = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters)
+        app.epistola.suite.templates.commands.CreateDocumentTemplate(template, "Invoice").execute()
+        app.epistola.suite.templates.commands.UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters).execute()
+        app.epistola.suite.templates.commands.variants.CreateVariant(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("second"), template), "Second", "For courts").execute()
+        app.epistola.suite.templates.commands.variants.UpdateVariantContent(
+            app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, template),
+            TemplateDocument(
+                modelVersion = 1,
+                root = "root",
+                nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))),
+                slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
+                themeRef = ThemeRefOverride(themeKey = "brand", catalogKey = "letters"),
+            ),
+        ).execute()
     }
 }

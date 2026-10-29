@@ -4,9 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.templates.model.DocumentStyles
-import app.epistola.suite.themes.BlockStylePresets
-import app.epistola.template.model.BlockStylePreset
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -31,16 +28,4 @@ class ProtocolMapper(private val objectMapper: ObjectMapper) {
 
     /** Protocol Map → Suite ObjectNode. */
     fun toObjectNode(map: Map<String, Any?>?): ObjectNode? = map?.let { objectMapper.valueToTree(it) }
-
-    /** Suite DocumentStyles → Protocol Map. */
-    fun documentStylesToMap(styles: DocumentStyles?): Map<String, Any?>? = styles?.mapValues { (_, v) -> v as Any? }
-
-    /** Protocol Map → Suite DocumentStyles. */
-    fun mapToDocumentStyles(map: Map<String, Any?>?): DocumentStyles = map?.filterValues { it != null }?.mapValues { (_, v) -> v!! } ?: emptyMap()
-
-    /** Suite persistence wrapper → portable catalog preset map. */
-    fun blockStylePresetsToMap(presets: BlockStylePresets?): Map<String, BlockStylePreset>? = presets
-
-    /** Portable catalog preset map → Suite persistence wrapper. */
-    fun mapToBlockStylePresets(map: Map<String, BlockStylePreset>?): BlockStylePresets? = map?.let(::BlockStylePresets)
 }

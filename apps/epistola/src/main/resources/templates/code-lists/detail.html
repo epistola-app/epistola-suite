@@ -92,6 +92,7 @@
 
     </th:block>
     <th:block th:fragment="code-list-detail-actions">
+        <th:block th:replace="~{fragments/refactoring :: actions('codeList', ${catalogSegment}, ${codeList.slug})}" />
         <form th:if="${editable and codeList.sourceUrl != null}"
               th:action="@{/tenants/{tenantId}/catalogs/{c}/code-lists/{s}/refresh(tenantId=${tenantId},c=${catalogSegment ?: codeList.catalogKey},s=${codeList.slug})}"
               method="post" style="display: inline;">

@@ -74,11 +74,8 @@ class ThemeStore(
     /** The spacing unit as stored: two decimals. */
     private fun stored(spacingUnit: Float): Float = BigDecimal(spacingUnit.toString()).setScale(2, RoundingMode.HALF_UP).toFloat()
 
-    /**
-     * Stores [fields] as theme [key] of [catalog]'s tenant and returns its content hash; its references
-     * are relative to [referencesIn], the catalog it is stored in.
-     */
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields, referencesIn: CatalogId = catalog): String = contents.store(handle, catalog.tenantKey, THEME, ResourceMetadata.carried(handle, catalog, THEME, key, payload(key, referencesIn.key.value, fields), fields.metadata, objectMapper))
+    /** Stores [fields] as theme [key] of [catalog]'s tenant and returns its content hash; its references relative to [catalog]. */
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields): String = contents.store(handle, catalog.tenantKey, THEME, ResourceMetadata.carried(handle, catalog, THEME, key, payload(key, catalog.key.value, fields), fields.metadata, objectMapper))
 
     /** Adds theme [id] to the targeted draft; a theme already there is a unique violation. */
     fun create(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?): Theme {
@@ -119,13 +116,6 @@ class ThemeStore(
 
     /** Removes theme [id] from the targeted draft; false when it held none. */
     fun delete(handle: Handle, id: ThemeId): Boolean = DraftResources.delete(handle, id.catalogId, THEME, id.key.value)
-
-    /** Moves theme [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val theme = ThemeReads.get(handle, objectMapper, source, app.epistola.suite.common.ids.ThemeKey.of(key)) ?: return false
-        // Read qualified, so its references keep their meaning; stored relative to where it goes.
-        return DraftResources.move(handle, source, THEME, key, target, targetKey, store(handle, source, targetKey, theme.fields().copy(metadata = ResourceMetadata.moving(handle, source, THEME, key)), referencesIn = target))
-    }
 
     companion object {
         /** The resource type, and content kind, of a theme. */

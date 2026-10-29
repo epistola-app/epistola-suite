@@ -6,8 +6,8 @@ package app.epistola.suite.catalog.graph
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.attributes.commands.ImportAttribute
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ImportAttribute
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
@@ -76,7 +76,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `extracts command-created references with resolution and lifecycle evidence`() {
+    fun `extracts command-created references with their resolution`() {
         val tenant = createTenant("Resource Graph")
         val tenantId = TenantId(tenant.id)
         val lettersCatalog = CatalogKey.of("letters")
@@ -120,21 +120,20 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
         val live = withMediator { GetTenantResourceGraph(tenant.id).query() }
 
         assertThat(live.edges).anySatisfy { edge ->
-            assertThat(edge.kind).isEqualTo("template-default-theme")
+            assertThat(edge.targetSelector.type).isEqualTo(CatalogResourceType.THEME)
             assertThat(edge.source).isEqualTo(testAddress(tenant.id, CatalogResourceType.TEMPLATE, "letters", "welcome"))
             assertThat(edge.target).isEqualTo(testAddress(tenant.id, CatalogResourceType.THEME, "brand", "corporate"))
             assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         }
         assertThat(live.edges).anySatisfy { edge ->
-            assertThat(edge.kind).isEqualTo("variant-attribute")
+            assertThat(edge.targetSelector.type).isEqualTo(CatalogResourceType.ATTRIBUTE)
             assertThat(edge.target).isEqualTo(testAddress(tenant.id, CatalogResourceType.ATTRIBUTE, "brand", "audience"))
             assertThat(edge.qualification).isEqualTo(ReferenceQualification.EXPLICIT)
         }
         assertThat(live.edges).anySatisfy { edge ->
-            assertThat(edge.kind).isEqualTo("image-asset")
+            assertThat(edge.targetSelector.type).isEqualTo(CatalogResourceType.IMAGE)
             assertThat(edge.targetSelector.key).isEqualTo(missingAssetKey.toString())
             assertThat(edge.resolution).isEqualTo(ReferenceResolution.MISSING)
-            assertThat(edge.evidence.single().lifecycle).isEqualTo(ReferenceLifecycle.LIVE)
         }
         assertThat(live.edges).noneMatch { edge -> edge.targetSelector.key == assetKey.toString() }
     }

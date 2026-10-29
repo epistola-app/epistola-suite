@@ -58,7 +58,7 @@ class RelocationThemeFontTest : RelocationTestSupport() {
 
         move(tenant, address(tenant, CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
-        val edge = withMediator { GetTenantResourceGraph(tenant, includeHistory = false).query() }.edges
+        val edge = withMediator { GetTenantResourceGraph(tenant).query() }.edges
             .single { it.source == address(tenant, CatalogResourceType.THEME, shared, "brand") && it.targetSelector.type == CatalogResourceType.FONT }
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         assertThat(edge.target).isEqualTo(address(tenant, CatalogResourceType.FONT, letters, "acme"))

@@ -13,7 +13,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.currentTemplateViewJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.core.mapper.Nested
@@ -50,9 +49,7 @@ internal val CATALOG_ACTIVITY_CTE = """
             WITH activity(catalog_id, ts) AS (
                 SELECT catalog_id, content_updated_at FROM catalogs                      WHERE tenant_key = :t
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_templates            WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT template.catalog_id, MAX(variants.updated_at)
-                                 FROM current_template_variants variants ${currentTemplateViewJoin("variants")}
-                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_template_variants   WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_themes       WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_stencils             WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_attributes WHERE tenant_key = :t GROUP BY catalog_id

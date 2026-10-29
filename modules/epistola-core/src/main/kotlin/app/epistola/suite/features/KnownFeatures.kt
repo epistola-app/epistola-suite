@@ -33,7 +33,6 @@ object KnownFeatures {
      */
     val QUALITY = FeatureKey.of("quality")
     val AI_CHAT = FeatureKey.of("ai-chat")
-    val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
     val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
     val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
 
@@ -66,7 +65,6 @@ object KnownFeatures {
         QUALITY,
         AI_CHAT,
         EDITOR_WALKTHROUGH,
-        RESOURCE_GRAPH,
         RESOURCE_RELOCATION,
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
@@ -137,19 +135,12 @@ object KnownFeatures {
                 "first time. Purely a client-side onboarding aid — no data is read or sent.",
             stage = FeatureStage.ALPHA,
         ),
-        RESOURCE_GRAPH to FeatureMetadata(
-            "Resource graph",
-            "Enables the tenant-wide catalog resource reference explorer. It exposes runtime, " +
-                "authoring, and provenance relationships, including missing and ambiguous references.",
-            stage = FeatureStage.ALPHA,
-        ),
         RESOURCE_RELOCATION to FeatureMetadata(
             "Resource relocation",
-            "Enables previewing and moving authored catalog resources. A crude move: drafts and live " +
-                "configuration are re-pointed, but the old address stops resolving, so published versions, " +
-                "exports and integrations that still name it break. Supports all seven resource types; an " +
-                "image can be moved but not renamed, because its key is a generated identifier.",
-            stage = FeatureStage.ALPHA,
+            "Organise catalogs: rename a resource, move it to another catalog, or gather resources in a " +
+                "new shared catalog, with everything that uses it updated in the draft you work in. The " +
+                "preview says what each catalog's next release becomes. Releases keep the address they " +
+                "were cut with; an image can be moved but not renamed, because its key is a generated identifier.",
         ),
         CATALOG_PUBLISHING to FeatureMetadata(
             "Catalog publishing",

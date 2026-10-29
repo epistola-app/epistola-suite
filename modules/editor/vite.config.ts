@@ -39,7 +39,6 @@ export default defineConfig(({ mode }) => ({
         'data-contract-editor': resolve(__dirname, 'src/main/typescript/data-contract-lib.ts'),
         'ai-plugin': resolve(__dirname, 'src/main/typescript/ai-plugin-lib.ts'),
         'walkthrough-plugin': resolve(__dirname, 'src/main/typescript/walkthrough-plugin-lib.ts'),
-        'resource-graph': resolve(__dirname, 'src/main/typescript/resource-graph-lib.ts'),
         'catalog-organise': resolve(__dirname, 'src/main/typescript/catalog-organise-lib.ts'),
       },
       formats: ['es'],

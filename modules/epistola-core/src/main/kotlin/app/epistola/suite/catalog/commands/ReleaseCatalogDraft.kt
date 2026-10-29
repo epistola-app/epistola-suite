@@ -14,7 +14,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
-import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
@@ -191,7 +190,7 @@ class ReleaseCatalogDraftHandler(
     private val releaseResourceStore: ReleaseResourceStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
-    private val stencilCheck: ReleaseStencilCheck,
+    private val releaseChecks: List<app.epistola.suite.catalog.releases.ReleaseCheck>,
     private val dependencyStore: CatalogDependencyStore,
     private val drafts: CatalogDrafts,
     private val targeting: CatalogReleaseTargeting,
@@ -199,7 +198,7 @@ class ReleaseCatalogDraftHandler(
     private val installation: app.epistola.suite.installation.InstallationService,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
     private val grants: NamespaceGrantStore,
-    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
+    private val versionResources: app.epistola.suite.catalog.revisions.VersionResourceReader,
     private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
@@ -362,7 +361,7 @@ class ReleaseCatalogDraftHandler(
         val pins = pinDependencies(command.catalog)
         val content = contentBuilder.build(command.catalog)
         fingerprintService.requirePublishable(content)
-        stencilCheck.requireInstancesFit(command.catalog, content)
+        releaseChecks.forEach { it.requireSatisfied(command.catalog, content) }
         val fingerprint = fingerprintService.fingerprint(content)
         // Its identity (ADR 0034): the fingerprint, which is V6, a content hash.
         val contentHash = fingerprint.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: fingerprintService.contentHash(content)
@@ -429,11 +428,9 @@ class ReleaseCatalogDraftHandler(
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the
             // others.
-            // A code list's source goes with it, beside its released form (ADR 0033): the release
-            // stores the content its draft does.
-            val settings = codeLists.sources(handle, command.catalog)
-                .map { (key, source) -> "${app.epistola.suite.attributes.codelists.CodeListStore.CODE_LIST}/$key" to objectMapper.createObjectNode().set("source", source) }
-                .toMap()
+            // What a draft keeps beside a released form (a code list's source) goes with it (ADR 0033):
+            // the release stores the content its draft does.
+            val settings = versionResources.settings(handle, command.catalog)
             val retained = revisionStore.retain(handle, command.tenantKey, content, settings)
             // Parallel work released for everyday work to continue from becomes the next version first.
             val handsOver = command.continueEverydayWork != null && !draft.isNext

@@ -9,6 +9,11 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.revisions.DraftResources
+import app.epistola.suite.catalog.revisions.VariantRows
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.CatalogId
@@ -20,12 +25,11 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.stencils.fields
-import app.epistola.suite.themes.ThemeReads
-import app.epistola.suite.themes.fields
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 data class ResourceMoveBlocker(
     val code: String,
@@ -86,6 +90,18 @@ data class ResourceRelocationPlan(
 )
 
 /**
+ * What a move means for the next release of one [catalog] (ADR 0042): the [kind] that release becomes
+ * through it, and why ("no longer contains theme 'house'", "gains theme 'house'", "now depends on
+ * shared").
+ */
+data class ReleaseConsequence(
+    /** The catalog's address, `namespace/key`. */
+    val catalog: String,
+    val kind: ChangeKind,
+    val reasons: List<String>,
+)
+
+/**
  * The batch as a whole.
  *
  * A batch is all-or-nothing: one transaction, one fingerprint, and any blocker stops every member.
@@ -98,31 +114,64 @@ data class CatalogResourceMovePreview(
     val blockers: List<ResourceMoveBlocker>,
     val warnings: List<ResourceMoveWarning>,
     val planFingerprint: String,
+    /** Every catalog the move changes, in [releaseOrder], with what it means for its next release. */
+    val releases: List<ReleaseConsequence> = emptyList(),
+    /**
+     * The catalogs the move changes, in the order they are released: a catalog before those that now
+     * depend on it, which releasing with dependencies carries out.
+     */
+    val releaseOrder: List<String> = emptyList(),
 ) {
     val executable: Boolean get() = blockers.isEmpty()
     val mutableRewriteCount: Int get() = relocations.sumOf { it.mutableRewriteCount }
     val immutableReferenceCount: Int get() = relocations.sumOf { it.immutableReferenceCount }
 }
 
+/**
+ * What moving [relocations] would do, without doing it. A move changes one draft per catalog (ADR
+ * 0042): [catalogVersion] in its own catalog, which must be the catalog of one of the resources moved,
+ * and the next version of every other catalog involved; null means the next version everywhere.
+ */
 data class PreviewCatalogResourceMove(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
+    override val catalogVersion: CatalogReleaseRef? = null,
 ) : Query<CatalogResourceMovePreview>,
+    CatalogReleaseScoped,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
+
+    init {
+        validateDraftOfSource(tenantKey, relocations, catalogVersion)
+    }
 }
 
+/** Moves [relocations] as [PreviewCatalogResourceMove] showed it, in the same drafts. */
 data class MoveCatalogResources(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
     val expectedPlanFingerprint: String,
+    override val catalogVersion: CatalogReleaseRef? = null,
 ) : Command<CatalogResourceMovePreview>,
+    CatalogReleaseScoped,
     RequiresPermission,
     AuditDetailed {
     override val permission get() = Permission.CATALOG_MANAGE
 
+    init {
+        validateDraftOfSource(tenantKey, relocations, catalogVersion)
+    }
+
     /** Each resource's old address and the one it moved to: where a resource went, and when. */
     override val auditDetails: Map<String, String> get() = relocations.associate { it.source.id to it.target.id }
+}
+
+/** The draft a move changes in its own catalog is of a catalog a resource moves out of. */
+private fun validateDraftOfSource(tenantKey: TenantKey, relocations: List<ResourceRelocation>, catalogVersion: CatalogReleaseRef?) {
+    if (catalogVersion == null) return
+    validate("catalogVersion", catalogVersion.tenantKey == tenantKey && relocations.any { it.source.catalogIn(tenantKey) == catalogVersion.catalog }) {
+        "The draft to work in must be of a catalog a resource moves out of"
+    }
 }
 
 class CatalogResourceMoveBlockedException(
@@ -136,8 +185,15 @@ class PreviewCatalogResourceMoveHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
 ) : QueryHandler<PreviewCatalogResourceMove, CatalogResourceMovePreview> {
-    override fun handle(query: PreviewCatalogResourceMove): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
-        planner.build(handle, query.tenantKey, query.relocations).preview
+    override fun handle(query: PreviewCatalogResourceMove): CatalogResourceMovePreview {
+        // One snapshot for every read of the plan; a preview targeting a draft already runs in the
+        // transaction that targets it, and reads in that.
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            return jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle -> planner.build(handle, query.tenantKey, query.relocations).preview }
+        }
+        return jdbi.inTransaction<CatalogResourceMovePreview, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
+            planner.build(handle, query.tenantKey, query.relocations).preview
+        }
     }
 }
 
@@ -146,15 +202,9 @@ class MoveCatalogResourcesHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
     private val declarer: MissingDependencyDeclarer,
-    private val themes: app.epistola.suite.themes.ThemeStore,
-    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
-    private val attributes: app.epistola.suite.attributes.AttributeStore,
-    private val stencils: app.epistola.suite.stencils.StencilStore,
-    private val fonts: app.epistola.suite.fonts.FontStore,
-    private val images: app.epistola.suite.assets.ImageStore,
-    private val templates: app.epistola.suite.templates.TemplateStore,
-    private val objectMapper: tools.jackson.databind.ObjectMapper,
+    private val repointer: ReferenceRepointer,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
+
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
         handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:tenantKey, 0))")
             .bind("tenantKey", command.tenantKey.value)
@@ -167,228 +217,45 @@ class MoveCatalogResourcesHandler(
         }
         if (!plan.preview.executable) throw CatalogResourceMoveBlockedException(plan.preview.blockers)
 
-        // The expected-bytes guard makes every rewrite safe against a concurrent edit.
-        for (rewrite in plan.rewrites) {
-            val changed = when (rewrite) {
-                is JsonRewrite.VariantModel -> rewriteVariant(handle, command.tenantKey, rewrite.catalogKey, rewrite.ownerKey) { template, catalog ->
-                    val variant = template.variant(rewrite.variantKey) ?: return@rewriteVariant null
-                    val stored = templates.model(handle, command.tenantKey, variant) ?: return@rewriteVariant null
-                    // The plan saw the stored model.
-                    if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stored) != objectMapper.readTree(rewrite.expected)) return@rewriteVariant null
-                    val replacement = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
-                    // Stored in its released form (ADR 0033), as every model is.
-                    template.withVariant(rewrite.variantKey) { it.copy(model = templates.storedModel(replacement, catalog.key.value)) }
-                }
-
-                is JsonRewrite.StencilContent -> rewriteStencil(handle, command.tenantKey, rewrite)
-
-                is JsonRewrite.ThemeStyles -> rewriteThemeStyles(handle, command.tenantKey, rewrite)
-
-                is JsonRewrite.AttributeContent -> rewriteAttribute(handle, command.tenantKey, rewrite)
-
-                is JsonRewrite.VariantAttributes -> rewriteVariant(handle, command.tenantKey, rewrite.catalogKey, rewrite.ownerKey) { template, _ ->
-                    val variant = template.variant(rewrite.variantKey) ?: return@rewriteVariant null
-                    if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(variant.attributes) != objectMapper.readTree(rewrite.expected)) return@rewriteVariant null
-                    template.withVariant(rewrite.variantKey) { it.copy(attributes = objectMapper.readValue(rewrite.replacement, STRINGS)) }
-                }
-            }
-            if (changed != 1) throw StaleCatalogResourceMovePlanException()
+        // Every row is written only while it holds the content the plan read, which makes each step
+        // safe against a concurrent edit (ADR 0042: one path for every type, ReferenceRepointer).
+        for (rewrite in plan.repoint.rewrites) {
+            if (!repointer.apply(handle, command.tenantKey, rewrite)) throw StaleCatalogResourceMovePlanException()
         }
 
         for (relocation in planner.applyOrder(plan.preview.relocations)) {
             val resourceId = requireNotNull(relocation.resourceId)
-            // The table and key column come from MovableResource, never from caller input.
-            val movable = requireNotNull(MovableResource.of(relocation.source.type))
-            if (movable == MovableResource.THEME) {
-                // A theme is a draft row naming its content (ADR 0033); its content names its key.
-                val source = relocation.source.catalogIn(command.tenantKey)
-                // Its templates name it by alias and key: they follow it first, while they still find it.
-                followTheme(handle, command.tenantKey, resourceId.value, relocation)
-                if (!themes.move(handle, source, relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
+            val move = plan.repoint.moves.firstOrNull { it.relocation.source == relocation.source } ?: throw StaleCatalogResourceMovePlanException()
+            val source = relocation.source.catalogIn(command.tenantKey)
+            val target = relocation.target.catalogIn(command.tenantKey)
+            val head = repointer.store(handle, command.tenantKey, move.head)
+            if (!DraftResources.move(handle, source, relocation.source.type.wireName, relocation.source.key, target, relocation.target.key, head, expectedHash = move.head.row.contentHash)) {
+                throw StaleCatalogResourceMovePlanException()
             }
-            if (movable == MovableResource.ATTRIBUTE) {
-                // So is an attribute (ADR 0033).
-                if (!attributes.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
+            // A template's variants move with it, by this update and no cascade (ADR 0014), each then
+            // holding its content as the target is to: their template is under its new key there.
+            if (move.parts.isNotEmpty()) {
+                VariantRows.move(handle, source, resourceId.value, target)
+                for (part in move.parts) {
+                    val moved = part.copy(row = part.row.copy(parentKey = relocation.target.key))
+                    if (!repointer.apply(handle, command.tenantKey, moved, catalog = target)) throw StaleCatalogResourceMovePlanException()
                 }
-                continue
             }
-            if (movable == MovableResource.ASSET) {
-                // So is an image (ADR 0033); its content names its key.
-                if (!images.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
-            }
-            if (movable == MovableResource.FONT) {
-                // So is a font (ADR 0033); its content names its key.
-                if (!fonts.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
-            }
-            if (movable == MovableResource.STENCIL) {
-                // So is a stencil (ADR 0033); its content names its key.
-                if (!stencils.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
-            }
-            if (movable == MovableResource.TEMPLATE) {
-                // So is a template (ADR 0033); its models are stored again in the destination's form.
-                if (!templates.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
-            }
-            if (movable == MovableResource.CODE_LIST) {
-                // So is a code list (ADR 0033); its content names its key.
-                if (!codeLists.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
-                    throw StaleCatalogResourceMovePlanException()
-                }
-                continue
-            }
-            val moved = handle.createUpdate(
-                """
-                UPDATE ${movable.table}
-                SET catalog_id = ${catalogAt("tenantKey", "targetCatalogKey")},
-                    -- Into the destination's current version; children follow by trigger.
-                    version_id = ${versionAt("tenantKey", "targetCatalogKey")},
-                    ${movable.keyColumn} = ${movable.keyColumnType?.let { "CAST(:targetKey AS $it)" } ?: ":targetKey"}
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "sourceCatalogKey")} AND resource_id = :resourceId
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("resourceId", resourceId)
-                .bindCatalog("sourceCatalogKey", relocation.source.catalogIn(command.tenantKey))
-                .bindCatalog("targetCatalogKey", relocation.target.catalogIn(command.tenantKey))
-                .bind("targetKey", relocation.target.key)
-                .execute()
-            if (moved != 1) throw StaleCatalogResourceMovePlanException()
-            // This one row is the whole relational move. Every type is keyed by its resource_id and
-            // every dependant names that, so nothing else refers to the address being changed --
-            // owned hierarchies included, and a rename no differently from a move.
         }
 
         // A reference that now crosses into another catalog makes its catalog depend on that one
         // (contract ADR 0003). The move implies it, so it is declared here rather than left for the
-        // next release to refuse.
+        // next release to refuse: on the draft of a catalog a resource moved into, since no release
+        // of it holds the resource yet (ADR 0042).
         declarer.declareMissingInTenant(command.tenantKey)
+        declarer.followMoved(
+            command.tenantKey,
+            command.relocations
+                .filter { it.source.catalogAddress != it.target.catalogAddress }
+                .groupBy({ it.target.catalogIn(command.tenantKey) }, { "${it.target.type.wireName}/${it.target.key}" })
+                .mapValues { it.value.toSet() },
+        )
 
         plan.preview
     }
-
-    /**
-     * Template [ownerKey] of the catalog at [catalogAddress] changed by [change], when the change still
-     * applies to what the plan saw; 1 when it did, else 0. A rewrite follows a move; it is not the
-     * user's edit, so whoever edited it last stays.
-     */
-    private fun rewriteVariant(
-        handle: org.jdbi.v3.core.Handle,
-        tenantKey: TenantKey,
-        catalogAddress: String,
-        ownerKey: String,
-        change: (app.epistola.suite.templates.StoredTemplate, CatalogId) -> app.epistola.suite.templates.StoredTemplate?,
-    ): Int {
-        val catalog = CatalogId.of(catalogAddress, app.epistola.suite.common.ids.TenantId(tenantKey))
-        val id = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(ownerKey), catalog)
-        val loaded = templates.get(handle, id) ?: return 0
-        val changed = change(loaded.template, catalog) ?: return 0
-        val author = handle.createQuery("SELECT updated_by FROM current_templates WHERE tenant_key = :t AND resource_id = :id")
-            .bind("t", tenantKey).bind("id", loaded.resourceId)
-            .mapTo(java.util.UUID::class.java).findOne().orElse(null)
-        return if (templates.save(handle, catalog, loaded, changed, author) != null) 1 else 0
-    }
-
-    /**
-     * The templates of every draft that use theme [themeId], which is about to move: a template names
-     * its theme by alias and key (ADR 0033), where it used to name its identity and so followed it. Each
-     * is pointed at the theme's destination, the alias relative to the template's own catalog.
-     */
-    private fun followTheme(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, themeId: java.util.UUID, relocation: ResourceRelocationPlan) {
-        val users = handle.createQuery(
-            """
-            SELECT t.id, c.namespace || '/' || c.catalog_key AS catalog_address, t.updated_by, t.revision
-            FROM current_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-            WHERE t.tenant_key = :t AND t.theme_resource_id = :theme AND t.version_id IS NOT NULL
-            """,
-        )
-            .bind("t", tenantKey)
-            .bind("theme", themeId)
-            .map { rs, _ -> listOf(rs.getString("id"), rs.getString("catalog_address")) to rs.getObject("updated_by", java.util.UUID::class.java) }
-            .list()
-        val target = relocation.target.catalogIn(tenantKey)
-        for ((address, author) in users) {
-            val catalog = CatalogId.of(address[1], app.epistola.suite.common.ids.TenantId(tenantKey))
-            val id = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(address[0]), catalog)
-            val loaded = templates.get(handle, id) ?: continue
-            val moved = loaded.template.copy(themeKey = relocation.target.key, themeCatalogKey = target.key.value.takeUnless { target == catalog })
-            templates.save(handle, catalog, loaded, moved, author)
-        }
-    }
-
-    /** The theme's styles replaced, when they are still what the plan saw; 1 when they were, else 0. */
-    private fun rewriteThemeStyles(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.ThemeStyles): Int {
-        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
-        val unchanged = handle.createQuery(
-            """
-            SELECT count(*) FROM current_themes
-            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :themeKey
-              AND document_styles = :expectedDocumentStyles::jsonb
-              AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
-            """,
-        )
-            .bind("tenantKey", tenantKey)
-            .bindCatalog("catalogKey", catalog)
-            .bind("themeKey", rewrite.ownerKey)
-            .bind("expectedDocumentStyles", rewrite.expectedDocumentStyles)
-            .bind("expectedPresets", rewrite.expectedPresets)
-            .mapTo(Long::class.java)
-            .one() > 0
-        if (!unchanged) return 0
-        val key = app.epistola.suite.common.ids.ThemeKey.of(rewrite.ownerKey)
-        val theme = ThemeReads.get(handle, objectMapper, catalog, key) ?: return 0
-        val fields = theme.fields().copy(
-            documentStyles = objectMapper.readValue(rewrite.replacementDocumentStyles, app.epistola.suite.templates.model.DocumentStyles::class.java),
-            blockStylePresets = rewrite.replacementPresets?.let { objectMapper.readValue(it, app.epistola.suite.themes.BlockStylePresets::class.java) },
-        )
-        // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
-        return if (themes.save(handle, theme, fields, theme.updatedBy?.value) != null) 1 else 0
-    }
-
-    /** The attribute's binding replaced, when its content is still what the plan saw; 1 when it was, else 0. */
-    private fun rewriteAttribute(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.AttributeContent): Int {
-        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
-        val id = app.epistola.suite.common.ids.AttributeId(app.epistola.suite.common.ids.AttributeKey.of(rewrite.ownerKey), catalog)
-        val (stored, updatedBy) = handle.createQuery(
-            "SELECT (payload -> 'resource')::text AS resource, updated_by FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
-        ).bind("t", tenantKey).bindCatalog("c", catalog).bind("k", rewrite.ownerKey)
-            .map { rs, _ -> rs.getString("resource") to rs.getObject("updated_by", java.util.UUID::class.java) }
-            .findOne().orElse(null) ?: return 0
-        if (objectMapper.readTree(stored) != objectMapper.readTree(rewrite.expected)) return 0
-        val replacement = objectMapper.readValue(rewrite.replacement, app.epistola.catalog.protocol.AttributeResource::class.java)
-        val fields = app.epistola.suite.attributes.AttributeFields(replacement.name, replacement.allowedValues, replacement.codeListBinding)
-        // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
-        return if (attributes.write(handle, id, fields, updatedBy)) 1 else 0
-    }
-
-    /** The stencil's document replaced, when it is still what the plan saw; 1 when it was, else 0. */
-    private fun rewriteStencil(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.StencilContent): Int {
-        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
-        val id = app.epistola.suite.common.ids.StencilId(app.epistola.suite.common.ids.StencilKey.of(rewrite.ownerKey), catalog)
-        val stencil = stencils.get(handle, id) ?: return 0
-        // The plan saw the stored document, its own-catalog references relative.
-        val stored = handle.createQuery("SELECT content::text FROM current_stencils WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
-            .bind("t", tenantKey).bindCatalog("c", catalog).bind("k", rewrite.ownerKey)
-            .mapTo(String::class.java).findOne().orElse(null) ?: return 0
-        if (objectMapper.readTree(stored) != objectMapper.readTree(rewrite.expected)) return 0
-        val content = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
-        // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
-        return if (stencils.write(handle, id, stencil.fields().copy(content = content), stencil.updatedBy?.value)) 1 else 0
-    }
 }
-
-private val STRINGS = object : tools.jackson.core.type.TypeReference<Map<String, String>>() {}

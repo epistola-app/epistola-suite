@@ -248,9 +248,6 @@ importers:
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
-      cytoscape:
-        specifier: ^3.34.3
-        version: 3.34.3
       driver.js:
         specifier: ^1.8.0
         version: 1.9.0
@@ -1932,10 +1929,6 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
-
-  cytoscape@3.34.3:
-    resolution: {integrity: sha512-yfYGhRcGAntq6YBD583j4n0Eg3jIxvWmZtz/5uz9UYkeIStSlMxuUja+ec5j3iBD8nv1rwaOAYMW09tBdkSeaQ==}
-    engines: {node: '>=0.10'}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -5683,8 +5676,6 @@ snapshots:
       clsx: 2.1.1
     optionalDependencies:
       typescript: 7.0.2
-
-  cytoscape@3.34.3: {}
 
   debug@4.4.3(supports-color@10.2.2):
     dependencies:

@@ -26,12 +26,6 @@ import tools.jackson.databind.ObjectMapper
 fun templateIn(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_templates WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
 
 /**
- * Joins a variant aliased [alias] of `current_template_variants` to its template in
- * `current_templates`, aliased `template`, so a query can report the template's address.
- */
-fun currentTemplateViewJoin(alias: String): String = "JOIN current_templates template ON template.tenant_key = $alias.tenant_key AND template.catalog_id = $alias.catalog_id AND template.resource_id = $alias.template_resource_id"
-
-/**
  * The columns [DocumentTemplate] maps from, for a query over `current_templates dt`. Catalog keys and
  * namespaces are looked up row by row rather than joined (ThemePlanStabilityTest).
  */

@@ -1,31 +1,33 @@
 # Catalog resource relocation
 
-> **Status:** Alpha, off by default, behind the `resource-relocation` toggle. The resource graph's
-> hand-off to it also needs `resource-graph`. A crude move by decision:
-> [ADR 0025](adr/0025-relocation-without-aliases.md) records why, and where relocation goes next.
+Organising catalogs ([ADR 0042](adr/0042-reorganising-catalogs.md)) is a tenant-local refactoring:
+rename a resource, move it to another catalog, or gather resources in a new shared catalog, between
+catalogs that can be changed here (ADR 0032). The resource keeps its identity, and everything that
+uses it in the drafts the move changes follows it. Releases keep the address they were cut with, so
+what still names the old address there, or in another installation, no longer finds the resource;
+the preview says so before anything happens.
 
-Catalog resource relocation is an experimental, tenant-local operation for moving a resource to
-another catalog, renaming its key, or both, between catalogs that can be changed here (ADR 0032). It is a **crude move**: the
-resource keeps its identity and editable references follow it, but nothing is left at the old
-address. Anything that still names the old address stops resolving — move the wrong thing and
-things break.
-
-Enable `resource-relocation` for a tenant to use it; it is alpha and defaults off. The organise page
-does not need the resource graph, but the graph's "Organise catalogs" hand-off appears only when
-both toggles are on.
+It is on by default (`resource-relocation`, Stable); switching the toggle off for a tenant hides it.
 
 Previewing a move needs catalog view; applying one needs catalog management. A reader who can only
 preview is told so on the page instead of being offered Move.
 
-The alpha supports all seven relocatable resource types: templates, stencils, themes, fonts,
+Every resource type can be moved: templates, stencils, themes, fonts,
 images, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
 rather than by its address, so a move is a single-row update and nothing cascades — see
 [`catalog-resource-identity-migration.md`](catalog-resource-identity-migration.md). An image is the
 one type that cannot be renamed: its key is a generated identifier, and an unqualified image
 reference resolves by that key alone.
 
-A preview is required before execution and reports:
+A preview is required before execution. It opens with "Everything that uses it will be updated" and
+reports:
 
+- what the move means for releases (ADR 0042): each catalog it changes, with the kind its next
+  release becomes and why (a source whose base release held the resource no longer contains it, a
+  major; a target gains it, a minor; a catalog that now uses another depends on it), and the order
+  they are released in, a catalog before those that now depend on it;
+- the drafts it leaves alone (`left-behind-draft`), and a resource the draft it changes does not
+  hold (`not-in-draft`, a blocker);
 - references that will be rewritten to the destination address;
 - relative references inside the moving resource's own content that will be pinned to the catalog
   they resolve against today; and
@@ -35,6 +37,46 @@ A preview is required before execution and reports:
 Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and rejects a stale plan
 fingerprint. It then updates mutable references and changes the resource's current catalog address
 while retaining its stable `resource_id`.
+
+## Where it is offered
+
+The refactorings are offered by what they do, where the need for them arises (ADR 0042):
+
+- **Rename…** and **Move to another catalog…** on every resource's page, and as one action in its
+  row of a list, for all seven types (an image is moved, not renamed). Each opens the move dialog in
+  the draft the page shows, asking only for what it changes; a release offers neither
+  (`RefactoringView`, `fragments/refactoring`).
+- **Create a shared catalog…** on the catalogs list. It opens a page that creates the catalog (as
+  Create catalog would, with the catalog management permission), then takes resources chosen from
+  any catalog into it; the move is previewed and applied as any other. A catalog created and not
+  moved into stays, empty.
+
+There is no nav item for it.
+
+## Which drafts a move changes
+
+A move changes one draft per catalog ([ADR 0042](adr/0042-reorganising-catalogs.md)): in the
+catalog a resource moves out of, the draft the move names (`catalogVersion`, by default the next
+version), and in every other catalog involved, its next version. Releases are never changed.
+
+A catalog's other drafts are left alone, the resource and their references to it both: they keep
+their copy at the old address, so each stays a coherent snapshot. The resource's identity goes with
+the move, and with it what follows the identity (generation history, quality findings, load-test
+runs); a copy left behind gets an identity of its own there (`split_draft_resource_identity`). The
+preview names every draft left alone (`left-behind-draft`).
+
+A catalog whose content now uses a resource that moved into another catalog depends on that
+catalog's next version, not on a release of it: no release holds the resource yet. Releasing with
+its dependencies releases that catalog first.
+
+A draft left alone gets the move when a release made after it is merged into it, and a release made
+from a draft left alone (a hotfix) merges into the draft that moved the resource. The merge deduces
+the move from identities instead of recording it (`MergeMoves`): the merge base's rows keep the
+identity they were cut with, and the registry says where that identity is now. The merge base and
+the release are rebased through the moves before anything is classified, so a fix to a template that
+names a moved theme is taken pointing at the theme where it went, and a fix to the moved theme
+itself is a conflict that says where it went (`MergeResource.movedTo`). In another installation,
+whose identities are its own, a move stays a removal and an addition.
 
 ## What follows a move, and what breaks
 
@@ -125,12 +167,11 @@ written before it existed resolve through their recorded address instead.
 - `/tenants/{tenantId}/catalogs/organise/move?resource=<type>:<catalog>/<key>` is the focused
   single-resource surface, for linking from the resource's own page. It answers with a dialog to
   HTMX and a full page otherwise, so the same URL works embedded and pasted. After a move from the
-  resource's own page, the browser goes to that page at the new address. The resource graph links
-  to it rather than hosting the operation — the graph diagnoses, this applies. REST and MCP
+  resource's own page, the browser goes to that page at the new address. REST and MCP
   operations are intentionally deferred until the command contract and authorization model have
   settled.
 
-The direction beyond this alpha — published content that retains its own inputs, so that a move can
+The direction beyond this — published content that retains its own inputs, so that a move can
 never break published work — is set out in [ADR 0025](adr/0025-relocation-without-aliases.md) and
 planned goal by goal in [From resource relocation to immutable publication](catalog-immutable-publication.md).
 Until it lands, a move is only as safe as the operator's knowledge of what uses the resource.

@@ -119,15 +119,6 @@ class ImageStore(
 
     fun delete(handle: Handle, catalog: CatalogId, key: String): Boolean = DraftResources.delete(handle, catalog, IMAGE, key)
 
-    /** Moves image [key] of [source] to [targetKey] of [target], its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val image = get(handle, source, key) ?: return false
-        val hash = handle.createQuery("SELECT content_hash FROM current_images WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
-            .bind("t", source.tenantKey).bindCatalog("c", source).bind("k", key).mapTo(String::class.java).one()
-        val fields = ImageFields(image.name, image.mediaType, image.width, image.height, hash, ResourceMetadata.moving(handle, source, IMAGE, key))
-        return DraftResources.move(handle, source, IMAGE, key, target, targetKey, store(handle, source, targetKey, fields))
-    }
-
     /** Image [key] of [catalog] as the version the handle means holds it, or null. */
     fun get(handle: Handle, catalog: CatalogId, key: String): Asset? = handle
         .createQuery("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND a.id = :k")

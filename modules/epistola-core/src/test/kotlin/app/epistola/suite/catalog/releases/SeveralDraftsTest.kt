@@ -424,15 +424,17 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a resource cannot be relocated while its catalog has parallel work`() {
+    fun `relocating with parallel work changes the next version and names the work it leaves alone`() {
         val tenant = released("drafts-relocate")
         withMediator { CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute() }
         val move = listOf(testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(CatalogKey.of("shared")))
-        assertThat(withMediator { PreviewCatalogResourceMove(tenant, move).query() }.blockers.map { it.code }).doesNotContain("several-drafts")
+        assertThat(withMediator { PreviewCatalogResourceMove(tenant, move).query() }.warnings.map { it.code }).doesNotContain("left-behind-draft")
 
         work(tenant, "Redesign")
 
-        assertThat(withMediator { PreviewCatalogResourceMove(tenant, move).query() }.blockers.map { it.code }).contains("several-drafts")
+        val preview = withMediator { PreviewCatalogResourceMove(tenant, move).query() }
+        assertThat(preview.blockers).isEmpty()
+        assertThat(preview.warnings.filter { it.code == "left-behind-draft" }.map { it.message }).singleElement().asString().startsWith("Redesign of ")
     }
 
     @Test

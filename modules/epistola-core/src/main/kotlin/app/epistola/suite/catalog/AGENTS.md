@@ -9,9 +9,9 @@ primitives in `snapshot/`, and reference discovery in `graph/`. There is no sepa
 `catalog` must **not** reference `exchange`. `CatalogExchangeIndependenceTest` checks this in
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
 
-The domains depend on `catalog`, not the reverse: where catalog must reach a domain, the domain
-implements a catalog SPI that catalog collects (`CatalogDraftLifecycle`, which environments
-implements). `CatalogBoundaryTest` lists what is still left, the per-type stores; the list only shrinks.
+The domains depend on `catalog`, never the reverse (ADR 0039; `CatalogBoundaryTest` allows none): a
+type's particulars are its domain's `ResourceType` (relocation re-points every type through its
+`repoint`, ADR 0042), anything else an SPI catalog owns (`CatalogDraftLifecycle`, `ReleaseCheck`, `CatalogAttributeValues`).
 
 Every SQL statement reading or writing catalog content names the catalog version it means, since a
 catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
@@ -49,10 +49,11 @@ ADR 0018 and ADR 0021.
 
 ## Threading a per-resource field
 
-A setting only round-trips if it is threaded through **all** of: `ImportTemplates` (the insert **and
-both** update paths), `CatalogContentBuilder` (the SELECT and the emitted resource), and the
-`epistola-contract` protocol model. Missing from any one of those, it is silently dropped on
-re-import. Add a round-trip test rather than trusting a read of the code.
+Export reads the stored wire form as it is (ADR 0039), so a member round-trips when it is in the
+`epistola-contract` protocol model, its type's `receive` passes it on (for templates `ImportTemplates`,
+the insert **and both** update paths), and the domain's store writes it into the content. Missing from
+any one of those, it is silently dropped on re-import. Add a round-trip test rather than trusting a
+read of the code.
 
 ## Bundled catalogs
 
@@ -64,11 +65,11 @@ fingerprint ships unchanged content silently. See
 
 ## Resource references
 
-Tenant-wide reference discovery and traversal live in `graph/`
+What uses what has one authority: the reference index and the graph on it in `graph/`
 ([`docs/resource-reference-graph.md`](../../../../../../../../../docs/resource-reference-graph.md)).
-A new catalog-resource reference shape must be added to that authority with resolution and lifecycle
-evidence. The existing deletion and upgrade scanners stay independent until deliberately migrated
-and parity-tested.
+Used by, upgrades, merges and organising catalogs read the graph, and a new reader does too rather
+than scanning content. A new reference shape goes in `ResourceReferenceSites` or a type's
+`references`, so it is indexed.
 
 ## Verify
 

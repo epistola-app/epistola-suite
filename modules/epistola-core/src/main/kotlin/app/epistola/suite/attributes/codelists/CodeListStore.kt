@@ -148,12 +148,6 @@ class CodeListStore(
     /** Removes code list [id] from the targeted draft; false when it held none. */
     fun delete(handle: Handle, id: CodeListId): Boolean = DraftResources.delete(handle, id.catalogId, CODE_LIST, id.key.value)
 
-    /** Moves code list [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
-    fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
-        val fields = fields(handle, CodeListId(app.epistola.suite.common.ids.CodeListKey.of(key), source)) ?: return false
-        return DraftResources.move(handle, source, CODE_LIST, key, target, targetKey, store(handle, source, targetKey, fields.copy(metadata = ResourceMetadata.moving(handle, source, CODE_LIST, key))))
-    }
-
     /** Code list [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: CodeListId): CodeList? = handle
         .createQuery("SELECT $CODE_LIST_COLUMNS FROM current_code_lists t WHERE ${codeListAt()}")
@@ -174,15 +168,6 @@ class CodeListStore(
         .findOne()
         .orElse(null)
         ?.let { fieldsOf(objectMapper.readTree(it)) }
-
-    /** The settings beside the released form of each of [catalog]'s code lists that has a source, by key. */
-    fun sources(handle: Handle, catalog: CatalogId): Map<String, JsonNode> = handle
-        .createQuery("SELECT t.id, (t.payload -> 'source')::text AS source FROM current_code_lists t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.payload -> 'source' IS NOT NULL")
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .map { rs, _ -> rs.getString("id") to objectMapper.readTree(rs.getString("source")) }
-        .list()
-        .toMap()
 
     /** Records a refresh of code list [id] in the targeted draft: when it succeeded (null: it did not), and its error. */
     fun recordRefresh(handle: Handle, id: CodeListId, succeeded: Boolean, error: String?) {

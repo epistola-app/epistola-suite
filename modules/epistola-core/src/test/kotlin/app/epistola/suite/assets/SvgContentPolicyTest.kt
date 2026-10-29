@@ -4,8 +4,8 @@
 
 package app.epistola.suite.assets
 
+import app.epistola.suite.assets.commands.ImportAsset
 import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.catalog.commands.ImportAsset
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId

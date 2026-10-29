@@ -21,9 +21,9 @@ import org.junit.jupiter.api.Test
  * reference counts too. Tenants is not in the list: a catalog belongs to a tenant, so catalog may
  * read it.
  *
- * [ALLOWED] is what is left to untangle, mostly the per-type import, export and relocation, which
- * still call each type's store. It may only shrink: the test fails as much for a dependency that is
- * gone and still listed as for a new one, so whoever removes one takes it off the list.
+ * [ALLOWED] is empty (ADR 0039): what is particular to a content type is its domain's
+ * [app.epistola.suite.catalog.types.ResourceType], and anything else catalog needs from a domain is
+ * an SPI catalog owns. A new dependency belongs behind one of those, not on this list.
  */
 class CatalogBoundaryTest {
     private val classes: JavaClasses =
@@ -58,47 +58,7 @@ class CatalogBoundaryTest {
 
         val DOMAINS = listOf("templates", "themes", "stencils", "assets", "attributes", "fonts", "environments", "documents", "generation")
 
-        val ALLOWED = sortedSetOf(
-            "catalog.CatalogContentBuilder -> assets",
-            "catalog.CatalogContentBuilder -> fonts",
-            "catalog.CatalogContentBuilder -> templates",
-            "catalog.CatalogUpgradeAnalyzer -> attributes",
-            "catalog.commands.CatalogResourceInstaller -> assets",
-            "catalog.commands.CatalogResourceInstaller -> attributes",
-            "catalog.commands.CatalogResourceInstaller -> fonts",
-            "catalog.commands.CatalogResourceInstallerKt -> templates",
-            "catalog.commands.ImportAsset -> assets",
-            "catalog.commands.ImportAssetHandler -> assets",
-            "catalog.commands.ImportAttributeHandler -> attributes",
-            "catalog.commands.ImportCodeList -> attributes",
-            "catalog.commands.ImportCodeListHandler -> attributes",
-            "catalog.commands.ImportStencilHandler -> stencils",
-            "catalog.commands.ImportStencilHandler -> templates",
-            "catalog.commands.ImportTemplateInput -> templates",
-            "catalog.commands.ImportTemplates -> templates",
-            "catalog.commands.ImportTemplatesHandler -> templates",
-            "catalog.commands.ImportTheme -> themes",
-            "catalog.commands.ImportThemeHandler -> themes",
-            "catalog.commands.MarkCatalogReadyHandler -> stencils",
-            "catalog.commands.MarkCatalogReadyHandler -> templates",
-            "catalog.commands.ReleaseCatalogDraftHandler -> attributes",
-            "catalog.commands.UpdateCatalogMetadataHandler -> assets",
-            "catalog.commands.UpdateCatalogMetadataHandler -> templates",
-            "catalog.graph.TenantResourceGraphBuilder -> templates",
-            "catalog.ProtocolMapper -> themes",
-            "catalog.queries.ExportThemesHandler -> themes",
-            "catalog.queries.ListCatalogsForManagementKt -> templates",
-            "catalog.releases.ChangeKindEvaluator -> stencils",
-            "catalog.releases.ChangeKindEvaluator -> templates",
-            "catalog.ReleaseStencilCheck -> stencils",
-            "catalog.relocation.CatalogResourceMovePlanner -> templates",
-            "catalog.relocation.MoveCatalogResourcesHandler -> assets",
-            "catalog.relocation.MoveCatalogResourcesHandler -> attributes",
-            "catalog.relocation.MoveCatalogResourcesHandler -> fonts",
-            "catalog.relocation.MoveCatalogResourcesHandler -> stencils",
-            "catalog.relocation.MoveCatalogResourcesHandler -> templates",
-            "catalog.relocation.MoveCatalogResourcesHandler -> themes",
-        )
+        val ALLOWED = sortedSetOf<String>()
 
         /** Version targeting and the log context read the catalog version a message names. */
         val MEDIATOR_ALLOWED = sortedSetOf(

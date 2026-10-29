@@ -41,6 +41,8 @@ class CommonViewModel(
      * - `isManager` — derived from the effective `auth`.
      * - `catalogEditing` — whether each catalog can be changed here ([CatalogEditingView]), read on the
      *   first question; only when `tenantId` is present.
+     * - `refactoring` — whether a resource offers Rename and Move to another catalog ([RefactoringView]);
+     *   only when `tenantId` is present.
      * - `footerFragments` — only when `tenantId` is present.
      * - `footerStatusFragments` — installation-wide status in the footer bar (the support badge),
      *   on every view.
@@ -76,7 +78,10 @@ class CommonViewModel(
 
         if (tenantId != null) {
             // Which catalogs can be changed here, read only when a template asks.
-            if (model["catalogEditing"] == null) result["catalogEditing"] = CatalogEditingView(TenantKey.of(tenantId))
+            val editing = model["catalogEditing"] as? CatalogEditingView ?: CatalogEditingView(TenantKey.of(tenantId))
+            if (model["catalogEditing"] == null) result["catalogEditing"] = editing
+            // Whether a resource offers Rename and Move to another catalog (ADR 0042).
+            if (model["refactoring"] == null) result["refactoring"] = RefactoringView(TenantKey.of(tenantId), auth, editing)
             val context = UiRequestContext(TenantKey.of(tenantId)) { auth.has(it) }
             // Module-contributed footer chrome (e.g. the feedback FAB).
             result["footerFragments"] = footerFragmentResolver.resolve(context)
