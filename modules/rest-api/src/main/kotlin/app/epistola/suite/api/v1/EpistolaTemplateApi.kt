@@ -144,6 +144,7 @@ class EpistolaTemplateApi(
         )
     }
 
+    /** Creates the template with its data contract when one is given; examples that fail it are refused with 422 and nothing is created. */
     override fun createTemplate(
         tenantKey: String,
         registry: String,
@@ -158,6 +159,10 @@ class EpistolaTemplateApi(
             name = createTemplateRequest.name,
             catalogVersion = draft.ref,
             description = createTemplateRequest.description,
+            dataModel = createTemplateRequest.dataModel,
+            dataExamples = createTemplateRequest.dataExamples?.map { dto ->
+                DataExample(id = UUIDv7.generate().toString(), name = dto.name, data = dto.data, key = dto.key)
+            },
         ).execute()
         return workingCopyDto(draft, template).let { created(it.key, it) }
     }

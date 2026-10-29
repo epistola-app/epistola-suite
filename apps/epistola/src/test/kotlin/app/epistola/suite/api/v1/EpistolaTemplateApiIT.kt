@@ -101,6 +101,39 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `create template with its data contract returns it`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "contract-${randomSuffix()}"
+
+        val body = """{"key": "$slug", "name": "Invoice",
+            "dataModel": {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]},
+            "dataExamples": [{"key":"ada","name":"Ada","data":{"name":"Ada"}}]}"""
+        val response = restTemplate.exchange("${draft(tenantKey)}/templates", HttpMethod.POST, HttpEntity(body, baseHeaders(key)), String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.dataModel.required")).containsExactly("name")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.dataExamples[*].key")).containsExactly("ada")
+        val get = restTemplate.exchange("${draft(tenantKey)}/templates/$slug", HttpMethod.GET, HttpEntity<Void>(baseHeaders(key)), String::class.java)
+        assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.properties.name.type")).isEqualTo("string")
+    }
+
+    @Test
+    fun `create template with examples its data contract refuses returns 422 and creates nothing`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "refused-${randomSuffix()}"
+
+        val body = """{"key": "$slug", "name": "Invoice",
+            "dataModel": {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]},
+            "dataExamples": [{"key":"nameless","name":"Nameless","data":{}}]}"""
+        val response = restTemplate.exchange("${draft(tenantKey)}/templates", HttpMethod.POST, HttpEntity(body, baseHeaders(key)), String::class.java)
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/data-model-validation-error")
+        val get = restTemplate.exchange("${draft(tenantKey)}/templates/$slug", HttpMethod.GET, HttpEntity<Void>(baseHeaders(key)), String::class.java)
+        assertThat(get.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
     fun `get template at its pre-move address is not found`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "moved-${randomSuffix()}"

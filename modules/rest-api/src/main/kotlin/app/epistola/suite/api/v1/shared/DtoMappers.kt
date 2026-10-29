@@ -79,8 +79,6 @@ internal fun DocumentTemplate.toDto(
     tenantKey = tenantKey.value,
     name = name,
     description = description,
-    // The contract's `schema` (input parameters) has no counterpart in the suite: the data model is the schema.
-    schema = null,
     dataModel = contract?.dataModel,
     dataExamples = contract?.dataExamples?.map { example ->
         DataExampleDto(
