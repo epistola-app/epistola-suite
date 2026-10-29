@@ -167,6 +167,10 @@ Generically, on ADR 0039, replacing the per-type planner and relocators:
   (`CatalogReleaseScoped`): its own catalog reads and writes that draft, every other catalog its next
   version, which is the rule above.
 
+**Create a shared catalog** creates the catalog first, as its own step, and then moves the
+selection into it: the move's preview needs the catalog to exist, and an empty catalog left behind
+when the move is not applied costs nothing worth a combined transaction.
+
 It stays alpha, behind `resource-relocation`. When the new one lands, the old one is removed in the
 same change, the toggle reused: the old planner, the `ResourceRelocator`s and the move command go. As
 an alpha feature off by default, it carries no compatibility promise.

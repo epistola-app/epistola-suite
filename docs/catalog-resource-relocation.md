@@ -24,8 +24,15 @@ rather than by its address, so a move is a single-row update and nothing cascade
 one type that cannot be renamed: its key is a generated identifier, and an unqualified image
 reference resolves by that key alone.
 
-A preview is required before execution and reports:
+A preview is required before execution. It opens with "Everything that uses it will be updated" and
+reports:
 
+- what the move means for releases (ADR 0042): each catalog it changes, with the kind its next
+  release becomes and why (a source whose base release held the resource no longer contains it, a
+  major; a target gains it, a minor; a catalog that now uses another depends on it), and the order
+  they are released in, a catalog before those that now depend on it;
+- the drafts it leaves alone (`left-behind-draft`), and a resource the draft it changes does not
+  hold (`not-in-draft`, a blocker);
 - references that will be rewritten to the destination address;
 - relative references inside the moving resource's own content that will be pinned to the catalog
   they resolve against today; and
@@ -35,6 +42,14 @@ A preview is required before execution and reports:
 Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and rejects a stale plan
 fingerprint. It then updates mutable references and changes the resource's current catalog address
 while retaining its stable `resource_id`.
+
+## On the Organise page
+
+The page and the single-resource dialog offer the refactorings by what they do: **Move or rename…**
+on a resource (the dialog carries the draft the resource was opened in), and on the page a selection
+moved to one catalog, or **Create a shared catalog…**, which creates the catalog (as Create catalog
+would, with the catalog management permission) and makes it the destination; the move is then
+previewed and applied as any other. A catalog created and not moved into stays, empty.
 
 ## Which drafts a move changes
 
