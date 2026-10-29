@@ -375,9 +375,11 @@ Three decisions the work made:
   type would make the beans depend on each other in a circle. It is also an alpha feature.
 - **Variant attributes are references.** A template's variants name the attributes they select by;
   they are indexed in `resource_references` like every other reference (`TemplateResourceType.references`),
-  and `V20261101001800` indexes those stored before. The upgrade analyser asks the index who uses an
-  attribute, as it already did for code lists. `ReferenceWalkerGoldenVectorsTest` has the new case,
-  `VariantAttributeReferencesMigrationTest` fails without the migration, and the new attribute case of
+  and the 2.0 chain indexes them as it stores a 1.x template (`V20261101000800`, `V20261101000900`,
+  edited in place: they never reached `main`, so a database from an earlier 2.0 build is rebuilt). The
+  upgrade analyser asks the index who uses an attribute, as it already did for code lists.
+  `ReferenceWalkerGoldenVectorsTest` has the new case, `TwoZeroChainEquivalenceIT` holds the chain's
+  four new rows (which the chain before did not make), and the new attribute case of
   `UpgradeCatalogTest` fails without the index.
 - **Read-model helpers live with the read model.** `currentTemplateViewJoin` joins two views the
   catalog's migrations define, so it moved from `templates` to `catalog`; `validateAttributes` reads

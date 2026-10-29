@@ -130,7 +130,7 @@ class V20261101000800__core_2_0_templates_to_storage : BaseJavaMigration() {
                 variants = variants.map { Envelopes.VariantEntry(it.key, it.attributes?.let(mapper::readTree), it.isDefault) },
             )
             val themeReference = template.themeKey?.let { setOf(ReferenceWalker.Reference(themeCatalogKey, "theme", it)) }.orEmpty()
-            val hash = store.store(template.tenant, "template", payload, themeReference)
+            val hash = store.store(template.tenant, "template", payload, themeReference + variantAttributeReferences(payload.path("resource").path("variants")))
             store.row(
                 StorageWrites.Row(
                     template.tenant, template.catalogId, template.versionId, "template", template.key, template.resourceId, hash, template.name,
@@ -167,11 +167,20 @@ class V20261101000800__core_2_0_templates_to_storage : BaseJavaMigration() {
         log.info("2.0 upgrade: {} template(s) moved to JSON storage; {} notice(s) recorded under {}", templates.size, report.size, REPORT_KEY)
     }
 
+    /** The attributes [variants] select by, as references (ADR 0039): `catalog.attribute` by that catalog's alias, a bare key by none. */
+    private fun variantAttributeReferences(variants: tools.jackson.databind.JsonNode): Set<ReferenceWalker.Reference> = buildSet {
+        variants.forEach { slot ->
+            slot.get("attributes")?.takeIf { it.isObject }?.properties()?.forEach { (name, _) ->
+                add(ReferenceWalker.Reference(name.substringBefore('.', "").ifEmpty { null }, "attribute", name.substringAfter('.')))
+            }
+        }
+    }
+
     companion object {
         /** The `app_metadata` key the conversion's notices are kept under. */
         const val REPORT_KEY = "upgrade-2.0-template-content"
 
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 989630987
+        const val CHECKSUM: Int = 1151385396
     }
 }
