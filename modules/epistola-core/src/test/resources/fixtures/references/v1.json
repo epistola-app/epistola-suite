@@ -142,7 +142,11 @@
           "type": "template",
           "variants": [
             { "key": "default", "attributes": { "system.language": "nl" }, "isDefault": true },
-            { "key": "formal", "attributes": { "system.language": "en", "tone": "formal" }, "isDefault": false }
+            {
+              "key": "formal",
+              "attributes": { "system.language": "en", "tone": "formal" },
+              "isDefault": false
+            }
           ]
         }
       },
