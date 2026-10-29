@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.CatalogId
@@ -20,9 +22,11 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 data class ResourceMoveBlocker(
     val code: String,
@@ -101,25 +105,51 @@ data class CatalogResourceMovePreview(
     val immutableReferenceCount: Int get() = relocations.sumOf { it.immutableReferenceCount }
 }
 
+/**
+ * What moving [relocations] would do, without doing it. A move changes one draft per catalog (ADR
+ * 0042): [catalogVersion] in its own catalog, which must be the catalog of one of the resources moved,
+ * and the next version of every other catalog involved; null means the next version everywhere.
+ */
 data class PreviewCatalogResourceMove(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
+    override val catalogVersion: CatalogReleaseRef? = null,
 ) : Query<CatalogResourceMovePreview>,
+    CatalogReleaseScoped,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
+
+    init {
+        validateDraftOfSource(tenantKey, relocations, catalogVersion)
+    }
 }
 
+/** Moves [relocations] as [PreviewCatalogResourceMove] showed it, in the same drafts. */
 data class MoveCatalogResources(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
     val expectedPlanFingerprint: String,
+    override val catalogVersion: CatalogReleaseRef? = null,
 ) : Command<CatalogResourceMovePreview>,
+    CatalogReleaseScoped,
     RequiresPermission,
     AuditDetailed {
     override val permission get() = Permission.CATALOG_MANAGE
 
+    init {
+        validateDraftOfSource(tenantKey, relocations, catalogVersion)
+    }
+
     /** Each resource's old address and the one it moved to: where a resource went, and when. */
     override val auditDetails: Map<String, String> get() = relocations.associate { it.source.id to it.target.id }
+}
+
+/** The draft a move changes in its own catalog is of a catalog a resource moves out of. */
+private fun validateDraftOfSource(tenantKey: TenantKey, relocations: List<ResourceRelocation>, catalogVersion: CatalogReleaseRef?) {
+    if (catalogVersion == null) return
+    validate("catalogVersion", catalogVersion.tenantKey == tenantKey && relocations.any { it.source.catalogIn(tenantKey) == catalogVersion.catalog }) {
+        "The draft to work in must be of a catalog a resource moves out of"
+    }
 }
 
 class CatalogResourceMoveBlockedException(
@@ -133,8 +163,15 @@ class PreviewCatalogResourceMoveHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
 ) : QueryHandler<PreviewCatalogResourceMove, CatalogResourceMovePreview> {
-    override fun handle(query: PreviewCatalogResourceMove): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
-        planner.build(handle, query.tenantKey, query.relocations).preview
+    override fun handle(query: PreviewCatalogResourceMove): CatalogResourceMovePreview {
+        // One snapshot for every read of the plan; a preview targeting a draft already runs in the
+        // transaction that targets it, and reads in that.
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            return jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle -> planner.build(handle, query.tenantKey, query.relocations).preview }
+        }
+        return jdbi.inTransaction<CatalogResourceMovePreview, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
+            planner.build(handle, query.tenantKey, query.relocations).preview
+        }
     }
 }
 
@@ -183,8 +220,16 @@ class MoveCatalogResourcesHandler(
 
         // A reference that now crosses into another catalog makes its catalog depend on that one
         // (contract ADR 0003). The move implies it, so it is declared here rather than left for the
-        // next release to refuse.
+        // next release to refuse: on the draft of a catalog a resource moved into, since no release
+        // of it holds the resource yet (ADR 0042).
         declarer.declareMissingInTenant(command.tenantKey)
+        declarer.followMoved(
+            command.tenantKey,
+            command.relocations
+                .filter { it.source.catalogAddress != it.target.catalogAddress }
+                .groupBy({ it.target.catalogIn(command.tenantKey) }, { "${it.target.type.wireName}/${it.target.key}" })
+                .mapValues { it.value.toSet() },
+        )
 
         plan.preview
     }

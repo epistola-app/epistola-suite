@@ -36,6 +36,22 @@ Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and re
 fingerprint. It then updates mutable references and changes the resource's current catalog address
 while retaining its stable `resource_id`.
 
+## Which drafts a move changes
+
+A move changes one draft per catalog ([ADR 0042](adr/0042-reorganising-catalogs.md)): in the
+catalog a resource moves out of, the draft the move names (`catalogVersion`, by default the next
+version), and in every other catalog involved, its next version. Releases are never changed.
+
+A catalog's other drafts are left alone, the resource and their references to it both: they keep
+their copy at the old address, so each stays a coherent snapshot. The resource's identity goes with
+the move, and with it what follows the identity (generation history, quality findings, load-test
+runs); a copy left behind gets an identity of its own there (`split_draft_resource_identity`). The
+preview names every draft left alone (`left-behind-draft`).
+
+A catalog whose content now uses a resource that moved into another catalog depends on that
+catalog's next version, not on a release of it: no release holds the resource yet. Releasing with
+its dependencies releases that catalog first.
+
 ## What follows a move, and what breaks
 
 Follows the move:

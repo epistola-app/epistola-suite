@@ -317,8 +317,54 @@ BEGIN
 END;
 $$;
 
--- A resource moves or is renamed only while no other draft of its catalog holds it (a release does
--- not hold it back: a release is frozen at the address it had).
+-- A resource moved or renamed in one draft while other drafts of its catalog hold it too (ADR 0042):
+-- the identity goes with the move, and the copies left behind, which stay at the old address, are
+-- given an identity of their own there, with what each draft keeps of it (its ready marks, its code
+-- list refreshes, its default theme). A release is frozen at the address and identity it had.
+CREATE FUNCTION split_draft_resource_identity(p_tenant TEXT, p_resource UUID, p_version UUID, p_catalog UUID, p_key TEXT)
+    RETURNS UUID LANGUAGE plpgsql AS $$
+DECLARE
+    left_behind UUID := epistola_uuidv7();
+    registered catalog_resources%ROWTYPE;
+    others UUID[];
+BEGIN
+    SELECT array_agg(DISTINCT version_id) INTO others FROM release_resources
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND parent_id IS NULL AND version_id <> p_version
+      AND release_resource_is_draft(tenant_key, version_id);
+    SELECT * INTO registered FROM catalog_resources WHERE tenant_key = p_tenant AND resource_id = p_resource;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'catalog resource % has no identity row', p_resource;
+    END IF;
+
+    -- The identity leaves the old address first, so the copies left behind can be registered there.
+    UPDATE catalog_resources SET catalog_id = p_catalog, resource_key = p_key
+    WHERE tenant_key = p_tenant AND resource_id = p_resource;
+    INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+    VALUES (p_tenant, left_behind, registered.resource_type, registered.catalog_id, registered.resource_key);
+
+    -- Re-keying a row is refused by sync_draft_resource_identity unless it is this split's.
+    PERFORM set_config('epistola.identity_split', left_behind::text, TRUE);
+    UPDATE release_resources SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND parent_id IS NULL AND version_id = ANY (others);
+    UPDATE release_resources SET parent_id = left_behind, resource_id = variant_resource_id(left_behind, resource_key)
+    WHERE tenant_key = p_tenant AND parent_id = p_resource AND version_id = ANY (others);
+    PERFORM set_config('epistola.identity_split', '', TRUE);
+
+    UPDATE resource_ready_marks SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND version_id = ANY (others);
+    UPDATE code_list_refreshes SET resource_id = left_behind
+    WHERE tenant_key = p_tenant AND resource_id = p_resource AND version_id = ANY (others);
+    UPDATE catalog_versions SET default_theme_resource_id = left_behind
+    WHERE tenant_key = p_tenant AND default_theme_resource_id = p_resource AND version_id = ANY (others);
+    RETURN left_behind;
+END;
+$$;
+
+COMMENT ON FUNCTION split_draft_resource_identity(TEXT, UUID, UUID, UUID, TEXT) IS
+    'Moves identity p_resource to p_catalog/p_key with the row of draft p_version, and gives the rows other drafts hold at the old address an identity of their own there (ADR 0042); returns it.';
+
+-- A draft row's identity: registered per address, carried along by a move or rename (split from the
+-- copies other drafts keep, split_draft_resource_identity), and taken along by the last row holding it.
 CREATE FUNCTION sync_draft_resource_identity() RETURNS trigger LANGUAGE plpgsql AS $$
 
 DECLARE
@@ -360,14 +406,18 @@ BEGIN
     END IF;
 
     IF NEW.resource_id <> OLD.resource_id THEN
-        RAISE EXCEPTION 'catalog resource_id is immutable';
+        IF current_setting('epistola.identity_split', TRUE) IS DISTINCT FROM NEW.resource_id::text THEN
+            RAISE EXCEPTION 'catalog resource_id is immutable';
+        END IF;
+        RETURN NEW;
     END IF;
     IF NEW.catalog_id IS DISTINCT FROM OLD.catalog_id OR NEW.resource_key IS DISTINCT FROM OLD.resource_key THEN
         SELECT EXISTS (SELECT 1 FROM release_resources WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id
-                       AND version_id <> OLD.version_id AND release_resource_is_draft(tenant_key, version_id))
+                       AND parent_id IS NULL AND version_id <> OLD.version_id AND release_resource_is_draft(tenant_key, version_id))
             INTO held_elsewhere;
         IF held_elsewhere THEN
-            RAISE EXCEPTION 'catalog resource % is held by another version of its catalog; it cannot move or be renamed', OLD.resource_id;
+            PERFORM split_draft_resource_identity(OLD.tenant_key, OLD.resource_id, OLD.version_id, NEW.catalog_id, NEW.resource_key);
+            RETURN NEW;
         END IF;
         UPDATE catalog_resources SET catalog_id = NEW.catalog_id, resource_key = NEW.resource_key
         WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
@@ -380,7 +430,7 @@ END;
 
 $$;
 
-COMMENT ON FUNCTION sync_draft_resource_identity() IS 'Keeps catalog_resources for the rows of a draft in release_resources (ADR 0033): an identity registered per address, carried along by a move or rename, and taken along by the last row holding it.';
+COMMENT ON FUNCTION sync_draft_resource_identity() IS 'Keeps catalog_resources for the rows of a draft in release_resources (ADR 0033): an identity registered per address, carried along by a move or rename (the copies other drafts keep given one of their own, ADR 0042), and taken along by the last row holding it.';
 
 -- An alias resolves through what the version read declares: a draft's declarations or a release's
 -- pins are both its row's (one branch, ADR 0036 section 7).

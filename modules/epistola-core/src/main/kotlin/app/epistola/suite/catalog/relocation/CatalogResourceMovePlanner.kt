@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -48,7 +49,6 @@ class CatalogResourceMovePlanner(
         }
 
         val editable = loadEditable(handle, tenantKey, relocations)
-        val draftCounts = loadDraftCounts(handle, tenantKey, relocations)
         // An address a batch member is vacating is free for another member to take, so occupancy is
         // judged against the batch rather than against the current state alone.
         val vacated = relocations.map { it.source }.toSet()
@@ -86,17 +86,20 @@ class CatalogResourceMovePlanner(
             if (target.catalogAddress !in editable) {
                 blockers += blocker("target-read-only", "${target.catalogAddress} cannot be changed here", source)
             }
-            // A resource has one identity, with one address, in every version of its catalog; a move
-            // takes the current draft's rows only, so it is refused while either catalog has several.
-            listOf(source.catalogAddress, target.catalogAddress).distinct().filter { (draftCounts[it] ?: 0) > 1 }.forEach { catalog ->
-                blockers += blocker("several-drafts", "$catalog has several open drafts; discard or release all but one before moving resources", source)
-            }
-
             val resourceId = resolveIdentity(handle, tenantKey, source)
             if (resourceId == null) {
                 blockers += blocker("resource-not-found", "${source.id} is not a canonical resource", source)
             } else {
                 identities[source] = resourceId
+                // A move changes one draft of its catalog (ADR 0042): the others keep their copy at the
+                // old address, under an identity of their own, and are not changed.
+                for (draft in draftsLeftBehind(handle, tenantKey, source, resourceId)) {
+                    warnings += ResourceMoveWarning(
+                        "left-behind-draft",
+                        "$draft of ${source.catalogAddress} keeps its own copy of ${source.id} at the old address; it is not changed",
+                        source,
+                    )
+                }
             }
 
             if (target !in vacated && isAddressTaken(handle, tenantKey, target)) {
@@ -229,27 +232,25 @@ class CatalogResourceMovePlanner(
             .mapTo(mutableSetOf()) { it.first }
     }
 
-    private fun loadDraftCounts(
-        handle: Handle,
-        tenantKey: TenantKey,
-        relocations: List<ResourceRelocation>,
-    ): Map<String, Int> {
-        val keys = relocations.flatMap { listOf(it.source.catalogIn(tenantKey), it.target.catalogIn(tenantKey)) }.distinct()
-        if (keys.isEmpty()) return emptyMap()
-        return handle.createQuery(
-            """
-            SELECT c.namespace || '/' || c.catalog_key AS catalog_key, count(v.version_id) AS drafts
-            FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.state = 'draft'
-            WHERE c.tenant_key = :tenantKey AND c.catalog_id IN ${catalogsAt("tenantKey", "keys")}
-            GROUP BY c.namespace, c.catalog_key
-            """,
-        )
-            .bind("tenantKey", tenantKey)
-            .bindCatalogs("keys", keys)
-            .map { rs, _ -> rs.getString("catalog_key") to rs.getInt("drafts") }
-            .list()
-            .toMap()
-    }
+    /**
+     * The other drafts of [source]'s catalog that hold the resource [resourceId]: everything but the
+     * version the move changes (the targeted draft, else the next version), by name.
+     */
+    private fun draftsLeftBehind(handle: Handle, tenantKey: TenantKey, source: ResourceAddress, resourceId: ResourceIdentity): List<String> = handle.createQuery(
+        """
+        SELECT COALESCE(v.name, 'The next release') AS draft
+        FROM release_wire_resources r
+        JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id AND v.state = 'draft'
+        WHERE r.tenant_key = :tenantKey AND r.resource_id = :resourceId
+          AND r.version_id <> ${versionAt("tenantKey", "catalogKey")}
+        ORDER BY v.created_at, v.version_id
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .bind("resourceId", resourceId.value)
+        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .mapTo(String::class.java)
+        .list()
 
     private fun resolveIdentity(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): ResourceIdentity? = handle.createQuery(
         """

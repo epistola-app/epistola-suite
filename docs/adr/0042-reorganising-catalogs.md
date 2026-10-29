@@ -58,10 +58,11 @@ In one draft of each catalog involved, every reference to address A becomes a re
 - **One draft per catalog.** In the catalog a refactoring starts from, the draft the person is
   working in, whichever it is: any draft can be refactored, a release cannot. In every other catalog
   involved (the target, and the catalogs whose content names the resource), its everyday draft (the
-  next version), where ongoing work lands. A catalog's other drafts (parallel work, a hotfix) are left entirely alone, the
-  resource and its references both, so each stays a coherent snapshot at the old address; they get
-  the change when they are merged or rebased. Forcing it into a hotfix draft would make a small fix a
-  breaking change with a new dependency. Released content is never touched.
+  next version), where ongoing work lands. A catalog's other drafts (parallel work, a hotfix) are
+  left entirely alone, the resource and its references both, so each stays a coherent snapshot at
+  the old address; they get the change when a release made after it is merged into them (below).
+  Forcing it into a hotfix draft would make a small fix a breaking change with a new dependency.
+  Released content is never touched.
 - A reference is rewritten where `ResourceReferenceSites` finds it, or by its type for the ones the
   type carries itself (a template's theme and variant attributes: `ResourceType.references` gains a
   rewrite).
@@ -89,6 +90,39 @@ Two refactorings are left out until someone needs them, each the same core opera
 differently: **keeping the source's copy** while everything else follows (for a published catalog
 that must not break), and **merging** copies of one resource from several catalogs into one (re-point
 the copy's users, remove the copy).
+
+### Identity follows the move
+
+A resource's identity (`resource_id`, ADR 0037) is what generation history, quality findings and
+load-test runs hang on, and an identity has one current address. The resource the refactoring
+changes keeps it: its history follows it to its new address. A copy left behind in another draft of
+its catalog stays at the old address and gets an identity of its own there, with what that draft
+keeps of it (its ready marks, its default theme). Its content and address do not change, and the
+releases it came from keep the identity they were cut with.
+
+The registry does this where it already keeps identities (`sync_draft_resource_identity`, by
+`split_draft_resource_identity`), so a move or rename while other drafts hold the resource is no
+longer refused.
+
+### Merging after a refactoring
+
+Merging a release into a draft (contract ADR 0005) matches resources by type and key. After a
+refactoring, a release made from a draft left alone (a hotfix) still names the old address, so a
+merge would read the moved resource as removed by the draft, refuse a reference to the old address,
+or bring the old copy back.
+
+A merge **deduces** a move instead of recording one: a release's rows keep the identity they were cut
+with, so the merge base says which identity was at the old address, and the registry says where that
+identity is now. When it is at another address in this installation, the resource moved:
+
+- a reference in what the merge takes to the old address is re-pointed to the new one, as the
+  refactoring re-pointed the draft's own;
+- a change the release made to the moved resource is a conflict that says where the resource went,
+  for the author to apply there or leave.
+
+Nothing is stored for it and the contract does not change. A release says what it holds, not how
+it came to be, and identities are local: in another installation a move stays a removal and an
+addition (ADR 0037), merged as such.
 
 ### What people see
 
@@ -128,7 +162,10 @@ Generically, on ADR 0039, replacing the per-type planner and relocators:
 - content is stored through one writer of a version's resources (`VersionResources.put`,
   ADR 0039 §2, built for this), guarded by the content hash the plan saw;
 - a type stored as parts (a template and its variants) moves with its parts;
-- re-pointing declares the dependencies it needs, naming the target's draft.
+- re-pointing declares the dependencies it needs, naming the target's draft;
+- the drafts the operation changes come from the message targeting the draft worked in
+  (`CatalogReleaseScoped`): its own catalog reads and writes that draft, every other catalog its next
+  version, which is the rule above.
 
 It stays alpha, behind `resource-relocation`. When the new one lands, the old one is removed in the
 same change, the toggle reused: the old planner, the `ResourceRelocator`s and the move command go. As
@@ -150,4 +187,6 @@ an alpha feature off by default, it carries no compatibility promise.
 
 On 2026-10-29: a refactoring changes one draft per catalog, any draft in the catalog it starts from,
 and leaves every other draft alone; keeping the source's copy and merging copies are left out; the
-old implementation is removed when the new one lands.
+old implementation is removed when the new one lands; the identity follows the move and a copy left
+behind gets one of its own; a merge deduces a move from identities, with nothing recorded and no
+change to the contract.
