@@ -767,7 +767,7 @@
     "variants": [
       {
         "key": "default",
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
         "isDefault": true
       }

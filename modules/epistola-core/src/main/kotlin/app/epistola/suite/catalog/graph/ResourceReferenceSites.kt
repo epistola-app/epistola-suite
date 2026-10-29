@@ -137,6 +137,18 @@ object ResourceReferenceSites {
     fun dropNameQualifiers(root: JsonNode): Boolean = scan(root).fold(false) { changed, site -> site.dropNameQualifiers() || changed }
 
     /**
+     * Drops [containingCatalogKey] from the image references that name it, in place. Stored, an image
+     * keeps it, since an unqualified image is looked up tenant-wide here; in a release, wire v8 reads
+     * an unqualified image as one of the catalog itself and refuses its own key (contract
+     * `2.0.0-alpha.4`).
+     */
+    fun releaseOwnImages(root: JsonNode, containingCatalogKey: String) {
+        for (site in scan(root)) {
+            if (site.kind == ReferenceSiteKind.IMAGE_ASSET && site.catalogKey == containingCatalogKey) site.clearCatalogKey()
+        }
+    }
+
+    /**
      * Drops [containingCatalogKey] from references that target it, the inverse of [qualifyRelative].
      *
      * Applied when building a catalog export so a same-catalog reference travels as a relative one.

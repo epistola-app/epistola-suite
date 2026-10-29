@@ -95,12 +95,12 @@ class MergedContentTest : IntegrationTestBase() {
     @Suppress("UNCHECKED_CAST")
     private fun variantsOf(side: Map<String, Any?>?): List<Map<String, Any?>> = side!!["variants"] as List<Map<String, Any?>>
 
-    private fun titles(side: Map<String, Any?>?): Map<Any?, Any?> = variantsOf(side).associate { it["key"] to it["title"] }
+    private fun titles(side: Map<String, Any?>?): Map<Any?, Any?> = variantsOf(side).associate { it["key"] to it["name"] }
 
-    /** The draft's side with each variant's title [from] the side that changed it. */
+    /** The draft's side with each variant's name [from] the side that changed it. */
     private fun combined(sides: DraftMergeSides): Map<String, Any?> {
         val theirs = variantsOf(sides.release).associateBy { it["key"] }
-        return sides.draft!! + ("variants" to variantsOf(sides.draft).map { if (it["key"] == "english") it + ("title" to theirs.getValue("english")["title"]) else it })
+        return sides.draft!! + ("variants" to variantsOf(sides.draft).map { if (it["key"] == "english") it + ("name" to theirs.getValue("english")["name"]) else it })
     }
 
     @Test
@@ -285,7 +285,8 @@ class MergedContentTest : IntegrationTestBase() {
                 good + ("type" to "theme") to "mergedContent.template/invoice/type",
                 // A second entry of a variant that is not the default: the key is what clashes.
                 good + ("variants" to variantsOf(good) + variantsOf(good).first { it["isDefault"] != true }) to "mergedContent.template/invoice/variants[2]/key",
-                good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice",
+                // The wire-v8 schema check names the first member that breaks it.
+                good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice/name",
             )
             cases.forEach { (content, field) ->
                 assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content)).execute() }

@@ -72,7 +72,7 @@ class EpistolaImagesApi(
         namespace: String,
         catalogKey: String,
         release: String,
-        search: String?,
+        q: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<ImageListResponse> {
@@ -81,7 +81,7 @@ class EpistolaImagesApi(
         // for should cost the page rather than the whole catalog.
         val result = ListImagePage(
             catalog = at.catalogId,
-            searchTerm = search,
+            searchTerm = q,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
             // A draft or a release, read and paged the same way (ADR 0033).

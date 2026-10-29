@@ -35,10 +35,13 @@ object BundledCatalogFingerprints {
 
     private val objectMapper = jsonMapper { addModule(kotlinModule()) }
 
-    private val catalogClient = run {
-        val properties = CatalogSourceProperties()
+    private val catalogClient = clientFor()
+
+    /** A client that reads classpath sources, and `file:` sources under [fileRoots]. */
+    private fun clientFor(fileRoots: List<String> = emptyList()): CatalogClient {
+        val properties = CatalogSourceProperties(fileRoots = fileRoots)
         val guard = OutboundUrlGuard(properties)
-        CatalogClient(
+        return CatalogClient(
             sourceReader = OutboundSourceReader(guard, OutboundHttpFetcher(guard), DefaultResourceLoader(), MAX_SOURCE_BYTES),
             schemaMigrator = CatalogSchemaMigrator(),
             properties = properties,
@@ -48,6 +51,24 @@ object BundledCatalogFingerprints {
     private const val MAX_SOURCE_BYTES = 20L * 1024 * 1024
 
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
+
+    /** The fingerprint the catalog at [manifestUrl] has, computed from its content as published. */
+    fun fingerprintOf(manifestUrl: String): String = canonicalizer.fingerprintFromSource(catalogClient, manifestUrl, AuthType.NONE, null)
+
+    /**
+     * Writes into [dir]`/catalog.json` the release fingerprint its content has. A wire-v8 release
+     * carries its fingerprint (contract `2.0.0-alpha.4`), so a test that edits a copy of a catalog
+     * seals it again before serving it.
+     */
+    fun sealCatalogDirectory(dir: java.nio.file.Path) {
+        val manifestFile = dir.resolve("catalog.json")
+        val manifest = objectMapper.readTree(manifestFile.toFile()) as tools.jackson.databind.node.ObjectNode
+        (manifest.get("release") as tools.jackson.databind.node.ObjectNode).remove("fingerprint")
+        manifestFile.toFile().writeBytes(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
+        val fingerprint = canonicalizer.fingerprintFromSource(clientFor(listOf(dir.toString())), manifestFile.toUri().toString(), AuthType.NONE, null)
+        (manifest.get("release") as tools.jackson.databind.node.ObjectNode).put("fingerprint", fingerprint)
+        manifestFile.toFile().writeBytes(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
+    }
 
     fun assertFingerprintMatches(manifestUrl: String) {
         val manifest = catalogClient.fetchManifest(manifestUrl, AuthType.NONE, null)

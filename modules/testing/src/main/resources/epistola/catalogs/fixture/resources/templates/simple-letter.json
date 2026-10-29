@@ -728,27 +728,24 @@
     },
     "variants": [
       {
-        "title": "Default",
+        "name": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true,
         "key": "default"
       },
       {
-        "title": "US English",
+        "name": "US English",
         "attributes": {
           "system.locale": "en-US"
         },
-        "templateModel": null,
         "isDefault": false,
         "key": "en-us"
       },
       {
-        "title": "Dutch",
+        "name": "Dutch",
         "attributes": {
           "system.locale": "nl-NL"
         },
-        "templateModel": null,
         "isDefault": false,
         "key": "nl-nl"
       }

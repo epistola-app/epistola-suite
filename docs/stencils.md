@@ -267,3 +267,9 @@ The 2.0 upgrade converts stored data without changing what renders, except where
 
 What is reported is logged and stored in `app_metadata` under the key
 `upgrade-2.0-template-content`.
+
+A catalog archive from before wire v8 (an export from 1.x) is imported with the scope 1.x rendered
+it with, by the contract's v7-to-v8 migration (`CATALOG_STENCIL_SCOPE_KEPT`): every stencil gets
+`readsTemplateData`, and every placeholder `passParameters`. Unlike the upgrade, the import cannot tell which fills read the parameters, since
+the templates filling a stencil's placeholders are often in another archive; in 1.x every fill saw
+them.

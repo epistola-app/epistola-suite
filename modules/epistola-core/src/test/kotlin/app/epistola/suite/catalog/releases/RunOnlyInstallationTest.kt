@@ -25,6 +25,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withReleaseFingerprint
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -92,6 +93,7 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
             zip.write(manifest.toByteArray())
             zip.closeEntry()
         }
-        return out.toByteArray()
+        // A wire-v8 release names its fingerprint, as its publisher wrote it.
+        return withReleaseFingerprint(out.toByteArray())
     }
 }

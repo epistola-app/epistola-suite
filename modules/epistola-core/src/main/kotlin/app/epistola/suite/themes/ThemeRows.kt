@@ -51,24 +51,32 @@ object ThemeContent {
         createdBy: UserKey?,
         updatedBy: UserKey?,
         revision: Long,
-    ): Theme = Theme(
-        id = ThemeKey.of(payload.path("key").asString()),
-        tenantKey = tenantKey,
-        catalogKey = catalogKey,
-        name = payload.path("name").asString(),
-        description = payload.text("description"),
-        documentStyles = payload.value("documentStyles")?.let { objectMapper.treeToValue(it, DocumentStyles::class.java) } ?: emptyMap(),
-        pageSettings = payload.value("pageSettings")?.let { objectMapper.treeToValue(it, PageSettings::class.java) },
-        blockStylePresets = payload.value("blockStylePresets")?.let { objectMapper.treeToValue(it, BlockStylePresets::class.java) },
-        spacingUnit = payload.value("spacingUnit")?.floatValue(),
-        defaultBlockStyles = payload.value("defaultBlockStyles")?.takeIf { it.isObject && !it.isEmpty }?.let { objectMapper.readValue(it.toString(), BLOCK_STYLES) },
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        createdBy = createdBy,
-        updatedBy = updatedBy,
-        revision = revision,
-        namespace = namespace,
-    )
+    ): Theme = qualified(payload, catalogKey).let { payload ->
+        Theme(
+            id = ThemeKey.of(payload.path("key").asString()),
+            tenantKey = tenantKey,
+            catalogKey = catalogKey,
+            name = payload.path("name").asString(),
+            description = payload.text("description"),
+            documentStyles = payload.value("documentStyles")?.let { objectMapper.treeToValue(it, DocumentStyles::class.java) } ?: emptyMap(),
+            pageSettings = payload.value("pageSettings")?.let { objectMapper.treeToValue(it, PageSettings::class.java) },
+            blockStylePresets = payload.value("blockStylePresets")?.let { objectMapper.treeToValue(it, BlockStylePresets::class.java) },
+            spacingUnit = payload.value("spacingUnit")?.floatValue(),
+            defaultBlockStyles = payload.value("defaultBlockStyles")?.takeIf { it.isObject && !it.isEmpty }?.let { objectMapper.readValue(it.toString(), BLOCK_STYLES) },
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            updatedBy = updatedBy,
+            revision = revision,
+            namespace = namespace,
+        )
+    }
+
+    /**
+     * [payload] with its references into its own catalog named with [catalogKey]: stored and released
+     * relative (wire v8), read qualified, as everything that reads a theme has always seen them.
+     */
+    private fun qualified(payload: JsonNode, catalogKey: CatalogKey): JsonNode = payload.deepCopy().also { app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(it, catalogKey.value) }
 
     private fun JsonNode.value(field: String): JsonNode? = get(field)?.takeUnless { it.isNull || it.isMissingNode }
 

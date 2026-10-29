@@ -26,10 +26,12 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.validation.ValidationException
+import com.fasterxml.jackson.annotation.JsonInclude
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.json.JsonMapper
 import java.io.ByteArrayInputStream
 
 /**
@@ -46,7 +48,15 @@ import java.io.ByteArrayInputStream
  * A null member and an absent one mean the same.
  */
 @Component
-class MergeEntryContent(private val objectMapper: ObjectMapper) {
+class MergeEntryContent(objectMapper: ObjectMapper) {
+    /**
+     * Writes a resource as the archive writer does: a property it does not have is left out rather than
+     * written as null, since the wire-v8 schemas refuse a null inside a resource (contract
+     * `2.0.0-alpha.4`). A null within a map, as example data may hold, is kept.
+     */
+    private val objectMapper: ObjectMapper = (objectMapper as JsonMapper).rebuild()
+        .changeDefaultPropertyInclusion { JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.ALWAYS) }
+        .build()
 
     /** [value], an entry of [side], in the portable form; null when the side does not have it. */
     fun of(value: MergeValue?, side: MergeInput): Map<String, Any?>? = when (value) {

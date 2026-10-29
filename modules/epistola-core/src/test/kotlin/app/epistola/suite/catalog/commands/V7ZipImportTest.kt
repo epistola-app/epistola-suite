@@ -10,8 +10,11 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
@@ -76,21 +79,50 @@ class V7ZipImportTest : IntegrationTestBase() {
         }
     }
 
-    /** A v7 catalog holding one theme, addressed by `slug` as v7 did. */
-    private fun v7Archive(): ByteArray {
+    @Test
+    fun `a stencil from a wire-v7 ZIP keeps the 1x scope - the template's data, and its parameters in every fill`() {
+        val tenant = createTenant("V7 stencil scope")
+
+        withMediator {
+            ImportCatalogZip(tenant.id, v7Archive(stencil = true), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            val stencil = GetStencil(StencilId(StencilKey.of("letterhead"), testCatalog(tenant.id, CatalogKey.of("letters")))).query()!!
+            assertThat(stencil.readsTemplateData).isTrue()
+            assertThat(stencil.content.nodes.values.filter { it.type == "placeholder" }.map { it.props?.get("passParameters") }).containsExactly(true)
+        }
+    }
+
+    /** A v7 catalog holding one theme, and with [stencil] a letterhead, addressed by `slug` as v7 did. */
+    private fun v7Archive(stencil: Boolean = false): ByteArray {
+        val letterheadEntry = """,{"type":"stencil","slug":"letterhead","name":"Letterhead","detailUrl":"./resources/stencil/letterhead.json"}"""
         val manifest = """
             {"schemaVersion":7,
              "catalog":{"slug":"letters","name":"Letters"},
              "publisher":{"name":"Test"},
              "release":{"version":"1.0.0"},
-             "resources":[{"type":"theme","slug":"brand","name":"Brand","detailUrl":"./resources/theme/brand.json"}]}
+             "resources":[{"type":"theme","slug":"brand","name":"Brand","detailUrl":"./resources/theme/brand.json"}${if (stencil) letterheadEntry else ""}]}
         """.trimIndent()
         val theme = """
             {"schemaVersion":7,"resource":{"type":"theme","slug":"brand","name":"Brand","documentStyles":{}}}
         """.trimIndent()
+        // Prints the recipient from the template's data; the template fills `body`.
+        val letterhead = """
+            {"schemaVersion":7,"resource":{"type":"stencil","slug":"letterhead","name":"Letterhead","content":{
+              "modelVersion":1,"root":"root",
+              "nodes":{
+                "root":{"id":"root","type":"root","slots":["root-children"]},
+                "recipient":{"id":"recipient","type":"text","slots":[],"props":{"content":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"expression","attrs":{"expression":"recipient.name"}}]}]}}},
+                "p-body":{"id":"p-body","type":"placeholder","slots":["p-body-default","p-body-fill"],"props":{"name":"body","kind":"block"}}},
+              "slots":{
+                "root-children":{"id":"root-children","nodeId":"root","name":"children","children":["recipient","p-body"]},
+                "p-body-default":{"id":"p-body-default","nodeId":"p-body","name":"default","children":[]},
+                "p-body-fill":{"id":"p-body-fill","nodeId":"p-body","name":"fill","children":[]}}}}}
+        """.trimIndent()
+        val entries = listOf("catalog.json" to manifest, "resources/theme/brand.json" to theme) +
+            listOfNotNull(("resources/stencil/letterhead.json" to letterhead).takeIf { stencil })
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
-            for ((path, content) in listOf("catalog.json" to manifest, "resources/theme/brand.json" to theme)) {
+            for ((path, content) in entries) {
                 zip.putNextEntry(ZipEntry(path))
                 zip.write(content.toByteArray())
                 zip.closeEntry()

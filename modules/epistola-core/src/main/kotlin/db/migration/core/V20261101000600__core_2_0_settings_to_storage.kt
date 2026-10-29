@@ -22,7 +22,8 @@ import java.sql.Timestamp
  * lists, attributes, fonts and images become its next draft's content in JSON storage (ADR 0033).
  * None of them was versioned in 1.x: what a catalog held is what it published, so each is marked ready.
  *
- * - A **theme** gets the wire-v8 font renames in its styles ([TemplateContentV8.styles]).
+ * - A **theme** gets the wire-v8 font renames in its styles ([TemplateContentV8.styles]), and a font
+ *   of its own catalog is named relatively, as a release names it.
  * - A **code list** holds its entries by sort order and code, and beside the released form the source
  *   it is refreshed from; a credential moves, still encrypted, to `resource_credentials`, which the
  *   source names by id, and the last refresh to `code_list_refreshes`.
@@ -75,15 +76,20 @@ class V20261101000600__core_2_0_settings_to_storage : BaseJavaMigration() {
             """,
         ) { rs ->
             val owner = owner(rs)
-            val payload = Envelopes.theme(
-                key = rs.getString("id"),
-                name = rs.getString("name"),
-                description = rs.getString("description"),
-                documentStyles = TemplateContentV8.styles(mapper.readTree(rs.getString("document_styles") ?: "{}")),
-                pageSettings = rs.getString("page_settings")?.let(mapper::readTree),
-                blockStylePresets = TemplateContentV8.presets(rs.getString("block_style_presets")?.let(mapper::readTree)),
-                spacingUnit = rs.getBigDecimal("spacing_unit"),
-            )
+            // In its released form, as a stencil's: a font of its own catalog named relatively (wire v8
+            // never names the catalog itself).
+            val payload = ReferenceWalker.releasedForm(
+                Envelopes.theme(
+                    key = rs.getString("id"),
+                    name = rs.getString("name"),
+                    description = rs.getString("description"),
+                    documentStyles = TemplateContentV8.styles(mapper.readTree(rs.getString("document_styles") ?: "{}")),
+                    pageSettings = rs.getString("page_settings")?.let(mapper::readTree),
+                    blockStylePresets = TemplateContentV8.presets(rs.getString("block_style_presets")?.let(mapper::readTree)),
+                    spacingUnit = rs.getBigDecimal("spacing_unit"),
+                ),
+                owner.catalogKey,
+            ) as tools.jackson.databind.node.ObjectNode
             val row = StorageWrites.Row(
                 owner.tenant, owner.catalogId, owner.versionId, "theme", rs.getString("id"), owner.resourceId, "", rs.getString("name"), rs.getString("description"),
                 createdAt = rs.getTimestamp("created_at"), updatedAt = rs.getTimestamp("updated_at"), createdBy = rs.getString("created_by"), updatedBy = rs.getString("updated_by"),
@@ -333,6 +339,6 @@ class V20261101000600__core_2_0_settings_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 1153267541
+        const val CHECKSUM: Int = -1226208612
     }
 }

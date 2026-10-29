@@ -5,15 +5,16 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.CodeListsApi
+import app.epistola.api.model.CodeListAuthType
 import app.epistola.api.model.CodeListDto
 import app.epistola.api.model.CodeListEntriesResponse
 import app.epistola.api.model.CodeListEntryDto
 import app.epistola.api.model.CodeListListResponse
+import app.epistola.api.model.CodeListSourceType
 import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListEntryHiddenRequest
 import app.epistola.api.model.UpdateCodeListRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
@@ -23,6 +24,7 @@ import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.requestField
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
@@ -34,10 +36,12 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
+import app.epistola.suite.attributes.codelists.queries.ListCodeListEntryPage
 import app.epistola.suite.attributes.codelists.queries.ListCodeListPage
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
+import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -62,11 +66,8 @@ class EpistolaCodeListApi : CodeListsApi {
         release: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<CodeListListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033); a release is read-only.
         val readOnly = !at.isDraft || at.catalog.readOnlyHere()
@@ -83,20 +84,22 @@ class EpistolaCodeListApi : CodeListsApi {
         createCodeListRequest: CreateCodeListRequest,
     ): ResponseEntity<CodeListDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val codeList = CreateCodeList(
-            id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
-            displayName = createCodeListRequest.displayName,
-            description = createCodeListRequest.description,
-            sourceType = when (createCodeListRequest.sourceType) {
-                CreateCodeListRequest.SourceType.INLINE -> CodeListSource.INLINE
-                CreateCodeListRequest.SourceType.URL -> CodeListSource.URL
-            },
-            sourceUrl = createCodeListRequest.sourceUrl,
-            authType = createCodeListRequest.authType?.toModel() ?: AuthType.NONE,
-            credential = createCodeListRequest.credential,
-            entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
-            catalogVersion = draft.ref,
-        ).execute()
+        val codeList = requestField("displayName", "name") {
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
+                displayName = createCodeListRequest.name,
+                description = createCodeListRequest.description,
+                sourceType = when (createCodeListRequest.sourceType) {
+                    CodeListSourceType.INLINE -> CodeListSource.INLINE
+                    CodeListSourceType.URL -> CodeListSource.URL
+                },
+                sourceUrl = createCodeListRequest.sourceUrl,
+                authType = createCodeListRequest.authType?.toModel() ?: AuthType.NONE,
+                credential = createCodeListRequest.credential,
+                entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
+                catalogVersion = draft.ref,
+            ).execute()
+        }
         return codeList.toDto(draft.catalog).let { created(it.key, it) }
     }
 
@@ -128,18 +131,20 @@ class EpistolaCodeListApi : CodeListsApi {
         // PATCH semantics — fetch current, merge with the request body, then
         // replay through the full UpdateCodeList command (it isn't partial).
         val current = GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
-        val updated = UpdateCodeList(
-            id = id,
-            displayName = updateCodeListRequest.displayName ?: current.displayName,
-            description = updateCodeListRequest.description ?: current.description,
-            sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
-            authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
-            credential = updateCodeListRequest.credential ?: current.credential?.value,
-            entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
-            catalogVersion = draft.ref,
-            // The merge above read the list at `current`; a write in between must not be lost.
-            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-        ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        val updated = requestField("displayName", "name") {
+            UpdateCodeList(
+                id = id,
+                displayName = updateCodeListRequest.name ?: current.displayName,
+                description = updateCodeListRequest.description ?: current.description,
+                sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
+                authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
+                credential = updateCodeListRequest.credential ?: current.credential?.value,
+                entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
+                catalogVersion = draft.ref,
+                // The merge above read the list at `current`; a write in between must not be lost.
+                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+            ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        }
         return okWithETag(updated.revision, updated.toDto(draft.catalog))
     }
 
@@ -177,13 +182,21 @@ class EpistolaCodeListApi : CodeListsApi {
         catalogKey: String,
         release: String,
         codeListKey: String,
+        page: Int,
+        size: Int,
         includeHidden: Boolean,
     ): ResponseEntity<CodeListEntriesResponse> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val id = at.codeListId(codeListKey)
         GetCodeList(id = id, catalogVersion = at.readRef).query() ?: throw at.codeListNotFound(codeListKey)
-        val entries = ListCodeListEntries(codeListId = id, includeHidden = includeHidden, catalogVersion = at.readRef).query().map { it.toDto() }
-        return ResponseEntity.ok(CodeListEntriesResponse(items = entries))
+        // Paged in the database: a list holds up to 10000 entries.
+        val entries = ListCodeListEntryPage(
+            codeListId = id,
+            includeHidden = includeHidden,
+            page = PageRequest(limit = Pagination.limitOf(size), offset = Pagination.offsetOf(page, size)),
+            catalogVersion = at.readRef,
+        ).query()
+        return ResponseEntity.ok(CodeListEntriesResponse(items = entries.items.map { it.toDto() }, page = Pagination.pageMeta(page, size, entries.total)))
     }
 
     override fun updateCodeListEntryHidden(
@@ -221,15 +234,9 @@ class EpistolaCodeListApi : CodeListsApi {
 
     private fun ResolvedCatalogRelease.codeListNotFound(key: String) = CodeListNotFoundException(catalogId, CodeListKey.of(key))
 
-    private fun CreateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
-        CreateCodeListRequest.AuthType.NONE -> AuthType.NONE
-        CreateCodeListRequest.AuthType.API_KEY -> AuthType.API_KEY
-        CreateCodeListRequest.AuthType.BEARER -> AuthType.BEARER
-    }
-
-    private fun UpdateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
-        UpdateCodeListRequest.AuthType.NONE -> AuthType.NONE
-        UpdateCodeListRequest.AuthType.API_KEY -> AuthType.API_KEY
-        UpdateCodeListRequest.AuthType.BEARER -> AuthType.BEARER
+    private fun CodeListAuthType.toModel(): AuthType = when (this) {
+        CodeListAuthType.NONE -> AuthType.NONE
+        CodeListAuthType.API_KEY -> AuthType.API_KEY
+        CodeListAuthType.BEARER -> AuthType.BEARER
     }
 }

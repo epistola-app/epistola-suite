@@ -56,7 +56,7 @@ data class UpdateDataContract(
 
 data class UpdateDataContractResult(
     val contract: DataContract,
-    /** Example name -> what the schema says is wrong with it; set only with `forceUpdate`. */
+    /** Example key -> what the schema says is wrong with it; set only with `forceUpdate`. */
     val warnings: Map<String, List<String>> = emptyMap(),
     /** The template's revision after the write. */
     val revision: Long = 1,
@@ -78,11 +78,7 @@ class UpdateDataContractHandler(
             // The row is locked now, so its revision holds until this transaction ends.
             Revisions.refuse("Template '${template.key.value}'", command.expectedRevision, templateRevision(handle, template))
 
-            command.dataModel?.let { model ->
-                jsonSchemaValidator.requireValidDataContractSchema(model)
-                val invalidNames = jsonSchemaValidator.validatePropertyNames(model)
-                if (invalidNames.isNotEmpty()) error("Invalid property names in schema: ${invalidNames.joinToString()}")
-            }
+            command.dataModel?.let { jsonSchemaValidator.requireStorableDataModel(it) }
             val dataModel = if (command.clearDataModel) null else command.dataModel ?: current.dataModel
             val examples = command.dataExamples ?: current.dataExamples
             requireAtLeastOneDataExample(examples)
@@ -103,6 +99,13 @@ class UpdateDataContractHandler(
             UpdateDataContractResult(DataContract(dataModel, stored, revision), warnings, revision)
         }
     }
+}
+
+/** Refuses [model] as a template's data model: not a data contract schema, or a property name the suite cannot address. */
+internal fun JsonSchemaValidator.requireStorableDataModel(model: ObjectNode) {
+    requireValidDataContractSchema(model)
+    val invalidNames = validatePropertyNames(model)
+    if (invalidNames.isNotEmpty()) error("Invalid property names in schema: ${invalidNames.joinToString()}")
 }
 
 /**

@@ -56,14 +56,18 @@ object ThemeStorageConversion {
                     .map { rs, _ -> ReferenceWalker.Reference(rs.getString(1), rs.getString(2), rs.getString(3)) }
                     .set()
 
-                val converted = Envelopes.theme(
-                    key = theme.id.value,
-                    name = theme.name,
-                    description = theme.description,
-                    documentStyles = jsonb(theme.documentStyles)?.let(objectMapper::readTree),
-                    pageSettings = jsonb(theme.pageSettings)?.let(objectMapper::readTree),
-                    blockStylePresets = jsonb(theme.blockStylePresets)?.let(objectMapper::readTree),
-                    spacingUnit = theme.spacingUnit?.let { BigDecimal(it.toString()).setScale(2, RoundingMode.HALF_UP) },
+                // The theme as read names its own catalog's fonts; stored, they are relative, as released.
+                val converted = ReferenceWalker.releasedForm(
+                    Envelopes.theme(
+                        key = theme.id.value,
+                        name = theme.name,
+                        description = theme.description,
+                        documentStyles = jsonb(theme.documentStyles)?.let(objectMapper::readTree),
+                        pageSettings = jsonb(theme.pageSettings)?.let(objectMapper::readTree),
+                        blockStylePresets = jsonb(theme.blockStylePresets)?.let(objectMapper::readTree),
+                        spacingUnit = theme.spacingUnit?.let { BigDecimal(it.toString()).setScale(2, RoundingMode.HALF_UP) },
+                    ),
+                    catalog.key.value,
                 )
                 if (from1x) {
                     softly.assertThat(CanonicalJson.contentHash(CanonicalJson.canonical(converted))).`as`("content hash of theme ${theme.id.value}").isEqualTo(stored)

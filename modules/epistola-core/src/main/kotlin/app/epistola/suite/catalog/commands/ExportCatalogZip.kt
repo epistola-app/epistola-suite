@@ -89,6 +89,8 @@ class ExportCatalogZipHandler(
     private val assembler: ReleaseContentAssembler,
     private val objectMapper: ObjectMapper,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -177,7 +179,7 @@ class ExportCatalogZipHandler(
      * necessarily that release.
      */
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
-        val content = contentBuilder.build(command.catalog)
+        val content = pinnedForExport(command.catalog, contentBuilder.build(command.catalog))
         fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
         val catalog = GetCatalog(command.catalog).query()
@@ -192,6 +194,26 @@ class ExportCatalogZipHandler(
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)
+    }
+
+    /**
+     * [content] with each declaration that pins no release pinned to the release it resolves to now,
+     * the one releasing would pin: a wire-v8 archive pins every catalog it declares (contract
+     * `2.0.0-alpha.4`). Only the export carries the pin; the draft's declarations stay as they are.
+     * A declaration with no release to pin stays unpinned, and the export is refused as not publishable.
+     */
+    private fun pinnedForExport(catalog: CatalogId, content: app.epistola.suite.catalog.CatalogContent): app.epistola.suite.catalog.CatalogContent {
+        val declared = content.catalogDependencies ?: return content
+        if (declared.all { it.releaseVersion != null }) return content
+        val pinned = jdbi.withHandle<List<app.epistola.catalog.protocol.CatalogDependency>, Exception> { handle ->
+            declared.map { dependency ->
+                if (dependency.releaseVersion != null) return@map dependency
+                val highest = dependencyStore.highest(handle, catalog.tenantKey, app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration.of(dependency))
+                    ?: return@map dependency
+                dependency.copy(releaseVersion = highest.version, releaseFingerprint = highest.fingerprint)
+            }
+        }
+        return content.copy(catalogDependencies = pinned)
     }
 
     private companion object {

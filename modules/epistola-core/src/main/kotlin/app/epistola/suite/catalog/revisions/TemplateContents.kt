@@ -22,7 +22,8 @@ import tools.jackson.databind.node.ObjectNode
  *   of each variant's place in it, its producer metadata included, and no model.
  * - **A variant** (a row of its own, [VariantRows], kind [VARIANT_KIND]): `{ "resource": { title,
  *   templateModel, description } }`, its model whole (the default variant's included,
- *   which the wire form keeps on the template). A variant content stored before contract
+ *   which the wire form keeps on the template). Its name is stored as `title`, as it was before wire
+ *   v8 named it `name` (contract `2.0.0-alpha.4`), so stored contents keep their hashes. A variant content stored before contract
  *   `2.0.0-alpha.2` may keep its description beside the resource; a release holding one was
  *   fingerprinted without it.
  *
@@ -59,7 +60,7 @@ object TemplateContents {
      */
     fun part(variant: VariantEntry, model: TemplateDocument?, objectMapper: ObjectMapper): ObjectNode {
         val resource = objectMapper.createObjectNode().apply {
-            put("title", variant.title)
+            put("title", variant.name)
             model?.let { set("templateModel", objectMapper.valueToTree(it)) }
             variant.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
         }
@@ -76,7 +77,9 @@ object TemplateContents {
         val slots = resource.path("variants").toList()
         val default = slots.firstOrNull { it.path("isDefault").asBoolean(false) } ?: slots.firstOrNull()
         val defaultModel = default?.let { parts[it.path("key").asString()] }?.path("resource")?.path("templateModel")
-        resource.set("templateModel", defaultModel ?: objectMapper.nullNode())
+        // An absent member is left out, never written as null: the wire-v8 schemas refuse a null
+        // inside a resource (contract `2.0.0-alpha.4`).
+        if (defaultModel != null && !defaultModel.isMissingNode && !defaultModel.isNull) resource.set("templateModel", defaultModel) else resource.remove("templateModel")
         resource.set(
             "variants",
             objectMapper.createArrayNode().also { list ->
@@ -86,9 +89,9 @@ object TemplateContents {
                     list.add(
                         objectMapper.createObjectNode().apply {
                             put("key", key)
-                            set("title", part?.get("title") ?: objectMapper.nullNode())
+                            part?.get("title")?.takeUnless { it.isNull }?.let { set("name", it) }
                             set("attributes", slot.path("attributes"))
-                            set("templateModel", if (key == default?.path("key")?.asString()) objectMapper.nullNode() else part?.get("templateModel") ?: objectMapper.nullNode())
+                            if (key != default?.path("key")?.asString()) part?.get("templateModel")?.takeUnless { it.isNull }?.let { set("templateModel", it) }
                             put("isDefault", slot.path("isDefault").asBoolean(false))
                             part?.get("description")?.let { set("description", it) }
                         },

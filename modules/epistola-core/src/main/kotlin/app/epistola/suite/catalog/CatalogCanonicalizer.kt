@@ -133,13 +133,18 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         }
     }
 
-    /** What the portable validator says of [content] as an archive, the fingerprint aside. */
+    /**
+     * What the portable validator says of [content] as an archive, the fingerprint aside: the release
+     * is named by [content]'s own fingerprint, as it is published, since a wire-v8 release must carry
+     * one (contract `2.0.0-alpha.4`).
+     */
     fun publishability(content: CatalogContent): CatalogValidationReport = archive(
         content.catalog,
         content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         content.dependencies,
         content.catalogDependencies,
         content.resourceEntries,
+        release = ReleaseInfo(UNPUBLISHED_VERSION, fingerprint = fingerprint(content)),
         hasAsset = content.assetContents::containsKey,
     ) { contentPath ->
         content.assetContents[contentPath]
@@ -222,6 +227,8 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         resourceEntries: List<ResourceEntry> = emptyList(),
         includeSerializedDetails: Boolean = true,
         publisher: PublisherInfo = PublisherInfo("Epistola"),
+        /** The release the archive's manifest names; its version and fingerprint are not fingerprinted. */
+        release: ReleaseInfo = ReleaseInfo(UNPUBLISHED_VERSION),
         /**
          * Whether a binary exists, answered without loading it. Given, a binary is read only when the
          * contract opens it, and not kept: the fingerprints open an image's bytes and never a font
@@ -252,7 +259,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
                 schemaVersion = CATALOG_SCHEMA_VERSION,
                 catalog = catalog,
                 publisher = publisher,
-                release = ReleaseInfo("0.0.0"),
+                release = release,
                 resources = resourceEntries,
                 dependencies = dependencies,
                 catalogDependencies = catalogDependencies,
@@ -281,6 +288,9 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
 
     companion object {
         private val PLACEHOLDER_CATALOG = CatalogInfo("fingerprints", "Fingerprints")
+
+        /** The version of a release the canonicalizer builds only to hash or check. */
+        private const val UNPUBLISHED_VERSION = "0.0.0"
 
         /** The algorithm a content hash is computed with. */
         val CONTENT_HASH_ALGORITHM: app.epistola.catalog.canonical.CatalogFingerprintVersion = app.epistola.catalog.canonical.CatalogFingerprintVersion.V6

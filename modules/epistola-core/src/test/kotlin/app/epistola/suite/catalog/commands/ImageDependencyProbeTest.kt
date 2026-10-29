@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.AssetKey
@@ -14,7 +15,9 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withReleaseFingerprint
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -49,10 +52,14 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 height = 1,
                 id = AssetKey.of("logo"),
             ).execute()
+            // A wire-v8 archive pins a release of every catalog it declares: brand's is cut first.
+            val brandVersion = mediator.releaseNext(testCatalog(tenant.id, BRAND))
+            val brandFingerprint = ListCatalogReleaseSummaries(testCatalog(tenant.id, BRAND)).query().single { it.version == brandVersion }.fingerprint
+            val brand = requireNotNull(GetCatalog(testCatalog(tenant.id, BRAND)).query())
 
             ImportCatalogZip(
                 tenantKey = tenant.id,
-                zipBytes = archiveDependingOnImage(BRAND.value),
+                zipBytes = archiveDependingOnImage(BRAND.value, brandVersion, brandFingerprint, registry = brand.registry, namespace = brand.namespace),
                 provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
             ).execute()
 
@@ -84,16 +91,26 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                     provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
-                .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("image 'logo' from catalog 'house'")
+                // The release it pins is not to be had here.
+                .isInstanceOf(CatalogImportDependenciesMissingException::class.java)
+                .hasMessageContaining("house")
 
             // Refused before anything was written.
             assertThat(GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()).isNull()
         }
     }
 
-    /** A catalog whose only content is a manifest declaring one qualified image dependency. */
-    private fun archiveDependingOnImage(imageCatalog: String): ByteArray {
+    /**
+     * A catalog whose only content is a manifest declaring one qualified image dependency, pinned to
+     * [version] of [imageCatalog] with [fingerprint], as wire v8 requires.
+     */
+    private fun archiveDependingOnImage(
+        imageCatalog: String,
+        version: String = "1.0.0",
+        fingerprint: String = "v6:${"0".repeat(64)}",
+        registry: String = REGISTRY,
+        namespace: String = NAMESPACE,
+    ): ByteArray {
         val manifest = """
             {"schemaVersion":8,
              "catalog":{"registry":"$REGISTRY","namespace":"$NAMESPACE","key":"letters","name":"Letters","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
@@ -101,7 +118,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,
              "dependencies":[{"type":"image","catalogKey":"$imageCatalog","key":"logo"}],
-             "catalogDependencies":[{"alias":"$imageCatalog","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
+             "catalogDependencies":[{"alias":"$imageCatalog","registry":"$registry","namespace":"$namespace","catalogKey":"$imageCatalog","releaseVersion":"$version","releaseFingerprint":"$fingerprint"}],
              "resources":[]}
         """.trimIndent()
         val out = ByteArrayOutputStream()
@@ -110,7 +127,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
             zip.write(manifest.toByteArray())
             zip.closeEntry()
         }
-        return out.toByteArray()
+        return withReleaseFingerprint(out.toByteArray())
     }
 
     private companion object {
