@@ -23,6 +23,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.testCatalog
@@ -68,10 +69,13 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
         return tmp.resolve("catalog.json").toUri().toString()
     }
 
-    private fun rewriteJson(path: Path, mutate: (ObjectNode) -> Unit) {
+    /** Rewrites the JSON at [path]; [seal] names the copy's fingerprint again, as a publisher would. */
+    private fun rewriteJson(path: Path, seal: Boolean = true, mutate: (ObjectNode) -> Unit) {
         val node = objectMapper.readTree(Files.readAllBytes(path)) as ObjectNode
         mutate(node)
         Files.write(path, objectMapper.writeValueAsBytes(node))
+        // The edited copy is a new release: it names the fingerprint its content now has.
+        if (seal) BundledCatalogFingerprints.sealCatalogDirectory(generateSequence(path.parent) { it.parent }.first { Files.exists(it.resolve("catalog.json")) })
     }
 
     /** Drop a resource entry from the manifest and delete its detail file. */
@@ -304,7 +308,8 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
     @Test
     fun `registration rejects a source on an older schema`(@TempDir tmp: Path) {
         val sourceUrl = copyFixture(tmp)
-        rewriteJson(tmp.resolve("catalog.json")) { it.put("schemaVersion", 2) } // publisher on an older Epistola
+        // A publisher on an older Epistola: no fingerprint to recompute, the source is refused on its version.
+        rewriteJson(tmp.resolve("catalog.json"), seal = false) { it.put("schemaVersion", 2) }
         val tenant = createTenant("Schema Behind")
 
         withMediator {

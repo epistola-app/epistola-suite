@@ -42,7 +42,6 @@ import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
 import app.epistola.api.model.UpdateCatalogReleaseRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
@@ -144,11 +143,8 @@ class EpistolaCatalogApi(
         tenantKey: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<CatalogListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenant = TenantKey.of(tenantKey)
         val catalogs = ListCatalogPage(tenant, Pagination.requestOf(page, size)).query()
         val editability = ListCatalogEditability(tenant).query()

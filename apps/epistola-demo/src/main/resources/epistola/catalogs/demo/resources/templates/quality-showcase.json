@@ -222,7 +222,6 @@
         "key": "default",
         "name": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true
       }
     ]

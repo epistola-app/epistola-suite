@@ -469,7 +469,6 @@
       {
         "name": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true,
         "key": "default"
       }

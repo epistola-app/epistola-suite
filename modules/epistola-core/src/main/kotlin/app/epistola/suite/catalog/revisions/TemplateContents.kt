@@ -77,7 +77,9 @@ object TemplateContents {
         val slots = resource.path("variants").toList()
         val default = slots.firstOrNull { it.path("isDefault").asBoolean(false) } ?: slots.firstOrNull()
         val defaultModel = default?.let { parts[it.path("key").asString()] }?.path("resource")?.path("templateModel")
-        resource.set("templateModel", defaultModel ?: objectMapper.nullNode())
+        // An absent member is left out, never written as null: the wire-v8 schemas refuse a null
+        // inside a resource (contract `2.0.0-alpha.4`).
+        if (defaultModel != null && !defaultModel.isMissingNode && !defaultModel.isNull) resource.set("templateModel", defaultModel) else resource.remove("templateModel")
         resource.set(
             "variants",
             objectMapper.createArrayNode().also { list ->
@@ -87,9 +89,9 @@ object TemplateContents {
                     list.add(
                         objectMapper.createObjectNode().apply {
                             put("key", key)
-                            set("name", part?.get("title") ?: objectMapper.nullNode())
+                            part?.get("title")?.takeUnless { it.isNull }?.let { set("name", it) }
                             set("attributes", slot.path("attributes"))
-                            set("templateModel", if (key == default?.path("key")?.asString()) objectMapper.nullNode() else part?.get("templateModel") ?: objectMapper.nullNode())
+                            if (key != default?.path("key")?.asString()) part?.get("templateModel")?.takeUnless { it.isNull }?.let { set("templateModel", it) }
                             put("isDefault", slot.path("isDefault").asBoolean(false))
                             part?.get("description")?.let { set("description", it) }
                         },

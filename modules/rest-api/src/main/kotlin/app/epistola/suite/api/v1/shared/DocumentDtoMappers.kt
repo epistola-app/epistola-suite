@@ -9,8 +9,10 @@ import app.epistola.api.model.DocumentGenerationItemDto
 import app.epistola.api.model.DocumentGenerationJobDto
 import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
-import app.epistola.api.model.GenerationJobDetail
+import app.epistola.api.model.GenerationItemStatus
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.api.model.GenerationJobStatus
+import app.epistola.api.model.GenerationJobType
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
@@ -62,8 +64,8 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
 
 internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     requestId = id.value,
-    jobType = DocumentGenerationJobDto.JobType.SINGLE, // Always SINGLE in flattened structure
-    status = DocumentGenerationJobDto.Status.valueOf(status.name),
+    jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
+    status = GenerationJobStatus.valueOf(status.name),
     total = 1, // Always 1 in flattened structure
     completedCount = if (status == app.epistola.suite.documents.model.RequestStatus.COMPLETED) 1 else 0,
     failedCount = if (status == app.epistola.suite.documents.model.RequestStatus.FAILED) 1 else 0,
@@ -76,16 +78,16 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     requestId = id.value,
-    status = GenerationJobResponse.Status.valueOf(status.name),
-    jobType = GenerationJobResponse.JobType.SINGLE, // Always SINGLE in flattened structure
+    status = GenerationJobStatus.valueOf(status.name),
+    jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
     total = 1, // Always 1 in flattened structure
     createdAt = createdAt,
 )
 
 internal fun BatchKey.toJobResponse() = GenerationJobResponse(
     requestId = value, // Use batch ID as request ID for API compatibility
-    status = GenerationJobResponse.Status.PENDING,
-    jobType = GenerationJobResponse.JobType.BATCH,
+    status = GenerationJobStatus.PENDING,
+    jobType = GenerationJobType.BATCH,
     total = 0, // Count not available without querying - caller should use batch endpoints
     createdAt = EpistolaClock.offsetDateTime(),
 )
@@ -93,7 +95,7 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
 // ==================== Document Generation Item ====================
 // NOTE: In the flattened structure, each request IS an item. Mapping a request to an ItemDto for API compatibility.
 
-internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, catalog: CatalogName?) = DocumentGenerationItemDto(
+internal fun DocumentGenerationRequest.toItemDto(catalog: CatalogName?) = DocumentGenerationItemDto(
     itemId = id.value,
     registry = requireNotNull(registry ?: catalog?.registry) { "generation request $id names no registry" },
     namespace = requireNotNull(namespace ?: catalog?.namespace) { "generation request $id names no namespace" },
@@ -104,10 +106,9 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
     releaseId = catalogVersionId ?: draftId,
     releaseName = draftLabel,
     environmentKey = environmentKey?.value,
-    data = objectMapper.valueToTree(data),
     filename = filename,
     correlationId = correlationId,
-    status = DocumentGenerationItemDto.Status.valueOf(status.name),
+    status = GenerationItemStatus.valueOf(status.name),
     errorMessage = errorMessage,
     documentId = documentKey?.value,
     createdAt = createdAt,
@@ -116,11 +117,6 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
 )
 
 // ==================== Generation Job Result ====================
-
-internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper, catalogs: Map<CatalogKey, CatalogName>) = GenerationJobDetail(
-    request = request.toJobDto(),
-    items = items.map { it.toItemDto(objectMapper, catalogs[it.catalogKey]) },
-)
 
 // ==================== Request DTOs to Commands ====================
 

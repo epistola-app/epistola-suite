@@ -24,7 +24,6 @@ import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
@@ -118,11 +117,8 @@ class EpistolaTenantApi(
         q: String?,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<TenantListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val tenants = ListTenantPage(searchTerm = q, page = Pagination.requestOf(page, size)).query()
         return ResponseEntity.ok(
             TenantListResponse(
@@ -191,11 +187,8 @@ class EpistolaTenantApi(
         release: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<AttributeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033); a release is read-only.
         val readOnly = !at.isDraft || at.catalog.readOnlyHere()
@@ -211,8 +204,6 @@ class EpistolaTenantApi(
         release: String,
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
-        // An attribute keeps no description; refuse it rather than drop it.
-        if (createAttributeRequest.description != null) throw ApiOperationNotImplementedException("createAttribute.description")
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         // The constraint XOR check (allowedValues vs codeListBinding) is enforced in
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
@@ -254,8 +245,6 @@ class EpistolaTenantApi(
         updateAttributeRequest: UpdateAttributeRequest,
         ifMatch: String?,
     ): ResponseEntity<AttributeDto> {
-        // An attribute keeps no description; refuse it rather than drop it.
-        if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
         val clearsBinding = updateAttributeRequest.clearCodeListBinding == true
         validate("clearCodeListBinding", !(clearsBinding && updateAttributeRequest.codeListBinding != null)) { "Send a codeListBinding or clearCodeListBinding, not both" }
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
@@ -322,11 +311,8 @@ class EpistolaTenantApi(
         tenantKey: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<EnvironmentListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val environments = ListEnvironmentPage(tenantId = TenantId(TenantKey.of(tenantKey)), page = Pagination.requestOf(page, size)).query()
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.items.map { it.toDto() }, page = Pagination.pageMeta(page, size, environments.total)))
     }

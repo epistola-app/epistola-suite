@@ -8,7 +8,6 @@ import app.epistola.api.FontsApi
 import app.epistola.api.model.FontDto
 import app.epistola.api.model.FontListResponse
 import app.epistola.api.model.FontVariantDto
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
@@ -52,11 +51,8 @@ class EpistolaFontApi : FontsApi {
         release: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<FontListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read the same way (ADR 0033).
         val fonts = ListFontPage(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef, page = Pagination.requestOf(page, size)).query()

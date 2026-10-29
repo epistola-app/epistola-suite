@@ -53,7 +53,8 @@ class CatalogSchemaMigrator(
         return result.value ?: throw result.findings.first().asSuiteException()
     }
 
-    private fun CatalogMigrationFinding.asSuiteException(): CatalogSchemaException = asSuiteException(code, message)
+    /** The finding as the suite's exception; a document that breaks its schema says where. */
+    private fun CatalogMigrationFinding.asSuiteException(): CatalogSchemaException = asSuiteException(code, if (code == CatalogMigrationCodes.SCHEMA_UNKNOWN && path.isNotBlank()) "$message (at $path)" else message)
 
     internal fun asSuiteException(
         code: String,

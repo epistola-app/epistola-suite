@@ -28,6 +28,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
@@ -112,6 +113,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         val manifest = dir.resolve("catalog.json")
         manifest.writeText(manifest.readText().replace("\"version\": \"1.0.0\"", "\"version\": \"$version\""))
         edit(dir)
+        BundledCatalogFingerprints.sealCatalogDirectory(dir)
         return manifest.toUri().toString()
     }
 
@@ -122,6 +124,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         val kept = json.get("resources").filterNot { it.get("type").asString() == type && it.get("key").asString() == key }
         json.putArray("resources").addAll(kept)
         manifest.writeText(mapper.writeValueAsString(json))
+        BundledCatalogFingerprints.sealCatalogDirectory(dir)
     }
 
     /** Points [dir]'s source at [next]: the catalog's source now offers the release copied there. */

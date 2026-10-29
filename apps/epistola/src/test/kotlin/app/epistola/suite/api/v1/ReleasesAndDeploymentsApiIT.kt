@@ -157,7 +157,8 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             // The 202 points at the job (contract `Location`).
             val jobAt = accepted.headers.location!!
             assertThat(jobAt.path).isEqualTo("/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}")
-            val job = exchange(HttpMethod.GET, jobAt.path, key)
+            // The job's status names no items; they are listed a page at a time (contract `listGenerationJobItems`).
+            val job = exchange(HttpMethod.GET, "${jobAt.path}/items", key)
             val release = JsonPath.read<String>(job.body!!, "$.items[0].version")
             // A release has a version id too, and the item names it (contract `versionId`).
             val releaseId = JsonPath.read<String>(exchange(HttpMethod.GET, withMediator { CatalogApiPaths.version(tenant, version = release) }, key).body!!, "$.releaseId")
@@ -218,7 +219,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val accepted = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("1.0.0"))
         assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
         val requestId = JsonPath.read<String>(accepted.body!!, "$.requestId")
-        val job = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/$requestId", key)
+        val job = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/$requestId/items", key)
         assertThat(JsonPath.read<String>(job.body!!, "$.items[0].version")).`as`("the named release, not the latest").isEqualTo("1.0.0")
 
         val unknown = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("9.9.9"))
@@ -261,7 +262,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
                 """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","environmentKey":"$environment",$selector"data":{}}""",
             )
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
-            exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
+            exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}/items", key).body!!
         }
         val next = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(testCatalog(tenant, CatalogKey.DEFAULT)).query()!!.versionId }
 

@@ -51,7 +51,8 @@ class FindFontUsagesHandler(
     private val jsonPath =
         """$.**.fontFamily ? ((@.key == ${'$'}slug || @.slug == ${'$'}slug) && @.catalogKey == ${'$'}catalogKey)"""
 
-    // A template's model names a font of its own catalog relatively (ADR 0033, as a release does).
+    // A template's model and a theme name a font of their own catalog relatively (ADR 0033, as a
+    // release does; wire v8 never names the catalog itself).
     private val relativePath =
         """$.**.fontFamily ? ((@.key == ${'$'}slug || @.slug == ${'$'}slug) && (!exists(@.catalogKey) || @.catalogKey == null))"""
 
@@ -67,11 +68,16 @@ class FindFontUsagesHandler(
               AND (
                 jsonb_path_exists(t.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                 OR jsonb_path_exists(COALESCE(t.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+                OR (t.catalog_id = ${catalogAt("tenantKey", "fontCatalog")}
+                    AND (jsonb_path_exists(t.document_styles, CAST(:relativePath AS jsonpath), CAST(:vars AS jsonb))
+                         OR jsonb_path_exists(COALESCE(t.block_style_presets, '{}'::jsonb), CAST(:relativePath AS jsonpath), CAST(:vars AS jsonb))))
               )
             ORDER BY t.name
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)
+            .bindCatalog("fontCatalog", query.fontId.catalogId)
+            .bind("relativePath", relativePath)
             .bind("jsonPath", jsonPath)
             .bind("vars", vars)
             .map { rs, _ -> FontUsage(kind = "theme", name = rs.getString("name")) }

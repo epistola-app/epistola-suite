@@ -5,8 +5,8 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.AttributeDto
-import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.CatalogReleaseRefDto
+import app.epistola.api.model.CodeListBindingRef
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.ResourceStatus
@@ -44,12 +44,10 @@ internal fun VariantAttributeDefinition.toDto(catalog: Catalog, readOnly: Boolea
     readOnly = readOnly,
     createdAt = createdAt,
     lastModified = updatedAt,
-    // Attributes keep no description.
-    description = null,
     // By the alias the draft's declarations give the code list's catalog (contract ADR 0003): its key,
     // in this installation; null for the attribute's own catalog.
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
+        CodeListBindingRef(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
     },
 )
 

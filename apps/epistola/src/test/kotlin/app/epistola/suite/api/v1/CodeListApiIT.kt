@@ -98,20 +98,25 @@ class CodeListApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `list entries on a system code list returns ISO 639-1 codes`() {
+    fun `list entries on a system code list returns ISO 639-1 codes, a page at a time`() {
         val (tenantKey, key) = seedTenantAndKey()
-        val response = restTemplate.exchange(
-            "${versionPath(tenantKey, "system")}/code-lists/iso-639-1/entries",
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
+        val page = { number: Int ->
+            restTemplate.exchange(
+                "${versionPath(tenantKey, "system")}/code-lists/iso-639-1/entries?page=$number&size=100",
+                HttpMethod.GET,
+                HttpEntity<String>(null, baseHeaders(key)),
+                String::class.java,
+            ).also { assertThat(it.statusCode).isEqualTo(HttpStatus.OK) }.body!!
+        }
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val body = response.body!!
-        val codes: List<String> = JsonPath.read(body, "$.items[*].code")
+        val first = page(0)
+        val second = page(1)
+        val codes: List<String> = JsonPath.read<List<String>>(first, "$.items[*].code") + JsonPath.read<List<String>>(second, "$.items[*].code")
         // ISO 639-1 has ~180 entries; we just spot-check a few well-known ones.
-        assertThat(codes).contains("en", "nl", "fr", "de")
+        assertThat(codes).contains("en", "nl", "fr", "de").doesNotHaveDuplicates()
+        // Paged in the database: each page says how many there are in all, and the pages hold them all.
+        assertThat(JsonPath.read<List<String>>(first, "$.items[*].code")).hasSize(100)
+        assertThat(JsonPath.read<Int>(first, "$.page.total")).isEqualTo(codes.size).isGreaterThan(100)
     }
 
     @Test

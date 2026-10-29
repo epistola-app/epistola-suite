@@ -4,8 +4,6 @@
     "key": "officiele-snelheidsbekeuring",
     "name": "Verkeersboete",
     "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
-    "themeKey": null,
-    "themeCatalogKey": null,
     "dataModel": {
       "type": "object",
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -169,7 +167,6 @@
           "styles": {
             "keepTogether": true
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -218,7 +215,6 @@
             "fontSize": "8pt",
             "textAlign": "right"
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -247,8 +243,6 @@
           "slots": [
             "cN5TteEDbDTdLkHSqqTIa"
           ],
-          "styles": null,
-          "stylePreset": null,
           "props": {
             "height": "80pt"
           }
@@ -261,7 +255,6 @@
             "marginTop": "11pt",
             "keepTogether": true
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -421,7 +414,6 @@
             "marginTop": "11pt",
             "keepTogether": true
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -630,7 +622,6 @@
             "marginTop": "11pt",
             "keepTogether": true
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -712,7 +703,6 @@
             "marginTop": "11pt",
             "keepTogether": true
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -940,10 +930,7 @@
           "type": "pagefooter",
           "slots": [
             "-Dz9kRu9j-fpBPUwdkm8G"
-          ],
-          "styles": null,
-          "stylePreset": null,
-          "props": null
+          ]
         },
         "y_QuxEQVSpqBcUZOPjFfK": {
           "id": "y_QuxEQVSpqBcUZOPjFfK",
@@ -953,7 +940,6 @@
             "fontSize": "8pt",
             "textAlign": "center"
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -991,7 +977,6 @@
             "fontSize": "20pt",
             "fontWeight": "700"
           },
-          "stylePreset": null,
           "props": {
             "content": {
               "type": "doc",
@@ -1028,10 +1013,7 @@
           "type": "root",
           "slots": [
             "slot-officiele-snelheidsbekeuring-default"
-          ],
-          "styles": null,
-          "stylePreset": null,
-          "props": null
+          ]
         }
       },
       "slots": {
@@ -1069,9 +1051,7 @@
       },
       "themeRef": {
         "type": "inherit"
-      },
-      "pageSettingsOverride": null,
-      "documentStylesOverride": null
+      }
     },
     "variants": [
       {
@@ -1091,7 +1071,6 @@
               "styles": {
                 "keepTogether": true
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1250,8 +1229,6 @@
               "id": "OBKzktf7HhftXEZVy2g6b",
               "type": "text",
               "slots": [],
-              "styles": null,
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1450,7 +1427,6 @@
               "styles": {
                 "keepTogether": true
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1496,7 +1472,6 @@
               "styles": {
                 "keepTogether": true
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1579,10 +1554,7 @@
               "type": "pageheader",
               "slots": [
                 "94uzrCez_Eh_p2nikRmgC"
-              ],
-              "styles": null,
-              "stylePreset": null,
-              "props": null
+              ]
             },
             "a0UrSqd_5y13Ka8qPnXzH": {
               "id": "a0UrSqd_5y13Ka8qPnXzH",
@@ -1592,7 +1564,6 @@
                 "fontSize": "8pt",
                 "textAlign": "center"
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1627,10 +1598,7 @@
               "type": "pagefooter",
               "slots": [
                 "ZdhxcuMZNYTvddIg4KYxW"
-              ],
-              "styles": null,
-              "stylePreset": null,
-              "props": null
+              ]
             },
             "eSYiQx2wEu9-wBZFr27tQ": {
               "id": "eSYiQx2wEu9-wBZFr27tQ",
@@ -1639,7 +1607,6 @@
               "styles": {
                 "keepTogether": true
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1852,7 +1819,6 @@
                 "fontSize": "8pt",
                 "textAlign": "right"
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1878,7 +1844,6 @@
                 "fontSize": "20pt",
                 "fontWeight": "700"
               },
-              "stylePreset": null,
               "props": {
                 "content": {
                   "type": "doc",
@@ -1901,10 +1866,7 @@
               "type": "root",
               "slots": [
                 "slot-notice-of-speeding-violation"
-              ],
-              "styles": null,
-              "stylePreset": null,
-              "props": null
+              ]
             }
           },
           "slots": {
@@ -1942,9 +1904,7 @@
           },
           "themeRef": {
             "type": "inherit"
-          },
-          "pageSettingsOverride": null,
-          "documentStylesOverride": null
+          }
         },
         "isDefault": false
       },
@@ -1954,7 +1914,6 @@
         "attributes": {
           "system.locale": "nl-NL"
         },
-        "templateModel": null,
         "isDefault": true
       }
     ],

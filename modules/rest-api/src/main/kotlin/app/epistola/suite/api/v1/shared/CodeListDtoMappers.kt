@@ -4,8 +4,10 @@
 
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.api.model.CodeListAuthType
 import app.epistola.api.model.CodeListDto
 import app.epistola.api.model.CodeListEntryDto
+import app.epistola.api.model.CodeListSourceType
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -26,20 +28,20 @@ internal fun CodeList.toDto(catalog: Catalog, readOnly: Boolean = catalog.readOn
     catalogKey = catalogKey.value,
     name = displayName,
     sourceType = when (sourceType) {
-        CodeListSource.URL -> CodeListDto.SourceType.URL
+        CodeListSource.URL -> CodeListSourceType.URL
 
         // INLINE + CLASSPATH (bundled catalogs) both surface as INLINE here.
         // CLASSPATH is suite-internal and never appears for tenant-authored
         // code lists; it shows up only after a catalog import, where the
         // tenant sees the materialized inline entries.
-        CodeListSource.INLINE -> CodeListDto.SourceType.INLINE
+        CodeListSource.INLINE -> CodeListSourceType.INLINE
 
-        CodeListSource.CLASSPATH -> CodeListDto.SourceType.INLINE
+        CodeListSource.CLASSPATH -> CodeListSourceType.INLINE
     },
     authType = when (authType) {
-        app.epistola.suite.catalog.AuthType.NONE -> CodeListDto.AuthType.NONE
-        app.epistola.suite.catalog.AuthType.API_KEY -> CodeListDto.AuthType.API_KEY
-        app.epistola.suite.catalog.AuthType.BEARER -> CodeListDto.AuthType.BEARER
+        app.epistola.suite.catalog.AuthType.NONE -> CodeListAuthType.NONE
+        app.epistola.suite.catalog.AuthType.API_KEY -> CodeListAuthType.API_KEY
+        app.epistola.suite.catalog.AuthType.BEARER -> CodeListAuthType.BEARER
     },
     readOnly = readOnly,
     createdAt = createdAt,

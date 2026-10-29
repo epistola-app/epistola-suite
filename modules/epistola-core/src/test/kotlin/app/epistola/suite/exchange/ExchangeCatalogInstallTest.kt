@@ -35,6 +35,7 @@ import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withReleaseFingerprint
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -486,7 +487,8 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
                 zip.closeEntry()
             }
         }
-        return out.toByteArray()
+        // A wire-v8 release names its fingerprint, as its publisher wrote it.
+        return withReleaseFingerprint(out.toByteArray())
     }
 
     private companion object {

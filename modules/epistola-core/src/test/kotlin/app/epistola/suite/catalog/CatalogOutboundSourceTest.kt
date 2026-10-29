@@ -15,7 +15,9 @@ import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.releaseFingerprintOf
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.zipOf
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import com.sun.net.httpserver.HttpServer
@@ -48,7 +50,7 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             val body = when (exchange.requestURI.path) {
-                "/catalog.json" -> MANIFEST
+                "/catalog.json" -> SEALED_MANIFEST
                 "/resources/logo.json" -> imageDetail(imageContentUrl)
                 "/logo.svg" -> SVG
                 "/redirect-to-metadata.svg" -> null
@@ -206,5 +208,17 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
         const val SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>"""
 
         val SVG_SHA256: String = java.security.MessageDigest.getInstance("SHA-256").digest(SVG.toByteArray()).joinToString("") { "%02x".format(it) }
+
+        /**
+         * [MANIFEST] with the fingerprint its release has, as a wire-v8 publisher serves it. V6 leaves
+         * out where the image's bytes sit, so the swapped content location does not move it.
+         */
+        val SEALED_MANIFEST: String = run {
+            val detail = """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"resource":{"type":"image","key":"$IMAGE_SLUG","name":"Logo","mediaType":"image/svg+xml","contentHash":"$SVG_SHA256"}}"""
+            val fingerprint = releaseFingerprintOf(
+                zipOf(mapOf("catalog.json" to MANIFEST.toByteArray(), "resources/logo.json" to detail.toByteArray(), "bin/$SVG_SHA256" to SVG.toByteArray())),
+            )
+            MANIFEST.replace("\"release\": { \"version\": \"1.0.0\" }", "\"release\": { \"version\": \"1.0.0\", \"fingerprint\": \"$fingerprint\" }")
+        }
     }
 }

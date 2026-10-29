@@ -23,7 +23,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.ResourceStatuses
 import app.epistola.suite.api.v1.shared.SortDirection
@@ -304,11 +303,8 @@ class EpistolaTemplateApi(
         templateKey: String,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<VariantListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val id = at.templateId(templateKey)
         workingCopy(at, templateKey)

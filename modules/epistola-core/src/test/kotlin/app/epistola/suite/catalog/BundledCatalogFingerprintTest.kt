@@ -29,4 +29,10 @@ class BundledCatalogFingerprintTest {
     fun `fixture catalog committed fingerprint matches its content`() {
         BundledCatalogFingerprints.assertFingerprintMatches("classpath:epistola/catalogs/fixture/catalog.json")
     }
+
+    /** The dependency-test catalog, which upgrade tests copy and serve: a wire-v8 release names its fingerprint. */
+    @Test
+    fun `dependency-test catalog committed fingerprint matches its content`() {
+        BundledCatalogFingerprints.assertFingerprintMatches("classpath:epistola/catalogs/test/dependency-test/catalog.json")
+    }
 }

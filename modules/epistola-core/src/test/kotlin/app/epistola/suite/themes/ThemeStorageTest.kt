@@ -69,7 +69,7 @@ class ThemeStorageTest : IntegrationTestBase() {
         val stored = requireNotNull(row(tenant, "brand")) { "the draft holds a row of the theme" }
         val sameContent = jdbi.withHandle<Boolean, Exception> { h ->
             h.createQuery("SELECT CAST(:stored AS JSONB) = CAST(:expected AS JSONB)")
-                .bind("stored", stored.payload).bind("expected", objectMapper.writeValueAsString(themes.payload("brand", created.fields())))
+                .bind("stored", stored.payload).bind("expected", objectMapper.writeValueAsString(themes.payload("brand", brand.catalogKey.value, created.fields())))
                 .mapTo(Boolean::class.java).one()
         }
         assertThat(sameContent).`as`("the theme's wire form: %s", stored.payload).isTrue()

@@ -14,7 +14,6 @@ import app.epistola.api.model.StencilUsageListResponse
 import app.epistola.api.model.UpdateStencilContentRequest
 import app.epistola.api.model.UpdateStencilRequest
 import app.epistola.suite.api.v1.shared.ETags
-import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.ResourceStatuses
 import app.epistola.suite.api.v1.shared.catalogId
@@ -74,11 +73,8 @@ class EpistolaStencilApi(
         tag: String?,
         page: Int,
         size: Int,
-        sort: String?,
-        direction: String,
     ): ResponseEntity<StencilListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // A draft or a release, read and paged the same way, in SQL (ADR 0033).
         val tenantId = TenantId(at.catalog.tenantKey)

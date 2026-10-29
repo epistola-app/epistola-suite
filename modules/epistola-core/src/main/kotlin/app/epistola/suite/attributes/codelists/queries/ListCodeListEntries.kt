@@ -13,12 +13,16 @@ import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.releases.VersionReads
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.PageRequest
+import app.epistola.suite.common.Paging
+import app.epistola.suite.common.ResultPage
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -46,6 +50,20 @@ data class ListCodeListEntries(
     override val tenantKey get() = codeListId.tenantKey
 }
 
+/** [ListCodeListEntries], one page of it, cut in the database. */
+data class ListCodeListEntryPage(
+    val codeListId: CodeListId,
+    val includeHidden: Boolean = false,
+    val page: PageRequest,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : ReleaseReadable,
+    Query<ResultPage<CodeListEntry>>,
+    RequiresPermission {
+    override val permission get() = Permission.REFERENCE_VIEW
+    override val tenantKey get() = codeListId.tenantKey
+}
+
 @Component
 class ListCodeListEntriesHandler(
     private val jdbi: Jdbi,
@@ -53,29 +71,45 @@ class ListCodeListEntriesHandler(
 ) : QueryHandler<ListCodeListEntries, List<CodeListEntry>> {
     override fun handle(query: ListCodeListEntries): List<CodeListEntry> = jdbi.withHandle<List<CodeListEntry>, Exception> { outer ->
         val selection = query.boundFrom?.let { boundVersion.of(outer, it, query.codeListId.catalogId) }
-        VersionReads.at(outer, selection) { handle -> entries(handle, query) }
+        VersionReads.at(outer, selection) { handle -> CodeListEntryList.query(handle, query.codeListId, query.includeHidden, paged = false).mapTo<CodeListEntry>().list() }
     }
+}
 
-    private fun entries(handle: org.jdbi.v3.core.Handle, query: ListCodeListEntries): List<CodeListEntry> {
+@Component
+class ListCodeListEntryPageHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ListCodeListEntryPage, ResultPage<CodeListEntry>> {
+    override fun handle(query: ListCodeListEntryPage): ResultPage<CodeListEntry> = jdbi.withHandle<ResultPage<CodeListEntry>, Exception> { handle ->
+        Paging.read(query.page, CodeListEntry::class.java) { CodeListEntryList.query(handle, query.codeListId, query.includeHidden, paged = true) }
+    }
+}
+
+/** A code list's entries by `sort_order`, then `code`; [paged] selects one page of them. */
+private object CodeListEntryList {
+    fun query(handle: Handle, codeListId: CodeListId, includeHidden: Boolean, paged: Boolean): org.jdbi.v3.core.statement.Query {
         // The entries of the content, in SQL: filtered and ordered there, never in memory (ADR 0033).
         val sql = buildString {
             append(
                 """
                 SELECT e ->> 'code' AS code, e ->> 'label' AS label,
                        CAST(e ->> 'sortOrder' AS INTEGER) AS sort_order, CAST(e ->> 'hidden' AS BOOLEAN) AS hidden
+                """,
+            )
+            if (paged) append(", ${Paging.TOTAL}")
+            append(
+                """
                 FROM current_code_lists t
                 CROSS JOIN LATERAL jsonb_array_elements(t.entries) e
                 WHERE ${codeListAt()}
                 """,
             )
-            if (!query.includeHidden) append(" AND NOT CAST(e ->> 'hidden' AS BOOLEAN)")
+            if (!includeHidden) append(" AND NOT CAST(e ->> 'hidden' AS BOOLEAN)")
             append(" ORDER BY sort_order ASC, code ASC")
+            if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
         return handle.createQuery(sql)
-            .bind("t", query.codeListId.tenantKey)
-            .bindCatalog("c", query.codeListId.catalogId)
-            .bind("key", query.codeListId.key.value)
-            .mapTo<CodeListEntry>()
-            .list()
+            .bind("t", codeListId.tenantKey)
+            .bindCatalog("c", codeListId.catalogId)
+            .bind("key", codeListId.key.value)
     }
 }

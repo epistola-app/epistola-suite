@@ -285,7 +285,8 @@ class MergedContentTest : IntegrationTestBase() {
                 good + ("type" to "theme") to "mergedContent.template/invoice/type",
                 // A second entry of a variant that is not the default: the key is what clashes.
                 good + ("variants" to variantsOf(good) + variantsOf(good).first { it["isDefault"] != true }) to "mergedContent.template/invoice/variants[2]/key",
-                good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice",
+                // The wire-v8 schema check names the first member that breaks it.
+                good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice/name",
             )
             cases.forEach { (content, field) ->
                 assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content)).execute() }

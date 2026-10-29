@@ -6,10 +6,12 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.GenerationApi
 import app.epistola.api.model.CollectRequest
+import app.epistola.api.model.DocumentGenerationJobDto
 import app.epistola.api.model.DocumentListResponse
 import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
-import app.epistola.api.model.GenerationJobDetail
+import app.epistola.api.model.GenerationItemStatus
+import app.epistola.api.model.GenerationJobItemListResponse
 import app.epistola.api.model.GenerationJobListResponse
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
@@ -18,6 +20,7 @@ import app.epistola.suite.api.v1.shared.acceptedAsJob
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.api.v1.shared.toItemDto
 import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
 import app.epistola.suite.api.v1.shared.toQuery
@@ -139,14 +142,38 @@ class EpistolaDocumentGenerationApi(
     override fun getGenerationJobStatus(
         tenantKey: String,
         requestId: UUID,
-    ): ResponseEntity<GenerationJobDetail> {
+    ): ResponseEntity<DocumentGenerationJobDto> {
         val typedTenantId = TenantKey.of(tenantKey)
         val typedRequestId = GenerationRequestKey.of(requestId)
         val jobResult = GetGenerationJob(typedTenantId, typedRequestId).query()
             ?: throw GenerationJobNotFoundException(typedTenantId, typedRequestId)
+        return ResponseEntity.ok(jobResult.request.toJobDto())
+    }
 
-        val catalogs = GetCatalogNames(typedTenantId, jobResult.items.map { it.catalogKey }).query()
-        return ResponseEntity.ok(jobResult.toDto(objectMapper, catalogs))
+    /**
+     * A job's items, a page at a time. A job here is one request, which is its one item, so a page holds
+     * it or nothing.
+     */
+    override fun listGenerationJobItems(
+        tenantKey: String,
+        requestId: UUID,
+        status: GenerationItemStatus?,
+        page: Int,
+        size: Int,
+    ): ResponseEntity<GenerationJobItemListResponse> {
+        val typedTenantId = TenantKey.of(tenantKey)
+        val typedRequestId = GenerationRequestKey.of(requestId)
+        val jobResult = GetGenerationJob(typedTenantId, typedRequestId).query()
+            ?: throw GenerationJobNotFoundException(typedTenantId, typedRequestId)
+        val matching = jobResult.items.filter { status == null || it.status.name == status.name }
+        val catalogs = GetCatalogNames(typedTenantId, matching.map { it.catalogKey }).query()
+        val onPage = if (Pagination.offsetOf(page, size) == 0) matching else emptyList()
+        return ResponseEntity.ok(
+            GenerationJobItemListResponse(
+                items = onPage.map { it.toItemDto(catalogs[it.catalogKey]) },
+                page = Pagination.pageMeta(page, size, matching.size.toLong()),
+            ),
+        )
     }
 
     override fun cancelGenerationJob(

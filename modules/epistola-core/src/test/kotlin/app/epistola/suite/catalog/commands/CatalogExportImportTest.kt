@@ -67,6 +67,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withReleaseFingerprint
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
@@ -377,7 +378,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                         "type": "template",
                         "key": "invoice",
                         "name": "Invoice",
-                        "templateModel": {"root": "missing", "nodes": {}, "slots": {}},
+                        "templateModel": {"modelVersion": 1, "themeRef": {"type": "inherit"}, "root": "missing", "nodes": {}, "slots": {}},
                         "variants": []
                       }
                     }
@@ -391,7 +392,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val exception = assertThrows<CatalogImportValidationException> {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
-                    zipBytes = zipBytes,
+                    zipBytes = withReleaseFingerprint(zipBytes),
                     provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                 ).execute()
             }
@@ -771,9 +772,8 @@ class CatalogExportImportTest : IntegrationTestBase() {
                       "registry": "exchange.epistola.app",
                       "namespace": "epistola-tests",
                       "catalogKey": "no-such-catalog",
-                      "version": "*",
-                      "releaseVersion": null,
-                      "releaseFingerprint": null
+                      "releaseVersion": "1.0.0",
+                      "releaseFingerprint": "v6:${"0".repeat(64)}"
                     }
                   ]
                 }
@@ -787,14 +787,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 CatalogImportContext.runAsImport {
                     ImportCatalogZip(
                         tenantKey = tenant.id,
-                        zipBytes = baos.toByteArray(),
+                        zipBytes = withReleaseFingerprint(baos.toByteArray()),
                         provenance = ReleaseProvenance(ReleaseChannel.UPLOAD),
                     ).execute()
                 }
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("unmet dependencies")
-                .hasMessageContaining("code list 'no-such-list'")
-                .hasMessageContaining("from catalog 'no-such-catalog'")
+            }
+                // Wire v8 pins a release of every catalog declared, so the missing catalog is refused by its pin.
+                .isInstanceOf(CatalogImportDependenciesMissingException::class.java)
+                .hasMessageContaining("no-such-catalog")
         }
     }
 

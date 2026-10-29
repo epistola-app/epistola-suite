@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -55,6 +56,8 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
         val manifest = dir.resolve("catalog.json")
         manifest.writeText(manifest.readText().replace("\"version\": \"1.0.0\"", "\"version\": \"$version\""))
         edit(dir)
+        // The edited copy is a release of its own: it names the fingerprint its content has.
+        BundledCatalogFingerprints.sealCatalogDirectory(dir)
         return manifest.toUri().toString()
     }
 

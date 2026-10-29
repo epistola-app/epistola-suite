@@ -102,12 +102,13 @@ class CatalogContentBuilder(
         val outbound = Outbound(catalog.key.value)
         val templates = loadTemplates(catalog, outbound)
         val themes = ExportThemes(catalog.tenantKey, catalog = catalog).query().map { theme ->
-            // A theme's own-catalog font references have always travelled as stored.
-            objectMapper.treeToValue(outbound.withoutNameQualifiers(objectMapper.valueToTree(theme)), ThemeResource::class.java)
+            // A theme's own-catalog references travel relative, as a stencil's and a template's do: wire
+            // v8 never names the catalog itself (contract `2.0.0-alpha.4`).
+            objectMapper.treeToValue(outbound.released(objectMapper.valueToTree(theme)), ThemeResource::class.java)
         }
         val stencils = ExportStencils(catalog.tenantKey, catalog = catalog).query().map { stencil ->
             stencil.copy(
-                content = outbound.content(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
+                content = outbound.released(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
         }
         val attributes = ExportAttributes(catalog.tenantKey, catalog = catalog).query()
@@ -233,8 +234,8 @@ class CatalogContentBuilder(
                 val json = jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
                     objectMapper.valueToTree(checkNotNull(templateStore.model(handle, catalog.tenantKey, variant)) { "Template ${template.key} names a model that is not stored" })
                 }
-                // Stored relative already.
-                return objectMapper.treeToValue(outbound.content(json), TemplateDocument::class.java)
+                // Stored relative already, an image of its own catalog aside.
+                return objectMapper.treeToValue(outbound.released(json), TemplateDocument::class.java)
             }
             TemplateResource(
                 key = template.key,
@@ -277,8 +278,11 @@ class CatalogContentBuilder(
             ResourceReferenceSites.dropNameQualifiers(root)
         }
 
-        /** [document] without name qualifiers on its references, and nothing else changed. */
-        fun withoutNameQualifiers(document: JsonNode): JsonNode = document.deepCopy().also(ResourceReferenceSites::dropNameQualifiers)
+        /**
+         * [document] as a release holds it: [content], and an image of the catalog itself named
+         * relatively too, which only a release does ([ResourceReferenceSites.releaseOwnImages]).
+         */
+        fun released(document: JsonNode): JsonNode = content(document).also { ResourceReferenceSites.releaseOwnImages(it, catalogKey) }
     }
 
     /**

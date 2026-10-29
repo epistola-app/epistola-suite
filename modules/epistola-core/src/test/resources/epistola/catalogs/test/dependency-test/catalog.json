@@ -10,7 +10,8 @@
     "name": "Test"
   },
   "release": {
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "fingerprint": "v6:f4bb79843c073a5ef221406b5ba665c1ff5d6d630fcc07e95bbc165e6c84c1db"
   },
   "catalogDependencies": [
     {
@@ -18,8 +19,8 @@
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "releaseVersion": "2.1.0",
-      "releaseFingerprint": "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
+      "releaseVersion": "2.1.1",
+      "releaseFingerprint": "v6:97377990b50e1a973a6ceb9cd8811f3e6afa9761c5314350c3ecb05464b818f2"
     }
   ],
   "resources": [
