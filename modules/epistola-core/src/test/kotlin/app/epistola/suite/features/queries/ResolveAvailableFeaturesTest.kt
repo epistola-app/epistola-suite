@@ -44,34 +44,33 @@ class ResolveAvailableFeaturesTest {
 
     @Test
     fun `support-tier feature is available when the tier is on and entitled`() {
-        withToggles(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK to true, ungated to true)
+        withToggles(KnownFeatures.SUPPORT_FEEDBACK to true, ungated to true)
         given(gateProvider.ifAvailable).willReturn(gate(entitled = true))
 
         val available = handler.handle(ResolveAvailableFeatures(tenant))
 
-        assertThat(available[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK]).isTrue()
+        assertThat(available[KnownFeatures.SUPPORT_FEEDBACK]).isTrue()
         assertThat(available[ungated]).isTrue()
     }
 
     @Test
     fun `support-tier feature is unavailable when the tier is on but not entitled`() {
-        withToggles(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK to true)
+        withToggles(KnownFeatures.SUPPORT_FEEDBACK to true)
         given(gateProvider.ifAvailable).willReturn(gate(entitled = false))
 
-        assertThat(handler.handle(ResolveAvailableFeatures(tenant))[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK]).isFalse()
+        assertThat(handler.handle(ResolveAvailableFeatures(tenant))[KnownFeatures.SUPPORT_FEEDBACK]).isFalse()
     }
 
     @Test
     fun `with no tier present features fall through to their plain toggle`() {
-        // OSS / support tier off: no gate present, so availability is the plain toggle map. Hub-only
-        // features are off by default there (FeatureToggleService.defaultFor), but an explicit toggle
-        // still shows them — entitlement only applies once the tier (gate) is present.
-        withToggles(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK to true, ungated to true)
+        // OSS / support tier off: no gate present, so availability is the plain toggle map;
+        // entitlement only applies once the tier (gate) is present.
+        withToggles(KnownFeatures.SUPPORT_FEEDBACK to true, ungated to true)
         given(gateProvider.ifAvailable).willReturn(null)
 
         val available = handler.handle(ResolveAvailableFeatures(tenant))
 
-        assertThat(available[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK]).isTrue()
+        assertThat(available[KnownFeatures.SUPPORT_FEEDBACK]).isTrue()
         assertThat(available[ungated]).isTrue()
     }
 }

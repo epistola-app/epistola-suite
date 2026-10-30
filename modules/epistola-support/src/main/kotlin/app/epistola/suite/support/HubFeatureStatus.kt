@@ -10,7 +10,7 @@ import app.epistola.hub.client.error.HubUnavailableException
 import org.slf4j.Logger
 
 /**
- * Outcome of calling a hub-backed support feature (Backups, Upgrading), as a single status the UI
+ * Outcome of calling a hub-backed support feature, as a single status the UI
  * switches on instead of several booleans.
  *
  * The distinction that matters: [UNAVAILABLE] means the hub couldn't be reached at all, whereas

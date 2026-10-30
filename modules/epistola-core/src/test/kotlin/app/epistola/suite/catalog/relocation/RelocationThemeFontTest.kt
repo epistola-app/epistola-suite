@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ReferenceResolution
-import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
@@ -33,14 +32,13 @@ import org.junit.jupiter.api.Test
 class RelocationThemeFontTest : RelocationTestSupport() {
 
     @Test
-    fun `after a font moves, a theme using it still exports and the tenant can still be snapshotted`() {
+    fun `after a font moves, a theme using it still exports`() {
         val tenant = tenantWith("Theme after font move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
         createTheme(tenant, archive, fontCatalog = letters.value)
 
         move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
-        withMediator { BuildTenantSnapshot(tenant).execute() }
         val theme = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), archive)) }.zipBytes.let(::unzipText).getValue("resources/theme/brand.json")
         assertThat(theme).contains("\"catalogKey\":\"shared\"")
     }
@@ -62,7 +60,6 @@ class RelocationThemeFontTest : RelocationTestSupport() {
             .single { it.source == address(tenant, CatalogResourceType.THEME, shared, "brand") && it.targetSelector.type == CatalogResourceType.FONT }
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         assertThat(edge.target).isEqualTo(address(tenant, CatalogResourceType.FONT, letters, "acme"))
-        withMediator { BuildTenantSnapshot(tenant).execute() }
     }
 
     private fun createTheme(tenant: TenantKey, catalog: CatalogKey, fontCatalog: String?) = withMediator {

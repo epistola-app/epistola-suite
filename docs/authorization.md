@@ -58,13 +58,8 @@ is a different duty from administering a tenant. An admin who also approves cont
 | Reference data (attributes, code lists, fonts)                        | `REFERENCE_VIEW` / `REFERENCE_EDIT`       | viewer / author        |
 | Catalogs                                                              | `CATALOG_VIEW` / `CATALOG_MANAGE`         | viewer / administrator |
 | Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE` | administrator          |
-| **Destructive** (restore snapshot, purge catalogs)                    | `TENANT_RESTORE`                          | administrator          |
 | Tenant config (feature toggles, defaults, environments, entitlements) | `TENANT_SETTINGS`                         | administrator          |
 | Users & API keys                                                      | `TENANT_USERS`                            | administrator          |
-
-`TENANT_RESTORE` is named to signal danger and is held only by `TENANT_ADMINISTRATOR`. It is its
-own permission so it can be withheld or audited independently — notably, API keys never receive
-it by default.
 
 ## Enforcement — one fail-closed seam
 
@@ -123,7 +118,7 @@ on the key** (`api_keys.roles`), not the full role set. A key is created via the
 so the narrowest scope is the default. So a read-only or generate-only integration key is expressible,
 and MCP sessions inherit the key's scope automatically.
 
-Administration (`TENANT_ADMINISTRATOR`, which carries `TENANT_RESTORE`) is offered but never
+Administration (`TENANT_ADMINISTRATOR`) is offered but never
 pre-selected — keys stay least-privilege unless deliberately escalated. The `CreateApiKey` command
 requires a non-empty scope; its Kotlin default of "all roles" exists only as a convenience for
 tests/fixtures (and the deterministic demo key), never for keys created through the UI.

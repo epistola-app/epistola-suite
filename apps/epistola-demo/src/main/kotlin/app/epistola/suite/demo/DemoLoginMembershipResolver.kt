@@ -83,9 +83,9 @@ class DemoLoginMembershipResolver(
      * The demo catalog's showcase content lives there — the quality demo, the seeded findings, the
      * banner — so a visitor who only ever saw their own empty-ish sandbox would miss most of what
      * the demo is for. They can author and generate in it, but not administer it:
-     * [TenantRole.TENANT_ADMINISTRATOR] is what carries `TENANT_SETTINGS`, `TENANT_USERS`,
-     * `CATALOG_MANAGE` and `TENANT_RESTORE`, and a shared tenant that any visitor can reconfigure or
-     * restore over is a demo that breaks for everyone else. Their own tenant is where they get to be
+     * [TenantRole.TENANT_ADMINISTRATOR] is what carries `TENANT_SETTINGS`, `TENANT_USERS` and
+     * `CATALOG_MANAGE`, and a shared tenant that any visitor can reconfigure is a demo that breaks for
+     * everyone else. Their own tenant is where they get to be
      * an administrator.
      *
      * Returns null when the shared tenant does not exist — `tenant_memberships.tenant_key` is a real

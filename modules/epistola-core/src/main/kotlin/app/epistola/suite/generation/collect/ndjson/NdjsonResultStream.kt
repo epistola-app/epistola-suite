@@ -119,7 +119,7 @@ class NdjsonResultStream(
         "variantKey" to variantId?.value,
         "version" to releaseVersion,
         "releaseId" to (catalogVersionId ?: draftId),
-        "draftLabel" to draftLabel,
+        "releaseName" to draftLabel,
         "filename" to filename,
         "contentType" to contentType,
         "sizeBytes" to sizeBytes,

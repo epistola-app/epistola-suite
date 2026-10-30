@@ -75,6 +75,24 @@ Decided and closed:
 
 ## Touched
 
+### Tenant snapshots and Support → Upgrading withdrawn (29 October; branch `refactor/remove-tenant-snapshots`)
+
+A snapshot exported each catalog's working copy as a wire-v8 archive, which contract `2.0.0-alpha.4`
+refuses for a catalog depending on a never-released one (every declaration pins a release). Decided
+(29 October): remove snapshots, and with them Upgrading, which the hub ran compatibility checks on.
+
+| What                                                                                                                                                                                                                                                                                                                                               | Where                                                                                                   | Covered                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Removed: `BuildTenantSnapshot`, `RestoreTenantSnapshot`, `TenantSnapshot`, `PurgeTenantCatalogs`, `TENANT_RESTORE`; modules `epistola-support-snapshots` and `epistola-support-upgrading`; the `support-compatibility-check` toggle and `KnownFeatures.HUB_ONLY` (its only member) with the tier-following default; `epistola.support.upgrading.*` | core `catalog/snapshot/`, `features/`, `security/Permission.kt`, `settings.gradle.kts`, `apps/epistola` | ✅ tests that only snapshotted are gone; those that snapshotted on the side keep their subject (`CatalogNamingTest`, `RelocationCycleGuardTest`, `RelocationThemeFontTest`); toggle tests use `quality` and `support-feedback` |
+
+Noticed, not done:
+
+- `ImportCatalogZip` still has the internal `restore` and `restoreRelease` paths (and the `REPLACE`
+  fill mode's restore case) that only a snapshot restore set; unpicking them from `intoDraft` is its
+  own change.
+- `ReleaseChannel.SNAPSHOT` stays: release rows recorded before can name it.
+- Stored `support-compatibility-check` toggle rows are left, unread, as `support-backups` ones were (#1088).
+
 ### ADR 0042: relocation as refactorings of catalogs (29 October; PR #1211 `feat/reorganising-catalogs`, and `refactor/relocation-generic-engine` stacked on it)
 
 | What                                                                                                                                                                                                                                                                               | Where                                                                             | Covered                                                                                                                                                |

@@ -11,11 +11,11 @@ import app.epistola.suite.catalog.graph.TenantResourceGraph
  *
  * A move is not only a storage operation: carrying a resource across a catalog boundary rewrites
  * the dependency edges between those catalogs, and can close a loop. That matters because catalog
- * ordering is load-bearing elsewhere — `RestoreTenantSnapshot` topologically orders catalogs so
- * each is installed after what it depends on, and throws outright on a cycle.
+ * ordering is load-bearing elsewhere — a release pins the release of every catalog it depends on,
+ * so those are released first, and a cycle leaves no order to release them in.
  *
- * Left unchecked, a move could therefore make a tenant's snapshots unrestorable, and the failure
- * would surface later, to someone trying to recover, with nothing connecting it back to the move.
+ * Left unchecked, a move could therefore make a tenant's catalogs unreleasable, and the failure
+ * would surface later, to someone releasing, with nothing connecting it back to the move.
  * ADR 0014 calls for blocking it for exactly that reason.
  */
 object CatalogDependencyCycles {

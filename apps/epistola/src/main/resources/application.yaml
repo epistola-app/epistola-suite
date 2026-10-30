@@ -399,14 +399,6 @@ epistola:
       # Override the per-pod node id. Blank → auto-detect from
       # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
       node-id: ""
-    # Compatibility ("Upgrading") — keep a recent snapshot for the company-side check.
-    # The sweep makes a snapshot only when none was synced within max-age.
-    upgrading:
-      snapshot:
-        scheduled:
-          enabled: false # Run the freshness sweep
-        cron: "0 0 * * * *" # Hourly
-        max-age: 24h
     # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
     # hub-operated collector. **On by default when the support tier is enabled** — like every support
     # feature, the hub's entitlement is the real gate: nothing ships unless the installation holds an

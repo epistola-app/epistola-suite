@@ -439,10 +439,9 @@ this one — renaming a feature key is a migration.
 ## Compatibility is not a quality source
 
 "Template X renders differently on version Y" looks like a finding, and the first instinct is
-to put it on the ledger. It lives in the **Upgrading** feature instead
-(`epistola-support-snapshots` publishes a catalog snapshot to the hub, the hub renders it on
-newer engine versions, `CompatibilitySyncPort` reads the verdicts back read-only). Four
-differences, any one of which would bend the ledger out of shape:
+to put it on the ledger. It lived in the **Upgrading** feature instead, which the hub fed from
+tenant snapshots and which 2.0 withdrew with them. Should compatibility checks return, the same four
+differences keep them off the ledger; any one of them would bend it out of shape:
 
 |                | A quality finding                           | A compatibility verdict                |
 | -------------- | ------------------------------------------- | -------------------------------------- |
@@ -461,7 +460,7 @@ template page.
 template_ ("the totals table shifts on 1.1.0"), that is genuinely an author-actionable
 finding about a template, and it enters through the front door — the hub pushes it as an
 ordinary remote source (say `rule_id = compat.render-drift`), with no compatibility concepts
-inside the ledger at all. Tenant-level verdicts stay on the Upgrading page regardless.
+inside the ledger at all. Tenant-level verdicts would stay off the ledger regardless.
 
 ## Permissions
 
