@@ -6,6 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.GetAvailablePresets
@@ -18,8 +19,10 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.handlers.ApplicationRequestView
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
@@ -64,6 +67,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.queries.TemplateSort
+import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
@@ -831,6 +835,36 @@ class DocumentTemplateHandler(
 
         val auth = AuthContext.from(SecurityContext.current(), ctx.templateId.tenantKey)
         return detailHelper.renderDetailPage(ctx, "variants", variantsModel(ctx.templateId, ctx.editable, auth, ctx.catalogVersion))
+    }
+
+    /** `GET /{catalogId}/templates/{id}/application`: how an application asks for this template ([ApplicationRequestView]). */
+    fun application(request: ServerRequest): ServerResponse {
+        val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
+        val catalogId = request.catalog(request.tenantId())
+        val catalog = GetCatalog(catalogId).query() ?: return ServerResponse.notFound().build()
+        val example = GetDataContract(templateId = ctx.templateId, catalogVersion = ctx.catalogVersion).query()?.dataExamples?.firstOrNull()
+        val view = ApplicationRequestView.of(
+            tenantKey = ctx.tenantId,
+            registry = catalog.registry,
+            namespace = catalog.namespace,
+            catalogKey = catalog.id.value,
+            templateKey = ctx.templateId.key.value,
+            latestPublished = ctx.draftBar?.latestPublished,
+            deployments = ListDeployments(ctx.templateId.tenantKey, catalogId).query(),
+            variants = GetVariantSummaries(templateId = ctx.templateId, catalogVersion = ctx.catalogVersion).query(),
+            example = example?.let { it.name to it.data },
+            objectMapper = objectMapper,
+        )
+        val auth = AuthContext.from(SecurityContext.current(), ctx.templateId.tenantKey)
+        return detailHelper.renderDetailPage(
+            ctx,
+            "application",
+            mapOf(
+                "applicationRequest" to view,
+                // API keys are made under API keys by whoever manages the tenant's users.
+                "mayCreateApiKey" to auth.has(Permission.TENANT_USERS),
+            ),
+        )
     }
 
     fun delete(request: ServerRequest): ServerResponse {
