@@ -14,8 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.util.LinkedMultiValueMap
 
 @Isolated("Tests in this class require exclusive database access (e.g. asserting empty tenant list)")
@@ -40,6 +42,26 @@ class TenantRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Tenants")
             assertThat(response.body).contains("Acme Corp")
             assertThat(response.body).contains("Globex Inc")
+            assertThat(response.body).`as`("the list leads; creating is a dialog behind New tenant")
+                .contains("data-testid=\"tenant-create-open\"").doesNotContain("id=\"create-tenant-form\"")
+            assertThat(response.body).`as`("row actions say what they do")
+                .containsPattern("</svg>\\s*Namespaces\\s*</a>").containsPattern("</svg>\\s*Delete\\s*</button>")
+        }
+    }
+
+    @Test
+    fun `GET tenants new gives New tenant its dialog, and a link the page with it open`() = fixture {
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange("/tenants/new", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java) to
+                restTemplate.getForEntity("/tenants/new", String::class.java)
+        }
+
+        then {
+            val (fragment, page) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
+            assertThat(fragment.body).contains("id=\"create-tenant-dialog\"").contains("id=\"create-tenant-form\"")
+                .doesNotContain("id=\"tenant-list\"")
+            assertThat(page.body).contains("id=\"tenant-list\"").contains("id=\"create-tenant-dialog\"")
         }
     }
 
@@ -107,6 +129,7 @@ class TenantRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("New Tenant")
+            assertThat(response.headers["HX-Trigger"].orEmpty().joinToString()).`as`("the dialog closes").contains("closeDialog")
 
             // Clean up tenant created via HTTP (not tracked by fixture)
             val createdTenant = mediator.query(ListTenants("New Tenant")).first()

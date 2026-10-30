@@ -4,89 +4,32 @@
     <!--/*
     Platform home: the tenants of this installation, with "Site banner" and "Shared with Epistola".
     Rendered as the content of layout/shell (no workspace), so the platform crumb and the account
-    menu come from the bar. Model: `tenants`, `auth`, `defaultAuthority`; `create-form` and
-    `rows` are the HTMX swap fragments.
+    menu come from the bar. Model: `tenants`, `auth`, `defaultAuthority`, `openDialog`; `tenant-list`
+    and `rows` are the HTMX swap fragments, tenants/new the create dialog.
     */-->
     <div th:fragment="content">
+        <!--/* The list first, creating in a dialog (docs/dialog-forms.md), as every other list does. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Tenants'
+            pageTitle='Tenants',
+            searchPlaceholder='Search tenants...',
+            searchUrl='/tenants/search',
+            searchTargetId='tenant-rows',
+            searchableTotal=${#lists.size(tenants)},
+            actions=~{::tenant-list-actions}
         )}"></div>
 
-        <p th:if="${auth.has('TENANT_MANAGER')}" class="platform-actions">
-            <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="platform-banner-link">
-                Site banner
-            </a>
-            <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="platform-sharing-link">
-                Shared with Epistola
-            </a>
-        </p>
-
-        <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
-            <section class="ep-panel form-section">
-                <h2>Create New Tenant</h2>
-                <form id="create-tenant-form" th:action="@{/tenants}" method="post"
-                      th:hx-post="@{/tenants}"
-                      hx-target="#tenant-rows"
-                      hx-swap="innerHTML"
-                      data-reset-on-success>
-                    <div th:replace="~{epistola-web/form-error :: form-error(id='create-tenant-error')}"></div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required maxlength="100" placeholder="Tenant name"
-                               data-slug-source="slug"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label for="slug">Slug (ID)</label>
-                        <input type="text" id="slug" name="slug" required placeholder="my-company"
-                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
-                        <label for="namespace">Namespace</label>
-                        <input type="text" id="namespace" name="namespace" required placeholder="acme"
-                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
-                               data-testid="tenant-namespace"
-                               th:value="${formData?.get('namespace')}">
-                        <span class="form-hint">The namespace its catalogs are named in, granted to it now; more can be granted under Namespaces.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('authority')} ? 'error' : ''">
-                        <label for="authority">Authority</label>
-                        <input type="text" id="authority" name="authority" required maxlength="253"
-                               data-testid="tenant-authority"
-                               th:value="${formData?.get('authority') ?: defaultAuthority}">
-                        <span class="form-hint">The domain the namespace is granted under: the organisation's own, such as gemeente-x.nl, or exchange.epistola.app.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('authority')}" th:text="${errors.authority}"></span>
-                    </div>
-                    <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
-                </form>
-            </section>
-        </div>
-
-        <section>
-            <h2>Existing Tenants</h2>
-            <!--/* This page calls search-box directly rather than through page-header, so it
-                   carries its own version of the same gate: no box with nothing to search
-                   (.agents/rules/ui-affordances.md). */-->
-            <th:block th:if="${!#lists.isEmpty(tenants)}">
-                <div th:replace="~{fragments/search :: search-box(
-                    placeholder='Search tenants...',
-                    searchUrl='/tenants/search',
-                    targetId='tenant-rows'
-                )}"></div>
-            </th:block>
+        <!--/* One OOB-swappable region (dialogSuccess refreshes it); search and delete keep swapping
+               just the rows inside it. Uses `auth`, which HtmxFragmentModelContributor injects on the
+               OOB render path. */-->
+        <div id="tenant-list" th:fragment="tenant-list" th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
             <div class="ep-table-scroll" role="region" aria-label="Tenants table" tabindex="0"
-                 data-testid="fixed-table-scroll" style="margin-top: var(--ep-space-4)">
+                 data-testid="fixed-table-scroll">
             <table class="ep-table ep-table-fixed">
                 <colgroup>
-                    <col style="width: 30%" /><!-- ID -->
-                    <col style="width: 35%" /><!-- Name -->
+                    <col style="width: 25%" /><!-- ID -->
+                    <col style="width: 33%" /><!-- Name -->
                     <col style="width: 17%" /><!-- Created -->
-                    <col style="width: 18%" /><!-- Actions -->
+                    <col style="width: 25%" /><!-- Actions: labelled, so wider than an icon column -->
                 </colgroup>
                 <thead>
                     <tr>
@@ -105,35 +48,56 @@
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}"></a>
                             </td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${tenant.createdAt}" th:title="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <!--/* Labelled actions: an icon alone (tag, trash) said nothing at a glance and
+                                   nothing at all on touch. The name already opens the tenant. */-->
                             <td class="actions">
                                 <a th:if="${auth.has('TENANT_MANAGER')}" th:href="@{/platform/tenants/{id}/namespaces(id=${tenant.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Namespaces" data-testid="tenant-namespaces-link">
+                                   class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="tenant-namespaces-link">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-sm')}" />
-                                </a>
-                                <a th:href="@{/tenants/{id}(id=${tenant.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Open tenant">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
+                                    Namespaces
                                 </a>
                                 <button th:if="${auth.has('TENANT_MANAGER')}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete tenant"
-                                        data-confirm-title="Delete Tenant"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                        data-testid="tenant-delete"
+                                        data-confirm-title="Delete tenant"
                                         th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"
                                         data-confirm-target="#tenant-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    Delete
                                 </button>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">
                             <td colspan="4" class="empty-message"
-                                th:text="${auth.has('TENANT_MANAGER')} ? 'No tenants yet. Create one above.' : 'No tenants available.'"></td>
+                                th:text="${auth.has('TENANT_MANAGER')} ? 'No tenants yet. Create one with New tenant.' : 'No tenants available.'"></td>
                         </tr>
                     </th:block>
                 </tbody>
             </table>
             </div>
-        </section>
+        </div>
+
+        <!--/* The create dialog lands here: swapped in by New tenant, or embedded on direct navigation
+               to /tenants/new (openDialog). The guard wraps the replace on an outer element. */-->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{tenants/new :: dialog}"></th:block>
+            </th:block>
+        </div>
     </div>
+
+    <th:block th:fragment="tenant-list-actions">
+        <th:block th:if="${auth.has('TENANT_MANAGER')}">
+            <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline" data-testid="platform-banner-link">Site banner</a>
+            <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline" data-testid="platform-sharing-link">Shared with Epistola</a>
+            <button type="button" class="ep-btn ep-btn-primary"
+                    th:hx-get="@{/tenants/new}" hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                    data-testid="tenant-create-open">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                New tenant
+            </button>
+        </th:block>
+    </th:block>
 </body>
 </html>

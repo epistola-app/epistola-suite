@@ -16,6 +16,7 @@ import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.ChangelogRenderer
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.HxSwap
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -27,7 +28,9 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.requirePlatformRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetGettingStarted
@@ -48,15 +51,30 @@ class TenantHandler(
     private val identity: CatalogIdentityProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    fun list(request: ServerRequest): ServerResponse {
-        val tenants = ListTenants().query()
-        val auth = AuthContext.platformOnly(SecurityContext.current())
-        return ServerResponse.ok().page("tenants/list") {
-            "pageTitle" to "Tenants - Epistola"
-            "platformPage" to "Tenants"
-            "tenants" to tenants
-            "auth" to auth
-            "defaultAuthority" to identity.defaultRegistry
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("tenants/list") { listModel() }
+
+    /** The tenants page: the list, and what its create dialog needs. */
+    private fun ModelBuilder.listModel() {
+        "pageTitle" to "Tenants - Epistola"
+        "platformPage" to "Tenants"
+        "tenants" to ListTenants().query()
+        "auth" to AuthContext.platformOnly(SecurityContext.current())
+        "defaultAuthority" to identity.defaultRegistry
+    }
+
+    /** The create dialog (docs/dialog-forms.md): its fragment for New tenant, the page with it open for a link. */
+    fun newForm(request: ServerRequest): ServerResponse {
+        requirePlatformRole(PlatformRole.TENANT_MANAGER)
+        return request.htmx {
+            fragment("tenants/new", "dialog") {
+                "defaultAuthority" to identity.defaultRegistry
+            }
+            onFullPage {
+                page("tenants/list") {
+                    listModel()
+                    "openDialog" to true
+                }
+            }
         }
     }
 
@@ -143,13 +161,19 @@ class TenantHandler(
             }
         }
 
-        // A refusal re-renders the form in place with the errors by their fields (422).
+        // A refusal re-renders the form inside the dialog with the errors by their fields (422).
         fun refused(formData: FormData): ServerResponse = request.htmx {
-            dialogFieldErrors(template = "tenants/list", fragmentName = "create-form", formTarget = "#create-form", formData = formData) {
-                "auth" to auth
+            dialogFieldErrors(template = "tenants/new", fragmentName = "tenant-form", formTarget = "#create-tenant-form", formData = formData) {
                 "defaultAuthority" to identity.defaultRegistry
             }
-            onFullPage { redirect("/") }
+            onFullPage {
+                page(422, "tenants/list") {
+                    listModel()
+                    "openDialog" to true
+                    "formData" to formData.formData
+                    "errors" to formData.errors
+                }
+            }
         }
 
         if (form.hasErrors()) return refused(form)
@@ -167,7 +191,8 @@ class TenantHandler(
 
         val tenants = ListTenants().query()
         return request.htmx {
-            fragment("tenants/list", "rows") {
+            // Close the dialog and refresh the list out of band.
+            dialogSuccess("tenants/list", "tenant-list", "/") {
                 "tenants" to tenants
                 "auth" to auth
             }
