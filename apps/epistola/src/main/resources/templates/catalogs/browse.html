@@ -31,7 +31,11 @@
 
         <div th:replace="~{catalogs/overview :: environments}"></div>
 
-        <div th:replace="~{catalogs/overview :: counts}"></div>
+        <!--/* An empty catalog's status card above already invites its first template; the counts would
+               only say it again. */-->
+        <th:block th:unless="${readiness != null and contents.isEmpty}">
+            <div th:replace="~{catalogs/overview :: counts}"></div>
+        </th:block>
 
         <!--/* A catalog with a source: what the source put in it, each linked to Exchange where it came
                from there, and Install when something is not installed yet. */-->

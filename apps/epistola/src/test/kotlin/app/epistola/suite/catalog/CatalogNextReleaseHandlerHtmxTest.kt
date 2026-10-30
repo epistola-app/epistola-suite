@@ -90,6 +90,9 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(body).`as`("one invitation, not a tile per kind reading 0")
                 .contains("data-testid=\"catalog-counts-empty\"").contains("data-testid=\"catalog-counts-new-template\"")
                 .doesNotContain("data-testid=\"catalog-count\"")
+            val overview = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/empty/browse", String::class.java).body!!
+            assertThat(overview).`as`("the overview's status card already invites the first template, once")
+                .contains("data-testid=\"catalog-status-work\"").doesNotContain("data-testid=\"catalog-counts-empty\"")
         }
     }
 
