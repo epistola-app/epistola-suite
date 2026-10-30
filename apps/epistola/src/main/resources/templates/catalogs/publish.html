@@ -88,7 +88,7 @@
             <!--/* Deploying after publishing: for someone who may deploy, when there is an environment to deploy to. */-->
             <div th:if="${mayDeploy and !environments.isEmpty()}" class="form-group" style="margin-top: var(--ep-space-4);">
                 <label class="ep-label" for="publish-deploy-to">Then deploy to</label>
-                <select id="publish-deploy-to" name="deployTo" class="ep-input form-control-auto" data-testid="publish-several-deploy-to">
+                <select id="publish-deploy-to" name="deployTo" class="ep-input" style="width: auto; min-width: 16rem;" data-testid="publish-several-deploy-to">
                     <option value="">Do not deploy</option>
                     <option th:each="env : ${environments}" th:value="${env.id}" th:text="${env.name}">Acceptance</option>
                 </select>
