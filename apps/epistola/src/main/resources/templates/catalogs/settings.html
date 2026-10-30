@@ -18,7 +18,7 @@
                the suite installs it in every tenant. A refusal (still used, served or pinned) lands on
                the catalog list with its reason (CatalogHandler.deleteCatalog). */-->
         <div th:if="${auth.has('CATALOG_MANAGE')}" class="ep-panel detail-section danger-zone" data-testid="catalog-delete-section">
-            <div class="detail-section-header"><h3>Danger Zone</h3></div>
+            <div class="detail-section-header"><h3>Danger zone</h3></div>
             <div class="detail-section-body">
                 <p th:if="${catalog.id == 'system'}" class="text-muted" style="margin: 0;">
                     The system catalog cannot be deleted: the suite installs it in every tenant.

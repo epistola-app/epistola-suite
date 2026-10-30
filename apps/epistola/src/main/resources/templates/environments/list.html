@@ -33,7 +33,7 @@
                         hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                         data-testid="environment-create-open">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Environment
+                    New environment
                 </button>
             </div>
 
@@ -81,7 +81,7 @@
                             <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
-                                        data-confirm-title="Delete Environment"
+                                        data-confirm-title="Delete environment"
                                         th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? An environment that still serves a catalog release cannot be deleted; undeploy its catalogs first.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
                                         data-confirm-target="#environment-list" data-confirm-swap="outerHTML">Delete</button>
                             </td>
@@ -115,7 +115,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="environment-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Environment
+            New environment
         </button>
     </th:block>
 

@@ -4,9 +4,9 @@
     <th:block th:fragment="content">
 
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Load Test',
+            pageTitle='Load test',
             backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
-            backLinkLabel='Load Tests',
+            backLinkLabel='Load tests',
             actions=~{::load-test-detail-actions}
         )}"></div>
 
@@ -42,7 +42,7 @@
                         <span th:if="${run.environmentKey == null and run.versionKey != null}" th:text="'Template version ' + ${run.versionKey}"></span>
                         <span th:if="${run.environmentKey == null and run.versionKey == null}">The latest release</span>
                     </dd>
-                    <dt>Target Count</dt>
+                    <dt>Target count</dt>
                     <dd th:text="${run.targetCount}"></dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${run.createdAt}"></dd>
@@ -97,7 +97,7 @@
                                       th:text="${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%'"></span>
                                 <span th:unless="${run.successRatePercent != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Success Rate</div>
+                            <div class="stat-card-label">Success rate</div>
                         </div>
                         <div class="ep-panel stat-card">
                             <div class="stat-card-value">
@@ -105,7 +105,7 @@
                                       th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'"></span>
                                 <span th:unless="${run.avgResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Avg Response Time</div>
+                            <div class="stat-card-label">Avg response time</div>
                         </div>
                         <div class="ep-panel stat-card">
                             <div class="stat-card-value">
@@ -153,22 +153,22 @@
                                       th:text="${#numbers.formatDecimal(run.totalDurationMs / 1000.0, 1, 2)} + ' sec'"></span>
                                 <span th:unless="${run.totalDurationMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Total Duration</div>
+                            <div class="stat-card-label">Total duration</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Error Summary (if any failures) -->
+            <!-- Error summary (if any failures) -->
             <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="ep-panel detail-section">
                 <div class="detail-section-header">
-                    <h2>Error Summary</h2>
+                    <h2>Error summary</h2>
                 </div>
                 <div class="detail-section-body no-padding">
                     <table class="ep-table">
                         <thead>
                             <tr>
-                                <th>Error Type</th>
+                                <th>Error type</th>
                                 <th>Count</th>
                             </tr>
                         </thead>
@@ -187,13 +187,13 @@
         <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
            class="ep-btn ep-btn-outline"
            th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
-            View Request Log
+            View request log
         </a>
         <form th:if="${run.status.name() == 'RUNNING'}"
               th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
               method="post"
               style="display: inline;">
-            <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
+            <button type="submit" class="ep-btn ep-btn-destructive">Cancel test</button>
         </form>
     </th:block>
 

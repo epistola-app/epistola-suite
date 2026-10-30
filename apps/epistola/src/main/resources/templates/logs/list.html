@@ -48,7 +48,7 @@
                     <select id="log-filter-level" class="ep-input ep-input-sm" name="level"
                             hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
                             hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change">
-                        <option value="">All Levels</option>
+                        <option value="">All levels</option>
                         <option th:each="lvl : ${levels}" th:value="${lvl}" th:text="${lvl}"
                                 th:selected="${selectedLevel != null && selectedLevel == lvl}">LEVEL</option>
                     </select>

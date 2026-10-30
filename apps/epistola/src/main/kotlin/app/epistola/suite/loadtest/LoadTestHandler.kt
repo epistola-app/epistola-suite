@@ -53,7 +53,7 @@ class LoadTestHandler(
         val runs = ListLoadTestRuns(tenantId = tenantKey, limit = 50).query()
 
         return ServerResponse.ok().page("loadtest/list") {
-            "pageTitle" to "Load Tests - Epistola"
+            "pageTitle" to "Load tests - Epistola"
             "tenant" to tenant
             "tenantId" to tenantKey
             "runs" to runs
@@ -86,7 +86,7 @@ class LoadTestHandler(
             return request.htmx {
                 onFullPage {
                     page("loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
+                        "pageTitle" to "Start load test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                         "environments" to ListEnvironments(tenantId = tenantId).query()
@@ -134,7 +134,7 @@ class LoadTestHandler(
         return request.htmx {
             onFullPage {
                 page("loadtest/new") {
-                    "pageTitle" to "Start Load Test - Epistola"
+                    "pageTitle" to "Start load test - Epistola"
                     "tenantId" to tenantKey
                     "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                     "environments" to ListEnvironments(tenantId = tenantId).query()
@@ -179,7 +179,7 @@ class LoadTestHandler(
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
+                        "pageTitle" to "Start load test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to templates
                         "environments" to environments
@@ -238,7 +238,7 @@ class LoadTestHandler(
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
+                        "pageTitle" to "Start load test - Epistola"
                         "tenantId" to tenantKey
                         "templates" to templates
                         "environments" to environments
@@ -264,7 +264,7 @@ class LoadTestHandler(
         val template = GetDocumentTemplate(id = templateId).query()
 
         return ServerResponse.ok().page("loadtest/detail") {
-            "pageTitle" to "Load Test Details - Epistola"
+            "pageTitle" to "Load test details - Epistola"
             "tenantId" to tenantKey
             "run" to run
             "template" to template
@@ -311,7 +311,7 @@ class LoadTestHandler(
         ).query()
 
         return ServerResponse.ok().page("loadtest/requests") {
-            "pageTitle" to "Load Test Request Log - Epistola"
+            "pageTitle" to "Load test request log - Epistola"
             "tenantId" to tenantKey
             "run" to run
             "requests" to requests

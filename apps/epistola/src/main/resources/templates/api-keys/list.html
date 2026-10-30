@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='API Keys',
+            pageTitle='API keys',
             pageDescription='API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.',
             actions=~{::api-key-list-actions}
         )}"></div>

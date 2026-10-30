@@ -177,7 +177,7 @@ class DocumentTemplateHandler(
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = it.tenantId, catalog = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/templates/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
-            "pageTitle" to "Document Templates - Epistola"
+            "pageTitle" to "Templates - Epistola"
             "catalogs" to catalogs
             "draftBar" to bar
             "fromOtherCatalogs" to fromOtherCatalogs
@@ -282,7 +282,7 @@ class DocumentTemplateHandler(
         tenantId: TenantId,
         catalogs: List<Catalog>,
     ) {
-        "pageTitle" to "Document Templates - Epistola"
+        "pageTitle" to "Templates - Epistola"
         "catalogs" to catalogs
         // Behind the create dialog (no HTMX): the list of the catalog the dialog names.
         putAll(templateListModel(request, tenantId, request.catalogParam()))

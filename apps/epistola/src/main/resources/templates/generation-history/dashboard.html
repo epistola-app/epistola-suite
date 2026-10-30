@@ -10,11 +10,11 @@
         <div class="ep-auto-grid dashboard-stats" style="margin-bottom: var(--ep-space-6);">
             <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
-                <div class="stat-card-label">Total Generated</div>
+                <div class="stat-card-label">Total generated</div>
             </div>
             <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
-                <div class="stat-card-label">In Queue</div>
+                <div class="stat-card-label">In queue</div>
             </div>
             <div class="ep-panel stat-card">
                 <div class="stat-card-value" th:text="${stats.completed}">0</div>
@@ -26,9 +26,9 @@
             </div>
         </div>
 
-        <!-- Most Used Templates -->
+        <!-- Most used templates -->
         <section style="margin-bottom: var(--ep-space-6);">
-            <h2>Most Used Templates</h2>
+            <h2>Most used templates</h2>
             <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
@@ -58,16 +58,16 @@
             </table>
         </section>
 
-        <!-- Recent Jobs -->
+        <!-- Recent jobs -->
         <section>
             <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-3);">
-                <h2 style="margin: 0;">Recent Jobs</h2>
+                <h2 style="margin: 0;">Recent jobs</h2>
                 <select class="ep-select ep-select-sm form-control-auto"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"
                         hx-swap="innerHTML"
                         name="status">
-                    <option value="">All Statuses</option>
+                    <option value="">All statuses</option>
                     <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}">Pending</option>
                 </select>
             </div>

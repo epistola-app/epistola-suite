@@ -95,8 +95,8 @@
 <body>
 <main>
     <article class="card">
-        <div class="eyebrow">Epistola Problem Type</div>
-        <h1 th:text="${problemType.title}">Problem Title</h1>
+        <div class="eyebrow">Epistola problem type</div>
+        <h1 th:text="${problemType.title}">Problem title</h1>
         <p th:text="${problemType.description}">Problem description.</p>
 
         <dl>
@@ -109,7 +109,7 @@
         </dl>
 
         <section th:if="${!problemType.extensionFields.isEmpty()}">
-            <h2>Extension Members</h2>
+            <h2>Extension members</h2>
             <ul class="extensions">
                 <li th:each="field : ${problemType.extensionFields}"><code th:text="${field}">code</code></li>
             </ul>

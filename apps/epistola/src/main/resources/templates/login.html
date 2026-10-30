@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${param.popup != null} ? 'Log In - Epistola' : 'Login - Epistola Suite'">Login - Epistola Suite</title>
+    <title th:text="${param.popup != null} ? 'Log in - Epistola' : 'Login - Epistola Suite'">Login - Epistola Suite</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
 </head>
 <body>
@@ -12,7 +12,7 @@
             <div class="login-header">
                 <h1>Epistola Suite</h1>
                 <p th:unless="${param.popup != null}">Document Creation Platform</p>
-                <p th:if="${param.popup != null}">Session Expired</p>
+                <p th:if="${param.popup != null}">Session expired</p>
             </div>
 
             <!-- Popup mode notice -->

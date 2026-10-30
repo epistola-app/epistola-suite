@@ -30,7 +30,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='import-catalog-dialog',
-            title='Import Catalog from ZIP',
+            title='Import catalog from ZIP',
             closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::import-form})}"></div>
     </th:block>

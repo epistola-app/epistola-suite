@@ -161,7 +161,7 @@ export function initFeedbackFab(tenantId) {
   container.id = 'feedback-fab-container';
 
   container.innerHTML = `
-<button id="feedback-fab" class="feedback-fab" type="button" title="Page Feedback">
+<button id="feedback-fab" class="feedback-fab" type="button" title="Page feedback" aria-label="Page feedback">
     ${fabIcon}
     <span id="feedback-fab-badge" class="feedback-fab-badge feedback-fab-badge--hidden"></span>
 </button>

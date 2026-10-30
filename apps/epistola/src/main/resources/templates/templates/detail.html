@@ -22,7 +22,7 @@
                data-testid="template-tab" data-tab-name="variants">Variants</a>
             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                class="tab-nav-item" th:classappend="${activeTab == 'data-contract'} ? ' active'"
-               data-testid="template-tab" data-tab-name="data-contract">Data Contract</a>
+               data-testid="template-tab" data-tab-name="data-contract">Data contract</a>
             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/settings(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                class="tab-nav-item" th:classappend="${activeTab == 'settings'} ? ' active'"
                data-testid="template-tab" data-tab-name="settings">Settings</a>
@@ -36,7 +36,7 @@
     <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->
     <th:block th:fragment="edit-variant-form">
         <div class="ep-dialog-header">
-            <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
+            <h3>Edit variant: <code th:text="${variant.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"

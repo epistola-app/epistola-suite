@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Load Tests',
+            pageTitle='Load tests',
             actions=~{::load-test-list-actions}
         )}"></div>
 
@@ -15,7 +15,7 @@
             <div class="empty-state-description">Run a load test to measure document generation performance.</div>
             <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Load Test
+                New load test
             </a>
         </div>
 
@@ -26,8 +26,8 @@
                     <th>Template</th>
                     <th>Status</th>
                     <th>Requests</th>
-                    <th>Success Rate</th>
-                    <th>Avg Response</th>
+                    <th>Success rate</th>
+                    <th>Avg response</th>
                     <th></th>
                 </tr>
             </thead>
@@ -77,7 +77,7 @@
     <th:block th:fragment="load-test-list-actions">
         <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Load Test
+            New load test
         </a>
     </th:block>
 

@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Feature Toggles',
+            pageTitle='Feature toggles',
             pageDescription='Enable or disable tenant features.'
         )}"></div>
 
@@ -35,7 +35,7 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Save Settings</button>
+                        <button type="submit" class="ep-btn ep-btn-primary">Save settings</button>
                         <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>

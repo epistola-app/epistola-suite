@@ -4,9 +4,9 @@
     <th:block th:fragment="content">
 
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='New Load Test',
+            pageTitle='New load test',
             backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
-            backLinkLabel='Load Tests'
+            backLinkLabel='Load tests'
         )}"></div>
 
         <div class="card create-form-card" style="max-width: 40rem;">
@@ -15,7 +15,7 @@
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}">
                     <div th:replace="~{epistola-web/form-error :: form-error(id='start-load-test-error')}"></div>
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
-                        <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template Configuration</legend>
+                        <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template configuration</legend>
 
                         <div class="form-group">
                             <label class="ep-label" for="templateId">Template</label>
@@ -41,10 +41,10 @@
                     </fieldset>
 
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
-                        <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Load Test Parameters</legend>
+                        <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Load test parameters</legend>
 
                         <div class="form-group">
-                            <label class="ep-label" for="targetCount">Target Count</label>
+                            <label class="ep-label" for="targetCount">Target count</label>
                             <input type="number" id="targetCount" name="targetCount" class="ep-input"
                                    required value="100" min="1" max="10000">
                             <span class="form-hint">Number of documents to generate (1-10,000)</span>
@@ -52,7 +52,7 @@
                     </fieldset>
 
                     <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Start Load Test</button>
+                        <button type="submit" class="ep-btn ep-btn-primary">Start load test</button>
                         <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
@@ -61,14 +61,14 @@
 
         <div class="ep-panel detail-section" style="margin-top: var(--ep-space-6); max-width: 40rem;">
             <div class="detail-section-header">
-                <h2>Load Test Information</h2>
+                <h2>Load test information</h2>
             </div>
             <div class="detail-section-body" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);">
                 <ul class="ep-stack" style="margin: 0; padding-left: var(--ep-space-4);">
-                    <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
-                    <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>
-                    <li><strong>Metrics Collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
-                    <li><strong>Document Retention:</strong> Generated documents follow standard retention policy (30 days by default)</li>
+                    <li><strong>Target count:</strong> Number of documents to generate in the test</li>
+                    <li><strong>Batch submission:</strong> All documents are submitted as a single batch for efficient processing</li>
+                    <li><strong>Metrics collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
+                    <li><strong>Document retention:</strong> Generated documents follow standard retention policy (30 days by default)</li>
                     <li><strong>Release:</strong> The run renders the release the chosen environment serves, or the catalog's latest release when no environment is chosen</li>
                 </ul>
             </div>
@@ -94,9 +94,9 @@
         </div>
 
         <fieldset style="border: none; padding: 0; margin: 0;">
-            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test Data</legend>
+            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test data</legend>
             <div class="form-group">
-                <label class="ep-label" for="testData">JSON Data</label>
+                <label class="ep-label" for="testData">JSON data</label>
                 <textarea id="testData" name="testData" class="ep-textarea" required
                           rows="6" style="font-family: monospace;"
                           placeholder="Select a template to load data examples..."></textarea>
@@ -142,12 +142,12 @@
         </div>
 
         <fieldset style="border: none; padding: 0; margin: 0;">
-            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test Data</legend>
+            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test data</legend>
 
             <!--/* Template has data examples: show example selector */-->
             <th:block th:if="${!#lists.isEmpty(dataExamples)}">
                 <div class="form-group">
-                    <label class="ep-label" for="exampleId">Data Example</label>
+                    <label class="ep-label" for="exampleId">Data example</label>
                     <select id="exampleId" name="exampleId" class="ep-select"
                             th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
                             hx-target="#template-options-section"
@@ -163,7 +163,7 @@
                     <span class="form-hint">Select a pre-defined data example to use as test data</span>
                 </div>
                 <div class="form-group">
-                    <label class="ep-label" for="testData">JSON Data</label>
+                    <label class="ep-label" for="testData">JSON data</label>
                     <textarea id="testData" name="testData" class="ep-textarea" required
                               rows="10" style="font-family: monospace;"
                               th:readonly="${!#strings.isEmpty(selectedExampleId)}"
@@ -176,7 +176,7 @@
             <!--/* Template has no data examples: show manual JSON entry */-->
             <th:block th:if="${#lists.isEmpty(dataExamples)}">
                 <div class="form-group">
-                    <label class="ep-label" for="testData">JSON Data</label>
+                    <label class="ep-label" for="testData">JSON data</label>
                     <textarea id="testData" name="testData" class="ep-textarea" required
                               rows="10" style="font-family: monospace;"
                               placeholder="Enter JSON test data..."></textarea>

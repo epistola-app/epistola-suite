@@ -46,7 +46,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("API Keys")
+            assertThat(response.body).contains("API keys")
             assertThat(response.body).contains("No API keys")
         }
     }

@@ -45,7 +45,7 @@
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="image-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
-                        Upload Image
+                        Upload image
                     </button>
                 </div>
 
@@ -70,7 +70,7 @@
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
-                                        data-confirm-title="Delete Image"
+                                        data-confirm-title="Delete image"
                                         th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogId) ?: asset.catalogId.address},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
@@ -105,7 +105,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="image-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-            Upload Image
+            Upload image
         </button>
     </th:block>
 

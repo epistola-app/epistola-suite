@@ -34,7 +34,7 @@
         <div class="ep-dialog-body">
 
             <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
-                <label class="ep-label" for="displayName">Display Name</label>
+                <label class="ep-label" for="displayName">Display name</label>
                 <input type="text" id="displayName" name="displayName" class="ep-input"
                        required maxlength="100" placeholder="Languages" data-slug-source="slug"
                        th:value="${formData?.displayName}">

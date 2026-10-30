@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <div class="ep-dialog-header">
-            <h2>Submit Feedback</h2>
+            <h2>Submit feedback</h2>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-icon" data-close-dialog>
                 <th:block th:replace="~{epistola-web/icon :: icon(name='x', class='ep-icon')}" />
             </button>
@@ -64,11 +64,11 @@
                     <div id="fb-screenshot-actions" class="ep-row">
                         <button type="button" id="fb-capture-region" class="ep-btn ep-btn-outline ep-btn-sm">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='scan', class='ep-icon')}" />
-                            Capture Region
+                            Capture region
                         </button>
                         <button type="button" id="fb-capture-viewport" class="ep-btn ep-btn-outline ep-btn-sm">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='monitor', class='ep-icon')}" />
-                            Capture Visible
+                            Capture visible
                         </button>
                     </div>
                     <div id="fb-screenshot-unsupported" style="display: none; color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
@@ -91,7 +91,7 @@
 
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-outline" data-close-dialog>Cancel</button>
-                <button type="submit" class="ep-btn ep-btn-primary">Submit Feedback</button>
+                <button type="submit" class="ep-btn ep-btn-primary">Submit feedback</button>
             </div>
         </form>
 

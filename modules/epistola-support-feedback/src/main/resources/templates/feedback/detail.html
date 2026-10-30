@@ -51,16 +51,16 @@
                 <!-- Client Metadata -->
                 <div th:if="${feedback.metadata != null}" class="card" style="margin-bottom: var(--ep-space-6);">
                     <div class="card-content">
-                        <h3 style="margin-bottom: var(--ep-space-3);">Client Information</h3>
+                        <h3 style="margin-bottom: var(--ep-space-3);">Client information</h3>
                         <pre style="font-size: var(--ep-text-xs); max-height: 200px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
                              th:text="${feedback.metadata}">Metadata</pre>
                     </div>
                 </div>
 
-                <!-- Console Logs -->
+                <!-- Console logs -->
                 <div th:if="${feedback.consoleLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
                     <div class="card-content">
-                        <h3 style="margin-bottom: var(--ep-space-3);">Console Logs</h3>
+                        <h3 style="margin-bottom: var(--ep-space-3);">Console logs</h3>
                         <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
                              th:text="${feedback.consoleLogs}">Console output</pre>
                     </div>
@@ -104,7 +104,7 @@
                                            required placeholder="Add a comment..."></textarea>
                             </div>
                             <div class="form-actions" style="margin-top: var(--ep-space-2);">
-                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add Comment</button>
+                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add comment</button>
                             </div>
                         </form>
                     </th:block>
@@ -123,7 +123,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
             </select>
-            <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>
+            <button type="submit" class="ep-btn ep-btn-outline">Update status</button>
         </form>
     </th:block>
 

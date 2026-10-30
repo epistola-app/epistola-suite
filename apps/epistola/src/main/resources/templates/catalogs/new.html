@@ -20,7 +20,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-catalog-dialog',
-            title='New Catalog',
+            title='New catalog',
             closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::catalog-form})}"></div>
     </th:block>
@@ -40,7 +40,7 @@
                 <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
+                <label class="ep-label" for="catalogSlug">Catalog ID</label>
                 <input type="text" id="catalogSlug" name="slug" class="ep-input"
                        required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
                        minlength="3" maxlength="50"

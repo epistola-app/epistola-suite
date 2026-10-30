@@ -21,7 +21,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-image-dialog',
-            title='Upload Image',
+            title='Upload image',
             closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::image-upload-form})}"></div>
     </th:block>

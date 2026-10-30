@@ -43,7 +43,7 @@
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="theme-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Theme
+                New theme
             </button>
         </div>
 
@@ -55,7 +55,7 @@
                 <col style="width: 22%" /><!-- Name -->
                 <col style="width: 12%" /><!-- Catalog -->
                 <col style="width: 25%" /><!-- Description -->
-                <col style="width: 15%" /><!-- Last Modified -->
+                <col style="width: 15%" /><!-- Last modified -->
                 <col style="width: 26%" /><!-- Actions: labelled (Make default, Make house theme, Delete) -->
             </colgroup>
             <thead>
@@ -63,7 +63,7 @@
                     <th>Name</th>
                     <th>Catalog</th>
                     <th>Description</th>
-                    <th>Last Modified</th>
+                    <th>Last modified</th>
                     <th></th>
                 </tr>
             </thead>
@@ -126,7 +126,7 @@
                                 <button th:if="${auth.has('THEME_EDIT') and !isDefault}"
                                         type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
-                                        data-confirm-title="Delete Theme"
+                                        data-confirm-title="Delete theme"
                                         th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows">Delete</button>
                             </th:block>
@@ -161,7 +161,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="theme-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Theme
+            New theme
         </button>
     </th:block>
 

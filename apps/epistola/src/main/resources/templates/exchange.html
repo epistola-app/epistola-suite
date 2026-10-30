@@ -20,7 +20,7 @@
 
     <div class="alert alert-warning" th:if="${settings.deploymentEnabled && !settings.featureEnabled}">
         <div>
-            <div class="alert-title">The Catalog publishing feature is off for this tenant.</div>
+            <div class="alert-title">The catalog publishing feature is off for this tenant.</div>
             <p style="margin: var(--ep-space-1) 0 0;">
                 Enable it under
                 <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>

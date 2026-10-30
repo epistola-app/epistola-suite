@@ -47,7 +47,7 @@
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                            New Template
+                            New template
                         </button>
                     </th:block>
                 </div>
@@ -60,7 +60,7 @@
                         <col style="width: 30%" /><!-- Name -->
                         <col style="width: 28%" /><!-- ID -->
                         <col style="width: 12%" /><!-- Variants -->
-                        <col style="width: 18%" /><!-- Last Modified -->
+                        <col style="width: 18%" /><!-- Last modified -->
                         <col style="width: 12%" /><!-- Actions -->
                     </colgroup>
                     <thead>
@@ -68,7 +68,7 @@
                             <th th:replace="~{templates/list :: sort-header('Name', 'name')}"></th>
                             <th>ID</th>
                             <th th:replace="~{templates/list :: sort-header('Variants', 'variants')}"></th>
-                            <th th:replace="~{templates/list :: sort-header('Last Modified', 'updated')}"></th>
+                            <th th:replace="~{templates/list :: sort-header('Last modified', 'updated')}"></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -173,7 +173,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Template
+            New template
         </button>
     </th:block>
 

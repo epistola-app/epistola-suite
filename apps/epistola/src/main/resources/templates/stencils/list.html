@@ -26,7 +26,7 @@
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="stencil-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Stencil
+                New stencil
             </button>
         </div>
 
@@ -39,7 +39,7 @@
                 <col style="width: 14%" /><!-- Catalog -->
                 <col style="width: 23%" /><!-- Description -->
                 <col style="width: 11%" /><!-- Tags -->
-                <col style="width: 15%" /><!-- Last Modified -->
+                <col style="width: 15%" /><!-- Last modified -->
                 <col style="width: 14%" /><!-- Actions: a labelled Delete -->
             </colgroup>
             <thead>
@@ -48,7 +48,7 @@
                     <th>Catalog</th>
                     <th>Description</th>
                     <th>Tags</th>
-                    <th>Last Modified</th>
+                    <th>Last modified</th>
                     <th></th>
                 </tr>
             </thead>
@@ -81,7 +81,7 @@
                                 <button th:if="${auth.has('STENCIL_EDIT')}"
                                         type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
-                                        data-confirm-title="Delete Stencil"
+                                        data-confirm-title="Delete stencil"
                                         th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address},stencilId=${stencil.id})}"
                                         data-confirm-target="#stencil-rows">Delete</button>
                             </th:block>
@@ -116,7 +116,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Stencil
+            New stencil
         </button>
     </th:block>
 

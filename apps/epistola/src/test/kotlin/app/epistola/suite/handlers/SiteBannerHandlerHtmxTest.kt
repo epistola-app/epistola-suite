@@ -48,7 +48,7 @@ class SiteBannerHandlerHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(body).contains("Site Banner")
+        assertThat(body).contains("Site banner")
         assertThat(body).contains("name=\"message\"")
         assertThat(body).contains("name=\"severity\"")
     }

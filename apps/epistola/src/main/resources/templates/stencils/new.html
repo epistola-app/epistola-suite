@@ -16,7 +16,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-stencil-dialog',
-            title='New Stencil',
+            title='New stencil',
             closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::stencil-form})}"></div>
     </th:block>
@@ -42,7 +42,7 @@
                 <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                <label class="ep-label" for="slug">Stencil ID (Slug)</label>
+                <label class="ep-label" for="slug">Stencil ID</label>
                 <input type="text" id="slug" name="slug" class="ep-input"
                        required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
                        minlength="3" maxlength="50"
@@ -68,7 +68,7 @@
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
                     data-close-dialog="create-stencil-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Stencil</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create stencil</button>
         </div>
     </form>
 </body>

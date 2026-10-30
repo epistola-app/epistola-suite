@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
 
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Request Log',
+            pageTitle='Request log',
             backLinkHref=@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})},
             backLinkLabel=${'Test ' + run.id},
             actions=~{::load-test-request-actions}
@@ -73,7 +73,7 @@
     </th:block>
     <th:block th:fragment="load-test-request-actions">
         <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-           class="ep-btn ep-btn-outline">Back to Test Details</a>
+           class="ep-btn ep-btn-outline">Back to test details</a>
     </th:block>
 
 </body>

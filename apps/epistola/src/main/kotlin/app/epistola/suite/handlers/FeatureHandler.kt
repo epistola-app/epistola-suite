@@ -35,7 +35,7 @@ class FeatureHandler {
         }
 
         return ServerResponse.ok().page("features") {
-            "pageTitle" to "Feature Toggles - Epistola"
+            "pageTitle" to "Feature toggles - Epistola"
             "tenantId" to tenantId.key
             "activeNavSection" to "features"
             "features" to features

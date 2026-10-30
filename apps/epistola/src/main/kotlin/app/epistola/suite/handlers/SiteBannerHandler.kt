@@ -28,7 +28,7 @@ class SiteBannerHandler {
     fun edit(request: ServerRequest): ServerResponse {
         val banner = GetSiteBanner().query()
         return ServerResponse.ok().page("platform/banner") {
-            "pageTitle" to "Site Banner - Epistola"
+            "pageTitle" to "Site banner - Epistola"
             "platformPage" to "Site banner"
             "banner" to banner
             "severities" to SiteBannerSeverity.entries
