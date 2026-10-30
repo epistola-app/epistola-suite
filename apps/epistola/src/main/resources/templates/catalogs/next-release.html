@@ -46,7 +46,7 @@
                         This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.</p>
                     <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-dependencies"
-                       th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published release that fits yet. Publish that first, or change its range under Advanced.'">
+                       th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has nothing published or in progress to use. Publish it first, or remove it under Dependencies.'">
                         It uses shared, which has no published release that fits yet.</p>
                     <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-resources">

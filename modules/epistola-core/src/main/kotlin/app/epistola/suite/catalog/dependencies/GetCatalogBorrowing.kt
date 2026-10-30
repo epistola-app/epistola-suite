@@ -167,7 +167,11 @@ class GetCatalogBorrowingHandler(
     override fun handle(query: GetCatalogBorrowing): CatalogBorrowing {
         val content = contentBuilder.build(query.catalog)
         val own = query.catalogKey.value
-        val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { store.declarations(it, query.catalog) }
+        // As publishing reads them: one declared by name, of a catalog with nothing released yet, names
+        // its next version, which publishing here publishes first.
+        val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
+            store.declarations(handle, query.catalog).map { store.asPublished(handle, query.tenantKey, it) }
+        }
         val references = (content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)).filter { it.first != own }
         val catalogs = ListCatalogs(query.tenantKey).query().filter { it.catalogId != query.catalog }
 

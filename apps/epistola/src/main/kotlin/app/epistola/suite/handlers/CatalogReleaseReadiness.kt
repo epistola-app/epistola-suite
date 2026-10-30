@@ -103,11 +103,17 @@ data class CatalogReleaseReadiness(
     val changeCount: Int get() = changed.size + settingChanges.size
 
     /**
-     * The declarations that pin no release and name no draft, which releasing refuses
-     * (`CATALOG_DEPENDENCY_UNRESOLVED`). A pin that stopped holding is caught by the release itself;
-     * a declaration naming a draft is released along with it, when the author asks.
+     * The declarations releasing cannot resolve (`CATALOG_DEPENDENCY_UNRESOLVED`): ones that pin no
+     * release and name no draft, of a catalog with neither a release to pin nor a draft to publish
+     * along. One declared by name (as the 2.0 upgrade declares what a 1.x catalog used) is pinned to
+     * its catalog's highest release when this is released, or names its next version, which is
+     * published along ([borrowing]); a pin that stopped holding is caught by the release itself.
      */
-    val unresolvedDependencies: List<CatalogDependencyDeclaration> get() = dependencies.filter { !it.pinned && !it.namesDraft }
+    val unresolvedDependencies: List<CatalogDependencyDeclaration>
+        get() = dependencies.filter { declaration ->
+            !declaration.pinned && !declaration.namesDraft &&
+                borrowing.catalogs.none { it.alias == declaration.alias && (it.latest != null || it.draftId != null) }
+        }
 
     /**
      * Whether to offer Release: the viewer may release, and nothing blocks it. When the viewer may
@@ -250,7 +256,7 @@ data class CatalogReleaseReadiness(
             fun DependencyLock.words() = when {
                 releaseVersion != null -> "locked to v$releaseVersion"
                 draftName != null -> "its draft $draftName, published along"
-                else -> "no release chosen"
+                else -> "chosen when published"
             }
             return when (change.state) {
                 CatalogResourceState.NEW -> change.lock?.words()

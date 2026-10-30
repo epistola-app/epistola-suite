@@ -377,6 +377,19 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         .orElse(null)
 
     /**
+     * [declaration] as publishing reads it. One that pins no release and names no draft (declared by
+     * name, as the 2.0 upgrade declares what a 1.x catalog used) is resolved when its catalog is
+     * released: to the highest release of the catalog it names, which the release pins; or, when that
+     * catalog has none yet, to its next version, which publishing publishes first. So it names that
+     * version here; anything else is returned as it is.
+     */
+    fun asPublished(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyDeclaration {
+        if (declaration.pinned || declaration.namesDraft || highest(handle, tenantKey, declaration) != null) return declaration
+        val (draftId, draftName) = nextVersionOf(handle, tenantKey, declaration) ?: return declaration
+        return declaration.copy(draftId = draftId, draftName = draftName)
+    }
+
+    /**
      * Every declaration, in any draft of the tenant, that names draft [versionId] now pins
      * [release] instead: what releasing the named draft does (contract ADR 0002).
      */
