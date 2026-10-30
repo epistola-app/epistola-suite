@@ -75,6 +75,33 @@ Decided and closed:
 
 ## Touched
 
+### Monkey-test findings (30 October; branch `fix/monkey-test-findings`, contract `fix/v7-fingerprint-own-key`)
+
+The 1.x Utrecht upgrade, a fresh import of its archives, and the organising features driven in the
+browser on `370bb477d`. The upgrade held: 14 of 17 letters pixel-identical, the 3 known V6 → V8
+shifts, production identical after a theme move, two renames and four releases.
+
+| What                                                                                                                                                                                                                                 | Where                                                                          | Covered                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| A single Rename or Move said "Blocked" with no reason: it showed only batch blockers. It states them all, Move offers a key when the target has it, and the summary names the action                                                 | `CatalogOrganise.ts`, planner messages                                         | ✅ `CatalogOrganise.test.ts` (3 failing before)                                                              |
+| A rename left the catalogs using the resource pinned to a release without the new key: their templates could not be marked ready, nor released. A rename follows the next version as a move does                                     | `CatalogResourceRelocation.kt` (`followMoved` for every relocation)            | ✅ `CatalogDependenciesTest` (failed before)                                                                 |
+| The preview's releases leave out a catalog that only uses what moves; it is listed as a fix, after the catalog it uses. Resources whose content changes are named as needing marking ready again (only for a plan that can go ahead) | planner `releaseImpact`, `readyAgain`                                          | ✅ `RelocationReleaseImpactTest` (failed before), blocked case                                               |
+| Log lines went to the tenant someone signed in to, or to none (shown in every tenant's logs). A UI route of a tenant the user may act in is their current tenant for the request                                                     | `SecurityFilter`                                                               | ✅ `SecurityFilterTenantTest` (failed before); changelog fragment                                            |
+| The template editor got the catalog's address as its key: own images 404'd, and one picked was stored naming its own catalog. Key and address both passed; an image in another catalog's stencil resolves there                      | `DocumentTemplateHandler`, `editor-boot.js`, `image-registration.ts`, `lib.ts` | ✅ `DocumentTemplateRoutesTest` (failed before), `image-registration.test.ts`; crawl: the 17 image 404s gone |
+| Create a shared catalog refused a tenant holding no namespace (every 1.x upgrade) with advice to choose one the form does not offer. Named as New Catalog names one nobody chose                                                     | `CatalogOrganiseHandler.createSharedCatalog`                                   | ✅ `CatalogOrganiseRoutesTest` (failed before)                                                               |
+| Audit entries read `tenant/namespace/catalog/…` as `tenant/catalog/…`: wrong label, dead link                                                                                                                                        | `AuditEntityLinks`                                                             | ✅ `AuditEntityLinksTest` (failed before)                                                                    |
+| Contract: a 1.x template naming its theme by its own catalog's key failed the legacy fingerprint after migration (`themeCatalogKey` bound as null was not restored), so every such 1.x archive was refused                           | contract `CatalogCanonicalizer.restoreKeys`                                    | ✅ `CatalogKeyRenameCompatibilityTest` (failed before), the four Utrecht archives validate                   |
+
+Noticed, not done:
+
+- The suite needs a contract release with the fingerprint fix before a 1.x archive with templates
+  imports again.
+- A `-dev` release version is refused on import with no way out but editing the archive.
+- Refactorings reset ready marks by design (the content changed); carrying them across a purely
+  mechanical rewrite is a decision not taken.
+- The demo shared secret has no tenant, so REST calls made with it are still logged under none.
+- The cycle blocker's message still speaks of snapshots, which #1219 withdraws.
+
 ### ADR 0042: relocation as refactorings of catalogs (29 October; PR #1211 `feat/reorganising-catalogs`, and `refactor/relocation-generic-engine` stacked on it)
 
 | What                                                                                                                                                                                                                                                                               | Where                                                                             | Covered                                                                                                                                                |
