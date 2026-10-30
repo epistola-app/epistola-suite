@@ -8,6 +8,7 @@ import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.ClearSiteBanner
 import app.epistola.suite.banner.commands.SetSiteBanner
 import app.epistola.suite.banner.queries.GetSiteBanner
+import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -26,14 +27,12 @@ import org.springframework.web.servlet.function.ServerResponse
 class SiteBannerHandler {
     fun edit(request: ServerRequest): ServerResponse {
         val banner = GetSiteBanner().query()
-        return ServerResponse.ok().render(
-            "platform/banner",
-            mapOf(
-                "pageTitle" to "Site Banner - Epistola",
-                "banner" to banner,
-                "severities" to SiteBannerSeverity.entries,
-            ),
-        )
+        return ServerResponse.ok().page("platform/banner") {
+            "pageTitle" to "Site Banner - Epistola"
+            "platformPage" to "Site banner"
+            "banner" to banner
+            "severities" to SiteBannerSeverity.entries
+        }
     }
 
     fun save(request: ServerRequest): ServerResponse {

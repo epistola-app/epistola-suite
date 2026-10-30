@@ -1,19 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${pageTitle} ?: 'Namespaces - Epistola'">Namespaces</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
     <!--/*
     The namespaces a tenant holds (ADR 0034, section 3), for a platform administrator: what it may
-    name catalogs in and release under. Reached from the tenant list. Model: `tenant`, `grants`,
-    `defaultAuthority`; `openDialog` with `formData`/`errors` to show the grant dialog open.
+    name catalogs in and release under. Rendered as content of layout/shell (no workspace).
+    Model: `tenant`, `grants`, `defaultAuthority`; `openDialog` with `formData`/`errors` to
+    show the grant dialog open. `grant-dialog` and `grant-form` are the HTMX fragments.
     */-->
-    <main class="regular">
+    <div th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Namespaces of ' + ${tenant.name},
             pageDescription='The namespaces this tenant names catalogs in and releases under. Every tenant may also name catalogs under local, which never leaves this organisation.'
@@ -100,10 +94,7 @@
                 <th:block th:replace="~{platform/namespaces :: grant-dialog}"></th:block>
             </th:block>
         </div>
-    </main>
-
-    <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </div>
 
     <!--/* The grant dialog; `grant-form` is re-rendered in place on field errors. */-->
     <th:block th:fragment="grant-dialog">

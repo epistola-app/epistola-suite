@@ -14,7 +14,8 @@ import org.springframework.web.servlet.ModelAndView
 
 /**
  * Adds the active installation-wide site banner to shell pages as the `siteBanner`
- * model attribute, so it renders across the whole app (below the nav).
+ * model attribute, so it renders in the page column of the shell (below the bar, in
+ * layout/shell.html, so it never shifts the side nav or the footer).
  *
  * [ResolveSiteBanner] is [app.epistola.suite.security.SystemInternal], so the banner
  * shows for any signed-in user regardless of permissions, and the read is served

@@ -25,7 +25,7 @@ function injectStyles() {
   style.textContent = `
 .feedback-fab {
     position: fixed;
-    bottom: var(--ep-space-5, 1.25rem);
+    bottom: calc(var(--app-footer-height, 0px) + var(--ep-space-5, 1.25rem));
     right: var(--ep-space-5, 1.25rem);
     z-index: 1000;
     width: 48px;
@@ -73,7 +73,7 @@ function injectStyles() {
 }
 .feedback-popover {
     position: fixed;
-    bottom: calc(var(--ep-space-5, 1.25rem) + 56px);
+    bottom: calc(var(--app-footer-height, 0px) + var(--ep-space-5, 1.25rem) + 56px);
     right: var(--ep-space-5, 1.25rem);
     z-index: 999;
     width: 340px;

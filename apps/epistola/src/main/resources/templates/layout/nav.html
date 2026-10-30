@@ -19,97 +19,120 @@
             <a th:href="${ws != null} ? @{${ws.homeHref}} : @{/}" class="app-nav-logo"
                th:title="${ws != null} ? 'Home of ' + ${ws.tenantName} : 'Epistola home'"
                th:aria-label="${ws != null} ? 'Epistola — home of ' + ${ws.tenantName} : 'Epistola home'">
-                <img id="ws-logo" hx-preserve="true" class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
-                <span th:if="${ws == null}">Epistola</span>
+                <img id="ws-logo" hx-preserve="true" class="app-nav-logo-mark" th:src="@{/design-system/epistola-logo.svg}" alt="" />
+                <span class="app-nav-logo-wordmark">Epistola</span>
             </a>
+        </div>
 
-            <div th:if="${ws != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
-                <a class="ws-crumb" th:href="@{${ws.homeHref}}" data-testid="ws-crumb-tenant" th:text="${ws.tenantName}">Acme</a>
-
-                <th:block th:if="${scope != null}">
-                    <span class="ws-crumb-sep" aria-hidden="true">/</span>
-                    <!--/* The catalog switcher: the catalogs people work with, not every one installed. */-->
-                    <div class="app-nav-dropdown ws-menu">
-                        <button type="button" class="app-nav-dropdown-trigger ws-crumb" data-testid="ws-crumb-catalog"
-                                aria-expanded="false" aria-haspopup="true">
-                            <span th:text="${scope.name}">Letters</span>
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <div class="app-nav-dropdown-menu ws-menu-panel" role="menu" data-testid="ws-catalog-menu">
-                            <th:block th:unless="${ws.editableCatalogs.isEmpty()}">
-                                <div class="ws-menu-label">You can change</div>
-                                <a th:each="c : ${ws.editableCatalogs}" th:href="@{${c.href}}" class="app-nav-dropdown-item ws-menu-item"
-                                   role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}">
-                                    <span th:text="${c.name}">Letters</span>
-                                    <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
-                                </a>
-                            </th:block>
-                            <th:block th:unless="${ws.readOnlyCatalogs.isEmpty()}">
-                                <div class="ws-menu-label">Read-only here</div>
-                                <a th:each="c : ${ws.readOnlyCatalogs}" th:href="@{${c.href}}" class="app-nav-dropdown-item ws-menu-item"
-                                   role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}" th:title="${c.readOnlyLabel}">
-                                    <span th:text="${c.name}">Epistola Demo</span>
-                                    <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
-                                </a>
-                            </th:block>
-                            <div class="ws-menu-sep"></div>
-                            <a th:href="@{/tenants/{t}/catalogs(t=${ws.tenantKey})}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">All catalogs</a>
-                        </div>
+        <!--/* A platform page has no workspace: the bar says Platform and the page, with the
+               platform pages in a menu, and the account menu. */-->
+        <div th:if="${ws == null and platformPage != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
+            <th:block th:if="${auth.has('TENANT_MANAGER')}">
+                <div class="app-nav-dropdown ws-menu">
+                    <button type="button" class="app-nav-dropdown-trigger ws-crumb" id="ws-platform-trigger"
+                            aria-expanded="false" aria-haspopup="true" aria-controls="ws-platform-menu"
+                            data-testid="ws-crumb-platform">
+                        <span>Platform</span>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
+                    </button>
+                    <div class="app-nav-dropdown-menu ws-menu-panel" id="ws-platform-menu" role="menu"
+                         aria-label="Platform pages" data-testid="ws-platform-menu">
+                        <a th:href="@{/}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Tenants</a>
+                        <a th:href="@{/platform/banner}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Site banner</a>
+                        <a th:href="@{/platform/sharing}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Shared with Epistola</a>
                     </div>
+                </div>
+                <span class="ws-crumb-sep" aria-hidden="true">/</span>
+            </th:block>
+            <span class="ws-crumb ws-crumb-here" th:text="${platformPage}" data-testid="ws-crumb-platform-page">Tenants</span>
+        </div>
 
-                    <span class="ws-crumb-sep" aria-hidden="true">/</span>
-                    <!--/* The version: the next release nearly always; parallel work is here, out of the way. */-->
-                    <div class="app-nav-dropdown ws-menu">
-                        <button type="button" class="app-nav-dropdown-trigger ws-crumb ws-crumb-version" data-testid="ws-crumb-version"
-                                th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
-                                aria-expanded="false" aria-haspopup="true">
-                            <span th:text="${scope.versionLabel}">Next release</span>
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-wide" role="menu" data-testid="ws-version-menu">
-                            <a th:each="v : ${scope.versions}" th:href="@{${v.href}}" data-version-switch class="app-nav-dropdown-item ws-menu-item" role="menuitem"
-                               th:classappend="${v.current} ? 'active' : ''" data-testid="ws-version-link">
-                                <span class="ws-menu-text">
-                                    <span th:text="${v.label}">Next release</span>
-                                    <span th:if="${v.detail != null}" class="ws-menu-detail" th:text="${v.detail}">Based on v1.3.0</span>
-                                </span>
-                                <th:block th:if="${v.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
+        <div th:if="${ws != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
+            <a class="ws-crumb" th:href="@{${ws.homeHref}}" data-testid="ws-crumb-tenant" th:text="${ws.tenantName}">Acme</a>
+
+            <th:block th:if="${scope != null}">
+                <span class="ws-crumb-sep" aria-hidden="true">/</span>
+                <!--/* The catalog switcher: the catalogs people work with, not every one installed. */-->
+                <div class="app-nav-dropdown ws-menu">
+                    <button type="button" class="app-nav-dropdown-trigger ws-crumb" data-testid="ws-crumb-catalog"
+                            aria-expanded="false" aria-haspopup="true">
+                        <span th:text="${scope.name}">Letters</span>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
+                    </button>
+                    <div class="app-nav-dropdown-menu ws-menu-panel" role="menu" data-testid="ws-catalog-menu">
+                        <th:block th:unless="${ws.editableCatalogs.isEmpty()}">
+                            <div class="ws-menu-label">You can change</div>
+                            <a th:each="c : ${ws.editableCatalogs}" th:href="@{${c.href}}" class="app-nav-dropdown-item ws-menu-item"
+                               role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}">
+                                <span th:text="${c.name}">Letters</span>
+                                <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
                             </a>
-                            <!--/* Starting parallel work: kept apart from the next release until it is ready. */-->
-                            <th:block th:if="${scope.bar.offerCreateDraft}">
-                                <div class="ws-menu-sep"></div>
-                                <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-start-parallel"
-                                        th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${scope.bar.tenantKey},c=${scope.bar.segment.address})}"
-                                        hx-target="#ws-dialog-mount" hx-swap="innerHTML">
-                                    <span class="ws-menu-text">
-                                        <span>Start parallel work…</span>
-                                        <span class="ws-menu-detail">A large change, kept apart until it is ready</span>
-                                    </span>
-                                </button>
-                            </th:block>
-                            <!--/* Trying the version shown on an environment, which follows it as it is changed. */-->
-                            <th:block th:if="${scope.bar.offerFollow}">
-                                <div class="ws-menu-sep"></div>
-                                <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-follow"
-                                        th:hx-get="@{/tenants/{t}/catalogs/{c}/follow(t=${scope.bar.tenantKey},c=${scope.bar.segmentValue})}"
-                                        hx-target="#ws-dialog-mount" hx-swap="innerHTML">
-                                    <span class="ws-menu-text">
-                                        <span>Try it on an environment…</span>
-                                        <span class="ws-menu-detail" th:text="${scope.bar.followedByText ?: 'Documents there use it as it is changed'}">Documents there use it as it is changed</span>
-                                    </span>
-                                </button>
-                            </th:block>
-                            <div class="ws-menu-sep"></div>
-                            <a th:href="@{${scope.versionsHref}}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Published releases</a>
-                        </div>
+                        </th:block>
+                        <th:block th:unless="${ws.readOnlyCatalogs.isEmpty()}">
+                            <div class="ws-menu-label">Read-only here</div>
+                            <a th:each="c : ${ws.readOnlyCatalogs}" th:href="@{${c.href}}" class="app-nav-dropdown-item ws-menu-item"
+                               role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}" th:title="${c.readOnlyLabel}">
+                                <span th:text="${c.name}">Epistola Demo</span>
+                                <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
+                            </a>
+                        </th:block>
+                        <div class="ws-menu-sep"></div>
+                        <a th:href="@{/tenants/{t}/catalogs(t=${ws.tenantKey})}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">All catalogs</a>
                     </div>
-                </th:block>
+                </div>
 
-                <th:block th:if="${scope == null and ws.section != null}">
-                    <span class="ws-crumb-sep" aria-hidden="true">/</span>
-                    <span class="ws-crumb ws-crumb-here" th:text="${ws.section}" data-testid="ws-crumb-section">Environments</span>
-                </th:block>
-            </div>
+                <span class="ws-crumb-sep" aria-hidden="true">/</span>
+                <!--/* The version: the next release nearly always; parallel work is here, out of the way. */-->
+                <div class="app-nav-dropdown ws-menu">
+                    <button type="button" class="app-nav-dropdown-trigger ws-crumb ws-crumb-version" data-testid="ws-crumb-version"
+                            th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
+                            aria-expanded="false" aria-haspopup="true">
+                        <span th:text="${scope.versionLabel}">Next release</span>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
+                    </button>
+                    <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-wide" role="menu" data-testid="ws-version-menu">
+                        <a th:each="v : ${scope.versions}" th:href="@{${v.href}}" data-version-switch class="app-nav-dropdown-item ws-menu-item" role="menuitem"
+                           th:classappend="${v.current} ? 'active' : ''" data-testid="ws-version-link">
+                            <span class="ws-menu-text">
+                                <span th:text="${v.label}">Next release</span>
+                                <span th:if="${v.detail != null}" class="ws-menu-detail" th:text="${v.detail}">Based on v1.3.0</span>
+                            </span>
+                            <th:block th:if="${v.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
+                        </a>
+                        <!--/* Starting parallel work: kept apart from the next release until it is ready. */-->
+                        <th:block th:if="${scope.bar.offerCreateDraft}">
+                            <div class="ws-menu-sep"></div>
+                            <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-start-parallel"
+                                    th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${scope.bar.tenantKey},c=${scope.bar.segment.address})}"
+                                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+                                <span class="ws-menu-text">
+                                    <span>Start parallel work…</span>
+                                    <span class="ws-menu-detail">A large change, kept apart until it is ready</span>
+                                </span>
+                            </button>
+                        </th:block>
+                        <!--/* Trying the version shown on an environment, which follows it as it is changed. */-->
+                        <th:block th:if="${scope.bar.offerFollow}">
+                            <div class="ws-menu-sep"></div>
+                            <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-follow"
+                                    th:hx-get="@{/tenants/{t}/catalogs/{c}/follow(t=${scope.bar.tenantKey},c=${scope.bar.segmentValue})}"
+                                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+                                <span class="ws-menu-text">
+                                    <span>Try it on an environment…</span>
+                                    <span class="ws-menu-detail" th:text="${scope.bar.followedByText ?: 'Documents there use it as it is changed'}">Documents there use it as it is changed</span>
+                                </span>
+                            </button>
+                        </th:block>
+                        <div class="ws-menu-sep"></div>
+                        <a th:href="@{${scope.versionsHref}}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Published releases</a>
+                    </div>
+                </div>
+            </th:block>
+
+            <th:block th:if="${scope == null and ws.section != null}">
+                <span class="ws-crumb-sep" aria-hidden="true">/</span>
+                <span class="ws-crumb ws-crumb-here" th:text="${ws.section}" data-testid="ws-crumb-section">Environments</span>
+            </th:block>
         </div>
 
         <div class="ws-bar-right">
@@ -120,7 +143,8 @@
             <!--/* Refreshed in place after a navigation that keeps the bar (HX-Trigger), so it never empties. */-->
             <div th:if="${scope?.statusHref != null}" id="ws-status" class="ws-status" data-testid="ws-status"
                  th:hx-get="@{${scope.statusHref}}" hx-trigger="load, ws-status-refresh from:body" hx-swap="innerHTML"></div>
-            <a th:if="${scope == null and ws?.back != null}" th:href="@{${ws.back.href}}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="ws-back">
+            <a th:if="${scope == null and ws?.back != null}" th:href="@{${ws.back.href}}" class="ep-btn ep-btn-outline ep-btn-sm ws-back"
+               th:aria-label="${ws.back.label}" data-testid="ws-back">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
                 <span th:text="${ws.back.label}">Back to Letters</span>
             </a>
@@ -130,7 +154,7 @@
                         aria-expanded="false" aria-haspopup="true" aria-label="Your account">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='user', class='ep-icon ep-icon-sm')}" />
                     <span class="ws-account-name" th:text="${currentUserDisplayName}">user</span>
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
                 </button>
                 <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-right" role="menu">
                     <a th:href="@{/profile}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Profile</a>
@@ -159,7 +183,7 @@
                 <a th:each="item : ${section}" th:href="@{${item.href}}" class="ws-nav-item"
                    th:classappend="${item.active} ? 'active' : ''" th:attr="data-testid=${'ws-nav-' + item.key},aria-current=${item.active} ? 'page' : null">
                     <th:block th:replace="~{epistola-web/icon :: icon(name=${item.icon}, class='ep-icon ep-icon-sm')}" />
-                    <span th:text="${item.label}">Templates</span>
+                    <span class="ws-nav-item-label" th:text="${item.label}">Templates</span>
                 </a>
             </div>
         </th:block>
@@ -178,14 +202,18 @@
                 <th:block th:if="${group.key == 'authoring'}">
                     <a th:each="c : ${ws.recentCatalogs}" th:href="@{${c.href}}" class="ws-nav-item" th:attr="data-catalog=${c.key},data-testid='ws-nav-catalog'"
                        th:title="${c.readOnlyLabel}">
-                        <span th:text="${c.name}">Letters</span>
-                        <span th:unless="${c.editable}" class="ws-nav-note">Read-only</span>
+                        <span class="ws-nav-item-label" th:text="${c.name}">Letters</span>
+                        <span th:unless="${c.editable}" class="ws-nav-note"
+                              th:title="${c.readOnlyLabel != null ? 'Read-only — ' + c.readOnlyLabel : 'Read-only'}"
+                              th:attr="aria-label=${c.readOnlyLabel != null ? 'Read-only: ' + c.readOnlyLabel : 'Read-only'}" role="img">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='pencil-off', class='ep-icon ep-icon-sm')}" />
+                        </span>
                     </a>
                 </th:block>
                 <a th:each="item : ${group.items}" th:href="@{/tenants/{id}/{p}(id=${ws.tenantKey}, p=${item.pathSuffix})}"
                    class="ws-nav-item" th:classappend="${item.active} ? 'active' : ''"
                    th:attr="data-testid=${'nav-item-' + item.sectionKey},aria-current=${item.active} ? 'page' : null">
-                    <span th:text="${item.label}">Environments</span>
+                    <span class="ws-nav-item-label" th:text="${item.label}">Environments</span>
                     <span th:if="${item.stage.badgeClass != null}" th:class="${'badge ' + item.stage.badgeClass}" th:text="${item.stage.label}">Beta</span>
                     <!-- A count beside the label, so something waiting is visible from any page. -->
                     <span th:if="${item.indicator != null}" th:class="${'badge ws-nav-count ' + item.indicator.badgeClass}"

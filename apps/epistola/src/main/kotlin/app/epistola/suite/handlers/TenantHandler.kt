@@ -21,6 +21,7 @@ import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.home.HomeNoticeResolver
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -50,7 +51,13 @@ class TenantHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenants = ListTenants().query()
         val auth = AuthContext.platformOnly(SecurityContext.current())
-        return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants, "auth" to auth, "defaultAuthority" to identity.defaultRegistry))
+        return ServerResponse.ok().page("tenants/list") {
+            "pageTitle" to "Tenants - Epistola"
+            "platformPage" to "Tenants"
+            "tenants" to tenants
+            "auth" to auth
+            "defaultAuthority" to identity.defaultRegistry
+        }
     }
 
     /**

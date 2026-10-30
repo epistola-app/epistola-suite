@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tenants - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
+    <!--/*
+    Platform home: the tenants of this installation, with "Site banner" and "Shared with Epistola".
+    Rendered as the content of layout/shell (no workspace), so the platform crumb and the account
+    menu come from the bar. Model: `tenants`, `auth`, `defaultAuthority`; `create-form` and
+    `rows` are the HTMX swap fragments.
+    */-->
+    <div th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Tenants'
         )}"></div>
@@ -135,9 +134,6 @@
             </table>
             </div>
         </section>
-
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </div>
 </body>
 </html>
