@@ -91,40 +91,35 @@ The fixes below are the ones that were cheap and safe; the rest is listed under 
 | A supplied catalog's overview had two "Contents" headings; the resource table's image rows cut the presentation badge to "…"                                  | `catalogs/content.html`                                                    | ❌ seen in the crawl only                                                                                              |
 | A supplied catalog's template list stacked Read-only and the view icon on two lines per row                                                                   | `templates/list.html` colgroup                                             | ❌ seen in the crawl only                                                                                              |
 
-Noticed, not done (recommendations, roughly by value):
+The recommendations, done the same day (one commit each):
 
-- **Capitalisation is mixed.** Title Case ("Create New Tenant", "Quick Actions", "Generation History",
-  "Most Used Templates", "Feature Toggles", "Save Settings", "New Catalog", "Danger Zone", "Sign In")
-  sits beside sentence case ("Getting started", "Deployed here", "Try a document", "Raise a finding").
-  Pick sentence case and do one pass; UI tests that select by text move with it.
-- **Icon-only row actions** (tenants: tag, chevron, trash; catalogs: eye, download, save, sync, trash)
-  carry only a `title`: unreadable at a glance and absent on touch. The "save" icon for export is
-  ambiguous. Label them, or put the rarer ones in a row menu.
-- **The catalogs page has six header actions of equal weight.** Keep New catalog primary; move
-  Create a shared catalog, Publish several, Import ZIP, Subscribe and Dependencies into one menu.
-- **The platform Tenants page leads with the create form**; the list of tenants is below the fold.
-  List first, create in a dialog like every other list.
-- **Read-only on every row** of a supplied catalog's lists says once per row what the catalog says
-  once. Say it in the page header.
+| What                                                                                                                                                                                | Where                                                        | Covered                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Labels in sentence case everywhere (82 Title Case labels), nav and browser titles too                                                                                               | 54 templates, nav contributors, handlers                     | ✅ `SentenceCaseLabelTest` guard (82 before, 0 after)                                                                                                    |
+| Row actions labelled, not icon-only (15 across 9 lists, plus variant cards); eye/pencil links that repeated the name link removed                                                   | lists, `templates/detail/variants.html`                      | ✅ `RowActionLabelTest` guard (15 before); `CatalogListHandlerTest`, `TenantRoutesTest`                                                                  |
+| Catalogs page: New catalog primary, the other seven actions in a "More" menu; the bar's dropdown script takes `data-menu-trigger` and closes a menu when an item is picked          | `catalogs/list.html`, `nav.js`, `navigation.css`             | ✅ `CatalogListHandlerTest`, `CatalogDialogUiTest` (close-on-pick failed with the line reverted)                                                         |
+| Tenants page lists first; New tenant opens a URL-addressable dialog (`GET /tenants/new`)                                                                                            | `tenants/list.html`, `tenants/new.html`, `TenantHandler`     | ✅ `TenantRoutesTest`, `TenantDialogUiTest` (failed before)                                                                                              |
+| Read-only said once (the bar), not per row                                                                                                                                          | six lists                                                    | ✅ `SuppliedCatalogListsHtmxTest` (failed before)                                                                                                        |
+| Settings titled "Settings", Generation "Generation", "Back to the Default catalog"                                                                                                  | `catalogs/settings.html`, `WorkspaceBuilder.backLabel`       | ✅ `CatalogPageHtmxTest`, `GenerationHistoryRoutesTest`, `WorkspaceScopeTest` (failed before)                                                            |
+| Empty catalog: one New template invitation; "Mark as not production"; Undeploy outlined; Quick Actions gone; login without echo placeholders; feedback button clear of the last row | overview, environment, tenant home, login, `feedback-fab.js` | ✅ `CatalogNextReleaseHandlerHtmxTest`, `EnvironmentOverridesPageTest`, `TenantHomeOverviewTest`, `LoginPageIT`, `PageLayoutUiTest` (each failed before) |
+| Embed bridge posts nothing when not embedded; its tests use a stand-in parent window                                                                                                | `embed-bridge.js`, `EmbeddingBridgeUiTest`                   | ✅ new test failed before                                                                                                                                |
+
+Full `./gradlew test uiTest` after the label pass: 7544 tests; my four stale assertions fixed and rerun
+green. `RelocationCycleGuardTest` and `RelocationThemeFontTest` (epistola-core) fail with "a release
+pins every catalog it declares"; epistola-core is identical to `origin/release/2.0`, so they fail there
+too — not touched here.
+
+Noticed, not done:
+
 - **The catalog sidebar title wraps beside its "Supplied by Epistola" badge**, which the top bar
   repeats. Put the badge under the name, or drop one of the two.
-- **An empty catalog's overview** shows seven zero tiles; an empty state with "Create a template"
-  would start someone off.
-- **Names that disagree with the nav:** the catalog's Settings page is titled "Details" (subtitle "As
-  the release it is on describes it."); Generation is titled "Generation History"; the top bar's
-  "Back to Default" names a catalog without saying it is one.
-- **Environment page:** "Not production" reads as a state, not an action ("Mark as not production");
-  Undeploy is a small ghost link beside a primary Deploy.
-- **Tenant home:** a "Quick Actions" section holding only New Environment.
-- **Login:** placeholders repeat the labels; the local-accounts note wraps mid-entry.
 - **Cluster page:** Task and Type are the same value on every row; the per-node sub-tables make it
   very long.
 - **Quality list:** dates and template slugs wrap mid-token at 1440 px.
-- **The feedback button** overlaps the last row's action icons on long lists.
-- **The embed bridge posts to its configured parent when the page is not embedded**: a console
-  warning on every page with embedding on (local profile, demo). Returning early when
-  `window.parent === window` is the fix, but `EmbeddingBridgeUiTest` patches the top window's
-  `postMessage` and would need a real iframe first.
+- **The "More" menu convention** (one primary page action, the rest in a `data-menu-trigger` menu) is
+  used on the catalogs page only and has no guard.
+- **`main.regular` rules in `layout.css` are dead**: the shell's main is `main.main-content`.
+- **Two relocation tests fail on `release/2.0`** (above): owned by whoever has the release-pinning work.
 
 ### Monkey-test findings (30 October; branch `fix/monkey-test-findings`, contract `fix/v7-fingerprint-own-key`)
 
