@@ -148,7 +148,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // pagination. It must still report `navigated`, but not `request`:
         // that stays scoped to the fragment interactions that don't already
         // produce a navigation of their own.
-        page.locator("a[title='View template']").click()
+        page.locator("[data-testid='template-row'][data-template-slug='boosted-row'] a").first().click()
         assertThat(page.locator("#page-title-text")).containsText("Boosted Row")
         // The title is swapped in before htmx pushes the new address, and the bridge reports the
         // address it is at: its `navigated` message follows the title by a few milliseconds (T1, where

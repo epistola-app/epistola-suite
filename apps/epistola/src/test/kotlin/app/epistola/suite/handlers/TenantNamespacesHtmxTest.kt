@@ -132,8 +132,9 @@ class TenantNamespacesHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `the tenant list leads to each tenant's namespaces, and a tenant is created with one`() {
-        val list = get("/").body!!
-        assertThat(list).contains("name=\"namespace\"").contains("name=\"authority\"")
+        // The create form is New tenant's dialog, opened from the list.
+        val form = get("/tenants/new").body!!
+        assertThat(form).contains("name=\"namespace\"").contains("name=\"authority\"")
 
         val key = "tenantnamespaceshtmx-created"
         val created = post("/tenants", mapOf("slug" to key, "name" to "Created With Namespace", "namespace" to "gemeente-x", "authority" to "gemeente-x.nl"))

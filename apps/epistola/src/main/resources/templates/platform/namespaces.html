@@ -75,12 +75,9 @@
                                       hx-target="#namespace-section" hx-swap="outerHTML">
                                     <input type="hidden" name="authority" th:value="${grant.authority}">
                                     <input type="hidden" name="namespace" th:value="${grant.namespace}">
-                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                            title="Revoke namespace" data-testid="namespace-revoke"
+                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="namespace-revoke"
                                             data-confirm-submit data-confirm-submit-title="Revoke namespace" data-confirm-submit-label="Revoke"
-                                            th:attr="data-confirm-submit-message='Revoke ' + ${grant.namespace} + ' (' + ${grant.authority} + ') from ' + ${tenant.name} + '? It can no longer name new catalogs there or release them. A namespace still used by its catalogs is not revoked.'">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                    </button>
+                                            th:attr="data-confirm-submit-message='Revoke ' + ${grant.namespace} + ' (' + ${grant.authority} + ') from ' + ${tenant.name} + '? It can no longer name new catalogs there or release them. A namespace still used by its catalogs is not revoked.'">Revoke</button>
                                 </form>
                             </td>
                         </tr>

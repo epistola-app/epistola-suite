@@ -52,11 +52,11 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 26%" /><!-- Name -->
-                <col style="width: 14%" /><!-- Catalog -->
-                <col style="width: 30%" /><!-- Description -->
+                <col style="width: 22%" /><!-- Name -->
+                <col style="width: 12%" /><!-- Catalog -->
+                <col style="width: 25%" /><!-- Description -->
                 <col style="width: 15%" /><!-- Last Modified -->
-                <col style="width: 15%" /><!-- Actions -->
+                <col style="width: 26%" /><!-- Actions: labelled (Make default, Make house theme, Delete) -->
             </colgroup>
             <thead>
                 <tr>
@@ -102,10 +102,8 @@
                                   hx-target="#theme-rows" hx-swap="innerHTML" style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="themeCatalogKey" th:value="${theme.catalogKey}">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" data-testid="theme-make-catalog-default"
-                                        title="Use as this catalog's default theme">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
-                                </button>
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="theme-make-catalog-default"
+                                        title="Use as this catalog's default theme">Make default</button>
                             </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
@@ -114,9 +112,7 @@
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Make it the house theme: new catalogs start with it">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
-                                </button>
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Make it the house theme: new catalogs start with it">Make house theme</button>
                             </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
@@ -124,24 +120,15 @@
                                   hx-swap="innerHTML"
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" value="">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Stop using it as the house theme">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
-                                </button>
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Stop using it as the house theme">Unset house theme</button>
                             </form>
                             <th:block th:if="${catalogEditing.editable(theme.catalogKey)}">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
-                                </a>
                                 <button th:if="${auth.has('THEME_EDIT') and !isDefault}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete theme"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                         data-confirm-title="Delete Theme"
                                         th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
-                                        data-confirm-target="#theme-rows">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
+                                        data-confirm-target="#theme-rows">Delete</button>
                             </th:block>
                         </td>
                     </tr>

@@ -87,10 +87,6 @@
                             <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <th:block th:replace="~{fragments/refactoring :: row-action('template', ${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress}, ${template.id})}" />
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress},id=${template.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                                </a>
                             </td>
                         </tr>
                     </tbody>
