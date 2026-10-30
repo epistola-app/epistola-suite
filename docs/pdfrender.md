@@ -62,7 +62,7 @@ pdfrender must point at the **same database and secrets** as the suite:
   suite's database (as the limited role).
 - `EPISTOLA_ENCRYPTION_*` — the **same** encryption keyset as the suite. A render read path may
   decrypt stored credentials; the ephemeral dev key cannot decrypt suite-encrypted data.
-- `epistola.storage.backend` (and, for `s3`, its credentials) — must match the suite.
+- `epistola.storage.backend` — must match the suite (only `postgres` is supported, see `storage.md`).
 - `EPISTOLA_NODE_ID` — set a **distinct** id per process when co-locating with the suite on one
   host (node identity derives from the hostname otherwise, so two processes on one host collide).
 - `LOGGING_STRUCTURED_FORMAT_CONSOLE` — optional `logstash`, `ecs`, or `gelf` console output. The

@@ -79,16 +79,17 @@ class StorageConfiguration {
     }
 
     /**
-     * PostgreSQL is the only tested/supported document-content backend. S3 and
-     * filesystem are **alpha** — wired but not exercised by CI or in production — so
-     * surface a loud warning if one is selected, and MEMORY is test-only.
+     * PostgreSQL is the only tested/supported document-content backend. S3 and filesystem are
+     * wired but have never been exercised by CI or in production, so 2.0 refuses to start on them
+     * rather than run on something untested; their stores stay, to be enabled once tested. MEMORY
+     * is test-only.
      */
     private fun warnIfAlphaBackend(backend: StorageBackend) {
         when (backend) {
             StorageBackend.S3, StorageBackend.FILESYSTEM ->
-                logger.warn(
-                    "Storage backend {} is ALPHA/untested — only POSTGRES is validated for production. Use at your own risk.",
-                    backend,
+                throw IllegalStateException(
+                    "epistola.storage.backend=${backend.name.lowercase()} is not supported: only postgres is tested. " +
+                        "Set epistola.storage.backend=postgres.",
                 )
 
             StorageBackend.MEMORY ->
