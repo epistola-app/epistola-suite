@@ -27,7 +27,7 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
 
     private val lists = listOf("templates", "themes", "stencils", "images", "fonts", "attributes", "code-lists")
 
-    private val create = Regex(""">\s*(New (Template|Theme|Stencil|Attribute|Code List)|Upload (Image|Font))\s*<""")
+    private val create = Regex(""">\s*(New (template|theme|stencil|attribute|code list)|Upload (image|font))\s*<""", RegexOption.IGNORE_CASE)
 
     @Test
     fun `a supplied catalog's lists offer nothing to create and say why, one made here offers them`() = fixture {

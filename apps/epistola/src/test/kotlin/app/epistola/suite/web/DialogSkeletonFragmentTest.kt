@@ -85,7 +85,7 @@ class DialogSkeletonFragmentTest {
         val html = render("multipart-case")
 
         assertThat(html).contains("""<dialog id="upload-dialog"""")
-        assertThat(html).contains("Upload font")
+        assertThat(html).contains("Upload Font")
         assertThat(html).contains("<form")
         assertThat(html).contains("""hx-encoding="multipart/form-data"""")
         assertThat(html).contains("""hx-post="/tenants/acme/fonts"""")

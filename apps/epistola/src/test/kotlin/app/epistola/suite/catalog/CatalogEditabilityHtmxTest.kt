@@ -83,7 +83,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
 
         val list = get(tenant, "/catalogs")
         val row = list.substringAfter("id=\"catalog-list\"").substringAfter("/received-ui/browse").substringBefore("</tr>")
-        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("Publish a new release")
+        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("data-testid=\"catalog-row-publish\"")
     }
 
     @Test
