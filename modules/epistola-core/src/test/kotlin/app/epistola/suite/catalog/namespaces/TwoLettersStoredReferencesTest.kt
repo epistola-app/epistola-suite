@@ -11,8 +11,6 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseContentHashes
-import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
-import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -92,22 +90,6 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
             CreateDocumentTemplate(variant.templateId, "Invoice of $namespace").execute().withRequiredDataExample()
             UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice of $namespace")).execute()
             mediator.publishAndRelease(variant)
-        }
-    }
-
-    @Test
-    fun `a snapshot holds both, and restoring it gives both back with their own content`() {
-        val tenant = tenant("Two letters snapshot")
-        twoLetters(tenant)
-
-        val snapshot = withMediator { BuildTenantSnapshot(tenant).execute() }
-        withMediator { RestoreTenantSnapshot(tenant, snapshot.bytes).execute() }
-
-        withMediator {
-            assertThat(ListCatalogs(tenant).query().filter { it.id == letters }.map { it.namespace }).containsExactlyInAnyOrder("acme", "bureau")
-            for (namespace in listOf("acme", "bureau")) {
-                assertThat(GetDocumentTemplate(TemplateId(invoice, letters(tenant, namespace))).query()!!.name).isEqualTo("Invoice of $namespace")
-            }
         }
     }
 

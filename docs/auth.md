@@ -249,8 +249,8 @@ documentation cannot drift from the code without a test failing.
 They also get read/write on the shared `demo` tenant because that is where the showcase content
 lives — the demo catalog's quality showcase, the seeded findings, the banner — so a visitor who only
 ever saw their own sandbox would miss most of what the demo is for. Not administration, though:
-`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE` and
-`TENANT_RESTORE`, and a shared tenant any visitor could reconfigure or restore over is a demo that
+`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `TENANT_USERS` and
+`CATALOG_MANAGE`, and a shared tenant any visitor could reconfigure is a demo that
 breaks for everyone else. Their own tenant is where they get to be an administrator.
 
 No global and no platform roles is what stops a demo user seeing a _third_ person's tenant

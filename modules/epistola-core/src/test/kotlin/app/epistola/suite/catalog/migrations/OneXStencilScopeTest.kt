@@ -57,7 +57,7 @@ class OneXStencilScopeTest {
           "resource": {
             "type": "stencil", ${if (version >= 8) "\"key\"" else "\"slug\""}: "letterhead", "name": "Letterhead",
             "content": {
-              "modelVersion": 1, "root": "root",
+              "modelVersion": 1, "root": "root", ${if (version >= 8) "\"themeRef\": {\"type\": \"inherit\"}," else ""}
               "nodes": {
                 "root": {"id": "root", "type": "root", "slots": ["root-children"]},
                 "recipient": {"id": "recipient", "type": "text", "slots": [], "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "expression", "attrs": {"expression": "recipient.name"}}]}]}}},

@@ -1,8 +1,8 @@
 # Catalog and Exchange
 
 Catalog exchange lives here, in `app.epistola.suite.catalog`: import/export, remote catalog clients,
-the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), the tenant snapshot
-primitives in `snapshot/`, and reference discovery in `graph/`. There is no separate catalog module.
+the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), and reference discovery
+in `graph/`. There is no separate catalog module.
 
 ## The dependency rules
 

@@ -6,8 +6,6 @@ package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.feedback.sync.FeedbackSyncPort
-import app.epistola.suite.snapshots.SnapshotSyncPort
-import app.epistola.suite.upgrading.CompatibilitySyncPort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,20 +30,12 @@ import org.springframework.test.context.TestPropertySource
 )
 class SupportTierContextTest : BaseIntegrationTest() {
     @Autowired
-    private lateinit var snapshotSyncPort: SnapshotSyncPort
-
-    @Autowired
-    private lateinit var compatibilitySyncPort: CompatibilitySyncPort
-
-    @Autowired
     private lateinit var feedbackSyncPort: FeedbackSyncPort
 
     @Test
     fun `support tier wires the hub adapters with no bean conflicts`() {
         // Single-bean injection above already proves no no-op/hub-adapter collision; isEnabled()
         // confirms the hub adapter won (the no-op reports false).
-        assertThat(snapshotSyncPort.isEnabled()).isTrue()
-        assertThat(compatibilitySyncPort.isEnabled()).isTrue()
         assertThat(feedbackSyncPort.isEnabled()).isTrue()
     }
 }

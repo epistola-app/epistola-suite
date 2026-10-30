@@ -19,6 +19,5 @@ class WireContractAlignmentTest {
     @Test
     fun `core feature keys match the shared hub wire contract`() {
         assertThat(KnownFeatures.SUPPORT_FEEDBACK.value).isEqualTo(SupportFeature.FEEDBACK.wireKey)
-        assertThat(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK.value).isEqualTo(SupportFeature.COMPATIBILITY_CHECK.wireKey)
     }
 }

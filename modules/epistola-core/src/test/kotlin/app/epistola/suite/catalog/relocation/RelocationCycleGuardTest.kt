@@ -5,8 +5,6 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
-import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -26,7 +24,7 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
      * its own catalog is the everyday case; moving that font must not be refused as a cycle.
      */
     @Test
-    fun `a font used by a theme in its own catalog can move, and the snapshot still restores`() {
+    fun `a font used by a theme in its own catalog can move`() {
         val tenant = tenantWith("Font move is not a cycle")
         importFont(tenant, letters, "acme")
         withMediator {
@@ -42,8 +40,6 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
         assertThat(plan.blockers).isEmpty()
         move(tenant, font.movedTo(shared))
 
-        val snapshot = withMediator { BuildTenantSnapshot(tenant).execute() }
-        withMediator { RestoreTenantSnapshot(tenant, snapshot.bytes).execute() }
         assertThat(identityAt(tenant, address(tenant, CatalogResourceType.FONT, shared, "acme"))).isNotNull()
         assertThat(identityAt(tenant, font)).isNull()
     }

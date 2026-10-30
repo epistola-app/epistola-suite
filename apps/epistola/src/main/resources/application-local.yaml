@@ -132,10 +132,6 @@ epistola:
     dev-server:
       auto-start: true
 
-  # Support features (feedback/backups/upgrading) default ON here because support is enabled
-  # below (their default follows `epistola.support.enabled`); the hub still gates the actual
-  # operations via the entitlement. No per-feature toggle needed.
-
   # Identity reported to epistola-hub when support is enabled. Sensible
   # defaults so a developer can just flip `epistola.support.enabled=true`
   # on the command line without re-typing every required field.
@@ -150,7 +146,7 @@ epistola:
   # UNAVAILABLE stack trace. That is noise in every local session, for a tier most
   # local work never touches.
   #
-  # Turn it on when working on Backups, Upgrading or the Support → Overview page:
+  # Turn it on when working on Feedback, telemetry or the Support → Overview page:
   # start epistola-hub, then run with `--epistola.support.enabled=true`. The
   # settings below already point at the local hub gRPC port (9090, plaintext) and
   # skip product discovery, so that one flag is all it takes.

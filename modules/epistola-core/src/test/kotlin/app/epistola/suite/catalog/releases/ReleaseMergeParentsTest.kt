@@ -15,8 +15,6 @@ import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.revisions.ReleaseDescription
-import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
-import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -177,21 +175,6 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
             assertThat(merged(receiver, catalog, "1.2.0").map { it.version }).containsExactly("1.0.1")
             assertThat(PreviewDraftMerge(testCatalog(receiver, catalog), "1.0.1").query().alreadyMerged).`as`("the received 1.2.0 contains it").isTrue()
             assertThat(nextBehind(receiver, catalog)).isEmpty()
-        }
-    }
-
-    @Test
-    fun `a restored tenant keeps what each release merged`() {
-        val tenant = createTenant("Lines Restored").id
-        val catalog = CatalogKey.of("lines-restored")
-        demoLines(tenant, catalog, mergeFixIntoNext = true)
-        val snapshot = withMediator { BuildTenantSnapshot(tenant).execute() }
-
-        withMediator { RestoreTenantSnapshot(tenant, snapshot.bytes).execute() }
-
-        withMediator {
-            assertThat(merged(tenant, catalog, "1.2.0").map { it.version }).containsExactly("1.0.1")
-            assertThat(nextBehind(tenant, catalog)).containsExactly("1.1.1")
         }
     }
 }

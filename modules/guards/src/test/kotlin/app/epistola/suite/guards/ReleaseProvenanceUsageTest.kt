@@ -38,10 +38,6 @@ class ReleaseProvenanceUsageTest {
         "EpistolaCatalogApi.kt",
         // Counted: releases by how they arrived, a tag on a counter.
         "CatalogMetrics.kt",
-        // Carried through a tenant snapshot as it was.
-        "TenantSnapshot.kt",
-        "BuildTenantSnapshot.kt",
-        "RestoreTenantSnapshot.kt",
         // Shown: the release listing, the release page, MCP's release list.
         "ListCatalogReleases.kt",
         "GetCatalogReleaseDetail.kt",

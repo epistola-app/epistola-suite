@@ -16,7 +16,6 @@ import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
-import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -149,7 +148,7 @@ class CatalogNamingTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a catalog under local is released without a grant, exported, received elsewhere, copied into a draft and snapshotted`() {
+    fun `a catalog under local is released without a grant, exported, received elsewhere and copied into a draft`() {
         val tenant = tenant("Local release")
         val elsewhere = tenant("Local elsewhere")
 
@@ -166,7 +165,6 @@ class CatalogNamingTest : IntegrationTestBase() {
 
             CreateCatalogDraft(testCatalog(tenant, letters), "Fix", from = "1.0.0").execute()
             assertThat(ListCatalogReleases(testCatalog(tenant, letters)).query().map { it.name }).contains("Fix")
-            assertThat(BuildTenantSnapshot(tenant).execute().catalogCount).`as`("its default and letters, both local").isEqualTo(2)
         }
     }
 

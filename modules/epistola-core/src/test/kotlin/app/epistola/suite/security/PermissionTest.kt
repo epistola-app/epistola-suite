@@ -64,7 +64,6 @@ class PermissionTest {
             Permission.DIAGNOSTICS_VIEW,
             Permission.DIAGNOSTICS_MANAGE,
             Permission.AUDIT_VIEW,
-            Permission.TENANT_RESTORE,
         )
         assertThat(permissions).doesNotContain(Permission.CATALOG_RELEASE, Permission.ENVIRONMENT_DEPLOY)
     }
@@ -87,7 +86,6 @@ class PermissionTest {
         assertThat(permissions).doesNotContain(
             Permission.DOCUMENT_GENERATE,
             Permission.TENANT_SETTINGS,
-            Permission.TENANT_RESTORE,
             Permission.CATALOG_RELEASE,
             Permission.ENVIRONMENT_DEPLOY,
         )

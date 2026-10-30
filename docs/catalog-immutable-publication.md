@@ -713,9 +713,6 @@ here is the path that renders a published version by resolving its dependencies 
   product/storage decision; deleting an artifact still required by a retained version is invalid.
 - Faithful tenant backups include artifacts, selection/deployment records, identities and blobs.
   Preserve original version numbers and isolate installation-specific Exchange authority/outbox.
-- Distinguish the current catalog-export-based tenant snapshot from a full authoring backup. It
-  must not be described as restoring every draft/history/deployment unless its format actually
-  carries those records. Upgrade its format or retain a clearly scoped guarantee.
 - Restore retained published content without replaying remote publication or depending on current
   remote catalogs. Validate all required bytes before making restored state visible.
 - Restoring into another installation requires a defined tenant identity/import policy and the

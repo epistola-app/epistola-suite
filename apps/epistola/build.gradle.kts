@@ -66,16 +66,6 @@ dependencies {
     // component is gated on epistola.support.enabled). Pulls in the feedback domain.
     implementation(project(":modules:epistola-support-feedback"))
 
-    // Shared snapshot sync — the SnapshotSyncPort + TenantSnapshotSyncService both support features
-    // ride. Pulled in transitively by upgrading; listed explicitly so its beans (no-op
-    // fallback, hub adapter, sync service) are unambiguously component-scanned.
-    implementation(project(":modules:epistola-support-snapshots"))
-
-    // Upgrading (compatibility checks) — reads the company-side compatibility results for the
-    // tenant's catalogs, shows the Upgrading UI, and owns a snapshot-freshness sweep. Gated by
-    // `support-upgrading`; rides the shared snapshot sync.
-    implementation(project(":modules:epistola-support-upgrading"))
-
     // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to epistola-hub
     // when enabled (epistola.support.telemetry.enabled) and the installation is entitled. ADR 0006.
     implementation(project(":modules:epistola-support-telemetry"))

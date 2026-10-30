@@ -41,7 +41,7 @@ class DriftRatchetTest {
         Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {
             mainLines(Regex("""\bval tenantId: TenantKey\b"""))
         },
-        Counter("handler files using require(", 22, "validate(...) with a ValidationCode") {
+        Counter("handler files using require(", 21, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
         Counter("mediator.send/query in epistola-mcp", 22, "execute() / query() extensions") {

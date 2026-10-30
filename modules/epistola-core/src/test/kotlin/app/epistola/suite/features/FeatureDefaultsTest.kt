@@ -32,12 +32,4 @@ class FeatureDefaultsTest {
     fun `organising catalogs is stable and on by default`() {
         assertTrue(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION))
     }
-
-    @Test
-    fun `hub-only features are not resolved here (their default follows the support tier)`() {
-        // FeatureDefaults intentionally does not configure hub-only support features; FeatureToggleService
-        // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.
-        val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK))
-    }
 }
