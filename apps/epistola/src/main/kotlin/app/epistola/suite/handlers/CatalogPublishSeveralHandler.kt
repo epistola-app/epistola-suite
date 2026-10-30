@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.PublishCatalogs
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
@@ -29,6 +30,10 @@ import org.springframework.web.servlet.function.ServerResponse
  *
  * Each row reads the catalog as its own publish dialog does ([CatalogReleaseReadiness]), so the two
  * cannot disagree on what may be published.
+ *
+ * An environment may be chosen to deploy what is published to, each catalog with the releases it needs,
+ * as the publish dialog's "Deploy to" does for one catalog. It is offered to someone who may deploy,
+ * when the tenant has an environment; without one, the page says where to make one.
  */
 @Component
 class CatalogPublishSeveralHandler {
@@ -58,24 +63,33 @@ class CatalogPublishSeveralHandler {
         val chosen = request.params()["catalog"].orEmpty().toSet()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.catalogId.address in chosen }.map { it.catalogId }
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
-        val result = PublishCatalogs(tenantId.key, catalogs, markReady = auth.has(Permission.TEMPLATE_EDIT)).execute()
+        // Only an environment of this tenant, and only for someone who may deploy; anything else deploys nowhere.
+        val deployTo = request.param("deployTo").orElse("").takeIf { it.isNotBlank() && auth.has(Permission.ENVIRONMENT_DEPLOY) }
+            ?.let { key -> ListEnvironments(tenantId).query().firstOrNull { it.id.value == key }?.id }
+        val result = PublishCatalogs(tenantId.key, catalogs, markReady = auth.has(Permission.TEMPLATE_EDIT), deployTo = deployTo).execute()
         return render(tenantId, outcomes = result.outcomes)
     }
 
     private fun render(tenantId: TenantId, outcomes: List<CatalogPublishOutcome>?): ServerResponse {
         val rows = rows(tenantId)
         val names = ListCatalogs(tenantId.key).query().associate { it.catalogId.address to it.name }
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
         return ServerResponse.ok().page("catalogs/publish") {
             "pageTitle" to "Publish several catalogs - Epistola"
             "activeNavSection" to "catalogs"
             "tenantId" to tenantId.key
             "rows" to rows
             "outcomes" to outcomes?.map { OutcomeView(names[it.catalog.address] ?: it.catalog.key.value, it) }
+            "mayDeploy" to auth.has(Permission.ENVIRONMENT_DEPLOY)
+            "environments" to ListEnvironments(tenantId).query()
         }
     }
 
     /** An outcome with its catalog's name, for the page. */
-    data class OutcomeView(val name: String, val outcome: CatalogPublishOutcome)
+    data class OutcomeView(val name: String, val outcome: CatalogPublishOutcome) {
+        /** The environment it was deployed to, as text: a template cannot read a value class's value. */
+        val deployedTo: String? get() = outcome.deployedTo?.value
+    }
 
     private fun rows(tenantId: TenantId): List<Row> {
         val editable = ListCatalogEditability(tenantId.key).query().editableCatalogs

@@ -7,12 +7,16 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.commands.CatalogPublishOutcome.Kind
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -48,7 +52,17 @@ class PublishCatalogsTest : IntegrationTestBase() {
         tenant
     }
 
-    private fun publish(tenant: TenantKey, catalogs: List<CatalogKey>, markReady: Boolean = true) = withMediator { PublishCatalogs(tenant, catalogs.map { testCatalog(tenant, it) }, markReady).execute() }
+    private fun publish(tenant: TenantKey, catalogs: List<CatalogKey>, markReady: Boolean = true, deployTo: EnvironmentKey? = null) = withMediator {
+        PublishCatalogs(tenant, catalogs.map { testCatalog(tenant, it) }, markReady, deployTo).execute()
+    }
+
+    private fun environment(tenant: TenantKey, key: String): EnvironmentKey = withMediator {
+        CreateEnvironment(EnvironmentId(EnvironmentKey.of(key), TenantId(tenant)), key.replaceFirstChar { it.uppercase() }).execute()
+        EnvironmentKey.of(key)
+    }
+
+    private fun deployed(tenant: TenantKey, environment: EnvironmentKey) = withMediator { ListDeployments(tenant, environmentKey = environment).query() }
+        .map { it.catalogKey.value to it.version }
 
     @Test
     fun `a selection in any order is published dependencies first, and pinned to what was just published`() {
@@ -87,5 +101,31 @@ class PublishCatalogsTest : IntegrationTestBase() {
         assertThat(byCatalog.getValue(letters).kind).isEqualTo(Kind.NOT_ATTEMPTED)
         assertThat(byCatalog.getValue(letters).reason).contains("shared")
         assertThat(byCatalog.getValue(forms).kind).isEqualTo(Kind.PUBLISHED)
+    }
+
+    @Test
+    fun `published to be deployed, each catalog is deployed to the environment with what it needs`() {
+        val tenant = tenant("publish-deploy")
+        val acceptance = environment(tenant, "acceptance")
+
+        // Shared is not ticked: it is published along with letters, and deployed along as letters needs it.
+        val result = publish(tenant, listOf(letters, forms), deployTo = acceptance)
+
+        assertThat(result.published.map { it.catalog.key to it.deployedTo }).containsExactly(letters to acceptance, forms to acceptance)
+        assertThat(result.published.map { it.deployRefusal }).containsOnlyNulls()
+        assertThat(deployed(tenant, acceptance)).containsExactlyInAnyOrder("shared" to "1.0.0", "letters" to "1.0.0", "forms" to "1.0.0")
+    }
+
+    @Test
+    fun `a deployment refused leaves the catalog published, and says why`() {
+        val tenant = tenant("publish-deploy-refused")
+
+        val result = publish(tenant, listOf(forms), deployTo = EnvironmentKey.of("nowhere"))
+
+        val outcome = result.outcomes.single()
+        assertThat(outcome.kind).isEqualTo(Kind.PUBLISHED)
+        assertThat(outcome.version).isEqualTo("1.0.0")
+        assertThat(outcome.deployedTo).isNull()
+        assertThat(outcome.deployRefusal).isNotBlank()
     }
 }

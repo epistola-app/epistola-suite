@@ -10,11 +10,15 @@ import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -91,6 +95,24 @@ class PublishSeveralHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an environment chosen gets what is published, each catalog with what it needs`() {
+        val tenant = tenantWithChain("Publish Several Deploy")
+        val noEnvironment = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/publish", String::class.java).body!!
+        assertThat(noEnvironment).`as`("nothing to choose yet, and where to make one")
+            .doesNotContain("data-testid=\"publish-several-deploy-to\"").contains("data-testid=\"publish-several-no-environment\"")
+
+        withMediator { CreateEnvironment(EnvironmentId(EnvironmentKey.of("acceptance"), TenantId(tenant.id)), "Acceptance").execute() }
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/publish", String::class.java).body!!
+        assertThat(page).contains("data-testid=\"publish-several-deploy-to\"").contains("<option value=\"acceptance\">Acceptance</option>")
+
+        val result = post("/tenants/${tenant.id}/catalogs/publish", listOf(testCatalog(tenant.id, letters).address), deployTo = "acceptance").body!!
+
+        assertThat(result).contains("Letters published as v1.0.0, with shared 1.0.0 published first, and deployed to acceptance.")
+        assertThat(withMediator { ListDeployments(tenant.id, environmentKey = EnvironmentKey.of("acceptance")).query() }.map { it.catalogKey.value to it.version })
+            .containsExactlyInAnyOrder("shared" to "1.0.0", "letters" to "1.0.0")
+    }
+
+    @Test
     fun `the catalogs list offers it to someone who may publish`() {
         val tenant = tenantWithChain("Publish Several Entry")
 
@@ -99,10 +121,13 @@ class PublishSeveralHtmxTest : BaseIntegrationTest() {
         assertThat(list).contains("data-testid=\"catalog-publish-several-open\"", "/tenants/${tenant.id}/catalogs/publish")
     }
 
-    private fun post(url: String, catalogs: List<String>) = restTemplate.postForEntity(
+    private fun post(url: String, catalogs: List<String>, deployTo: String? = null) = restTemplate.postForEntity(
         url,
         HttpEntity(
-            LinkedMultiValueMap<String, String>().apply { catalogs.forEach { add("catalog", it) } },
+            LinkedMultiValueMap<String, String>().apply {
+                catalogs.forEach { add("catalog", it) }
+                if (deployTo != null) add("deployTo", deployTo)
+            },
             HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED },
         ),
         String::class.java,
