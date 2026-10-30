@@ -111,7 +111,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogRelease(testCatalog(letters.tenantKey, letters.key), "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("deployed to 'production'")
-        assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key), force = true).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key)).execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
 
         // The release nobody serves is free to go.
@@ -128,7 +128,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             DeployCatalogRelease(test, letters, next).execute()
         }
 
-        assertThat(withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key), force = true).execute() }).isTrue()
+        assertThat(withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key)).execute() }).isTrue()
 
         assertThat(withMediator { ListDeploymentHistory(test).query() }.first().action).isEqualTo(DeploymentAction.UNDEPLOYED)
     }

@@ -59,6 +59,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -134,7 +135,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             .filteredOn { it.targetSelector == ReferenceSelector(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value) }
             .isEmpty()
 
-        withMediator { DeleteStencil(movedStencilId, force = true).execute() }
+        withMediator {
+            // Nothing in use is deleted: the variant stops using it first.
+            UpdateVariantContent(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            DeleteStencil(movedStencilId).execute()
+        }
         assertThat(identityAt(tenant.id, sourceAddress.copy(catalogKey = targetCatalog.value))).isNull()
     }
 

@@ -329,12 +329,9 @@ class FontHandler(
         val catalog = segment.catalogIn(request.tenantId())
         val version = segment.ref(tenantKey)
         val slug = FontKey.of(request.pathVariable("slug"))
-        val force = request.param("force").orElse("false").toBoolean()
-
         try {
             DeleteFont(
                 fontId = FontId(slug, catalog),
-                force = force,
                 catalogVersion = version,
             ).execute()
         } catch (e: FontInUseException) {

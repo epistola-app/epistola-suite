@@ -179,9 +179,6 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             assertThatThrownBy { DeleteFont(fontId).execute() }
                 .isInstanceOf(FontInUseException::class.java)
                 .hasMessageContaining("Brand Theme")
-
-            // force = true overrides the guard.
-            assertThat(DeleteFont(fontId, force = true).execute()).isTrue()
         }
     }
 

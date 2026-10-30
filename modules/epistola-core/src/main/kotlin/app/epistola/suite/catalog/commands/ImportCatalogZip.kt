@@ -346,7 +346,7 @@ class ImportCatalogZipHandler(
             // Nothing was advanced: a catalog the tenant had stays on the release it had, and one this
             // import created is removed again, so a failed install leaves nothing behind and the retry
             // finds the key free (all or nothing).
-            if (existing == null) DeleteCatalog(catalog, force = true).execute()
+            if (existing == null) DeleteCatalog(catalog).execute()
             return imported.copy(releaseVersion = version, newlyInstalled = false, installedDependencies = installedDependencies, presentDependencies = presentDependencies)
         }
         return result(newly = true)

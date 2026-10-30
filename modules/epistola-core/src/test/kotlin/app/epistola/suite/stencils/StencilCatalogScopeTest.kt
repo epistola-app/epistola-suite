@@ -131,10 +131,14 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
 
     @Test
     fun `a reference whose catalog no longer has the stencil is reported under the stencil that has the key`() {
-        // brand-b/letterhead is gone, so the instance naming it dangles. Usage reports it under the
-        // remaining letterhead, as after a move, so an author can find and fix it.
-        val f = setUp("brand-b-instance" to brandB.value)
-        withMediator { DeleteStencil(f.brandBLetterhead, force = true).execute() }
+        // brand-b/letterhead is gone, so an instance naming it dangles: saved content is not checked
+        // against what exists, only releasing is. Usage reports it under the remaining letterhead, as
+        // after a move, so an author can find and fix it.
+        val f = setUp()
+        withMediator {
+            DeleteStencil(f.brandBLetterhead).execute()
+            UpdateVariantContent(variantId = f.variantId, templateModel = templateEmbedding("brand-b-instance" to brandB.value)).execute()
+        }
 
         withMediator {
             assertThat(FindStencilUsages(f.acmeLetterhead).query()).containsExactly("Letter")

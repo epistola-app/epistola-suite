@@ -166,7 +166,9 @@ class EpistolaImagesApi(
         catalogKey: String,
         release: String,
         imageKey: String,
-        force: Boolean,
+        // Ignored: an image in use is never deleted, since what uses it would then name nothing. The
+        // contract still declares the parameter; it goes in its next major (2.0).
+        @Suppress("UNUSED_PARAMETER") force: Boolean,
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
@@ -174,7 +176,7 @@ class EpistolaImagesApi(
         if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
             throw AssetNotFoundException(draft.tenantKey, key)
         }
-        DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
+        DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).execute()
         return ResponseEntity.noContent().build()
     }
 

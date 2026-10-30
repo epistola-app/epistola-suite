@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.CatalogReleaseVersions
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -19,6 +20,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.ValidationCode
@@ -44,7 +46,8 @@ data class DeclaredCatalogDependency(
  *
  * Each declaration names a catalog the tenant has and pins an exact release of it that the tenant
  * has, recorded with that release's fingerprint, or names one of that catalog's drafts, to build on
- * work not released yet (contract ADR 0002). A range is not a declaration (contract 2.0).
+ * work not released yet (contract ADR 0002). A range is not a declaration (contract 2.0). A catalog
+ * the version still uses stays declared.
  */
 data class UpdateCatalogDependencies(
     val catalog: CatalogId,
@@ -130,6 +133,18 @@ class UpdateCatalogDependenciesHandler(
                 ?: throw ValidationException("$field.releaseVersion", "This tenant has no release $version of ${declared.catalogKey}", ValidationCode.CATALOG_DEPENDENCY_INVALID)
             declared.copy(releaseVersion = release.version, releaseFingerprint = release.fingerprint)
         }
+        // A declaration the version's content still uses stays: without it what uses it names nothing,
+        // and the version cannot be released. The author stops using the catalog first.
+        val kept = declarations.map { it.catalogKey }.toSet()
+        GetCatalogBorrowing(command.catalog, command.catalogVersion).query().catalogs
+            .firstOrNull { it.declared && it.used && it.catalogKey !in kept }
+            ?.let { dropped ->
+                throw ValidationException(
+                    "dependencies",
+                    "${dropped.catalogKey} is used by this version (${dropped.uses.map { "${it.type} ${it.key}" }.distinct().joinToString()}), so its declaration stays. Stop using it first.",
+                    ValidationCode.CATALOG_DEPENDENCY_INVALID,
+                )
+            }
         store.replace(handle, command.catalog, declarations)
         declarations
     }

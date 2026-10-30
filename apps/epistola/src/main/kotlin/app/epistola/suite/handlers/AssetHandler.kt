@@ -350,10 +350,8 @@ class AssetHandler(
         val catalogFilter = segment?.catalogIn(tenantId)
         val version = request.catalogSegment().ref(tenantId)
 
-        val force = request.param("force").orElse("false").toBoolean()
-
         try {
-            DeleteAsset(tenantId = tenantId, assetId = assetId, force = force, catalogVersion = version).execute()
+            DeleteAsset(tenantId = tenantId, assetId = assetId, catalogVersion = version).execute()
         } catch (e: AssetInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
