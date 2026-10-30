@@ -16,8 +16,7 @@ import org.springframework.stereotype.Service
  * that need it (startup hook, refresh scheduler, revision trigger) and the UI handler. It binds the
  * mediator scope (background callers have no HTTP-bound mediator) and stays **fail-open**: a refresh
  * must never crash its caller or downgrade the stored set. The actual work — and its metrics/audit —
- * lives in [RefreshEntitlementsHandler]. This mirrors how `TenantSnapshotSyncService` wraps the
- * `BuildTenantSnapshot` command.
+ * lives in [RefreshEntitlementsHandler].
  */
 @Service
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
