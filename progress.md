@@ -75,6 +75,32 @@ Decided and closed:
 
 ## Touched
 
+### Catalog invariants checked after every integration test class (30 October; branch `tests/catalog-invariants`)
+
+Phase 0 of a bug hunt for 2.0: the rules a tenant's catalogs must satisfy after any sequence of
+commands, written as SQL that returns the rows breaking them, and checked over each test class's
+tenants when it ends. Every existing integration test class tests those rules with no change to it.
+
+| What                                                                                                                                                                                                                                                                                                                   | Where                                                               | Covered                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Ten rules the database does not enforce: base is a release of the same catalog, a release pins releases the tenant has, declarations name present catalogs and target their versions, no cycles, a draft's identity at its address, released entries fingerprinted, image bytes stored, a release's references resolve | `modules/testing` `CatalogInvariants`                               | ✅ `CatalogInvariantsTest`: a world built by commands is clean; each rule finds its corruption |
+| Checked once per top-level class that created a tenant, one query; fails the class naming the test that made the tenant; `-PtestInvariants=report\|off`; time in the test-run metrics                                                                                                                                  | `CatalogInvariantsExtension`, `TestTenantCounter`, `TestRunMetrics` | ✅ full `./gradlew test` in fail mode                                                          |
+| Two rules dropped because the database already refuses them (a catalog without its next draft, one identity twice in a version); a draft's dangling references and orphan ready marks are not rules (allowed, caught when releasing)                                                                                   | —                                                                   | ✅ tried in `CatalogInvariantsTest` before dropping                                            |
+| Releasing a draft that pins a release since deleted is refused, naming it                                                                                                                                                                                                                                              | `ReleaseCatalogDraft` (unchanged)                                   | ✅ `ReleaseReferenceIntegrityTest` (no test had it)                                            |
+
+Found by the first survey (report mode over the core suite), not changed:
+
+- A release's entry fingerprint can be rewritten in SQL: the freeze of a released row covers its
+  identity, not its columns. Only the code keeps a release frozen (`FrozenVersionWriteGuardTest`).
+- `UpdateCatalogDependencies` drops a declaration the draft's content still uses, silently; the
+  author learns at release time from a technical message ("catalog.json.dependencies[0]: dependency
+  'theme|shared|brand' names the catalog alias 'shared', which catalogDependencies does not
+  declare"), raised as `IllegalArgumentException` rather than a `ValidationException`.
+- Deleting a release is refused only while a release pins it; a draft pinning it is left pinning
+  nothing here (releasing it is then refused, see above). Whether the delete should warn is open.
+- Ready marks of resources a draft no longer holds are never removed (harmless: readiness compares
+  digests).
+
 ### Monkey-test findings (30 October; branch `fix/monkey-test-findings`, contract `fix/v7-fingerprint-own-key`)
 
 The 1.x Utrecht upgrade, a fresh import of its archives, and the organising features driven in the

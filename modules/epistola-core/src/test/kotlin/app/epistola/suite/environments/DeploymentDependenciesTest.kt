@@ -27,6 +27,7 @@ import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -42,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired
  *
  * The chain: `letters@1.0.0` pins `shared@1.0.0`, which pins `base@1.0.0`.
  */
+@SkipCatalogInvariants("simulates releases imported with a pin on a release the tenant lacks, or with none, by rewriting their pins")
 class DeploymentDependenciesTest : IntegrationTestBase() {
 
     @Autowired

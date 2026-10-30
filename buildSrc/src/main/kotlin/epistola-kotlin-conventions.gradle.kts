@@ -106,6 +106,8 @@ val testParallelism = providers.gradleProperty("testParallelism").orElse("4")
 
 val testPostgresVersion = providers.gradleProperty("testPostgresVersion").orElse("17")
 
+val testInvariants = providers.gradleProperty("testInvariants").orElse("fail")
+
 fun Test.capJUnitParallelism() {
     systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
     systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
@@ -145,6 +147,10 @@ tasks.withType<Test>().configureEach {
     // version by default, so a migration or query using a feature only a newer server has
     // fails here rather than on an installation. `-PtestPostgresVersion=18` runs on 18.
     systemProperty("epistola.test.postgres.version", testPostgresVersion.get())
+
+    // What an integration test class does when it leaves its tenants' catalogs inconsistent
+    // (CatalogInvariantsExtension): fail, report (write them under build/invariant-violations) or off.
+    systemProperty("epistola.test.invariants", testInvariants.get())
 
     testLogging {
         events("passed", "skipped", "failed")
