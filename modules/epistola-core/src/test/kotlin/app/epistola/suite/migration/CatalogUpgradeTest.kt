@@ -125,9 +125,12 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         useSystemFont(catalog)
         declareByName(catalog, catalog(tenant, shared))
 
+        // The declaration by name, of a catalog with nothing released, names its next version: to
+        // release first, or along.
         assertThatThrownBy { withMediator { ReleaseCatalogDraft(catalog).execute() } }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("shared has no release to pin; release shared first")
+            .isInstanceOf(app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException::class.java)
+            .hasMessageContaining("/shared (")
+            .hasMessageContaining("Release them first, or release them along")
     }
 
     @Test

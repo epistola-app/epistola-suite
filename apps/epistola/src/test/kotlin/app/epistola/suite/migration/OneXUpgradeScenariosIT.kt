@@ -83,10 +83,12 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
         assertThat(declaredByName(DEPS, LETTERS)).`as`("the upgrade declares, by name, what letters' content uses").contains(SHARED.value)
         val published = ReleaseCatalogDraft(letters, catalogVersion = CatalogReleaseRef(letters, DraftRef.Id(namedDraft(DEPS, LETTERS))))
 
-        // In the wrong order, the release is refused, naming the catalog to release first.
+        // In the wrong order, the release is refused, naming the catalog to release first or along:
+        // the declaration by name, of a catalog with no release yet, names its next version.
         assertThatThrownBy { asTenant(DEPS) { published.execute() } }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("shared has no release to pin; release shared first")
+            .isInstanceOf(app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException::class.java)
+            .hasMessageContaining("/${SHARED.value} (")
+            .hasMessageContaining("Release them first, or release them along")
 
         val sharedRelease = asTenant(DEPS) { ReleaseCatalogDraft(shared).execute() }
         val lettersRelease = asTenant(DEPS) { published.execute() }
