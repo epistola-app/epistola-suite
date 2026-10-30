@@ -80,4 +80,18 @@ class AuditEntityLinksTest {
         assertThat(links.resolve(entry("attribute", "demo/default/brand")).href).isEqualTo("/tenants/demo/catalogs/default/attributes")
         assertThat(links.resolve(entry("font", "demo/default/inter")).href).isEqualTo("/tenants/demo/catalogs/default/fonts")
     }
+
+    @Test
+    fun `an id naming its catalog's namespace links to the catalog by namespace and key`() {
+        // Written since catalogs are addressed by namespace and key: `tenant/namespace/catalog/…`.
+        val variant = links.resolve(entry("variant", "upgrade/upgrade/weni-werk-brieven/ad-hoc-brief/default"))
+        assertThat(variant.label).isEqualTo("template ad-hoc-brief › variant default")
+        assertThat(variant.href).isEqualTo("/tenants/upgrade/catalogs/upgrade/weni-werk-brieven/templates/ad-hoc-brief")
+
+        val stencil = links.resolve(entry("stencil", "upgrade/upgrade/weni-huisstijl/weni-adres"))
+        assertThat(stencil.label).isEqualTo("stencil weni-adres")
+        assertThat(stencil.href).isEqualTo("/tenants/upgrade/catalogs/upgrade/weni-huisstijl/stencils/weni-adres")
+
+        assertThat(links.resolve(entry("font", "acme/acme/brand/inter")).href).isEqualTo("/tenants/acme/catalogs/acme/brand/fonts")
+    }
 }

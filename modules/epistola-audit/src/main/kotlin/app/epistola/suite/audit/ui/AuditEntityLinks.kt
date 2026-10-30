@@ -35,7 +35,7 @@ class AuditEntityLinks {
         // show what we have, no link.
         if (type == null || id.isNullOrBlank()) return AuditEntityLink(label = id ?: "—", href = null)
 
-        val seg = id.split("/")
+        val seg = catalogAsOneSegment(type, id.split("/"))
         fun s(i: Int) = seg.getOrNull(i)
 
         return when (type) {
@@ -67,6 +67,17 @@ class AuditEntityLinks {
         }
     }
 
+    /**
+     * [seg] with the catalog as one segment. Since catalogs are addressed by namespace and key, a
+     * catalog-scoped id is `tenant/namespace/catalog/…`; one written before is `tenant/catalog/…`.
+     * Told apart by length, the namespace is joined to the catalog (`namespace/catalog`), as the
+     * catalog routes take it, so both read alike below.
+     */
+    private fun catalogAsOneSegment(type: String, seg: List<String>): List<String> {
+        val keys = KEYS_BELOW_CATALOG[type] ?: return seg
+        return if (seg.size == 3 + keys) listOf(seg[0], "${seg[1]}/${seg[2]}") + seg.drop(3) else seg
+    }
+
     /** `/tenants/{tenant}/catalogs/{catalog}/{collection}/{key}` for a catalog-scoped resource `tenant/catalog/key/…`. */
     private fun catalogScoped(collection: String, seg: List<String>): String? {
         val (tenant, catalog, key) = Triple(seg.getOrNull(0), seg.getOrNull(1), seg.getOrNull(2))
@@ -81,4 +92,13 @@ class AuditEntityLinks {
 
     /** Variants/versions/contract-versions live under the template editor, identified by `tenant/catalog/template`. */
     private fun templateHref(seg: List<String>): String? = catalogScoped("templates", seg)
+
+    private companion object {
+        /** How many keys a catalog-scoped id has below its catalog, by entity type. */
+        val KEYS_BELOW_CATALOG = mapOf(
+            "template" to 1, "variant" to 2, "version" to 3, "contract-version" to 2,
+            "theme" to 1, "stencil" to 1, "stencil-version" to 2,
+            "attribute" to 1, "code-list" to 1, "font" to 1,
+        )
+    }
 }
