@@ -127,3 +127,7 @@ gh release view vX.Y.Z
   tag. CI enforces `tag == gradle.properties`.
 - Never skip the CHANGELOG update or the release-summary prose.
 - Dev always carries `-SNAPSHOT`; a release is the strip → tag → re-open cycle.
+- **A pre-release** (`X.Y.Z-alpha.N`, `-RC.N`) from a release line (`release/2.0`): create it with
+  `gh release create … --prerelease`, and its image never becomes `latest` (`build.yml` skips that
+  tag for any version with a `-`). Its fragments may stay for the final release, with a short
+  hand-written section for the pre-release.

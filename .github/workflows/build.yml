@@ -767,10 +767,16 @@ jobs:
         run: |
           docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX
           docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
-          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          # A pre-release (2.0.0-alpha.1, 1.0.0-RC1) never becomes `latest`: an installation pulling
+          # latest would otherwise be upgraded to it, and a major's migrations only go forward.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Pre-release $VERSION: latest$SUFFIX left where it is"
+          else
+            docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          fi
           echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
 
       - name: Sign Docker image (release)
