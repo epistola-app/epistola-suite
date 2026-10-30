@@ -62,6 +62,9 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
     private val letters = CatalogKey.of("letters")
 
     /** Letters published as 1.0.0 with a code list (en, nl); its work is 1.0.1. */
@@ -249,6 +252,51 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         assertThat(withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
         assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
+            .containsExactly("shared" to "1.0.0")
+    }
+
+    /**
+     * What the 2.0 upgrade leaves for what a 1.x catalog used: declarations by name, pinning no
+     * release and naming no draft. No command makes one, a declaration names one or the other.
+     */
+    private fun declaredByName(tenant: Tenant) = jdbi.useHandle<Exception> {
+        it.createUpdate("UPDATE catalog_version_dependencies SET release_version = NULL, release_fingerprint = NULL, target_version_id = NULL WHERE tenant_key = :t")
+            .bind("t", tenant.id)
+            .execute()
+    }
+
+    @Test
+    fun `a catalog declared by name and never published is published along, not a dead end`() {
+        val tenant = published("Publish By Name Unpublished")
+        usingSharedTheme(tenant, publishShared = false)
+        declaredByName(tenant)
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+
+        assertThat(dialog).doesNotContain("data-testid=\"release-blocked-dependencies\"")
+        assertThat(dialog).contains("Shared is published too, as v1.0.0: this uses its Next release, with Brand not published yet.")
+        assertThat(dialog).contains("data-testid=\"release-submit\"")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
+
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
+            .containsExactly("shared" to "1.0.0")
+    }
+
+    @Test
+    fun `a catalog declared by name with a release is pinned to it on publishing, not a dead end`() {
+        val tenant = published("Publish By Name Released")
+        usingSharedTheme(tenant)
+        declaredByName(tenant)
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+
+        assertThat(dialog).doesNotContain("data-testid=\"release-blocked-dependencies\"")
+        assertThat(dialog).contains("data-testid=\"release-submit\"")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
+
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
     }
 

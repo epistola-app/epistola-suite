@@ -264,8 +264,10 @@ class ReleaseCatalogDraftHandler(
      * Runs targeting [draft], whose declarations it reads.
      */
     private fun releaseDependencies(command: ReleaseCatalogDraft, draft: CatalogDraft): List<ReleasedDependency> {
-        val named = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, command.catalog) }
-            .filter { it.namesDraft }
+        // A declaration made by name, of a catalog with nothing released yet, names its next version.
+        val named = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
+            dependencyStore.declarations(handle, command.catalog).map { dependencyStore.asPublished(handle, command.tenantKey, it) }
+        }.filter { it.namesDraft }
         val changed = mutableListOf<CatalogDependencyDeclaration>()
         for (declaration in named) {
             val base = unchangedBase(declaration.catalogIn(command.tenantKey), refOf(command.tenantKey, declaration))

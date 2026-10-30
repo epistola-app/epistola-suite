@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -73,6 +74,9 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var source: ReleaseRenderSource
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     private val shared = CatalogKey.of("shared")
     private val letters = CatalogKey.of("letters")
@@ -267,6 +271,33 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single().releaseVersion)
             .`as`("releasing the draft it named pins its release").isEqualTo("1.0.0")
         withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() }
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant, letters), "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `a dependency declared by name, of a catalog with nothing released, is published along and pinned`() {
+        val tenant = setUp("deps-by-name")
+        invoiceOnSharedTheme(tenant)
+        // What the 2.0 upgrade leaves for what a 1.x catalog used: a declaration by name, pinning no
+        // release and naming no draft. No command makes one (a declaration names one or the other).
+        withMediator {
+            jdbi.useHandle<Exception> {
+                it.createUpdate("UPDATE catalog_version_dependencies SET release_version = NULL, release_fingerprint = NULL, target_version_id = NULL WHERE tenant_key = :t")
+                    .bind("t", tenant)
+                    .execute()
+            }
+        }
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single().let { it.pinned || it.namesDraft }).isFalse()
+
+        // Publishing letters publishes shared's next version first, as the publish dialog lists it.
+        val along = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.publishedAlong
+        assertThat(along.map { it.catalogKey to it.draftName }).containsExactly(shared.value to "Next release")
+
+        withMediator { MarkCatalogReady(testCatalog(tenant, shared)).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        val result = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", releaseDependencies = true).execute() }
+
+        assertThat(result.releasedDependencies.map { it.catalogKey to it.releaseVersion }).containsExactly(shared.value to "1.0.0")
         assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant, letters), "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
     }
 
