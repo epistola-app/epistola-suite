@@ -410,6 +410,19 @@ export class CatalogOrganise extends LitElement {
     return (this.preview?.blockers ?? []).filter((blocker) => !blocker.source);
   }
 
+  /**
+   * What the summary explains. The browser shows a resource's blockers in its row; a single
+   * resource has no table, so every blocker is said here, or "Blocked" would come with no reason.
+   */
+  private get summaryBlockers(): Blocker[] {
+    return this.single ? (this.preview?.blockers ?? []) : this.batchBlockers;
+  }
+
+  /** A move to a catalog that already has the key can only go ahead under another key. */
+  private get targetOccupied(): boolean {
+    return (this.preview?.blockers ?? []).some((blocker) => blocker.code === 'target-occupied');
+  }
+
   /** The resource this element is focused on, or undefined while loading or if it is gone. */
   private get focused(): OrganiseResource | undefined {
     return this.single ? this.resources.find((resource) => resource.id === this.single) : undefined;
@@ -468,7 +481,7 @@ export class CatalogOrganise extends LitElement {
               </label>`
         }
         ${
-          this.mode === 'move'
+          this.mode === 'move' && !this.targetOccupied && !destination?.key
             ? nothing
             : html`<label class="ep-label"
                 >${this.mode === 'rename' ? 'New key' : 'New key (optional)'}
@@ -773,6 +786,11 @@ export class CatalogOrganise extends LitElement {
   }
 
   /** What applying does, in the words of the refactoring chosen. */
+  /** What this surface does, in the words its summary uses. */
+  private verb(): 'rename' | 'move' {
+    return this.single && this.mode === 'rename' ? 'rename' : 'move';
+  }
+
   private applyLabel(): string {
     if (this.single && this.mode === 'rename') return 'Rename';
     if (this.single && this.mode === 'move') return 'Move';
@@ -803,7 +821,9 @@ export class CatalogOrganise extends LitElement {
               <p>
                 <strong
                   >${
-                    this.preview.executable ? 'Ready to move' : 'Blocked — nothing will be moved'
+                    this.preview.executable
+                      ? `Ready to ${this.verb()}`
+                      : `Blocked — nothing will be ${this.verb() === 'rename' ? 'renamed' : 'moved'}`
                   }</strong
                 >
               </p>
@@ -824,7 +844,7 @@ export class CatalogOrganise extends LitElement {
                   </p>`,
               )}
               ${this.renderReleases(this.preview.releases ?? [], this.preview.releaseOrder ?? [])}
-              ${this.batchBlockers.map(
+              ${this.summaryBlockers.map(
                 (blocker) => html`<p class="alert alert-error">${blocker.message}</p>`,
               )}
               ${(this.preview.warnings ?? []).map(

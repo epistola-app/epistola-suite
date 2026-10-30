@@ -7,6 +7,8 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.namespaces.ListHeldNamespaces
+import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -194,7 +196,18 @@ class CatalogOrganiseHandler {
         if (!request.relocationEnabled()) return ServerResponse.notFound().build()
         val body = request.body(SharedCatalogRequest::class.java)
         return try {
-            val created = CreateCatalog(request.tenantKey(), CatalogKey.of(body.key.trim()), body.name.trim()).execute()
+            // Named as a new catalog is when nobody chooses: in the namespace the tenant holds, else
+            // locally beside its catalogs. The form asks no namespace, so it must never need one.
+            val tenantKey = request.tenantKey()
+            val namespaces = ListHeldNamespaces(tenantKey).query()
+            val held = namespaces.choice
+            val created = CreateCatalog(
+                tenantKey,
+                CatalogKey.of(body.key.trim()),
+                body.name.trim(),
+                registry = held?.authority ?: LocalAuthority.NAME,
+                namespace = held?.namespace ?: namespaces.suggestedLocalNamespace,
+            ).execute()
             json(mapOf("key" to created.address, "name" to created.name, "editable" to true))
         } catch (exception: IllegalArgumentException) {
             // A key that is no slug, or a name the command refuses (ValidationException is one).

@@ -248,10 +248,11 @@ class MoveCatalogResourcesHandler(
         // next release to refuse: on the draft of a catalog a resource moved into, since no release
         // of it holds the resource yet (ADR 0042).
         declarer.declareMissingInTenant(command.tenantKey)
+        // A renamed resource arrives at its new key as a moved one arrives in its new catalog: no
+        // release holds it there yet, so every catalog using it follows the next version as well.
         declarer.followMoved(
             command.tenantKey,
             command.relocations
-                .filter { it.source.catalogAddress != it.target.catalogAddress }
                 .groupBy({ it.target.catalogIn(command.tenantKey) }, { "${it.target.type.wireName}/${it.target.key}" })
                 .mapValues { it.value.toSet() },
         )

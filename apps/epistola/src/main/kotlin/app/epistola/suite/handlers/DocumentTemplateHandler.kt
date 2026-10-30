@@ -466,7 +466,10 @@ class DocumentTemplateHandler(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId.key,
-                "catalogId" to catalogId,
+                // The catalog's key, which its documents name it by, and its address, which catalog
+                // lists name it by (ADR 0034).
+                "catalogId" to catalog.key.value,
+                "catalogAddress" to catalogId,
                 // The catalog segment the editor's own requests carry, so they stay on the draft.
                 "catalogSegment" to segment.value,
                 // The editor keeps the context bar, slimmed to one line (docs/workspace-shell.md).

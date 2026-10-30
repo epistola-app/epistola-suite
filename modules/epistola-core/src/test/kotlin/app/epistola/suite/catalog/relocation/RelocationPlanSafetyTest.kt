@@ -65,7 +65,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val tenant = tenantWith("Stale on release")
         val header = stencilReferencedByDraft(tenant)
         val plan = preview(tenant, header.movedTo(shared))
-        assertThat(plan.warnings).isEmpty()
+        assertThat(plan.warnings.map { it.code }).doesNotContain("released-source")
 
         withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
         withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP).execute() }

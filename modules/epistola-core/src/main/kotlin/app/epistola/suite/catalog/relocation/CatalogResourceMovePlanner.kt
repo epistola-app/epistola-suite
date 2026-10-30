@@ -108,7 +108,7 @@ class CatalogResourceMovePlanner(
             }
 
             if (target !in vacated && isAddressTaken(handle, tenantKey, target)) {
-                blockers += blocker("target-occupied", "${target.id} is already a resource", source)
+                blockers += blocker("target-occupied", "${target.id} is already a resource; give it another key", source)
             }
             // A warning, not a blocker. A *subscriber* is out of this move's reach: an installation
             // that upgrades to a later release of this catalog sees the resource gone rather than
@@ -118,7 +118,7 @@ class CatalogResourceMovePlanner(
             if (hasRelease(handle, tenantKey, source.catalogIn(tenantKey))) {
                 warnings += ResourceMoveWarning(
                     "released-source",
-                    "${source.catalogAddress} has been released; anyone subscribed to it will not follow this move until they re-import",
+                    "${source.catalogAddress} has been released; anyone subscribed to it will not follow this change until they re-import",
                     source,
                 )
             }
@@ -155,6 +155,7 @@ class CatalogResourceMovePlanner(
             }
             if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations)
         }
+        if (blockers.isEmpty()) warnings += readyAgain(repoint)
 
         val plans = relocations.map { relocation ->
             ResourceRelocationPlan(
@@ -202,6 +203,15 @@ class CatalogResourceMovePlanner(
             add(target.catalogAddress, ChangeKind.ADDITIVE, "gains ${target.type.word()} '${target.key}'")
         }
         (after - before).sortedWith(compareBy({ it.first }, { it.second })).forEach { (from, to) -> add(from, ChangeKind.ADDITIVE, "now depends on ${to.substringAfter('/')}") }
+        // A catalog that only uses a relocated resource has its references rewritten, so its next
+        // release changes too: a fix, which comes after the release holding the resource at its new
+        // address. A catalog already listed says so by its other reasons.
+        val listed = reasons.keys.toSet()
+        graph.edges.mapNotNull { edge -> edge.target?.let { destinations[it] }?.let { edge.source.catalogAddress to it } }
+            .filter { (catalog, _) -> catalog !in listed }
+            .distinct()
+            .sortedWith(compareBy({ it.first }, { it.second.id }))
+            .forEach { (catalog, target) -> add(catalog, ChangeKind.NONE, "uses ${target.type.word()} '${target.key}' at its new address") }
 
         val order = releaseOrder(reasons.keys, after)
         val releases = order.map { catalog ->
@@ -407,6 +417,24 @@ class CatalogResourceMovePlanner(
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
     }
+
+    /**
+     * A ready mark is for the content an author approved. Rewriting a resource's references, or
+     * moving it, changes that content, so each one is to be marked ready again before its catalog
+     * releases: said in the preview, rather than first met as a refused release in another catalog.
+     * A long list names the first few.
+     */
+    private fun readyAgain(repoint: RepointPlan): List<ResourceMoveWarning> = (repoint.rewrites.map { it.row } + repoint.moves.map { it.head.row.copy(catalogAddress = it.relocation.target.catalogAddress, key = it.relocation.target.key) })
+        .groupBy({ it.catalogAddress }, { row -> row.parentKey?.let { "template '$it'" } ?: "${row.type} '${row.key}'" })
+        .toSortedMap()
+        .map { (catalog, changed) ->
+            val names = changed.distinct().sorted()
+            val shown = if (names.size > 3) names.take(3) + "${names.size - 3} more" else names
+            ResourceMoveWarning(
+                "ready-again",
+                "In $catalog, ${shown.joinToString()} ${if (names.size == 1) "changes and needs" else "change and need"} marking ready again before it is released",
+            )
+        }
 
     private fun blocker(code: String, message: String, source: ResourceAddress? = null) = ResourceMoveBlocker(code, message, source)
 }

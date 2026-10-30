@@ -1544,6 +1544,37 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             }
         }
 
+        /**
+         * Documents name a catalog by its key, which is also how an image or stencil that names no
+         * catalog resolves its own; catalog lists name it by address. Given the address as its key,
+         * the editor looked the catalog's own images up under an alias that does not exist.
+         */
+        @Test
+        fun `GET editor page names its catalog by key for documents and by address for lists`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Editor Catalog Tenant")
+                template = template(testTenant, "Editor Catalog Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/${template.id}/variants/$variantId/editor",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val body = result<org.springframework.http.ResponseEntity<String>>().body!!
+                assertThat(body).contains("\"catalogId\": \"default\"")
+                assertThat(body).contains("\"catalogAddress\": \"${testTenant.id}/default\"")
+            }
+        }
+
         @Test
         fun `GET editor page includes effective theme defaults`() = fixture {
             lateinit var testTenant: Tenant

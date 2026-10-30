@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.EpistolaPrincipalHolder
 import app.epistola.suite.security.SecurityContext
@@ -56,7 +57,7 @@ class SecurityFilter : OncePerRequestFilter() {
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val principal = resolvePrincipal(request)
+        val principal = resolvePrincipal(request)?.let { inRequestTenant(it, request) }
 
         if (principal != null) {
             // Cache so the async re-dispatch (different thread, ScopedValue
@@ -107,6 +108,20 @@ class SecurityFilter : OncePerRequestFilter() {
                 null
             }
         }
+    }
+
+    /**
+     * [principal] working in the tenant a UI route names (`/tenants/{tenant}/…`), when it may act
+     * there. A signed-in user's current tenant is otherwise the one they signed in to, or none, so
+     * what they do in another tenant was logged under the wrong tenant, or under none and so shown in
+     * every tenant's logs (docs/application-logs.md: the principal is the only source). Only UI
+     * routes: an API key or token is bound to its tenant where it is authenticated.
+     */
+    private fun inRequestTenant(principal: EpistolaPrincipal, request: HttpServletRequest): EpistolaPrincipal {
+        val segment = request.requestURI.removePrefix(request.contextPath).split('/').takeIf { it.size > 2 && it[1] == "tenants" }?.get(2)
+        val tenant = segment?.let { runCatching { TenantKey.of(it) }.getOrNull() } ?: return principal
+        if (tenant == principal.currentTenantId || !principal.hasAccessToTenant(tenant)) return principal
+        return principal.copy(currentTenantId = tenant)
     }
 
     companion object {

@@ -7,14 +7,17 @@ package app.epistola.suite.handlers
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -221,6 +224,28 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val again = post(tenantId, "catalogs", """{"key":"brand","name":"Brand again"}""")
         assertThat(again.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(objectMapper.readTree(again.body).path("message").stringValue()).contains("brand")
+    }
+
+    /**
+     * A tenant holding no namespace, as one upgraded from 1.x does, names its catalogs locally. The
+     * shared catalog form has no namespace field, so it is named where those catalogs are, rather
+     * than refused with advice to choose a namespace the form does not offer.
+     */
+    @Test
+    fun `a tenant holding no namespace gets its shared catalog where its catalogs are`() {
+        val tenant = TenantKey.of("org-local-${System.nanoTime() % 100000}")
+        withMediator {
+            CreateTenant(id = tenant, name = "Organise local").execute()
+            SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+            // Named where 1.x left them: most of its catalogs under one local namespace.
+            CreateCatalog(tenant, CatalogKey.of("letters"), "Letters", registry = LocalAuthority.NAME, namespace = "upgrade").execute()
+            CreateCatalog(tenant, CatalogKey.of("forms"), "Forms", registry = LocalAuthority.NAME, namespace = "upgrade").execute()
+        }
+
+        val created = post(tenant.value, "catalogs", """{"key":"brand","name":"Brand"}""")
+
+        assertThat(created.statusCode).`as`(created.body).isEqualTo(HttpStatus.OK)
+        assertThat(objectMapper.readTree(created.body).path("key").stringValue()).isEqualTo("upgrade/brand")
     }
 
     private fun post(tenantId: String, path: String, body: String) = restTemplate.postForEntity(

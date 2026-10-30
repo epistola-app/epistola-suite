@@ -103,8 +103,16 @@ export interface EditorOptions {
   plugins?: EditorPlugin[];
   /** Optional image block support with asset management callbacks. */
   imageOptions?: {
-    /** The template's own catalog — the picker's default selection. */
+    /**
+     * The template's own catalog by the key its documents name it by: an image that names no
+     * catalog is in this one, and one picked from it is stored naming none.
+     */
     defaultCatalogKey: string;
+    /**
+     * The template's own catalog as [listCatalogs] names it (`namespace/key`), the picker's default
+     * selection. Defaults to [defaultCatalogKey].
+     */
+    pickerCatalog?: string;
     listCatalogs: () => Promise<CatalogInfo[]>;
     listAssets: (catalogKey: string) => Promise<AssetInfo[]>;
     uploadAsset: (file: File, catalogKey: string) => Promise<AssetInfo>;
@@ -243,7 +251,8 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     registry.register(
       createImageDefinition({
         assetPicker: {
-          defaultCatalogKey: options.imageOptions.defaultCatalogKey,
+          defaultCatalogKey:
+            options.imageOptions.pickerCatalog ?? options.imageOptions.defaultCatalogKey,
           listCatalogs: options.imageOptions.listCatalogs,
           listAssets: options.imageOptions.listAssets,
           uploadAsset: options.imageOptions.uploadAsset,
