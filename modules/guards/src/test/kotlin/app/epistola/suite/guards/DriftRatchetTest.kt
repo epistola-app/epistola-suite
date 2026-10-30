@@ -35,7 +35,7 @@ class DriftRatchetTest {
     private val handlerClass = Regex("""class\s+[A-Za-z0-9]*Handler\b""")
 
     private val counters = listOf(
-        Counter("raw ServerResponse.ok().render(", 19, "page() or htmx { fragment() }") {
+        Counter("raw ServerResponse.ok().render(", 17, "page() or htmx { fragment() }") {
             mainLines(Regex("""ServerResponse\.ok\(\)\.render\("""))
         },
         Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {
