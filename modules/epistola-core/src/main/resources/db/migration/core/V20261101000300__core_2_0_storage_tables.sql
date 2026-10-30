@@ -9,14 +9,13 @@
 -- 1. What a stored content is -------------------------------------------------------------------
 -- Extended by inserting a row. Not `catalog_resource_types`, which holds the catalog wire's own
 -- tokens: a content kind is a storage concept, and includes parts of a resource the wire never names
--- on their own (a template's variant; `templateModel`, a model stored apart, which a release read
--- before the variant rows may still name).
+-- on their own (a template's variant).
 CREATE TABLE resource_content_kinds (
     kind VARCHAR(20) PRIMARY KEY
 );
 
 INSERT INTO resource_content_kinds (kind) VALUES
-    ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('image'), ('template'), ('templateModel'), ('variant');
+    ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('image'), ('template'), ('variant');
 
 COMMENT ON TABLE resource_content_kinds IS
     'What a stored content is: a catalog wire resource type, or a part of one that is stored separately.';

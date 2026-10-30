@@ -106,9 +106,9 @@ COMMENT ON COLUMN catalog_versions.rendering_defaults_version IS
     'The rendering defaults a release was cut against (RenderingDefaults.version), so an engine upgrade does not change what it renders.';
 COMMENT ON COLUMN catalog_versions.released_at IS 'When the version became a release in this tenant: released here, or received.';
 COMMENT ON COLUMN catalog_versions.released_by IS
-    'users.id of the user who released it here or installed it: the system user for the system (a bundled catalog, an upgrade), NULL when not known (a 1.x release, an old snapshot). No FK, as for the other audit columns.';
+    'users.id of the user who released it here or installed it: the system user for the system (a bundled catalog, an upgrade), NULL when not known (a 1.x release). No FK, as for the other audit columns.';
 COMMENT ON COLUMN catalog_versions.released_via IS
-    'How the release came to be in this tenant: released (here), upload, api, registry, exchange, source (a URL source), bundled, upgrade-1x or snapshot. Descriptive only: nothing decides by it, a release is a release however it arrived.';
+    'How the release came to be in this tenant: released (here), upload, api, registry, exchange, source (a URL source), bundled or upgrade-1x. Descriptive only: nothing decides by it, a release is a release however it arrived.';
 COMMENT ON COLUMN catalog_versions.released_from IS
     'Where it came from, in the terms of released_via: the source URL, the registry reference or the Exchange address; NULL when there is no such place (released here, an upload).';
 COMMENT ON COLUMN catalog_versions.released_by_installation IS
@@ -178,7 +178,7 @@ CREATE TABLE catalog_draft_merges (
     tenant_key        TENANT_KEY   NOT NULL,
     version_id        UUID         NOT NULL,
     release_version   VARCHAR(128) NOT NULL,
-    merge_base        VARCHAR(50),
+    merge_base        VARCHAR(128),
     resolutions       JSONB        NOT NULL DEFAULT '{}',
     held_fingerprints JSONB,
     merged_by         UUID REFERENCES users (id) ON DELETE SET NULL,

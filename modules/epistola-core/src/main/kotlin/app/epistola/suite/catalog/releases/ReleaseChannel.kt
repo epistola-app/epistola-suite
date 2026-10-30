@@ -38,9 +38,6 @@ enum class ReleaseChannel(val code: String) {
 
     /** The release a subscribed 1.x catalog had installed, recorded on the upgrade to 2.0. */
     UPGRADE_FROM_1X("upgrade-1x"),
-
-    /** Restored from a tenant snapshot. */
-    SNAPSHOT("snapshot"),
     ;
 
     companion object {

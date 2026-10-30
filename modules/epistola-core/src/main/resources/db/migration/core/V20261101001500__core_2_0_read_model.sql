@@ -737,19 +737,19 @@ CROSS JOIN LATERAL (
 
 COMMENT ON VIEW current_templates IS 'The templates of the version a caller means, each as its JSON content (payload: resource, the wire form without its variants, which are rows of their own).';
 
--- A template's variants, read from its version's rows (V20261026090540, keyed once).
+-- A template's variants, read from its version's rows.
 CREATE VIEW current_template_variants AS
 SELECT t.tenant_key, t.catalog_id, t.version_id, t.version, t.resource_id AS template_resource_id,
        e.slot ->> 'key' AS id,
        COALESCE(v.payload -> 'resource' ->> 'title', e.slot ->> 'title', e.slot ->> 'key') AS title,
-       COALESCE(v.payload -> 'resource' ->> 'description', v.payload ->> 'description', t.payload -> 'variantDescriptions' ->> (e.slot ->> 'key')) AS description,
+       COALESCE(v.payload -> 'resource' ->> 'description', v.payload ->> 'description') AS description,
        COALESCE(NULLIF(e.slot -> 'attributes', 'null'::jsonb), '{}'::jsonb) AS attributes,
        COALESCE(CAST(e.slot ->> 'isDefault' AS BOOLEAN), FALSE) AS is_default,
        NULLIF(COALESCE(v.payload -> 'resource' -> 'metadata', e.slot -> 'metadata'), 'null'::jsonb) AS metadata,
-       COALESCE(v.content_hash, m.model_hash) AS model_hash,
+       v.content_hash AS model_hash,
        -- Its model; the default variant's for one that has none of its own (as a received release may
-       -- say). A release retained before variants had rows names its models by revision (m).
-       COALESCE(v.payload -> 'resource' -> 'templateModel', d.payload -> 'resource' -> 'templateModel', m.model) AS template_model,
+       -- say).
+       COALESCE(v.payload -> 'resource' -> 'templateModel', d.payload -> 'resource' -> 'templateModel') AS template_model,
        e.position,
        COALESCE(v.created_at, t.created_at) AS created_at, COALESCE(v.updated_at, t.updated_at) AS updated_at,
        COALESCE(v.created_by, t.created_by) AS created_by, COALESCE(v.updated_by, t.updated_by) AS updated_by,
@@ -782,12 +782,6 @@ LEFT JOIN LATERAL (
     JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
     WHERE CAST(x.slot ->> 'isDefault' AS BOOLEAN) AND v.content_hash IS NOT NULL AND v.payload -> 'resource' -> 'templateModel' IS NULL
     OFFSET 0
-) d ON TRUE
-LEFT JOIN LATERAL (
-    SELECT x.model_hash, (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = t.tenant_key AND c.content_hash = x.model_hash) AS model
-    FROM (SELECT COALESCE(e.slot -> 'templateModel' ->> 'revisionDigest', t.payload -> 'resource' -> 'templateModel' ->> 'revisionDigest') AS model_hash) x
-    WHERE v.content_hash IS NULL
-    OFFSET 0
-) m ON TRUE;
+) d ON TRUE;
 
 COMMENT ON VIEW current_template_variants IS 'The variants of the templates of the version a caller means, each its own row (storage type variant) with its own content and revision.';

@@ -620,7 +620,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(preview.executable).isFalse()
         assertThat(preview.blockers).anySatisfy { blocker ->
             assertThat(blocker.code).isEqualTo("catalog-dependency-cycle")
-            assertThat(blocker.message).contains("letters", "shared", "unrestorable")
+            assertThat(blocker.message).contains("letters", "shared", "no order to release them in")
         }
     }
 

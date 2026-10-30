@@ -140,7 +140,7 @@ class CatalogResourceMovePlanner(
         // reference means the catalog its holder's catalog declares under that alias (ADR 0034, section 9).
         val repoint = repointer.plan(handle, tenantKey, relocations.filter { it.source in identities }, graphs.loadAliases(handle, tenantKey))
 
-        // Catalog ordering is load-bearing for snapshot restore, which throws on a cycle. Checked
+        // Catalog ordering is load-bearing for releasing, which pins what a catalog depends on. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
         // part of planning, and a batch already blocked cannot introduce anything.
         var impact = ReleaseImpact()
@@ -150,7 +150,7 @@ class CatalogResourceMovePlanner(
                 blockers += blocker(
                     "catalog-dependency-cycle",
                     "This would make ${cycle.joinToString(" and ")} depend on each other, " +
-                        "which would leave the tenant's snapshots unrestorable",
+                        "which would leave no order to release them in",
                 )
             }
             if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations)

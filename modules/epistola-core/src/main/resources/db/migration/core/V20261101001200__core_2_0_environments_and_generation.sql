@@ -75,7 +75,7 @@ CREATE TABLE environment_deployment_log (
     version          VARCHAR(128),
     previous_version VARCHAR(128),
     draft_label      VARCHAR(100),
-    version_key      VARCHAR(16),
+    version_key      VARCHAR(36),
     changed_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     changed_by       UUID            REFERENCES users (id) ON DELETE SET NULL,
     CONSTRAINT pk_environment_deployment_log PRIMARY KEY (tenant_key, id),
