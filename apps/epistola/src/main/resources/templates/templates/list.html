@@ -40,7 +40,9 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                         </div>
                         <div class="empty-state-title">No templates in this catalog</div>
-                        <div class="empty-state-description">This catalog has no templates yet. Create one here.</div>
+                        <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no templates are added to it.' : 'This catalog has no templates yet. Create one here.'">This catalog has no templates yet. Create one here.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"

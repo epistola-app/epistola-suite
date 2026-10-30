@@ -36,7 +36,9 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='palette', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No themes yet</div>
-            <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
+            <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no themes are added to it.' : 'Create a theme to define the visual styling of your documents.'">Create a theme to define the visual styling of your documents.</div>
             <button th:if="${auth.has('THEME_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"

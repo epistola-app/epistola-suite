@@ -94,7 +94,9 @@ object KnownFeatures {
     val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
         SUPPORT_FEEDBACK to FeatureMetadata(
             "Feedback",
-            "Enables the Support → Feedback feature (sync to epistola-hub).",
+            // True with and without the support tier: feedback is always kept here, and only sent on with it.
+            "Lets people report feedback from any page, under Support → Feedback. It is kept in this installation, " +
+                "and sent to Epistola when the installation's support tier is enabled.",
         ),
         QUALITY to FeatureMetadata(
             "Quality",

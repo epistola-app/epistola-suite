@@ -214,7 +214,7 @@ class ApiKeyHandler {
 
     companion object {
         // Order mirrors the privilege ladder. Viewer is pre-checked so the narrowest scope is the
-        // default; administration (settings/users/catalogs/destructive restore) is offered
+        // default; administration (settings, users, catalogs, logs and audit) is offered
         // but never pre-selected, keeping keys least-privilege unless deliberately escalated.
         val ROLE_OPTIONS = listOf(
             RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access across the tenant.", defaultChecked = true),
@@ -224,7 +224,7 @@ class ApiKeyHandler {
             RoleOption(
                 TenantRole.TENANT_ADMINISTRATOR.name,
                 "Administrator",
-                "Tenant settings, users, catalogs, diagnostics, and restoring snapshots, which replaces content.",
+                "Tenant settings, users, catalogs, logs and the audit trail.",
                 defaultChecked = false,
             ),
         )

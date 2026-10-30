@@ -50,7 +50,8 @@ class GetGettingStartedHandler(
                         WHERE t.tenant_key = :t AND $NOT_SUPPLIED) AS has_template,
                 EXISTS (SELECT 1 FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                         WHERE r.state = 'released' AND r.tenant_key = :t AND $NOT_SUPPLIED) AS has_published,
-                EXISTS (SELECT 1 FROM environment_catalog_deployments d WHERE d.tenant_key = :t) AS has_deployed,
+                EXISTS (SELECT 1 FROM environment_catalog_deployments d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
+                        WHERE d.tenant_key = :t AND $NOT_SUPPLIED) AS has_deployed,
                 EXISTS (SELECT 1 FROM documents d WHERE d.tenant_key = :t) AS has_document
             """,
         )

@@ -35,5 +35,7 @@ class FeatureTogglePageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("badge badge-alpha")
         assertThat(body).contains(">Alpha<")
         assertThat(body).contains("name=\"ai-chat\"")
+        assertThat(body).`as`("feedback is kept here whether or not the support tier sends it on")
+            .contains("It is kept in this installation").doesNotContain("sync to epistola-hub")
     }
 }

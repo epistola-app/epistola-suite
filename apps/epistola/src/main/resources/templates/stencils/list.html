@@ -19,7 +19,9 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='puzzle', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No stencils yet</div>
-            <div class="empty-state-description">Create a stencil to build reusable template components.</div>
+            <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no stencils are added to it.' : 'Create a stencil to build reusable template components.'">Create a stencil to build reusable template components.</div>
             <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"

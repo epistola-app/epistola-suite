@@ -26,7 +26,9 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No attributes yet</div>
-            <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
+            <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no attributes are added to it.' : 'Define attributes to classify template variants (e.g., language, brand, audience).'">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <button th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"

@@ -54,6 +54,12 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
                 assertThat(own).doesNotContain("data-testid=\"catalog-version-bar-read-only\"")
             }
             assertThat(pages.getValue("templates")).`as`("the list is the catalog's, not every template").contains("The templates in this catalog.")
+            // An empty list in a catalog that cannot be changed says so, rather than inviting an upload it does not offer.
+            val empty = pages.filterValues { it.contains("data-testid=\"empty-state-description\"") }
+            assertThat(empty).`as`("the fixture leaves some kind empty").isNotEmpty()
+            empty.forEach { (list, page) ->
+                assertThat(page).`as`(list).contains("This catalog is read-only here, so no").doesNotContain("Upload font families").doesNotContain("Create a theme to")
+            }
         }
     }
 }
