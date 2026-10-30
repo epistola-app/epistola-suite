@@ -108,7 +108,7 @@ class CatalogResourceMovePlanner(
             }
 
             if (target !in vacated && isAddressTaken(handle, tenantKey, target)) {
-                blockers += blocker("target-occupied", "${target.id} is already a resource", source)
+                blockers += blocker("target-occupied", "${target.id} is already a resource; give it another key", source)
             }
             // A warning, not a blocker. A *subscriber* is out of this move's reach: an installation
             // that upgrades to a later release of this catalog sees the resource gone rather than
@@ -118,7 +118,7 @@ class CatalogResourceMovePlanner(
             if (hasRelease(handle, tenantKey, source.catalogIn(tenantKey))) {
                 warnings += ResourceMoveWarning(
                     "released-source",
-                    "${source.catalogAddress} has been released; anyone subscribed to it will not follow this move until they re-import",
+                    "${source.catalogAddress} has been released; anyone subscribed to it will not follow this change until they re-import",
                     source,
                 )
             }

@@ -131,7 +131,7 @@ class ListRelocatableResourcesHandler(
                     ),
                     name = rs.getString("resource_name"),
                     catalogName = rs.getString("catalog_name"),
-                    note = "Released — subscribers will not follow this move".takeIf { rs.getBoolean("released") },
+                    note = "Released — subscribers will not follow this change".takeIf { rs.getBoolean("released") },
                 )
             }
             .list()

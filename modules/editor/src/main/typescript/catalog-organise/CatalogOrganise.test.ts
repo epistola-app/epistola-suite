@@ -313,6 +313,7 @@ describe('ep-catalog-organise', () => {
     await settle(rename);
     await click(rename, /^\s*Preview\s*$/);
     expect(button(rename, /^\s*Rename\s*$/)).toBeDefined();
+    expect(rename.textContent).toContain('Ready to rename');
 
     document.body.replaceChildren();
     const move = await mount({
@@ -322,6 +323,79 @@ describe('ep-catalog-organise', () => {
     });
     expect(move.querySelector('[data-testid="organise-single-key"]')).toBeNull();
     expect(move.querySelector('[data-testid="organise-single-destination"]')).not.toBeNull();
+  });
+
+  it('says why a single rename is blocked, and that nothing will be renamed', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({
+      '/resources': { body: { catalogs, resources: [house] } },
+      '/preview': {
+        body: {
+          ...executablePlan(house),
+          executable: false,
+          blockers: [
+            {
+              code: 'invalid-target-key',
+              message: "'Bad Key' cannot be used: lowercase letters only",
+              source: house,
+              sourceId: house.id,
+            },
+          ],
+        },
+      },
+    });
+    const element = await mount({
+      'data-single': house.id,
+      'data-mode': 'rename',
+      'data-can-apply': 'true',
+    });
+    const key = element.querySelector<HTMLInputElement>('[data-testid="organise-single-key"]');
+    if (!key) throw new Error('no key input');
+    key.value = 'Bad Key';
+    key.dispatchEvent(new InputEvent('input'));
+    await settle(element);
+    await click(element, /^\s*Preview\s*$/);
+
+    expect(element.textContent).toContain('Blocked — nothing will be renamed');
+    expect(element.textContent).toContain("'Bad Key' cannot be used: lowercase letters only");
+  });
+
+  it('offers another key when the catalog a resource moves to already has its key', async () => {
+    const house = resource('theme', 'letters', 'house');
+    serve({
+      '/resources': { body: { catalogs, resources: [house] } },
+      '/preview': {
+        body: {
+          ...executablePlan(house),
+          executable: false,
+          blockers: [
+            {
+              code: 'target-occupied',
+              message: 'theme:acme/shared/house is already a resource; give it another key',
+              source: house,
+              sourceId: house.id,
+            },
+          ],
+        },
+      },
+    });
+    const element = await mount({
+      'data-single': house.id,
+      'data-mode': 'move',
+      'data-can-apply': 'true',
+    });
+    const destination = element.querySelector<HTMLSelectElement>(
+      '[data-testid="organise-single-destination"]',
+    );
+    if (!destination) throw new Error('no destination select');
+    destination.value = 'shared';
+    destination.dispatchEvent(new Event('change'));
+    await settle(element);
+    expect(element.querySelector('[data-testid="organise-single-key"]')).toBeNull();
+    await click(element, /^\s*Preview\s*$/);
+
+    expect(element.textContent).toContain('is already a resource; give it another key');
+    expect(element.querySelector('[data-testid="organise-single-key"]')).not.toBeNull();
   });
 
   it('opened to create a shared catalog, shows its form before anything is selected', async () => {
