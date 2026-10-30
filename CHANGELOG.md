@@ -2,6 +2,22 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [2.0.0-alpha.1] - 2026-10-30
+
+The first alpha of Epistola 2.0, for trying the new catalog model and the upgrade from 1.x, not for production. Catalogs now have versions you publish and deploy, drafts and fixes beside the next version, and resources you can rename and move between catalogs; a 1.x installation upgrades in one migration that only goes forward, so keep a backup.
+
+- **[user]** feat(catalog)!: **Catalogs have published versions, drafts and fixes.** A catalog's next version is where everyday work goes; publishing numbers it from what changed, ties it to the exact versions of the catalogs it uses and publishes those along when needed. A fix to a published version is side work, published as its next patch and offered back to the next version. Several catalogs can be published at once, each after the catalogs it uses.
+
+- **[user]** feat(catalog): **Resources can be renamed and moved between catalogs.** Rename and Move to another catalog are on every resource; everything that uses it is updated, and the preview says what each catalog's next release becomes. A shared catalog can be created from the catalogs list.
+
+- **[user]** feat(upgrade)!: **A 1.x installation upgrades to 2.0 in one migration.** Templates, stencils, themes, fonts, images, attributes and code lists are converted; each catalog gets its next version, with what 1.x published, and its 1.x releases are summarised. The upgrade only goes forward and drops the 1.x tables: take a backup first. 1.x content renders with the current rendering defaults, so a letter may lay out slightly differently than in 1.x.
+
+- **[user]** feat(api)!: **The REST API follows contract 2.0.0-alpha.5.** Catalogs are addressed by registry, namespace and key, releases by version or id; names and fields follow the 2.0 contract. Clients built for the 1.x API need updating.
+
+- feat(storage)!: **Only PostgreSQL is supported for document storage.** The S3 and filesystem backends were never tested; Epistola refuses to start with either. They return once tested.
+
+- **[user]** docs(release): **This is an alpha.** The 2.0 migrations are settled but not yet frozen: a database migrated by an alpha may need to be rebuilt from 1.x or from scratch for a later alpha. The full list of changes comes with 2.0.0.
+
 ## [1.5.0] - 2026-10-15
 
 Liberation Sans, metric-compatible with Helvetica and Arial, is now a system font. This release also fixes PDF/A documents with accented text in a header, footer or address window, which failed to render after 1.4.0. Newly published versions get rendering defaults V6, which make line height match the editor and fix keep-with-next and the padding, margin and border shorthands; versions published earlier render as before.
