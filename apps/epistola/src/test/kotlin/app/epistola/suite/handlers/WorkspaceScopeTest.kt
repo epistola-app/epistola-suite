@@ -144,9 +144,11 @@ class WorkspaceScopeTest {
 
     @Test
     fun `the way back names the catalog, and the parallel work when it was that`() {
-        assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published), null, "/", everything))).isEqualTo("Back to Letters")
+        assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published), null, "/", everything))).isEqualTo("Back to the Letters catalog")
         assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/", everything)))
-            .`as`("a name as people wrote it").isEqualTo("Back to Letters, Redesign")
+            .`as`("a name as people wrote it").isEqualTo("Back to the Letters catalog, Redesign")
+        val demo = WorkspaceBuilder.scope(bar(work, published).copy(catalogName = "Epistola Demo Catalog"), null, "/", everything)
+        assertThat(WorkspaceBuilder.backLabel(demo)).`as`("no second \"catalog\"").isEqualTo("Back to Epistola Demo Catalog")
     }
 
     @Test

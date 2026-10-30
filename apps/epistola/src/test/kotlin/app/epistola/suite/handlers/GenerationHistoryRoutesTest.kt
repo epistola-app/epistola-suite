@@ -54,7 +54,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Generation History")
+            assertThat(response.body).contains("<span id=\"page-title-text\">Generation</span>")
             assertThat(response.body).contains("Total Generated")
             assertThat(response.body).contains("In Queue")
             assertThat(response.body).contains("Completed")
@@ -114,7 +114,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // HTMX fragment response should be a table fragment, not a full page
-            assertThat(response.body).doesNotContain("Generation History")
+            assertThat(response.body).doesNotContain("data-testid=\"page-title\"")
         }
     }
 

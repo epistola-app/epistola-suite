@@ -6,8 +6,8 @@
            Epistola Exchange. Model: the catalog page's, at the version the page works in. */-->
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Details',
-            pageDescription=${draftBar.editable} ? 'Published with each release: change them here, and the next release you publish carries them.' : 'As the release it is on describes it.'
+            pageTitle='Settings',
+            pageDescription=${draftBar.editable} ? 'Published with each release: change them here, and the next release you publish carries them.' : 'The details its current release was published with.'
         )}"></div>
         <div id="catalog-alert"></div>
         <div th:replace="~{catalogs/content :: metadata-card}"></div>

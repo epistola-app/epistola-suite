@@ -232,7 +232,18 @@
     <div th:fragment="counts" class="ep-panel detail-section" data-testid="catalog-counts">
         <div class="detail-section-header"><h2>Contents</h2></div>
         <div class="detail-section-body">
-            <div class="ep-auto-grid catalog-counts">
+            <!--/* Nothing yet: one invitation to start, not seven tiles reading 0. */-->
+            <div th:if="${contents.isEmpty}" class="empty-state" data-testid="catalog-counts-empty">
+                <div class="empty-state-title">Nothing in this catalog yet</div>
+                <p class="empty-state-description" th:if="${contents.templates.mayCreate}">
+                    Start with a template: what your applications make documents from.</p>
+                <p class="empty-state-description" th:unless="${contents.templates.mayCreate}">
+                    Adding templates needs a role that may edit them.</p>
+                <button th:if="${contents.templates.mayCreate}" type="button" class="ep-btn ep-btn-primary"
+                        th:hx-get="@{${contents.templates.newHref}}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="catalog-counts-new-template" th:text="${contents.templates.newLabel}">New template</button>
+            </div>
+            <div th:unless="${contents.isEmpty}" class="ep-auto-grid catalog-counts">
                 <a th:each="group : ${contents.groups}" th:href="@{${group.listHref}}" class="ep-panel stat-card"
                    data-testid="catalog-count" th:attr="data-type=${group.type}">
                     <div class="stat-card-value" th:text="${group.count}">5</div>

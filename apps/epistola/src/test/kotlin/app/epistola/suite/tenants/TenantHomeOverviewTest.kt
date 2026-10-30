@@ -106,6 +106,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(body).contains("data-testid=\"getting-started\"")
         assertThat(body).contains(">Create a template<").contains(">Publish a release<").contains(">Deploy it to an environment<")
         assertThat(body).contains("data-done=\"false\"").doesNotContain("data-done=\"true\"")
+        assertThat(body).`as`("no one-button Quick Actions block; environments are in the nav").doesNotContain("Quick Actions")
         // The steps point at a catalog the tenant has, never at one assumed to exist.
         assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/default/templates")
     }

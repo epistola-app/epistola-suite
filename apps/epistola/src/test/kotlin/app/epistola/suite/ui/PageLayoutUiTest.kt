@@ -71,6 +71,29 @@ class PageLayoutUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `at the end of a page the feedback button sits below the content, not on it`() {
+        val tenant = createTenant("Feedback Button Layout")
+        // Short enough that the tenant home scrolls, so the button floats over content until the end.
+        page.setViewportSize(1280, 480)
+
+        gotoAndReady("/tenants/${tenant.id}")
+        val fab = page.locator("#feedback-fab")
+        assertThat(fab).isVisible()
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+
+        val contentBottom = (
+            page.evaluate(
+                """
+                () => Math.max(...[...document.querySelectorAll('main.main-content > *')]
+                    .map(e => e.getBoundingClientRect()).filter(r => r.height > 0).map(r => r.bottom))
+                """,
+            ) as Number
+            ).toDouble()
+        val fabTop = requireNotNull(fab.boundingBox()).y
+        assertThatValue(contentBottom).`as`("the content ends above the button").isLessThanOrEqualTo(fabTop)
+    }
+
+    @Test
     fun `the cluster page keeps its tables inside the page and writes times in the app's one shape`() {
         val tenant = createTenant("Cluster Layout")
 

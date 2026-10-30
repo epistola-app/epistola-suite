@@ -25,7 +25,7 @@
                       th:action="@{/tenants/{t}/environments/{e}/production(t=${tenantId},e=${environment.id})}">
                     <input type="hidden" name="production" th:value="${!environment.production}">
                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="environment-production-toggle"
-                            th:text="${environment.production} ? 'Not production' : 'Mark as production'">Mark as production</button>
+                            th:text="${environment.production} ? 'Mark as not production' : 'Mark as production'">Mark as production</button>
                 </form>
             </div>
         </div>
@@ -99,8 +99,9 @@
                                 <form method="post" style="display: inline;"
                                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
                                     <input type="hidden" name="version" th:value="${row.version}">
+                                    <!--/* Outlined, not ghost: a ghost button here read as plain text. */-->
                                     <button type="button"
-                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                            class="ep-btn ep-btn-outline ep-btn-sm"
                                             data-confirm-submit
                                             data-confirm-submit-title="Undeploy this version"
                                             th:attr="data-confirm-submit-message=${environment.name} + ' stops using ' + ${row.catalogName} + ' v' + ${row.version} + '. Documents made here use another deployed release of it, or fail when there is none.'"

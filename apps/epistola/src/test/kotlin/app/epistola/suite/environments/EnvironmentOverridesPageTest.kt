@@ -94,7 +94,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the production mark is shown and changed on the page, and refused while it serves work in progress`() {
         val tenant = setup("page-production")
-        assertThat(page(tenant, "production")).contains("Only published releases are used here.").contains("Not production")
+        assertThat(page(tenant, "production")).contains("Only published releases are used here.")
+            .`as`("the button says what it does, not a state").contains(">Mark as not production<")
         assertThat(page(tenant, "test")).contains("Mark as production").contains("a draft can be deployed here").doesNotContain("follow work in progress")
 
         withMediator { DeployCatalogRelease(env(tenant, "test"), testCatalog(env(tenant, "test").tenantKey, letters), GetCatalogDraft(testCatalog(tenant.id, letters)).query()!!.versionId).execute() }

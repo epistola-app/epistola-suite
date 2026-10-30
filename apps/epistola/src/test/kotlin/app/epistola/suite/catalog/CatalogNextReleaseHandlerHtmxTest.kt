@@ -87,6 +87,9 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("data-testid=\"catalog-nothing-added\"")
             assertThat(body).doesNotContain("data-testid=\"catalog-no-changes\"")
+            assertThat(body).`as`("one invitation, not a tile per kind reading 0")
+                .contains("data-testid=\"catalog-counts-empty\"").contains("data-testid=\"catalog-counts-new-template\"")
+                .doesNotContain("data-testid=\"catalog-count\"")
         }
     }
 

@@ -154,18 +154,6 @@
                 </div>
             </div>
         </section>
-
-        <div class="dashboard-grid">
-            <div class="dashboard-actions">
-                <h2>Quick Actions</h2>
-                <div class="quick-links">
-                    <a th:if="${auth.has('TENANT_SETTINGS')}" th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                        New Environment
-                    </a>
-                </div>
-            </div>
-        </div>
     </th:block>
 </body>
 </html>

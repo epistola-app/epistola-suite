@@ -49,7 +49,6 @@
                             </div>
                         </div>
                         <div class="asset-card-actions">
-                            <span th:unless="${catalogEditing.editable(font.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(font.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(font.catalogKey)}">
                                 <th:block th:replace="~{fragments/refactoring :: row-action('font', ${draftSegment?.linkFor(font.catalogId) ?: font.catalogId.address}, ${font.slug})}" />
                                 <button type="button"

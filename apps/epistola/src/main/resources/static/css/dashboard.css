@@ -48,18 +48,6 @@ a.stat-card:hover {
   color: var(--ep-muted-foreground);
 }
 
-/* ── Dashboard grid ──────────────────────────────────────────────────── */
-
-.dashboard-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ep-space-6);
-}
-
-.dashboard-actions h2 {
-  margin-bottom: var(--ep-space-3);
-}
-
 /* ── Catalog tiles (tenant home) ─────────────────────────────────────── */
 
 .home-catalogs {

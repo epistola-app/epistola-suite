@@ -46,6 +46,7 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
             pages.forEach { (list, page) ->
                 assertThat(page).`as`(list).contains("data-testid=\"catalog-version-bar-read-only\"").contains(">Supplied by Epistola<")
                 assertThat(create.find(page)?.value).`as`("$list offers to create in a supplied catalog").isNull()
+                assertThat(page).`as`("$list says read-only once, in the bar, not on every row").doesNotContain(">Read-only</span>")
             }
             lists.forEach { list ->
                 val own = restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/$list", String::class.java).body!!
