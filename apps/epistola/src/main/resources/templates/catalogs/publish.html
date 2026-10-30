@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    Publishing several catalogs at once (CatalogPublishSeveralHandler): every catalog that can be
+    changed here with something to publish, ticked when nothing stops it. One Publish publishes the
+    ticked ones, each after the ones it uses (PublishCatalogs). Model: `rows`
+    (CatalogPublishSeveralHandler.Row), `outcomes` after publishing (null before).
+    */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Publish several catalogs')}"></div>
+
+        <p class="text-muted">
+            Each catalog is published after the catalogs it uses, and with the drafts of others it builds
+            on, as its own Publish does. Changes not marked ready are marked ready as they are published.
+        </p>
+
+        <div th:if="${outcomes != null}" class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);"
+             data-testid="publish-outcomes">
+            <strong>What happened</strong>
+            <ul style="margin: var(--ep-space-2) 0 0;">
+                <li th:each="o : ${outcomes}" th:attr="data-outcome=${o.outcome.kind}" data-testid="publish-outcome">
+                    <th:block th:switch="${o.outcome.kind.name()}">
+                        <span th:case="'PUBLISHED'"
+                              th:text="${o.name} + ' published as v' + ${o.outcome.version} + (${o.outcome.alongWith.isEmpty()} ? '' : ', with ' + ${#strings.listJoin(o.outcome.alongWith, ', ')} + ' published first') + '.'">
+                            Letters published as v1.0.0.</span>
+                        <span th:case="'UNCHANGED'" th:text="${o.name} + ' had nothing left to publish.'">Shared had nothing left to publish.</span>
+                        <span th:case="*" class="alert alert-error" th:text="${o.name} + ' was not published: ' + ${o.outcome.reason}">Forms was not published: it was refused.</span>
+                    </th:block>
+                </li>
+            </ul>
+        </div>
+
+        <div th:if="${rows.isEmpty()}" class="empty-state" data-testid="publish-nothing">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">Nothing to publish</div>
+            <div class="empty-state-description">Every catalog that can be changed here is published as it is.</div>
+            <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" class="ep-btn ep-btn-outline" style="margin-top: var(--ep-space-4);">
+                Back to catalogs
+            </a>
+        </div>
+
+        <form th:unless="${rows.isEmpty()}" method="post" th:action="@{/tenants/{tenantId}/catalogs/publish(tenantId=${tenantId})}"
+              data-testid="publish-several-form">
+            <div class="ep-table-scroll" role="region" aria-label="Catalogs to publish" tabindex="0">
+                <table class="ep-table ep-table-fixed">
+                    <colgroup>
+                        <col style="width: 6%" /><!-- Tick -->
+                        <col style="width: 30%" /><!-- Catalog -->
+                        <col style="width: 14%" /><!-- Becomes -->
+                        <col style="width: 12%" /><!-- Changes -->
+                        <col style="width: 38%" /><!-- Notes -->
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th aria-label="Publish"></th>
+                            <th>Catalog</th>
+                            <th>Becomes</th>
+                            <th>Changes</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row : ${rows}" data-testid="publish-row" th:attr="data-catalog=${row.address}">
+                            <td>
+                                <input type="checkbox" name="catalog" th:value="${row.address}" th:checked="${row.offered}"
+                                       th:disabled="${!row.offered}" th:attr="aria-label='Publish ' + ${row.name}">
+                            </td>
+                            <td><a th:href="${row.href}" th:text="${row.name}">Letters</a></td>
+                            <td th:text="${row.version != null} ? 'v' + ${row.version} : '—'">v1.0.0</td>
+                            <td th:text="${row.changeCount}">3</td>
+                            <td>
+                                <small th:if="${row.blocked != null}" class="alert alert-error" th:text="${row.blocked}">It uses shared, which has nothing published.</small>
+                                <span th:if="${row.blocked == null and !row.publishedAlong.isEmpty()}" class="text-muted"
+                                      th:text="'Publishes ' + ${#strings.listJoin(row.publishedAlong, ', ')} + ' first.'">Publishes Shared first.</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: var(--ep-space-4);">
+                <button type="submit" class="ep-btn ep-btn-primary" data-testid="publish-several-submit">Publish ticked catalogs</button>
+            </p>
+        </form>
+    </th:block>
+</body>
+</html>

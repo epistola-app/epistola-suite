@@ -656,6 +656,15 @@
             <th:block th:replace="~{epistola-web/icon :: icon(name='redo-2', class='ep-icon')}" />
             Create a shared catalog…
         </a>
+        <!--/* Publishing several catalogs at once, dependencies first: for someone who may publish,
+               when there is a catalog that can be changed here. The page lists what has something to
+               publish, and says so when nothing has. */-->
+        <a th:if="${auth.has('CATALOG_RELEASE') and catalogEditing.anyEditable()}" class="ep-btn ep-btn-outline"
+           th:href="@{/tenants/{tenantId}/catalogs/publish(tenantId=${tenantId})}"
+           data-testid="catalog-publish-several-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
+            Publish several…
+        </a>
         <button type="button" class="ep-btn ep-btn-outline"
                 th:if="${auth.has('CATALOG_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"

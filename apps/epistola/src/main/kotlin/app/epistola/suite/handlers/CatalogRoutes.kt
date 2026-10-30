@@ -31,6 +31,7 @@ class CatalogRoutes(
     private val merge: CatalogMergeHandler,
     private val registry: CatalogRegistryHandler,
     private val importer: CatalogImportHandler,
+    private val publishSeveral: CatalogPublishSeveralHandler,
 ) {
     /** Before the per-catalog routes, which CatalogScopedRouting serves at the lowest precedence but one. */
     @Bean
@@ -57,6 +58,10 @@ class CatalogRoutes(
             POST("/create", catalogList::createCatalog)
             GET("/import", importer::importForm)
             POST("/import", importer::importZip)
+            // Publishing several catalogs at once, dependencies first. Before the per-catalog routes:
+            // `publish` is a legal catalog slug.
+            GET("/publish", publishSeveral::page)
+            POST("/publish", publishSeveral::publish)
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
             // linkable via ?resource=<type>:<catalog>/<key>, repeatable.
             GET("/organise", organise::page)

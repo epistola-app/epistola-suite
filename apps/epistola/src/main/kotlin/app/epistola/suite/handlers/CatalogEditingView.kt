@@ -28,6 +28,9 @@ class CatalogEditingView(private val tenantKey: TenantKey) {
      */
     fun editable(catalogKey: Any?): Boolean = editability(catalogKey)?.editable ?: false
 
+    /** Whether any catalog of the tenant can be changed here. */
+    fun anyEditable(): Boolean = all.editableCatalogs.isNotEmpty()
+
     /** The short reason a catalog cannot be changed here ("Supplied by Epistola"); null when it can. */
     fun readOnlyLabel(catalogKey: Any?): String? = editability(catalogKey)?.reason?.label
 

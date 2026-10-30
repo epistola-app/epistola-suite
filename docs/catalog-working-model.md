@@ -145,7 +145,7 @@ and must be above every published one) or made the next version (scenario 5).
 | The catalog points at its next version explicitly                                                      | core                                         | ADR 0002      |
 | Renumbering and the draft-number check go (Publish picks the number)                                   | core, UI, REST                               | ADR 0002      |
 | Side work started from a published version resolves other catalogs at that version's locks (rule 6)    | core (`catalog_current_versions`, resolvers) | ADR 0003      |
-| Publish several catalogs in one transaction, in dependency order                                       | core                                         | new operation |
+| Publish several catalogs at once, in dependency order (decided below: each on its own)                 | core, UI                                     | none          |
 | Take over: a resource-level three-way merge (base / published / next version) with choices on conflict | core, UI                                     | new operation |
 | Deploying adds beside what an environment serves; replacing is a choice; usage shown per version       | UI, REST                                     | none          |
 
@@ -166,6 +166,14 @@ in core and REST — the UI just names them and gives each a purpose.
   deployed along; the environment says what comes along. Deploying a dependency yourself, or
   `includeDependencies`, deploys it explicitly too (contract ADR 0003).
 - **Follow or stay per catalog used** (18 October), rule 5.
+- **Publishing several catalogs at once** (30 October): _Publish several…_ on the catalogs list lists
+  every catalog that can be changed here with something to publish, the number each becomes and what it
+  publishes along, and publishes the ticked ones in dependency order (`PublishCatalogs`). Each catalog is
+  published on its own, as its own Publish publishes it (with what it publishes along, all or nothing),
+  not the whole selection in one transaction: one refused leaves the others published, and a catalog
+  that uses it is not attempted. A dependency declared by name, as the 1.x upgrade declares one, resolves
+  as publishing resolves it: to the highest release of what it names, else to that catalog's next
+  version, published along.
 
 ## Open questions
 
