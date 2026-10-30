@@ -26,9 +26,12 @@ import java.util.regex.Pattern
  * event/header shapes (`pathInfo.requestPath`, `requestConfig.verb`,
  * `xhr.getResponseHeader`), not in this file's own logic.
  *
- * `window.postMessage` is monkey-patched (not a real cross-origin iframe) to
- * capture the bridge's outgoing calls — simpler than route-intercepting a
- * synthetic second origin, and sufficient here since the Playwright ("test"
+ * The page is given a stand-in parent window (not a real cross-origin iframe):
+ * `window.parent` is replaceable, so it is pointed at a detached same-origin
+ * window (made on first use) whose `postMessage` records the bridge's outgoing calls, and which is
+ * a real window for an inbound `MessageEvent.source`. The bridge only runs
+ * when embedded, so a page left as its own parent posts nothing. Simpler than
+ * route-intercepting a synthetic second origin, and sufficient here since the Playwright ("test"
  * profile) harness never exercises the CSP/`X-Frame-Options`/cookie
  * `SameSite` HTTP-header behavior anyway (`SecurityConfig`'s embedding
  * branches only run under `!test`); that logic is covered instead by the pure
@@ -47,13 +50,46 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
     private fun createTestTenant(): Tenant = createTenant("Embedding Bridge Test")
 
-    /** Installed before the first navigation so it survives every full reload. */
+    /**
+     * Embeds the page in a stand-in parent that records what the bridge sends it. Installed before
+     * the first navigation so it survives every full reload.
+     */
     private fun installMessageCapture() {
         page.addInitScript(
             """
             (() => {
                 if (window.__epistolaMessagesInstalled) return;
                 window.__epistolaMessagesInstalled = true;
+                window.__epistolaMessages = [];
+                // Made on first use: an init script runs before there is a document to put the
+                // frame in. A detached frame's window still takes a patched postMessage, and is a
+                // real window for a MessageEvent's source.
+                let host = null;
+                Object.defineProperty(window, 'parent', {
+                    configurable: true,
+                    get() {
+                        if (!host) {
+                            const frame = document.createElement('iframe');
+                            (document.body || document.documentElement).appendChild(frame);
+                            host = frame.contentWindow;
+                            host.postMessage = function (message, targetOrigin) {
+                                window.__epistolaMessages.push({ message: message, targetOrigin: targetOrigin });
+                            };
+                            frame.remove();
+                        }
+                        return host;
+                    },
+                });
+            })();
+            """,
+        )
+    }
+
+    /** Records anything posted to the page's own window, which is its parent when it is not embedded. */
+    private fun installSelfPostCapture() {
+        page.addInitScript(
+            """
+            (() => {
                 window.__epistolaMessages = [];
                 const original = window.postMessage.bind(window);
                 window.postMessage = function (message, targetOrigin) {
@@ -63,6 +99,19 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
             })();
             """,
         )
+    }
+
+    @Test
+    fun `a page that is not embedded posts nothing`() {
+        val tenant = createTestTenant()
+        installSelfPostCapture()
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
+        assertThat(page.locator("main")).isVisible()
+
+        // Posting to an allowed origin from a page that is its own parent only drew a console
+        // warning on every page; with no host there is nobody to tell.
+        Assertions.assertThat(capturedMessages()).isEmpty()
     }
 
     @Suppress("UNCHECKED_CAST")

@@ -31,6 +31,10 @@
 // a genuine full-page redirect with no client-side request at all) are each
 // handled by one small, explicit exception below.
 (function () {
+  // Not embedded: there is no host to tell. Posting to an allowed origin from a page that is its own
+  // parent drew a console warning on every page of a deployment with embedding on.
+  if (window.parent === window) return;
+
   const configIsland = document.getElementById('epistola-embed-config');
   if (!configIsland) return;
 
