@@ -75,6 +75,39 @@ Decided and closed:
 
 ## Touched
 
+### What the pages say (30 October; branch `feat/ui-polish-2-0`)
+
+The visible text of 112 pages (admin) and 102 (content user) and the main dialogs, read for whether
+each page tells its reader what they need there.
+
+| What                                                                                                       | Where                                                         | Covered                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Getting started ticked "Deploy" while nothing of the tenant's own was published: supplied catalogs counted | `GetGettingStarted`                                           | ✅ `GetGettingStartedTest` (failed before)                                                                               |
+| The Administrator API-key scope promised restoring snapshots (withdrawn, #1219)                            | `ApiKeyHandler.ROLE_OPTIONS`                                  | ✅ `ApiKeyHandlerTest` (failed before)                                                                                   |
+| Empty lists in a read-only catalog invited uploads and creates they do not offer                           | six `*/list.html`                                             | ✅ `SuppliedCatalogListsHtmxTest` (failed before)                                                                        |
+| The Feedback toggle promised hub sync without the support tier                                             | `KnownFeatures`                                               | ✅ `FeatureTogglePageHtmxTest` (failed before)                                                                           |
+| A template's API tab: identifiers, endpoint and headers, a body per variant, what is live                  | `ApplicationRequestView`, `templates/detail/application.html` | ✅ `ApplicationRequestViewTest`, `TemplateApplicationTabHtmxTest`; body posted to the demo's REST API, 202 and completed |
+
+Noticed, not done:
+
+- **"Publish" means two things.** The UI's Publish cuts a release; the API glossary says releasing is
+  not publishing, which is putting a catalog on Exchange (the "Catalog publishing" feature, "Exchange
+  publication"). Needs a naming decision before GA.
+- **Logs and audit speak the system's language**: server start-up lines in a tenant's log, a Logger
+  filter, command class names as audit actions (`CreateDocumentTemplate`), `SUCCESS`, a third date
+  format.
+- **Consumers** has no explanation and is not marked experimental (the API docs say it is).
+- **Support** tells a tenant admin to set `epistola.support.enabled`, and its nav shows with support off.
+- **Feature descriptions** are written for developers ("ledger", "check sources (in-process or remote)").
+- **The template page** says nothing about where the template is live (the API tab now does); its
+  locale filter lists all 65 locales under the raw key `system.locale`; stencil parameters are raw JSON
+  Schema; an empty presets table keeps its header and Save.
+- **The environment page** keeps the version rule in a hint under the deploy form; the API keys page
+  does not say how a key is sent; the Generation page buries its one useful sentence under zero tiles.
+- **Repetition**: catalog settings shows the catalog ID twice; the release page repeats the releases
+  intro and shows `Installed from classpath:…` to everyone; the tenant home's subtitle is "ID: demo".
+- **One-tenant users** land on a tenants list with one row instead of their tenant.
+
 ### UI review and layout fixes (30 October; branch `feat/ui-polish-2-0`)
 
 The demo app crawled logged in as admin (67 pages at 1440 px, six at 390 px); about fifteen representative screenshots read closely, the rest checked by script (overflow, unlabelled controls, console).
