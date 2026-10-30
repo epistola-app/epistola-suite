@@ -101,10 +101,37 @@
   min-width: 0;
 }
 
+/* A "More" menu among the page actions: the bar's dropdown (shell.css, nav.js), with an ordinary
+   outline button as its trigger, opening to the right edge so it stays on the page. */
+.page-actions-menu {
+  height: auto;
+}
+
+.page-actions-menu .app-nav-dropdown-menu {
+  left: auto;
+  right: 0;
+  min-width: 14rem;
+}
+
+.page-actions-menu button.app-nav-dropdown-item {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: var(--ep-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
 /* Stacked under the title on narrow screens, the actions line up with it on the left. */
 @media (max-width: 56rem) {
   .page-actions {
     justify-content: flex-start;
+  }
+
+  /* …so a menu among them opens from its left edge, not off the screen. */
+  .page-actions-menu .app-nav-dropdown-menu {
+    left: 0;
+    right: auto;
   }
 }
 

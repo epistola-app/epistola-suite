@@ -4,18 +4,24 @@
 
 // Navigation behavior: dropdown keyboard support + mobile hamburger menu.
 // Fully delegated (ADR 0010): survives hx-boost body swaps without re-wiring.
+//
+// A dropdown is `.app-nav-dropdown` with a trigger and a `.app-nav-dropdown-menu`. The trigger is
+// `.app-nav-dropdown-trigger` in the bar, or any button marked `data-menu-trigger` (a page-header
+// "More" menu keeps its ordinary button look that way).
 (function () {
+  var TRIGGER = '.app-nav-dropdown-trigger, [data-menu-trigger]';
+
   function closeAllDropdowns() {
     document.querySelectorAll('.app-nav-dropdown.open').forEach(function (d) {
       d.classList.remove('open');
-      var t = d.querySelector('.app-nav-dropdown-trigger');
+      var t = d.querySelector(TRIGGER);
       if (t) t.setAttribute('aria-expanded', 'false');
     });
   }
 
   function openDropdown(dropdown) {
     dropdown.classList.add('open');
-    var t = dropdown.querySelector('.app-nav-dropdown-trigger');
+    var t = dropdown.querySelector(TRIGGER);
     if (t) t.setAttribute('aria-expanded', 'true');
     var first = dropdown.querySelector('.app-nav-dropdown-menu [role="menuitem"]');
     if (first) first.focus();
@@ -33,7 +39,7 @@
   document.addEventListener('click', function (e) {
     if (!e.target.closest) return;
 
-    var trigger = e.target.closest('.app-nav-dropdown-trigger');
+    var trigger = e.target.closest(TRIGGER);
     if (trigger) {
       var dropdown = trigger.closest('.app-nav-dropdown');
       var isOpen = dropdown.classList.contains('open');
@@ -64,7 +70,12 @@
       versionLink.href = url.pathname + url.search;
     }
 
-    if (!e.target.closest('.app-nav-dropdown')) closeAllDropdowns();
+    // Picking an item closes its menu: one that opens a dialog would otherwise stay open behind it.
+    if (
+      !e.target.closest('.app-nav-dropdown') ||
+      e.target.closest('.app-nav-dropdown-menu [role="menuitem"]')
+    )
+      closeAllDropdowns();
   });
 
   // A boosted navigation inside the workspace replaces only the page (docs/workspace-shell.md):
@@ -109,7 +120,7 @@
   document.addEventListener('keydown', function (e) {
     if (!e.target.closest) return;
 
-    var trigger = e.target.closest('.app-nav-dropdown-trigger');
+    var trigger = e.target.closest(TRIGGER);
     if (trigger && e.key === 'ArrowDown') {
       e.preventDefault();
       closeAllDropdowns();
@@ -122,7 +133,7 @@
       var items = Array.prototype.slice.call(menu.querySelectorAll('[role="menuitem"]'));
       var idx = items.indexOf(document.activeElement);
       var dropdown = menu.closest('.app-nav-dropdown');
-      var dropdownTrigger = dropdown && dropdown.querySelector('.app-nav-dropdown-trigger');
+      var dropdownTrigger = dropdown && dropdown.querySelector(TRIGGER);
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         if (idx < items.length - 1) items[idx + 1].focus();

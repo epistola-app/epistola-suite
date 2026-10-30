@@ -127,6 +127,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         stencil(tenant, letters, "header", "Header")
 
         gotoAndReady("/tenants/$tenant/catalogs")
+        page.getByTestId("catalog-more-open").click()
         page.getByTestId("catalog-organise-open").click()
         page.getByTestId("organise-new-shared-name").fill("Brand")
         page.getByTestId("organise-new-shared-key").fill("brand")

@@ -34,12 +34,12 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 18%" /><!-- Name -->
-                <col style="width: 13%" /><!-- ID -->
+                <col style="width: 16%" /><!-- Name -->
+                <col style="width: 10%" /><!-- ID -->
                 <col style="width: 18%" /><!-- Editing: wide enough for "Supplied by Epistola" uncut -->
-                <col style="width: 17%" /><!-- Version -->
-                <col style="width: 17%" /><!-- Last Modified -->
-                <col style="width: 17%" /><!-- Actions -->
+                <col style="width: 12%" /><!-- Version -->
+                <col style="width: 15%" /><!-- Last Modified -->
+                <col style="width: 29%" /><!-- Actions: labelled -->
             </colgroup>
             <thead>
                 <tr>
@@ -84,41 +84,32 @@
                         </th:block>
                     </td>
                     <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${catalog.updatedAt}" th:title="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <!--/* Labelled actions: five bare icons (eye, download, save, refresh, trash) said nothing at a
+                           glance and nothing on touch, and "save" read as save, not publish. The name opens
+                           the catalog, so there is no separate "browse". */-->
                     <td class="actions">
-                        <a th:href="@{|/tenants/${tenantId}/catalogs/${address}/browse|}"
-                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                        </a>
                         <!--/* Not the system catalog: every installation has it, and it keeps more than its archive. */-->
                         <button type="button" th:if="${catalog.id != 'system'}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
+                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-export"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/export-check|}"
-                                hx-target="#export-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
-                        </button>
+                                hx-target="#export-dialog-container" hx-swap="innerHTML">Export</button>
                         <button type="button" th:if="${catalogEditing.editable(catalog)}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Publish a new release"
+                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-publish"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/release|}"
-                                hx-target="#release-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
-                        </button>
+                                hx-target="#release-dialog-container" hx-swap="innerHTML">Publish…</button>
                         <button type="button"
                                 th:if="${catalog.hasSource and !#strings.startsWith(catalog.sourceUrl, 'oci:')}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
+                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-check-updates"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/upgrade-check|}"
-                                th:attr="hx-target=${'#catver-' + catalog.namespace + '--' + catalog.id}" hx-swap="innerHTML">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
-                        </button>
+                                th:attr="hx-target=${'#catver-' + catalog.namespace + '--' + catalog.id}" hx-swap="innerHTML">Check for updates</button>
                         <button type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="catalog-row-delete"
                                 th:disabled="${catalog.id == 'system'}"
-                                th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : 'Delete catalog and all its resources'"
+                                th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : null"
                                 th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every release of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"
-                                data-confirm-title="Delete Catalog"
+                                data-confirm-title="Delete catalog"
                                 th:data-confirm-url="@{|/tenants/${tenantId}/catalogs/${address}/delete|}"
-                                data-confirm-target="#catalog-list">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                        </button>
+                                data-confirm-target="#catalog-list">Delete</button>
                     </td>
                 </tr>
             </tbody>
@@ -647,69 +638,61 @@
          re-checks on load and clears itself). -->
     <th:block th:fragment="upgrade-done"></th:block>
     <th:block th:fragment="catalog-list-actions">
-        <!--/* Gather resources from any catalog into a new one (ADR 0042); renaming and moving one
-               resource are offered on the resource itself. Needs catalog management, as creating a
-               catalog does. */-->
-        <a th:if="${resourceRelocationEnabled and auth.has('CATALOG_MANAGE')}" class="ep-btn ep-btn-outline"
-           th:href="@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId},shared='new')}"
-           data-testid="catalog-organise-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='redo-2', class='ep-icon')}" />
-            Create a shared catalog…
-        </a>
-        <!--/* Publishing several catalogs at once, dependencies first: for someone who may publish,
-               when there is a catalog that can be changed here. The page lists what has something to
-               publish, and says so when nothing has. */-->
-        <a th:if="${auth.has('CATALOG_RELEASE') and catalogEditing.anyEditable()}" class="ep-btn ep-btn-outline"
-           th:href="@{/tenants/{tenantId}/catalogs/publish(tenantId=${tenantId})}"
-           data-testid="catalog-publish-several-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
-            Publish several…
-        </a>
-        <button type="button" class="ep-btn ep-btn-outline"
-                th:if="${auth.has('CATALOG_MANAGE')}"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
-                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
-                data-testid="catalog-import-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
-            Import ZIP
-        </button>
-        <!-- Alpha: only when the installation has a container registry configured (registryInstallAvailable). -->
-        <button type="button" class="ep-btn ep-btn-outline"
-                th:if="${registryInstallAvailable}"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId})}"
-                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
-                data-testid="catalog-registry-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon')}" />
-            From a registry
-        </button>
-        <button type="button" class="ep-btn ep-btn-outline"
-                th:if="${auth.has('CATALOG_MANAGE')}"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
-                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
-                data-testid="catalog-subscribe-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
-            Subscribe
-        </button>
-        <a class="ep-btn ep-btn-outline"
-           th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}"
-           data-testid="catalog-graph-open">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='layers', class='ep-icon')}" />
-            Dependencies
-        </a>
-        <a class="ep-btn ep-btn-outline"
-           th:if="${exchangeInstallAvailable and auth.has('CATALOG_MANAGE')}"
-           th:href="@{/tenants/{tenantId}/catalogs/exchange(tenantId=${tenantId})}"
-           data-testid="catalog-exchange-browse">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon')}" />
-            Browse Exchange
-        </a>
+        <!--/* One primary action, New catalog; the rest of the page's actions in one menu, so seven
+               buttons of equal weight no longer crowd the title. Dependencies is always offered, so
+               the menu is never empty. */-->
+        <div class="app-nav-dropdown page-actions-menu" data-testid="catalog-more-actions">
+            <button type="button" class="ep-btn ep-btn-outline" data-menu-trigger
+                    aria-expanded="false" aria-haspopup="true" aria-controls="catalog-more-menu"
+                    data-testid="catalog-more-open">
+                More
+                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm app-nav-chevron')}" />
+            </button>
+            <div class="app-nav-dropdown-menu" id="catalog-more-menu" role="menu" aria-label="More catalog actions">
+                <!--/* Gather resources from any catalog into a new one (ADR 0042); renaming and moving one
+                       resource are offered on the resource itself. Needs catalog management, as creating a
+                       catalog does. */-->
+                <a th:if="${resourceRelocationEnabled and auth.has('CATALOG_MANAGE')}" class="app-nav-dropdown-item" role="menuitem"
+                   th:href="@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId},shared='new')}"
+                   data-testid="catalog-organise-open">Create a shared catalog…</a>
+                <!--/* Publishing several catalogs at once, dependencies first: for someone who may publish,
+                       when there is a catalog that can be changed here. The page lists what has something to
+                       publish, and says so when nothing has. */-->
+                <a th:if="${auth.has('CATALOG_RELEASE') and catalogEditing.anyEditable()}" class="app-nav-dropdown-item" role="menuitem"
+                   th:href="@{/tenants/{tenantId}/catalogs/publish(tenantId=${tenantId})}"
+                   data-testid="catalog-publish-several-open">Publish several…</a>
+                <button type="button" class="app-nav-dropdown-item" role="menuitem"
+                        th:if="${auth.has('CATALOG_MANAGE')}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                        data-testid="catalog-import-open">Import ZIP…</button>
+                <!-- Alpha: only when the installation has a container registry configured (registryInstallAvailable). -->
+                <button type="button" class="app-nav-dropdown-item" role="menuitem"
+                        th:if="${registryInstallAvailable}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                        data-testid="catalog-registry-open">From a registry…</button>
+                <button type="button" class="app-nav-dropdown-item" role="menuitem"
+                        th:if="${auth.has('CATALOG_MANAGE')}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/subscribe(tenantId=${tenantId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                        data-testid="catalog-subscribe-open">Subscribe…</button>
+                <a class="app-nav-dropdown-item" role="menuitem"
+                   th:if="${exchangeInstallAvailable and auth.has('CATALOG_MANAGE')}"
+                   th:href="@{/tenants/{tenantId}/catalogs/exchange(tenantId=${tenantId})}"
+                   data-testid="catalog-exchange-browse">Browse Exchange</a>
+                <a class="app-nav-dropdown-item" role="menuitem"
+                   th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}"
+                   data-testid="catalog-graph-open">Dependencies</a>
+            </div>
+        </div>
         <button type="button" class="ep-btn ep-btn-primary"
                 th:if="${auth.has('CATALOG_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-create-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Catalog
+            New catalog
         </button>
     </th:block>
 
