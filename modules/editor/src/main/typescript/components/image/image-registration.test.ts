@@ -11,7 +11,10 @@ import {
   resolveContentUrl,
   crossCatalogKey,
   resolveCanvasDimension,
+  imageCatalogKey,
 } from './image-registration.js';
+import { buildIndexes } from '../../engine/indexes.js';
+import type { TemplateDocument } from '../../types/index.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
 
 /** Minimal stubs — the asset picker is unused in onPropChange tests. */
@@ -241,5 +244,58 @@ describe('image onPropChange aspect ratio lock', () => {
 
     // 200 * (100/300) = 66.666... → 67
     expect(result.height).toBe('67pt');
+  });
+});
+
+describe('imageCatalogKey', () => {
+  // A template in `letters` holding an image of its own and an instance of stencil `brand/header`,
+  // inlined: the stencil's image names no catalog, being in the stencil's own.
+  const doc = {
+    modelVersion: 1,
+    root: 'root',
+    nodes: {
+      root: { id: 'root', type: 'root', slots: ['root-children'] },
+      own: { id: 'own', type: 'image', slots: [], props: { imageKey: 'logo' } },
+      header: {
+        id: 'header',
+        type: 'stencil',
+        slots: ['header-children'],
+        props: { stencilKey: 'header', catalogKey: 'brand' },
+      },
+      inlined: { id: 'inlined', type: 'image', slots: [], props: { imageKey: 'signature' } },
+      named: {
+        id: 'named',
+        type: 'image',
+        slots: [],
+        props: { imageKey: 'seal', catalogKey: 'seals' },
+      },
+    },
+    slots: {
+      'root-children': {
+        id: 'root-children',
+        nodeId: 'root',
+        name: 'children',
+        children: ['own', 'header'],
+      },
+      'header-children': {
+        id: 'header-children',
+        nodeId: 'header',
+        name: 'children',
+        children: ['inlined', 'named'],
+      },
+    },
+  } as unknown as TemplateDocument;
+  const engine = { doc, indexes: buildIndexes(doc) };
+
+  it("resolves an image inside another catalog's stencil in that catalog", () => {
+    expect(imageCatalogKey(engine, 'inlined', undefined, 'letters')).toBe('brand');
+  });
+
+  it("leaves an image of the template's own catalog naming none", () => {
+    expect(imageCatalogKey(engine, 'own', undefined, 'letters')).toBeUndefined();
+  });
+
+  it('keeps the catalog an image names', () => {
+    expect(imageCatalogKey(engine, 'named', 'seals', 'letters')).toBe('seals');
   });
 });

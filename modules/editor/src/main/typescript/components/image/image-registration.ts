@@ -11,7 +11,9 @@
 
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
+import type { NodeId } from '../../types/index.js';
 import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker-dialog.js';
+import { lexicalScopeAt } from '../stencil/instances.js';
 import { html } from 'lit';
 import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
@@ -39,6 +41,25 @@ export function resolveContentUrl(
   return (pattern ?? '/images/{imageKey}')
     .replace('{catalogId}', catalogKey ?? defaultCatalogKey ?? '')
     .replace('{imageKey}', imageKey);
+}
+
+/**
+ * The catalog an image node names its image in: its own `catalogKey`, else the catalog whose content
+ * it lexically is. An image in a stencil from another catalog, shown inlined in a template, names
+ * no catalog because it is in its stencil's own; resolved against the template it would be looked
+ * up in the wrong catalog. Undefined means the document's own catalog.
+ */
+export function imageCatalogKey(
+  engine: Pick<EditorEngine, 'doc' | 'indexes'>,
+  nodeId: NodeId,
+  ownCatalogKey: string | undefined,
+  documentCatalogKey: string | undefined,
+): string | undefined {
+  if (ownCatalogKey) return ownCatalogKey;
+  const slotId = engine.indexes.parentSlotByNodeId.get(nodeId);
+  if (!slotId) return undefined;
+  const scope = lexicalScopeAt(engine.doc, slotId, engine.indexes, documentCatalogKey ?? '');
+  return scope.catalogKey && scope.catalogKey !== documentCatalogKey ? scope.catalogKey : undefined;
 }
 
 /**
@@ -243,8 +264,17 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
         </div>`;
       }
 
-      const nodeCatalogKey = node.props?.catalogKey as string | undefined;
-      const src = resolveContentUrl(contentUrlPattern, imageKey, nodeCatalogKey, defaultCatalogKey);
+      const src = resolveContentUrl(
+        contentUrlPattern,
+        imageKey,
+        imageCatalogKey(
+          engine,
+          node.id,
+          node.props?.catalogKey as string | undefined,
+          defaultCatalogKey,
+        ),
+        defaultCatalogKey,
+      );
       const alt = (node.props?.alt as string) || '';
       const spacingUnit = engine.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
       const width = resolveCanvasDimension(node.props?.width as string | undefined, spacingUnit);

@@ -26,6 +26,8 @@ async function mount(container) {
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
+  // The same catalog as catalog lists name it, `acme/letters` (ADR 0034).
+  const catalogAddress = config.catalogAddress || catalogId;
   const templateId = config.templateId;
   const variantId = config.variantId;
   const features = config.features ?? {};
@@ -38,7 +40,8 @@ async function mount(container) {
   const catalogPath = (segment) => String(segment).split('/').map(encodeURIComponent).join('/');
   // A draft other than the next version is named after `@`, `acme/letters@<draft id>`.
   const inDraft = String(catalogSegment).includes('@');
-  const segmentOf = (catalog) => (catalog === catalogId ? catalogSegment : catalog);
+  const segmentOf = (catalog) =>
+    catalog === catalogId || catalog === catalogAddress ? catalogSegment : catalog;
   // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
   // this catalog's rows from it and every other catalog's from its current version.
   const inParam = inDraft ? 'in=' + encodeURIComponent(catalogSegment) : '';
@@ -79,6 +82,7 @@ async function mount(container) {
     },
     imageOptions: {
       defaultCatalogKey: catalogId,
+      pickerCatalog: catalogAddress,
       // An image is named by the alias its catalog has in this template's catalog (its key, ADR
       // 0034): asked of this catalog's address, which resolves the alias, so a key two catalogs
       // share still names the one this catalog uses.
