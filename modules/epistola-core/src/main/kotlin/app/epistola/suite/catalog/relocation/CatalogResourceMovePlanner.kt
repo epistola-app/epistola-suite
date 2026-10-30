@@ -139,6 +139,20 @@ class CatalogResourceMovePlanner(
         // resources lands on the other's destination rather than the address it is leaving. An aliased
         // reference means the catalog its holder's catalog declares under that alias (ADR 0034, section 9).
         val repoint = repointer.plan(handle, tenantKey, relocations.filter { it.source in identities }, graphs.loadAliases(handle, tenantKey))
+        // A ready mark is for the content an author approved. Rewriting a resource's references, or
+        // moving it, changes that content, so each one is to be marked ready again before its
+        // catalog releases; said here, rather than first met as a refused release in another catalog.
+        (repoint.rewrites.map { it.row } + repoint.moves.map { it.head.row.copy(catalogAddress = it.relocation.target.catalogAddress, key = it.relocation.target.key) })
+            .groupBy({ it.catalogAddress }, { row -> row.parentKey?.let { "template '$it'" } ?: "${row.type} '${row.key}'" })
+            .toSortedMap()
+            .forEach { (catalog, changed) ->
+                val names = changed.distinct().sorted()
+                warnings += ResourceMoveWarning(
+                    "ready-again",
+                    "In $catalog, ${names.joinToString()} ${if (names.size == 1) "changes and needs" else "change and need"} marking ready again before it is released",
+                    null,
+                )
+            }
 
         // Catalog ordering is load-bearing for snapshot restore, which throws on a cycle. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
@@ -202,6 +216,15 @@ class CatalogResourceMovePlanner(
             add(target.catalogAddress, ChangeKind.ADDITIVE, "gains ${target.type.word()} '${target.key}'")
         }
         (after - before).sortedWith(compareBy({ it.first }, { it.second })).forEach { (from, to) -> add(from, ChangeKind.ADDITIVE, "now depends on ${to.substringAfter('/')}") }
+        // A catalog that only uses a relocated resource has its references rewritten, so its next
+        // release changes too: a fix, which comes after the release holding the resource at its new
+        // address. A catalog already listed says so by its other reasons.
+        val listed = reasons.keys.toSet()
+        graph.edges.mapNotNull { edge -> edge.target?.let { destinations[it] }?.let { edge.source.catalogAddress to it } }
+            .filter { (catalog, _) -> catalog !in listed }
+            .distinct()
+            .sortedWith(compareBy({ it.first }, { it.second.id }))
+            .forEach { (catalog, target) -> add(catalog, ChangeKind.NONE, "uses ${target.type.word()} '${target.key}' at its new address") }
 
         val order = releaseOrder(reasons.keys, after)
         val releases = order.map { catalog ->

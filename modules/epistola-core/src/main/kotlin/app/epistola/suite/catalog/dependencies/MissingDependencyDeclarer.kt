@@ -81,8 +81,8 @@ class MissingDependencyDeclarer(
         .toMap()
 
     /**
-     * After resources moved into other catalogs ([arrived]: each catalog the addresses `type/key` that
-     * moved into it), every catalog of [tenantKey] that can be changed here and now uses one of them
+     * After resources moved into other catalogs, or were renamed ([arrived]: each catalog the
+     * addresses `type/key` that arrived in it), every catalog of [tenantKey] that can be changed here and now uses one of them
      * names that catalog's next version (ADR 0042): no release of it holds them yet, so a pin of one
      * would not resolve. A declaration that names a draft already stays; one pinned to a release, or
      * none, becomes a declaration of the next version. Releasing with dependencies then releases

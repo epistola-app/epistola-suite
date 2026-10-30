@@ -52,6 +52,32 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
         assertThat(letters.reasons).containsExactly("now depends on shared")
     }
 
+    @Test
+    fun `renaming a theme another catalog uses lists that catalog too, released after it`() {
+        val tenant = tenantWith("impact-rename-user")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, shared)), "Brand").execute()
+            mediator.releaseNext(catalogId(tenant, shared))
+            val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
+            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = catalogId(tenant, shared)).execute()
+        }
+
+        val plan = preview(tenant, address(tenant, CatalogResourceType.THEME, shared, "brand").movedTo(shared, "house"))
+
+        // Letters gains and loses nothing, but its invoice is rewritten to name `house`: a fix,
+        // which needs the release of shared that has `house`.
+        val letters = plan.releases.single { it.catalog.endsWith("/letters") }
+        assertThat(letters.kind).isEqualTo(ChangeKind.NONE)
+        assertThat(letters.reasons).containsExactly("uses theme 'house' at its new address")
+        assertThat(plan.releaseOrder.map { it.substringAfter('/') }).containsExactly("shared", "letters")
+        // Both change content an author approved: said before applying, not first met as a refusal.
+        assertThat(plan.warnings.filter { it.code == "ready-again" }.map { it.message.substringAfter("/") }).containsExactly(
+            "letters, template 'invoice' changes and needs marking ready again before it is released",
+            "shared, theme 'house' changes and needs marking ready again before it is released",
+        )
+    }
+
     /** `letters` with a theme `house` and a template `invoice` using it, released as 1.0.0 when [released]. */
     private fun lettersWithHouse(name: String, released: Boolean): TenantKey {
         val tenant = tenantWith(name)

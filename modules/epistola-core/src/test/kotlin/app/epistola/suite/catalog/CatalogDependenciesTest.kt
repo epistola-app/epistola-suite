@@ -210,6 +210,25 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         assertThat(declared.namesDraft).`as`("names shared's draft").isTrue()
     }
 
+    @Test
+    fun `renaming a resource another catalog uses makes that catalog name the renamed one's next version`() {
+        val tenant = setUp("deps-rename-follows", "1.0.0")
+        update(tenant, declared(tenant, "1.0.0"))
+        invoiceOnSharedTheme(tenant)
+
+        val relocations = listOf(testAddress(tenant, CatalogResourceType.THEME, shared.value, "brand").movedTo(shared, "house"))
+        withMediator {
+            val plan = PreviewCatalogResourceMove(tenant, relocations).query()
+            MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute()
+        }
+
+        // Shared 1.0.0 holds `brand`, not `house`: a pin of it would leave the invoice naming a theme
+        // that does not exist there, so neither marking it ready nor releasing letters could succeed.
+        val declared = withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single()
+        assertThat(declared.catalogKey to declared.releaseVersion).isEqualTo(shared.value to null)
+        assertThat(declared.namesDraft).`as`("names shared's draft").isTrue()
+    }
+
     // ── Releasing ──
 
     @Test
