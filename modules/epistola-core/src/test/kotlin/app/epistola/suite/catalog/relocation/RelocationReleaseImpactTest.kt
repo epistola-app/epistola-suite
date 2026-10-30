@@ -78,6 +78,17 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
         )
     }
 
+    @Test
+    fun `a blocked move asks nobody to mark anything ready again, since nothing changes`() {
+        val tenant = lettersWithHouse("impact-blocked", released = false)
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, shared)), "Taken").execute() }
+
+        val plan = preview(tenant, address(tenant, CatalogResourceType.THEME, letters, "house").movedTo(shared))
+
+        assertThat(plan.blockers.map { it.code }).contains("target-occupied")
+        assertThat(plan.warnings.map { it.code }).doesNotContain("ready-again")
+    }
+
     /** `letters` with a theme `house` and a template `invoice` using it, released as 1.0.0 when [released]. */
     private fun lettersWithHouse(name: String, released: Boolean): TenantKey {
         val tenant = tenantWith(name)

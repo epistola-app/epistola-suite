@@ -139,20 +139,6 @@ class CatalogResourceMovePlanner(
         // resources lands on the other's destination rather than the address it is leaving. An aliased
         // reference means the catalog its holder's catalog declares under that alias (ADR 0034, section 9).
         val repoint = repointer.plan(handle, tenantKey, relocations.filter { it.source in identities }, graphs.loadAliases(handle, tenantKey))
-        // A ready mark is for the content an author approved. Rewriting a resource's references, or
-        // moving it, changes that content, so each one is to be marked ready again before its
-        // catalog releases; said here, rather than first met as a refused release in another catalog.
-        (repoint.rewrites.map { it.row } + repoint.moves.map { it.head.row.copy(catalogAddress = it.relocation.target.catalogAddress, key = it.relocation.target.key) })
-            .groupBy({ it.catalogAddress }, { row -> row.parentKey?.let { "template '$it'" } ?: "${row.type} '${row.key}'" })
-            .toSortedMap()
-            .forEach { (catalog, changed) ->
-                val names = changed.distinct().sorted()
-                warnings += ResourceMoveWarning(
-                    "ready-again",
-                    "In $catalog, ${names.joinToString()} ${if (names.size == 1) "changes and needs" else "change and need"} marking ready again before it is released",
-                    null,
-                )
-            }
 
         // Catalog ordering is load-bearing for snapshot restore, which throws on a cycle. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
@@ -169,6 +155,7 @@ class CatalogResourceMovePlanner(
             }
             if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations)
         }
+        if (blockers.isEmpty()) warnings += readyAgain(repoint)
 
         val plans = relocations.map { relocation ->
             ResourceRelocationPlan(
@@ -430,6 +417,24 @@ class CatalogResourceMovePlanner(
         }
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
     }
+
+    /**
+     * A ready mark is for the content an author approved. Rewriting a resource's references, or
+     * moving it, changes that content, so each one is to be marked ready again before its catalog
+     * releases: said in the preview, rather than first met as a refused release in another catalog.
+     * A long list names the first few.
+     */
+    private fun readyAgain(repoint: RepointPlan): List<ResourceMoveWarning> = (repoint.rewrites.map { it.row } + repoint.moves.map { it.head.row.copy(catalogAddress = it.relocation.target.catalogAddress, key = it.relocation.target.key) })
+        .groupBy({ it.catalogAddress }, { row -> row.parentKey?.let { "template '$it'" } ?: "${row.type} '${row.key}'" })
+        .toSortedMap()
+        .map { (catalog, changed) ->
+            val names = changed.distinct().sorted()
+            val shown = if (names.size > 3) names.take(3) + "${names.size - 3} more" else names
+            ResourceMoveWarning(
+                "ready-again",
+                "In $catalog, ${shown.joinToString()} ${if (names.size == 1) "changes and needs" else "change and need"} marking ready again before it is released",
+            )
+        }
 
     private fun blocker(code: String, message: String, source: ResourceAddress? = null) = ResourceMoveBlocker(code, message, source)
 }
