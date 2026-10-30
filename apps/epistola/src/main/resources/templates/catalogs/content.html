@@ -147,7 +147,8 @@
     <th:block th:fragment="contents">
         <div class="ep-panel detail-section" th:if="${!resources.isEmpty()}">
             <div class="detail-section-header">
-                <h2>Contents</h2>
+                <!--/* Not "Contents": the overview's count tiles above already carry that heading. */-->
+                <h2>Resources from the source</h2>
                 <!--/* A catalog installs whole (#850), so this is the only install action: there is
                        no per-resource Install, and nothing to choose between. Offered only while
                        something is left to install -- a fully installed catalog was still showing a
@@ -186,7 +187,8 @@
                     </thead>
                     <tbody id="resource-table" th:fragment="resource-rows">
                         <tr th:each="resource : ${resources}">
-                            <td>
+                            <!--/* Wraps: an image can carry a second badge (presentation), which a single line cut to "…". */-->
+                            <td class="cell-wrap">
                                 <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
                                 <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
                                 <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>

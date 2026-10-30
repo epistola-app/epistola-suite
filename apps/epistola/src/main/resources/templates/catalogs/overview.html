@@ -236,7 +236,7 @@
                 <a th:each="group : ${contents.groups}" th:href="@{${group.listHref}}" class="ep-panel stat-card"
                    data-testid="catalog-count" th:attr="data-type=${group.type}">
                     <div class="stat-card-value" th:text="${group.count}">5</div>
-                    <div class="stat-card-label" th:text="${group.label}">Templates</div>
+                    <div class="stat-card-label" th:text="${group.countLabel}">Templates</div>
                     <div th:if="${group.changedCount > 0}" class="stat-card-label catalog-count-changed"
                          th:text="${group.changedCount} + ' not published yet'">2 not published yet</div>
                 </a>

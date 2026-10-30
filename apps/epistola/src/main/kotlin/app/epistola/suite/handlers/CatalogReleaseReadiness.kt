@@ -141,6 +141,13 @@ data class CatalogReleaseReadiness(
     val onlyOthersChanged: Boolean get() = !nothingToPublish && changeCount == 0 && publishedAlong.isNotEmpty()
 
     /**
+     * A catalog never published with nothing added to it yet. Publishing is still offered (its first
+     * version), but the list of changes is empty, so the page says why instead of showing a blank card.
+     */
+    val nothingAddedYet: Boolean
+        get() = hasDraft && drafts.releases.isEmpty() && changeCount == 0 && publishedAlong.isEmpty()
+
+    /**
      * The number this is published as, picked for the person from what changed since the latest
      * release (fixes a patch, additions a minor, breaking changes a major): a draft has no number until
      * it is published.

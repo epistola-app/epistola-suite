@@ -32,9 +32,14 @@ data class CatalogContents(val groups: List<Group>) {
         val items: List<Item>,
         /** The list of this kind, inside the catalog at this version. */
         val listHref: String = "",
+        /** One of this kind, for a count of one: "1 Theme", not "1 Themes". */
+        val singularLabel: String = label,
     ) {
         /** How many of this kind there are. */
         val count: Int get() = items.size
+
+        /** The label beside [count]: singular for exactly one, plural otherwise ("0 Themes"). */
+        val countLabel: String get() = if (count == 1) singularLabel else label
 
         /** How many of them are new or changed since the last published version. */
         val changedCount: Int get() = items.count { it.change != null }
@@ -71,6 +76,7 @@ data class CatalogContents(val groups: List<Group>) {
         private data class Kind(
             val type: String,
             val label: String,
+            val singularLabel: String,
             val newLabel: String,
             val area: String,
             val permission: Permission,
@@ -80,13 +86,13 @@ data class CatalogContents(val groups: List<Group>) {
 
         /** In the order people reach for them: what makes a document first. */
         private val KINDS = listOf(
-            Kind("template", "Templates", "New template", "templates", Permission.TEMPLATE_EDIT, ownPage = true),
-            Kind("stencil", "Stencils", "New stencil", "stencils", Permission.STENCIL_EDIT, ownPage = true),
-            Kind("theme", "Themes", "New theme", "themes", Permission.THEME_EDIT, ownPage = true),
-            Kind("image", "Images", "Upload image", "images", Permission.TEMPLATE_EDIT, ownPage = false),
-            Kind("font", "Fonts", "Add font", "fonts", Permission.REFERENCE_EDIT, ownPage = false),
-            Kind("attribute", "Attributes", "New attribute", "attributes", Permission.TENANT_SETTINGS, ownPage = false),
-            Kind("codeList", "Code lists", "New code list", "code-lists", Permission.TENANT_SETTINGS, ownPage = true),
+            Kind("template", "Templates", "Template", "New template", "templates", Permission.TEMPLATE_EDIT, ownPage = true),
+            Kind("stencil", "Stencils", "Stencil", "New stencil", "stencils", Permission.STENCIL_EDIT, ownPage = true),
+            Kind("theme", "Themes", "Theme", "New theme", "themes", Permission.THEME_EDIT, ownPage = true),
+            Kind("image", "Images", "Image", "Upload image", "images", Permission.TEMPLATE_EDIT, ownPage = false),
+            Kind("font", "Fonts", "Font", "Add font", "fonts", Permission.REFERENCE_EDIT, ownPage = false),
+            Kind("attribute", "Attributes", "Attribute", "New attribute", "attributes", Permission.TENANT_SETTINGS, ownPage = false),
+            Kind("codeList", "Code lists", "Code list", "New code list", "code-lists", Permission.TENANT_SETTINGS, ownPage = true),
         )
 
         /**
@@ -108,6 +114,7 @@ data class CatalogContents(val groups: List<Group>) {
                     Group(
                         type = kind.type,
                         label = kind.label,
+                        singularLabel = kind.singularLabel,
                         newLabel = kind.newLabel,
                         newHref = "$base/catalogs/$catalog/${kind.area}/new",
                         listHref = "$base/catalogs/$catalog/${kind.area}",

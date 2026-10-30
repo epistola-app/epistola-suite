@@ -73,6 +73,24 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a new catalog with nothing in it says so, rather than showing an empty card`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Next Release Empty")
+            withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("empty"), name = "Empty").execute() }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/empty/draft", String::class.java) }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("data-testid=\"catalog-nothing-added\"")
+            assertThat(body).doesNotContain("data-testid=\"catalog-no-changes\"")
+        }
+    }
+
+    @Test
     fun `the publish dialog does not hold back for ready marks, which publishing sets itself`() = fixture {
         lateinit var tenant: Tenant
 

@@ -96,8 +96,16 @@
   display: flex;
   gap: var(--ep-space-2);
   align-items: center;
-  flex-shrink: 0;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* Stacked under the title on narrow screens, the actions line up with it on the left. */
+@media (max-width: 56rem) {
+  .page-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* ── Data contract actions ───────────────────────────────────────────── */

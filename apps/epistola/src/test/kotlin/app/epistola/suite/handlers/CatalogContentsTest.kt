@@ -66,4 +66,19 @@ class CatalogContentsTest {
         assertThat(templates.listHref).isEqualTo("/tenants/acme/catalogs/letters@$work/templates")
         assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/catalogs/letters@$work/code-lists")
     }
+
+    @Test
+    fun `a count of one reads singular, any other count plural`() {
+        val contents = CatalogContents.of(
+            acme,
+            CatalogSegment(CatalogKey.of("letters")),
+            listOf(resource("theme", "brand", "Brand"), resource("template", "invoice", "Invoice"), resource("template", "reminder", "Reminder")),
+        ) { true }
+
+        val labels = contents.groups.associate { it.type to it.countLabel }
+        assertThat(labels["theme"]).isEqualTo("Theme")
+        assertThat(labels["template"]).isEqualTo("Templates")
+        assertThat(labels["font"]).isEqualTo("Fonts")
+        assertThat(labels["codeList"]).isEqualTo("Code lists")
+    }
 }

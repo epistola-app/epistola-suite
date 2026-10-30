@@ -75,6 +75,57 @@ Decided and closed:
 
 ## Touched
 
+### UI review and layout fixes (30 October; branch `feat/ui-polish-2-0`)
+
+The demo app crawled logged in as admin (67 pages at 1440 px, six at 390 px); about fifteen representative screenshots read closely, the rest checked by script (overflow, unlabelled controls, console).
+The fixes below are the ones that were cheap and safe; the rest is listed under "Noticed".
+
+| What                                                                                                                                                          | Where                                                                      | Covered                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A page header with many actions crushed its title (the catalogs list cut "Catalogs" to "Catalog"). The title keeps an 18rem share; the actions wrap beside it | `components.css` `.page-header .content`, `navigation.css` `.page-actions` | ✅ `PageLayoutUiTest` (failed before: title overflowed by 123 px)                                                      |
+| The What's New card on a phone ran its title under "View details", which was an unstyled browser button                                                       | `changelog.css`                                                            | ✅ `PageLayoutUiTest` (failed before: 240 px overflow)                                                                 |
+| The cluster page's tables ran past the page (1425 px on 1280), and a second formatter rewrote its times as locale strings ("10/30/2026, 04:41:46 PM GMT+1")   | `cluster/dashboard.html`, `pages/dashboards.js`                            | ✅ `PageLayoutUiTest` (failed before on the width); 🟡 the time shape is behind the width assertion, seen in the crawl |
+| Catalogs list cut "Supplied by Epistola" and "Can be changed"                                                                                                 | `catalogs/list.html` colgroup                                              | ✅ `PageLayoutUiTest` (failed before: 17 and 39 px)                                                                    |
+| "1 Themes", "1 Attributes" on a catalog's count tiles                                                                                                         | `CatalogContents.Group.countLabel`                                         | ✅ `CatalogContentsTest` (did not compile before)                                                                      |
+| A new catalog with nothing in it showed an empty "Not published yet" card                                                                                     | `CatalogReleaseReadiness.nothingAddedYet`, `next-release.html`             | ✅ `CatalogNextReleaseHandlerHtmxTest` (failed before)                                                                 |
+| A supplied catalog's overview had two "Contents" headings; the resource table's image rows cut the presentation badge to "…"                                  | `catalogs/content.html`                                                    | ❌ seen in the crawl only                                                                                              |
+| A supplied catalog's template list stacked Read-only and the view icon on two lines per row                                                                   | `templates/list.html` colgroup                                             | ❌ seen in the crawl only                                                                                              |
+
+Noticed, not done (recommendations, roughly by value):
+
+- **Capitalisation is mixed.** Title Case ("Create New Tenant", "Quick Actions", "Generation History",
+  "Most Used Templates", "Feature Toggles", "Save Settings", "New Catalog", "Danger Zone", "Sign In")
+  sits beside sentence case ("Getting started", "Deployed here", "Try a document", "Raise a finding").
+  Pick sentence case and do one pass; UI tests that select by text move with it.
+- **Icon-only row actions** (tenants: tag, chevron, trash; catalogs: eye, download, save, sync, trash)
+  carry only a `title`: unreadable at a glance and absent on touch. The "save" icon for export is
+  ambiguous. Label them, or put the rarer ones in a row menu.
+- **The catalogs page has six header actions of equal weight.** Keep New catalog primary; move
+  Create a shared catalog, Publish several, Import ZIP, Subscribe and Dependencies into one menu.
+- **The platform Tenants page leads with the create form**; the list of tenants is below the fold.
+  List first, create in a dialog like every other list.
+- **Read-only on every row** of a supplied catalog's lists says once per row what the catalog says
+  once. Say it in the page header.
+- **The catalog sidebar title wraps beside its "Supplied by Epistola" badge**, which the top bar
+  repeats. Put the badge under the name, or drop one of the two.
+- **An empty catalog's overview** shows seven zero tiles; an empty state with "Create a template"
+  would start someone off.
+- **Names that disagree with the nav:** the catalog's Settings page is titled "Details" (subtitle "As
+  the release it is on describes it."); Generation is titled "Generation History"; the top bar's
+  "Back to Default" names a catalog without saying it is one.
+- **Environment page:** "Not production" reads as a state, not an action ("Mark as not production");
+  Undeploy is a small ghost link beside a primary Deploy.
+- **Tenant home:** a "Quick Actions" section holding only New Environment.
+- **Login:** placeholders repeat the labels; the local-accounts note wraps mid-entry.
+- **Cluster page:** Task and Type are the same value on every row; the per-node sub-tables make it
+  very long.
+- **Quality list:** dates and template slugs wrap mid-token at 1440 px.
+- **The feedback button** overlaps the last row's action icons on long lists.
+- **The embed bridge posts to its configured parent when the page is not embedded**: a console
+  warning on every page with embedding on (local profile, demo). Returning early when
+  `window.parent === window` is the fix, but `EmbeddingBridgeUiTest` patches the top window's
+  `postMessage` and would need a real iframe first.
+
 ### Monkey-test findings (30 October; branch `fix/monkey-test-findings`, contract `fix/v7-fingerprint-own-key`)
 
 The 1.x Utrecht upgrade, a fresh import of its archives, and the organising features driven in the
