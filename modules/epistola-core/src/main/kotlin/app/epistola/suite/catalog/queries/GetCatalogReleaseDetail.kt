@@ -120,8 +120,6 @@ data class CatalogReleaseDetail(
             ReleaseChannel.BUNDLED -> "Supplied with Epistola"
 
             ReleaseChannel.UPGRADE_FROM_1X -> "Received from ${from ?: "the catalog's source"} on the upgrade from 1.x"
-
-            ReleaseChannel.SNAPSHOT -> "Restored from a tenant snapshot$by"
         }
     }
 }

@@ -54,5 +54,10 @@ ALTER TABLE catalogs
     DROP COLUMN released_at;
 
 -- The `catalog-context` feature toggle is retired: in 2.0 every catalog page states the catalog
--- version it shows, always (docs/catalog-workspace-navigation.md).
-DELETE FROM feature_toggles WHERE feature_key = 'catalog-context';
+-- version it shows, always (docs/catalog-workspace-navigation.md). So are the toggles of two features
+-- withdrawn before 2.0: tenant backups (#1088) and the compatibility check, with tenant snapshots (#1219).
+DELETE FROM feature_toggles WHERE feature_key IN ('catalog-context', 'support-backups', 'support-compatibility-check');
+
+-- Tenant backups were withdrawn before 2.0 (#1088): nothing reads their table any more, and the
+-- artifacts it holds are restorable by no version of 2.0. Its migration stays where it is, in core.
+DROP TABLE tenant_backups;

@@ -120,7 +120,7 @@ Either way it is a release like any other (ADR 0036): the catalog's version is i
 release**, by number, a view over its released rows (`catalog_current_releases`,
 `Catalog.latestReleaseVersion`) rather than a pointer kept by hand. Every release records how it
 came to be here and only shows it: `released_via` (`released` here, `upload`, `api`, `registry`,
-`exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`), `released_from` (the source URL,
+`exchange`, `source`, `bundled`, `upgrade-1x`), `released_from` (the source URL,
 registry reference or file name), `released_by` (who released or installed it) and `released_at`.
 The release page says how it got here; nothing decides by it (`ReleaseProvenanceUsageTest`). A
 source offers an upgrade when its release is newer than the highest (`SemVer.isNewer`), so a
@@ -229,7 +229,7 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   is created, changed, released and deployed here, and never published to Epistola Exchange
   (`CATALOG_NAMESPACE_LOCAL`, also when the connection grants the same token). The contract carries
   `local` (catalog format and API, contract `feature/v2` `0fe54cc`), so a local catalog is exported,
-  snapshotted, copied into a draft, addressed over REST (`…/catalogs/local/{namespace}/{key}/…`) and
+  copied into a draft, addressed over REST (`…/catalogs/local/{namespace}/{key}/…`) and
   moved through the organisation's own container registries like any other. Container registries
   have no notion of an outside registry, so only the Exchange refuses it.
 
@@ -262,8 +262,7 @@ live side by side, with no switch to turn on.
   reference a draft does not declare is read live, from the tenant's one catalog with that key, as
   before declarations existed.
 - **Receiving** a catalog whose key the tenant has in another namespace installs it beside that one;
-  the same namespace and key is the same catalog. A snapshot (schema 4) files each catalog under
-  `catalogs/{namespace}/{key}.zip` and orders a restore by address.
+  the same namespace and key is the same catalog.
 - **Web UI**: a catalog's pages are at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`
   (`CatalogScopedRoutes`), and every link names a catalog by its address. A path is an address when
   the tenant has a catalog of that namespace and key, so a key that is also the name of a resource

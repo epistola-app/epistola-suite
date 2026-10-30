@@ -195,9 +195,23 @@ migrate on; rebuild it from a 1.x database or from scratch.
 | 11   | `V20261101001100__core_2_0_history`                     | The 1.x version history, summarised in `app_metadata`                                                                     |
 | 12   | `V20261101001200__core_2_0_environments_and_generation` | Environments serve versions; generation history names what it rendered                                                    |
 | 13   | `V20261101001300__core_2_0_exchange`                    | Exchange bindings by address                                                                                              |
-| 14   | `V20261101001400__core_2_0_drop_1x_tables`              | The 1.x tables go                                                                                                         |
+| 14   | `V20261101001400__core_2_0_drop_1x_tables`              | The 1.x tables go, with `tenant_backups` and the toggles of withdrawn features                                            |
 | 15   | `V20261101001500__core_2_0_read_model`                  | Every function and view the read model uses, in its final form                                                            |
 | 16   | `V20261101001600__core_2_0_triggers`                    | The triggers and deferred checks, foreign-key indexes, `ANALYZE`                                                          |
+| 17   | `V20261101001700__core_upstream_check_names`            | An upstream check's columns named for the release a catalog is on, not an "installed" one                                 |
+
+**1.x migrations after the chain.** The chain is numbered from `V20261101000100`, and Flyway runs
+migrations in version order. A 1.x migration numbered after that (any created from 1 November 2026
+by date) would sort inside the chain: a database upgraded from that 1.x release finds 2.0 migrations
+numbered below one it applied, and a fresh 2.0 install would run it after step 14 dropped the tables
+it changes. So the 1.x line takes no schema change once 2.0 is released; one that cannot wait is
+numbered below `V20261101000100` by hand, not by date, and reviewed against the chain.
+
+**Decided: 1.x content renders with today's rendering defaults.** A 1.x version kept the rendering
+defaults it was published with (`template_versions.rendering_defaults_version`) and a snapshot of its
+theme; the chain does not carry either, so a release cut from an upgraded draft renders with the
+current defaults and the theme as it is now. Content brought to 2.0 is brought to its standards; a
+document may lay out slightly differently than in 1.x.
 
 `TwoZeroChainEquivalenceIT` holds the chain to a golden snapshot of what the chain it replaced
 made of a rich 1.x seed (`apps/epistola/src/test/resources/migration-chain/`): the schema statement
