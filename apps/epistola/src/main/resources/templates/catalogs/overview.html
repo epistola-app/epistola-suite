@@ -207,7 +207,7 @@
                                 <form th:if="${row.offerRemove}" method="post" style="display: inline;"
                                       th:action="@{${row.removeAction}}">
                                     <input type="hidden" name="from" value="versions">
-                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                    <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                             data-testid="catalog-version-remove"
                                             data-confirm-submit
                                             th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this release',

@@ -117,6 +117,9 @@ class RefactoringActionsHtmxTest : BaseIntegrationTest() {
             assertThat(page(path)).describedAs(path).contains("data-testid=\"resource-row-refactor\"").contains(move(tenant, resource))
         }
         assertThat(page("$base/images")).contains("title=\"Move to another catalog\"").doesNotContain("Rename or move to another catalog")
+        // Labelled, as every row action is: an arrow alone said nothing on touch.
+        assertThat(page("$base/images")).contains(">Move…</button>")
+        assertThat(page("$base/themes")).contains(">Rename or move…</button>")
     }
 
     @Test

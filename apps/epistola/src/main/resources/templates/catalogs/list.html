@@ -90,20 +90,20 @@
                     <td class="actions">
                         <!--/* Not the system catalog: every installation has it, and it keeps more than its archive. */-->
                         <button type="button" th:if="${catalog.id != 'system'}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-export"
+                                class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-row-export"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/export-check|}"
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">Export</button>
                         <button type="button" th:if="${catalogEditing.editable(catalog)}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-publish"
+                                class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-row-publish"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/release|}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">Publish…</button>
                         <button type="button"
                                 th:if="${catalog.hasSource and !#strings.startsWith(catalog.sourceUrl, 'oci:')}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-row-check-updates"
+                                class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-row-check-updates"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/upgrade-check|}"
                                 th:attr="hx-target=${'#catver-' + catalog.namespace + '--' + catalog.id}" hx-swap="innerHTML">Check for updates</button>
                         <button type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="catalog-row-delete"
+                                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="catalog-row-delete"
                                 th:disabled="${catalog.id == 'system'}"
                                 th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : null"
                                 th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every release of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"

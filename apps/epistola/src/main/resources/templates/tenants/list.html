@@ -52,13 +52,13 @@
                                    nothing at all on touch. The name already opens the tenant. */-->
                             <td class="actions">
                                 <a th:if="${auth.has('TENANT_MANAGER')}" th:href="@{/platform/tenants/{id}/namespaces(id=${tenant.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="tenant-namespaces-link">
+                                   class="ep-btn ep-btn-outline ep-btn-sm" data-testid="tenant-namespaces-link">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-sm')}" />
                                     Namespaces
                                 </a>
                                 <button th:if="${auth.has('TENANT_MANAGER')}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                         data-testid="tenant-delete"
                                         data-confirm-title="Delete tenant"
                                         th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"

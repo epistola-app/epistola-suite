@@ -4,6 +4,13 @@
 
 package app.epistola.suite.ui
 
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import org.assertj.core.api.Assertions.assertThat as assertThatValue
@@ -48,6 +55,29 @@ class PageLayoutUiTest : BasePlaywrightTest() {
         @Suppress("UNCHECKED_CAST")
         val overflows = cells.evaluateAll("cells => cells.map(c => c.scrollWidth - c.clientWidth)") as List<Number>
         assertThatValue(overflows.map { it.toDouble() }).allMatch { it <= 0.0 }
+    }
+
+    @Test
+    fun `a list's labelled row actions fit inside their column`() {
+        val tenant = createTenant("Row Action Layout")
+        withMediator {
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("welcome"), CatalogId.default(TenantId(tenant.id))), "Welcome").execute()
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
+
+        val buttons = page.locator("td.actions .ep-btn")
+        assertThat(buttons.first()).isVisible()
+        @Suppress("UNCHECKED_CAST")
+        val overflow = page.locator("td.actions").evaluateAll(
+            """
+            cells => cells.flatMap(cell => {
+                const box = cell.getBoundingClientRect();
+                return [...cell.querySelectorAll('.ep-btn')].map(b => b.getBoundingClientRect().right - box.right);
+            })
+            """,
+        ) as List<Number>
+        assertThatValue(overflow.map { it.toDouble() }).`as`("no button runs past its cell").allMatch { it <= 0.5 }
     }
 
     @Test

@@ -47,7 +47,7 @@
                             <td class="actions" th:if="${auth.has('ENVIRONMENT_DEPLOY')}">
                                 <form method="post" style="display: inline;"
                                       th:action="@{/tenants/{t}/environments/{e}/drafts/{c}/undeploy(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
-                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="environment-stop-following">Undeploy</button>
+                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="environment-stop-following">Undeploy</button>
                                 </form>
                             </td>
                         </tr>

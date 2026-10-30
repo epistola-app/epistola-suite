@@ -104,7 +104,7 @@
                                   hx-target="#theme-rows" hx-swap="innerHTML" style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="themeCatalogKey" th:value="${theme.catalogKey}">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="theme-make-catalog-default"
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="theme-make-catalog-default"
                                         title="Use as this catalog's default theme">Make default</button>
                             </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
@@ -114,7 +114,7 @@
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Make it the house theme: new catalogs start with it">Make house theme</button>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" title="Make it the house theme: new catalogs start with it">Make house theme</button>
                             </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
@@ -122,12 +122,12 @@
                                   hx-swap="innerHTML"
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" value="">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Stop using it as the house theme">Unset house theme</button>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" title="Stop using it as the house theme">Unset house theme</button>
                             </form>
                             <th:block th:if="${catalogEditing.editable(theme.catalogKey)}">
                                 <button th:if="${auth.has('THEME_EDIT') and !isDefault}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                         data-confirm-title="Delete theme"
                                         th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows">Delete</button>

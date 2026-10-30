@@ -17,16 +17,15 @@
     </th:block>
 </th:block>
 
-<!--/* The same, compact, for a row of a list: one button opening the dialog with both choices. */-->
+<!--/* The same, compact, for a row of a list: one button opening the dialog with both choices. Labelled
+       and outlined like every row action (RowActionLabelTest checks the lists; this fragment lands in them). */-->
 <th:block th:fragment="row-action(type, segment, key)">
     <button th:if="${refactoring != null and refactoring.offered(segment)}" type="button"
-            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" data-testid="resource-row-refactor"
+            class="ep-btn ep-btn-outline ep-btn-sm" data-testid="resource-row-refactor"
             th:title="${type == 'image'} ? 'Move to another catalog' : 'Rename or move to another catalog'"
-            th:attr="aria-label=${type == 'image'} ? 'Move to another catalog' : 'Rename or move to another catalog'"
             th:hx-get="@{/tenants/{t}/catalogs/organise/move(t=${tenantId},resource=${refactoring.resource(type, segment, key)},draft=${refactoring.draft(segment)})}"
-            hx-target="#refactoring-mount" hx-swap="innerHTML">
-        <th:block th:replace="~{epistola-web/icon :: icon(name='redo-2', class='ep-icon')}" />
-    </button>
+            hx-target="#refactoring-mount" hx-swap="innerHTML"
+            th:text="${type == 'image'} ? 'Move…' : 'Rename or move…'">Rename or move…</button>
 </th:block>
 </body>
 </html>

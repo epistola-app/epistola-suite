@@ -37,12 +37,12 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 23%" /><!-- Name -->
-                <col style="width: 14%" /><!-- Catalog -->
-                <col style="width: 23%" /><!-- Description -->
-                <col style="width: 11%" /><!-- Tags -->
-                <col style="width: 15%" /><!-- Last modified -->
-                <col style="width: 14%" /><!-- Actions: a labelled Delete -->
+                <col style="width: 20%" /><!-- Name -->
+                <col style="width: 12%" /><!-- Catalog -->
+                <col style="width: 20%" /><!-- Description -->
+                <col style="width: 9%" /><!-- Tags -->
+                <col style="width: 14%" /><!-- Last modified -->
+                <col style="width: 25%" /><!-- Actions: labelled buttons (Rename or move…, Delete) on one line -->
             </colgroup>
             <thead>
                 <tr>
@@ -82,7 +82,7 @@
                             <th:block th:if="${catalogEditing.editable(stencil.catalogKey)}">
                                 <button th:if="${auth.has('STENCIL_EDIT')}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                         data-confirm-title="Delete stencil"
                                         th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address},stencilId=${stencil.id})}"
                                         data-confirm-target="#stencil-rows">Delete</button>

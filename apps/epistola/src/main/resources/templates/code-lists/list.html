@@ -34,12 +34,12 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 21%" /><!-- Slug -->
-                <col style="width: 13%" /><!-- Catalog -->
-                <col style="width: 21%" /><!-- Display name -->
-                <col style="width: 12%" /><!-- Source -->
-                <col style="width: 19%" /><!-- Last refreshed -->
-                <col style="width: 14%" /><!-- Actions -->
+                <col style="width: 18%" /><!-- Slug -->
+                <col style="width: 11%" /><!-- Catalog -->
+                <col style="width: 18%" /><!-- Display name -->
+                <col style="width: 10%" /><!-- Source -->
+                <col style="width: 16%" /><!-- Last refreshed -->
+                <col style="width: 27%" /><!-- Actions: labelled buttons (Rename or move…, Delete) on one line -->
             </colgroup>
             <thead>
                 <tr>
@@ -79,7 +79,7 @@
                     <td class="actions">
                         <th:block th:replace="~{fragments/refactoring :: row-action('codeList', ${draftSegment?.linkFor(cl.catalogId) ?: cl.catalogId.address}, ${cl.slug})}" />
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogId) ?: cl.catalogId.address},slug=${cl.slug})}"
-                           class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
+                           class="ep-btn ep-btn-sm ep-btn-outline">View</a>
                     </td>
                 </tr>
             </tbody>

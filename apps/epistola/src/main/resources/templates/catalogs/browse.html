@@ -483,7 +483,7 @@
                                 -->
                                 <a th:if="${publication.exchangeUrl(entry) != null}"
                                    th:href="${publication.exchangeUrl(entry)}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm"
+                                   class="ep-btn ep-btn-outline ep-btn-sm"
                                    title="View this submission on Exchange"
                                    target="_blank" rel="noopener noreferrer"
                                    hx-boost="false">On Exchange</a>
@@ -491,7 +491,7 @@
                                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},publicationId=${entry.id})}"
                                       method="post">
                                     <button type="button"
-                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                            class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                             data-confirm-submit
                                             data-confirm-submit-title="Withdraw this publication"
                                             data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."

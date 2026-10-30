@@ -44,14 +44,14 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 19%" /><!-- ID -->
-                <col style="width: 13%" /><!-- Catalog -->
-                <col style="width: 19%" /><!-- Display name -->
-                <col style="width: 22%" /><!-- Allowed values -->
-                <col style="width: 15%" /><!-- Created -->
+                <col style="width: 15%" /><!-- ID -->
+                <col style="width: 11%" /><!-- Catalog -->
+                <col style="width: 16%" /><!-- Display name -->
+                <col style="width: 17%" /><!-- Allowed values -->
+                <col style="width: 12%" /><!-- Created -->
                 <!--/* Gated like the Actions td below — an unconditional col would
                        reserve a blank fixed-width column for viewer roles. */-->
-                <col th:if="${auth.has('TENANT_SETTINGS')}" style="width: 12%" /><!-- Actions -->
+                <col th:if="${auth.has('TENANT_SETTINGS')}" style="width: 29%" /><!-- Actions: labelled buttons (Rename or move…, Edit, Delete) -->
             </colgroup>
             <thead>
                 <tr>
@@ -88,13 +88,13 @@
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <th:block th:replace="~{fragments/refactoring :: row-action('attribute', ${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address}, ${attr.id})}" />
                             <th:block th:if="${catalogEditing.editable(attr.catalogKey)}">
-                                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/edit(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"
                                         hx-swap="innerHTML"
                                         data-open-dialog="edit-attribute-dialog">Edit</button>
                                 <button type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                         data-confirm-title="Delete attribute"
                                         th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address},attributeId=${attr.id})}"
                                         data-confirm-target="#attribute-list" data-confirm-swap="outerHTML">Delete</button>

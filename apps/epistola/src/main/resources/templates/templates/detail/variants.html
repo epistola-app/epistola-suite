@@ -155,7 +155,7 @@
                             <span>Mark ready</span>
                             </button>
                         </form>
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogSegment ?: catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
                                 th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
@@ -163,7 +163,7 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             <span>Preview</span>
                         </button>
-                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#edit-variant-dialog-body" hx-swap="innerHTML"
                                 data-open-dialog="edit-variant-dialog" title="Edit variant">
@@ -173,14 +173,14 @@
                         <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
                               th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section" hx-swap="outerHTML" hx-confirm="Make this the default variant?">
-                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Set as default"
+                            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" title="Set as default"
                                     data-testid="variant-set-default">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                             <span>Make default</span>
                             </button>
                         </form>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                 data-confirm-title="Delete variant"
                                 th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                                 data-confirm-target="#variants-section" data-confirm-swap="outerHTML">
@@ -188,7 +188,7 @@
                             <span>Delete</span>
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-sm" disabled title="Cannot delete the default variant">
+                                class="ep-btn ep-btn-outline ep-btn-sm" disabled title="Cannot delete the default variant">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             <span>Delete</span>
                         </button>
