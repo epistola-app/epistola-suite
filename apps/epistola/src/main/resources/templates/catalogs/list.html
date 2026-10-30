@@ -147,9 +147,14 @@
          fragment is rendered via the dedicated GET / re-render). Still
          resolvable by name as `catalogs/list :: release-dialog`. -->
     <th:block th:fragment="release-dialog">
-        <dialog id="release-dialog" class="ep-dialog">
+        <!--/* Wide, with a sticky header and footer (data-dialog="form"): a release often holds many
+               changes, and Publish stays in view while they scroll. What the release is sits on the
+               left, the choices on the right; one column on a narrow screen. */-->
+        <dialog id="release-dialog" class="ep-dialog release-dialog" data-dialog="form" aria-labelledby="release-dialog-title">
             <div class="ep-dialog-header">
-                <h3 th:text="'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
+                <h3 id="release-dialog-title" th:text="'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
+                <p th:if="${!readiness.nothingToPublish and readiness.changeSummary != null}" class="release-dialog-summary"
+                   data-testid="publish-summary" th:text="${readiness.changeSummary} + '.'">16 changes: 13 added, 3 changed.</p>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
@@ -165,24 +170,42 @@
                     </p>
 
                     <th:block th:unless="${readiness.nothingToPublish}">
-                    <div class="form-group" data-testid="publish-changes">
-                        <span class="ep-label">What changes</span>
-                        <p th:if="${readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0;" data-testid="publish-only-others">
-                            Nothing here changed itself; it takes over changes from the catalogs it uses, below.
-                        </p>
-                        <ul th:if="${!readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                            <li th:each="change : ${readiness.changedForPeople}" data-testid="publish-change">
-                                <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
-                                <strong th:text="${change.name}">Invoice</strong>
-                                <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Template)</span>
-                                <span th:if="${change.detail != null}" class="text-muted" th:text="'— ' + ${change.detail}">— locked to v1.0.0</span>
-                                <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="publish-change-merged">Merged, review before publishing</span>
-                            </li>
-                            <li th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}">
-                                Everything in the catalog: this is its first release.
-                            </li>
-                        </ul>
+                    <!--/* What blocks publishing that publishing cannot do itself, in a sentence each. */-->
+                    <div th:if="${readiness.publishBlocked}" class="alert alert-warning" data-testid="release-blocked">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                        <div>
+                            <div class="alert-title">This cannot be published yet</div>
+                            <p th:if="${readiness.namespaceRefusal != null}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-namespace" th:text="${readiness.namespaceRefusal}">
+                                This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.</p>
+                            <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-dependencies"
+                               th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has nothing published or in progress to use. Publish it first, or remove it under Dependencies.'">
+                                It uses shared, which has no published release that fits yet. Publish that first.</p>
+                            <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-resources">
+                                Some changes still have to be marked ready by a content author.
+                            </p>
+                            <p th:each="borrowed : ${readiness.blockingBorrowed}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-borrowed"
+                               th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which is not among its dependencies. Add ' + ${borrowed.name} + ' under Dependencies.'">
+                                It uses Plain from Forms, which is not among its dependencies.</p>
+                        </div>
                     </div>
+                    <div class="release-dialog-columns">
+                    <div class="release-dialog-main" data-testid="publish-what">
+                    <!--/* What this release is, first: its number and what it means for what is connected,
+                           then what needs a look or a confirmation, then the changes themselves. */-->
+                    <p th:if="${readiness.publishVersion != null}" data-testid="publish-version">
+                        It will be published as <strong th:text="'v' + ${releaseVersion}">v1.1.0</strong>.
+                    </p>
+
+                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'ADDITIVE'}" data-testid="publish-impact-additive">
+                        Adds new things. Everything that works with the current release keeps working.
+                    </p>
+                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'NONE'}" data-testid="publish-impact-none">
+                        Only corrections. Everything that works with the current release keeps working.
+                    </p>
 
                     <!--/* Merged content (ADR 0032) is neither side's: publishing marks it ready, so the dialog names it first. */-->
                     <div th:unless="${readiness.mergedForPeople.isEmpty()}" class="alert alert-warning" data-testid="publish-merged">
@@ -211,61 +234,53 @@
                             </ul>
                         </div>
                     </div>
-                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'ADDITIVE'}" data-testid="publish-impact-additive">
-                        Adds new things. Everything that works with the current release keeps working.
-                    </p>
-                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'NONE'}" data-testid="publish-impact-none">
-                        Only corrections. Everything that works with the current release keeps working.
-                    </p>
-
-                    <p th:if="${readiness.publishVersion != null}" data-testid="publish-version">
-                        It will be published as <strong th:text="'v' + ${releaseVersion}">v1.1.0</strong>.
-                    </p>
-
-                    <!--/* Parallel work: whether everyday work carries on in the next release, or from this
-                           version once it is published. Nothing is merged either way, so it says what
-                           happens to the next release's own changes. */-->
-                    <div th:if="${readiness.drafts.onParallelWork}" class="form-group" data-testid="publish-afterwards">
-                        <span class="ep-label">After publishing</span>
-                        <label style="display: flex; gap: var(--ep-space-2);">
-                            <input type="radio" name="afterwards" value="stay" th:checked="${afterwards == 'stay'}" data-testid="publish-afterwards-stay">
-                            <span>Everyday work carries on in the next release, as now</span>
-                        </label>
-                        <label style="display: flex; gap: var(--ep-space-2);">
-                            <input type="radio" name="afterwards" value="keep" th:checked="${afterwards == 'keep'}" data-testid="publish-afterwards-keep">
-                            <span>Everyday work continues from this release; keep the current next release as parallel work, named</span>
-                        </label>
-                        <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAs}"
-                               style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
-                               aria-label="Name to keep the current next release under">
-                        <label style="display: flex; gap: var(--ep-space-2);">
-                            <input type="radio" name="afterwards" value="discard" th:checked="${afterwards == 'discard'}" data-testid="publish-afterwards-discard">
-                            <span>Everyday work continues from this release; discard the current next release, with every change in it that is not published</span>
-                        </label>
-                        <p class="form-hint">Changes are never merged: the next release's own changes stay in it, or go with it.</p>
+                    <!--/* A published fix that this work does not contain: said in plain words, with
+                           one confirmation each, because the contract releases it only when each is
+                           acknowledged (`acknowledgedBehind`). */-->
+                    <div th:if="${readiness.hasDraft and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
+                        <span class="ep-label">Published in between</span>
+                        <div th:each="release : ${readiness.drafts.behind}" style="margin-top: var(--ep-space-1);">
+                            <p style="margin: 0;">
+                                <strong th:text="'v' + ${release.version}">v1.0.1</strong> was published after this draft started, and its
+                                changes are not in it<span th:unless="${release.changes.isEmpty()}"
+                                    th:text="': ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
+                            </p>
+                            <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                                <input type="checkbox" name="acknowledgedBehind" required
+                                       th:value="${release.version}"
+                                       th:checked="${acknowledgedBehind != null and acknowledgedBehind.contains(release.version)}"
+                                       data-testid="release-acknowledge-behind-checkbox">
+                                <span>I have made these changes here too, or they are not needed</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <!--/* What blocks publishing that publishing cannot do itself, in a sentence each. */-->
-                    <div th:if="${readiness.publishBlocked}" class="alert alert-warning" data-testid="release-blocked">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                        <div>
-                            <div class="alert-title">This cannot be published yet</div>
-                            <p th:if="${readiness.namespaceRefusal != null}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-namespace" th:text="${readiness.namespaceRefusal}">
-                                This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.</p>
-                            <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-dependencies"
-                               th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has nothing published or in progress to use. Publish it first, or remove it under Dependencies.'">
-                                It uses shared, which has no published release that fits yet. Publish that first.</p>
-                            <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-resources">
-                                Some changes still have to be marked ready by a content author.
+                    <div class="form-group" data-testid="publish-changes">
+                        <span class="ep-label">What changes</span>
+                        <p th:if="${readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0;" data-testid="publish-only-others">
+                            Nothing here changed itself; it takes over changes from the catalogs it uses, below.
+                        </p>
+                        <th:block th:if="${!readiness.onlyOthersChanged}">
+                            <div th:each="group : ${readiness.changesByKind}" class="release-change-group" data-testid="publish-change-group">
+                                <div class="release-change-group-heading">
+                                    <span th:text="${group.heading}">Templates</span>
+                                    <span class="text-muted" th:text="${group.changes.size()}">13</span>
+                                </div>
+                                <ul class="release-change-list">
+                                    <li th:each="change : ${group.changes}" data-testid="publish-change" th:switch="${change.state.name()}">
+                                        <span th:case="'NEW'" class="badge badge-info">Added</span>
+                                        <span th:case="'REMOVED'" class="badge badge-default">Removed</span>
+                                        <span th:case="*" class="badge badge-outline">Changed</span>
+                                        <strong th:text="${change.name}">Invoice</strong>
+                                        <span th:if="${change.detail != null}" class="text-muted" th:text="'— ' + ${change.detail}">— locked to v1.0.0</span>
+                                        <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="publish-change-merged">Merged, review before publishing</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <p th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}" style="margin: var(--ep-space-1) 0 0;">
+                                Everything in the catalog: this is its first release.
                             </p>
-                            <p th:each="borrowed : ${readiness.blockingBorrowed}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-borrowed"
-                               th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which is not among its dependencies. Add ' + ${borrowed.name} + ' under Dependencies.'">
-                                It uses Plain from Forms, which is not among its dependencies.</p>
-                        </div>
+                        </th:block>
                     </div>
 
                     <!--/* Drafts of other catalogs this one builds on: their declarations name them, so this
@@ -298,25 +313,29 @@
                         </ul>
                     </div>
 
-                    <!--/* A published fix that this work does not contain: said in plain words, with
-                           one confirmation each, because the contract releases it only when each is
-                           acknowledged (`acknowledgedBehind`). */-->
-                    <div th:if="${readiness.hasDraft and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
-                        <span class="ep-label">Published in between</span>
-                        <div th:each="release : ${readiness.drafts.behind}" style="margin-top: var(--ep-space-1);">
-                            <p style="margin: 0;">
-                                <strong th:text="'v' + ${release.version}">v1.0.1</strong> was published after this draft started, and its
-                                changes are not in it<span th:unless="${release.changes.isEmpty()}"
-                                    th:text="': ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
-                            </p>
-                            <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
-                                <input type="checkbox" name="acknowledgedBehind" required
-                                       th:value="${release.version}"
-                                       th:checked="${acknowledgedBehind != null and acknowledgedBehind.contains(release.version)}"
-                                       data-testid="release-acknowledge-behind-checkbox">
-                                <span>I have made these changes here too, or they are not needed</span>
-                            </label>
-                        </div>
+                    </div>
+                    <div class="release-dialog-side" data-testid="publish-choices">
+                    <!--/* Parallel work: whether everyday work carries on in the next release, or from this
+                           version once it is published. Nothing is merged either way, so it says what
+                           happens to the next release's own changes. */-->
+                    <div th:if="${readiness.drafts.onParallelWork}" class="form-group" data-testid="publish-afterwards">
+                        <span class="ep-label">After publishing</span>
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="stay" th:checked="${afterwards == 'stay'}" data-testid="publish-afterwards-stay">
+                            <span>Everyday work carries on in the next release, as now</span>
+                        </label>
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="keep" th:checked="${afterwards == 'keep'}" data-testid="publish-afterwards-keep">
+                            <span>Everyday work continues from this release; keep the current next release as parallel work, named</span>
+                        </label>
+                        <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAs}"
+                               style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
+                               aria-label="Name to keep the current next release under">
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="discard" th:checked="${afterwards == 'discard'}" data-testid="publish-afterwards-discard">
+                            <span>Everyday work continues from this release; discard the current next release, with every change in it that is not published</span>
+                        </label>
+                        <p class="form-hint">Changes are never merged: the next release's own changes stay in it, or go with it.</p>
                     </div>
 
                     <div class="form-group">
@@ -360,8 +379,6 @@
                                 change on purpose, but not lower it.</span>
                         </div>
                     </details>
-                    </th:block>
-
                     <!--
                       Nothing to publish into. Offering the instruction anyway is what strands
                       someone: ticking it makes the namespace field required, and that field has no
@@ -428,6 +445,10 @@
                             Publishes as <code th:text="${catalogRegistry} + '/' + ${publication.namespace} + '/' + ${catalogKey}">exchange.epistola.app/acme/letters</code><th:block th:unless="${publication.namespaceLocked}">, which becomes permanent once Exchange accepts it</th:block>.
                         </p>
                     </div>
+
+                    </div>
+                    </div>
+                    </th:block>
 
                 </div>
                 <div class="ep-dialog-footer">

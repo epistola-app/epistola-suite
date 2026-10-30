@@ -162,3 +162,81 @@
   height: 90vh;
   background: var(--ep-card, #fff);
 }
+
+/* ── Publish dialog ───────────────────────────────────────────────────── */
+
+/* A release often holds many changes: wide enough for what it is (left) beside the choices (right),
+   with the form kind's sticky header and footer keeping Publish in view while the body scrolls. */
+.release-dialog {
+  width: min(60rem, 95vw);
+  max-width: 60rem;
+}
+
+.release-dialog .release-dialog-summary {
+  margin: var(--ep-space-1) 0 0;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.release-dialog-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--ep-space-6);
+  align-items: start;
+}
+
+/* The choices stay in view while a long list of changes scrolls past, where there is height for it. */
+@media (min-height: 46rem) {
+  .release-dialog-side {
+    position: sticky;
+    top: 0;
+  }
+}
+
+@media (max-width: 48rem) {
+  .release-dialog-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .release-dialog-side {
+    position: static;
+  }
+}
+
+.release-change-group {
+  margin-top: var(--ep-space-2);
+}
+
+.release-change-group-heading {
+  display: flex;
+  gap: var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  margin-bottom: var(--ep-space-1);
+}
+
+.release-change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-card);
+}
+
+.release-change-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+  align-items: baseline;
+  padding: var(--ep-space-1-5) var(--ep-space-3);
+  font-size: var(--ep-text-sm);
+}
+
+.release-change-list li + li {
+  border-top: 1px solid var(--ep-border-color);
+}
+
+.release-change-list strong {
+  font-weight: 500;
+}

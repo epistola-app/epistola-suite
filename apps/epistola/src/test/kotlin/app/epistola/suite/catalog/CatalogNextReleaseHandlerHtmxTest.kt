@@ -292,7 +292,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release").body!!
             assertThat(dialog).doesNotContain("data-testid=\"publish-nothing\"")
             val change = dialog.substringAfter("data-testid=\"publish-change\"").substringBefore("</li>")
-            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">— locked to v1.0.0<")
+            assertThat(dialog).`as`("under its kind's heading").contains("<span>Dependencies</span>")
             assertThat(dialog).`as`("a dependency added is an addition").contains("It will be published as <strong>v1.1.0</strong>")
         }
     }

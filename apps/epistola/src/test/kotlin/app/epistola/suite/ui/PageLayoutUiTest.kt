@@ -81,6 +81,22 @@ class PageLayoutUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `the publish dialog keeps Publish in view however many changes it lists`() {
+        val tenant = createTenant("Publish Dialog Layout")
+        withMediator {
+            (1..14).forEach { CreateDocumentTemplate(TemplateId(TemplateKey.of("letter-$it"), CatalogId.default(TenantId(tenant.id))), "Letter $it").execute() }
+        }
+        page.setViewportSize(1280, 720)
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/draft")
+        page.openDialogByTrigger(page.locator("[data-testid='catalog-release-open']"), "#release-dialog")
+
+        val publish = page.locator("dialog[open]#release-dialog [data-testid='release-submit']")
+        assertThat(publish).isInViewport()
+        assertThat(page.locator("dialog[open]#release-dialog [data-testid='publish-change']")).hasCount(14)
+    }
+
+    @Test
     fun `the What's New card wraps on a phone instead of running under View details`() {
         val tenant = createTenant("Whats New Layout")
         page.setViewportSize(390, 844)

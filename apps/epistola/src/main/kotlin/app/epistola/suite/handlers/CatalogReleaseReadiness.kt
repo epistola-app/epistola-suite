@@ -199,6 +199,15 @@ data class CatalogReleaseReadiness(
     /** A resource type as people say it, for templates. */
     fun labelOf(type: String): String = typeLabel(type)
 
+    /** [changedForPeople] by kind, for the publish dialog's grouped list: "Templates (13)", "Themes (3)". */
+    val changesByKind: List<ChangeGroup> get() = groupByKind(changedForPeople)
+
+    /** How many changes and of which sort, for the publish dialog's summary: "16 changes: 13 added, 3 changed". */
+    val changeSummary: String? get() = summarize(changedForPeople)
+
+    /** One kind of change in the grouped list, headed by its plural. */
+    data class ChangeGroup(val heading: String, val changes: List<PublishedChange>)
+
     /** The [changedForPeople] a merge wrote as merged content, for "these were merged, review them". */
     val mergedForPeople: List<PublishedChange> get() = changedForPeople.filter { it.mergedForReview }
 
@@ -236,6 +245,27 @@ data class CatalogReleaseReadiness(
     val mergeWithheld: Boolean get() = !mayEditDraft && hasDraft && drafts.behind.isNotEmpty()
 
     companion object {
+        /** [changes] by kind, kinds in the order they first appear (resources before catalog settings). */
+        fun groupByKind(changes: List<PublishedChange>): List<ChangeGroup> = changes.groupBy { it.kind }.map { (kind, inKind) -> ChangeGroup(pluralOf(kind), inKind) }
+
+        /** "16 changes: 13 added, 3 changed"; "1 change: 1 removed"; null when there is none. */
+        fun summarize(changes: List<PublishedChange>): String? {
+            if (changes.isEmpty()) return null
+            val sorts = listOf(
+                CatalogResourceState.NEW to "added",
+                CatalogResourceState.MODIFIED to "changed",
+                CatalogResourceState.REMOVED to "removed",
+            ).mapNotNull { (state, word) -> changes.count { it.state == state }.takeIf { it > 0 }?.let { "$it $word" } }
+            val total = "${changes.size} ${if (changes.size == 1) "change" else "changes"}"
+            return if (sorts.isEmpty()) total else "$total: ${sorts.joinToString(", ")}"
+        }
+
+        /** A kind's plural, for a group heading. */
+        private fun pluralOf(kind: String): String = when {
+            kind.endsWith("y") -> kind.dropLast(1) + "ies"
+            else -> kind + "s"
+        }
+
         /** `type 'key': reason`, as `ChangeReason` words it. */
         private val REASON = Regex("""^(\S+) '([^']+)': (.+)$""")
 
