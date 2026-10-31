@@ -161,11 +161,43 @@ index (GIN) and needs no extension:
   code list's entries, a theme's fonts. The catalog stays type-agnostic (ADR 0039).
 - **Extracted where references are**: in `ResourceContentStore.write`, in the same transaction, into a
   table keyed by `(tenant_key, content_hash)` with a `tsvector` (the `simple` configuration, language
-  neutral) and a GIN index. A content is extracted once; a released version is never re-indexed; a
-  content collected takes its text with it. Existing content needs a one-off backfill.
+  neutral) and a GIN index.
 - **Queried through the same spine**: joined to `release_resources` by `content_hash`, so the default
   version, filters, grouping and sorting apply unchanged. Prefix matching is `to_tsquery('simple', 'inv:*')`;
   name hits rank above content hits; `ts_headline` gives the snippet.
+
+#### Filling the index
+
+Everything is keyed by `content_hash`, and a content never changes, so extraction is a pure function of
+the content and the extractor's version. The index is filled four ways:
+
+1. **On every write.** `ResourceContentStore.write` calls `writeSearchText` beside `writeReferences`, in
+   the same transaction, with `ON CONFLICT DO NOTHING`. Every way content arrives goes through it:
+   editing a draft, installing or importing a catalog, a merge, a move, an upgrade migrating content.
+   A saved resource is findable at once on every node, and identical content is extracted once however
+   many versions carry it. A variant is stored as its own content and is grouped under its template at
+   query time (`parent_id`). Extraction is synchronous everywhere to begin with; bulk paths (install,
+   import) leave it to the background task only if measurement shows the write cost matters.
+2. **Content stored before content search: a backfill task.** Not a Flyway migration: extraction is
+   domain code (`ResourceType.searchText`) that keeps changing, and a migration must not depend on it.
+   A single-owner cluster scheduled task finds contents without a search-text row and extracts them in
+   small batches per tenant. It is idempotent and resumable: a node stopping halfway leaves the rest to
+   whichever node owns the task next. Until it is done, content search is partial and the palette says
+   so; name search is complete throughout.
+3. **When what is searchable changes: re-extraction.** Each row records its type's extractor version.
+   The same task re-extracts rows below the current version, batch by batch. Rows are only ever moved up
+   (`WHERE extractor_version < :mine`), so during a rolling upgrade a node on older code never
+   downgrades what a newer node wrote.
+4. **Removal needs nothing.** The search text references `resource_contents` with `ON DELETE CASCADE`,
+   so content the collector removes takes its text with it, as references do today.
+
+Every stored content is indexed, older releases included: identical content is stored once, so it is
+cheap, and the query already narrows to each catalog's default version. Indexing only current content
+would mean re-indexing whenever a catalog moves to a new version, which keying by content avoids.
+
+Tests: per type, `searchText` extracts the right text (unit); a stored content has its row and storing
+it again does not duplicate it; the backfill finds what is missing, survives an interruption and stops
+when done; re-extraction upgrades an older row and never downgrades a newer one.
 
 Which fields each type makes searchable, and whether long content needs anything beyond this, are
 decided when content search is built and can be measured.
@@ -192,8 +224,8 @@ decided when content search is built and can be measured.
 - A new resource type is searchable by name the day it is stored in `release_resources`.
 - Ranking differs slightly between databases with and without `pg_trgm` (typo tolerance and near-duplicate
   grouping); the plain path is complete on its own, and both are tested.
-- Content search later adds one table, one `ResourceType` method and a backfill, and changes nothing in
-  the query's filters, grouping or sorting.
+- Content search later adds one table, one `ResourceType` method, one call in the content write path and
+  one cluster scheduled task, and changes nothing in the query's filters, grouping or sorting.
 - The palette is beta: its keyboard shortcuts, chips and prefixes may change in a minor release.
 
 ## Delivery
