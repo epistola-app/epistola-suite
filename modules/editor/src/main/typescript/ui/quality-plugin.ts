@@ -21,6 +21,17 @@ export interface QualityPanelData {
   openCount: number;
   staleCount: number;
   findings: QualityFinding[];
+  /** What each source did, in the answer to "Check now"; absent when the panel was only read. */
+  checks?: QualitySourceRun[] | null;
+}
+
+/** One source of a "Check now": checked, skipped or failed, and why. */
+export interface QualitySourceRun {
+  sourceId: string;
+  sourceName: string;
+  /** `CHECKED`, `SKIPPED` or `FAILED`; a string so a newer server's status still renders. */
+  status: string;
+  reason: string | null;
 }
 
 export interface QualityFinding {
@@ -37,6 +48,10 @@ export interface QualityFinding {
   docsUrl: string | null;
   stale: boolean;
   commentCount: number;
+  /** The flagged text, for a language finding. */
+  quote?: string | null;
+  /** Replacements a language checker suggests for the quote; never applied for the author. */
+  suggestions?: string[];
 }
 
 class QualityService {
@@ -195,6 +210,7 @@ export class EpistolaQualityPanel extends LitElement {
         </div>
 
         ${this._error ? html`<div class="quality-panel-error">${this._error}</div>` : nothing}
+        ${renderChecks(data?.checks)}
         ${
           !this._loading && findings.length === 0
             ? html`<div class="quality-panel-empty">No findings for this variant.</div>`
@@ -219,6 +235,19 @@ export class EpistolaQualityPanel extends LitElement {
           @click=${() => this._selectNode(finding)}
         >
           <span class="quality-finding-message">${finding.message}</span>
+          ${
+            finding.quote
+              ? html`<span class="quality-finding-quote">“${finding.quote}”</span>`
+              : nothing
+          }
+          ${
+            finding.suggestions?.length
+              ? html`<span class="quality-finding-suggestions"
+                  >Suggestion${finding.suggestions.length === 1 ? '' : 's'}:
+                  ${finding.suggestions.map(suggestionLabel).join(', ')}</span
+                >`
+              : nothing
+          }
           <span class="quality-finding-meta">
             <span>${finding.sourceName}</span>
             <span>${finding.ruleId}</span>
@@ -239,6 +268,33 @@ export class EpistolaQualityPanel extends LitElement {
       </article>
     `;
   }
+}
+
+/**
+ * What each source did in the last "Check now". Only the ones that did not check are worth a line
+ * each: a skipped or failed checker means the findings below are not the whole story.
+ */
+export function renderChecks(
+  checks: QualitySourceRun[] | null | undefined,
+): TemplateResult | typeof nothing {
+  const notChecked = (checks ?? []).filter((check) => check.status !== 'CHECKED');
+  if (notChecked.length === 0) return nothing;
+  return html`<ul class="quality-panel-checks" aria-label="Checks that did not run">
+    ${notChecked.map(
+      (check) =>
+        html`<li class="quality-check quality-check-${check.status.toLowerCase()}">
+          <strong>${check.sourceName}</strong>
+          ${check.status === 'FAILED' ? 'failed' : 'skipped'}${check.reason ? `: ${check.reason}` : ''}
+        </li>`,
+    )}
+  </ul>`;
+}
+
+/** A suggestion as the author reads it: an empty replacement removes the text. */
+export function suggestionLabel(suggestion: string): string {
+  if (suggestion === '') return 'remove it';
+  if (suggestion.trim() === '') return 'one space';
+  return `“${suggestion}”`;
 }
 
 function statusOrder(status: string): number {

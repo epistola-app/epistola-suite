@@ -5,9 +5,12 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it, vi } from 'vitest';
+import { render } from 'lit';
 import {
   createQualityEditorPlugin,
   EpistolaQualityPanel,
+  renderChecks,
+  suggestionLabel,
   type QualityFinding,
 } from './quality-plugin.js';
 import type { PluginContext } from '../plugins/types.js';
@@ -78,5 +81,68 @@ describe('createQualityEditorPlugin', () => {
     });
 
     expect(plugin?.sidebarTab?.badge).toEqual({ label: 'Alpha', className: 'badge-alpha' });
+  });
+});
+
+describe('language findings in the panel', () => {
+  it('shows the flagged text and the suggestions, never applying them', async () => {
+    const panel = new EpistolaQualityPanel();
+    document.body.appendChild(panel);
+    (panel as unknown as { _data: unknown })._data = {
+      currentInputFingerprint: null,
+      openCount: 1,
+      staleCount: 0,
+      findings: [
+        finding({ message: 'Possible typo', quote: 'tekts', suggestions: ['tekst', 'tests'] }),
+      ],
+    };
+    await panel.updateComplete;
+
+    expect(panel.querySelector('.quality-finding-quote')?.textContent).toBe('“tekts”');
+    expect(
+      panel.querySelector('.quality-finding-suggestions')?.textContent?.replace(/\s+/g, ' ').trim(),
+    ).toBe('Suggestions: “tekst”, “tests”');
+    panel.remove();
+  });
+
+  it('reads an empty or blank replacement as an instruction', () => {
+    expect(suggestionLabel('')).toBe('remove it');
+    expect(suggestionLabel(' ')).toBe('one space');
+    expect(suggestionLabel('voor')).toBe('“voor”');
+  });
+
+  it('lists the checkers that did not check, with their reason, and stays silent when all did', () => {
+    const container = document.createElement('div');
+    render(
+      renderChecks([
+        { sourceId: 'writing-rules', sourceName: 'Writing rules', status: 'CHECKED', reason: null },
+        {
+          sourceId: 'languagetool',
+          sourceName: 'LanguageTool',
+          status: 'SKIPPED',
+          reason: 'not configured on this installation',
+        },
+        { sourceId: 'other', sourceName: 'Other', status: 'FAILED', reason: 'unavailable' },
+      ]),
+      container,
+    );
+
+    const items = [...container.querySelectorAll('li')].map((li) =>
+      li.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(items).toEqual([
+      'LanguageTool skipped: not configured on this installation',
+      'Other failed: unavailable',
+    ]);
+    expect(container.querySelector('.quality-check-failed')).not.toBeNull();
+
+    const quiet = document.createElement('div');
+    render(
+      renderChecks([
+        { sourceId: 'writing-rules', sourceName: 'Writing rules', status: 'CHECKED', reason: null },
+      ]),
+      quiet,
+    );
+    expect(quiet.querySelector('ul')).toBeNull();
   });
 });

@@ -118,14 +118,8 @@
     }
   ],
   "sentenceRanges": [
-    [
-      0,
-      26
-    ],
-    [
-      28,
-      55
-    ]
+    [0, 26],
+    [28, 55]
   ],
   "extendedSentenceRanges": [
     {
