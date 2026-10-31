@@ -184,6 +184,9 @@ class DemoLoader(
 
         try {
             mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.QUALITY, enabled = true))
+            // LanguageTool runs only where an operator configured a server; switched on here so a demo
+            // started with `epistola.quality.language-tool.url` shows it on the showcase.
+            mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.QUALITY_LANGUAGETOOL, enabled = true))
             mediator.send(RunQualityChecks(variantId))
 
             val subject = QualitySubject.of(variantId)
