@@ -37,18 +37,35 @@ LLM, a third neither. A profile must still be writable, and readable, everywhere
 - **One rule with extras per provider kind (chosen).** A generic core every system and every author
   reads, plus optional extras for the kinds of system that need more.
 
+**How several profiles combine**
+
+- **One profile per level, composed by `extends`.** The composition lives in the profiles; a template
+  that needs one exception needs a profile of its own.
+- **Stacked by level, the more specific overriding by rule id (chosen).** House style, catalog rules
+  and a template's exceptions apply together without anyone writing a combined profile.
+
 ## Decision
 
 ### 1. A profile is a catalog resource
 
-`quality-profile` is a catalog resource type ([ADR 0039](0039-catalog-knows-no-content-type.md)):
-versioned in drafts, frozen in releases, exported in archives, shared through Exchange. A variant
-uses a profile through the same chain as its theme: its own, else its template's, else its catalog
-version's default. A profile from another catalog is used through a declared dependency, as a theme
-is, so an organisation can keep its house style in one shared catalog.
+`qualityProfile` is a catalog resource type ([ADR 0039](0039-catalog-knows-no-content-type.md)) in
+catalog wire v8: versioned in drafts, frozen in releases, exported in archives, shared through
+Exchange. It is added to v8 rather than a new wire version because 2.0, whose format v8 is, has only
+had alpha prereleases; an older alpha build refuses an archive holding one.
+
+**Several profiles apply at once, stacked by level.** A catalog version names its default profiles; a
+template adds its own. Every rule of every applicable profile applies. A more specific level may
+**override** a rule of a broader one by its profile and id: change its severity, or switch it off for
+that template (legal letters may allow long sentences). The panel and the report say which profile a
+rule came from. A profile from another catalog is used through a declared dependency, as a theme is,
+so an organisation keeps its house style in one shared catalog and each catalog adds its own rules.
 
 The system catalog ships a default **clear language** profile, so checks work before anyone writes
 one.
+
+Profiles are edited on a page per profile in its catalog, each rule in a dialog: its core, and a form
+for the built-in check type and its parameters; other kinds' extras as JSON until their providers
+exist.
 
 ### 2. A rule: a generic core and extras per provider kind
 
