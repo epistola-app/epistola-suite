@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.writable
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -292,4 +293,59 @@ object DraftResources {
         .bind("expected", row.contentHash)
         .bind("hash", contentHash)
         .execute() > 0
+
+    /** A reference [type] [key] of version content holds, by [alias], to [refType] [refKey]. */
+    data class Unresolved(val type: String, val key: String, val alias: String?, val refType: String, val refKey: String) {
+        override fun toString(): String = "$type $key uses $refType ${alias?.let { "$it:" } ?: ""}$refKey"
+    }
+
+    /**
+     * The references of [versionId]'s content that resolve to nothing: as the version renders them
+     * ([app.epistola.suite.catalog.dependencies.DraftDependencyView]), its own catalog without an alias,
+     * else the version its declaration names, the release it pins, or (pinning nothing, or undeclared)
+     * the catalog's next version; an image or attribute named without a catalog anywhere in the
+     * tenant's current versions (`ResourceReferenceSites`). A variant's references are its template's.
+     */
+    fun unresolved(handle: Handle, tenantKey: TenantKey, versionId: UUID): Set<Unresolved> = handle
+        .createQuery(
+            """
+            SELECT COALESCE(p.resource_type, r.resource_type) AS type, COALESCE(p.resource_key, r.resource_key) AS key,
+                   x.alias, x.resource_type AS ref_type, x.resource_key AS ref_key
+            FROM release_resources r
+            LEFT JOIN release_resources p ON p.tenant_key = r.tenant_key AND p.version_id = r.version_id AND p.resource_id = r.parent_id AND p.parent_id IS NULL
+            JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
+            CROSS JOIN LATERAL (
+                SELECT COALESCE(
+                    resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, NULL, x.alias),
+                    (SELECT c.catalog_id FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_key = x.alias
+                     AND NOT EXISTS (SELECT 1 FROM catalogs o WHERE o.tenant_key = c.tenant_key AND o.catalog_key = c.catalog_key AND o.catalog_id <> c.catalog_id))
+                ) AS catalog_id
+            ) target_catalog
+            LEFT JOIN catalog_version_dependencies d ON d.tenant_key = r.tenant_key AND d.version_id = r.version_id AND d.alias = x.alias
+            CROSS JOIN LATERAL (
+                SELECT CASE WHEN target_catalog.catalog_id = r.catalog_id THEN r.version_id
+                            ELSE COALESCE(
+                                d.target_version_id,
+                                (SELECT v.version_id FROM catalog_versions v WHERE v.tenant_key = r.tenant_key AND v.catalog_id = target_catalog.catalog_id
+                                   AND v.state = 'released' AND v.version = d.release_version),
+                                CASE WHEN d.release_version IS NULL THEN
+                                    (SELECT c.next_version_id FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_id = target_catalog.catalog_id)
+                                END)
+                       END AS version_id
+            ) target
+            WHERE r.tenant_key = :t AND r.version_id = :v
+              AND NOT EXISTS (
+                  SELECT 1 FROM release_resources h
+                  WHERE h.tenant_key = r.tenant_key AND h.version_id = target.version_id AND h.parent_id IS NULL
+                    AND h.resource_type = x.resource_type AND h.resource_key = x.resource_key)
+              AND NOT (x.resource_type IN ('image', 'attribute') AND x.alias IS NULL AND EXISTS (
+                  SELECT 1 FROM release_resources h
+                  JOIN catalog_current_versions cv ON cv.tenant_key = h.tenant_key AND cv.version_id = h.version_id
+                  WHERE h.tenant_key = r.tenant_key AND h.resource_type = x.resource_type AND h.resource_key = x.resource_key))
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .map { rs, _ -> Unresolved(rs.getString("type"), rs.getString("key"), rs.getString("alias"), rs.getString("ref_type"), rs.getString("ref_key")) }
+        .set()
 }

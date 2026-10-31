@@ -7,7 +7,6 @@ package app.epistola.suite.environments
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
-import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DeleteCatalogDraft
@@ -352,9 +351,14 @@ class DraftDeploymentTest : IntegrationTestBase() {
             val theme = ThemeId(ThemeKey.of("house"), testCatalog(TenantId(setup.tenant), default))
             CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
             UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalog = testCatalog(setup.variant.templateId.tenantKey, default)).execute()
-            // Using the system font pinned the system release, whose font the draft reads from that
-            // release. Undeclared, the system catalog is read live, through the font query this watches.
-            UpdateCatalogDependencies(testCatalog(setup.tenant, default), emptyList()).execute()
+        }
+        // Using the system font pinned the system release, whose font the draft reads from that
+        // release. Undeclared, the system catalog is read live, through the font query this watches.
+        // Only the 1.x upgrade leaves a used catalog undeclared (CatalogBorrowing.undeclared); no command does.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                "DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'default')",
+            ).bind("t", setup.tenant).execute()
         }
         deployDraft(setup, test)
         val accepted = generate(setup, test)

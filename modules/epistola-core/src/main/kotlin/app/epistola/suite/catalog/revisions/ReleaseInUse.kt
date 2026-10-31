@@ -14,13 +14,14 @@ import org.jdbi.v3.core.Handle
 
 /**
  * A release cannot be deleted, or have its content forgotten, while an environment has it deployed
- * or a release of another catalog that kept its content is pinned to it (contract ADR 0003).
+ * or a version of another catalog is pinned to it (contract ADR 0003): a release renders with it, a
+ * draft reads it and would be left naming what nothing has.
  */
 class ReleaseInUseException(
     val catalogKey: CatalogKey,
     val version: String,
     val environments: List<String>,
-    /** The releases pinned to it, as `catalog@version`. */
+    /** The versions pinned to it, as `catalog@version` or `catalog (draft name)`. */
     val pinnedBy: List<String> = emptyList(),
 ) : RuntimeException(
     "Release ${catalogKey.value}@$version is in use: " +
@@ -52,11 +53,14 @@ object ReleaseInUse {
             .bind("v", version)
             .mapTo(String::class.java)
             .list()
-        // A release renders with the releases it pinned, so it keeps them while it exists.
+        // A release renders with the releases it pinned, so it keeps them while it exists; a draft
+        // reads them, so it keeps them until it pins another.
         val pinnedBy = handle.createQuery(
             """
-            SELECT pinning.catalog_key || '@' || pv.version FROM catalog_version_dependencies d
-            JOIN catalog_versions pv ON pv.tenant_key = d.tenant_key AND pv.version_id = d.version_id AND pv.state = 'released'
+            SELECT pinning.catalog_key || CASE WHEN pv.state = 'released' THEN '@' || pv.version
+                                               ELSE ' (draft ' || COALESCE('"' || pv.name || '"', pv.version_key) || ')' END
+            FROM catalog_version_dependencies d
+            JOIN catalog_versions pv ON pv.tenant_key = d.tenant_key AND pv.version_id = d.version_id
             JOIN catalogs pinning ON pinning.tenant_key = d.tenant_key AND pinning.catalog_id = d.catalog_id
             JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry
                                 AND target.namespace = d.namespace AND target.catalog_key = d.dependency_key

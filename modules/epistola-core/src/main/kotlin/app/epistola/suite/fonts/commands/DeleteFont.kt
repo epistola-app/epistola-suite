@@ -27,18 +27,16 @@ import org.springframework.stereotype.Component
  *  - `requireCatalogEditable` — a catalog that cannot be changed here (e.g. `system`) rejects the
  *    delete with `CatalogReadOnlyException`, the same exception every other
  *    catalog-mutating command throws.
- *  - Usage guard — unless [force], a font referenced by a theme or template
- *    version refuses with [FontInUseException] (mirrors `AssetInUseException`).
+ *  - Usage guard — a font referenced by a theme or template refuses with
+ *    [FontInUseException] (mirrors `AssetInUseException`).
  *
  * A font is a draft row naming its content (ADR 0033), and its faces' files are binaries of that
  * content, not assets: deleting the row is the whole delete, and the files go once no content names
  * them any more (the content collector).
  *
- * @property force If true, skip the usage check and delete even if in use.
  */
 data class DeleteFont(
     val fontId: FontId,
-    val force: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -62,10 +60,8 @@ class DeleteFontHandler(
         requireCatalogEditable(catalog)
 
         if (jdbi.withHandle<Boolean, Exception> { fonts.get(it, command.fontId) == null }) return false
-        if (!command.force) {
-            val usages = FindFontUsages(command.fontId).query()
-            if (usages.isNotEmpty()) throw FontInUseException(command.fontId.key, usages)
-        }
+        val usages = FindFontUsages(command.fontId).query()
+        if (usages.isNotEmpty()) throw FontInUseException(command.fontId.key, usages)
 
         // Its faces' files are its binaries: they go when nothing names them any more (the content collector).
         val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, command.fontId) }

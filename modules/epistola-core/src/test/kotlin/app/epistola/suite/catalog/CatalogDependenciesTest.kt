@@ -302,11 +302,26 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a declaration still used by the version is not removed`() {
+        val tenant = setUp("deps-remove-used", "1.0.0")
+        invoiceOnSharedTheme(tenant)
+
+        assertThatThrownBy { update(tenant) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("shared is used by this version (theme brand)")
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.map { it.catalogKey }).containsExactly(shared.value)
+    }
+
+    @Test
     fun `a release using a catalog it does not declare is refused`() {
         val tenant = setUp("deps-undeclared", "1.0.0")
         invoiceOnSharedTheme(tenant)
-        // Using Shared declared it; an author then removed the declaration.
-        update(tenant)
+        // Only the 1.x upgrade leaves a used catalog undeclared (CatalogBorrowing.undeclared); no command does.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                "DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')",
+            ).bind("t", tenant).execute()
+        }
 
         withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
         assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() } }

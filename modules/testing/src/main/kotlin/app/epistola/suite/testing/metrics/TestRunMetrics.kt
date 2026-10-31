@@ -45,6 +45,9 @@ object TestRunMetrics {
     /** Query simple-name -> aggregated dispatch stats (count + total time). */
     val queryStats = ConcurrentHashMap<String, DispatchStat>()
 
+    /** The catalog invariant checks run after test classes (`CatalogInvariantsExtension`): count + total time. */
+    val invariantChecks = DispatchStat()
+
     fun recordClassDuration(className: String, millis: Long) {
         classDurationsMs.merge(className, millis, ::maxOf)
     }
@@ -75,6 +78,9 @@ object TestRunMetrics {
         classDurationsMs.clear()
         commandStats.clear()
         queryStats.clear()
+        invariantChecks.count.set(0)
+        invariantChecks.totalNanos.set(0)
+        invariantChecks.selfNanos.set(0)
     }
 
     /**

@@ -75,6 +75,8 @@ class TestTimingListener : TestExecutionListener {
             |  "contextBootMillisMax": ${TestRunMetrics.contextBootMillis.maxOrNull() ?: 0},
             |  "postgresStartupMillis": ${TestRunMetrics.postgresStartupMillis.get()},
             |  "tenantsCreated": ${TestRunMetrics.tenantsCreated()},
+            |  "invariantChecks": ${TestRunMetrics.invariantChecks.count.get()},
+            |  "invariantCheckMillisTotal": ${TestRunMetrics.invariantChecks.totalMillis()},
             |  "classes": [
             |${ranked.joinToString(",\n") { (name, millis) -> """    { "name": ${name.quoted()}, "millis": $millis }""" }}
             |  ],
@@ -106,7 +108,8 @@ class TestTimingListener : TestExecutionListener {
         sb.appendLine(
             "contextBoots=${TestRunMetrics.contextBoots.get()} " +
                 "(total=${boots.sum()}ms, max=${boots.maxOrNull() ?: 0}ms)  " +
-                "postgresStartup=${TestRunMetrics.postgresStartupMillis.get()}ms",
+                "postgresStartup=${TestRunMetrics.postgresStartupMillis.get()}ms  " +
+                "invariantChecks=${TestRunMetrics.invariantChecks.count.get()} (total=${TestRunMetrics.invariantChecks.totalMillis()}ms)",
         )
         sb.appendLine("slowest classes:")
         ranked.take(TOP_N).forEach { (name, millis) ->

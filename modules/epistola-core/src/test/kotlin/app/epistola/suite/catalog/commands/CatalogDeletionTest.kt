@@ -59,16 +59,16 @@ class CatalogDeletionTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `the system catalog cannot be deleted, not even forced`() {
+        fun `the system catalog cannot be deleted`() {
             val tenant = createTenant("Delete System")
 
-            assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), force = true).execute() } }
+            assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).execute() } }
                 .hasMessageContaining("The system catalog cannot be deleted")
             assertThat(withMediator { GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query() }).isNotNull
         }
 
         @Test
-        fun `unregister with force=false and cross-references throws CatalogInUseException`() {
+        fun `unregister with cross-references throws CatalogInUseException`() {
             val tenant = createTenant("Unreg Force False")
             val tenantId = TenantId(tenant.id)
 
@@ -106,63 +106,10 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
                 ).execute()
 
-                // Attempt unregister without force — should throw
                 assertThatThrownBy {
-                    DeleteCatalog(
-                        catalog = testCatalog(tenant.id, catalogKeyA),
-                        force = false,
-                    ).execute()
+                    DeleteCatalog(catalog = testCatalog(tenant.id, catalogKeyA)).execute()
                 }.isInstanceOf(CatalogInUseException::class.java)
                     .hasMessageContaining("Dependent Template")
-            }
-        }
-
-        @Test
-        fun `unregister with force=true and cross-references succeeds`() {
-            val tenant = createTenant("Unreg Force True")
-            val tenantId = TenantId(tenant.id)
-
-            withMediator {
-                // Create catalog A with a theme
-                val catalogKeyA = CatalogKey.of("force-cat-a")
-                val catalogIdA = testCatalog(tenantId, catalogKeyA)
-                CreateCatalog(
-                    tenantKey = tenant.id,
-                    id = catalogKeyA,
-                    name = "Force Catalog A",
-                ).execute()
-
-                val themeKey = ThemeKey.of("force-theme")
-                CreateTheme(
-                    id = ThemeId(themeKey, catalogIdA),
-                    name = "Force Theme",
-                ).execute()
-
-                // Create catalog B with a template referencing catalog A's theme
-                val catalogKeyB = CatalogKey.of("force-cat-b")
-                val catalogIdB = testCatalog(tenantId, catalogKeyB)
-                CreateCatalog(
-                    tenantKey = tenant.id,
-                    id = catalogKeyB,
-                    name = "Force Catalog B",
-                ).execute()
-
-                val templateKey = TestIdHelpers.nextTemplateId()
-                val templateId = TemplateId(templateKey, catalogIdB)
-                CreateDocumentTemplate(id = templateId, name = "Force Dependent").execute()
-                UpdateDocumentTemplate(
-                    id = templateId,
-                    themeId = themeKey,
-                    themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
-                ).execute()
-
-                // Force unregister — should succeed
-                val deleted = DeleteCatalog(
-                    catalog = testCatalog(tenant.id, catalogKeyA),
-                    force = true,
-                ).execute()
-
-                assertThat(deleted).isTrue()
             }
         }
     }
@@ -171,7 +118,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
     inner class DeleteStencilTests {
 
         @Test
-        fun `delete stencil with force=false when in use throws StencilInUseException`() {
+        fun `delete stencil when in use throws StencilInUseException`() {
             val tenant = createTenant("Del Stencil Block")
             val tenantId = TenantId(tenant.id)
             val catalogKey = CatalogKey.of("stencil-del-cat")
@@ -200,48 +147,10 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     templateModel = buildTemplateModelWithStencil(stencilKey),
                 ).execute()
 
-                // Attempt delete without force
                 assertThatThrownBy {
-                    DeleteStencil(id = stencilId, force = false).execute()
+                    DeleteStencil(id = stencilId).execute()
                 }.isInstanceOf(StencilInUseException::class.java)
                     .hasMessageContaining("Stencil Consumer")
-            }
-        }
-
-        @Test
-        fun `delete stencil with force=true when in use succeeds`() {
-            val tenant = createTenant("Del Stencil Force")
-            val tenantId = TenantId(tenant.id)
-            val catalogKey = CatalogKey.of("stencil-force-cat")
-            val catalogId = testCatalog(tenantId, catalogKey)
-
-            withMediator {
-                CreateCatalog(
-                    tenantKey = tenant.id,
-                    id = catalogKey,
-                    name = "Stencil Force Catalog",
-                ).execute()
-
-                // Create a stencil
-                val stencilKey = TestIdHelpers.nextStencilId()
-                val stencilId = StencilId(stencilKey, catalogId)
-                CreateStencil(id = stencilId, name = "Force Delete Stencil").execute()
-
-                // Create a template that uses the stencil
-                val templateKey = TestIdHelpers.nextTemplateId()
-                val templateId = TemplateId(templateKey, catalogId)
-                CreateDocumentTemplate(id = templateId, name = "Force Consumer").execute()
-                val variantKey = VariantKey.INITIAL
-                val variantId = VariantId(variantKey, templateId)
-                UpdateVariantContent(
-                    variantId = variantId,
-                    templateModel = buildTemplateModelWithStencil(stencilKey),
-                ).execute()
-
-                // Force delete — should succeed
-                val deleted = DeleteStencil(id = stencilId, force = true).execute()
-
-                assertThat(deleted).isTrue()
             }
         }
     }
@@ -250,7 +159,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
     inner class DeleteAssetTests {
 
         @Test
-        fun `delete asset with force=false when in use throws AssetInUseException`() {
+        fun `delete asset when in use throws AssetInUseException`() {
             withMediator {
                 val tenant = createTenant("Del Asset Block")
                 val tenantId = TenantId(tenant.id)
@@ -275,44 +184,10 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     templateModel = buildTemplateModelWithAsset(asset.id),
                 ).execute()
 
-                // Attempt delete without force
                 assertThatThrownBy {
-                    DeleteAsset(tenantId = tenant.id, assetId = asset.id, force = false).execute()
+                    DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
                 }.isInstanceOf(AssetInUseException::class.java)
                     .hasMessageContaining("Asset Consumer")
-            }
-        }
-
-        @Test
-        fun `delete asset with force=true when in use succeeds`() {
-            withMediator {
-                val tenant = createTenant("Del Asset Force")
-                val tenantId = TenantId(tenant.id)
-
-                val asset = UploadAsset(
-                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
-                    name = "force-logo.png",
-                    mediaType = AssetMediaType.PNG,
-                    content = createMinimalPng(),
-                    width = 1,
-                    height = 1,
-                ).execute()
-
-                // Create a template that uses the asset
-                val templateKey = TestIdHelpers.nextTemplateId()
-                val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Force Asset Consumer").execute()
-                val variantKey = VariantKey.INITIAL
-                val variantId = VariantId(variantKey, templateId)
-                UpdateVariantContent(
-                    variantId = variantId,
-                    templateModel = buildTemplateModelWithAsset(asset.id),
-                ).execute()
-
-                // Force delete — should succeed
-                val deleted = DeleteAsset(tenantId = tenant.id, assetId = asset.id, force = true).execute()
-
-                assertThat(deleted).isTrue()
             }
         }
     }

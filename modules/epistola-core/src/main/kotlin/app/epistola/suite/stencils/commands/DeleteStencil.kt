@@ -23,12 +23,12 @@ import org.springframework.stereotype.Component
 
 /**
  * Deletes a stencil and all its versions.
- * Throws [StencilInUseException] if any template version references this stencil (unless [force] is true).
+ * Throws [StencilInUseException] if any template or stencil uses this stencil: deleting it would leave them
+ * naming nothing.
  * Returns true if deleted, false if not found.
  */
 data class DeleteStencil(
     val id: StencilId,
-    val force: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -46,11 +46,9 @@ class DeleteStencilHandler(
     override fun handle(command: DeleteStencil): Boolean {
         requireCatalogEditable(command.id.catalogId)
 
-        if (!command.force) {
-            val usages = FindStencilUsages(command.id).query()
-            if (usages.isNotEmpty()) {
-                throw StencilInUseException(command.id.key, usages)
-            }
+        val usages = FindStencilUsages(command.id).query()
+        if (usages.isNotEmpty()) {
+            throw StencilInUseException(command.id.key, usages)
         }
 
         return jdbi.withHandle<Boolean, Exception> { handle -> stencils.delete(handle, command.id) }

@@ -27,7 +27,8 @@ import org.springframework.stereotype.Component
  * ([DraftDependencyView]); one that cannot (Epistola supplies it, or the installation is run-only,
  * ADR 0032) by pinning its highest release. Releasing pins a named draft once that draft is
  * released. A declaration already there is left as the author set it, and a reference to a catalog
- * the tenant does not have is left alone: releasing refuses it.
+ * the tenant does not have is left undeclared: the write is refused when it commits
+ * ([app.epistola.suite.catalog.revisions.DraftReferenceGuard]).
  *
  * A reference names its catalog by alias, which is the catalog's key here (ADR 0034, section 9). An
  * alias the catalog already declares means that declaration; an undeclared one is declared as the

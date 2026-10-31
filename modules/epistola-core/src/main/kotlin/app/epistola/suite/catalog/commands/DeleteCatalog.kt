@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component
 
 data class DeleteCatalog(
     val catalog: CatalogId,
-    val force: Boolean = false,
 ) : Command<Boolean>,
     RequiresPermission {
     override val tenantKey: TenantKey get() = catalog.tenantKey
@@ -45,21 +44,20 @@ class DeleteCatalogHandler(
             "The system catalog cannot be deleted"
         }
 
-        if (!command.force) {
-            val references = FindCatalogCrossReferences(command.catalog).query()
-            if (references.isNotEmpty()) {
-                throw CatalogInUseException(command.catalogKey, references)
-            }
+        // What another catalog's content uses keeps the catalog: deleting it would leave that content naming
+        // nothing, which no draft may hold (the catalog invariants).
+        val references = FindCatalogCrossReferences(command.catalog).query()
+        if (references.isNotEmpty()) {
+            throw CatalogInUseException(command.catalogKey, references)
         }
 
         return jdbi.withHandle<Boolean, Exception> { handle ->
-            // Its releases go with it, so none of them may still be served or depended on. Not
-            // bypassed by force: force overrides references from authoring content, not rendering.
+            // Its releases go with it, so none of them may still be served or depended on.
             ReleaseInUse.requireCatalogUnused(handle, command.catalog)
             // A draft an environment serves goes with the catalog, its deployment ended and logged.
             draftLifecycle.forEach { it.catalogDeleted(handle, command.catalog) }
-            // Declarations in other catalogs' drafts that build on one of its drafts go with those
-            // drafts: such a draft names the catalog's content, so forcing past it drops them.
+            // Declarations in other catalogs' drafts that build on one of its drafts, and use none of
+            // its content (that refuses the delete above), go with those drafts.
             handle.createUpdate(
                 """
                 DELETE FROM catalog_version_dependencies

@@ -250,8 +250,7 @@ class CatalogListHandler {
         val catalog = request.catalog(tenantId)
 
         return try {
-            val force = request.param("force").orElse("false").toBoolean()
-            DeleteCatalog(catalog = catalog, force = force).execute()
+            DeleteCatalog(catalog = catalog).execute()
 
             return request.htmx {
                 fragment("catalogs/list", "catalog-list") {
