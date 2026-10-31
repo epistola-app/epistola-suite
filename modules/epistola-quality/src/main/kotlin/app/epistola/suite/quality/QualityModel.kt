@@ -328,3 +328,19 @@ data class SubmitFindingsResult(
 
 /** Convenience: the URN of any entity, for callers building a [QualitySubject] by hand. */
 fun EntityIdBase.qualityUrn(): String = toUrn()
+
+/**
+ * What asked for a check (ADR 0044, section 5). A provider's configuration says on which of these it
+ * runs (ADR 0047, section 4): a cheap one on every save, an expensive one only when asked or on a ready
+ * mark.
+ */
+enum class CheckTrigger {
+    /** The variant was saved; the check runs a few seconds after the last save. */
+    SAVE,
+
+    /** An author asked for it ("Check now"); it runs in the request. */
+    EXPLICIT,
+
+    /** The variant was marked ready. */
+    READY,
+}

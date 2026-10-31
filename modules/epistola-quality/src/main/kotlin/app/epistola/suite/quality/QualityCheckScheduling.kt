@@ -7,6 +7,8 @@ package app.epistola.suite.quality
 import app.epistola.suite.cluster.timers.ClusterTimer
 import app.epistola.suite.cluster.timers.ClusterTimerHandler
 import app.epistola.suite.cluster.timers.ClusterTimerResult
+import app.epistola.suite.cluster.timers.ClusterTimerStatus
+import app.epistola.suite.cluster.timers.GetClusterTimer
 import app.epistola.suite.cluster.timers.ScheduleClusterTimer
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -41,22 +43,43 @@ import java.time.Duration
 object QualityCheckTimer {
     const val TYPE = "quality-check"
 
-    fun schedule(variantId: VariantId, delay: Duration) {
+    /**
+     * Schedules the variant's check for [trigger], [delay] from now, joining a check already pending:
+     * the run covers every trigger that asked, so a save and a ready mark coalesced into one run still
+     * ask the providers configured for either. A pending ready mark keeps its time; a later save does
+     * not push it back. Read and rewrite are not atomic: two triggers at the same instant may leave one
+     * out, and the next save brings it back.
+     */
+    fun schedule(variantId: VariantId, delay: Duration, trigger: CheckTrigger) {
         val key = "$TYPE:${variantId.toUrn()}"
+        val pending = GetClusterTimer(key).query()?.takeIf { it.status == ClusterTimerStatus.SCHEDULED }
+        val pendingTriggers = pending?.let(::triggersOf).orEmpty()
+        val triggers = pendingTriggers + trigger
+        val dueAt = EpistolaClock.offsetDateTime().plus(delay).let { due ->
+            if (pending != null && pendingTriggers.any { it != CheckTrigger.SAVE } && pending.dueAt.isBefore(due)) pending.dueAt else due
+        }
         ScheduleClusterTimer(
             timerKey = key,
             routingKey = key,
             timerType = TYPE,
-            dueAt = EpistolaClock.offsetDateTime().plus(delay),
+            dueAt = dueAt,
             payload = mapOf(
                 "tenant" to variantId.tenantKey.value,
                 "catalog" to variantId.catalogId.address,
                 "template" to variantId.templateKey.value,
                 "variant" to variantId.key.value,
+                "triggers" to triggers.map { it.name }.sorted(),
             ),
             tenantKey = variantId.tenantKey,
         ).execute()
     }
+
+    /** The triggers a timer was set for; a timer from before triggers were recorded checks as a save. */
+    fun triggersOf(timer: ClusterTimer): Set<CheckTrigger> = (timer.payload["triggers"] as? List<*>)
+        ?.mapNotNull { name -> CheckTrigger.entries.firstOrNull { it.name == name } }
+        ?.toSet()
+        ?.ifEmpty { null }
+        ?: setOf(CheckTrigger.SAVE)
 
     fun variantOf(timer: ClusterTimer): VariantId {
         fun field(name: String) = requireNotNull(timer.payload[name] as? String) { "quality-check timer ${timer.timerKey} has no $name" }
@@ -76,7 +99,9 @@ class QualityCheckTimerHandler : ClusterTimerHandler {
     override fun handle(timer: ClusterTimer): ClusterTimerResult {
         val variantId = QualityCheckTimer.variantOf(timer)
         // The feature may have been switched off since the timer was set.
-        if (QualityCheckTimer.enabledFor(variantId.tenantKey)) RunQualityChecks(variantId).execute()
+        if (QualityCheckTimer.enabledFor(variantId.tenantKey)) {
+            RunQualityChecks(variantId, triggers = QualityCheckTimer.triggersOf(timer)).execute()
+        }
         return ClusterTimerResult.Complete
     }
 }
@@ -109,7 +134,7 @@ class OnVariantSavedScheduleChecks(
         if (!properties.checkOnSave || event.catalogVersion != null) return
         if (!QualityCheckTimer.enabledFor(event.variantId.tenantKey)) return
         log.debug("Checking {} after its save", event.variantId.toUrn())
-        QualityCheckTimer.schedule(event.variantId, properties.checkOnSaveDelay)
+        QualityCheckTimer.schedule(event.variantId, properties.checkOnSaveDelay, CheckTrigger.SAVE)
     }
 
     private companion object {

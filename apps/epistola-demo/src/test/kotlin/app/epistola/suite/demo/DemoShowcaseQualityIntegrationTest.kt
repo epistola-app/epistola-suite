@@ -118,23 +118,23 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
      * misspelling ("recieve") is left for a LanguageTool server, which the demo does not run by default.
      */
     @Test
-    fun `the showcase's language paragraph trips the writing rules, with the flagged text and suggestions`() {
+    fun `the showcase's language paragraph trips the built-in rules, with the flagged text and suggestions`() {
         val variantId = showcaseVariant()
 
         val run = withMediator { RunQualityChecks(variantId).execute() }
 
         val language = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
-            .filter { it.sourceId == QualitySourceId("writing-rules") && it.nodeIds == listOf("n-language") }
+            .filter { it.sourceId == QualitySourceId("builtin") && it.nodeIds == listOf("n-language") }
         assertThat(language.map { it.ruleId to it.context.path("quote").asString() }).containsExactlyInAnyOrder(
-            "repeated-word" to "the the",
-            "discouraged-word" to "Utilise",
-            "discouraged-word" to "prior to",
+            "clear-language.repeated-word" to "the the",
+            "clear-language.plain-words" to "Utilise",
+            "clear-language.plain-words" to "prior to",
         )
-        assertThat(language.single { it.ruleId == "repeated-word" }.context.path("suggestions").toList().map { it.asString() }).containsExactly("the")
+        assertThat(language.single { it.ruleId == "clear-language.repeated-word" }.context.path("suggestions").toList().map { it.asString() }).containsExactly("the")
         // The legalese the example source already finds too long reads as a writing problem as well.
         val legalese = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
-            .filter { it.sourceId == QualitySourceId("writing-rules") && it.nodeIds == listOf("n-long") }
-        assertThat(legalese.map { it.ruleId }).containsExactlyInAnyOrder("long-sentence", "discouraged-word", "discouraged-word")
+            .filter { it.sourceId == QualitySourceId("builtin") && it.nodeIds == listOf("n-long") }
+        assertThat(legalese.map { it.ruleId }).containsExactlyInAnyOrder("clear-language.sentence-length", "clear-language.plain-words", "clear-language.plain-words")
         // Nobody configured a LanguageTool server for the demo: it says so rather than reporting nothing.
         assertThat(run.sources.single { it.sourceId == QualitySourceId("languagetool") }.status).isEqualTo(SourceRunStatus.SKIPPED)
     }
@@ -153,9 +153,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         assertThat(second[source]!!.resolved).isZero()
         assertThat(second[source]!!.unchanged).isEqualTo(2)
         // The example source's counts are per-source and so unchanged; the tenant-wide total also
-        // carries the accessibility source's unlabelled-image finding and the writing rules' six
+        // carries the accessibility source's unlabelled-image finding and the built-in rules' six
         // (three in n-language, three in the legalese of n-long).
         assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(9)
-        assertThat(second[QualitySourceId("writing-rules")]!!.unchanged).isEqualTo(6)
+        assertThat(second[QualitySourceId("builtin")]!!.unchanged).isEqualTo(6)
     }
 }

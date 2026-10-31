@@ -39,6 +39,14 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.QUALITY)
     }
 
+    /** It sends template text to a server, so a tenant opts in; and like quality it is never hub-gated. */
+    @Test
+    fun `LanguageTool for quality is off by default, toggle-only and alpha`() {
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.QUALITY_LANGUAGETOOL)
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.QUALITY_LANGUAGETOOL)).isFalse()
+        assertThat(KnownFeatures.stageOf(KnownFeatures.QUALITY_LANGUAGETOOL)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+    }
+
     @Test
     fun `ai chat is toggle-only and never hub-gated`() {
         assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.AI_CHAT)

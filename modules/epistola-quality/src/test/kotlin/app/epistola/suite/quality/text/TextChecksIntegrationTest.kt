@@ -15,6 +15,7 @@ import app.epistola.suite.i18n.LocaleSource
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.EffectiveQualityStatus
 import app.epistola.suite.quality.QualityCheckTimer
 import app.epistola.suite.quality.QualitySeverity
@@ -56,6 +57,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         override val checkerId = QualitySourceId("recording")
         override val displayName = "Recording"
         override val egress = TextEgress.IN_PROCESS
+        override val triggers = CheckTrigger.entries.toSet()
 
         override fun readiness(locale: ResolvedLocale) = TextCheckerReadiness.Ready(configuration)
 
@@ -138,23 +140,24 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a check run reports the writing rules' findings with the flagged text and suggestions, and says LanguageTool was skipped`() {
+    fun `a check run reports the built-in rules' findings with the flagged text, suggestions and explanation, and says LanguageTool was skipped`() {
         val variantId = newVariant()
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
 
         val run = withMediator { RunQualityChecks(variantId).execute() }
 
-        val finding = findingsFor(variantId).single { it.sourceId == QualitySourceId("writing-rules") }
-        assertThat(finding.ruleId).isEqualTo("repeated-word")
+        val finding = findingsFor(variantId).single { it.sourceId == QualitySourceId("builtin") }
+        assertThat(finding.ruleId).isEqualTo("clear-language.repeated-word")
         assertThat(finding.severity).isEqualTo(QualitySeverity.WARNING)
         assertThat(finding.nodeIds).containsExactly("t")
         assertThat(finding.context.path("quote").asString()).isEqualTo("the the")
         assertThat(finding.context.path("suggestions").toList().map { it.asString() }).containsExactly("the")
+        assertThat(finding.context.path("explanation").asString()).contains("typing mistake")
 
         val languageTool = run.sources.single { it.sourceId == QualitySourceId("languagetool") }
         assertThat(languageTool.status).isEqualTo(SourceRunStatus.SKIPPED)
         assertThat(languageTool.reason).contains("not configured")
-        assertThat(run.sources.single { it.sourceId == QualitySourceId("writing-rules") }.status).isEqualTo(SourceRunStatus.CHECKED)
+        assertThat(run.sources.single { it.sourceId == QualitySourceId("builtin") }.status).isEqualTo(SourceRunStatus.CHECKED)
     }
 
     @Test
@@ -166,7 +169,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         save(variantId, document("t" to doc(paragraph(text("Please return the form.")))))
         withMediator { RunQualityChecks(variantId).execute() }
 
-        assertThat(findingsFor(variantId).single { it.sourceId == QualitySourceId("writing-rules") }.effectiveStatus)
+        assertThat(findingsFor(variantId).single { it.sourceId == QualitySourceId("builtin") }.effectiveStatus)
             .isEqualTo(EffectiveQualityStatus.RESOLVED)
     }
 
@@ -187,7 +190,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
 
         scheduling.advanceTimeBy(Duration.ofSeconds(3))
 
-        assertThat(findingsFor(variantId).map { it.ruleId }).containsExactly("repeated-word")
+        assertThat(findingsFor(variantId).map { it.ruleId }).containsExactly("clear-language.repeated-word")
         assertThat(withMediator { GetClusterTimer(timerKey).query() }).isNull()
     }
 
@@ -201,7 +204,22 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         withMediator { MarkVariantReady(variantId).execute() }
         scheduling.runDue()
 
-        assertThat(findingsFor(variantId).map { it.ruleId }).containsExactly("repeated-word")
+        assertThat(findingsFor(variantId).map { it.ruleId }).containsExactly("clear-language.repeated-word")
+    }
+
+    /** Triggers are a provider's configuration (ADR 0047): a checker not configured for a trigger does not run on it. */
+    @Test
+    fun `a run asks only the checkers configured for its trigger`() {
+        val variantId = newVariant()
+        save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
+
+        val onSave = withMediator { RunQualityChecks(variantId, triggers = setOf(CheckTrigger.SAVE)).execute() }
+
+        // The built-in engine runs on every trigger; LanguageTool is configured for save too, and is
+        // skipped here only because no server is configured.
+        assertThat(onSave.sources.map { it.sourceId.value }).contains("builtin", "languagetool")
+        assertThat(withMediator { RunQualityChecks(variantId, triggers = emptySet()).execute() }.sources.map { it.sourceId.value })
+            .doesNotContain("builtin", "languagetool")
     }
 
     @Test

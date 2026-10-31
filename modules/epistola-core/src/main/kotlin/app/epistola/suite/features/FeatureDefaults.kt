@@ -21,6 +21,8 @@ data class FeatureDefaults(
      * deliberate edit and not a silent change of meaning.
      */
     val quality: Boolean = false,
+    /** LanguageTool for quality checks: sends template text to the configured server, so a tenant opts in. */
+    val qualityLanguagetool: Boolean = false,
     /**
      * AI chat in the template editor. This is an editor-only alpha surface for now, using the same
      * toggle-only model as quality: no support-tier entitlement and no hub-only default. Off by
@@ -44,6 +46,7 @@ data class FeatureDefaults(
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.QUALITY -> quality
+        KnownFeatures.QUALITY_LANGUAGETOOL -> qualityLanguagetool
         KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation

@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.QualityCheckInput
 import app.epistola.suite.quality.QualityDataRequirement
 import app.epistola.suite.quality.QualityFindingSource
@@ -95,6 +96,12 @@ data class RunQualityChecks(
     val variantId: VariantId,
     /** Null runs every available source; a subset is used by "Check now" for one panel. */
     val sourceIds: Set<QualitySourceId>? = null,
+    /**
+     * What asked for the check. A language checker runs only on the triggers its configuration names
+     * (ADR 0047); several when saves and a ready mark were coalesced into one run. The in-process
+     * sources are cheap and run on every trigger.
+     */
+    val triggers: Set<CheckTrigger> = setOf(CheckTrigger.EXPLICIT),
 ) : Command<QualityCheckRun>,
     RequiresPermission,
     // A language checker can be a remote server (ADR 0044); no transaction may wait on it.
@@ -117,6 +124,7 @@ class RunQualityChecksHandler(
             .filter { command.sourceIds == null || it.sourceId in command.sourceIds }
         val checkers = registry.textCheckers()
             .filter { command.sourceIds == null || it.checkerId in command.sourceIds }
+            .filter { checker -> checker.triggers.any { it in command.triggers } }
         if (sources.isEmpty() && checkers.isEmpty()) return QualityCheckRun.NOTHING
 
         // The variant's current document and its template's example data, through core's

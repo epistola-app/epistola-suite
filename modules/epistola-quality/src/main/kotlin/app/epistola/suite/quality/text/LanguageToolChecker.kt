@@ -4,7 +4,10 @@
 
 package app.epistola.suite.quality.text
 
+import app.epistola.suite.common.ids.FeatureKey
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.i18n.ResolvedLocale
+import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.LanguageToolProperties
 import app.epistola.suite.quality.QualityProperties
 import app.epistola.suite.quality.QualitySeverity
@@ -32,6 +35,9 @@ import java.util.concurrent.TimeUnit
  *
  * Several blocks go in one request, separated by blank lines, so a variant is a request or two, not one
  * per paragraph.
+ *
+ * An installation provider (ADR 0047): unused unless the operator sets its URL, and then only for
+ * tenants that switch it on (`quality-languagetool`), because template text is sent to it.
  *
  * Runs only for a language someone chose, for the template (`system.locale`) or for the tenant: checked
  * in the installation's default instead, a Dutch template would be flagged word by word as misspelt
@@ -64,6 +70,13 @@ class LanguageToolChecker(
     override val displayName = "LanguageTool"
 
     override val egress = TextEgress.INSTALLATION
+
+    override val triggers: Set<CheckTrigger> = settings.triggers
+
+    override val configured: Boolean get() = client != null
+
+    /** It sends template text to a server, so each tenant opts in (ADR 0047). */
+    override val tenantSwitch: FeatureKey = KnownFeatures.QUALITY_LANGUAGETOOL
 
     override fun readiness(locale: ResolvedLocale): TextCheckerReadiness {
         if (client == null) return TextCheckerReadiness.Skipped("not configured on this installation")
@@ -153,6 +166,7 @@ class LanguageToolChecker(
             length = length,
             suggestions = match.path("replacements").take(MAX_SUGGESTIONS).map { it.path("value").asString("") },
             docsUrl = rule.path("urls").firstOrNull()?.path("value")?.asString(null),
+            explanation = rule.path("description").asString(null),
         )
     }
 

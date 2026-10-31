@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.text
 
+import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -68,6 +69,11 @@ class TextQualityChecks {
         texts: Map<String, String>,
         locale: ResolvedLocale,
     ): TextCheckOutcome {
+        if (!checker.configured) return TextCheckOutcome.Skipped(checker, "not configured on this installation")
+        val switch = checker.tenantSwitch
+        if (switch != null && ResolveAvailableFeatures(subject.tenantKey).query()[switch] != true) {
+            return TextCheckOutcome.Skipped(checker, "not switched on for this tenant")
+        }
         val readiness = try {
             checker.readiness(locale)
         } catch (e: Exception) {
@@ -142,6 +148,7 @@ object TextFindings {
                             put("before", block.display(diagnostic.offset - EXCERPT, diagnostic.offset))
                             put("after", block.display(end, end + EXCERPT))
                             put("category", diagnostic.category.name)
+                            diagnostic.explanation?.let { put("explanation", it) }
                             putArray("suggestions").apply { diagnostic.suggestions.forEach { add(it) } }
                         },
                         metadata = JsonNodeFactory.instance.objectNode().put("configuration", configuration),

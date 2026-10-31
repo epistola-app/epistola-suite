@@ -4,7 +4,9 @@
 
 package app.epistola.suite.quality.text
 
+import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.i18n.ResolvedLocale
+import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
 import tools.jackson.databind.JsonNode
@@ -42,6 +44,8 @@ data class TextDiagnostic(
     val length: Int,
     val suggestions: List<String> = emptyList(),
     val docsUrl: String? = null,
+    /** Why this is a problem: the rule's intent (ADR 0046), shown with the finding. */
+    val explanation: String? = null,
 )
 
 /** Whether a checker can check text in a locale now, and under which configuration. */
@@ -75,6 +79,18 @@ interface TextChecker {
 
     val egress: TextEgress
 
+    /** When it runs (ADR 0047, section 4): a provider's configuration, never a profile's. */
+    val triggers: Set<CheckTrigger>
+
+    /** Whether this installation configured it at all; a checker that is not is skipped as such. */
+    val configured: Boolean get() = true
+
+    /**
+     * The feature toggle a tenant switches it on with, or null when it is on for every tenant with the
+     * quality feature. A stand-in for tenant provider settings (ADR 0047, section 6).
+     */
+    val tenantSwitch: FeatureKey? get() = null
+
     /** May call out (to learn a server's version); throwing means the checker is unavailable. */
     fun readiness(locale: ResolvedLocale): TextCheckerReadiness
 
@@ -106,6 +122,7 @@ object TextDiagnosticJson {
                 put("length", d.length)
                 putArray("suggestions").apply { d.suggestions.forEach { add(it) } }
                 d.docsUrl?.let { put("docsUrl", it) }
+                d.explanation?.let { put("explanation", it) }
             }
         }
     }
@@ -120,6 +137,7 @@ object TextDiagnosticJson {
             length = d.path("length").asInt(0),
             suggestions = d.path("suggestions").toList().map { it.asString("") },
             docsUrl = d.path("docsUrl").takeIf { it.isString }?.asString(),
+            explanation = d.path("explanation").takeIf { it.isString }?.asString(),
         )
     }
 }

@@ -135,15 +135,16 @@ rule in `components.css`.
 
 ## Current Features
 
-| Key                   | Description                                                           | Stage  | Default |
-| --------------------- | --------------------------------------------------------------------- | ------ | ------- |
-| `support-feedback`    | Support → Feedback (local; hub sync gated on the support tier)        | Stable | `true`  |
-| `quality`             | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
-| `ai-chat`             | AI chat panel in the template editor                                  | Alpha  | `false` |
-| `editor-walkthrough`  | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `true`  |
-| `catalog-publishing`  | Durable publication of catalog releases cut here to Epistola Exchange | Alpha  | `false` |
-| `catalog-installing`  | Browsing Epistola Exchange and installing catalogs published there    | Alpha  | `false` |
-| `resource-relocation` | Organise catalogs: rename and move resources, create shared catalogs  | Stable | `true`  |
+| Key                    | Description                                                                        | Stage  | Default |
+| ---------------------- | ---------------------------------------------------------------------------------- | ------ | ------- |
+| `support-feedback`     | Support → Feedback (local; hub sync gated on the support tier)                     | Stable | `true`  |
+| `quality`              | Quality checks ledger, report, and template-editor panel                           | Alpha  | `false` |
+| `quality-languagetool` | LanguageTool as a quality provider: template text is sent to the configured server | Alpha  | `false` |
+| `ai-chat`              | AI chat panel in the template editor                                               | Alpha  | `false` |
+| `editor-walkthrough`   | Guided in-editor tour of the template editor (client-side onboarding)              | Alpha  | `true`  |
+| `catalog-publishing`   | Durable publication of catalog releases cut here to Epistola Exchange              | Alpha  | `false` |
+| `catalog-installing`   | Browsing Epistola Exchange and installing catalogs published there                 | Alpha  | `false` |
+| `resource-relocation`  | Organise catalogs: rename and move resources, create shared catalogs               | Stable | `true`  |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
 

@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.EffectiveQualityStatus
@@ -42,11 +44,30 @@ import org.springframework.test.context.TestPropertySource
  */
 @TestPropertySource(properties = ["epistola.quality.language-tool.url=http://127.0.0.1:1"])
 class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
+    /** The operator configured a server, but text goes to it only for a tenant that switched it on (ADR 0047). */
+    @Test
+    fun `a tenant that did not switch LanguageTool on is skipped, and nothing is sent`() {
+        val tenant = createTenant("LT Off")
+        val variantId = withMediator {
+            SetTenantDefaultLocale(tenantId = tenant.id, locale = "nl-NL").execute()
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
+            CreateDocumentTemplate(id = templateId, name = "Brief").execute()
+            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Standaard", description = null).execute() }
+        }
+
+        val run = withMediator { RunQualityChecks(variantId).execute() }
+
+        val languageTool = run.sources.single { it.sourceId == QualitySourceId("languagetool") }
+        assertThat(languageTool.status).isEqualTo(SourceRunStatus.SKIPPED)
+        assertThat(languageTool.reason).contains("not switched on")
+    }
+
     @Test
     fun `an unreachable LanguageTool fails without resolving its findings, and the writing rules still run`() {
         val tenant = createTenant("LT Down")
         val variantId = withMediator {
             SetTenantDefaultLocale(tenantId = tenant.id, locale = "nl-NL").execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY_LANGUAGETOOL, enabled = true).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             CreateDocumentTemplate(id = templateId, name = "Brief").execute()
             VariantId(TestIdHelpers.nextVariantId(), templateId).also {
@@ -67,13 +88,13 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
         val run = withMediator { RunQualityChecks(variantId).execute() }
 
         assertThat(run.sources.single { it.sourceId == languageTool }.status).isEqualTo(SourceRunStatus.FAILED)
-        assertThat(run.sources.single { it.sourceId == QualitySourceId("writing-rules") }.status).isEqualTo(SourceRunStatus.CHECKED)
+        assertThat(run.sources.single { it.sourceId == QualitySourceId("builtin") }.status).isEqualTo(SourceRunStatus.CHECKED)
 
         val findings = withMediator {
             GetFindingsForSubject(catalog = testCatalog(variantId.tenantKey, variantId.catalogKey), templateKey = variantId.templateKey, variantKey = variantId.key.value).query().findings
         }
         assertThat(findings.single { it.sourceId == languageTool }.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
-        assertThat(findings.filter { it.sourceId == QualitySourceId("writing-rules") }.map { it.ruleId })
-            .containsExactlyInAnyOrder("repeated-word", "discouraged-word")
+        assertThat(findings.filter { it.sourceId == QualitySourceId("builtin") }.map { it.ruleId })
+            .containsExactlyInAnyOrder("clear-language.repeated-word", "clear-language.plain-words")
     }
 }

@@ -26,8 +26,9 @@ data class QualityProperties(
 )
 
 /**
- * A LanguageTool server the operator runs (ADR 0044: an `installation` checker). Off unless [url] is
- * set. Template text is sent to it, with every expression replaced by a placeholder, never data.
+ * A LanguageTool server the operator runs: an installation provider (ADR 0047). Unused unless [url] is
+ * set, and then only for tenants that switch it on (`quality-languagetool`). Template text is sent to
+ * it, with every expression replaced by a placeholder, never data.
  */
 data class LanguageToolProperties(
     /**
@@ -41,6 +42,8 @@ data class LanguageToolProperties(
     val readTimeout: Duration = Duration.ofSeconds(20),
     /** Text per request; a variant with more is checked in several requests. */
     val maxRequestCharacters: Int = 20_000,
+    /** When it runs (ADR 0047): by default on a save, on "Check now" and on a ready mark. */
+    val triggers: Set<CheckTrigger> = setOf(CheckTrigger.SAVE, CheckTrigger.EXPLICIT, CheckTrigger.READY),
 ) {
     val configuredUrl: String? get() = url?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
 }

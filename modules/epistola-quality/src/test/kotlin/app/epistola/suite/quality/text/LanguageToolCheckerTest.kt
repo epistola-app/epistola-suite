@@ -4,8 +4,10 @@
 
 package app.epistola.suite.quality.text
 
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.i18n.LocaleSource
 import app.epistola.suite.i18n.ResolvedLocale
+import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.LanguageToolProperties
 import app.epistola.suite.quality.QualityProperties
 import app.epistola.suite.quality.QualitySeverity
@@ -59,6 +61,17 @@ class LanguageToolCheckerTest {
     fun `without a URL it is skipped, as it is with a blank one`() {
         assertThat(checker(url = null).readiness(dutch)).isInstanceOf(TextCheckerReadiness.Skipped::class.java)
         assertThat((checker(url = "  ").readiness(dutch) as TextCheckerReadiness.Skipped).reason).contains("not configured")
+    }
+
+    @Test
+    fun `an installation provider each tenant switches on, on save, Check now and ready by default`() {
+        val checker = checker()
+
+        assertThat(checker.egress).isEqualTo(TextEgress.INSTALLATION)
+        assertThat(checker.configured).isTrue()
+        assertThat(checker(url = null).configured).isFalse()
+        assertThat(checker.tenantSwitch).isEqualTo(KnownFeatures.QUALITY_LANGUAGETOOL)
+        assertThat(checker.triggers).containsExactlyInAnyOrder(CheckTrigger.SAVE, CheckTrigger.EXPLICIT, CheckTrigger.READY)
     }
 
     @Test
@@ -120,6 +133,8 @@ class LanguageToolCheckerTest {
         val repeat = answers[1].single()
         assertThat(texts[1].substring(repeat.offset, repeat.offset + repeat.length)).isEqualTo("de de")
         assertThat(repeat.suggestions).containsExactly("de")
+        // LanguageTool's own rule description, as the explanation until a profile rule supplies one.
+        assertThat(typo.explanation).isNotBlank()
     }
 
     @Test
