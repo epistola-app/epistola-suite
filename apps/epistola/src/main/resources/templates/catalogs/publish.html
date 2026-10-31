@@ -4,9 +4,9 @@
     <!--/*
     Publishing several catalogs at once (CatalogPublishSeveralHandler): every catalog that can be
     changed here with something to publish, ticked when nothing stops it. One Publish publishes the
-    ticked ones, each after the ones it uses (PublishCatalogs), and deploys them to the environment
-    chosen. Model: `rows` (CatalogPublishSeveralHandler.Row), `outcomes` after publishing (null before),
-    `mayDeploy`, `environments`.
+    ticked ones, each after the ones it uses (PublishCatalogs); the outcome then offers to deploy what
+    was published to an environment. Model: `rows` (CatalogPublishSeveralHandler.Row), `outcomes` after
+    publishing (null before), `deployOffer` with them, `deployed` after deploying.
     */-->
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Publish several catalogs')}"></div>
@@ -23,15 +23,49 @@
                 <li th:each="o : ${outcomes}" th:attr="data-outcome=${o.outcome.kind}" data-testid="publish-outcome">
                     <th:block th:switch="${o.outcome.kind.name()}">
                         <th:block th:case="'PUBLISHED'">
-                            <span th:text="${o.name} + ' published as v' + ${o.outcome.version} + (${o.outcome.alongWith.isEmpty()} ? '' : ', with ' + ${#strings.listJoin(o.outcome.alongWith, ', ')} + ' published first')
-                                           + (${o.deployedTo != null} ? ', and deployed to ' + ${o.deployedTo} : '') + '.'">
+                            <span th:text="${o.name} + ' published as v' + ${o.outcome.version} + (${o.outcome.alongWith.isEmpty()} ? '' : ', with ' + ${#strings.listJoin(o.outcome.alongWith, ', ')} + ' published first') + '.'">
                                 Letters published as v1.0.0.</span>
-                            <span th:if="${o.outcome.deployRefusal != null}" class="alert alert-warning" data-testid="publish-outcome-deploy-refused"
-                                  th:text="'It was not deployed: ' + ${o.outcome.deployRefusal}">It was not deployed: it was refused.</span>
                         </th:block>
                         <span th:case="'UNCHANGED'" th:text="${o.name} + ' had nothing left to publish.'">Shared had nothing left to publish.</span>
                         <span th:case="*" class="alert alert-error" th:text="${o.name} + ' was not published: ' + ${o.outcome.reason}">Forms was not published: it was refused.</span>
                     </th:block>
+                </li>
+            </ul>
+
+            <!--/* Then deploying what was published: offered from the outcome, so the reader sees what was published first. */-->
+            <form th:if="${deployOffer.offered}" method="post" th:action="@{/tenants/{tenantId}/catalogs/publish/deploy(tenantId=${tenantId})}"
+                  class="form-group" style="margin-top: var(--ep-space-4);" data-testid="publish-several-deploy-form">
+                <input th:each="release : ${deployOffer.releases}" type="hidden" name="release" th:value="${release}">
+                <label class="ep-label" for="publish-deploy-to">Deploy what was published to</label>
+                <div style="display: flex; flex-wrap: wrap; gap: var(--ep-space-2); align-items: center;">
+                    <select id="publish-deploy-to" name="environment" class="ep-input" required style="width: auto; min-width: 16rem;"
+                            data-testid="publish-several-deploy-to">
+                        <option th:each="env : ${deployOffer.environments}" th:value="${env.id}" th:text="${env.name}">Acceptance</option>
+                    </select>
+                    <button type="submit" class="ep-btn ep-btn-outline" data-testid="publish-several-deploy-submit">Deploy</button>
+                </div>
+                <span class="form-hint">
+                    Each catalog is deployed beside what the environment serves, with the releases it needs: applications asking
+                    for no version get it straight away, and those asking for an older one keep getting that.
+                </span>
+            </form>
+            <p th:if="${deployOffer.withheld?.name() == 'NO_ENVIRONMENT'}" class="form-hint" style="margin-top: var(--ep-space-4);"
+               data-testid="publish-several-no-environment">
+                To deploy what was published, first <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">create an environment under Environments</a>.
+            </p>
+            <p th:if="${deployOffer.withheld?.name() == 'NOT_PERMITTED'}" class="form-hint" style="margin-top: var(--ep-space-4);"
+               data-testid="publish-several-deploy-not-permitted">
+                Deploying it to an environment is for someone who may deploy.
+            </p>
+        </div>
+
+        <div th:if="${deployed != null}" class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);"
+             data-testid="publish-deployed">
+            <strong th:text="'Deploying to ' + ${deployed.environment}">Deploying to Acceptance</strong>
+            <ul style="margin: var(--ep-space-2) 0 0;">
+                <li th:each="d : ${deployed.deployments}" data-testid="publish-deployment">
+                    <span th:if="${d.refusal == null}" th:text="${d.name} + ' v' + ${d.version} + ' is deployed, with the releases it needs.'">Letters v1.0.0 is deployed, with the releases it needs.</span>
+                    <span th:unless="${d.refusal == null}" class="alert alert-error" th:text="${d.name} + ' v' + ${d.version} + ' was not deployed: ' + ${d.refusal}">Forms v1.0.0 was not deployed: it was refused.</span>
                 </li>
             </ul>
         </div>
@@ -85,22 +119,6 @@
                     </tbody>
                 </table>
             </div>
-            <!--/* Deploying after publishing: for someone who may deploy, when there is an environment to deploy to. */-->
-            <div th:if="${mayDeploy and !environments.isEmpty()}" class="form-group" style="margin-top: var(--ep-space-4);">
-                <label class="ep-label" for="publish-deploy-to">Then deploy to</label>
-                <select id="publish-deploy-to" name="deployTo" class="ep-input" style="width: auto; min-width: 16rem;" data-testid="publish-several-deploy-to">
-                    <option value="">Do not deploy</option>
-                    <option th:each="env : ${environments}" th:value="${env.id}" th:text="${env.name}">Acceptance</option>
-                </select>
-                <span class="form-hint">
-                    Each catalog is deployed beside what the environment serves, with the releases it needs: applications asking
-                    for no version get it straight away, and those asking for an older one keep getting that.
-                </span>
-            </div>
-            <p th:if="${mayDeploy and environments.isEmpty()}" class="form-hint" style="margin-top: var(--ep-space-4);"
-               data-testid="publish-several-no-environment">
-                There is no environment to deploy to yet; <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">create one under Environments</a>.
-            </p>
             <p style="margin-top: var(--ep-space-4);">
                 <button type="submit" class="ep-btn ep-btn-primary" data-testid="publish-several-submit">Publish ticked catalogs</button>
             </p>

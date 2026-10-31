@@ -62,6 +62,7 @@ class CatalogRoutes(
             // `publish` is a legal catalog slug.
             GET("/publish", publishSeveral::page)
             POST("/publish", publishSeveral::publish)
+            POST("/publish/deploy", publishSeveral::deploy)
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
             // linkable via ?resource=<type>:<catalog>/<key>, repeatable.
             GET("/organise", organise::page)
