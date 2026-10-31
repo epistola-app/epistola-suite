@@ -8,8 +8,6 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.EffectiveQualityStatus
@@ -18,9 +16,11 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubject
 import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.quality.commands.RunQualityChecks
+import app.epistola.suite.quality.commands.SaveQualityProviderSettings
 import app.epistola.suite.quality.commands.SourceRunStatus
 import app.epistola.suite.quality.commands.SubmitQualityFindings
 import app.epistola.suite.quality.queries.GetFindingsForSubject
+import app.epistola.suite.quality.queries.ListQualityProviders
 import app.epistola.suite.quality.text.TextBlockExtractorTest.Companion.doc
 import app.epistola.suite.quality.text.TextBlockExtractorTest.Companion.document
 import app.epistola.suite.quality.text.TextBlockExtractorTest.Companion.paragraph
@@ -33,7 +33,9 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.test.context.TestPropertySource
 
@@ -44,6 +46,37 @@ import org.springframework.test.context.TestPropertySource
  */
 @TestPropertySource(properties = ["epistola.quality.language-tool.url=http://127.0.0.1:1"])
 class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
+    /** A tenant administrator switches it on and off; the built-in rules are not switchable. */
+    @Test
+    fun `a configured LanguageTool is switched on and off in the tenant's quality settings`() {
+        val tenant = createTenant("LT Settings")
+        val languageTool = QualitySourceId("languagetool")
+        fun providers() = withMediator { ListQualityProviders(tenant.id).query() }
+
+        assertThat(providers().providers.single { it.id == languageTool }).satisfies({
+            assertThat(it.canSwitch).isTrue()
+            assertThat(it.enabled).isFalse()
+        })
+        assertThat(providers().providers.single { it.id == QualitySourceId("builtin") }).satisfies({
+            assertThat(it.canSwitch).isFalse()
+            assertThat(it.enabled).isTrue()
+        })
+
+        withMediator { SaveQualityProviderSettings(tenant.id, enabled = setOf(languageTool)).execute() }
+        assertThat(providers().providers.single { it.id == languageTool }.enabled).isTrue()
+
+        withMediator { SaveQualityProviderSettings(tenant.id, enabled = emptySet()).execute() }
+        assertThat(providers().providers.single { it.id == languageTool }.enabled).isFalse()
+    }
+
+    @Test
+    fun `only a switchable provider can be named`() {
+        val tenant = createTenant("LT Invalid")
+
+        assertThatThrownBy { withMediator { SaveQualityProviderSettings(tenant.id, enabled = setOf(QualitySourceId("builtin"))).execute() } }
+            .isInstanceOf(ValidationException::class.java)
+    }
+
     /** The operator configured a server, but text goes to it only for a tenant that switched it on (ADR 0047). */
     @Test
     fun `a tenant that did not switch LanguageTool on is skipped, and nothing is sent`() {
@@ -59,7 +92,7 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
 
         val languageTool = run.sources.single { it.sourceId == QualitySourceId("languagetool") }
         assertThat(languageTool.status).isEqualTo(SourceRunStatus.SKIPPED)
-        assertThat(languageTool.reason).contains("not switched on")
+        assertThat(languageTool.reason).contains("not switched on in this tenant's quality settings")
     }
 
     @Test
@@ -67,7 +100,7 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("LT Down")
         val variantId = withMediator {
             SetTenantDefaultLocale(tenantId = tenant.id, locale = "nl-NL").execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY_LANGUAGETOOL, enabled = true).execute()
+            SaveQualityProviderSettings(tenant.id, enabled = setOf(QualitySourceId("languagetool"))).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             CreateDocumentTemplate(id = templateId, name = "Brief").execute()
             VariantId(TestIdHelpers.nextVariantId(), templateId).also {

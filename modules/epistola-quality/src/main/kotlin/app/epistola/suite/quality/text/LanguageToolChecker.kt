@@ -4,8 +4,6 @@
 
 package app.epistola.suite.quality.text
 
-import app.epistola.suite.common.ids.FeatureKey
-import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.LanguageToolProperties
@@ -37,7 +35,7 @@ import java.util.concurrent.TimeUnit
  * per paragraph.
  *
  * An installation provider (ADR 0047): unused unless the operator sets its URL, and then only for
- * tenants that switch it on (`quality-languagetool`), because template text is sent to it.
+ * tenants that switch it on in their quality settings, because template text is sent to it.
  *
  * Runs only for a language someone chose, for the template (`system.locale`) or for the tenant: checked
  * in the installation's default instead, a Dutch template would be flagged word by word as misspelt
@@ -75,8 +73,8 @@ class LanguageToolChecker(
 
     override val configured: Boolean get() = client != null
 
-    /** It sends template text to a server, so each tenant opts in (ADR 0047). */
-    override val tenantSwitch: FeatureKey = KnownFeatures.QUALITY_LANGUAGETOOL
+    /** It sends template text to a server, so each tenant switches it on in its quality settings (ADR 0047). */
+    override val switchable = true
 
     override fun readiness(locale: ResolvedLocale): TextCheckerReadiness {
         if (client == null) return TextCheckerReadiness.Skipped("not configured on this installation")

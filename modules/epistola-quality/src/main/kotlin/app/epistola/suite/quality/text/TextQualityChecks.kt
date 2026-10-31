@@ -4,7 +4,6 @@
 
 package app.epistola.suite.quality.text
 
-import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -12,6 +11,7 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubject
 import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.quality.commands.StoreTextResults
+import app.epistola.suite.quality.queries.GetEnabledQualityProviders
 import app.epistola.suite.quality.queries.LookupTextResults
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -59,7 +59,8 @@ class TextQualityChecks {
         checkers: List<TextChecker>,
     ): List<TextCheckOutcome> {
         val texts = blocks.associate { it.hash to it.text }
-        return checkers.map { checker -> runOne(checker, subject, blocks, texts, locale) }
+        val switchedOn = if (checkers.any { it.switchable }) GetEnabledQualityProviders(subject.tenantKey).query().providerIds else emptySet()
+        return checkers.map { checker -> runOne(checker, subject, blocks, texts, locale, switchedOn) }
     }
 
     private fun runOne(
@@ -68,11 +69,11 @@ class TextQualityChecks {
         blocks: List<TextBlock>,
         texts: Map<String, String>,
         locale: ResolvedLocale,
+        switchedOn: Set<QualitySourceId>,
     ): TextCheckOutcome {
         if (!checker.configured) return TextCheckOutcome.Skipped(checker, "not configured on this installation")
-        val switch = checker.tenantSwitch
-        if (switch != null && ResolveAvailableFeatures(subject.tenantKey).query()[switch] != true) {
-            return TextCheckOutcome.Skipped(checker, "not switched on for this tenant")
+        if (checker.switchable && checker.checkerId !in switchedOn) {
+            return TextCheckOutcome.Skipped(checker, "not switched on in this tenant's quality settings")
         }
         val readiness = try {
             checker.readiness(locale)

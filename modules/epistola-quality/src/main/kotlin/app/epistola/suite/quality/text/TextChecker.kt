@@ -4,7 +4,6 @@
 
 package app.epistola.suite.quality.text
 
-import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.quality.CheckTrigger
 import app.epistola.suite.quality.QualitySeverity
@@ -86,10 +85,10 @@ interface TextChecker {
     val configured: Boolean get() = true
 
     /**
-     * The feature toggle a tenant switches it on with, or null when it is on for every tenant with the
-     * quality feature. A stand-in for tenant provider settings (ADR 0047, section 6).
+     * Whether a tenant switches it on in its quality settings (ADR 0047). One that sends text somewhere
+     * is; the in-process engine is on for every tenant with the quality feature.
      */
-    val tenantSwitch: FeatureKey? get() = null
+    val switchable: Boolean get() = false
 
     /** May call out (to learn a server's version); throwing means the checker is unavailable. */
     fun readiness(locale: ResolvedLocale): TextCheckerReadiness

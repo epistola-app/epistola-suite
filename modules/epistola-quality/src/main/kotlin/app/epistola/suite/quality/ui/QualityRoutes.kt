@@ -18,10 +18,15 @@ import org.springframework.web.servlet.function.router
  * server-rendered UI (see `UiRestApiSeparationTest`).
  */
 @Configuration
-class QualityRoutes(private val handler: QualityHandler) {
+class QualityRoutes(
+    private val handler: QualityHandler,
+    private val settings: QualitySettingsHandler,
+) {
     @Bean
     fun qualityRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/quality".nest {
+            GET("/settings", settings::settings)
+            POST("/settings", settings::save)
             GET("/search", handler::search)
             GET("/manual-form", handler::manualForm)
             GET("/variants", handler::variantOptions)

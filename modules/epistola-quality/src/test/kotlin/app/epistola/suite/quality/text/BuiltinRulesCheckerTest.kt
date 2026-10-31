@@ -26,7 +26,7 @@ class BuiltinRulesCheckerTest {
     fun `in-process, on every trigger, on for every tenant, keyed by engine version, rules and language`() {
         assertThat(checker.egress).isEqualTo(TextEgress.IN_PROCESS)
         assertThat(checker.triggers).containsExactlyInAnyOrderElementsOf(CheckTrigger.entries)
-        assertThat(checker.tenantSwitch).isNull()
+        assertThat(checker.switchable).isFalse()
         val configuration = (checker.readiness(ResolvedLocale("nl-NL", LocaleSource.INSTALLATION)) as TextCheckerReadiness.Ready).configuration
         assertThat(configuration).startsWith(BuiltinRulesChecker.ENGINE_VERSION).endsWith("/nl")
     }

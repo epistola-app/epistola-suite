@@ -25,14 +25,6 @@ object KnownFeatures {
      * `V20260618204750__core_rename_compatibility_check_feature_key.sql`).
      */
     val QUALITY = FeatureKey.of("quality")
-
-    /**
-     * LanguageTool as a quality provider for this tenant (ADR 0047): the operator configures the
-     * server (`epistola.quality.language-tool.url`), and each tenant switches it on, because template
-     * text is sent to it. Toggle-only like [QUALITY]. A stand-in until tenant quality settings let a
-     * tenant switch each provider on; those replace this key and its rows.
-     */
-    val QUALITY_LANGUAGETOOL = FeatureKey.of("quality-languagetool")
     val AI_CHAT = FeatureKey.of("ai-chat")
     val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
     val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
@@ -63,7 +55,6 @@ object KnownFeatures {
     val all: List<FeatureKey> = listOf(
         SUPPORT_FEEDBACK,
         QUALITY,
-        QUALITY_LANGUAGETOOL,
         AI_CHAT,
         EDITOR_WALKTHROUGH,
         RESOURCE_RELOCATION,
@@ -111,14 +102,8 @@ object KnownFeatures {
             "Quality",
             "Enables quality checks — a ledger of findings about templates, surfaced in a report and " +
                 "in the template editor. Findings come from checks run on every save and from reviewers. " +
-                "Checks read templates only: never generated documents, and never example values.",
-            stage = FeatureStage.ALPHA,
-        ),
-        QUALITY_LANGUAGETOOL to FeatureMetadata(
-            "Quality: LanguageTool",
-            "Checks template text for spelling, grammar and style with the LanguageTool server this " +
-                "installation configures. Template text is sent to that server, with every expression " +
-                "replaced by a placeholder; data is never sent. Needs Quality on.",
+                "Checks read templates only: never generated documents, and never example values. Providers " +
+                "that send text elsewhere, such as LanguageTool, are switched on in the quality settings.",
             stage = FeatureStage.ALPHA,
         ),
         AI_CHAT to FeatureMetadata(

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Quality settings',
+            pageDescription='Which systems check the language of the templates in this tenant. A system that sends text outside this application checks only once you switch it on.',
+            stage=${stage}
+        )}"></div>
+
+        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
+            Quality settings saved.
+        </div>
+
+        <div class="card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/quality/settings(tenantId=${tenantId})}" method="post">
+                    <div class="feature-toggle-item" th:each="provider : ${providers}"
+                         data-testid="quality-provider" th:data-provider-id="${provider.id}">
+                        <div class="feature-toggle-info">
+                            <div class="feature-toggle-name" th:text="${provider.name}">LanguageTool</div>
+                            <div class="feature-toggle-description" th:text="${provider.destination}">Where text goes.</div>
+                            <div class="feature-toggle-description" th:text="${'Runs ' + provider.runsOn + '.'}">Runs after a save.</div>
+                            <div class="feature-toggle-description" th:if="${provider.note != null}"
+                                 data-testid="quality-provider-note" th:text="${provider.note}">Always on.</div>
+                        </div>
+                        <label class="ep-toggle" th:if="${provider.canSwitch}">
+                            <input type="checkbox" th:name="${provider.field}" th:checked="${provider.enabled}">
+                            <span class="ep-toggle-slider" data-testid="quality-provider-switch"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-actions" th:if="${hasSwitches}">
+                        <button type="submit" class="ep-btn ep-btn-primary">Save settings</button>
+                        <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -113,6 +113,33 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("Alpha")
     }
 
+    /**
+     * The quality settings page (ADR 0047). In this context no LanguageTool server is configured, so it
+     * says so and offers no switch and no save: a switch there would record a choice that cannot run.
+     */
+    @Test
+    fun `the settings page lists the providers, and offers no switch for one the installation did not configure`() {
+        val subject = scenario()
+
+        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality/settings", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).contains("Quality settings").contains("Built-in rules").contains("Always on.")
+        assertThat(body).contains("LanguageTool").contains("this installation has no server configured for it")
+        assertThat(body).doesNotContain("data-testid=\"quality-provider-switch\"").doesNotContain("Save settings")
+    }
+
+    @Test
+    fun `the report links to the settings, and the nav lists them under Settings`() {
+        val subject = scenario()
+
+        val body = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java).body!!
+
+        assertThat(body).contains("data-testid=\"quality-settings-link\"")
+        assertThat(body).contains("/tenants/${subject.tenantKey.value}/quality/settings")
+    }
+
     /** The report opens on what is actionable, not on a wall of closed findings. */
     @Test
     fun `the report defaults to open findings and hides resolved ones`() {

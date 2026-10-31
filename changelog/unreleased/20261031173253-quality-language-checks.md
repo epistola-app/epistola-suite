@@ -9,8 +9,8 @@ title: Quality checks read a template's text for language problems, on every sav
 Built-in "clear language" rules report repeated words, sentences of more than 25 words, spacing
 mistakes and formal words with a plain alternative (Dutch and English), each explaining why. A
 LanguageTool server adds spelling, grammar and style: an operator sets
-`epistola.quality.language-tool.url`, and each tenant switches on `quality-languagetool`; nothing is
-sent anywhere otherwise. Checks see template text only, every expression as a placeholder, never data,
+`epistola.quality.language-tool.url`, and a tenant administrator switches it on in the new quality
+settings; nothing is sent anywhere otherwise. Checks see template text only, every expression as a placeholder, never data,
 and each paragraph is checked once until it changes. The editor panel shows the flagged text and
 suggestions, never applied for you, and says when a check was skipped or failed.
 

@@ -27,7 +27,7 @@ data class QualityProperties(
 
 /**
  * A LanguageTool server the operator runs: an installation provider (ADR 0047). Unused unless [url] is
- * set, and then only for tenants that switch it on (`quality-languagetool`). Template text is sent to
+ * set, and then only for tenants that switch it on in their quality settings. Template text is sent to
  * it, with every expression replaced by a placeholder, never data.
  */
 data class LanguageToolProperties(

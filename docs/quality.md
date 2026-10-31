@@ -432,10 +432,10 @@ Language checks read a template's **text**: spelling, grammar, style and readabi
 **providers**, each a `TextChecker` bean and a quality source of its own, so one provider failing never
 resolves another's findings.
 
-| Provider       | Source id      | Where text goes                         | Runs on                                 | For a tenant                                              |
-| -------------- | -------------- | --------------------------------------- | --------------------------------------- | --------------------------------------------------------- |
-| Built-in rules | `builtin`      | nowhere: in-process                     | every trigger                           | always, with the quality feature                          |
-| LanguageTool   | `languagetool` | a LanguageTool server the operator runs | save, "Check now", ready (configurable) | when configured, and switched on (`quality-languagetool`) |
+| Provider       | Source id      | Where text goes                         | Runs on                                 | For a tenant                                             |
+| -------------- | -------------- | --------------------------------------- | --------------------------------------- | -------------------------------------------------------- |
+| Built-in rules | `builtin`      | nowhere: in-process                     | every trigger                           | always, with the quality feature                         |
+| LanguageTool   | `languagetool` | a LanguageTool server the operator runs | save, "Check now", ready (configurable) | when configured, and switched on in the quality settings |
 
 **What a provider sees.** The suite extracts each paragraph and heading of a template's `text`
 nodes (`TextBlockExtractor`) as text with **placeholders**: an expression becomes one character
@@ -483,9 +483,15 @@ suggestions; nothing is applied for the author. The fingerprint holds the flagge
 and style, so another typo is another problem, and leaves it out for readability, so a reworded
 sentence that is still too long keeps its ignore.
 
+**Quality settings** (`/tenants/{tenant}/quality/settings`, under Settings, and linked from the
+report) list the installation's providers for a tenant administrator (`TENANT_SETTINGS`): where each
+sends text, when it runs, and a switch for the ones a tenant turns on. A provider the installation
+did not configure shows why it has no switch. The choice is stored per tenant in
+`quality_provider_settings`, with who changed it and when; no row means off.
+
 **LanguageTool** is an installation provider: unused unless the operator sets
-`epistola.quality.language-tool.url`, and then only for tenants that switch on
-`quality-languagetool` (off by default), because template text is sent to it. It is called at
+`epistola.quality.language-tool.url`, and then only for tenants that switch it on in their
+**quality settings** (off by default), because template text is sent to it. It is called at
 `POST {url}/v2/check` with LanguageTool's annotated text, each placeholder as markup it reads as the
 word `X`; several paragraphs go in one request. If the server is down, its earlier findings stay as
 they were and the run reports it as failed; the built-in rules run regardless.
@@ -503,7 +509,6 @@ they were and the run reports it as failed; the built-in rules run regardless.
 | `epistola.quality.language-tool.read-timeout`           | `20s`                 |                                                                                            |
 | `epistola.quality.language-tool.max-request-characters` | `20000`               | Text per request; more is split over several                                               |
 | `epistola.quality.language-tool.triggers`               | `SAVE,EXPLICIT,READY` | When LanguageTool runs                                                                     |
-| `epistola.features.quality-languagetool`                | `false`               | The default of the per-tenant switch for LanguageTool                                      |
 
 In the Helm chart, set them as environment variables under `env`, for example
 `EPISTOLA_QUALITY_LANGUAGETOOL_URL`. To run LanguageTool locally:

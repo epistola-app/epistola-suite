@@ -183,6 +183,8 @@
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             Raise a finding
         </button>
+        <a th:if="${canManageSettings}" class="ep-btn ep-btn-outline" data-testid="quality-settings-link"
+           th:href="@{/tenants/{tenantId}/quality/settings(tenantId=${tenantId})}">Settings</a>
     </th:block>
 </body>
 </html>

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.quality.text
 
-import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.i18n.LocaleSource
 import app.epistola.suite.i18n.ResolvedLocale
 import app.epistola.suite.quality.CheckTrigger
@@ -70,7 +69,7 @@ class LanguageToolCheckerTest {
         assertThat(checker.egress).isEqualTo(TextEgress.INSTALLATION)
         assertThat(checker.configured).isTrue()
         assertThat(checker(url = null).configured).isFalse()
-        assertThat(checker.tenantSwitch).isEqualTo(KnownFeatures.QUALITY_LANGUAGETOOL)
+        assertThat(checker.switchable).isTrue()
         assertThat(checker.triggers).containsExactlyInAnyOrder(CheckTrigger.SAVE, CheckTrigger.EXPLICIT, CheckTrigger.READY)
     }
 

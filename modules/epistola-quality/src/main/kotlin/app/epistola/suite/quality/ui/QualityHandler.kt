@@ -50,6 +50,8 @@ import app.epistola.suite.quality.queries.GetFindingsForSubject
 import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.queries.QualityFindingSort
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.queries.GetTenant
@@ -112,6 +114,8 @@ class QualityHandler(
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
             "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT).query()
             "sources" to registry.namesFor(tenantId.key).map { (id, name) -> SourceOption(id.value, name) }
+            // Which providers check this tenant's text is a tenant setting; the report links there for whoever may change it.
+            "canManageSettings" to (SecurityContext.currentOrNull()?.hasPermission(tenantId.key, Permission.TENANT_SETTINGS) == true)
             findingsModel(tenantId, page, filters)
         }
     }

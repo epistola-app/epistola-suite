@@ -93,10 +93,11 @@ when (ADR 0046).
 ### 6. In the pilot
 
 LanguageTool is an installation provider configured by properties
-(`epistola.quality.language-tool.*`), with its triggers in the same place. Until tenant quality
-settings exist, a tenant switches it on with the feature toggle `quality-languagetool` (off by
-default); the settings page replaces the toggle, and its rows, when providers get one. The built-in
-engine is `in-process` and always on for tenants with quality.
+(`epistola.quality.language-tool.*`), with its triggers in the same place. A tenant administrator
+switches it on in the tenant's **quality settings** (off by default), stored in
+`quality_provider_settings` with who changed it and when; tenant providers and consent for external
+ones will be kept there too. The built-in engine is `in-process` and always on for tenants with
+quality.
 
 ## Consequences
 

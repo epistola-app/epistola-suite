@@ -35,6 +35,8 @@ import app.epistola.suite.quality.commands.AddFindingComment
 import app.epistola.suite.quality.commands.IgnoreFinding
 import app.epistola.suite.quality.commands.RecordManualFinding
 import app.epistola.suite.quality.commands.RunQualityChecks
+import app.epistola.suite.quality.commands.SaveQualityProviderSettings
+import app.epistola.suite.quality.queries.ListQualityProviders
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
@@ -184,9 +186,10 @@ class DemoLoader(
 
         try {
             mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.QUALITY, enabled = true))
-            // LanguageTool runs only where an operator configured a server; switched on here so a demo
-            // started with `epistola.quality.language-tool.url` shows it on the showcase.
-            mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.QUALITY_LANGUAGETOOL, enabled = true))
+            // Every provider this installation configured (LanguageTool, when started with
+            // `epistola.quality.language-tool.url`) is switched on, so the showcase shows its findings.
+            val configured = mediator.query(ListQualityProviders(tenantKey)).providers.filter { it.canSwitch }.map { it.id }.toSet()
+            mediator.send(SaveQualityProviderSettings(tenantKey, enabled = configured))
             mediator.send(RunQualityChecks(variantId))
 
             val subject = QualitySubject.of(variantId)
