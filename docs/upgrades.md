@@ -138,8 +138,8 @@ that outage, and tell the teams whose applications request documents.
    migration step, and nothing is done for you after startup.
    - **An authored catalog** keeps its next draft, with any unpublished 1.x work, and gets a draft
      **Published in 1.x** beside it holding what each template and stencil last published (a
-     template whose default variant was never published, or a stencil never published, is left
-     out). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
+     template whose default variant was never published is left out, and so is a stencil never
+     published, unless a published template uses it). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
      (or the next draft where there is none) from the catalog's page. Its number is suggested as the
      patch after the catalog's highest 1.x release, or 1.0.0.
    - **Dependencies:** 1.x declared none, so the upgrade declares every catalog a catalog's content

@@ -199,6 +199,7 @@ migrate on; rebuild it from a 1.x database or from scratch.
 | 15   | `V20261101001500__core_2_0_read_model`                  | Every function and view the read model uses, in its final form                                                            |
 | 16   | `V20261101001600__core_2_0_triggers`                    | The triggers and deferred checks, foreign-key indexes, `ANALYZE`                                                          |
 | 17   | `V20261101001700__core_upstream_check_names`            | An upstream check's columns named for the release a catalog is on, not an "installed" one                                 |
+| 18   | `V20261101001800__core_published_in_1x_stencils`        | A "Published in 1.x" draft gets the never-published stencils its published templates use, found after alpha.1             |
 
 **1.x migrations after the chain.** The chain is numbered from `V20261101000100`, and Flyway runs
 migrations in version order. A 1.x migration numbered after that (any created from 1 November 2026
