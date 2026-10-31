@@ -75,6 +75,20 @@ Decided and closed:
 
 ## Touched
 
+### Random 1.x installations through the 2.0 upgrade (31 October; branch `tests/upgrade-model-based`)
+
+| What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Where                                            | Covered                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Random 1.x installations (catalogs with releases, themes, stencils and templates; version histories; data contracts; stencil instances bare, copied exactly or edited, of the own catalog, another or a missing one; activations), seeded on `LAST_1X`, through the preflight and the chain. The preflight refuses exactly a missing catalog or a cycle in kept content; any other upgrade keeps the invariants, every working copy in the next draft, and what was last published in "Published in 1.x". Opt-in (`modelTest`, tag `model`) | `OneXUpgradeModelTest`                           | ✅ checks proven to fail on a broken working-copy rule                                    |
+| A "Published in 1.x" draft kept a published template using a stencil 1.x never published (a template could use a stencil's draft), but left the stencil out: the draft named what it did not hold and could not be released. A new migration after the chain (alpha.1 shipped it, so step 9 is not edited) adds those stencils from the next draft with their ready marks, and removes a repaired draft that then holds what the next draft holds                                                                                           | `V20261101001800__core_published_in_1x_stencils` | ✅ `PublishedInOneXStencilsMigrationTest` 2 (both failed before); found by the model test |
+
+| The preflight read each variant's and stencil's draft and latest published version, but the upgrade keeps the working copy, the latest archived version when there is neither: a cycle through such a version passed the preflight and left two catalogs using each other, neither releasable. It now reads the working copy too | `OneXCatalogReferences` | ✅ `OneXCatalogChecksTest` "an archived version a variant keeps as its working copy counts" (failed before); found by the model test |
+
+Noticed, not done:
+
+- Not yet generated: images, fonts, code lists, attributes, theme references in content, subscribed
+  catalogs, several tenants, stencils using stencils.
+
 ### What the pages say (30 October; branch `feat/ui-polish-2-0`)
 
 The visible text of 112 pages (admin) and 102 (content user) and the main dialogs, read for whether
