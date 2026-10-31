@@ -75,6 +75,40 @@ Decided and closed:
 
 ## Touched
 
+### Language checks pilot, ADR 0044 (31 October; branch `feat/quality-language-pilot`)
+
+ADR 0044 replaces the pre-2.0 drafts 0012 and 0031: check results are a cache keyed by checker,
+configuration, locale and the hash of what was checked; decisions apart; findings a view per version.
+The pilot builds the language half and borrows the ledger as the view.
+
+| What                                                                                                                         | Where                                                                                                  | Covered                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Paragraph and heading text of `text` nodes, expressions as an opaque placeholder; the editor's `hard_break` and lists        | `TextBlockExtractor`, `TextBlock`                                                                      | ✅ `TextBlockExtractorTest`                                                                                        |
+| Checker interface; built-in writing rules; LanguageTool over HTTP (annotated text, batched, server version in the cache key) | `TextChecker`, `WritingRulesChecker`, `LanguageToolChecker`                                            | ✅ `WritingRulesCheckerTest`, `LanguageToolCheckerTest` (responses recorded from LanguageTool 6.8)                 |
+| Result cache per tenant; only unseen blocks go to a checker                                                                  | `quality_text_results` (V20261101001800), `LookupTextResults`, `StoreTextResults`, `TextQualityChecks` | ✅ `TextChecksIntegrationTest`; `TwoZeroChainEquivalenceIT` (intended.txt)                                         |
+| Findings with quote, suggestions; fingerprint holds the word except for readability                                          | `TextFindings`                                                                                         | ✅ `TextFindingsTest`                                                                                              |
+| `RunQualityChecks` returns what each source did, runs outside a transaction; a failing LanguageTool keeps its findings       | `RunQualityChecks`                                                                                     | ✅ `LanguageToolUnavailableIntegrationTest`, `RunQualityChecksIntegrationTest`                                     |
+| Checked 5 s after the last save and at once on a ready mark, on a cluster timer written in the save's transaction            | `QualityCheckScheduling`, `OnVariantReadyRunChecks`                                                    | ✅ `TextChecksIntegrationTest` (the ready test failed before)                                                      |
+| Locale with the step that chose it                                                                                           | `TenantLocaleResolver.resolveWithSource`                                                               | ✅ `TenantLocaleResolverTest`                                                                                      |
+| Panel shows quote, suggestions, skipped or failed checkers                                                                   | `quality-plugin.ts`                                                                                    | ✅ `quality-plugin.test.ts`; not looked at in a browser                                                            |
+| Demo: `quality-showcase` `n-language`, `system.locale` en-GB, release 6.9.0                                                  | demo catalog                                                                                           | ✅ `DemoShowcaseQualityIntegrationTest`, `DemoCatalogFingerprintTest`; demo booted against a real LanguageTool 6.8 |
+
+Noticed, not touched:
+
+- **`AFTER_COMMIT` event handlers never run.** `SpringMediator` invokes `IMMEDIATE` handlers only; the
+  `AFTER_COMMIT` path was designed in #197 and never built, yet it is `EventHandler`'s default phase,
+  so a new handler that keeps the default is silently dead. `OnVariantReadyRunChecks` was (fixed here by
+  making it `IMMEDIATE`). Building the phase needs care: work in an after-commit callback joins the
+  finished transaction unless it runs `REQUIRES_NEW`. Owner: core mediator; a guard that rejects
+  `AFTER_COMMIT` until it works would be the cheap step.
+- **Checkers contradict each other.** On `en-GB`, LanguageTool's `OXFORD_SPELLING_Z_NOT_S` suggests
+  "Utilize" where the writing rules suggest "Use". Overlapping findings need grouping by span and
+  category before the panel shows both (ADR 0044 follow-up).
+- The ledger is versionless, so a save to a draft other than the next version is not checked
+  (ADR 0044 section 8).
+- The local `epistola-postgres` database fails Flyway validation against `release/2.0` (migrations
+  rewritten in place); the demo was run on a throwaway database instead.
+
 ### What the pages say (30 October; branch `feat/ui-polish-2-0`)
 
 The visible text of 112 pages (admin) and 102 (content user) and the main dialogs, read for whether
