@@ -101,7 +101,12 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
 
         assertThat(dialog).contains(">Publish Letters<")
-        assertThat(dialog).contains("Added").contains("<strong>Invoice</strong>").contains("(Template)")
+        assertThat(dialog).contains(">Added<").contains("<strong>Invoice</strong>")
+        assertThat(dialog).`as`("grouped by kind, with a summary in the header")
+            .contains("data-testid=\"publish-change-group\"").contains("<span>Templates</span>")
+            .contains("data-testid=\"publish-summary\">1 change: 1 added.<")
+        assertThat(dialog).`as`("the form kind: sticky header and footer, Publish in view")
+            .contains("class=\"ep-dialog release-dialog\" data-dialog=\"form\"")
         assertThat(dialog).contains("data-testid=\"publish-impact-additive\"")
         assertThat(dialog).contains("It will be published as <strong>v1.1.0</strong>")
         assertThat(dialog).contains("data-testid=\"release-submit\"")

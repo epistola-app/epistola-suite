@@ -27,7 +27,7 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
 
     private val lists = listOf("templates", "themes", "stencils", "images", "fonts", "attributes", "code-lists")
 
-    private val create = Regex(""">\s*(New (Template|Theme|Stencil|Attribute|Code List)|Upload (Image|Font))\s*<""")
+    private val create = Regex(""">\s*(New (template|theme|stencil|attribute|code list)|Upload (image|font))\s*<""", RegexOption.IGNORE_CASE)
 
     @Test
     fun `a supplied catalog's lists offer nothing to create and say why, one made here offers them`() = fixture {
@@ -46,6 +46,7 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
             pages.forEach { (list, page) ->
                 assertThat(page).`as`(list).contains("data-testid=\"catalog-version-bar-read-only\"").contains(">Supplied by Epistola<")
                 assertThat(create.find(page)?.value).`as`("$list offers to create in a supplied catalog").isNull()
+                assertThat(page).`as`("$list says read-only once, in the bar, not on every row").doesNotContain(">Read-only</span>")
             }
             lists.forEach { list ->
                 val own = restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/$list", String::class.java).body!!
@@ -53,6 +54,12 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
                 assertThat(own).doesNotContain("data-testid=\"catalog-version-bar-read-only\"")
             }
             assertThat(pages.getValue("templates")).`as`("the list is the catalog's, not every template").contains("The templates in this catalog.")
+            // An empty list in a catalog that cannot be changed says so, rather than inviting an upload it does not offer.
+            val empty = pages.filterValues { it.contains("data-testid=\"empty-state-description\"") }
+            assertThat(empty).`as`("the fixture leaves some kind empty").isNotEmpty()
+            empty.forEach { (list, page) ->
+                assertThat(page).`as`(list).contains("This catalog is read-only here, so no").doesNotContain("Upload font families").doesNotContain("Create a theme to")
+            }
         }
     }
 }

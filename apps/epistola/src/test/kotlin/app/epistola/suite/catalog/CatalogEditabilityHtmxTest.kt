@@ -71,7 +71,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
 
         val themes = get(tenant, "/catalogs/received-ui/themes")
         assertThat(themes).doesNotContain("data-testid=\"catalog-version-bar-read-only\"")
-        assertThat(themes).`as`("something to create in it").contains("New Theme")
+        assertThat(themes).`as`("something to create in it").contains("New theme")
         assertThat(themes).`as`("its rows are not marked read-only").doesNotContain(">Read-only</span>")
         assertThat(themes.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Next release<")
         assertThat(themes).`as`("what is not published yet, and Publish").contains("/received-ui/bar-status")
@@ -83,7 +83,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
 
         val list = get(tenant, "/catalogs")
         val row = list.substringAfter("id=\"catalog-list\"").substringAfter("/received-ui/browse").substringBefore("</tr>")
-        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("Publish a new release")
+        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("data-testid=\"catalog-row-publish\"")
     }
 
     @Test
@@ -97,7 +97,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
         assertThat(browse).doesNotContain("/system/bar-status").doesNotContain("Change in Settings")
 
         val themes = get(tenant, "/catalogs/system/themes")
-        assertThat(themes).doesNotContain("New Theme")
+        assertThat(themes).doesNotContain("New theme")
 
         val list = get(tenant, "/catalogs")
         val row = list.substringAfter("id=\"catalog-list\"").substringAfter("epistola/system/browse").substringBefore("</tr>")

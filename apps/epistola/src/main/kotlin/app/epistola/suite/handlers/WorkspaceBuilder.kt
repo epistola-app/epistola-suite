@@ -127,8 +127,15 @@ class WorkspaceBuilder {
             )
         }
 
-        /** How the way back names where someone was: "Back to Letters", and the parallel work when it was that. */
-        fun backLabel(scope: CatalogScope): String = "Back to ${scope.name}" + if (scope.sideWork) ", ${scope.versionLabel}" else ""
+        /**
+         * How the way back names where someone was: "Back to the Letters catalog", and the parallel work
+         * when it was that. Saying "catalog" matters for a name like Default, which alone reads as a
+         * setting; a name that already ends in it ("Epistola Demo Catalog") is not given a second one.
+         */
+        fun backLabel(scope: CatalogScope): String {
+            val where = if (scope.name.trimEnd().endsWith("catalog", ignoreCase = true)) scope.name else "the ${scope.name} catalog"
+            return "Back to $where" + if (scope.sideWork) ", ${scope.versionLabel}" else ""
+        }
 
         private fun remember(request: HttpServletRequest, tenantKey: TenantKey, back: BackLink) {
             val value = listOf(tenantKey.value, back.href, back.label).joinToString(SEPARATOR)

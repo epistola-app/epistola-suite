@@ -31,7 +31,11 @@
 
         <div th:replace="~{catalogs/overview :: environments}"></div>
 
-        <div th:replace="~{catalogs/overview :: counts}"></div>
+        <!--/* An empty catalog's status card above already invites its first template; the counts would
+               only say it again. */-->
+        <th:block th:unless="${readiness != null and contents.isEmpty}">
+            <div th:replace="~{catalogs/overview :: counts}"></div>
+        </th:block>
 
         <!--/* A catalog with a source: what the source put in it, each linked to Exchange where it came
                from there, and Install when something is not installed yet. */-->
@@ -70,7 +74,7 @@
     <!-- Fragment: install preview content (loaded into dialog via HTMX) -->
     <th:block th:fragment="install-preview">
         <div class="ep-dialog-header">
-            <h3>Confirm Installation</h3>
+            <h3>Confirm installation</h3>
         </div>
         <div class="ep-dialog-body">
             <p>The whole catalog is installed. These resources will be added or updated:</p>
@@ -118,7 +122,7 @@
     <!-- Fragment: install preview error -->
     <th:block th:fragment="install-preview-error">
         <div class="ep-dialog-header">
-            <h3>Cannot Install</h3>
+            <h3>Cannot install</h3>
         </div>
         <div class="ep-dialog-body">
             <div class="alert alert-error" th:text="${error}"></div>
@@ -479,25 +483,20 @@
                                 -->
                                 <a th:if="${publication.exchangeUrl(entry) != null}"
                                    th:href="${publication.exchangeUrl(entry)}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                                   class="ep-btn ep-btn-outline ep-btn-sm"
                                    title="View this submission on Exchange"
                                    target="_blank" rel="noopener noreferrer"
-                                   hx-boost="false">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
-                                </a>
+                                   hx-boost="false">On Exchange</a>
                                 <form th:if="${entry.status.isCancellable}"
                                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},publicationId=${entry.id})}"
                                       method="post">
                                     <button type="button"
-                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                            title="Withdraw this publication"
+                                            class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                             data-confirm-submit
                                             data-confirm-submit-title="Withdraw this publication"
                                             data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
                                             data-confirm-submit-label="Withdraw"
-                                            data-confirm-submit-class="ep-btn-warning">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
-                                    </button>
+                                            data-confirm-submit-class="ep-btn-warning">Withdraw</button>
                                 </form>
                             </td>
                         </tr>

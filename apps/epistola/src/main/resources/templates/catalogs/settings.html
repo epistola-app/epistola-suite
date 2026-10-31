@@ -6,8 +6,8 @@
            Epistola Exchange. Model: the catalog page's, at the version the page works in. */-->
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Details',
-            pageDescription=${draftBar.editable} ? 'Published with each release: change them here, and the next release you publish carries them.' : 'As the release it is on describes it.'
+            pageTitle='Settings',
+            pageDescription=${draftBar.editable} ? 'Published with each release: change them here, and the next release you publish carries them.' : 'The details its current release was published with.'
         )}"></div>
         <div id="catalog-alert"></div>
         <div th:replace="~{catalogs/content :: metadata-card}"></div>
@@ -18,7 +18,7 @@
                the suite installs it in every tenant. A refusal (still used, served or pinned) lands on
                the catalog list with its reason (CatalogHandler.deleteCatalog). */-->
         <div th:if="${auth.has('CATALOG_MANAGE')}" class="ep-panel detail-section danger-zone" data-testid="catalog-delete-section">
-            <div class="detail-section-header"><h3>Danger Zone</h3></div>
+            <div class="detail-section-header"><h3>Danger zone</h3></div>
             <div class="detail-section-body">
                 <p th:if="${catalog.id == 'system'}" class="text-muted" style="margin: 0;">
                     The system catalog cannot be deleted: the suite installs it in every tenant.

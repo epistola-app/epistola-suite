@@ -44,6 +44,7 @@ when the principal may act _and_ there is something to act on. It loads alongsid
 - Text inputs carry `maxlength` matching the domain limit (`InputMaxLengthTest`).
 - UI must never call `/api/**` (`UiRestApiSeparationTest`).
 - Page-header actions are filled or outlined, never ghost (`PageHeaderActionStyleTest`).
+- Row actions are labelled, outlined buttons (`RowActionLabelTest`); labels are sentence case (`SentenceCaseLabelTest`).
 - No `th:if`/`th:unless` beside `th:replace`/`th:insert`: the fragment renders first
   (`ThymeleafPrecedenceTest`).
 - A fixed-layout table has one `<col>` per header cell (`TableColumnsTest`); content stays in its

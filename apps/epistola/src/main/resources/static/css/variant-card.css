@@ -86,8 +86,10 @@
   margin-bottom: var(--ep-space-2);
 }
 
+/* Labelled actions wrap onto a second line in a narrow card rather than overflowing it. */
 .variant-card-footer {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--ep-space-1);
   padding: var(--ep-space-2) var(--ep-space-4);
   border-top: 1px solid var(--ep-border-color);

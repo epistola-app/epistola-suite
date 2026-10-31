@@ -73,6 +73,30 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a new catalog with nothing in it says so, rather than showing an empty card`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Next Release Empty")
+            withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("empty"), name = "Empty").execute() }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/empty/draft", String::class.java) }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("data-testid=\"catalog-nothing-added\"")
+            assertThat(body).doesNotContain("data-testid=\"catalog-no-changes\"")
+            assertThat(body).`as`("one invitation, not a tile per kind reading 0")
+                .contains("data-testid=\"catalog-counts-empty\"").contains("data-testid=\"catalog-counts-new-template\"")
+                .doesNotContain("data-testid=\"catalog-count\"")
+            val overview = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/empty/browse", String::class.java).body!!
+            assertThat(overview).`as`("the overview's status card already invites the first template, once")
+                .contains("data-testid=\"catalog-status-work\"").doesNotContain("data-testid=\"catalog-counts-empty\"")
+        }
+    }
+
+    @Test
     fun `the publish dialog does not hold back for ready marks, which publishing sets itself`() = fixture {
         lateinit var tenant: Tenant
 
@@ -268,7 +292,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release").body!!
             assertThat(dialog).doesNotContain("data-testid=\"publish-nothing\"")
             val change = dialog.substringAfter("data-testid=\"publish-change\"").substringBefore("</li>")
-            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">— locked to v1.0.0<")
+            assertThat(dialog).`as`("under its kind's heading").contains("<span>Dependencies</span>")
             assertThat(dialog).`as`("a dependency added is an addition").contains("It will be published as <strong>v1.1.0</strong>")
         }
     }

@@ -25,32 +25,33 @@
     return matches;
   }
 
-  // ── Cluster dashboard: render timestamps in the browser timezone ──────────
-  // Usage: <span data-local-datetime="2026-01-01T00:00:00Z">   → text + title
-  //        <span data-local-datetime-title="…">                → title only
-  const clusterDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'short',
-  });
+  // ── Cluster dashboard: a last-seen age keeps its exact time in the title ──
+  // Usage: <span data-local-datetime-title="2026-01-01T00:00:00Z">just now</span>
+  // Written in the browser's time zone in the app-wide shape (yyyy-MM-dd HH:mm:ss), the shape
+  // data-local-time gives every other time on the page (behaviors.js).
+  function pad(value) {
+    return String(value).padStart(2, '0');
+  }
 
   function formatClusterDateTime(value) {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : clusterDateTimeFormatter.format(date);
+    if (Number.isNaN(date.getTime())) return null;
+    return (
+      date.getFullYear() +
+      '-' +
+      pad(date.getMonth() + 1) +
+      '-' +
+      pad(date.getDate()) +
+      ' ' +
+      pad(date.getHours()) +
+      ':' +
+      pad(date.getMinutes()) +
+      ':' +
+      pad(date.getSeconds())
+    );
   }
 
   function initClusterDateTimes(root) {
-    queryAll(root, '[data-local-datetime]').forEach(function (element) {
-      const formatted = formatClusterDateTime(element.dataset.localDatetime);
-      if (formatted) {
-        element.textContent = formatted;
-        element.title = formatted;
-      }
-    });
     queryAll(root, '[data-local-datetime-title]').forEach(function (element) {
       const formatted = formatClusterDateTime(element.dataset.localDatetimeTitle);
       if (formatted) {

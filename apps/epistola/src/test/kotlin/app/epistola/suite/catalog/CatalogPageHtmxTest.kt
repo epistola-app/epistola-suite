@@ -159,7 +159,9 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/${tenant.id}/letters/templates/invoice\"")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/${tenant.id}/letters/settings\"")
-        assertThat(get(tenant, "/catalogs/${tenant.id}/letters/settings").body!!).contains("id=\"catalog-metadata\"")
+        assertThat(get(tenant, "/catalogs/${tenant.id}/letters/settings").body!!)
+            .contains("id=\"catalog-metadata\"")
+            .`as`("titled as the nav names it").contains("<span id=\"page-title-text\">Settings</span>")
     }
 
     @Test

@@ -16,7 +16,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-template-dialog',
-            title='New Template',
+            title='New template',
             closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::template-form})}"></div>
     </th:block>
@@ -35,7 +35,7 @@
                 <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                <label class="ep-label" for="slug">Template ID (Slug)</label>
+                <label class="ep-label" for="slug">Template ID</label>
                 <input type="text" id="slug" name="slug" class="ep-input"
                        required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
                        minlength="3" maxlength="50"
@@ -55,7 +55,7 @@
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
                     data-close-dialog="create-template-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create template</button>
         </div>
     </form>
 </body>

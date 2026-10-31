@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    The template's API tab: how an application asks for it (ApplicationRequestView). The identifiers
+    the generate request takes, a body per variant to copy, and whether there is anything live for a
+    request to get. Model: `applicationRequest` (not `application`: that name is the servlet context in a template), `mayCreateApiKey`, `tenantId`, `catalogSegment`.
+    */-->
+    <th:block th:fragment="tab-content" th:with="app=${applicationRequest}">
+        <section class="ep-panel detail-section" data-testid="template-application">
+            <div class="detail-section-header">
+                <h2>Use from your application</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">
+                    Your application sends this template's identifiers and its data to the REST API, and gets the document back as a PDF.
+                </p>
+                <dl class="description-list">
+                    <dt>Registry</dt>
+                    <dd><code th:text="${app.registry}">exchange.epistola.app</code></dd>
+                    <dt>Namespace</dt>
+                    <dd><code th:text="${app.namespace}">acme</code></dd>
+                    <dt>Catalog key</dt>
+                    <dd><code th:text="${app.catalogKey}">letters</code></dd>
+                    <dt>Template key</dt>
+                    <dd><code th:text="${app.templateKey}">invoice</code></dd>
+                </dl>
+
+                <!--/* Whether a request gets anything, and which release: what a developer needs before the body. */-->
+                <div th:if="${app.nothingPublished}" class="alert alert-warning" style="margin-top: var(--ep-space-4);"
+                     data-testid="template-application-unpublished">
+                    <div>
+                        Nothing in this catalog is published yet, so an application cannot get this template.
+                        <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalogSegment})}">Publish a release</a> first.
+                    </div>
+                </div>
+                <th:block th:unless="${app.nothingPublished}">
+                    <p th:if="${!app.environments.isEmpty()}" data-testid="template-application-live">
+                        Live in
+                        <th:block th:each="env, stat : ${app.environments}"><a th:href="@{/tenants/{t}/environments/{e}(t=${tenantId},e=${env.environmentKey})}"
+                                th:text="${env.environmentKey}">production</a> <span class="text-muted"
+                                th:text="${env.version != null} ? 'v' + ${env.version} : '(follows a draft)'">v1.0.0</span><th:block th:unless="${stat.last}">, </th:block></th:block>.
+                        The requests below ask through <code th:text="${app.environmentKey}">production</code>, so they get the release deployed there.
+                    </p>
+                    <p th:if="${app.environments.isEmpty()}" data-testid="template-application-not-deployed">
+                        Not deployed to an environment yet. A request without <code>environmentKey</code> gets the catalog's highest release,
+                        <span th:text="'v' + ${app.latestPublished}">v1.0.0</span>;
+                        <a th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalogSegment})}">deploy it</a> to choose a release per environment.
+                    </p>
+                    <p class="form-hint">A change reaches applications once it is in a published release.</p>
+                </th:block>
+            </div>
+        </section>
+
+        <section class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Request</h2>
+            </div>
+            <div class="detail-section-body">
+                <p style="margin-top: 0;">
+                    <code th:text="${app.endpoint}">POST /api/tenants/acme/documents/generate</code>, with the headers
+                    <th:block th:each="header, stat : ${app.headers}"><code th:text="${header}">Authorization: ApiKey</code><th:block th:unless="${stat.last}">, </th:block></th:block>.
+                </p>
+                <p class="form-hint" th:if="${app.exampleName != null}"
+                   th:text="'The data is the template\'s first example, ' + ${app.exampleName} + '.'">The data is the template's first example.</p>
+                <p class="form-hint" th:if="${app.exampleName == null}">
+                    The template has no data example, so the data is empty; add one under Data contract.
+                </p>
+
+                <div th:each="variant, stat : ${app.variants}" class="form-group" data-testid="template-application-variant"
+                     th:attr="data-variant=${variant.key}">
+                    <label class="ep-label" th:for="'application-body-' + ${stat.index}">
+                        <span th:text="${variant.title}">Default</span>
+                        <span th:if="${variant.isDefault and variant.title != 'Default'}" class="badge badge-default">Default</span>
+                        <span th:each="attr : ${variant.attributes}" class="text-muted text-sm"
+                              th:text="${attr.key} + ' = ' + ${attr.value}">system.locale = nl-NL</span>
+                    </label>
+                    <textarea th:id="'application-body-' + ${stat.index}" class="ep-input" readonly
+                              th:rows="${variant.rows}"
+                              style="font-family: var(--ep-font-mono, monospace); font-size: var(--ep-text-sm); width: 100%;"
+                              th:text="${variant.body}"></textarea>
+                    <div class="ep-row" style="gap: var(--ep-space-2); align-items: center;">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:attr="data-copy-source='application-body-' + ${stat.index},data-copy-status='application-copy-' + ${stat.index}">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
+                            Copy
+                        </button>
+                        <span th:id="'application-copy-' + ${stat.index}" class="form-hint" aria-live="polite"></span>
+                    </div>
+                </div>
+
+                <p class="form-hint">
+                    It answers with a job to poll, then the document to download; the
+                    <a th:href="@{/api-docs}" target="_blank" rel="noopener">API documentation</a> has each step, and how to choose a variant
+                    by its attributes instead of its key.
+                </p>
+                <p class="form-hint" th:if="${mayCreateApiKey}">
+                    The key needs the Generator role: <a th:href="@{/tenants/{t}/api-keys(t=${tenantId})}">create one under API keys</a>.
+                </p>
+                <p class="form-hint" th:unless="${mayCreateApiKey}">
+                    The key needs the Generator role; a tenant administrator creates it under API keys.
+                </p>
+            </div>
+        </section>
+    </th:block>
+</body>
+</html>

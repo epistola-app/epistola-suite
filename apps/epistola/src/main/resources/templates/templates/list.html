@@ -40,14 +40,16 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                         </div>
                         <div class="empty-state-title">No templates in this catalog</div>
-                        <div class="empty-state-description">This catalog has no templates yet. Create one here.</div>
+                        <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no templates are added to it.' : 'This catalog has no templates yet. Create one here.'">This catalog has no templates yet. Create one here.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                            New Template
+                            New template
                         </button>
                     </th:block>
                 </div>
@@ -57,18 +59,18 @@
                      data-testid="fixed-table-scroll">
                 <table class="ep-table ep-table-fixed">
                     <colgroup>
-                        <col style="width: 30%" /><!-- Name -->
-                        <col style="width: 28%" /><!-- ID -->
-                        <col style="width: 12%" /><!-- Variants -->
-                        <col style="width: 18%" /><!-- Last Modified -->
-                        <col style="width: 12%" /><!-- Actions -->
+                        <col style="width: 28%" /><!-- Name -->
+                        <col style="width: 22%" /><!-- ID -->
+                        <col style="width: 10%" /><!-- Variants -->
+                        <col style="width: 18%" /><!-- Last modified -->
+                        <col style="width: 22%" /><!-- Actions: a labelled Rename or move… button -->
                     </colgroup>
                     <thead>
                         <tr>
                             <th th:replace="~{templates/list :: sort-header('Name', 'name')}"></th>
                             <th>ID</th>
                             <th th:replace="~{templates/list :: sort-header('Variants', 'variants')}"></th>
-                            <th th:replace="~{templates/list :: sort-header('Last Modified', 'updated')}"></th>
+                            <th th:replace="~{templates/list :: sort-header('Last modified', 'updated')}"></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -87,11 +89,6 @@
                             <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <th:block th:replace="~{fragments/refactoring :: row-action('template', ${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress}, ${template.id})}" />
-                                <span th:unless="${catalogEditing.editable(template.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(template.catalogKey)}">Read-only</span>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress},id=${template.id})}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                                </a>
                             </td>
                         </tr>
                     </tbody>
@@ -178,7 +175,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Template
+            New template
         </button>
     </th:block>
 

@@ -72,7 +72,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("New Load Test")
+                assertThat(response.body).contains("New load test")
                 assertThat(response.body).contains("Select a template")
                 // Empty state: disabled dropdowns
                 assertThat(response.body).contains("Select a template first")
@@ -401,7 +401,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 // Should contain manual entry hint
                 assertThat(response.body).contains("Enter JSON test data manually")
                 // Should NOT contain example selector
-                assertThat(response.body).doesNotContain("Data Example")
+                assertThat(response.body).doesNotContain("Data example")
                 // The environment choice is offered whatever the data examples are
                 assertThat(response.body).contains("environmentId")
             }

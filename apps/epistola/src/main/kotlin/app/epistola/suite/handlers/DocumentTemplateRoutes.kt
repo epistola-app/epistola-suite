@@ -42,6 +42,7 @@ class DocumentTemplateRoutes(
             GET("/{id}", handler::detail)
             GET("/{id}/data-contract", dataContractTabHandler::dataContract)
             GET("/{id}/settings", settingsTabHandler::settings)
+            GET("/{id}/application", handler::application)
 
             // Template actions
             POST("/{id}/delete", handler::delete)

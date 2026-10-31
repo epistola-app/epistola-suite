@@ -54,13 +54,13 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Generation History")
-            assertThat(response.body).contains("Total Generated")
-            assertThat(response.body).contains("In Queue")
+            assertThat(response.body).contains("<span id=\"page-title-text\">Generation</span>")
+            assertThat(response.body).contains("Total generated")
+            assertThat(response.body).contains("In queue")
             assertThat(response.body).contains("Completed")
             assertThat(response.body).contains("Failed")
-            assertThat(response.body).contains("Most Used Templates")
-            assertThat(response.body).contains("Recent Jobs")
+            assertThat(response.body).contains("Most used templates")
+            assertThat(response.body).contains("Recent jobs")
         }
     }
 
@@ -114,7 +114,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // HTMX fragment response should be a table fragment, not a full page
-            assertThat(response.body).doesNotContain("Generation History")
+            assertThat(response.body).doesNotContain("data-testid=\"page-title\"")
         }
     }
 
@@ -155,7 +155,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             // By namespace and key, as the requests recorded the catalog (ADR 0034).
             val namespace = app.epistola.suite.testing.TestNamespaces.of(tenant.id).namespace
             val href = "href=\"/tenants/${tenant.id}/catalogs/$namespace/${billing.value}/templates/${templateKey.value}\""
-            // Once under "Most Used Templates", once under "Recent Jobs".
+            // Once under "Most used templates", once under "Recent jobs".
             assertThat(Regex(Regex.escape(href)).findAll(body).count()).isEqualTo(2)
         }
     }

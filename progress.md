@@ -75,6 +75,85 @@ Decided and closed:
 
 ## Touched
 
+### What the pages say (30 October; branch `feat/ui-polish-2-0`)
+
+The visible text of 112 pages (admin) and 102 (content user) and the main dialogs, read for whether
+each page tells its reader what they need there.
+
+| What                                                                                                       | Where                                                         | Covered                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Getting started ticked "Deploy" while nothing of the tenant's own was published: supplied catalogs counted | `GetGettingStarted`                                           | ✅ `GetGettingStartedTest` (failed before)                                                                               |
+| The Administrator API-key scope promised restoring snapshots (withdrawn, #1219)                            | `ApiKeyHandler.ROLE_OPTIONS`                                  | ✅ `ApiKeyHandlerTest` (failed before)                                                                                   |
+| Empty lists in a read-only catalog invited uploads and creates they do not offer                           | six `*/list.html`                                             | ✅ `SuppliedCatalogListsHtmxTest` (failed before)                                                                        |
+| The Feedback toggle promised hub sync without the support tier                                             | `KnownFeatures`                                               | ✅ `FeatureTogglePageHtmxTest` (failed before)                                                                           |
+| A template's API tab: identifiers, endpoint and headers, a body per variant, what is live                  | `ApplicationRequestView`, `templates/detail/application.html` | ✅ `ApplicationRequestViewTest`, `TemplateApplicationTabHtmxTest`; body posted to the demo's REST API, 202 and completed |
+
+Noticed, not done:
+
+- **"Publish" means two things.** The UI's Publish cuts a release; the API glossary says releasing is
+  not publishing, which is putting a catalog on Exchange (the "Catalog publishing" feature, "Exchange
+  publication"). Needs a naming decision before GA.
+- **Logs and audit speak the system's language**: server start-up lines in a tenant's log, a Logger
+  filter, command class names as audit actions (`CreateDocumentTemplate`), `SUCCESS`, a third date
+  format.
+- **Consumers** has no explanation and is not marked experimental (the API docs say it is).
+- **Support** tells a tenant admin to set `epistola.support.enabled`, and its nav shows with support off.
+- **Feature descriptions** are written for developers ("ledger", "check sources (in-process or remote)").
+- **The template page** says nothing about where the template is live (the API tab now does); its
+  locale filter lists all 65 locales under the raw key `system.locale`; stencil parameters are raw JSON
+  Schema; an empty presets table keeps its header and Save.
+- **The environment page** keeps the version rule in a hint under the deploy form; the API keys page
+  does not say how a key is sent; the Generation page buries its one useful sentence under zero tiles.
+- **Repetition**: catalog settings shows the catalog ID twice; the release page repeats the releases
+  intro and shows `Installed from classpath:…` to everyone; the tenant home's subtitle is "ID: demo".
+- **One-tenant users** land on a tenants list with one row instead of their tenant.
+
+### UI review and layout fixes (30 October; branch `feat/ui-polish-2-0`)
+
+The demo app crawled logged in as admin (67 pages at 1440 px, six at 390 px); about fifteen representative screenshots read closely, the rest checked by script (overflow, unlabelled controls, console).
+The fixes below are the ones that were cheap and safe; the rest is listed under "Noticed".
+
+| What                                                                                                                                                          | Where                                                                      | Covered                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A page header with many actions crushed its title (the catalogs list cut "Catalogs" to "Catalog"). The title keeps an 18rem share; the actions wrap beside it | `components.css` `.page-header .content`, `navigation.css` `.page-actions` | ✅ `PageLayoutUiTest` (failed before: title overflowed by 123 px)                                                      |
+| The What's New card on a phone ran its title under "View details", which was an unstyled browser button                                                       | `changelog.css`                                                            | ✅ `PageLayoutUiTest` (failed before: 240 px overflow)                                                                 |
+| The cluster page's tables ran past the page (1425 px on 1280), and a second formatter rewrote its times as locale strings ("10/30/2026, 04:41:46 PM GMT+1")   | `cluster/dashboard.html`, `pages/dashboards.js`                            | ✅ `PageLayoutUiTest` (failed before on the width); 🟡 the time shape is behind the width assertion, seen in the crawl |
+| Catalogs list cut "Supplied by Epistola" and "Can be changed"                                                                                                 | `catalogs/list.html` colgroup                                              | ✅ `PageLayoutUiTest` (failed before: 17 and 39 px)                                                                    |
+| "1 Themes", "1 Attributes" on a catalog's count tiles                                                                                                         | `CatalogContents.Group.countLabel`                                         | ✅ `CatalogContentsTest` (did not compile before)                                                                      |
+| A new catalog with nothing in it showed an empty "Not published yet" card                                                                                     | `CatalogReleaseReadiness.nothingAddedYet`, `next-release.html`             | ✅ `CatalogNextReleaseHandlerHtmxTest` (failed before)                                                                 |
+| A supplied catalog's overview had two "Contents" headings; the resource table's image rows cut the presentation badge to "…"                                  | `catalogs/content.html`                                                    | ❌ seen in the crawl only                                                                                              |
+| A supplied catalog's template list stacked Read-only and the view icon on two lines per row                                                                   | `templates/list.html` colgroup                                             | ❌ seen in the crawl only                                                                                              |
+
+The recommendations, done the same day (one commit each):
+
+| What                                                                                                                                                                                | Where                                                        | Covered                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Labels in sentence case everywhere (82 Title Case labels), nav and browser titles too                                                                                               | 54 templates, nav contributors, handlers                     | ✅ `SentenceCaseLabelTest` guard (82 before, 0 after)                                                                                                    |
+| Row actions labelled, not icon-only (15 across 9 lists, plus variant cards); eye/pencil links that repeated the name link removed                                                   | lists, `templates/detail/variants.html`                      | ✅ `RowActionLabelTest` guard (15 before); `CatalogListHandlerTest`, `TenantRoutesTest`                                                                  |
+| Catalogs page: New catalog primary, the other seven actions in a "More" menu; the bar's dropdown script takes `data-menu-trigger` and closes a menu when an item is picked          | `catalogs/list.html`, `nav.js`, `navigation.css`             | ✅ `CatalogListHandlerTest`, `CatalogDialogUiTest` (close-on-pick failed with the line reverted)                                                         |
+| Tenants page lists first; New tenant opens a URL-addressable dialog (`GET /tenants/new`)                                                                                            | `tenants/list.html`, `tenants/new.html`, `TenantHandler`     | ✅ `TenantRoutesTest`, `TenantDialogUiTest` (failed before)                                                                                              |
+| Read-only said once (the bar), not per row                                                                                                                                          | six lists                                                    | ✅ `SuppliedCatalogListsHtmxTest` (failed before)                                                                                                        |
+| Settings titled "Settings", Generation "Generation", "Back to the Default catalog"                                                                                                  | `catalogs/settings.html`, `WorkspaceBuilder.backLabel`       | ✅ `CatalogPageHtmxTest`, `GenerationHistoryRoutesTest`, `WorkspaceScopeTest` (failed before)                                                            |
+| Empty catalog: one New template invitation; "Mark as not production"; Undeploy outlined; Quick Actions gone; login without echo placeholders; feedback button clear of the last row | overview, environment, tenant home, login, `feedback-fab.js` | ✅ `CatalogNextReleaseHandlerHtmxTest`, `EnvironmentOverridesPageTest`, `TenantHomeOverviewTest`, `LoginPageIT`, `PageLayoutUiTest` (each failed before) |
+| Embed bridge posts nothing when not embedded; its tests use a stand-in parent window                                                                                                | `embed-bridge.js`, `EmbeddingBridgeUiTest`                   | ✅ new test failed before                                                                                                                                |
+
+Full `./gradlew test uiTest` after the label pass: 7544 tests; my four stale assertions fixed and rerun
+green. `RelocationCycleGuardTest` and `RelocationThemeFontTest` (epistola-core) fail with "a release
+pins every catalog it declares"; epistola-core is identical to `origin/release/2.0`, so they fail there
+too — not touched here.
+
+Noticed, not done:
+
+- **The catalog sidebar title wraps beside its "Supplied by Epistola" badge**, which the top bar
+  repeats. Put the badge under the name, or drop one of the two.
+- **Cluster page:** Task and Type are the same value on every row; the per-node sub-tables make it
+  very long.
+- **Quality list:** dates and template slugs wrap mid-token at 1440 px.
+- **The "More" menu convention** (one primary page action, the rest in a `data-menu-trigger` menu) is
+  used on the catalogs page only and has no guard.
+- **`main.regular` rules in `layout.css` are dead**: the shell's main is `main.main-content`.
+- **Two relocation tests fail on `release/2.0`** (above): owned by whoever has the release-pinning work.
+
 ### Catalog invariants checked after every integration test class (30 October; branch `tests/catalog-invariants`)
 
 Phase 0 of a bug hunt for 2.0: the rules a tenant's catalogs must satisfy after any sequence of

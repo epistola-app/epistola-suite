@@ -39,13 +39,15 @@
                         <th:block th:replace="~{epistola-web/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
                     </div>
                     <div class="empty-state-title">No images yet</div>
-                    <div class="empty-state-description">Upload images to use in your document templates.</div>
+                    <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no images are added to it.' : 'Upload images to use in your document templates.'">Upload images to use in your document templates.</div>
                     <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="image-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
-                        Upload Image
+                        Upload image
                     </button>
                 </div>
 
@@ -65,13 +67,12 @@
                             </div>
                         </div>
                         <div class="asset-card-actions">
-                            <span th:unless="${catalogEditing.editable(asset.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(asset.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(asset.catalogKey)}">
                                 <th:block th:replace="~{fragments/refactoring :: row-action('image', ${draftSegment?.linkFor(asset.catalogId) ?: asset.catalogId.address}, ${asset.id})}" />
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
-                                        data-confirm-title="Delete Image"
+                                        data-confirm-title="Delete image"
                                         th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogId) ?: asset.catalogId.address},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
@@ -106,7 +107,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="image-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-            Upload Image
+            Upload image
         </button>
     </th:block>
 

@@ -43,7 +43,7 @@ class RunOnlyCatalogPagesHtmxTest : BaseIntegrationTest() {
         val themes = get(tenant, "/catalogs/default/themes")
         assertThat(themes.substringAfter("data-testid=\"catalog-version-bar-read-only\"").substringBefore("</span>"))
             .contains(">This installation only runs releases")
-        assertThat(themes).doesNotContain("New Theme")
+        assertThat(themes).doesNotContain("New theme")
 
         val list = get(tenant, "/catalogs")
         assertThat(list.substringAfter("id=\"catalog-list\"").substringAfter("/default/browse").substringBefore("</tr>"))

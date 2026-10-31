@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
+    <title th:text="${templateName + ' - Edit - Epistola'}">Edit template - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
     <th:block th:replace="~{fragments/embed-config :: island}" />
     <th:block th:replace="~{fragments/htmx :: htmx}" />
@@ -84,7 +84,7 @@
                   data-testid="editor-crumb-version" th:text="${scope.versionLabel}">Next release</span>
             <span class="ws-crumb-sep" aria-hidden="true">/</span>
             <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
-               th:text="${templateName}">Template Name</a>
+               th:text="${templateName}">Template name</a>
             <span class="editor-nav-variant" th:text="${variantId}"></span>
         </div>
         <div class="ws-bar-right editor-nav-right">

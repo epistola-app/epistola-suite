@@ -50,14 +50,6 @@
   font-size: var(--ep-text-sm);
 }
 
-/* ── Quick links grid ────────────────────────────────────────────────── */
-
-.quick-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ep-space-3);
-}
-
 /* ── Detail sections (card-wrapped) ──────────────────────────────────── */
 
 /* Card chrome via .ep-panel; this adds only the section spacing. */

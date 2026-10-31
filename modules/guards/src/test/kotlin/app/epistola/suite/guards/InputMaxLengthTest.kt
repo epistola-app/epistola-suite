@@ -49,7 +49,7 @@ class InputMaxLengthTest {
     private val base = "apps/epistola/src/main/resources/templates"
 
     private val targets = listOf(
-        name("$base/tenants/list.html", "name"),
+        name("$base/tenants/new.html", "name"),
         name("$base/themes/new.html", "name"),
         name("$base/templates/new.html", "name"),
         name("$base/templates/detail/settings.html", "template-name-input"),
@@ -89,7 +89,7 @@ class InputMaxLengthTest {
         slug("$base/stencils/new.html", "slug", 50),
         slug("$base/catalogs/new.html", "catalogSlug", 50),
         slug("$base/code-lists/new.html", "slug", 64),
-        slug("$base/tenants/list.html", "slug", 63),
+        slug("$base/tenants/new.html", "slug", 63),
     )
 
     @Test

@@ -19,14 +19,16 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='puzzle', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No stencils yet</div>
-            <div class="empty-state-description">Create a stencil to build reusable template components.</div>
+            <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
+                    <div class="empty-state-description" data-testid="empty-state-description"
+                         th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no stencils are added to it.' : 'Create a stencil to build reusable template components.'">Create a stencil to build reusable template components.</div>
             <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="stencil-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                New Stencil
+                New stencil
             </button>
         </div>
 
@@ -35,12 +37,12 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 23%" /><!-- Name -->
-                <col style="width: 14%" /><!-- Catalog -->
-                <col style="width: 23%" /><!-- Description -->
-                <col style="width: 11%" /><!-- Tags -->
-                <col style="width: 15%" /><!-- Last Modified -->
-                <col style="width: 14%" /><!-- Actions (fits eye button + Read-only badge at ≥1024px viewports) -->
+                <col style="width: 20%" /><!-- Name -->
+                <col style="width: 12%" /><!-- Catalog -->
+                <col style="width: 20%" /><!-- Description -->
+                <col style="width: 9%" /><!-- Tags -->
+                <col style="width: 14%" /><!-- Last modified -->
+                <col style="width: 25%" /><!-- Actions: labelled buttons (Rename or move…, Delete) on one line -->
             </colgroup>
             <thead>
                 <tr>
@@ -48,7 +50,7 @@
                     <th>Catalog</th>
                     <th>Description</th>
                     <th>Tags</th>
-                    <th>Last Modified</th>
+                    <th>Last modified</th>
                     <th></th>
                 </tr>
             </thead>
@@ -77,21 +79,13 @@
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${stencil.updatedAt}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <th:block th:replace="~{fragments/refactoring :: row-action('stencil', ${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address}, ${stencil.id})}" />
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address},stencilId=${stencil.id})}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                            <span th:unless="${catalogEditing.editable(stencil.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(stencil.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(stencil.catalogKey)}">
                                 <button th:if="${auth.has('STENCIL_EDIT')}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Delete stencil"
-                                        data-confirm-title="Delete Stencil"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
+                                        data-confirm-title="Delete stencil"
                                         th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address},stencilId=${stencil.id})}"
-                                        data-confirm-target="#stencil-rows">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
+                                        data-confirm-target="#stencil-rows">Delete</button>
                             </th:block>
                         </td>
                     </tr>
@@ -124,7 +118,7 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Stencil
+            New stencil
         </button>
     </th:block>
 

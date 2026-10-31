@@ -18,6 +18,8 @@ class TenantRoutes(private val handler: TenantHandler) {
         "/tenants".nest {
             GET("/search", handler::search)
             POST("", handler::create)
+            // Before /{tenantId}, which would otherwise take "new" for a tenant's key.
+            GET("/new", handler::newForm)
             GET("/{tenantId}", handler::home)
             POST("/{tenantId}/delete", handler::delete)
         }

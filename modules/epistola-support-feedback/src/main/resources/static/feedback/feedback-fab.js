@@ -42,6 +42,11 @@ function injectStyles() {
     transition: box-shadow .15s, transform .15s;
     padding: 0;
 }
+/* Room under the page's content for the button, so at the end of a page it never sits on the
+   last row's actions. Injected with the button, so a page without it keeps its own spacing. */
+main.main-content {
+    padding-bottom: calc(48px + var(--ep-space-5, 1.25rem));
+}
 .feedback-fab:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,.18);
     transform: translateY(-1px);
@@ -156,7 +161,7 @@ export function initFeedbackFab(tenantId) {
   container.id = 'feedback-fab-container';
 
   container.innerHTML = `
-<button id="feedback-fab" class="feedback-fab" type="button" title="Page Feedback">
+<button id="feedback-fab" class="feedback-fab" type="button" title="Page feedback" aria-label="Page feedback">
     ${fabIcon}
     <span id="feedback-fab-badge" class="feedback-fab-badge feedback-fab-badge--hidden"></span>
 </button>

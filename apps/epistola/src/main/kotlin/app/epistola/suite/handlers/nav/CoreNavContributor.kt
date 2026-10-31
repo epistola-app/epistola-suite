@@ -48,7 +48,7 @@ class CoreNavContributor : NavContributor {
             add(NavItem("documents", "generation-history", "Generation", "generation-history", 20))
         }
         if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
-            add(NavItem("documents", "load-tests", "Load Tests", "load-tests", 30))
+            add(NavItem("documents", "load-tests", "Load tests", "load-tests", 30))
         }
 
         // Operations — per-item permissions
@@ -59,7 +59,7 @@ class CoreNavContributor : NavContributor {
         }
         // The Audit item is contributed by the epistola-audit module's AuditNavContributor.
         if (context.hasPermission(Permission.TENANT_USERS)) {
-            add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
+            add(NavItem("operations", "api-keys", "API keys", "api-keys", 40))
         }
 
         // Settings — managers only

@@ -15,7 +15,7 @@
                     hx-swap="innerHTML"
                     hx-include="[name='category']"
                     name="status">
-                <option value="">All Statuses</option>
+                <option value="">All statuses</option>
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
@@ -25,7 +25,7 @@
                     hx-swap="innerHTML"
                     hx-include="[name='status']"
                     name="category">
-                <option value="">All Categories</option>
+                <option value="">All categories</option>
                 <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${#labels.of(c)}"
                         th:selected="${selectedCategory != null && selectedCategory.name() == c.name()}">CATEGORY</option>
             </select>
@@ -93,7 +93,7 @@
                 hx-swap="innerHTML"
                 data-open-dialog="feedback-dialog">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-            New Feedback
+            New feedback
         </button>
     </th:block>
 

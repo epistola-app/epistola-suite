@@ -58,6 +58,9 @@
                 </div>
             </div>
 
+            <p th:if="${readiness.nothingAddedYet}" class="text-muted" data-testid="catalog-nothing-added">
+                Nothing has been added to this catalog yet. Add a template, or anything else it should hold, and it shows up here.
+            </p>
             <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes"
                th:text="${readiness.drafts.isNext} ? 'Everything is published. What you change from now on shows up here.'
                         : 'Nothing is changed in this work yet. What you change shows up here.'">Everything is published.</p>

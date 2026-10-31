@@ -87,7 +87,7 @@
                                   hx-target="#ws-dialog-mount" hx-swap="innerHTML">
                                 <input type="hidden" name="environment" th:value="${env.key}">
                                 <button type="submit" class="ep-btn ep-btn-sm" data-testid="follow-toggle"
-                                        th:classappend="${env.following} ? 'ep-btn-ghost' : 'ep-btn-outline'"
+                                        th:classappend="${env.following} ? 'ep-btn-outline' : 'ep-btn-outline'"
                                         th:text="${env.following} ? 'Stop following' : 'Follow'">Follow</button>
                             </form>
                         </td>

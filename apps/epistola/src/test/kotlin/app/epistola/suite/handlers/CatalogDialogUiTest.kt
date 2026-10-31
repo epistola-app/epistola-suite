@@ -67,11 +67,14 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/${tenant.id}/catalogs")
         page.htmxSettle()
 
+        // A secondary action, in the page header's More menu.
+        page.locator("[data-testid='catalog-more-open']").click()
         val trigger = page.locator("[data-testid='catalog-subscribe-open']")
         assertThat(trigger).isVisible()
         trigger.press("Enter")
 
         assertThat(page.locator("dialog[open]#subscribe-catalog-dialog")).isVisible()
+        assertThat(page.locator("[data-testid='catalog-more-actions']")).not().hasClass(Pattern.compile("\\bopen\\b"))
         // Opening the dialog pushes the shareable /…/subscribe URL via hx-push-url.
         assertThat(page).hasURL(subscribeFormUrlPattern)
     }
@@ -83,11 +86,14 @@ class CatalogDialogUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/${tenant.id}/catalogs")
         page.htmxSettle()
 
+        // A secondary action, in the page header's More menu.
+        page.locator("[data-testid='catalog-more-open']").click()
         val trigger = page.locator("[data-testid='catalog-import-open']")
         assertThat(trigger).isVisible()
         trigger.press("Enter")
 
         assertThat(page.locator("dialog[open]#import-catalog-dialog")).isVisible()
+        assertThat(page.locator("[data-testid='catalog-more-actions']")).not().hasClass(Pattern.compile("\\bopen\\b"))
         // Opening the dialog pushes the shareable /…/import URL via hx-push-url.
         assertThat(page).hasURL(importFormUrlPattern)
     }

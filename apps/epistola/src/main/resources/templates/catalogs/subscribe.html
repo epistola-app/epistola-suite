@@ -22,7 +22,7 @@
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='subscribe-catalog-dialog',
-            title='Subscribe to Catalog',
+            title='Subscribe to catalog',
             closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::subscribe-form})}"></div>
     </th:block>
@@ -50,7 +50,7 @@
                 <select id="authType" name="authType" class="ep-select"
                         data-auth-credential-toggle="credential-group">
                     <option value="NONE">None (public catalog)</option>
-                    <option value="BEARER">Bearer Token</option>
+                    <option value="BEARER">Bearer token</option>
                     <option value="API_KEY">API Key</option>
                 </select>
             </div>

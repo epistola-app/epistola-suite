@@ -54,9 +54,9 @@
             </div>
         </div>
 
-        <!-- Default Theme -->
+        <!-- Default theme -->
         <div class="ep-panel detail-section" id="theme-section" th:fragment="theme-section">
-            <div class="detail-section-header"><h3>Default Theme</h3></div>
+            <div class="detail-section-header"><h3>Default theme</h3></div>
             <div class="detail-section-body">
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
                     Set the default theme for all variants. Individual variants can override this in the editor.
@@ -85,9 +85,9 @@
             </div>
         </div>
 
-        <!-- Output Settings -->
+        <!-- Output settings -->
         <div class="ep-panel detail-section" id="output-settings-section" th:fragment="output-settings">
-            <div class="detail-section-header"><h3>Output Settings</h3></div>
+            <div class="detail-section-header"><h3>Output settings</h3></div>
             <div class="detail-section-body">
                 <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
                     <!-- Native HTMX: change hx-patches the checkbox state (an unchecked
@@ -111,9 +111,9 @@
             </div>
         </div>
 
-        <!-- Danger Zone -->
+        <!-- Danger zone -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="ep-panel detail-section danger-zone">
-            <div class="detail-section-header"><h3>Danger Zone</h3></div>
+            <div class="detail-section-header"><h3>Danger zone</h3></div>
             <div class="detail-section-body">
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
                     Permanently delete this template and all its variants, versions, and data.
@@ -122,9 +122,9 @@
                       method="post" id="delete-template-form" hx-boost="false">
                     <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
                             data-confirm-submit
-                            data-confirm-submit-title="Delete Template"
+                            data-confirm-submit-title="Delete template"
                             data-confirm-submit-message="Are you sure you want to delete this template? This action cannot be undone."
-                            data-confirm-submit-label="Delete">Delete Template</button>
+                            data-confirm-submit-label="Delete">Delete template</button>
                 </form>
             </div>
         </div>

@@ -401,6 +401,25 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the catalogs page leads with New catalog, the other actions in one menu, and labels each row's actions`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Actions") }
+
+        whenever { restTemplate.getForEntity("/tenants/${t.id}/catalogs", String::class.java) }
+
+        then {
+            val body = result<org.springframework.http.ResponseEntity<String>>().body!!
+            val header = body.substringBefore("id=\"catalog-list\"")
+            val menu = header.substringAfter("id=\"catalog-more-menu\"").substringBefore("data-testid=\"catalog-create-open\"")
+            assertThat(menu).contains("data-testid=\"catalog-import-open\"", "data-testid=\"catalog-subscribe-open\"", "data-testid=\"catalog-graph-open\"")
+            assertThat(header).containsPattern("class=\"ep-btn ep-btn-primary\"[^>]*data-testid=\"catalog-create-open\"")
+            val defaultRow = body.substringAfter("id=\"catalog-list\"").substringAfter("/catalogs/${t.id}/default/browse").substringBefore("</tr>")
+            assertThat(defaultRow).contains(">Export</button>", ">Publish…</button>").containsPattern(">\\s*Delete\\s*</button>")
+                .`as`("no bare icons left").doesNotContain("ep-btn-icon")
+        }
+    }
+
+    @Test
     fun `removing a catalog returns the whole #catalog-list region (parser-safe, not a bare tbody)`() = fixture {
         lateinit var t: Tenant
         given {

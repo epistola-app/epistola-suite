@@ -32,7 +32,7 @@ class GenerationHistoryHandler {
         val recentJobs = ListGenerationJobs(tenantId.key, limit = RECENT_JOBS_LIMIT).query()
 
         return ServerResponse.ok().page("generation-history/dashboard") {
-            "pageTitle" to "Generation History - Epistola"
+            "pageTitle" to "Generation - Epistola"
             "tenantId" to tenantId.key
             "stats" to stats
             "templateUsage" to templateUsage

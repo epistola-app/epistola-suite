@@ -117,7 +117,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Document Templates")
+            assertThat(response.body).contains("<title>Templates - Epistola</title>")
             assertThat(response.body).contains("Invoice Template")
             assertThat(response.body).contains("Contract Template")
             assertThat(response.body).contains("Letter Template")
@@ -139,7 +139,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Document Templates")
+            assertThat(response.body).contains("<title>Templates - Epistola</title>")
             assertThat(response.body).doesNotContain("Invoice Template")
         }
     }

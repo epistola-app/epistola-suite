@@ -4,6 +4,9 @@
 
 package app.epistola.suite.tenants.queries
 
+import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -66,5 +69,20 @@ class GetGettingStartedTest : IntegrationTestBase() {
         )
         drainGenerationJobs(tenant.id)
         assertThat(steps().complete).isTrue()
+    }
+
+    @Test
+    fun `a supplied catalog deployed does not count as the tenant deploying its own`(): Unit = withAuthentication {
+        val tenant = createTenant("Getting Started Supplied")
+        val tenantId = TenantId(tenant.id)
+        val system = testCatalog(tenant.id, CatalogKey.of("system")).let { CatalogId(CatalogIdentityProperties.BUNDLED_NAMESPACE, it.key, it.tenantId) }
+        val staging = EnvironmentId(EnvironmentKey.of("staging"), tenantId)
+        mediator.send(CreateEnvironment(staging, "Staging"))
+
+        val release = mediator.query(ListCatalogReleases(system, CatalogReleaseStatus.RELEASED)).single()
+        mediator.send(DeployCatalogRelease(staging, system, release.version!!))
+
+        assertThat(mediator.query(GetGettingStarted(tenant.id)).hasDeployed)
+            .`as`("step 3 waits for the tenant's own catalog, as steps 1 and 2 do").isFalse()
     }
 }

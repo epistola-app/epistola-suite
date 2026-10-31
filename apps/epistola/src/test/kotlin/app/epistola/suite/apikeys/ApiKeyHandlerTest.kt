@@ -46,7 +46,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("API Keys")
+            assertThat(response.body).contains("API keys")
             assertThat(response.body).contains("No API keys")
         }
     }
@@ -105,6 +105,8 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             // The roles say what they grant now: publishing deploys too, and backups were withdrawn.
             assertThat(response.body).contains("Publish catalog releases and deploy them to environments.")
             assertThat(response.body).doesNotContain("backups").doesNotContain("archive template and stencil versions")
+            // …and so were tenant snapshots (#1219): administration no longer restores anything.
+            assertThat(response.body).doesNotContain("snapshot").contains("Tenant settings, users, catalogs, logs and the audit trail.")
             assertThat(response.body).contains("data-testid=\"api-key-roles\"")
             // A fragment, not the whole page (no app shell).
             assertThat(response.body).doesNotContain("<html")

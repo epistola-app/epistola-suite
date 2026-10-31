@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='API Keys',
+            pageTitle='API keys',
             pageDescription='API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.',
             actions=~{::api-key-list-actions}
         )}"></div>
@@ -42,13 +42,13 @@
         <table class="ep-table ep-table-fixed">
             <colgroup>
                 <col style="width: 12%" /><!-- Name -->
-                <col style="width: 13%" /><!-- Prefix -->
-                <col style="width: 18%" /><!-- Scope -->
+                <col style="width: 12%" /><!-- Prefix -->
+                <col style="width: 17%" /><!-- Scope -->
                 <col style="width: 9%" /><!-- Created by -->
-                <col style="width: 15%" /><!-- Created -->
-                <col style="width: 15%" /><!-- Last used -->
+                <col style="width: 14%" /><!-- Created -->
+                <col style="width: 14%" /><!-- Last used -->
                 <col style="width: 11%" /><!-- Expires -->
-                <col style="width: 7%" /><!-- Actions -->
+                <col style="width: 11%" /><!-- Actions: a labelled Delete -->
             </colgroup>
             <thead>
                 <tr>
@@ -94,14 +94,11 @@
                         <td class="actions">
                             <button th:if="${auth.has('TENANT_USERS')}"
                                     type="button"
-                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                    title="Delete API key"
+                                    class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                     data-testid="api-key-delete"
                                     data-confirm-title="Delete API key"
                                     th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
-                                    data-confirm-target="#api-key-rows">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
+                                    data-confirm-target="#api-key-rows">Delete</button>
                         </td>
                     </tr>
                 </th:block>
