@@ -96,7 +96,10 @@ data class TextBlock(
 object TextBlockExtractor {
     private const val TEXT_NODE_TYPE = "text"
     private const val EXPRESSION = "expression"
-    private val INLINE_TYPES = setOf("text", EXPRESSION, "hardBreak")
+
+    /** The editor's schema names a line break `hard_break`; `hardBreak` is ProseMirror's default name, accepted too. */
+    private val HARD_BREAKS = setOf("hard_break", "hardBreak")
+    private val INLINE_TYPES = setOf("text", EXPRESSION) + HARD_BREAKS
     private val TEXTBLOCK_TYPES = setOf("paragraph", "heading")
 
     fun extract(model: TemplateDocument): List<TextBlock> = model.nodes.values
@@ -137,7 +140,7 @@ object TextBlockExtractor {
             val map = child as? Map<*, *> ?: continue
             when (map["type"]) {
                 "text" -> (map["text"] as? String)?.let(::literal)
-                "hardBreak" -> literal("\n")
+                in HARD_BREAKS -> literal("\n")
                 EXPRESSION -> parts += TextPart.Placeholder(expressionSource((map["attrs"] as? Map<*, *>)?.get("expression")))
             }
         }

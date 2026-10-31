@@ -63,6 +63,24 @@ class TextBlockExtractorTest {
         assertThat(block.parts).hasSize(1)
     }
 
+    /** The shapes the editor writes, as in the demo catalog's `simple-letter`: snake_case lists and breaks. */
+    @Test
+    fun `the editor's own node names are understood`() {
+        val blocks = TextBlockExtractor.extract(
+            document(
+                "t" to doc(
+                    paragraph(expression("sender.name"), mapOf("type" to "hard_break"), text("Main street 1")),
+                    mapOf(
+                        "type" to "bullet_list",
+                        "content" to listOf(mapOf("type" to "list_item", "content" to listOf(paragraph(text("Project scope"))))),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(blocks.map { it.text }).containsExactly("\uFFFC\nMain street 1", "Project scope")
+    }
+
     @Test
     fun `blocks with no letters are not checked`() {
         val blocks = TextBlockExtractor.extract(document("t" to doc(paragraph(), paragraph(expression("total")), paragraph(text("  42 ")))))

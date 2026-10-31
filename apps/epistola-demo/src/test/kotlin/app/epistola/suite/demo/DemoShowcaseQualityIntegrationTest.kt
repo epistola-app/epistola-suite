@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.commands.RunQualityChecks
+import app.epistola.suite.quality.commands.SourceRunStatus
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.sources.AccessibilityQualitySource
 import app.epistola.suite.quality.sources.ExampleQualitySource
@@ -112,6 +113,32 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         assertThat(findings.flatMap { it.nodeIds }).doesNotContain("n-dynamic-only")
     }
 
+    /**
+     * The language checks (ADR 0044): `n-language` is written to trip the built-in writing rules, and its
+     * misspelling ("recieve") is left for a LanguageTool server, which the demo does not run by default.
+     */
+    @Test
+    fun `the showcase's language paragraph trips the writing rules, with the flagged text and suggestions`() {
+        val variantId = showcaseVariant()
+
+        val run = withMediator { RunQualityChecks(variantId).execute() }
+
+        val language = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+            .filter { it.sourceId == QualitySourceId("writing-rules") && it.nodeIds == listOf("n-language") }
+        assertThat(language.map { it.ruleId to it.context.path("quote").asString() }).containsExactlyInAnyOrder(
+            "repeated-word" to "the the",
+            "discouraged-word" to "Utilise",
+            "discouraged-word" to "prior to",
+        )
+        assertThat(language.single { it.ruleId == "repeated-word" }.context.path("suggestions").toList().map { it.asString() }).containsExactly("the")
+        // The legalese the example source already finds too long reads as a writing problem as well.
+        val legalese = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+            .filter { it.sourceId == QualitySourceId("writing-rules") && it.nodeIds == listOf("n-long") }
+        assertThat(legalese.map { it.ruleId }).containsExactlyInAnyOrder("long-sentence", "discouraged-word", "discouraged-word")
+        // Nobody configured a LanguageTool server for the demo: it says so rather than reporting nothing.
+        assertThat(run.sources.single { it.sourceId == QualitySourceId("languagetool") }.status).isEqualTo(SourceRunStatus.SKIPPED)
+    }
+
     /** The whole point of reconciliation, on the resource a reader can actually open. */
     @Test
     fun `re-running the checks is idempotent`() {
@@ -125,8 +152,10 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         assertThat(second[source]!!.opened).isZero()
         assertThat(second[source]!!.resolved).isZero()
         assertThat(second[source]!!.unchanged).isEqualTo(2)
-        // The example source's counts are per-source and so unchanged; the tenant-wide total now
-        // also carries the accessibility source's unlabelled-image finding.
-        assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(3)
+        // The example source's counts are per-source and so unchanged; the tenant-wide total also
+        // carries the accessibility source's unlabelled-image finding and the writing rules' six
+        // (three in n-language, three in the legalese of n-long).
+        assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(9)
+        assertThat(second[QualitySourceId("writing-rules")]!!.unchanged).isEqualTo(6)
     }
 }
