@@ -10,7 +10,11 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
@@ -36,8 +40,11 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.themes.ThemeInUseException
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -152,6 +159,51 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 }.isInstanceOf(StencilInUseException::class.java)
                     .hasMessageContaining("Stencil Consumer")
             }
+        }
+    }
+
+    @Nested
+    inner class DeleteThemeTests {
+
+        @Test
+        fun `a theme another catalog's template uses is not deleted`() {
+            val tenant = createTenant("Del Theme Across")
+            val (shared, letters) = listOf("shared", "letters").map { key ->
+                withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of(key), name = key).execute() }
+                testCatalog(tenant.id, CatalogKey.of(key))
+            }
+            val theme = ThemeId(ThemeKey.of("brand"), shared)
+            withMediator {
+                CreateTheme(theme, "Brand").execute()
+                val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
+                CreateDocumentTemplate(template, "Branded Letter").execute()
+                UpdateDocumentTemplate(template, themeId = theme.key, themeCatalog = shared).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteTheme(theme).execute() } }
+                .isInstanceOf(ThemeInUseException::class.java)
+                .hasMessageContaining("Branded Letter")
+        }
+
+        @Test
+        fun `a theme moved into another catalog is not deleted while the template it came from uses it`() {
+            val tenant = createTenant("Del Theme Moved")
+            val (shared, letters) = listOf("shared", "letters").map { key ->
+                withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of(key), name = key).execute() }
+                testCatalog(tenant.id, CatalogKey.of(key))
+            }
+            withMediator {
+                CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand").execute()
+                val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
+                CreateDocumentTemplate(template, "Branded Letter").execute()
+                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters).execute()
+                val relocations = listOf(testAddress(tenant.id, CatalogResourceType.THEME, "letters", "brand").movedTo(shared.key))
+                MoveCatalogResources(tenant.id, relocations, PreviewCatalogResourceMove(tenant.id, relocations).query().planFingerprint).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteTheme(ThemeId(ThemeKey.of("brand"), shared)).execute() } }
+                .isInstanceOf(ThemeInUseException::class.java)
+                .hasMessageContaining("Branded Letter")
         }
     }
 
