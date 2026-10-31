@@ -105,8 +105,8 @@ For this upgrade:
 | `1x-catalog-dependency-cycles` | authored catalogs use each other, which 2.0 cannot release; move what they share into one of them, or into a catalog they all use |
 | `1x-missing-catalogs`          | a catalog uses a catalog the tenant does not have; install it, or change what uses it                                             |
 
-Both read what the upgrade keeps — each variant's and stencil's latest published version and draft,
-themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
+Both read what the upgrade keeps — each variant's and stencil's latest published version and its
+working copy (its draft, else its latest published version, else its latest archived one), themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
 a subscribed catalog receives its source's release. A check that cannot run refuses too. To
 go ahead regardless, once you have read why, skip a check by id:
 `EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
