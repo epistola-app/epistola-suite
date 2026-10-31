@@ -197,7 +197,7 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
 
         val results = withMediator { RunQualityChecks(variantId, sourceIds = setOf(QualitySourceId("nope"))).execute() }
 
-        assertThat(results).isEmpty()
+        assertThat(results.sources).isEmpty()
         assertThat(findingsFor(variantId).findings).isEmpty()
     }
 }

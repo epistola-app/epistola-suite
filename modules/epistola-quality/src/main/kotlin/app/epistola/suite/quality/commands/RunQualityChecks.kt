@@ -11,43 +11,94 @@ import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.fonts.queries.ResolveFontFace
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.QualityCheckInput
 import app.epistola.suite.quality.QualityDataRequirement
+import app.epistola.suite.quality.QualityFindingSource
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySourceRegistry
 import app.epistola.suite.quality.QualitySubject
 import app.epistola.suite.quality.ResolvedTemplateDependencies
 import app.epistola.suite.quality.SubmitFindingsResult
 import app.epistola.suite.quality.ThemePresets
+import app.epistola.suite.quality.text.TextBlockExtractor
+import app.epistola.suite.quality.text.TextCheckOutcome
+import app.epistola.suite.quality.text.TextChecker
+import app.epistola.suite.quality.text.TextQualityChecks
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.queries.EditorContext
 import app.epistola.suite.templates.queries.GetEditorContext
+import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
+/** What happened to one source in a run. */
+enum class SourceRunStatus {
+    /** It ran and its full finding set was submitted. */
+    CHECKED,
+
+    /** It did not apply (a language checker with nothing configured, or no language chosen); its findings stay. */
+    SKIPPED,
+
+    /** It could not answer; nothing was submitted, so its earlier findings stay. */
+    FAILED,
+}
+
+/** One source of a run: its status, why when it did not check, and what its submission changed. */
+data class SourceRun(
+    val sourceId: QualitySourceId,
+    val displayName: String,
+    val status: SourceRunStatus,
+    val reason: String? = null,
+    val result: SubmitFindingsResult? = null,
+)
+
+/** What a run did, source by source; empty when nothing ran (no document, or no source selected). */
+data class QualityCheckRun(
+    val sources: List<SourceRun>,
+) {
+    /** What [sourceId]'s submission changed, when it was checked. */
+    operator fun get(sourceId: QualitySourceId): SubmitFindingsResult? = sources.firstOrNull { it.sourceId == sourceId }?.result
+
+    companion object {
+        val NOTHING = QualityCheckRun(emptyList())
+    }
+}
+
 /**
- * Runs the **in-process** sources against a variant and submits what they find.
+ * Runs the **in-process** sources and the **language checkers** against a variant and submits what
+ * they find.
  *
- * Drives the local triggers: the after-publish re-check and the editor's "Check now". Remote
- * sources are untouched by this — they push on their own schedule.
+ * Drives the local triggers: a save (debounced, `OnVariantSavedScheduleChecks`), marking a variant
+ * ready, and the editor's "Check now". Remote sources are untouched by this — they push on their own
+ * schedule.
  *
  * Reads the **persisted** draft (falling back to the newest published version), so an editor calling
  * this must flush its save first; checking unsaved state would be stale-in, stale-out.
  *
  * One source throwing does not sink the others: its exception is logged and its findings are left
  * exactly as they were, rather than a half-run being reconciled as "this source now reports
- * nothing" — which would resolve every one of its open findings on the strength of a bug.
+ * nothing" — which would resolve every one of its open findings on the strength of a bug. A language
+ * checker that is skipped or fails leaves its findings the same way (ADR 0044).
+ *
+ * Manages its own transactions: a language checker may be a server across the network, and a run
+ * must not hold a database connection while it answers. Each submission is its own command, and so
+ * its own transaction.
  */
 data class RunQualityChecks(
     val variantId: VariantId,
     /** Null runs every available source; a subset is used by "Check now" for one panel. */
     val sourceIds: Set<QualitySourceId>? = null,
-) : Command<Map<QualitySourceId, SubmitFindingsResult>>,
-    RequiresPermission {
+) : Command<QualityCheckRun>,
+    RequiresPermission,
+    // A language checker can be a remote server (ADR 0044); no transaction may wait on it.
+    SelfManagedTransaction {
     override val permission: Permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = variantId.tenantKey
 }
@@ -56,53 +107,81 @@ data class RunQualityChecks(
 class RunQualityChecksHandler(
     private val registry: QualitySourceRegistry,
     private val references: app.epistola.suite.catalog.CatalogReferences,
-) : CommandHandler<RunQualityChecks, Map<QualitySourceId, SubmitFindingsResult>> {
-    override fun handle(command: RunQualityChecks): Map<QualitySourceId, SubmitFindingsResult> {
+    private val textChecks: TextQualityChecks,
+    private val locales: TenantLocaleResolver,
+) : CommandHandler<RunQualityChecks, QualityCheckRun> {
+    override fun handle(command: RunQualityChecks): QualityCheckRun {
         val subject = QualitySubject.of(command.variantId)
 
         val sources = registry.availableFor(subject.tenantKey)
             .filter { command.sourceIds == null || it.sourceId in command.sourceIds }
-        if (sources.isEmpty()) return emptyMap()
+        val checkers = registry.textCheckers()
+            .filter { command.sourceIds == null || it.checkerId in command.sourceIds }
+        if (sources.isEmpty() && checkers.isEmpty()) return QualityCheckRun.NOTHING
 
-        val requirements = sources.flatMapTo(mutableSetOf()) { it.requirements }
-        val input = loadCheckInput(command.variantId, subject, requirements) ?: return emptyMap()
+        // The variant's current document and its template's example data, through core's
+        // GetEditorContext rather than its tables: one round trip, the very context the editor renders
+        // from, and a dependency on core's contract rather than its schema. Null: nothing to check.
+        val context = GetEditorContext(command.variantId).query() ?: return QualityCheckRun.NOTHING
 
-        return sources.mapNotNull { source ->
-            val findings = try {
-                source.check(input)
-            } catch (e: Exception) {
-                // Deliberately not rethrown: a broken source must not resolve its own findings by
-                // appearing to report nothing, nor take down the sources that work.
-                log.error(
-                    "Quality source {} failed for {} — leaving its findings untouched",
-                    source.sourceId,
-                    subject.urn,
-                    e,
-                )
-                return@mapNotNull null
-            }
-            source.sourceId to SubmitQualityFindings(source.sourceId, subject, findings).execute()
-        }.toMap()
+        val sourceRuns = if (sources.isEmpty()) emptyList() else runSources(sources, checkInput(subject, context, sources))
+        val textRuns = if (checkers.isEmpty()) emptyList() else runTextCheckers(subject, context, checkers)
+        return QualityCheckRun(sourceRuns + textRuns)
     }
 
-    /**
-     * The variant's current document and its template's example data.
-     *
-     * Reads through core's [GetEditorContext] rather than querying the variant and template rows
-     * directly: it already resolves exactly what a check needs (the working model and data contract)
-     * in one round trip, and going through the query means this module
-     * depends on core's *contract* rather than its schema — so a core migration can't silently
-     * break check execution. It is also, literally, the same context the editor renders from, which is
-     * what "a source analyses the document the author is looking at" should mean.
-     *
-     * Null when the variant has no document at all — nothing to check.
-     */
-    private fun loadCheckInput(
-        variantId: VariantId,
+    private fun runSources(
+        sources: List<QualityFindingSource>,
+        input: QualityCheckInput,
+    ): List<SourceRun> = sources.map { source ->
+        val findings = try {
+            source.check(input)
+        } catch (e: Exception) {
+            // Deliberately not rethrown: a broken source must not resolve its own findings by
+            // appearing to report nothing, nor take down the sources that work.
+            log.error(
+                "Quality source {} failed for {} — leaving its findings untouched",
+                source.sourceId,
+                input.subject.urn,
+                e,
+            )
+            return@map SourceRun(source.sourceId, source.displayName, SourceRunStatus.FAILED, "failed while checking")
+        }
+        val result = SubmitQualityFindings(source.sourceId, input.subject, findings).execute()
+        SourceRun(source.sourceId, source.displayName, SourceRunStatus.CHECKED, result = result)
+    }
+
+    /** The language checkers, in the language chosen for the variant (ADR 0044). */
+    private fun runTextCheckers(
         subject: QualitySubject,
-        requirements: Set<QualityDataRequirement>,
-    ): QualityCheckInput? {
-        val context = GetEditorContext(variantId).query() ?: return null
+        context: EditorContext,
+        checkers: List<TextChecker>,
+    ): List<SourceRun> {
+        val tenant = GetTenant(subject.tenantKey).query() ?: return emptyList()
+        val locale = locales.resolveWithSource(tenant, context.variantAttributes)
+        val blocks = TextBlockExtractor.extract(context.templateModel)
+        return textChecks.run(subject, blocks, locale, checkers).map { outcome ->
+            val checker = outcome.checker
+            when (outcome) {
+                is TextCheckOutcome.Checked -> SourceRun(
+                    checker.checkerId,
+                    checker.displayName,
+                    SourceRunStatus.CHECKED,
+                    result = SubmitQualityFindings(checker.checkerId, subject, outcome.findings).execute(),
+                )
+
+                is TextCheckOutcome.Skipped -> SourceRun(checker.checkerId, checker.displayName, SourceRunStatus.SKIPPED, outcome.reason)
+
+                is TextCheckOutcome.Failed -> SourceRun(checker.checkerId, checker.displayName, SourceRunStatus.FAILED, outcome.reason)
+            }
+        }
+    }
+
+    private fun checkInput(
+        subject: QualitySubject,
+        context: EditorContext,
+        sources: List<QualityFindingSource>,
+    ): QualityCheckInput {
+        val requirements = sources.flatMapTo(mutableSetOf()) { it.requirements }
         return QualityCheckInput(
             subject = subject,
             templateModel = context.templateModel,

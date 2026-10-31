@@ -83,11 +83,15 @@ class QualityHandler(
     fun runEditorChecks(request: ServerRequest): ServerResponse {
         val variantId = request.editorVariantId() ?: return ServerResponse.badRequest().build()
 
-        RunQualityChecks(variantId).execute()
+        val run = RunQualityChecks(variantId).execute()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(editorPanel(variantId))
+            .body(
+                editorPanel(variantId).copy(
+                    checks = run.sources.map { EditorSourceRun(it.sourceId.value, it.displayName, it.status.name, it.reason) },
+                ),
+            )
     }
 
     /** A catalog's findings, at `/tenants/{t}/catalogs/{catalog}/quality`: like every list, it is the catalog's. */
@@ -107,7 +111,7 @@ class QualityHandler(
             "catalogSegment" to segment.value
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
             "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT).query()
-            "sources" to registry.availableFor(tenantId.key).map { SourceOption(it.sourceId.value, it.displayName) }
+            "sources" to registry.namesFor(tenantId.key).map { (id, name) -> SourceOption(id.value, name) }
             findingsModel(tenantId, page, filters)
         }
     }
@@ -369,7 +373,7 @@ class QualityHandler(
      */
     private fun sourceName(sourceId: QualitySourceId): String = when (sourceId) {
         QualitySourceId.MANUAL -> "Raised by hand"
-        else -> registry.byId(sourceId)?.displayName ?: sourceId.value
+        else -> registry.displayName(sourceId) ?: sourceId.value
     }
 
     private fun ServerRequest.findingKey(): QualityFindingKey? = pathId("findingId") { runCatching { QualityFindingKey.of(it) }.getOrNull() }
@@ -401,6 +405,8 @@ class QualityHandler(
                 docsUrl = finding.docsUrl,
                 stale = subjectFindings.isStale(finding),
                 commentCount = finding.commentCount,
+                quote = finding.context.path("quote").takeIf { it.isString }?.asString(),
+                suggestions = finding.context.path("suggestions").toList().map { it.asString("") },
             )
         }
 
@@ -513,6 +519,16 @@ class QualityHandler(
         val findings: List<EditorQualityFinding>,
         val openCount: Int,
         val staleCount: Int,
+        /** What each source did, after "Check now"; null when the panel was only read. */
+        val checks: List<EditorSourceRun>? = null,
+    )
+
+    /** One source of a "Check now": whether it checked, was skipped or failed, and why. */
+    data class EditorSourceRun(
+        val sourceId: String,
+        val sourceName: String,
+        val status: String,
+        val reason: String?,
     )
 
     data class EditorQualityFinding(
@@ -529,6 +545,10 @@ class QualityHandler(
         val docsUrl: String?,
         val stale: Boolean,
         val commentCount: Int,
+        /** The flagged text, for a language finding; null for a finding about an element as a whole. */
+        val quote: String? = null,
+        /** Replacements a language checker suggests for [quote]; the author applies one, nothing is applied for them. */
+        val suggestions: List<String> = emptyList(),
     )
 
     private data class QualityFilters(
