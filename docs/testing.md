@@ -193,7 +193,8 @@ other's work; one pick in eight names nothing, to keep refusals exercised. A fai
 shrunk and printed with the seed and what each step did.
 
 - It is opt-in, tagged `model` and left out of `test` and `integrationTest`:
-  `./gradlew :modules:epistola-core:modelTest` runs 100 sequences (about 1.5 minutes).
+  `./gradlew :modules:epistola-core:modelTest` runs 100 sequences (about 1.5 minutes). CI runs
+  1,000 nightly (`model-test.yml`; run it by hand with a count or a seed from the Actions tab).
   `-PmodelRuns=1000` searches harder (about 15 minutes); `-PmodelSeed=S` replays a failure. Without
   a seed every run searches somewhere new, so rerun it with `modelTest --rerun`, or Gradle replays
   the cached result.
