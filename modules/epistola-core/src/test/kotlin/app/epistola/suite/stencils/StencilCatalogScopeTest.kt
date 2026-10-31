@@ -27,6 +27,7 @@ import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
+import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -45,6 +46,8 @@ import org.springframework.beans.factory.annotation.Autowired
 class StencilCatalogScopeTest : IntegrationTestBase() {
 
     @Autowired private lateinit var stencilResolvers: StencilResolvers
+
+    @Autowired private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     private val acme = CatalogKey.of("acme")
     private val brandB = CatalogKey.of("brand-b")
@@ -130,14 +133,16 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("leaves a draft naming a stencil nobody has, as only the 1.x upgrade does")
     fun `a reference whose catalog no longer has the stencil is reported under the stencil that has the key`() {
-        // brand-b/letterhead is gone, so an instance naming it dangles: saved content is not checked
-        // against what exists, only releasing is. Usage reports it under the remaining letterhead, as
-        // after a move, so an author can find and fix it.
-        val f = setUp()
-        withMediator {
-            DeleteStencil(f.brandBLetterhead).execute()
-            UpdateVariantContent(variantId = f.variantId, templateModel = templateEmbedding("brand-b-instance" to brandB.value)).execute()
+        // brand-b/letterhead is gone, so the instance naming it dangles. Usage reports it under the
+        // remaining letterhead, as after a move, so an author can find and fix it.
+        val f = setUp("brand-b-instance" to brandB.value)
+        // Only the 1.x upgrade leaves a draft naming a stencil nobody has; no command does.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                "DELETE FROM release_resources WHERE tenant_key = :t AND resource_type = 'stencil' AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = :c)",
+            ).bind("t", f.tenantId.key).bind("c", brandB.value).execute()
         }
 
         withMediator {

@@ -84,6 +84,9 @@ enum class ValidationCode(val wire: String) {
     CATALOG_DEPENDENCY_INVALID("CATALOG_DEPENDENCY_INVALID"),
     CATALOG_DEPENDENCY_UNRESOLVED("CATALOG_DEPENDENCY_UNRESOLVED"),
 
+    /** A write would make a version name a resource nothing it reads has (`DraftReferenceGuard`). */
+    CATALOG_REFERENCE_UNRESOLVED("CATALOG_REFERENCE_UNRESOLVED"),
+
     // Ready marks (contract ADR 0002).
     CATALOG_RESOURCES_NOT_READY("CATALOG_RESOURCES_NOT_READY"),
 

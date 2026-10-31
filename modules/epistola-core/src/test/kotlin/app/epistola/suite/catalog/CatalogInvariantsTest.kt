@@ -133,6 +133,12 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         "UPDATE resource_references SET resource_key = 'gone' WHERE tenant_key = :t AND resource_type = 'theme' AND resource_key = 'brand'",
     )
 
+    @Test
+    fun `a draft using a resource nothing it reads has`() = assertFinds(
+        "draft-reference-resolves",
+        "UPDATE resource_references SET resource_key = 'gone' WHERE tenant_key = :t AND resource_type = 'theme' AND resource_key = 'brand'",
+    )
+
     private fun assertFinds(invariant: String, corruption: String) {
         val tenant = world()
         jdbi.useHandle<Exception> { it.createUpdate(corruption).bind("t", tenant.value).execute() }

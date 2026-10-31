@@ -43,7 +43,6 @@ import org.springframework.beans.factory.annotation.Autowired
  *
  * The chain: `letters@1.0.0` pins `shared@1.0.0`, which pins `base@1.0.0`.
  */
-@SkipCatalogInvariants("simulates releases imported with a pin on a release the tenant lacks, or with none, by rewriting their pins")
 class DeploymentDependenciesTest : IntegrationTestBase() {
 
     @Autowired
@@ -112,6 +111,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("simulates a release imported with a pin on a release the tenant lacks")
     fun `a pinned release the tenant does not have refuses the deployment, as nothing could render from it`() {
         val (tenant, production) = chain("deps-not-installed")
         // A pin on a release this tenant lacks arrives only with an imported release; no command cuts one.
@@ -136,6 +136,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("simulates a release imported from wire v7, which pinned nothing")
     fun `a pin that recorded no release cannot be checked and is skipped`() {
         val (tenant, production) = chain("deps-unpinned")
         // A release imported from catalog wire v7 recorded no release for its dependencies.

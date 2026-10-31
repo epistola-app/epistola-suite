@@ -43,6 +43,7 @@ import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -154,9 +155,17 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("pinned by letters@1.0.0")
 
-        // Once letters@1.0.0 is gone, nothing renders from shared@1.0.0 either.
+        // With letters@1.0.0 gone, letters' next draft still reads shared@1.0.0, so it keeps it too.
+        withMediator { DeleteCatalogRelease(testCatalog(tenant, letters.key), "1.0.0").execute() }
+        assertThatThrownBy { withMediator { DeleteCatalogRelease(testCatalog(tenant, shared.key), "1.0.0").execute() } }
+            .isInstanceOf(ReleaseInUseException::class.java)
+            .hasMessageContaining("pinned by letters (draft")
+
+        // Once that draft reads a later release, nothing reads shared@1.0.0.
         withMediator {
-            DeleteCatalogRelease(testCatalog(tenant, letters.key), "1.0.0").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#111111")).execute()
+            mediator.releaseNext(shared)
+            declareDependency(tenant, letters.key, on = shared.key)
             DeleteCatalogRelease(testCatalog(tenant, shared.key), "1.0.0").execute()
         }
         assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(tenant, shared.key)).query() }.map { it.version }).doesNotContain("1.0.0")

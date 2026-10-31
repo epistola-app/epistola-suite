@@ -18,10 +18,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * A test class that leaves its tenants' catalogs inconsistent on purpose (a guard test writing a
- * broken row to see it refused or reported) opts out of [CatalogInvariantsExtension], saying why.
+ * A test class, or one test, that leaves its tenants' catalogs inconsistent on purpose (a guard test
+ * writing a broken row to see it refused or reported) opts out of [CatalogInvariantsExtension],
+ * saying why. On a test, only the tenants that test creates are left out.
  */
-@Target(AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class SkipCatalogInvariants(val reason: String)
 
@@ -53,7 +54,8 @@ class CatalogInvariantsExtension :
 
         val jdbi = SpringExtension.getApplicationContext(context).getBean(Jdbi::class.java)
         val started = System.nanoTime()
-        val violations = CatalogInvariants.check(jdbi, "$namespace-%")
+        val skipped = skippedTests(testClass)
+        val violations = CatalogInvariants.check(jdbi, "$namespace-%").filterNot { TestTenantCounter.testOf(it.tenantKey) in skipped }
         val elapsed = System.nanoTime() - started
         TestRunMetrics.invariantChecks.record(elapsed, elapsed)
         if (violations.isEmpty()) return
@@ -71,6 +73,12 @@ class CatalogInvariantsExtension :
             else -> throw AssertionError(message)
         }
     }
+
+    /** The tests of [testClass] and its nested classes that opt out. */
+    private fun skippedTests(testClass: Class<*>): Set<String> = (
+        testClass.declaredMethods.filter { it.isAnnotationPresent(SkipCatalogInvariants::class.java) }.map { it.name } +
+            testClass.declaredClasses.flatMap { skippedTests(it) }
+        ).toSet()
 
     private enum class Mode { FAIL, REPORT, OFF }
 

@@ -168,15 +168,16 @@ class ImportTemplatesTest : IntegrationTestBase() {
 commands it ran left that class's tenants' catalogs consistent: `CatalogInvariants` in
 `modules/testing` is one SQL statement whose every `SELECT` returns the rows breaking one rule the
 database cannot enforce by itself (a release pins only releases the tenant has, what a release names
-resolves through its pins, catalogs never use each other, a draft row's identity is registered at
-its address, an image's bytes are stored, …). So every integration test also tests the sequence of
+resolves through its pins, a draft names nothing it cannot resolve, catalogs never use each other,
+a draft row's identity is registered at its address, an image's bytes are stored, …). So every integration test also tests the sequence of
 commands it ran against those rules, at the cost of one query per class (`invariantChecks` in the
 test-run metrics). A violation fails the class and names the test that created the tenant.
 
 - `CatalogInvariantsTest` proves each rule finds the corruption it names; a rule added there needs
   a corruption that trips it, and one the database already refuses is left out.
-- A class that corrupts its catalogs on purpose (to see a guard refuse or report it) opts out with
-  `@SkipCatalogInvariants("why")`.
+- A test that corrupts its catalogs on purpose (to see a guard refuse or report a state only the 1.x
+  upgrade or an imported release produces) opts out with `@SkipCatalogInvariants("why")`; on a
+  test method only the tenants that test creates are left out, on a class all of them.
 - `-PtestInvariants=report` writes violations to `build/invariant-violations/` instead of failing,
   to survey a suite after adding a rule; `off` skips the check.
 

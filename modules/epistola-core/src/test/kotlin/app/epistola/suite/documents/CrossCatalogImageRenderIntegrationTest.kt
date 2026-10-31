@@ -83,11 +83,13 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             ),
         )
 
-        // Same template, but the image points at a catalog the asset is NOT in.
-        // The catalog-qualified lookup finds nothing, so the image is dropped.
+        // Same template, but the image points at a catalog the asset is NOT in: an editor's unsaved
+        // content, since a save naming what nothing has is refused. The catalog-qualified lookup
+        // finds nothing, so the image is dropped.
         val wrongCatalog = renderPreview(
             tenant.id,
             tenantId,
+            saved = false,
             imageProps = mapOf(
                 "imageKey" to asset.id.value,
                 "catalogKey" to "no-such-catalog",
@@ -109,38 +111,38 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             .isGreaterThan(wrongCatalog.size)
     }
 
-    /** Publishes a fresh template with a single image node and returns its preview PDF. */
+    /** A fresh template with a single image node, saved or (unsaved) only previewed, and its preview PDF. */
     private fun renderPreview(
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         tenantId: TenantId,
         imageProps: Map<String, Any?>,
+        saved: Boolean = true,
     ): ByteArray {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
 
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateVariantContent(
-            variantId = variantId,
-            templateModel = TemplateDocument(
-                modelVersion = 1,
-                root = "root",
-                nodes = mapOf(
-                    "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                    "img" to Node(id = "img", type = "image", slots = emptyList(), props = imageProps),
-                ),
-                slots = mapOf(
-                    "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("img")),
-                ),
-                themeRef = ThemeRef.Inherit,
+        val model = TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "img" to Node(id = "img", type = "image", slots = emptyList(), props = imageProps),
             ),
-        ).execute()
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("img")),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
+        if (saved) UpdateVariantContent(variantId = variantId, templateModel = model).execute()
 
         return PreviewVariant(
             catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
             templateId = templateKey,
             variantId = VariantKey.INITIAL,
             data = objectMapper.createObjectNode(),
+            templateModel = model.takeUnless { saved },
         ).query()
     }
 

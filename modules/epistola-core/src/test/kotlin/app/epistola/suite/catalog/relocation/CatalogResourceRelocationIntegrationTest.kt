@@ -255,7 +255,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(preview.mutableRewriteCount).isEqualTo(1)
 
         // A draft that has nothing to do with the moving stencil changes in the meantime.
-        withMediator { UpdateVariantContent(unrelatedVariant, templateEmbedding("unrelated-stencil")).execute() }
+        withMediator {
+            CreateStencil(StencilId(StencilKey.of("unrelated-stencil"), sourceCatalogId), "Unrelated").execute()
+            UpdateVariantContent(unrelatedVariant, templateEmbedding("unrelated-stencil")).execute()
+        }
 
         withMediator { MoveCatalogResources(tenant.id, listOf(sourceAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 

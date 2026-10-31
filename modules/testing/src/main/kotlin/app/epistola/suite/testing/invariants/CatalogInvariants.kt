@@ -4,7 +4,11 @@
 
 package app.epistola.suite.testing.invariants
 
+import app.epistola.suite.catalog.revisions.DraftResources
+import app.epistola.suite.common.ids.TenantKey
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import java.util.UUID
 
 /** One row that breaks a catalog invariant: which rule, in which tenant, and what it found. */
 data class InvariantViolation(val invariant: String, val tenantKey: String, val detail: String) {
@@ -33,8 +37,29 @@ object CatalogInvariants {
         handle.createQuery(SQL)
             .bind("tenants", tenants)
             .map { rs, _ -> InvariantViolation(rs.getString("invariant"), rs.getString("tenant_key"), rs.getString("detail")) }
-            .list()
+            .list() + draftReferences(handle, tenants)
     }
+
+    /**
+     * A draft names nothing it cannot resolve: what its own catalog, the versions its declarations
+     * name and the releases it pins hold. The resolution is the one rendering and the save guard use
+     * (`DraftResources.unresolved`, `DraftReferenceGuard`), so this holds what the guard promises
+     * after any sequence of commands: only the 1.x upgrade leaves a draft dangling.
+     */
+    private fun draftReferences(handle: Handle, tenants: String): List<InvariantViolation> = handle
+        .createQuery(
+            """
+            SELECT v.tenant_key, v.version_id, c.namespace || '/' || c.catalog_key || ' draft ' || COALESCE('"' || v.name || '"', v.version_key) AS label
+            FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
+            WHERE v.tenant_key IN (SELECT id FROM tenants WHERE id LIKE :tenants) AND v.state = 'draft'
+            """,
+        )
+        .bind("tenants", tenants)
+        .map { rs, _ -> Triple(rs.getString("tenant_key"), rs.getObject("version_id", UUID::class.java), rs.getString("label")) }
+        .list()
+        .flatMap { (tenant, versionId, label) ->
+            DraftResources.unresolved(handle, TenantKey.of(tenant), versionId).map { InvariantViolation("draft-reference-resolves", tenant, "$label: $it, which nothing it reads has") }
+        }
 
     // A catalog and a version are named in a message as namespace/key and draft "name" or release 1.2.0.
     private const val SQL = """

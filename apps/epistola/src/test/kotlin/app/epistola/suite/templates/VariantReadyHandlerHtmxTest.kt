@@ -6,12 +6,16 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.tenants.Tenant
@@ -29,6 +33,7 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import tools.jackson.databind.ObjectMapper
 
 /**
  * The template detail page on the 2.0 model: no versions, each variant says whether it is ready,
@@ -128,9 +133,13 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Variant Ready Refused")
             template = template(tenant, "Letter").withRequiredDataExample()
-            // An instance of a stencil the catalog does not have: the model cannot be released.
-            val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, CatalogId.default(TenantId(tenant.id))))
-            UpdateVariantContent(variantId = variantId, templateModel = modelUsingMissingStencil()).execute()
+            // An instance that does not bind its stencil's required parameter may be saved, not marked ready.
+            val catalog = CatalogId.default(TenantId(tenant.id))
+            val stencil = StencilId(StencilKey.of("letterhead"), catalog)
+            CreateStencil(stencil, "Letterhead").execute()
+            UpdateStencil(stencil, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""")).execute()
+            val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, catalog))
+            UpdateVariantContent(variantId = variantId, templateModel = modelUsingLetterhead()).execute()
         }
 
         whenever {
@@ -140,17 +149,17 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("alert alert-error")
+            assertThat(response.body).contains("alert alert-error").contains("recipientName")
             assertThat(variantsOf(tenant, template)).noneMatch { it.ready }
         }
     }
 
-    private fun modelUsingMissingStencil(): TemplateDocument = TemplateDocument(
+    private fun modelUsingLetterhead(): TemplateDocument = TemplateDocument(
         modelVersion = 1,
         root = "root",
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "instance" to Node(id = "instance", type = "stencil", slots = emptyList(), props = mapOf("stencilKey" to "missing-stencil")),
+            "instance" to Node(id = "instance", type = "stencil", slots = emptyList(), props = mapOf("stencilKey" to "letterhead")),
         ),
         slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("instance"))),
         themeRef = ThemeRef.Inherit,

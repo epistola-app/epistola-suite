@@ -38,6 +38,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -46,6 +47,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
     @Test
     fun `nodes carry the stable identity that survives a relocation`() {
         val tenant = createTenant("Graph identity")
@@ -76,6 +80,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("leaves a draft naming an image nobody has, as only the 1.x upgrade does")
     fun `extracts command-created references with their resolution`() {
         val tenant = createTenant("Resource Graph")
         val tenantId = TenantId(tenant.id)
@@ -114,7 +119,13 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariant(variantId, "Default", mapOf("brand.audience" to "customer")).execute()
             UpdateVariantContent(variantId, templateWithAsset(assetKey, brandCatalog)).execute()
+            UploadAsset(catalog = testCatalog(tenant.id, brandCatalog), name = "Gone", mediaType = AssetMediaType.PNG, content = byteArrayOf(2), width = 1, height = 1, id = missingAssetKey).execute()
             UpdateVariantContent(variantId, templateWithAsset(missingAssetKey, brandCatalog)).execute()
+        }
+        // Saving content naming an image nobody has is refused; only the 1.x upgrade leaves one.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM release_resources WHERE tenant_key = :t AND resource_type = 'image' AND resource_key = :k")
+                .bind("t", tenant.id).bind("k", missingAssetKey.value).execute()
         }
 
         val live = withMediator { GetTenantResourceGraph(tenant.id).query() }
