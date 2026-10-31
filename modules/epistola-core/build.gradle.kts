@@ -88,5 +88,6 @@ dependencies {
     // same iText as modules:generation renders with.
     testImplementation(libs.itext.kernel)
     testImplementation(libs.archunit.junit5)
+    testImplementation(libs.kotest.property)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

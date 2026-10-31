@@ -8,6 +8,7 @@ import app.epistola.suite.assets.AssetIntegrationTest
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -53,6 +54,24 @@ class CatalogInvariantsTest : IntegrationTestBase() {
     @Test
     fun `catalogs built through commands break no invariant`() {
         val tenant = world()
+        assertThat(violations(tenant)).isEmpty()
+    }
+
+    @Test
+    fun `a release still pinning a catalog that has come to use its own is no loop`() {
+        val tenant = world()
+        val shared = testCatalog(TenantId(tenant), CatalogKey.of("shared"))
+        val letters = testCatalog(TenantId(tenant), CatalogKey.of("letters"))
+        withMediator {
+            // letters stops using shared, so only its release 1.0.0 pins shared; then shared uses letters.
+            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), letters), clearThemeId = true).execute()
+            UpdateCatalogDependencies(letters, emptyList()).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House").execute()
+            val memo = TemplateId(TemplateKey.of("memo"), shared)
+            CreateDocumentTemplate(memo, "Memo").execute()
+            UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = letters).execute()
+        }
+
         assertThat(violations(tenant)).isEmpty()
     }
 
