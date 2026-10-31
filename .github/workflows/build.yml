@@ -99,7 +99,7 @@ jobs:
           fi
 
       - name: Upload Gradle build cache
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gradle-build-cache
           path: gradle-build-cache.tgz
@@ -195,7 +195,7 @@ jobs:
           cache-read-only: true
 
       - name: Download Gradle build cache
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gradle-build-cache
 
@@ -227,7 +227,7 @@ jobs:
         run: pnpm vulnerabilities:export-vex
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
         env:
           TRIVY_VEX: build/vex/epistola.openvex.json
         with:
@@ -239,7 +239,7 @@ jobs:
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
         env:
           TRIVY_VEX: build/vex/epistola.openvex.json
         with:
@@ -273,7 +273,7 @@ jobs:
           echo "No critical vulnerabilities found."
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom
           path: |
@@ -283,7 +283,7 @@ jobs:
           retention-days: 7
 
       - name: Upload vulnerability reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: vulnerability-reports
@@ -331,7 +331,7 @@ jobs:
           cache-read-only: true
 
       - name: Download Gradle build cache
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gradle-build-cache
 
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload test reports on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: unit-integration-reports
           path: "**/build/reports/tests/"
@@ -356,7 +356,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload aggregated coverage report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage-report
           path: build/reports/kover/report.xml
@@ -370,7 +370,7 @@ jobs:
       # capture even when a test fails.
       - name: Upload test-run metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-run-metrics
           path: "**/build/test-metrics/*.json"
@@ -417,7 +417,7 @@ jobs:
           cache-read-only: true
 
       - name: Download Gradle build cache
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gradle-build-cache
 
@@ -458,7 +458,7 @@ jobs:
 
       - name: Upload Playwright traces and test reports on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-failures
           path: |
@@ -482,7 +482,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download aggregated coverage report
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: coverage-report
           path: build/reports/kover
@@ -661,7 +661,7 @@ jobs:
 
       - name: Log in to Container Registry
         if: ${{ matrix.enabled }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
