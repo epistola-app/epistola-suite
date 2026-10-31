@@ -382,6 +382,10 @@ submitted would read as permanently stale — silently, forever.
 Manual findings carry no input fingerprint: a human's remark is not "computed against" a
 revision and must never be marked outdated by an edit.
 
+> **Proposed:** [ADR 0044](adr/0044-quality-results-keyed-by-content.md) replaces this stamp
+> and, in steps, the reconciling ledger: check results become a cache keyed by the content they
+> checked, and findings a view per catalog version derived from it.
+
 ## Triggers
 
 | Trigger                                    | What runs                | Built |
