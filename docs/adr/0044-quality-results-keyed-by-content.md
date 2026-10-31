@@ -1,204 +1,157 @@
 # ADR 0044: Quality check results, keyed by content
 
-- **Status:** Proposed — a pilot is being built (see [The pilot](#the-pilot))
+- **Status:** Proposed — a pilot is built (see [The pilot](#the-pilot))
 - **Date:** 2026-10-31
 - **Deciders:** Epistola team
-- **Tags:** quality, checks, language, caching, privacy, scheduling
+- **Tags:** quality, checks, caching, scheduling, privacy
 - **Supersedes:** [ADR 0012](0012-check-run-lifecycle.md) (draft),
   [ADR 0031](0031-quality-findings-never-out-of-date.md) (proposed)
+- **Related:** [ADR 0045](0045-locations-in-a-template.md) (locations),
+  [ADR 0046](0046-quality-profiles-and-rules.md) (profiles and rules),
+  [ADR 0047](0047-quality-providers.md) (providers)
 
 ## Context
 
 The quality feature ([`docs/quality.md`](../quality.md), alpha) is a ledger. Sources submit the full
 set of findings for a subject, and the ledger reconciles it: new fingerprints open, present ones
 refresh, missing ones resolve. Ignores, comments and hand-raised notes live beside the findings.
-Two records designed the work around it and neither was built: ADR 0012 (July 2026) on scheduling
-runs, ADR 0031 (20 October) on stamping each run with the inputs it read.
+ADR 0012 (July 2026) designed scheduling runs and ADR 0031 (20 October) stamping each run with the
+inputs it read. Neither was built.
 
-The next checks are language checks: spelling, grammar, punctuation, writing style and readability,
-from a built-in engine and optionally from LanguageTool, Vale or a model hosted by the organisation.
-They bring requirements the ledger was not designed for:
+The next checks read a template's **text** (spelling, grammar, style, readability) through providers
+such as a built-in engine, LanguageTool or an LLM, against rules an organisation records in quality
+profiles. They need what the ledger was not designed for:
 
-- **Providers are slow and can fail.** A call takes a second, not a millisecond, and a server can be
-  down. The author must see which checks ran, which failed, and that older results are older.
-- **The same text is everywhere.** A sentence appears in many templates, in every variant and in
-  every draft; a catalog of 300 templates checked per variant sends the same paragraphs to a provider
-  hundreds of times.
-- **Text must not leak.** Only template text is checked, never generated documents or data, and text
-  goes to a service outside the installation only when someone allowed it.
-- **Findings point at words**, not blocks, and carry suggested replacements the author accepts or
-  dismisses. Nothing is changed without the author.
-- **Writing profiles** (target level, tone, discouraged words, sentence length) configure the checks.
-  Changing one must re-check what it applied to.
+- **Slow, failing providers.** A call takes seconds, a server can be down, and the author must be told.
+- **The same text everywhere.** A paragraph appears in many templates, variants and drafts.
+- **No leak.** Only template text and structure, never generated documents or data.
+- **Findings within a block**, with suggested replacements, at a location shared with the preview
+  (ADR 0045).
 
-And 2.0 changed the ground the ledger stands on ([ADR 0038](0038-catalogs-in-2-0.md)): every resource
-of every catalog version is stored by content hash, and a catalog has several drafts. The ledger knows
-no version: `RunQualityChecks(variantId)` names none, so the panel of a draft other than the next one
-checks and shows the next version's variant.
+And 2.0 changed the ground ([ADR 0038](0038-catalogs-in-2-0.md)): every resource of every catalog
+version is stored by content hash, and a catalog has several drafts. The ledger knows no version, so
+the panel of a draft other than the next one checks and shows the next version's variant.
 
-Starting again from these requirements, rather than from the ledger, gives a different shape. That is
-what this record decides.
+This record decides how results are computed, stored, kept current and scheduled. What is checked
+(rules) is ADR 0046; who checks (providers) is ADR 0047; where a finding points is ADR 0045.
 
 ## Considered options
 
-- **A. Keep the ledger; add run stamps** (ADR 0031, and this record's first draft). Findings stay
-  rows with a lifecycle, each run records what it read, outdated findings are found by comparing
-  stamps. It answers staleness, but every variant is still checked whole, nothing is reused between
-  templates, and runs per version have to be bolted onto a versionless ledger.
-- **B. Compute findings when they are read, store nothing** (ADR 0031's option C). Never stale, but
-  the report filters, counts and pages across a catalog, which would then happen in application code
-  (`docs/quality.md`, and the rule against in-memory pagination), and a slow provider would be on the
-  read path.
+- **A. Keep the ledger; add run stamps** (ADR 0031). Answers staleness, but checks every variant
+  whole, reuses nothing between templates, and bolts versions onto a versionless ledger.
+- **B. Compute findings when read, store nothing.** Never stale, but the report's filtering, counting
+  and paging would move into application code, and a slow provider would sit on the read path.
 - **C. Check in the browser.** Instant, but a second engine that disagrees with the server's, and no
-  report. Checking on save is fast enough for authors.
-- **D. Results keyed by content (chosen).** A check is a pure function of what it reads, and 2.0
-  stores what it reads by hash. So a result is a cache entry: computed once per distinct input, reused
-  wherever that input appears, and never invalidated, only no longer looked up.
+  report. Checking on save is fast enough.
+- **D. Results keyed by content (chosen).** A check is a function of what it reads, and 2.0 stores
+  what it reads by hash. A result is a cache entry: computed once per distinct input, reused wherever
+  that input appears, never invalidated, only no longer looked up.
 
 ## Decision
 
 ### 1. Three kinds of state, kept apart
 
-| State             | What it is                                                                                       | Lifetime                        |
-| ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
-| **Results**       | What a checker reported for one input, keyed by (checker, its configuration, locale, input hash) | Immutable; reaped when unused   |
-| **Decisions**     | What people said: ignores, dismissed suggestions, comments, hand-raised notes                    | Kept; keyed by problem identity |
-| **Findings view** | Per catalog version and variant: the results for its current content, with decisions applied     | Derived; can always be rebuilt  |
+| State             | What it is                                                                                              | Lifetime                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **Results**       | What a provider reported for one unit, keyed by (provider, its configuration, rules, locale, unit hash) | Immutable; reaped when unused   |
+| **Decisions**     | What people said: ignores (with a reason), comments, hand-raised notes                                  | Kept; keyed by problem identity |
+| **Findings view** | Per catalog version and subject: the results for its current content, with decisions applied            | Derived; rebuildable            |
 
-The findings view is materialized, so the report keeps filtering, counting and paging in SQL. It holds
-nothing that cannot be recomputed from results and decisions. "Resolved" stops being a stored status:
-a problem is resolved when the current result no longer contains it, and outdated when the view's
-content has a key no result exists for yet.
+The findings view is materialized, so the report keeps filtering, counting and paging in SQL, and
+holds nothing that cannot be recomputed. A problem is **resolved** when the current result no longer
+contains it and **outdated** when the subject's content has a key no result exists for yet.
 
-### 2. Each checker checks its natural unit
+### 2. The unit is the provider's
 
-A checker declares its unit:
+Each provider declares its unit (ADR 0047):
 
-- **Text block** (language checks): one paragraph, heading or list item, as extracted text (3.). Its
-  key is (checker, configuration, locale, hash of the extracted text). An edit re-checks only the
-  blocks it changed; a block shared by many templates is checked once.
-- **Variant** (structural checks: alt text, fonts, stencil fit): the variant's content hash plus the
-  hash of everything it looked up, a lookup that found nothing included.
+- **A text block** (crude rules, LanguageTool): one paragraph or heading, extracted as text with
+  placeholders (3.). Its key holds the hash of that text. An edit re-checks the blocks it changed; a
+  block shared by many templates of a tenant is checked once.
+- **A subject** (an LLM, structural checks): a variant or stencil, keyed by its content hash.
 
-The configuration in the key covers the checker's version and the writing profile. A profile change or
-a checker upgrade produces new keys; nothing is invalidated.
+The key always holds the provider's configuration (its version and settings) and the hash of the
+rules it was given (ADR 0046), so a profile edit re-checks only with the providers whose rules
+changed, and an upgrade is a new key, not an invalidation.
 
-### 3. Text is extracted once, by the suite
+**A result that read more.** A provider that asks for more of the template while checking (an LLM
+through its tools, ADR 0047; a structural check resolving a stencil) records each read by what it
+named and the hash of what it got, a read that found nothing included. Such a result is current
+while every read would still return the same. This is ADR 0031's stamp, kept only where a result
+depends on more than its unit.
 
-Language checkers never parse templates. The suite extracts checkable text from a template's `text`
-nodes into blocks, each holding text and **placeholders**. A placeholder stands for an expression and
-is sent as an opaque token, never as a value: example data and generated documents never reach a
-checker. The extraction is pure, keyed by the content hash it came from, and is the same step tenant
-search needs for content ([ADR 0043](0043-tenant-search.md)'s `searchText`), so the two share it.
+### 3. Text is extracted by the suite, schema-aware
 
-A stencil's text is extracted from the stencil and reported against it, not again inside every
-template that uses it. A template's model holds stencil instances by reference, so this falls out of
-the extraction.
+Providers never parse templates. The suite extracts every field whose component-registry role is
+**prose** (ADR 0045) into units of text with **placeholders**: an expression becomes one opaque
+character, so a provider never sees an expression's value, and sees its source only through a tool
+its scope allows. Example data and generated documents never reach a provider. The extraction is
+pure, keyed by the content hash, and shared with tenant search's content extraction
+([ADR 0043](0043-tenant-search.md)).
 
-### 4. Checkers are stateless; the suite calls them
+### 4. Subjects: variants and stencils
 
-```
-check(blocks, locale, configuration) → diagnostics per block
-```
+A stencil is checked as itself and its findings are recorded on it. A template that uses the stencil
+shows them too, marked as the stencil's, because a stencil is edited through the templates that use
+it; fixing or ignoring one there acts on the stencil's finding. One typo in a stencil is one finding.
 
-A checker holds no state and pushes nothing. The suite owns the cache, scheduling, decisions and the
-decision about what text leaves the installation. A remote provider is an adapter around one call. The
-push ingest for remote sources (`docs/quality.md`) stays for producers that are genuinely independent,
-such as the hub, and is not how a language checker connects.
+### 5. Runs and triggers
 
-A diagnostic is shaped after LSP diagnostics and code actions, because that shape already serves every
-editor: a range in the block, rule id, category (spelling, grammar, punctuation, style, readability),
-severity, message, a documentation link, and suggestions as replacement text. Each checker also
-publishes its **rules** (id, category, default severity, description), so a profile can configure them
-and the author can see which checks are available.
+A **trigger** (a save, "Check now", a ready mark, a release, a schedule) schedules the subject's
+check on a cluster timer keyed by the subject, written in the trigger's own transaction: a burst of
+saves moves the timer and is checked once; a save that rolls back leaves no timer. When the timer
+fires, the runner asks each provider whose configuration includes that trigger (ADR 0047) for the
+units it has no result for, stores the answers, and refreshes the findings view. "Check now" is the
+one trigger that runs in the request, because the author waits for it.
 
-### 5. Where text goes is declared and allowed
+A provider that fails stores nothing: its previous results stay, shown as outdated where the content
+moved on, and the failure is shown. A provider that does not apply (not enabled for the tenant, no
+language chosen) is shown as skipped. Neither ever resolves a finding.
 
-A checker declares where it processes text: `in-process`, `installation` (a service the operator runs,
-such as a self-hosted LanguageTool) or `external`. The operator configures every checker that is not
-in-process; an `external` checker also needs each tenant's explicit consent before any of its text is
-sent. The suite's call is the only path text takes to a checker, so this is enforced in one place.
+### 6. Versions
 
-### 6. Checking on save
-
-A save (`UpdateVariantContent`, whichever of web, REST or MCP made it) schedules a check of the variant
-as a cluster timer keyed by the variant, a few seconds out. Saving again moves the timer, so a burst of
-autosaves is one check. The check extracts the blocks, looks up results, calls each checker for the
-keys it is missing only, stores them, and refreshes the variant's findings view. A checker that fails
-stores nothing: its previous results stay, shown as outdated where the content moved on, and the
-failure is shown to the author. Checking on save is the requirement; checking while typing is not.
-
-### 7. Problem identity and decisions
-
-A finding's identity, which decisions attach to, is (checker, rule, owner, fingerprint), where the
-owner is the block's node or the variant and the fingerprint includes the flagged text: fixing one
-typo and making another is a different problem, and must not inherit the first one's ignore. That is
-the fingerprint contract `docs/quality.md` already states, kept. A suggestion is accepted by the
-author in the editor, as an ordinary edit that is then saved.
-
-### 8. Versions
-
-The findings view is per catalog version, because it is derived from that version's content. A draft
-shows its own findings; the report shows the next version's; a release keeps the view it was released
-with. A draft cut from a release shares every hash with it, so it starts with all its results cached.
+The findings view is per catalog version: a draft shows its own findings, the report the next
+version's, and a release keeps the view it was released with, which blocking rules read (ADR 0046).
+A draft cut from a release shares every hash with it, so it starts with its results cached.
 
 ## The pilot
 
-Built to the full standard, merged as alpha, and deliberately a slice: it proves the new pieces and
-borrows the ledger as the findings view, so the report and the panel work unchanged.
+Built and merged as alpha, a slice that borrows the current ledger as the findings view:
 
-**Built:**
+- text extraction from `text` nodes, with placeholders; the result cache
+  (`quality_text_results`) per tenant;
+- the built-in engine running typed rules with parameters from a built-in default set (until
+  profiles exist, ADR 0046), and LanguageTool over HTTP as an installation provider, switched on per
+  tenant (ADR 0047);
+- per-provider triggers; saves and ready marks on a cluster timer; "Check now" in the request;
+- a failing provider keeps its findings, and the panel says what was skipped or failed.
 
-- Text extraction from `text` nodes into blocks with placeholders (3.).
-- A result cache table keyed by (tenant, checker, configuration, locale, block hash) (1., 2.).
-- The checker interface and diagnostics (4.), with two checkers:
-  - **Writing rules**, built in and in-process: repeated words, long sentences, spacing, and a small
-    list of discouraged words per language, the start of a default clear-language profile.
-  - **LanguageTool**, over HTTP to a server the operator runs (`installation`), off unless configured.
-- Checking on save through a debounced cluster timer, beside the existing ready and "Check now"
-  triggers (6.).
-- Each checker submits to the ledger as its own source, so a failing LanguageTool leaves its findings
-  untouched while the writing rules still run (the ledger's per-source reconciliation).
-- The editor panel shows the flagged text and suggestions, and after "Check now" which checkers ran,
-  failed or were skipped.
-
-**Not built yet:** splitting decisions from the ledger and the findings view per version (the pilot
-still has the versionless ledger); moving structural checks onto the cache; rule manifests and writing
-profiles; `external` checkers and tenant consent; stencil text as its own subject; underlining the span
-in the text editor and applying a suggestion with a click; reaping unused results.
+**Not built yet:** decisions apart from results and the view per version (the next step, before
+profiles and LLMs); locations (findings point at node ids, the quote in their evidence); schema-aware
+extraction; stencils as subjects; recorded reads; reaping unused results.
 
 **Measured by the pilot:** how often a save finds its blocks cached, how long a check takes with and
-without LanguageTool, and how many findings per template a realistic catalog produces.
+without LanguageTool, and how many findings a realistic catalog produces.
 
 ## Consequences
 
-- A check never runs twice on the same input in a tenant, and an edit costs a check of what it changed.
-- No finding is current when its input changed: the key is the input.
-- Text reaches a checker only as extracted template text with placeholders, through one call path
-  that knows where each checker sends it.
-- Providers are adapters to a stateless call. Adding Vale or a model is a class, not a protocol.
-- The ledger's reconciliation, stored resolution and versionless subject are replaced, in steps; the
-  pilot keeps them so nothing changes for the report while the cache proves itself.
-- Results grow with distinct text. They need reaping (results no findings view references), which the
-  pilot leaves open.
+- A unit is checked once per key in a tenant; an edit costs a check of what it changed.
+- No finding is current when its input changed: the input is the key, or its recorded reads are.
+- Text reaches a provider only as extracted template text with placeholders.
+- The ledger's reconciliation, stored resolution and versionless subject are replaced in steps; the
+  pilot keeps them so the report does not change while the cache proves itself.
+- Results grow with distinct text and need reaping (results no findings view references).
 
 ## Open questions
 
-- Whether results are shared between tenants. Sharing would save provider calls for common text, but
-  would let a tenant learn whether another tenant has a sentence; the pilot keeps them per tenant.
-- Which writing-profile settings belong to the checker configuration (in the key) and which are
-  applied afterwards to cached results (severity, which rules are shown), which would keep a profile
-  edit from re-checking anything.
-- How the findings view is kept up to date when content changes without a save that schedules a check
-  (an import, a relocation).
+- Sharing results between tenants: saves calls, but would tell one tenant whether another holds a
+  sentence. Per tenant for now.
+- How the findings view follows content changed without a trigger (an import, a relocation): a
+  storage event, or a periodic sweep as backstop.
 
 ## References
 
-- [`docs/quality.md`](../quality.md): the ledger as built, and the fingerprint contract.
-- [ADR 0011](0011-quality-check-input-model.md): declared data requirements, kept for structural
-  checks.
-- [ADR 0012](0012-check-run-lifecycle.md) and [ADR 0031](0031-quality-findings-never-out-of-date.md):
-  superseded by this record.
+- [`docs/quality.md`](../quality.md): the ledger as built, the fingerprint contract.
+- [ADR 0011](0011-quality-check-input-model.md): declared data requirements, kept for structural checks.
 - [ADR 0038](0038-catalogs-in-2-0.md): content hashes and catalog versions.
-- [ADR 0043](0043-tenant-search.md): the text extraction search needs.
-- [`docs/timers.md`](../timers.md): cluster timers, the save trigger.
+- [`docs/timers.md`](../timers.md): cluster timers.
