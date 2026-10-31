@@ -181,6 +181,28 @@ test-run metrics). A violation fails the class and names the test that created t
 - `-PtestInvariants=report` writes violations to `build/invariant-violations/` instead of failing,
   to survey a suite after adding a rule; `off` skips the check.
 
+#### Random command sequences against the invariants
+
+`CatalogModelTest` (Kotest's property library, inside a JUnit test) runs random sequences of real
+catalog commands in a fresh tenant: catalogs, stencils, themes and templates created and deleted,
+content using stencils of other catalogs, themes set, releases cut and deleted, dependencies
+declared, pinned and undeclared, resources moved. After every step the command must not have
+crashed (a null, cast or index error, or a raw SQL error: a refusal is any other exception) and the
+invariants above must hold. A step picks what it acts on from what exists then, so steps meet each
+other's work; one pick in eight names nothing, to keep refusals exercised. A failing sequence is
+shrunk and printed with the seed and what each step did.
+
+- It is opt-in, tagged `model` and left out of `test` and `integrationTest`:
+  `./gradlew :modules:epistola-core:modelTest` runs 100 sequences (about 1.5 minutes). CI runs
+  1,000 nightly (`model-test.yml`; run it by hand with a count or a seed from the Actions tab).
+  `-PmodelRuns=1000` searches harder (about 15 minutes); `-PmodelSeed=S` replays a failure. Without
+  a seed every run searches somewhere new, so rerun it with `modelTest --rerun`, or Gradle replays
+  the cached result.
+- The console line `Catalog model:` counts each step's outcomes and the first message of each kind
+  of refusal. A step that is never `done`, or always refused the same way, tests nothing: adjust its
+  picks.
+- A new command touching catalogs belongs in it as a step.
+
 ### App Integration Tests
 
 Extend `BaseIntegrationTest`. Boots the full app with security:
@@ -482,6 +504,8 @@ also prints the slowest classes and costliest commands at the end of each run.
   compilation with 2g, as their own hardening intended
 - **`stress` tag** — `@Tag("stress")` tests (e.g. `StressIT`) run in `test` (so CI covers them) but
   not in the local `integrationTest` loop
+- **`model` tag** — `@Tag("model")` tests (`CatalogModelTest`) run only in `modelTest`: they take
+  minutes, too long for every build
 
 ## Adding Tests to a New Module
 

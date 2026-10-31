@@ -101,8 +101,10 @@ ref_target AS (
            END AS target_version_id
     FROM ref
 ),
+-- What each catalog's drafts declare, as the app judges it (CatalogDependencyStore.requireNoCycle):
+-- releases are left out, since a release pins only releases there already are.
 edge AS (
-    SELECT DISTINCT tenant_key, catalog_id AS src, named_catalog_id AS dst FROM dep WHERE named_catalog_id IS NOT NULL
+    SELECT DISTINCT tenant_key, catalog_id AS src, named_catalog_id AS dst FROM dep WHERE named_catalog_id IS NOT NULL AND state = 'draft'
 ),
 walk AS (
     SELECT tenant_key, src AS start, dst AS cur, ARRAY[src] AS path FROM edge

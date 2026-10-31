@@ -154,6 +154,22 @@ Noticed, not done:
 - **`main.regular` rules in `layout.css` are dead**: the shell's main is `main.main-content`.
 - **Two relocation tests fail on `release/2.0`** (above): owned by whoever has the release-pinning work.
 
+### Random command sequences against the catalog invariants (31 October; branch `tests/catalog-model-based`)
+
+| What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Where                                                                                                                       | Covered                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Random sequences of up to 40 real catalog commands per fresh tenant (catalogs, stencils, themes, templates created and deleted; stencil uses across catalogs; themes; releases cut and deleted; dependencies declared, pinned, undeclared; moves). After each step: no crash, every invariant holds; failures shrink and print a seed. Opt-in (`modelTest`, tag `model`; 20 s was too much for every build): 100 sequences, `-PmodelRuns`/`-PmodelSeed`; 1,000 nightly in `model-test.yml` | `CatalogModelTest`, Kotest property 6.2.6 (test-only; jqwik runs as its own engine, outside our Spring and invariant setup) | ✅ 1,000 sequences, about 20,000 steps; the stats line shows every kind of step done and refused |
+| Deleting a theme another catalog uses is refused: `DeleteTheme` looked only in the theme's own catalog, so a template elsewhere was left naming nothing. Now asks the resource graph (`FindResourceUsages`) too                                                                                                                                                                                                                                                                            | `DeleteTheme`                                                                                                               | ✅ two tests in `CatalogDeletionTest` (both failed before); found by the model test              |
+| The cycle rule judged every version, old releases included; the app judges what drafts declare (`CatalogDependencyStore.requireNoCycle`), since a release pins only releases there already are. The rule now does the same                                                                                                                                                                                                                                                                 | `CatalogInvariants`                                                                                                         | ✅ `CatalogInvariantsTest` (failed before); found by the model test                              |
+
+Noticed, not done:
+
+- Shrinking stops early (a 33-step failure came down to 19): a step picks from what exists when it
+  runs, so dropping an earlier step changes later picks. The printed trace says what each step did.
+- Not yet steps: named drafts, a stencil using stencils, upgrading a dependency, fonts, images,
+  attributes and code lists. Each delete of those searches the tenant in SQL of its own rather than
+  the resource graph.
+
 ### Catalog invariants checked after every integration test class (30 October; branch `tests/catalog-invariants`)
 
 Phase 0 of a bug hunt for 2.0: the rules a tenant's catalogs must satisfy after any sequence of
