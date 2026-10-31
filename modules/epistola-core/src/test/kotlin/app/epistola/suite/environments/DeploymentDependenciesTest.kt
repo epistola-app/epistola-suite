@@ -27,6 +27,7 @@ import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -110,6 +111,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("simulates a release imported with a pin on a release the tenant lacks")
     fun `a pinned release the tenant does not have refuses the deployment, as nothing could render from it`() {
         val (tenant, production) = chain("deps-not-installed")
         // A pin on a release this tenant lacks arrives only with an imported release; no command cuts one.
@@ -134,6 +136,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
+    @SkipCatalogInvariants("simulates a release imported from wire v7, which pinned nothing")
     fun `a pin that recorded no release cannot be checked and is skipped`() {
         val (tenant, production) = chain("deps-unpinned")
         // A release imported from catalog wire v7 recorded no release for its dependencies.

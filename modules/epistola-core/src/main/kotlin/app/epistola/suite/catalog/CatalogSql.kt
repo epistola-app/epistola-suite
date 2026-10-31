@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.revisions.DraftReferenceGuard
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
@@ -93,22 +94,26 @@ fun setNext(tenantParam: String, versionParam: String): String = "UPDATE catalog
  * The freeze (ADR 0036): only a draft's rows change. Refuses a write to the version [catalog]'s
  * callers mean (the targeted one, else the next) when that version is released, with
  * [app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException] (409: open the next draft).
- * Every writer of draft content calls it first (`FrozenVersionWriteTest` holds that).
+ * Every writer of draft content calls it first (`FrozenVersionWriteTest` holds that), so it also
+ * reports the draft to [DraftReferenceGuard], which refuses a write leaving it naming what it cannot
+ * resolve.
  */
 fun Handle.requireWritableVersion(catalog: CatalogId) {
-    val released = createQuery(
+    val version = createQuery(
         """
-        SELECT v.version FROM catalog_current_versions cv
+        SELECT v.version_id, v.version FROM catalog_current_versions cv
         JOIN catalog_versions v ON v.tenant_key = cv.tenant_key AND v.version_id = cv.version_id
-        WHERE cv.tenant_key = :t AND cv.catalog_id = ${catalogAt("t", "c")} AND v.state = 'released'
+        WHERE cv.tenant_key = :t AND cv.catalog_id = ${catalogAt("t", "c")}
         """,
     )
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
-        .mapTo(String::class.java)
+        .map { rs, _ -> rs.getObject("version_id", java.util.UUID::class.java) to rs.getString("version") }
         .findOne()
-        .orElse(null)
+        .orElse(null) ?: return
+    val (versionId, released) = version
     if (released != null) throw app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException(catalog.key, released)
+    DraftReferenceGuard.writing(this, catalog.tenantKey, versionId)
 }
 
 /** This handle, once [requireWritableVersion] passed for [catalog]: for a writer written as one expression. */

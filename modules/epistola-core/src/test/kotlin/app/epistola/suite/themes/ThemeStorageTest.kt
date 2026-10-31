@@ -130,7 +130,7 @@ class ThemeStorageTest : IntegrationTestBase() {
                 brand,
                 "Brand",
                 description = "Every field",
-                documentStyles = mapOf("fontSize" to "11pt", "color" to "#112233", "fontFamily" to mapOf("key" to "inter")),
+                documentStyles = mapOf("fontSize" to "11pt", "color" to "#112233", "fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
                 pageSettings = app.epistola.template.model.PageSettings(format = app.epistola.template.model.PageFormat.A4, orientation = app.epistola.template.model.Orientation.portrait, margins = app.epistola.template.model.Margins(top = 10, right = 12, bottom = 10, left = 12)),
                 blockStylePresets = BlockStylePresets.of("callout" to app.epistola.template.model.BlockStylePreset(label = "Callout", styles = mapOf("padding" to "4sp"))),
                 spacingUnit = 4.5f,

@@ -37,6 +37,7 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -55,6 +56,8 @@ import tools.jackson.databind.ObjectMapper
  * while the content is what was marked, and marking runs the checks publishing used to.
  */
 class ReadyMarksTest : IntegrationTestBase() {
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     private val letters = CatalogKey.of("letters")
 
@@ -186,13 +189,20 @@ class ReadyMarksTest : IntegrationTestBase() {
         }
 
         @Test
+        @SkipCatalogInvariants("leaves a draft naming a stencil nobody has, as only the 1.x upgrade does")
         fun `an instance of a stencil that does not exist is refused`() {
-            val (_, variant) = setUp("fit-missing")
+            val (catalog, variant) = setUp("fit-missing")
+            withMediator { UpdateVariantContent(variant, filling("letterhead", "body")).execute() }
+            // Saving content naming a stencil nobody has is refused; only the 1.x upgrade leaves one.
+            jdbi.useHandle<Exception> { handle ->
+                handle.createUpdate("DELETE FROM release_resources WHERE tenant_key = :t AND resource_type = 'stencil' AND resource_key = 'letterhead'")
+                    .bind("t", catalog.tenantKey).execute()
+            }
 
-            assertThatThrownBy { markWith(variant, filling("no-such-stencil", "body")) }
+            assertThatThrownBy { withMediator { MarkVariantReady(variant).execute() } }
                 .isInstanceOf(ValidationException::class.java)
                 .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
-                .hasMessageContaining("no-such-stencil, which does not exist")
+                .hasMessageContaining("letterhead, which does not exist")
         }
 
         @Test

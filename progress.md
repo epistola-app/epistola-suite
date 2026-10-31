@@ -154,6 +154,43 @@ Noticed, not done:
 - **`main.regular` rules in `layout.css` are dead**: the shell's main is `main.main-content`.
 - **Two relocation tests fail on `release/2.0`** (above): owned by whoever has the release-pinning work.
 
+### Catalog invariants checked after every integration test class (30 October; branch `tests/catalog-invariants`)
+
+Phase 0 of a bug hunt for 2.0: the rules a tenant's catalogs must satisfy after any sequence of
+commands, written as SQL that returns the rows breaking them, and checked over each test class's
+tenants when it ends. Every existing integration test class tests those rules with no change to it.
+
+| What                                                                                                                                                                                                                                                                                                                   | Where                                                                                                                          | Covered                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Ten rules the database does not enforce: base is a release of the same catalog, a release pins releases the tenant has, declarations name present catalogs and target their versions, no cycles, a draft's identity at its address, released entries fingerprinted, image bytes stored, a release's references resolve | `modules/testing` `CatalogInvariants`                                                                                          | ✅ `CatalogInvariantsTest`: a world built by commands is clean; each rule finds its corruption                                     |
+| Checked once per top-level class that created a tenant, one query; fails the class naming the test that made the tenant; `-PtestInvariants=report\|off`; time in the test-run metrics                                                                                                                                  | `CatalogInvariantsExtension`, `TestTenantCounter`, `TestRunMetrics`                                                            | ✅ full `./gradlew test` in fail mode                                                                                              |
+| Two rules dropped because the database already refuses them (a catalog without its next draft, one identity twice in a version); a draft's dangling references and orphan ready marks are not rules yet (see below)                                                                                                    | —                                                                                                                              | ✅ tried in `CatalogInvariantsTest` before dropping                                                                                |
+| No force delete: a stencil, font, image or catalog in use is always refused (the UI never sent `force`; REST image delete ignores it until the contract drops it). A failed import removes the catalog it created without force                                                                                        | `DeleteStencil`, `DeleteFont`, `DeleteAsset`, `DeleteCatalog`, their handlers, `EpistolaImagesApi`, `ImportCatalogZip`         | ✅ the in-use refusal tests (`CatalogDeletionTest`, `FontUploadAndDeletionTest`); the force tests removed; changelog fragment      |
+| Removing a declaration the version still uses is refused, naming what uses it, instead of failing the release later                                                                                                                                                                                                    | `UpdateCatalogDependencies`                                                                                                    | ✅ `CatalogDependenciesTest` (failed before); the undeclared state, reached only by the 1.x upgrade, is set up in SQL where tested |
+| A transaction may not leave a draft naming what it did not name before and cannot resolve (saving content, re-pinning, any write): refused at commit with `CATALOG_REFERENCE_UNRESOLVED`. What already dangled (only the 1.x upgrade leaves it) stays editable                                                         | `DraftReferenceGuard` (reported by the freeze guard `requireWritableVersion`), `DraftResources.unresolved`                     | ✅ `DraftReferenceGuardTest` (refusal failed before); the draft rule `draft-reference-resolves` in every integration class         |
+| A release a draft pins is kept, as one a release pins is: deleting it would leave the draft reading nothing                                                                                                                                                                                                            | `ReleaseInUse`                                                                                                                 | ✅ `CatalogDeploymentTest` (the draft rule found it)                                                                               |
+| Tests that need a state only the 1.x upgrade or an import leaves set it up in SQL and opt out per test (`@SkipCatalogInvariants` on a method); the image preview of a wrong catalog previews unsaved content                                                                                                           | `ReadyMarksTest`, `GetTenantResourceGraphIntegrationTest`, `StencilCatalogScopeTest`, `CrossCatalogImageRenderIntegrationTest` | ✅                                                                                                                                 |
+
+Found by the first survey (report mode over the core suite), not changed:
+
+- The save guard reads a version's unresolved references twice per transaction that writes it;
+  measure it on a large catalog before release.
+
+- A release's entry fingerprint can be rewritten in SQL: the freeze of a released row covers its
+  identity, not its columns. Only the code keeps a release frozen (`FrozenVersionWriteGuardTest`).
+- A release using a catalog it does not declare (only a 1.x upgrade leaves that) is refused with a
+  technical message ("catalog.json.dependencies[0]: dependency 'theme|shared|brand' names the
+  catalog alias 'shared', which catalogDependencies does not declare"), raised as
+  `IllegalArgumentException` rather than a `ValidationException`.
+- The contract still declares `force` on the image delete; drop it in contract 2.0.
+- Ready marks of resources a draft no longer holds are never removed (harmless: readiness compares
+  digests).
+- Creating a tenant can starve the connection pool: installing the system catalog dispatches
+  commands inside its own, and each nested one's audit write (`REQUIRES_NEW`) wants a second
+  connection while the outer holds the first. A local `:apps:epistola:test` run had 8 JUnit workers
+  (parallelism 4, plus compensation threads) against a pool of 8, each waiting 30 s per audit write;
+  it crawled for an hour. Seen under heavy swapping; not reproduced otherwise.
+
 ### Monkey-test findings (30 October; branch `fix/monkey-test-findings`, contract `fix/v7-fingerprint-own-key`)
 
 The 1.x Utrecht upgrade, a fresh import of its archives, and the organising features driven in the

@@ -124,8 +124,8 @@ class NamespaceGrantsTest : IntegrationTestBase() {
             assertThat(refused.message).isEqualTo("acme is not revoked: the catalogs default, letters are named in it. Move or delete them first.")
             assertThat(ListNamespaceGrants(tenant).query().map { it.name }).containsExactly(acme)
 
-            DeleteCatalog(testCatalog(tenant, CatalogKey.of("letters")), force = true).execute()
-            DeleteCatalog(testCatalog(tenant, CatalogKey.DEFAULT), force = true).execute()
+            DeleteCatalog(testCatalog(tenant, CatalogKey.of("letters"))).execute()
+            DeleteCatalog(testCatalog(tenant, CatalogKey.DEFAULT)).execute()
             assertThat(RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute()).isEqualTo(NamespaceRevocation(acme, revoked = true))
             assertThat(ListNamespaceGrants(tenant).query()).isEmpty()
             assertThat(RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute().revoked).`as`("revoking what is not held does nothing").isFalse()

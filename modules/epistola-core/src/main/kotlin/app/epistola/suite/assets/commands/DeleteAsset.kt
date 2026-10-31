@@ -26,13 +26,11 @@ import org.springframework.stereotype.Component
  * Command to delete an asset.
  *
  * @property tenantId Tenant that owns the asset
- * @property assetId The asset ID to delete
- * @property force If true, skip usage check and delete even if in use
+ * @property assetId The asset ID to delete; refused with [AssetInUseException] while anything uses it
  */
 data class DeleteAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-    val force: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -69,11 +67,9 @@ class DeleteAssetHandler(
         } ?: return false
         requireCatalogEditable(catalog)
 
-        if (!command.force) {
-            val usages = FindAssetUsages(command.tenantId, command.assetId).query()
-            if (usages.isNotEmpty()) {
-                throw AssetInUseException(command.assetId, usages)
-            }
+        val usages = FindAssetUsages(command.tenantId, command.assetId).query()
+        if (usages.isNotEmpty()) {
+            throw AssetInUseException(command.assetId, usages)
         }
 
         logger.info("Deleting image {} for tenant {}", command.assetId, command.tenantId)

@@ -88,6 +88,12 @@ resources live, how releasing, receiving and upgrading work. The earlier ADRs st
 - `resolve_catalog_alias` is the one place an alias is resolved through a version's declarations;
   "used by", "in use" and the graph read through `catalog_version_references`.
 - References are not foreign keys: a write checks them, the graph reports what is missing.
+  _Amendment of 2026-10-30_: "checks" means a transaction may not leave a version naming anything it
+  did not name before and cannot resolve; `DraftReferenceGuard` compares what is unresolved at the
+  version's first write with what is at commit (`CATALOG_REFERENCE_UNRESOLVED`). What already
+  dangled, which only the 1.x upgrade leaves, stays editable and is refused when released. For the
+  same reason nothing in use is deleted (force deletes are gone), a declaration still used is not
+  removed, and a release a draft pins is kept.
 - **Releasing pins**: a declaration that pins no release is pinned to its catalog's highest release
   when the version is released, shown in the release dialog; a dependency with no release refuses
   the release, naming it.
