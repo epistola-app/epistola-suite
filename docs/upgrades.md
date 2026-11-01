@@ -169,6 +169,27 @@ that outage, and tell the teams whose applications request documents.
 Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
 parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
 
+## From 2.0.0-alpha.1
+
+After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected: a "Published in
+1.x" draft now keeps a stencil 1.x never published that one of its published templates uses (1.x let
+a template use a stencil's draft). Alpha.1 left that stencil out, so the draft could not be released.
+Because the migration changed, a later 2.0 version refuses to start on any database alpha.1 migrated,
+whether it came from 1.x or not: Flyway reports a checksum mismatch for version `20261101000900`, and
+nothing is changed.
+
+Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
+in one transaction, before starting the later version:
+
+```bash
+psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
+```
+
+It records the corrected step 9, and gives each "Published in 1.x" draft the stencils it is missing,
+as the catalog's next draft holds them. A draft that then holds what its next draft holds is removed,
+as the upgrade does. Running it again changes nothing, and on a database that did not come from 1.x
+it only records the corrected step. A database you rebuild from 1.x or from scratch needs no script.
+
 ## Backups and upgrades
 
 **Take a database-level backup before upgrading, and verify it restores.** It is the only rollback

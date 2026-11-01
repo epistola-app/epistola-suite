@@ -30,8 +30,9 @@ import tools.jackson.databind.node.ObjectNode
  *   published; each published variant's model replaces the draft's, in its released form
  *   ([ReferenceWalker.releasedModel]); a published data contract replaces the draft's data model and
  *   examples, each example by its key ([DataExampleKeys]);
- * - a stencil never published is left out; a published one's content and parameter schema replace the
- *   draft's, in released form ([ReferenceWalker.releasedForm]);
+ * - a stencil never published is left out, unless the rest of the draft uses it, as the next draft
+ *   holds it (1.x let a published template use a stencil's draft); a published one's content and
+ *   parameter schema replace the draft's, in released form ([ReferenceWalker.releasedForm]);
  * - every part of it is marked ready: it was published.
  * The named draft is new, not an edit: its rows keep the revision and timestamps of the rows they copy.
  * When the result holds what the next draft holds, the named draft is removed: there is nothing of its
@@ -198,10 +199,11 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
     }
 
     private fun stencils(store: StorageWrites, content: OneXContent.Content, catalog: Catalog, draft: String) {
+        val unpublished = mutableListOf<Row>()
         for (stencil in rows(store, catalog.tenant, draft, "stencil")) {
             val published = content.stencil(catalog.tenant, stencil.resourceId).published
             if (published == null) {
-                store.update("DELETE FROM release_resources WHERE tenant_key = ? AND version_id = ?::uuid AND resource_id = ?::uuid", catalog.tenant, draft, stencil.resourceId)
+                unpublished += stencil
                 continue
             }
             val payload = payload(store, catalog.tenant, stencil.hash) as ObjectNode
@@ -211,6 +213,31 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
             val hash = store.store(catalog.tenant, "stencil", payload, ReferenceWalker.references(payload))
             changed(store, hash, catalog.tenant, draft, "resource_id = ?::uuid AND parent_id IS NULL", stencil.resourceId)
         }
+        // 1.x let a published template use a stencil's draft: one never published stays while the rest uses it.
+        val used = usedStencils(store, catalog, draft, unpublished.map { it.key }.toSet())
+        for (stencil in unpublished.filter { it.key !in used }) {
+            store.update("DELETE FROM release_resources WHERE tenant_key = ? AND version_id = ?::uuid AND resource_id = ?::uuid", catalog.tenant, draft, stencil.resourceId)
+        }
+    }
+
+    /** The stencils of its own catalog the draft uses; one of [unpublished] counts what it uses only once it is used itself. */
+    private fun usedStencils(store: StorageWrites, catalog: Catalog, draft: String, unpublished: Set<String>): Set<String> {
+        val uses = store.query(
+            """
+            SELECT CASE WHEN r.resource_type = 'stencil' THEN r.resource_key END, x.resource_key
+            FROM release_resources r
+            JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
+            WHERE r.tenant_key = ? AND r.version_id = ?::uuid AND x.resource_type = 'stencil' AND (x.alias IS NULL OR x.alias = ?)
+            """,
+            catalog.tenant,
+            draft,
+            catalog.catalogKey,
+        ) { (it.getString(1)?.takeIf { key -> key in unpublished }) to it.getString(2) }
+        val used = uses.filter { it.first == null }.map { it.second }.toMutableSet()
+        do {
+            val grew = used.addAll(uses.filter { it.first in used }.map { it.second })
+        } while (grew)
+        return used
     }
 
     /** Points the draft row [where] names at [hash]; a changed content raises its revision, as an edit of a draft row does. */
@@ -267,6 +294,6 @@ class V20261101000900__core_2_0_published_in_1x : BaseJavaMigration() {
         const val ONE_X_CATALOGS = "upgrade-1x-catalogs"
 
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -558387706
+        const val CHECKSUM: Int = 1311709372
     }
 }

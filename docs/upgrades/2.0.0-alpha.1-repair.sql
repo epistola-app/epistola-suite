@@ -1,10 +1,19 @@
--- The "Published in 1.x" draft (V20261101000900) left out every stencil 1.x never published, but kept
--- the published templates using one (1.x let a template use a stencil's draft): the draft named a
--- stencil it did not hold, and its release was refused. Each such draft gets the stencils its content
--- uses from its own catalog, and the stencils those use, as its catalog's next draft holds them, with
--- their ready marks there. A draft this repairs that then holds what its next draft holds is removed,
--- as step 9 removes one: it has nothing of its own to release.
+-- Run once on a database 2.0.0-alpha.1 migrated, before starting a later 2.0 version on it; it is
+-- safe to run more than once, and on a database that never ran 1.x. See docs/upgrades.md,
+-- "From 2.0.0-alpha.1". Run it in one transaction: psql -1 -f 2.0.0-alpha.1-repair.sql
+--
+-- After alpha.1, step 9 of the 2.0 upgrade (V20261101000900) was corrected: a "Published in 1.x" draft
+-- now keeps a stencil 1.x never published that the draft's templates use (1.x let a template use a
+-- stencil's draft). The two statements below are what that means for a database alpha.1 migrated.
 
+-- 1. Record the corrected step 9, so a later version starts instead of refusing the changed migration.
+UPDATE flyway_schema_history SET checksum = 351450286
+WHERE version = '20261101000900' AND checksum = 1306419192;
+
+-- 2. Give each "Published in 1.x" draft alpha.1 made the stencils its content uses from its own
+--    catalog, and those they use, as its catalog's next draft holds them, with their ready marks
+--    there. Without them it cannot be released. A draft that then holds what its next draft holds is
+--    removed: it has nothing of its own to release.
 CREATE TEMPORARY TABLE published_in_1x_repaired (
     tenant_key TEXT NOT NULL,
     version_id UUID NOT NULL,
