@@ -60,6 +60,12 @@ that template (legal letters may allow long sentences). The panel and the report
 rule came from. A profile from another catalog is used through a declared dependency, as a theme is,
 so an organisation keeps its house style in one shared catalog and each catalog adds its own rules.
 
+Within one level, order means nothing. A rule is known by its profile and id, so two profiles never
+compete for a rule, and the position of a profile or an override in its list decides nothing: the
+contract fingerprints a binding sorted, and a profile bound twice or a rule overridden twice in one
+binding is invalid. Should precedence among the profiles of one level ever be needed, it becomes an
+explicit `order` property, never the position in the list.
+
 The system catalog ships a default **clear language** profile, so checks work before anyone writes
 one.
 
