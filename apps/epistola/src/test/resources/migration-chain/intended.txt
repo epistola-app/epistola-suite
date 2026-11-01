@@ -405,7 +405,7 @@ $$
 + row quality_finding_ignores: {"finding_fingerprint":"f1","ignore_scope_urn":"urn:epistola:template:wide/wide/docs/letter","ignored_at":"<now>","ignored_by":null,"reason":"Known","revoked_at":null,"revoked_by":null,"rule_id":"rule","source_id":"lint","template_resource_id":"@1d93b7787552","tenant_key":"wide","updated_at":"<now>"}
 - row quality_finding_ignores: {"finding_fingerprint":"f1","ignore_scope_urn":"urn:epistola:template:wide/wide/docs/letter","ignored_at":"<now>","ignored_by":null,"reason":"Known","revoked_at":null,"revoked_by":null,"rule_id":"rule","source_id":"lint","template_resource_id":"@6173679195cb","tenant_key":"wide","updated_at":"<now>"}
 - row quality_findings: {"context":{},"docs_url":null,"fingerprint":"f1","first_seen_at":"<now>","id":"@94d4e7c8d9ae","ignore_scope_urn":"urn:epistola:template:wide/wide/docs/letter","input_fingerprint":null,"last_seen_at":"<now>","message":"Check","message_code":null,"metadata":{},"node_ids":[],"path":null,"resolved_at":null,"rule_id":"rule","severity":"WARNING","source_id":"lint","status":"OPEN","subject_type":"VARIANT","subject_urn":"urn:epistola:template:wide/wide/docs/letter/formal","template_resource_id":"@6173679195cb","tenant_key":"wide","updated_at":"<now>","variant_key":"formal","version_key":null}
-+ row quality_findings: {"context":{},"docs_url":null,"fingerprint":"f1","first_seen_at":"<now>","id":"@f001246e0d76","ignore_scope_urn":"urn:epistola:template:wide/wide/docs/letter","input_fingerprint":null,"last_seen_at":"<now>","message":"Check","message_code":null,"metadata":{},"node_ids":[],"path":null,"resolved_at":null,"rule_id":"rule","severity":"WARNING","source_id":"lint","status":"OPEN","subject_type":"VARIANT","subject_urn":"urn:epistola:template:wide/wide/docs/letter/formal","template_resource_id":"@1d93b7787552","tenant_key":"wide","updated_at":"<now>","variant_key":"formal","version_key":null}
++ row quality_findings: {"context":{},"docs_url":null,"fingerprint":"f1","first_seen_at":"<now>","id":"@9ac81e761703","ignore_scope_urn":"urn:epistola:template:wide/wide/docs/letter","input_key":"checked-before-2.0","last_seen_at":"<now>","message":"Check","message_code":null,"metadata":{},"node_ids":[],"path":null,"resolved_at":null,"rule_id":"rule","severity":"WARNING","source_id":"lint","status":"OPEN","subject_type":"VARIANT","subject_urn":"urn:epistola:template:wide/wide/docs/letter/formal","template_resource_id":"@1d93b7787552","tenant_key":"wide","updated_at":"<now>","variant_key":"formal","version_key":null}
 + row release_resources: {"catalog_id":"@02e181ce393b","content_hash":"a1211ef7c40a0632cb3eff6a95ef27b3d4175e6a644565479709b5e0cb7b4e73","created_at":"<now>","created_by":null,"description":null,"fingerprint":null,"name":"Default","parent_id":"@663e9fd0fe74","resource_id":"<id>","resource_key":"default","resource_type":"variant","revision":2,"tenant_key":"acme-deps","updated_at":"<now>","updated_by":null,"version_id":"@de641ed8e084"}
 + row release_resources: {"catalog_id":"@02e181ce393b","content_hash":"eec3277ee2ddb132531d1da75b9a7bbeb07902a04598c441fc713234397eb804","created_at":"<now>","created_by":null,"description":null,"fingerprint":null,"name":"Invoice","parent_id":null,"resource_id":"@663e9fd0fe74","resource_key":"invoice","resource_type":"template","revision":1,"tenant_key":"acme-deps","updated_at":"<now>","updated_by":null,"version_id":"@de641ed8e084"}
 + row release_resources: {"catalog_id":"@02e181ce393b","content_hash":"eec3277ee2ddb132531d1da75b9a7bbeb07902a04598c441fc713234397eb804","created_at":"<now>","created_by":null,"description":null,"fingerprint":null,"name":"Invoice","parent_id":null,"resource_id":"@663e9fd0fe74","resource_key":"invoice","resource_type":"template","revision":1,"tenant_key":"acme-deps","updated_at":"<now>","updated_by":null,"version_id":"@eb01be7a050e"}
@@ -1166,3 +1166,249 @@ $$
     ADD CONSTRAINT quality_provider_settings_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
 + ALTER TABLE ONLY public.quality_provider_settings
     ADD CONSTRAINT quality_provider_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id) ON DELETE SET NULL
+
+# Added after the chain: quality results by what was checked (ADR 0044, V20261101002000). A check
+# (quality_checks) per source, variant and input key, its findings under it; the input key computed
+# from what a catalog version holds (quality_input_key), and the views a version reads its findings
+# through. A 1.x finding joins one check under the key `checked-before-2.0`, which no version has, so
+# it shows as outdated until the variant is checked again; its row above has that key and no longer
+# the 1.x input fingerprint. Comments move from a finding's row to the problem, and the trigger that
+# followed variants in a template's content follows variant rows.
++ ALTER TABLE ONLY public.quality_checks
+    ADD CONSTRAINT quality_checks_pkey PRIMARY KEY (tenant_key, template_resource_id, variant_key, source_id, input_key)
++ ALTER TABLE ONLY public.quality_checks
+    ADD CONSTRAINT quality_checks_template_fkey FOREIGN KEY (tenant_key, template_resource_id) REFERENCES public.catalog_resources(tenant_key, resource_id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.quality_checks
+    ADD CONSTRAINT quality_checks_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.quality_finding_comments
+    ADD CONSTRAINT quality_finding_comments_pkey PRIMARY KEY (tenant_key, id)
++ ALTER TABLE ONLY public.quality_finding_comments
+    ADD CONSTRAINT quality_finding_comments_template_fkey FOREIGN KEY (tenant_key, template_resource_id) REFERENCES public.catalog_resources(tenant_key, resource_id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.quality_findings
+    ADD CONSTRAINT quality_findings_check_fkey FOREIGN KEY (tenant_key, template_resource_id, variant_key, source_id, input_key) REFERENCES public.quality_checks(tenant_key, template_resource_id, variant_key, source_id, input_key) ON DELETE CASCADE
++ CREATE FUNCTION public.quality_follow_variant() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM release_resources r
+        WHERE r.tenant_key = OLD.tenant_key AND r.parent_id = OLD.parent_id AND r.resource_key = OLD.resource_key
+    ) THEN
+        DELETE FROM quality_checks
+        WHERE tenant_key = OLD.tenant_key AND template_resource_id = OLD.parent_id AND variant_key = OLD.resource_key;
+        DELETE FROM quality_findings
+        WHERE tenant_key = OLD.tenant_key AND template_resource_id = OLD.parent_id AND variant_key = OLD.resource_key;
+    END IF;
+    RETURN NULL;
+END;
+$$
++ CREATE FUNCTION public.quality_input_key(p_tenant text, p_version_id uuid, p_template_id uuid, p_variant_key text) RETURNS character varying
+    LANGUAGE sql STABLE
+    AS $$
+WITH template AS (
+    SELECT r.catalog_id, r.content_hash
+    FROM release_resources r
+    WHERE r.tenant_key = p_tenant AND r.version_id = p_version_id AND r.resource_id = p_template_id
+      AND r.resource_type = 'template' AND r.parent_id IS NULL
+),
+variant AS (
+    SELECT r.content_hash
+    FROM release_resources r
+    WHERE r.tenant_key = p_tenant AND r.version_id = p_version_id AND r.parent_id = p_template_id
+      AND r.resource_type = 'variant' AND r.resource_key = p_variant_key
+),
+contents AS (
+    SELECT content_hash FROM template
+    UNION SELECT content_hash FROM variant
+),
+refs AS (
+    SELECT DISTINCT x.alias, x.resource_type, x.resource_key,
+           resolve_catalog_alias(p_tenant, t.catalog_id, p_version_id, NULL, x.alias) AS catalog_id
+    FROM contents c
+    JOIN resource_references x ON x.tenant_key = p_tenant AND x.content_hash = c.content_hash
+    CROSS JOIN template t
+),
+resolved AS (
+    SELECT refs.*,
+           CASE
+               WHEN refs.catalog_id = t.catalog_id THEN p_version_id
+               ELSE (SELECT COALESCE(d.target_version_id, pinned.version_id)
+                     FROM catalog_version_dependencies d
+                     LEFT JOIN catalog_versions pinned
+                            ON pinned.tenant_key = d.tenant_key AND pinned.state = 'released' AND pinned.version = d.release_version
+                           AND pinned.catalog_id = epistola_catalog_id(d.tenant_key, d.namespace, d.dependency_key)
+                     WHERE d.tenant_key = p_tenant AND d.version_id = p_version_id AND d.alias = refs.alias)
+           END AS in_version
+    FROM refs CROSS JOIN template t
+),
+parts AS (
+    SELECT 't:' || t.content_hash AS part FROM template t
+    UNION ALL
+    SELECT 'v:' || COALESCE((SELECT content_hash FROM variant), 'none')
+    UNION ALL
+    SELECT 'r:' || COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key || '=' ||
+           COALESCE((SELECT r.content_hash FROM release_resources r
+                     WHERE r.tenant_key = p_tenant AND r.version_id = x.in_version AND r.catalog_id = x.catalog_id
+                       AND r.resource_type = x.resource_type AND r.resource_key = x.resource_key AND r.parent_id IS NULL), 'none')
+    FROM resolved x
+    UNION ALL
+    SELECT 'd:' || COALESCE((SELECT r.content_hash FROM catalog_versions v
+                             JOIN release_resources r ON r.tenant_key = v.tenant_key AND r.version_id = v.version_id
+                                  AND r.resource_id = v.default_theme_resource_id AND r.parent_id IS NULL
+                             WHERE v.tenant_key = p_tenant AND v.version_id = p_version_id), 'none')
+    UNION ALL
+    SELECT 'l:' || COALESCE((SELECT default_locale FROM tenants WHERE id = p_tenant), '')
+)
+SELECT CASE WHEN EXISTS (SELECT 1 FROM template)
+            THEN encode(sha256(convert_to(string_agg(part, E'\n' ORDER BY part), 'UTF8')), 'hex') END
+FROM parts
+$$
++ CREATE FUNCTION public.quality_live_input_keys(p_tenant text, p_template_id uuid, p_variant_key text) RETURNS SETOF character varying
+    LANGUAGE sql STABLE
+    AS $$
+SELECT DISTINCT quality_input_key(p_tenant, r.version_id, p_template_id, p_variant_key)
+FROM release_resources r
+WHERE r.tenant_key = p_tenant AND r.resource_id = p_template_id AND r.resource_type = 'template' AND r.parent_id IS NULL
+$$
++ CREATE INDEX idx_quality_finding_comments_problem ON public.quality_finding_comments USING btree (tenant_key, ignore_scope_urn, source_id, rule_id, finding_fingerprint)
++ CREATE INDEX idx_quality_finding_comments_template ON public.quality_finding_comments USING btree (tenant_key, template_resource_id)
++ CREATE TABLE public.quality_checks (
+    checked_at timestamp with time zone NOT NULL,
+    input_key character varying(64) NOT NULL,
+    source_id character varying(64) NOT NULL,
+    template_resource_id uuid NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    variant_key public.variant_key NOT NULL
+)
++ CREATE TABLE public.quality_finding_comments (
+    author_id uuid,
+    author_name text NOT NULL,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    finding_fingerprint character varying(128) NOT NULL,
+    id uuid NOT NULL,
+    ignore_scope_urn character varying(512) NOT NULL,
+    rule_id character varying(128) NOT NULL,
+    source_id character varying(64) NOT NULL,
+    template_resource_id uuid NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.quality_findings (
+    CONSTRAINT quality_findings_check_or_note CHECK ((((source_id)::text = 'manual'::text) = (input_key IS NULL))),
+    CONSTRAINT quality_findings_resolved_at_check CHECK ((((status)::text = 'RESOLVED'::text) = (resolved_at IS NOT NULL))),
+    CONSTRAINT quality_findings_resolved_note CHECK ((((status)::text = 'OPEN'::text) OR ((source_id)::text = 'manual'::text))),
+    CONSTRAINT quality_findings_status_check CHECK (((status)::text = ANY ((ARRAY['OPEN'::character varying, 'RESOLVED'::character varying])::text[]))),
+    context jsonb DEFAULT '{}'::jsonb NOT NULL,
+    docs_url text,
+    fingerprint character varying(128) NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    id uuid NOT NULL,
+    ignore_scope_urn character varying(512) NOT NULL,
+    input_key character varying(64),
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    message text NOT NULL,
+    message_code character varying(128),
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    node_ids text[] DEFAULT '{}'::text[] NOT NULL,
+    path text,
+    resolved_at timestamp with time zone,
+    rule_id character varying(128) NOT NULL,
+    severity character varying(16) NOT NULL,
+    source_id character varying(64) NOT NULL,
+    status character varying(16) DEFAULT 'OPEN'::character varying NOT NULL,
+    subject_type character varying(32) NOT NULL,
+    subject_urn character varying(512) NOT NULL,
+    template_resource_id uuid NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    variant_key public.variant_key,
+    version_key integer
+)
++ CREATE TRIGGER trg_release_resources_quality_follow_variant AFTER DELETE OR UPDATE OF resource_key ON public.release_resources FOR EACH ROW WHEN (((old.resource_type)::text = 'variant'::text)) EXECUTE FUNCTION public.quality_follow_variant()
++ CREATE UNIQUE INDEX uq_quality_findings_check ON public.quality_findings USING btree (tenant_key, template_resource_id, variant_key, source_id, input_key, fingerprint) WHERE (input_key IS NOT NULL)
++ CREATE VIEW public.quality_current_checks AS
+ SELECT DISTINCT ON (q.tenant_key, q.template_resource_id, q.variant_key, k.source_id) q.tenant_key,
+    q.catalog_id,
+    q.version_id,
+    q.template_resource_id,
+    q.variant_key,
+    k.source_id,
+    k.input_key,
+    k.checked_at,
+    ((k.input_key)::text = (q.input_key)::text) AS current
+   FROM (public.quality_current_variants q
+     JOIN public.quality_checks k ON ((((k.tenant_key)::text = (q.tenant_key)::text) AND (k.template_resource_id = q.template_resource_id) AND ((k.variant_key)::text = q.variant_key))))
+  ORDER BY q.tenant_key, q.template_resource_id, q.variant_key, k.source_id, ((k.input_key)::text = (q.input_key)::text) DESC, k.checked_at DESC
++ CREATE VIEW public.quality_current_variants AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    template_resource_id,
+    id AS variant_key,
+    public.quality_input_key((tenant_key)::text, version_id, template_resource_id, id) AS input_key
+   FROM public.current_template_variants v
+- ALTER TABLE ONLY public.quality_finding_comments
+    ADD CONSTRAINT quality_finding_comments_pkey PRIMARY KEY (tenant_key, finding_id, id)
+- ALTER TABLE ONLY public.quality_finding_comments
+    ADD CONSTRAINT quality_finding_comments_tenant_key_finding_id_fkey FOREIGN KEY (tenant_key, finding_id) REFERENCES public.quality_findings(tenant_key, id) ON DELETE CASCADE
+- CREATE FUNCTION public.quality_findings_follow_variant() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM quality_findings x
+    WHERE x.tenant_key = OLD.tenant_key AND x.template_resource_id = OLD.resource_id
+      AND x.variant_key IN (
+          SELECT e ->> 'key' FROM resource_contents c, jsonb_array_elements(c.payload -> 'resource' -> 'variants') e
+          WHERE c.tenant_key = OLD.tenant_key AND c.content_hash = OLD.content_hash
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM release_resources r
+          JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+          CROSS JOIN LATERAL jsonb_array_elements(c.payload -> 'resource' -> 'variants') e
+          WHERE r.tenant_key = OLD.tenant_key AND r.resource_id = OLD.resource_id AND r.resource_type = 'template'
+            AND e ->> 'key' = x.variant_key
+      );
+    RETURN NULL;
+END;
+$$
+- CREATE TABLE public.quality_finding_comments (
+    author_id uuid,
+    author_name text NOT NULL,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    finding_id uuid NOT NULL,
+    id uuid NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
+- CREATE TABLE public.quality_findings (
+    CONSTRAINT quality_findings_resolved_at_check CHECK ((((status)::text = 'RESOLVED'::text) = (resolved_at IS NOT NULL))),
+    CONSTRAINT quality_findings_status_check CHECK (((status)::text = ANY ((ARRAY['OPEN'::character varying, 'RESOLVED'::character varying])::text[]))),
+    context jsonb DEFAULT '{}'::jsonb NOT NULL,
+    docs_url text,
+    fingerprint character varying(128) NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    id uuid NOT NULL,
+    ignore_scope_urn character varying(512) NOT NULL,
+    input_fingerprint character varying(64),
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    message text NOT NULL,
+    message_code character varying(128),
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    node_ids text[] DEFAULT '{}'::text[] NOT NULL,
+    path text,
+    resolved_at timestamp with time zone,
+    rule_id character varying(128) NOT NULL,
+    severity character varying(16) NOT NULL,
+    source_id character varying(64) NOT NULL,
+    status character varying(16) DEFAULT 'OPEN'::character varying NOT NULL,
+    subject_type character varying(32) NOT NULL,
+    subject_urn character varying(512) NOT NULL,
+    template_resource_id uuid NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    variant_key public.variant_key,
+    version_key integer
+)
+- CREATE TRIGGER trg_release_resources_quality_findings_follow_variant AFTER DELETE OR UPDATE OF content_hash ON public.release_resources FOR EACH ROW WHEN (((old.resource_type)::text = 'template'::text)) EXECUTE FUNCTION public.quality_findings_follow_variant()
+- CREATE UNIQUE INDEX uq_quality_findings_reconcile ON public.quality_findings USING btree (tenant_key, source_id, subject_urn, fingerprint)
++ row quality_checks: {"checked_at":"<now>","input_key":"checked-before-2.0","source_id":"lint","template_resource_id":"@1d93b7787552","tenant_key":"wide","variant_key":"formal"}

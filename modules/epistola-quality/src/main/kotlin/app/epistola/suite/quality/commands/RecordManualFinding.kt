@@ -88,7 +88,7 @@ class RecordManualFindingHandler(
                 INSERT INTO quality_findings (
                     tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type, ignore_scope_urn,
                     template_resource_id, variant_key, version_key, node_ids, path, message, message_code, docs_url,
-                    fingerprint, input_fingerprint, context, metadata, status, first_seen_at, last_seen_at, resolved_at
+                    fingerprint, input_key, context, metadata, status, first_seen_at, last_seen_at, resolved_at
                 ) VALUES (
                     :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
                     ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, NULL, NULL,
@@ -118,8 +118,8 @@ class RecordManualFindingHandler(
                 // finding on the next run — a person never re-submits, so there is nothing to
                 // recognise, and collapsing two people's remarks into one row would lose one of them.
                 .bind("fingerprint", randomFingerprint())
-                // input_fingerprint stays null: a human's remark is not "computed against" a
-                // document revision, so it must never be marked outdated when the draft changes.
+                // input_key stays null: a human's remark is not "computed against" what a
+                // version holds, so it shows in every version and is never outdated.
                 .bind("now", now)
                 .execute()
         }

@@ -87,7 +87,7 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
 
     /** The headline round trip. */
     @Test
-    fun `a finding opens when a check reports it and closes when the author fixes it`() {
+    fun `a finding shows when a check reports it and goes when the author fixes it`() {
         val variantId = newVariant()
         withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
 
@@ -101,13 +101,12 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
             assertThat(it.nodeIds).containsExactly("node-1")
         })
 
-        // The author fills the block in and the check runs again. Nobody resolves anything.
+        // The author fills the block in and the check runs again. Nobody resolves anything: the check
+        // of what the variant reads now reports nothing, so nothing is shown.
         withMediator { UpdateVariantContent(variantId, documentWithText("Dear customer, your invoice is attached.")).execute() }
         withMediator { RunQualityChecks(variantId).execute() }
 
-        assertThat(findingsFor(variantId).findings)
-            .singleElement()
-            .satisfies({ assertThat(it.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED) })
+        assertThat(findingsFor(variantId).findings).isEmpty()
     }
 
     @Test
@@ -150,10 +149,10 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         withMediator { RunQualityChecks(variantId).execute() }
         val read = findingsFor(variantId)
 
-        // The finding is stamped with the draft's hash, so the editor shows it as current, not stale.
+        // The finding is stored under the draft's input key, so the editor shows it as current.
         val finding = read.findings.single()
-        assertThat(finding.inputFingerprint).isEqualTo(read.currentInputFingerprint)
-        assertThat(read.isStale(finding)).isFalse()
+        assertThat(finding.inputKey).isEqualTo(read.currentInputKey)
+        assertThat(finding.outdated).isFalse()
     }
 
     /**
@@ -170,13 +169,12 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         withMediator { UpdateVariantContent(variantId, documentWithText("   ")).execute() }
 
         val read = findingsFor(variantId)
-        val finding = read.findings.single()
-        assertThat(read.isStale(finding)).isTrue()
+        assertThat(read.findings.single().outdated).isTrue()
+        assertThat(read.checks.single { it.sourceId == read.findings.single().sourceId }.current).isFalse()
 
         // Re-running clears the staleness.
         withMediator { RunQualityChecks(variantId).execute() }
-        val rechecked = findingsFor(variantId)
-        assertThat(rechecked.isStale(rechecked.findings.single())).isFalse()
+        assertThat(findingsFor(variantId).findings.single().outdated).isFalse()
     }
 
     @Test

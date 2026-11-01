@@ -161,7 +161,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `fixing the text resolves the finding on the next run`() {
+    fun `fixing the text clears the finding on the next run`() {
         val variantId = newVariant()
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
         withMediator { RunQualityChecks(variantId).execute() }
@@ -169,15 +169,14 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         save(variantId, document("t" to doc(paragraph(text("Please return the form.")))))
         withMediator { RunQualityChecks(variantId).execute() }
 
-        assertThat(findingsFor(variantId).single { it.sourceId == QualitySourceId("builtin") }.effectiveStatus)
-            .isEqualTo(EffectiveQualityStatus.RESOLVED)
+        assertThat(findingsFor(variantId).filter { it.sourceId == QualitySourceId("builtin") }).isEmpty()
     }
 
     @Test
     fun `a save is checked a few seconds after the last save, once`() {
         val variantId = newVariant()
         withMediator { SaveFeatureToggle(variantId.tenantKey, KnownFeatures.QUALITY, enabled = true).execute() }
-        val timerKey = "${QualityCheckTimer.TYPE}:${variantId.toUrn()}"
+        val timerKey = "${QualityCheckTimer.TYPE}:${variantId.toUrn()}@next"
 
         save(variantId, document("t" to doc(paragraph(text("Draft one.")))))
         scheduling.advanceTimeBy(Duration.ofSeconds(3))

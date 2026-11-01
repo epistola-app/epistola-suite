@@ -111,20 +111,20 @@ class QualityIgnoreIntegrationTest : IntegrationTestBase() {
         val byFingerprint = readBack(subject).findings.associateBy { it.fingerprint }
         assertThat(byFingerprint["fp-new"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
         assertThat(byFingerprint["fp-new"]!!.ignoreReason).isNull()
-        // The old one auto-resolved; its ignore lingers harmlessly, ready if it ever returns.
-        assertThat(byFingerprint["fp-old"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
+        // The old one is no longer reported; its ignore lingers harmlessly, ready if it ever returns.
+        assertThat(byFingerprint).doesNotContainKey("fp-old")
     }
 
     /** An ignored problem that gets fixed and later returns should come back already ignored. */
     @Test
-    fun `an ignore survives a resolve and resurface cycle`() {
+    fun `an ignore survives the problem going and coming back`() {
         val subject = newSubject()
         withMediator { SubmitQualityFindings(source, subject, listOf(finding("fp-1"))).execute() }
         val open = readBack(subject).findings.single()
         withMediator { IgnoreFinding(subject.tenantKey, open.key, "by design").execute() }
 
         withMediator { SubmitQualityFindings(source, subject, emptyList()).execute() }
-        assertThat(readBack(subject).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
+        assertThat(readBack(subject).findings).isEmpty()
 
         withMediator { SubmitQualityFindings(source, subject, listOf(finding("fp-1"))).execute() }
 

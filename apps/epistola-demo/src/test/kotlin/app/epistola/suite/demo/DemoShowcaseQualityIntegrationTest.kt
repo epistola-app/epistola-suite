@@ -150,7 +150,7 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         val source = QualitySourceId("example")
         assertThat(first[source]!!.opened).isEqualTo(2)
         assertThat(second[source]!!.opened).isZero()
-        assertThat(second[source]!!.resolved).isZero()
+        assertThat(second[source]!!.dropped).isZero()
         assertThat(second[source]!!.unchanged).isEqualTo(2)
         // The example source's counts are per-source and so unchanged; the tenant-wide total also
         // carries the accessibility source's unlabelled-image finding and the built-in rules' six

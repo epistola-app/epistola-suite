@@ -24,12 +24,12 @@ import org.springframework.stereotype.Component
  * ### Local only
  *
  * Comments never leave this installation in v1. A finding's *disposition* has an obvious meaning to
- * a remote checker ("stop reporting this") and syncs; a comment does not — what a checker should do
- * with "@sander is this still true?" is unsettled, and inventing an answer now would bake it in. The
- * finding id is stable, so a future sync has something to hang off when the question is settled.
+ * a remote checker ("stop reporting this") and syncs; a comment does not, and inventing an answer
+ * now would bake it in.
  *
- * The comment hangs off the finding's row id, which reconciliation deliberately preserves across a
- * resolve/resurface cycle — so a discussion survives the problem being fixed and coming back.
+ * The comment belongs to the problem the finding reports, keyed as an ignore is (scope, source,
+ * rule, fingerprint), not to the finding's row: so the discussion is the same in every catalog
+ * version, and survives the problem being fixed and coming back (ADR 0044).
  */
 data class AddFindingComment(
     override val tenantKey: TenantKey,
@@ -60,11 +60,14 @@ class AddFindingCommentHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO quality_finding_comments (tenant_key, finding_id, id, body, author_id, author_name, created_at)
-                SELECT :tenantKey, :findingKey, :id, :body, :authorId, :authorName, :now
-                -- Guarded rather than blind: the composite FK would reject a bad finding_id anyway,
-                -- but as an opaque constraint violation rather than something a caller can act on.
-                WHERE EXISTS (SELECT 1 FROM quality_findings f WHERE f.tenant_key = :tenantKey AND f.id = :findingKey)
+                INSERT INTO quality_finding_comments (
+                    tenant_key, id, template_resource_id, ignore_scope_urn, source_id, rule_id, finding_fingerprint,
+                    body, author_id, author_name, created_at
+                )
+                SELECT f.tenant_key, :id, f.template_resource_id, f.ignore_scope_urn, f.source_id, f.rule_id, f.fingerprint,
+                       :body, :authorId, :authorName, :now
+                FROM quality_findings f
+                WHERE f.tenant_key = :tenantKey AND f.id = :findingKey
                 """,
             )
                 .bind("tenantKey", command.tenantKey)

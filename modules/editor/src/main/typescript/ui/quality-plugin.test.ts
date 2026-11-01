@@ -89,7 +89,7 @@ describe('language findings in the panel', () => {
     const panel = new EpistolaQualityPanel();
     document.body.appendChild(panel);
     (panel as unknown as { _data: unknown })._data = {
-      currentInputFingerprint: null,
+      currentInputKey: null,
       openCount: 1,
       staleCount: 0,
       findings: [

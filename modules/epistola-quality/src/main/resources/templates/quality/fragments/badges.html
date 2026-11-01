@@ -22,6 +22,13 @@
           th:classappend="${status.name() == 'OPEN'} ? 'badge-primary' : (${status.name() == 'RESOLVED'} ? 'badge-success' : 'badge-archived')"
           th:text="${#labels.of(status)}">OPEN</span>
 
+    <!--/*
+      The variant reads differently now than when its source checked it (ADR 0044): the finding is the
+      newest answer there is, not a current one. Shown beside the status, never instead of it.
+    */-->
+    <span th:fragment="outdated-badge(finding)" th:if="${finding.outdated}" class="badge badge-outline"
+          data-testid="quality-outdated" title="The template changed since this was checked">Outdated</span>
+
     <!--/* Which source reported it. Always neutral — a source is not a severity. */-->
     <span th:fragment="source-badge(sourceId)" class="badge badge-outline"
           th:text="${sourceId}">example</span>

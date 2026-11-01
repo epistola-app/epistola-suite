@@ -91,6 +91,18 @@ class OnResourceRelocatedRepointFindings(
 
         handle.createUpdate(
             """
+            UPDATE quality_finding_comments
+            SET ignore_scope_urn = regexp_replace(ignore_scope_urn, :pattern, :replacement)
+            WHERE tenant_key = :tenantKey AND ignore_scope_urn ~ :pattern
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bind("pattern", pattern)
+            .bind("replacement", replacement)
+            .execute()
+
+        handle.createUpdate(
+            """
             UPDATE quality_finding_ignores
             SET ignore_scope_urn = regexp_replace(ignore_scope_urn, :pattern, :replacement)
             WHERE tenant_key = :tenantKey AND ignore_scope_urn ~ :pattern

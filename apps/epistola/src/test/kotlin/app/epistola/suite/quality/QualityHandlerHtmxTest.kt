@@ -11,16 +11,20 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.commands.RecordManualFinding
+import app.epistola.suite.quality.commands.ResolveManualFinding
 import app.epistola.suite.quality.commands.SubmitQualityFindings
 import app.epistola.suite.quality.queries.GetQualityFinding
+import app.epistola.suite.quality.queries.GetQualityInputKey
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.tenants.commands.SetTenantDefaultLocale
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
@@ -68,7 +72,12 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
     private fun submit(
         subject: QualitySubject,
         vararg findings: SubmittedFinding,
-    ) = withMediator { SubmitQualityFindings(source, subject, findings.toList()).execute() }
+    ) = withMediator {
+        // Under the variant's input key in its next version, as a check stores what it found (ADR 0044).
+        val variantId = VariantId(VariantKey.of(subject.variantKey!!), TemplateId(subject.templateKey, subject.catalogId))
+        val inputKey = requireNotNull(GetQualityInputKey(variantId).query().inputKey)
+        SubmitQualityFindings(source, subject, inputKey, findings.toList()).execute()
+    }
 
     private fun finding(
         fingerprint: String = "fp-1",
@@ -111,6 +120,20 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("example.empty-text")
         // Alpha feature: the header carries the maturity badge rather than presenting as finished.
         assertThat(body).contains("Alpha")
+    }
+
+    /** A finding checked against what the variant no longer reads is marked, not presented as current (ADR 0044). */
+    @Test
+    fun `the report marks a finding the variant has changed since as outdated`() {
+        val subject = scenario()
+        submit(subject, finding())
+        val report = { restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java).body!! }
+        assertThat(report()).doesNotContain("data-testid=\"quality-outdated\"")
+
+        // The tenant's language is part of what the check read.
+        withMediator { SetTenantDefaultLocale(subject.tenantKey, "nl-NL").execute() }
+
+        assertThat(report()).contains("data-testid=\"quality-outdated\"")
     }
 
     /**
@@ -156,10 +179,13 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `status=all shows resolved findings too`() {
+    fun `status=all shows resolved notes too`() {
         val subject = scenario()
-        submit(subject, finding(message = "Auto-resolved"))
-        submit(subject)
+        // Only a person's note is resolved and kept so; a check's finding it no longer reports is gone (ADR 0044).
+        withMediator {
+            val note = RecordManualFinding(subject, "Auto-resolved").execute()
+            ResolveManualFinding(subject.tenantKey, note).execute()
+        }
 
         val response = restTemplate.getForEntity(
             "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality?status=",

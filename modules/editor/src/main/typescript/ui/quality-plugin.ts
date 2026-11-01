@@ -17,7 +17,7 @@ export interface QualityPluginOptions {
 }
 
 export interface QualityPanelData {
-  currentInputFingerprint: string | null;
+  currentInputKey: string | null;
   openCount: number;
   staleCount: number;
   findings: QualityFinding[];

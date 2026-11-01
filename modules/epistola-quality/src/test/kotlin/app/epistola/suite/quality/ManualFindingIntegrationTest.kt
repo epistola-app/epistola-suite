@@ -77,9 +77,9 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
         assertThat(finding.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
         // The flag that tells the UI to offer a Resolve action — this one will not clear itself.
         assertThat(finding.reconciled).isFalse()
-        // A human's remark is not computed against a document revision, so it must never be marked
-        // outdated when the draft changes.
-        assertThat(finding.inputFingerprint).isNull()
+        // A human's remark is not computed against what a version holds, so it is never outdated.
+        assertThat(finding.inputKey).isNull()
+        assertThat(finding.outdated).isFalse()
     }
 
     /**
@@ -92,12 +92,13 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
         withMediator { RecordManualFinding(subject, "Please reword this").execute() }
         withMediator { SubmitQualityFindings(source, subject, listOf(exampleFinding("fp-1"))).execute() }
 
-        // The source finds nothing this time — its own finding resolves, the human's must not.
+        // The source finds nothing this time — its own finding goes, the human's must not.
         withMediator { SubmitQualityFindings(source, subject, emptyList()).execute() }
 
-        val bySource = readBack(subject).findings.associateBy { it.sourceId }
-        assertThat(bySource[source]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
-        assertThat(bySource[QualitySourceId.MANUAL]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+        assertThat(readBack(subject).findings).singleElement().satisfies({
+            assertThat(it.sourceId).isEqualTo(QualitySourceId.MANUAL)
+            assertThat(it.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+        })
     }
 
     @Test
@@ -186,7 +187,7 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
      * would silently orphan the discussion.
      */
     @Test
-    fun `a discussion survives the finding resolving and coming back`() {
+    fun `a discussion survives the finding going and coming back`() {
         val subject = newSubject()
         withMediator { SubmitQualityFindings(source, subject, listOf(exampleFinding("fp-1"))).execute() }
         val finding = readBack(subject).findings.single()
@@ -195,8 +196,8 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
         withMediator { SubmitQualityFindings(source, subject, emptyList()).execute() }
         withMediator { SubmitQualityFindings(source, subject, listOf(exampleFinding("fp-1"))).execute() }
 
+        // A new row of the check, the same problem: the discussion is the problem's.
         val reopened = readBack(subject).findings.single()
-        assertThat(reopened.key).isEqualTo(finding.key)
         assertThat(reopened.commentCount).isEqualTo(1)
         assertThat(withMediator { GetFindingComments(subject.tenantKey, reopened.key).query() })
             .singleElement()

@@ -4,6 +4,10 @@
 
 package app.epistola.suite.quality
 
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.cluster.timers.ClusterTimer
 import app.epistola.suite.cluster.timers.ClusterTimerHandler
 import app.epistola.suite.cluster.timers.ClusterTimerResult
@@ -34,7 +38,7 @@ import java.time.Duration
 /**
  * A variant's checks, as a cluster timer (ADR 0044, section 6; `docs/timers.md`).
  *
- * One timer per variant, keyed by it: scheduling again before it ran moves it, so a burst of
+ * One timer per variant and draft, keyed by them: scheduling again before it ran moves it, so a burst of
  * autosaves is checked once, after the last, and a ready mark in the meantime joins the same run. The
  * timer is durable and leased, so the check runs once in the cluster, on whichever node owns it, and
  * runs again after a crash; a run is idempotent (cached results, a reconciling ledger), so running
@@ -50,8 +54,8 @@ object QualityCheckTimer {
      * not push it back. Read and rewrite are not atomic: two triggers at the same instant may leave one
      * out, and the next save brings it back.
      */
-    fun schedule(variantId: VariantId, delay: Duration, trigger: CheckTrigger) {
-        val key = "$TYPE:${variantId.toUrn()}"
+    fun schedule(variantId: VariantId, delay: Duration, trigger: CheckTrigger, draft: DraftRef = DraftRef.Next) {
+        val key = "$TYPE:${variantId.toUrn()}@$draft"
         val pending = GetClusterTimer(key).query()?.takeIf { it.status == ClusterTimerStatus.SCHEDULED }
         val pendingTriggers = pending?.let(::triggersOf).orEmpty()
         val triggers = pendingTriggers + trigger
@@ -68,6 +72,7 @@ object QualityCheckTimer {
                 "catalog" to variantId.catalogId.address,
                 "template" to variantId.templateKey.value,
                 "variant" to variantId.key.value,
+                "draft" to draft.toString(),
                 "triggers" to triggers.map { it.name }.sorted(),
             ),
             tenantKey = variantId.tenantKey,
@@ -80,6 +85,9 @@ object QualityCheckTimer {
         ?.toSet()
         ?.ifEmpty { null }
         ?: setOf(CheckTrigger.SAVE)
+
+    /** The draft a timer checks: the catalog's next version for a timer from before drafts were checked. */
+    fun draftOf(timer: ClusterTimer): DraftRef = (timer.payload["draft"] as? String)?.let { DraftRef.parseDraft(it) } ?: DraftRef.Next
 
     fun variantOf(timer: ClusterTimer): VariantId {
         fun field(name: String) = requireNotNull(timer.payload[name] as? String) { "quality-check timer ${timer.timerKey} has no $name" }
@@ -100,9 +108,22 @@ class QualityCheckTimerHandler : ClusterTimerHandler {
         val variantId = QualityCheckTimer.variantOf(timer)
         // The feature may have been switched off since the timer was set.
         if (QualityCheckTimer.enabledFor(variantId.tenantKey)) {
-            RunQualityChecks(variantId, triggers = QualityCheckTimer.triggersOf(timer)).execute()
+            val draft = QualityCheckTimer.draftOf(timer)
+            val version = if (draft == DraftRef.Next) null else CatalogReleaseRef(variantId.catalogId, draft)
+            try {
+                RunQualityChecks(variantId, triggers = QualityCheckTimer.triggersOf(timer), catalogVersion = version).execute()
+            } catch (e: CatalogReleaseNotFoundException) {
+                // The draft was released or discarded since: what is left of it is checked elsewhere or not at all.
+                log.debug("Not checking {}: {}", variantId.toUrn(), e.message)
+            } catch (e: CatalogReleaseIsReleasedException) {
+                log.debug("Not checking {}: {}", variantId.toUrn(), e.message)
+            }
         }
         return ClusterTimerResult.Complete
+    }
+
+    private companion object {
+        private val log = LoggerFactory.getLogger(QualityCheckTimerHandler::class.java)
     }
 }
 
@@ -112,8 +133,8 @@ class QualityCheckTimerHandler : ClusterTimerHandler {
  * an author typing through a few autosaves gets one check, and the language checkers are asked only
  * about the paragraphs that changed (ADR 0044).
  *
- * A save to a draft other than the catalog's next version is not checked yet: the ledger keeps no
- * version, and a check reads the next version's variant (ADR 0044, section 8, not built).
+ * A save is checked in the draft it was made in: the check of a draft other than the next version is
+ * stored under the variant's input key there (ADR 0044).
  *
  * ### Why IMMEDIATE
  *
@@ -131,10 +152,10 @@ class OnVariantSavedScheduleChecks(
         event: UpdateVariantContent,
         result: Any?,
     ) {
-        if (!properties.checkOnSave || event.catalogVersion != null) return
+        if (!properties.checkOnSave) return
         if (!QualityCheckTimer.enabledFor(event.variantId.tenantKey)) return
         log.debug("Checking {} after its save", event.variantId.toUrn())
-        QualityCheckTimer.schedule(event.variantId, properties.checkOnSaveDelay, CheckTrigger.SAVE)
+        QualityCheckTimer.schedule(event.variantId, properties.checkOnSaveDelay, CheckTrigger.SAVE, event.catalogVersion?.draft ?: DraftRef.Next)
     }
 
     private companion object {

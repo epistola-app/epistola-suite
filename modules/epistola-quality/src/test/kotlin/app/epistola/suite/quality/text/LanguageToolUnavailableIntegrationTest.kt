@@ -14,11 +14,11 @@ import app.epistola.suite.quality.EffectiveQualityStatus
 import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubject
+import app.epistola.suite.quality.SubmitQualityFindings
 import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.quality.commands.SaveQualityProviderSettings
 import app.epistola.suite.quality.commands.SourceRunStatus
-import app.epistola.suite.quality.commands.SubmitQualityFindings
 import app.epistola.suite.quality.queries.GetFindingsForSubject
 import app.epistola.suite.quality.queries.ListQualityProviders
 import app.epistola.suite.quality.text.TextBlockExtractorTest.Companion.doc
