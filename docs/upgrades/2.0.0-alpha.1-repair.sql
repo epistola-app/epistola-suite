@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Epistola Nederland B.V.
+--
+-- SPDX-License-Identifier: AGPL-3.0-only
+
 -- Run once on a database 2.0.0-alpha.1 migrated, before starting a later 2.0 version on it; it is
 -- safe to run more than once, and on a database that never ran 1.x. See docs/upgrades.md,
 -- "From 2.0.0-alpha.1". Run it in one transaction: psql -1 -f 2.0.0-alpha.1-repair.sql
