@@ -4,7 +4,9 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -32,6 +34,7 @@ import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
@@ -187,6 +190,31 @@ class StencilIntegrationTest : IntegrationTestBase() {
         assertThat(DeleteStencil(id = id).execute()).isTrue()
 
         assertThat(GetStencil(id = id).query()).isNull()
+    }
+
+    @Test
+    fun `a stencil another stencil contains is not deleted`() = test {
+        val tenantId = TenantId(createTenant("Test Tenant").id)
+        val inner = stencilId(tenantId)
+        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
+        CreateStencil(id = stencilId(tenantId), name = "Outer", content = templateFilling(inner)).execute()
+
+        assertThatThrownBy { DeleteStencil(id = inner).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
+        assertThat(GetStencil(id = inner).query()).isNotNull()
+    }
+
+    @Test
+    fun `a stencil a stencil of another catalog contains is not deleted`() = test {
+        val tenantId = TenantId(createTenant("Test Tenant").id)
+        val inner = stencilId(tenantId)
+        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
+        CreateCatalog(tenantKey = tenantId.key, id = CatalogKey.of("brand"), name = "Brand").execute()
+        val outer = StencilId(TestIdHelpers.nextStencilId(), testCatalog(tenantId, CatalogKey.of("brand")))
+        val content = stencilDocument { stencil("inst", inner.key.value, catalogKey = inner.catalogKey.value).let { build("inst") } }
+        CreateStencil(id = outer, name = "Outer", content = content).execute()
+
+        assertThatThrownBy { DeleteStencil(id = inner).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
+        assertThat(GetStencil(id = inner).query()).isNotNull()
     }
 
     @Test
