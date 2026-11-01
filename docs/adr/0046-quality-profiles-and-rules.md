@@ -113,7 +113,12 @@ one finding with both suggestions.
 ### 4. Decisions on findings
 
 An author may **ignore** a finding, with a reason, as today. Changing the standard (accepting a word,
-relaxing a rule) is an edit of the profile by whoever may edit its catalog, like any other content.
+relaxing a rule) is an edit of the profile, or of a binding and its overrides, and needs a permission
+of its own: `QUALITY_EDIT`, held by the content publisher role, not by content authors. Rules,
+blocking ones above all, decide what may be released, so whoever writes the content does not also set
+the bar it is measured against. Editing a template does not include its `quality` binding: a request
+that changes it needs `QUALITY_EDIT` as well. Reading profiles and bindings is `REFERENCE_VIEW`, like
+other shared reference data.
 
 ### 5. Blocking rules
 
@@ -150,7 +155,7 @@ re-checks only with the providers that enforce it, and a cached result is never 
 
 ## Open questions
 
-- The override permission: a new `QUALITY_OVERRIDE`, or an existing release permission.
+- The permission to override a blocking finding: `QUALITY_EDIT`, a new `QUALITY_OVERRIDE`, or a release permission.
 - Whether the target level and tone are rules or profile settings that rules refer to.
 
 ## References
