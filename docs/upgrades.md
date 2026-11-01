@@ -189,7 +189,8 @@ psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
 
 It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
 as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
-draft after its version was archived comes with that draft's content; check it before releasing. A
+draft after its version was archived comes with that draft's content, not marked ready. Releasing
+refuses until it is ("not ready: stencil '…'"): check it, mark it ready, then release. A
 draft that then holds what its next draft holds is removed, as the upgrade does. Running it again
 changes nothing, and on a database that did not come from 1.x it only records the corrected steps. A database you rebuild from 1.x or from scratch needs no script.
 
