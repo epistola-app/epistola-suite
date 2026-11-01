@@ -32,6 +32,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
@@ -230,6 +231,18 @@ class CatalogModelTest : IntegrationTestBase() {
         }
     }
 
+    /** Saves a stencil's content as instances of stencils, itself among those it may pick; one from another catalog names it. */
+    private data class NestStencils(val pick: Int, val stencils: List<Int>) : Step {
+        override fun apply(world: World): String? {
+            val available = world.existing(STENCIL)
+            val (catalog, stencil) = available.nth(pick) ?: return null
+            val uses = stencils.map { available.pick(it) { CATALOGS[it % CATALOGS.size] to "missing-stencil" } }
+                .map { (from, used) -> used to from.takeIf { it != catalog } }
+            UpdateStencil(StencilId(StencilKey.of(stencil), world.catalog(catalog)), content = model(uses)).execute()
+            return "nest in stencil $catalog/$stencil: ${uses.joinToString { (used, from) -> "${from ?: catalog}/$used" }}"
+        }
+    }
+
     private data class UseTheme(val pick: Int, val theme: Int) : Step {
         override fun apply(world: World): String? {
             val (catalog, template) = world.existing(TEMPLATE).nth(pick) ?: return null
@@ -357,6 +370,7 @@ class CatalogModelTest : IntegrationTestBase() {
             2 to pick.map { Remove(STENCIL, it) },
             1 to pick.map { Remove(THEME, it) },
             5 to Arb.bind(pick, Arb.list(pick, 0..3), ::UseStencils),
+            4 to Arb.bind(pick, Arb.list(pick, 0..2), ::NestStencils),
             2 to Arb.bind(pick, pick, ::UseTheme),
             3 to Arb.bind(pick, Arb.boolean(), ::Release),
             1 to Arb.bind(pick, Arb.int(0..2), ::RemoveRelease),

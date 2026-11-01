@@ -169,6 +169,7 @@ commands it ran left that class's tenants' catalogs consistent: `CatalogInvarian
 `modules/testing` is one SQL statement whose every `SELECT` returns the rows breaking one rule the
 database cannot enforce by itself (a release pins only releases the tenant has, what a release names
 resolves through its pins, a draft names nothing it cannot resolve, catalogs never use each other,
+a released stencil never contains itself,
 a draft row's identity is registered at its address, an image's bytes are stored, …). So every integration test also tests the sequence of
 commands it ran against those rules, at the cost of one query per class (`invariantChecks` in the
 test-run metrics). A violation fails the class and names the test that created the tenant.
@@ -185,7 +186,7 @@ test-run metrics). A violation fails the class and names the test that created t
 
 `CatalogModelTest` (Kotest's property library, inside a JUnit test) runs random sequences of real
 catalog commands in a fresh tenant: catalogs, stencils, themes and templates created and deleted,
-content using stencils of other catalogs, themes set, releases cut and deleted, dependencies
+content using stencils of other catalogs, stencils containing stencils (themselves among the picks), themes set, releases cut and deleted, dependencies
 declared, pinned and undeclared, resources moved. After every step the command must not have
 crashed (a null, cast or index error, or a raw SQL error: a refusal is any other exception) and the
 invariants above must hold. A step picks what it acts on from what exists then, so steps meet each
