@@ -60,10 +60,14 @@ today:
   listener, so the audit log records what happened and never what was refused.
 
 **The contract describes the vocabulary.** Every operation in `epistola-contract` declares
-`x-required-permissions`, and its `docs/auth.md` publishes the role-to-permission table. The 403 body
-names a `requiredPermission`, a field the suite added and the contract does not specify. The two have
+`x-required-permissions`, and its `docs/auth.md` publishes the role-to-permission table. The two have
 already drifted: `feature/v2` still lists `BACKUP_VIEW`, `BACKUP_CREATE` and `TENANT_RESTORE`, which
 the 2.0 suite withdrew, lacks `DIAGNOSTICS_MANAGE`, and nothing checks either side against the other.
+
+The refusals drift too. The 2.0 contract answers only with registered problem types, and a refused
+authorization is its one type, `forbidden`. The suite sends three types the contract never
+registered (`permission-denied`, `access-denied`, `platform-access-denied`), and the members they
+carry (`requiredPermission`, `tenantId`, `requiredRole`) are not specified either.
 
 ## Decision
 
@@ -158,13 +162,21 @@ Changes to `epistola-contract`, on `feature/v2`:
 - `x-required-permissions` updated for every operation the vocabulary above touches, and the role
   table in `docs/auth.md` rewritten from the suite's (`BACKUP_*` and `TENANT_RESTORE` removed,
   `DIAGNOSTICS_MANAGE` and the new permissions added).
-- The 403 responses specified: `permission-denied` with `requiredPermission` and `tenantId`, as the
-  suite already sends; `platform-access-denied` with `requiredRole`; and a new `policy-denied` with
-  `action`, `reason` and an optional `policy`. A decision by policy has no single missing permission.
-  The role-based default keeps answering `permission-denied`.
-- The permission vocabulary published in the artifact as data (every permission, and which role
-  grants it), so a suite test (`PermissionContractAlignmentTest`) compares it with `Permission.entries`
-  and `TenantRole.permissions()`.
+- **Every refusal is `forbidden`, with members that say what was refused.** One type, as the
+  contract's rule that a server answers only with registered types requires: a type names a problem
+  a caller acts on differently, and what differs between refusals is data about one problem. The
+  members, all optional: `requiredPermission` and `tenantKey` for a permission the caller lacks in a
+  tenant, `tenantKey` alone for no access to the tenant, `requiredPlatformRole`, and `reason` when a
+  policy refused (the decision point's `DenialReason`), since a policy decision has no single
+  permission to grant. Permissions and roles are named as the contract's `x-required-permissions`
+  names them (`TEMPLATE_EDIT`), not in the kebab form the suite sends today. The suite moves from its
+  three unregistered types to `forbidden` in 2.0.
+- The permission vocabulary published as data, in the spec's `x-authorization` extension: tenant
+  roles with their identity-provider names, platform roles, and each permission with the roles that
+  grant it. It ships in the server stubs (`openapi/epistola-contract.yaml`), so a suite test
+  (`PermissionContractAlignmentTest`) compares it with `Permission.entries` and
+  `TenantRole.permissions()`, and the contract's own `AuthorizationVocabularyTest` holds each
+  operation's declaration and its `docs/auth.md` to it.
 - `ConsumerPermissions` (`templates: read|write`, scopes `epistola:{resource}:{level}`) is the
   experimental consumer vocabulary. It stays experimental until consumers are implemented. It is then
   mapped onto suite permissions, not given a second meaning.
@@ -178,6 +190,11 @@ Changes to `epistola-contract`, on `feature/v2`:
   that choice open; an engine arrives as an implementation when a customer needs it. Rejected for now.
 - **Annotations on controllers and handlers** (`@PreAuthorize`). Spreads enforcement over three
   surfaces again: exactly the drift the mediator seam removed. Rejected.
+- **A problem type per refusal** (`permission-denied`, `access-denied`, `platform-access-denied`
+  and a new `policy-denied`), registering what the suite sends today. It would keep 1.x integrations
+  matching, but it goes against the contract's 2.0 rule that a type names a problem the caller acts
+  on differently, and would add four types to every client. Rejected for one `forbidden` with
+  members.
 - **Chosen:** the decision point behind the existing seam, role-based by default, AuthZEN-shaped,
   with lists filtered in SQL.
 
@@ -193,6 +210,9 @@ Changes to `epistola-contract`, on `feature/v2`:
 - **The audit log grows by the refusals.** Bounded by what callers attempt; no personal data.
 - **2.0 breaks the role vocabulary deliberately.** Installations re-check which roles their people
   hold, mainly who needs `document-reader`. The upgrade notes list every change in the table above.
+- **2.0 breaks the 403 body.** An integration that matches `permission-denied` matches `forbidden`
+  instead, and reads `tenantKey` rather than `tenantId`, with permissions named `TEMPLATE_EDIT`
+  rather than `template-edit`.
 
 ## Delivery
 
