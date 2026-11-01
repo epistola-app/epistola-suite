@@ -75,6 +75,23 @@ Decided and closed:
 
 ## Touched
 
+### Stencils in stencils (1 November; branch `tests/nested-stencils-model`)
+
+`CatalogModelTest` got a step that saves a stencil's content as instances of stencils (itself, its
+own catalog's, another catalog's, a missing one), and the invariants a rule that no released stencil
+contains itself. A draft may hold a cycle by design: saves do not judge fit, and marking ready or
+releasing refuses one (`docs/stencils.md`); the editor refuses the insert. The model test found both
+fixes below.
+
+| What                                                                                                                                                                                 | Where                                                          | Covered                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| A stencil a stencil of another catalog contained could be deleted, leaving that draft naming nothing; within one catalog the reference guard refused it, without saying what used it | `FindStencilUsages` counts stencils                            | ✅ `FindStencilUsagesTest`, `StencilIntegrationTest` 2 (all failed before) |
+| An instance nested in a stencil without its children slot (REST, MCP; the editor always writes it) crashed expanding every template using that stencil: preview, mark ready, release | `StencilInstances.expand` inlines the stored form (`collapse`) | ✅ `StencilIntegrationTest` (failed before, `NoSuchElementException`)      |
+| No invariant noticed a released stencil containing itself                                                                                                                            | `CatalogInvariants` `stencil-never-contains-itself`            | ✅ `CatalogInvariantsTest` (failed before)                                 |
+
+Noticed, not done: nothing on the server refuses saving a stencil cycle (REST and MCP can save one);
+by the documented design it is refused at mark ready and release, not at save. A decision, not a bug.
+
 ### What the pages say (30 October; branch `feat/ui-polish-2-0`)
 
 The visible text of 112 pages (admin) and 102 (content user) and the main dialogs, read for whether

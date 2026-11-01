@@ -29,7 +29,10 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
@@ -180,6 +183,30 @@ class StencilIntegrationTest : IntegrationTestBase() {
         CreateStencil(id = outer, name = "Outer", content = templateFilling(inner)).execute()
 
         assertThat(GetStencil(id = outer).query()!!.content.nodes.values.map { it.type }).contains("stencil")
+    }
+
+    @Test
+    fun `a stencil nesting one saved without a children slot renders it`() = test {
+        val tenantId = TenantId(createTenant("Test Tenant").id)
+        val inner = stencilId(tenantId)
+        CreateStencil(id = inner, name = "Inner", content = letterhead(logo = "INNER LOGO")).execute()
+        // As a REST or MCP client may write an instance: no children slot, which the editor always adds.
+        val bare = TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("children")),
+                "use" to Node(id = "use", type = "stencil", props = mapOf("stencilKey" to inner.key.value)),
+            ),
+            slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf("use"))),
+            themeRef = ThemeRef.Inherit,
+        )
+        val outer = stencilId(tenantId)
+        CreateStencil(id = outer, name = "Outer", content = bare).execute()
+
+        val variant = draftUsing(tenantId, stencilDocument { stencil("inst", outer.key.value).let { build("inst") } })
+
+        assertThat(previewText(variant)).contains("INNER LOGO")
     }
 
     @Test
