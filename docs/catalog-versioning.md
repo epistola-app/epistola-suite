@@ -789,8 +789,9 @@ release must be present, carried in the archive or installed already
 step (`V20261101000900`) each authored 1.x catalog keeps its next draft, the working copy with any
 unpublished 1.x work, and gets a named draft **Published in 1.x** holding what each template and
 stencil last published (from the 1.x version tables); a template whose default
-variant was never published is left out, and so is a stencil never published unless a published
-template there uses it (1.x let a template use a stencil's draft), kept as the next draft holds it, and the draft is not made when it would hold what the next draft holds. Everything in it is marked ready: it was published. Both
+variant was never published is left out, and so is a stencil with no published version unless a
+published template there uses it (1.x let a stencil version in use be archived), held then as its
+latest archived version, and the draft is not made when it would hold what the next draft holds. Everything in it is marked ready: it was published. Both
 drafts name the catalog's highest 1.x release by number as their base (`base_version`, the 1.x
 release kept no content), so a release of either is numbered above it, by default its patch. 1.x had
 no declarations, so both declare, by name and pinning nothing, every other catalog their content

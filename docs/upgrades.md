@@ -138,8 +138,9 @@ that outage, and tell the teams whose applications request documents.
    migration step, and nothing is done for you after startup.
    - **An authored catalog** keeps its next draft, with any unpublished 1.x work, and gets a draft
      **Published in 1.x** beside it holding what each template and stencil last published (a
-     template whose default variant was never published is left out, and so is a stencil never
-     published, unless a published template uses it). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
+     template whose default variant was never published is left out, and so is a stencil with no
+     published version, unless a published template uses it: 1.x let a version in use be archived,
+     and the draft holds that latest archived version). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
      (or the next draft where there is none) from the catalog's page. Its number is suggested as the
      patch after the catalog's highest 1.x release, or 1.0.0.
    - **Dependencies:** 1.x declared none, so the upgrade declares every catalog a catalog's content
@@ -171,12 +172,13 @@ parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-an
 
 ## From 2.0.0-alpha.1
 
-After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected: a "Published in
-1.x" draft now keeps a stencil 1.x never published that one of its published templates uses (1.x let
-a template use a stencil's draft). Alpha.1 left that stencil out, so the draft could not be released.
-Because the migration changed, a later 2.0 version refuses to start on any database alpha.1 migrated,
-whether it came from 1.x or not: Flyway reports a checksum mismatch for version `20261101000900`, and
-nothing is changed.
+After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected. 1.x let you archive
+a stencil version that published templates used; a stencil left with no published version was not
+put in the "Published in 1.x" draft, which still named it, so the draft could not be released. The
+draft now holds such a stencil as its latest archived version, what those templates rendered.
+Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10 share), a later 2.0
+version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
+reports a checksum mismatch, and nothing is changed.
 
 Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
 in one transaction, before starting the later version:
@@ -185,10 +187,11 @@ in one transaction, before starting the later version:
 psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
 ```
 
-It records the corrected step 9, and gives each "Published in 1.x" draft the stencils it is missing,
-as the catalog's next draft holds them. A draft that then holds what its next draft holds is removed,
-as the upgrade does. Running it again changes nothing, and on a database that did not come from 1.x
-it only records the corrected step. A database you rebuild from 1.x or from scratch needs no script.
+It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
+as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
+draft after its version was archived comes with that draft's content; check it before releasing. A
+draft that then holds what its next draft holds is removed, as the upgrade does. Running it again
+changes nothing, and on a database that did not come from 1.x it only records the corrected steps. A database you rebuild from 1.x or from scratch needs no script.
 
 ## Backups and upgrades
 

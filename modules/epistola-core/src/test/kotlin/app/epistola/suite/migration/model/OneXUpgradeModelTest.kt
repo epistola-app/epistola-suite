@@ -190,7 +190,8 @@ class OneXUpgradeModelTest : IntegrationTestBase() {
                 }
 
                 catalog.themes().forEach { expect(next, "theme $it", "theme", it, null, emptyList()) }
-                // A stencil never published is in the named draft only when published content there uses it.
+                // A stencil with no published version is in the named draft only when published content
+                // there uses it: as its latest archived version (1.x let one in use be archived), else its draft.
                 val usedByPublished = catalog.templates.filter { it.variants.first().versions.lastPublished() != null }.flatMap { template ->
                     template.variants.flatMap { variant -> variant.versions.lastPublished()?.let { variant.versionAt(it).uses }.orEmpty() }
                 }.filter { use -> use.catalogIn(catalog) == catalog.key && becomesReference(use, catalog) }.map { it.stencil }.toSet()
@@ -201,7 +202,8 @@ class OneXUpgradeModelTest : IntegrationTestBase() {
                     if (last != null) {
                         expect(published, "stencil $key", "stencil", key, null, listOf(stencilMarker(catalog.key, key, last)))
                     } else if (i in usedByPublished) {
-                        expect(published, "stencil $key", "stencil", key, null, listOfNotNull(stencil.versions.working()?.let { stencilMarker(catalog.key, key, it) }))
+                        val held = stencil.versions.lastArchived() ?: stencil.versions.working()
+                        expect(published, "stencil $key", "stencil", key, null, listOfNotNull(held?.let { stencilMarker(catalog.key, key, it) }))
                     } else if (named != null) {
                         absent(named, "stencil $key", "stencil", key, null)
                     }
@@ -450,6 +452,8 @@ class OneXUpgradeModelTest : IntegrationTestBase() {
         }
 
         fun List<String>.lastPublished(): Int? = indexOfLast { it == PUBLISHED }.takeIf { it >= 0 }?.plus(1)
+
+        fun List<String>.lastArchived(): Int? = indexOfLast { it == ARCHIVED }.takeIf { it >= 0 }?.plus(1)
 
         /** The versions the upgrade keeps and the preflight reads: the working copy and the latest published. */
         fun List<String>.kept(): List<Int> = listOfNotNull(working(), lastPublished()).distinct()
