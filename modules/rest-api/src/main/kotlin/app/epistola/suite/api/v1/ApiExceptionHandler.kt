@@ -496,43 +496,43 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         log.warn("Tenant access denied: user={} tenant={}", ex.userEmail, ex.tenantId)
         return problemResponse(
             request,
-            ApiProblemTypes.ACCESS_DENIED,
+            ApiProblemTypes.FORBIDDEN,
             "Access denied to tenant: ${ex.tenantId.value}",
-            extensions = mapOf("tenantId" to ex.tenantId.value),
+            extensions = mapOf("tenantKey" to ex.tenantId.value),
         )
     }
 
     @ExceptionHandler(PermissionDeniedException::class)
     fun handlePermissionDeniedException(ex: PermissionDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Permission denied: user={} tenant={} permission={}", ex.userEmail, ex.tenantId, ex.permission)
-        // Name the missing permission (kebab-case, matching the rest of the API surface) in both the
-        // detail string and a machine-readable extension, so an integrator can resolve a 403 without
-        // server logs. The permission taxonomy is not a secret; the caller already knows the endpoint.
-        val permission = ex.permission.name.lowercase().replace('_', '-')
+        // Name the missing permission as the operation's `x-required-permissions` names it
+        // (`TEMPLATE_EDIT`), in the detail and in a member, so an integrator can match the one to
+        // the other and resolve a 403 without server logs. The vocabulary is not a secret.
+        val permission = ex.permission.name
         return problemResponse(
             request,
-            ApiProblemTypes.PERMISSION_DENIED,
+            ApiProblemTypes.FORBIDDEN,
             "Missing required permission: $permission",
-            extensions = mapOf("requiredPermission" to permission, "tenantId" to ex.tenantId.value),
+            extensions = mapOf("requiredPermission" to permission, "tenantKey" to ex.tenantId.value),
         )
     }
 
     @ExceptionHandler(PlatformAccessDeniedException::class)
     fun handlePlatformAccessDeniedException(ex: PlatformAccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Platform access denied: user={} requiredRole={}", ex.userEmail, ex.requiredRole)
-        val role = ex.requiredRole.name.lowercase().replace('_', '-')
+        val role = ex.requiredRole.name
         return problemResponse(
             request,
-            ApiProblemTypes.PLATFORM_ACCESS_DENIED,
+            ApiProblemTypes.FORBIDDEN,
             "Platform role required: $role",
-            extensions = mapOf("requiredRole" to role),
+            extensions = mapOf("requiredPlatformRole" to role),
         )
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException::class)
     fun handleAccessDeniedException(ex: org.springframework.security.access.AccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Access denied: {}", ex.message)
-        return problemResponse(request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+        return problemResponse(request, ApiProblemTypes.FORBIDDEN, "Access denied")
     }
 
     @ExceptionHandler(org.springframework.security.core.AuthenticationException::class)

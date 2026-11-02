@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component
 class RunDataSharingChecks :
     Command<Unit>,
     RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component

@@ -35,7 +35,7 @@ data class CreateApiKey(
     val createdBy: UserKey? = null,
 ) : Command<ApiKeyWithSecret>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_USERS
+    override val permission get() = Permission.CREDENTIALS_MANAGE
     override val tenantKey get() = tenantId
 
     init {

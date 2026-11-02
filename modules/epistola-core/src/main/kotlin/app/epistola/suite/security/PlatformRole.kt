@@ -18,8 +18,14 @@ enum class PlatformRole {
     TENANT_MANAGER,
 
     /**
-     * Cross-tenant **read-only** access for operations and support staff:
-     * diagnostics, logs, and status across all tenants. Grants no write capability.
+     * Installation state: cluster maintenance, the site banner, and what the installation shares
+     * with Epistola. Not tenants, which stay [TENANT_MANAGER]'s (ADR 0048).
+     */
+    INSTALLATION_ADMINISTRATOR,
+
+    /**
+     * Cross-tenant **read-only** access for operations and support staff: diagnostics and the
+     * audit trail in every tenant ([permissionsInEveryTenant]). Grants no write capability.
      */
     PLATFORM_OBSERVER,
 }

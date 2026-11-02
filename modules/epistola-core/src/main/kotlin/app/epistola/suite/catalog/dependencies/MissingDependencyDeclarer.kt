@@ -118,6 +118,7 @@ class MissingDependencyDeclarer(
                 is DependencyRef.Image -> dependency.catalogKey to "image/${dependency.key}"
                 is DependencyRef.CodeList -> dependency.catalogKey to "codeList/${dependency.key}"
                 is DependencyRef.Font -> dependency.catalogKey to "font/${dependency.key}"
+                is DependencyRef.QualityProfile -> dependency.catalogKey to "qualityProfile/${dependency.key}"
             }
         }
         // A variant names an attribute of another catalog by `catalog.attribute`.

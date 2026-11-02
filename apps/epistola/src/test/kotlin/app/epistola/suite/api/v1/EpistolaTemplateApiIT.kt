@@ -196,13 +196,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val json = response.body!!
-        assertThat(JsonPath.read<String>(json, "$.type")).isEqualTo("https://epistola.app/errors/permission-denied")
-        assertThat(JsonPath.read<String>(json, "$.title")).isEqualTo("Permission Denied")
+        assertThat(JsonPath.read<String>(json, "$.type")).isEqualTo("https://epistola.app/errors/forbidden")
+        assertThat(JsonPath.read<String>(json, "$.title")).isEqualTo("Forbidden")
         assertThat(JsonPath.read<Int>(json, "$.status")).isEqualTo(403)
-        // The missing permission is named in both the detail string and a machine-readable extension.
-        assertThat(JsonPath.read<String>(json, "$.detail")).isEqualTo("Missing required permission: template-edit")
-        assertThat(JsonPath.read<String>(json, "$.requiredPermission")).isEqualTo("template-edit")
-        assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
+        // The missing permission is named as the contract's x-required-permissions names it.
+        assertThat(JsonPath.read<String>(json, "$.detail")).isEqualTo("Missing required permission: TEMPLATE_EDIT")
+        assertThat(JsonPath.read<String>(json, "$.requiredPermission")).isEqualTo("TEMPLATE_EDIT")
+        assertThat(JsonPath.read<String>(json, "$.tenantKey")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<Map<String, Any?>>(json, "$")).doesNotContainKeys("tenantId", "requiredPlatformRole", "reason")
     }
 
     @Test

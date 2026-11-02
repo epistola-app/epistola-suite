@@ -12,16 +12,18 @@ import org.junit.jupiter.api.Test
 class PermissionTest {
 
     @Test
-    fun `CONTENT_VIEWER role grants view-only permissions`() {
+    fun `CONTENT_VIEWER role grants view-only permissions, not generated documents`() {
         val permissions = TenantRole.CONTENT_VIEWER.permissions()
         assertThat(permissions).containsExactlyInAnyOrder(
             Permission.TEMPLATE_VIEW,
-            Permission.DOCUMENT_VIEW,
             Permission.THEME_VIEW,
             Permission.STENCIL_VIEW,
             Permission.REFERENCE_VIEW,
             Permission.CATALOG_VIEW,
+            Permission.FEEDBACK_SUBMIT,
         )
+        // Reviewing content is not reading its output (ADR 0048): documents carry personal data.
+        assertThat(permissions).doesNotContain(Permission.DOCUMENT_VIEW)
     }
 
     @Test
@@ -36,9 +38,21 @@ class PermissionTest {
     }
 
     @Test
-    fun `DOCUMENT_GENERATOR role grants document generation permission`() {
+    fun `DOCUMENT_GENERATOR role generates documents and reads them`() {
         val permissions = TenantRole.DOCUMENT_GENERATOR.permissions()
-        assertThat(permissions).containsExactly(Permission.DOCUMENT_GENERATE)
+        assertThat(permissions).containsExactlyInAnyOrder(Permission.DOCUMENT_GENERATE, Permission.DOCUMENT_VIEW)
+    }
+
+    @Test
+    fun `DOCUMENT_READER role reads documents without generating`() {
+        assertThat(TenantRole.DOCUMENT_READER.permissions()).containsExactly(Permission.DOCUMENT_VIEW)
+    }
+
+    @Test
+    fun `PLATFORM_OBSERVER grants diagnostics and audit reads in every tenant, nothing else`() {
+        assertThat(PlatformRole.PLATFORM_OBSERVER.permissionsInEveryTenant()).containsExactlyInAnyOrder(Permission.DIAGNOSTICS_VIEW, Permission.AUDIT_VIEW)
+        assertThat(PlatformRole.TENANT_MANAGER.permissionsInEveryTenant()).isEmpty()
+        assertThat(PlatformRole.INSTALLATION_ADMINISTRATOR.permissionsInEveryTenant()).isEmpty()
     }
 
     @Test
@@ -51,6 +65,8 @@ class PermissionTest {
             // Publishing a catalog to Exchange is a publisher's act, not an administrator's —
             // see the TENANT_ADMINISTRATOR case below, which grants administration but not publish.
             Permission.CATALOG_PUBLISH,
+            // A quality profile's rules gate releases: the publisher's, not the author's.
+            Permission.QUALITY_EDIT,
         )
     }
 
@@ -59,7 +75,9 @@ class PermissionTest {
         val permissions = TenantRole.TENANT_ADMINISTRATOR.permissions()
         assertThat(permissions).containsExactlyInAnyOrder(
             Permission.TENANT_SETTINGS,
-            Permission.TENANT_USERS,
+            Permission.INTEGRATIONS_MANAGE,
+            Permission.CREDENTIALS_MANAGE,
+            Permission.FEEDBACK_MANAGE,
             Permission.CATALOG_MANAGE,
             Permission.DIAGNOSTICS_VIEW,
             Permission.DIAGNOSTICS_MANAGE,

@@ -25,11 +25,14 @@ import java.time.OffsetDateTime
  * One request per page render (and one per HTMX auto-refresh tick) — the
  * three reads run in a single transaction so the consumer list, the node
  * heartbeats, and the cursor aggregates all reflect the same point in time.
+ *
+ * Diagnostics, as the Operations nav item that leads here is: it shows integrations and their
+ * progress, no document.
  */
 data class ListConsumerStatus(val tenantId: TenantKey) :
     Query<ConsumerStatusReport>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.DIAGNOSTICS_VIEW
     override val tenantKey get() = tenantId
 }
 

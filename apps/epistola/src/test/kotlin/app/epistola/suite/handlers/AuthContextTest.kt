@@ -47,9 +47,21 @@ class AuthContextTest {
         )
 
         assertThat(auth.has("TEMPLATE_VIEW")).isTrue()
-        assertThat(auth.has("DOCUMENT_VIEW")).isTrue()
         assertThat(auth.has("THEME_VIEW")).isTrue()
         assertThat(auth.has("TEMPLATE_EDIT")).isFalse()
+        // A viewer reads no generated documents (ADR 0048).
+        assertThat(auth.has("DOCUMENT_VIEW")).isFalse()
+    }
+
+    @Test
+    fun `from() includes what a platform role grants in every tenant`() {
+        val auth = AuthContext.from(principal(platformRoles = setOf(PlatformRole.PLATFORM_OBSERVER)), acme)
+
+        assertThat(auth.has("DIAGNOSTICS_VIEW")).isTrue()
+        assertThat(auth.has("AUDIT_VIEW")).isTrue()
+        assertThat(auth.has("PLATFORM_OBSERVER")).isTrue()
+        assertThat(auth.has("DIAGNOSTICS_MANAGE")).isFalse()
+        assertThat(auth.has("TEMPLATE_VIEW")).isFalse()
     }
 
     @Test
@@ -86,7 +98,7 @@ class AuthContextTest {
         )
 
         assertThat(auth.has("TENANT_SETTINGS")).isTrue()
-        assertThat(auth.has("TENANT_USERS")).isTrue()
+        assertThat(auth.has("CREDENTIALS_MANAGE")).isTrue()
     }
 
     @Test

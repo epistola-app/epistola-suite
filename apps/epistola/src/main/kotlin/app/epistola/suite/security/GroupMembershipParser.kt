@@ -19,6 +19,7 @@ internal val KNOWN_TENANT_ROLES = mapOf(
     "content-viewer" to TenantRole.CONTENT_VIEWER,
     "content-author" to TenantRole.CONTENT_AUTHOR,
     "document-generator" to TenantRole.DOCUMENT_GENERATOR,
+    "document-reader" to TenantRole.DOCUMENT_READER,
     "content-publisher" to TenantRole.CONTENT_PUBLISHER,
     "tenant-administrator" to TenantRole.TENANT_ADMINISTRATOR,
 )
@@ -26,6 +27,7 @@ internal val KNOWN_TENANT_ROLES = mapOf(
 /** All known platform role names (lowercase with hyphens, matching the Keycloak group convention). */
 internal val KNOWN_PLATFORM_ROLES = mapOf(
     "tenant-manager" to PlatformRole.TENANT_MANAGER,
+    "installation-administrator" to PlatformRole.INSTALLATION_ADMINISTRATOR,
     "platform-observer" to PlatformRole.PLATFORM_OBSERVER,
 )
 

@@ -23,6 +23,7 @@
                 { "name": "content-viewer" },
                 { "name": "content-author" },
                 { "name": "document-generator" },
+                { "name": "document-reader" },
                 { "name": "content-publisher" },
                 { "name": "tenant-administrator" }
               ]
@@ -35,13 +36,18 @@
             { "name": "content-viewer" },
             { "name": "content-author" },
             { "name": "document-generator" },
+            { "name": "document-reader" },
             { "name": "content-publisher" },
             { "name": "tenant-administrator" }
           ]
         },
         {
           "name": "platform",
-          "subGroups": [{ "name": "tenant-manager" }]
+          "subGroups": [
+            { "name": "tenant-manager" },
+            { "name": "installation-administrator" },
+            { "name": "platform-observer" }
+          ]
         }
       ]
     }
@@ -104,6 +110,7 @@
         "/epistola/tenants/demo/content-publisher",
         "/epistola/tenants/demo/tenant-administrator",
         "/epistola/platform/tenant-manager",
+        "/epistola/platform/installation-administrator",
         "/epistola/global/content-viewer",
         "/epistola/global/content-author",
         "/epistola/global/document-generator",

@@ -26,7 +26,7 @@
             </div>
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
-            <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_USERS')}"
+            <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('CREDENTIALS_MANAGE')}"
                     th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="api-key-create-open"
@@ -92,7 +92,7 @@
                             <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
                         </td>
                         <td class="actions">
-                            <button th:if="${auth.has('TENANT_USERS')}"
+                            <button th:if="${auth.has('CREDENTIALS_MANAGE')}"
                                     type="button"
                                     class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                     data-testid="api-key-delete"
@@ -132,7 +132,7 @@
         </style>
     </th:block>
     <th:block th:fragment="api-key-list-actions">
-        <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_USERS')}"
+        <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('CREDENTIALS_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="api-key-create-open-action">

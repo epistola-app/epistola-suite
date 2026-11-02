@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
@@ -76,6 +77,37 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Select a template")
                 // Empty state: disabled dropdowns
                 assertThat(response.body).contains("Select a template first")
+            }
+        }
+    }
+
+    @Nested
+    inner class Permissions {
+        @Test
+        fun `starting a load test is offered and allowed only with DIAGNOSTICS_MANAGE`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Load Test Permissions Tenant")
+            }
+
+            whenever {
+                // A generator used to start load tests; they are an operational tool now (ADR 0048).
+                val generator = HttpHeaders().apply { set(TEST_TENANT_ROLES_HEADER, "CONTENT_VIEWER,DOCUMENT_GENERATOR") }
+                val administrator = HttpHeaders().apply { set(TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR") }
+                listOf(
+                    restTemplate.exchange("/tenants/${testTenant.id}/load-tests", HttpMethod.GET, HttpEntity<Void>(administrator), String::class.java),
+                    restTemplate.exchange("/tenants/${testTenant.id}/load-tests/new", HttpMethod.GET, HttpEntity<Void>(generator), String::class.java),
+                    restTemplate.exchange("/tenants/${testTenant.id}/load-tests", HttpMethod.GET, HttpEntity<Void>(HttpHeaders()), String::class.java),
+                )
+            }
+
+            then {
+                val (administratorList, generatorForm, fullList) = result<List<org.springframework.http.ResponseEntity<String>>>()
+                assertThat(administratorList.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(administratorList.body).contains("/load-tests/new")
+                assertThat(generatorForm.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+                assertThat(fullList.body).contains("/load-tests/new")
             }
         }
     }

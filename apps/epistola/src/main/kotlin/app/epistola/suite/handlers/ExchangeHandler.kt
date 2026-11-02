@@ -35,13 +35,13 @@ class ExchangeHandler {
 
     fun settings(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
-        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        requirePermission(tenantKey, Permission.INTEGRATIONS_MANAGE)
         return renderSettings(tenantKey)
     }
 
     fun connect(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
-        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        requirePermission(tenantKey, Permission.INTEGRATIONS_MANAGE)
         return onSettingsPage(tenantKey) {
             val authorizationUri = StartExchangeConnection(tenantKey, callbackUri(request)).execute()
             redirect(authorizationUri)
@@ -58,7 +58,7 @@ class ExchangeHandler {
         val state = request.requiredParam("state")
         val tenantKey = FindExchangeAuthorizationTenant(state).query()
             ?: throw ValidationException("state", "This Exchange authorization is unknown or has expired.", ValidationCode.EXCHANGE_AUTHORIZATION_INVALID)
-        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        requirePermission(tenantKey, Permission.INTEGRATIONS_MANAGE)
         return onSettingsPage(tenantKey) {
             CompleteExchangeConnection(
                 tenantKey,
@@ -73,7 +73,7 @@ class ExchangeHandler {
 
     fun setNamespace(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
-        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        requirePermission(tenantKey, Permission.INTEGRATIONS_MANAGE)
         return onSettingsPage(tenantKey) {
             SetExchangeDefaultNamespace(
                 tenantKey,
@@ -85,7 +85,7 @@ class ExchangeHandler {
 
     fun disconnect(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
-        requirePermission(tenantKey, Permission.TENANT_SETTINGS)
+        requirePermission(tenantKey, Permission.INTEGRATIONS_MANAGE)
         return onSettingsPage(tenantKey) {
             DisconnectExchangeConnection(
                 tenantKey,

@@ -14,7 +14,7 @@ import app.epistola.suite.security.RequiresPlatformRole
 import org.springframework.stereotype.Component
 
 /**
- * Clears the site banner. Gated to the platform [PlatformRole.TENANT_MANAGER].
+ * Clears the site banner. Gated to the platform [PlatformRole.INSTALLATION_ADMINISTRATOR].
  *
  * It writes a **disabled** banner rather than deleting the row, so the demo
  * bootstrap's `setIfAbsent` seed (see `SeedSiteBannerIfAbsent`) does not re-add
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component
 class ClearSiteBanner :
     Command<Unit>,
     RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component

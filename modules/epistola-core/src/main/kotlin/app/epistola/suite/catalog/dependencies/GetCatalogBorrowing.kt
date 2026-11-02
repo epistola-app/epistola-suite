@@ -252,6 +252,7 @@ class GetCatalogBorrowingHandler(
         is DependencyRef.Image -> catalogKey to BorrowedResource("image", key, null)
         is DependencyRef.CodeList -> catalogKey to BorrowedResource("codeList", key, null)
         is DependencyRef.Font -> catalogKey to BorrowedResource("font", key, null)
+        is DependencyRef.QualityProfile -> catalogKey to BorrowedResource("qualityProfile", key, null)
     }
 
     private companion object {

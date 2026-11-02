@@ -64,7 +64,7 @@ class ScenarioFactory(
         displayName = TestPrincipalUser.DISPLAY_NAME,
         tenantMemberships = emptyMap(),
         globalRoles = TenantRole.entries.toSet(),
-        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR),
         currentTenantId = null,
     )
 

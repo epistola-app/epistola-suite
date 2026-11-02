@@ -18,7 +18,7 @@ data class GetFeedback(
     val id: FeedbackId,
 ) : Query<Feedback?>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_SUBMIT
     override val tenantKey get() = id.tenantKey
 }
 

@@ -285,7 +285,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isIn(
             "https://epistola.app/errors/unauthorized",
-            "https://epistola.app/errors/access-denied",
+            "https://epistola.app/errors/forbidden",
         )
         assertThat(JsonPath.read<Int>(body, "$.status")).isIn(401, 403)
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect")
@@ -320,9 +320,9 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/access-denied")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/forbidden")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(403)
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/access-denied")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/forbidden")
     }
 
     /** + API key pair for one test. The API key has the

@@ -7,6 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -259,6 +260,30 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             assertThat(body).doesNotContain("/cluster/nodes/lagging-forget-button-node/forget")
             // The current node is active, so it must not be offered a Forget button.
             assertThat(body).doesNotContain("/cluster/nodes/${nodeIdentity.nodeId}/forget")
+        }
+    }
+
+    @Test
+    fun `GET dashboard offers Forget only to the installation administrator, and says why to anyone else`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Cluster Forget Role Tenant")
+            deleteNode("stale-forget-role-node")
+            insertNode("stale-forget-role-node", OffsetDateTime.now().minusMinutes(20))
+        }
+
+        whenever {
+            // A tenant administrator: every tenant role, no platform role.
+            val headers = HttpHeaders().apply { set(TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR") }
+            restTemplate.exchange("/tenants/${tenant.id}/cluster", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+        }
+
+        then {
+            val body = result<org.springframework.http.ResponseEntity<String>>().body!!
+            assertThat(body).contains("stale-forget-role-node")
+            assertThat(body).doesNotContain("/cluster/nodes/stale-forget-role-node/forget")
+            assertThat(body).contains("data-testid=\"cluster-forget-withheld\"")
         }
     }
 

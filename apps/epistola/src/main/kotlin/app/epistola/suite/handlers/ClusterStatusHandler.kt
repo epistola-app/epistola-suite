@@ -22,6 +22,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
@@ -93,7 +95,7 @@ class ClusterStatusHandler(
         val nodeId = request.pathVariable("nodeId")
 
         try {
-            ForgetClusterNode(nodeId = nodeId, tenantKey = tenantId.key).execute()
+            ForgetClusterNode(nodeId = nodeId).execute()
         } catch (e: ValidationException) {
             // 422 rather than a 500: the request was rejected on its merits (still live,
             // or already gone), so retrying is pointless. The confirm dialog reads
@@ -123,6 +125,9 @@ class ClusterStatusHandler(
     private fun loadReport(): ClusterStatusReport {
         val currentNode = RecordClusterHeartbeat.execute()
         val now = EpistolaClock.offsetDateTime()
+        // The registry is the installation's: forgetting a node is the installation administrator's.
+        val mayForget = SecurityContext.currentOrNull()?.hasPlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR) == true
+        var forgetWithheld = false
         val nodes = ListClusterNodes.query().map { node ->
             val ageMs = java.time.Duration.between(node.lastSeenAt, now).toMillis().coerceAtLeast(0)
             ClusterNodeStatus(
@@ -133,8 +138,8 @@ class ClusterStatusHandler(
                 // Not simply `!isActive`: a node lagging its heartbeat is still alive, and
                 // forgetting it deletes registrations only a restart re-creates. The button
                 // appears only once the command would actually accept it.
-                isForgettable = node.nodeId != currentNode.nodeId &&
-                    ageMs >= properties.forgettableNodeAge().toMillis(),
+                isForgettable = (node.nodeId != currentNode.nodeId && ageMs >= properties.forgettableNodeAge().toMillis())
+                    .also { if (it && !mayForget) forgetWithheld = true } && mayForget,
             )
         }
         val scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query()
@@ -172,6 +177,7 @@ class ClusterStatusHandler(
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },
             staleCount = nodes.count { !it.isActive },
+            forgetWithheld = forgetWithheld,
         )
     }
 
@@ -203,6 +209,11 @@ data class ClusterStatusReport(
     val idleTimeoutMs: Long,
     val activeCount: Int,
     val staleCount: Int,
+    /**
+     * A node could be forgotten, but the viewer is not the installation administrator: the page says
+     * so, rather than leaving the reader to wonder why no row offers Forget.
+     */
+    val forgetWithheld: Boolean = false,
 ) {
     val totalCount: Int = nodes.size
     val heartbeatIntervalSeconds: Long = heartbeatIntervalMs / 1_000L
@@ -244,7 +255,8 @@ data class ClusterNodeStatus(
     val isActive: Boolean,
     val ageSeconds: Long,
     /**
-     * Whether the Forget action is offered for this row.
+     * Whether the Forget action is offered for this row: the node is old enough to forget and the
+     * viewer is an installation administrator.
      *
      * Deliberately a much older threshold than [isActive]'s: see
      * [app.epistola.suite.cluster.ClusterProperties.forgettableNodeAge]. A row can read

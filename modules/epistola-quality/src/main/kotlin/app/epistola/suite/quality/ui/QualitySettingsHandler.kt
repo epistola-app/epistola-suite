@@ -29,7 +29,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class QualitySettingsHandler {
     fun settings(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.INTEGRATIONS_MANAGE)
         val list = ListQualityProviders(tenantId.key).query()
         return ServerResponse.ok().page("quality/settings") {
             "pageTitle" to "Quality settings - Epistola"
@@ -43,7 +43,7 @@ class QualitySettingsHandler {
 
     fun save(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.INTEGRATIONS_MANAGE)
         val switchable = ListQualityProviders(tenantId.key).query().providers.filter { it.canSwitch }
         SaveQualityProviderSettings(
             tenantKey = tenantId.key,

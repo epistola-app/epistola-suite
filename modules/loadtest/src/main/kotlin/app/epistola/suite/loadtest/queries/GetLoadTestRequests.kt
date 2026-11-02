@@ -33,7 +33,7 @@ data class GetLoadTestRequests(
     val limit: Int = 100,
 ) : Query<List<LoadTestRequest>>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.DIAGNOSTICS_VIEW
     override val tenantKey get() = tenantId
 
     init {

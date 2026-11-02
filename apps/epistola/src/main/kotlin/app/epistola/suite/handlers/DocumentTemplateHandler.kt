@@ -862,7 +862,7 @@ class DocumentTemplateHandler(
             mapOf(
                 "applicationRequest" to view,
                 // API keys are made under API keys by whoever manages the tenant's users.
-                "mayCreateApiKey" to auth.has(Permission.TENANT_USERS),
+                "mayCreateApiKey" to auth.has(Permission.CREDENTIALS_MANAGE),
             ),
         )
     }

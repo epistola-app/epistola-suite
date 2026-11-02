@@ -54,6 +54,7 @@ class UseCompatibility(
                     is DependencyRef.Image -> "image"
                     is DependencyRef.CodeList -> "codeList"
                     is DependencyRef.Font -> "font"
+                    is DependencyRef.QualityProfile -> "qualityProfile"
                 }
                 BorrowedResource(type, it.key, null)
             }

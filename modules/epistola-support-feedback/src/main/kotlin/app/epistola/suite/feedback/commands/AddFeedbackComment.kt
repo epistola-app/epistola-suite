@@ -22,7 +22,7 @@ data class AddFeedbackComment(
     val authorEmail: String?,
 ) : Command<FeedbackComment>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_SUBMIT
     override val tenantKey get() = id.tenantKey
 
     init {

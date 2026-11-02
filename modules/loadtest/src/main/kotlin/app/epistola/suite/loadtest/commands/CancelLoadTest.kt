@@ -26,7 +26,7 @@ data class CancelLoadTest(
     val runId: LoadTestRunKey,
 ) : Command<Unit>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val permission get() = Permission.DIAGNOSTICS_MANAGE
     override val tenantKey get() = tenantId
 }
 

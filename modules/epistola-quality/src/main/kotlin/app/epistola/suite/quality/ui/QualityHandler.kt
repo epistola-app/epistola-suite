@@ -122,7 +122,7 @@ class QualityHandler(
             "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT).query()
             "sources" to registry.namesFor(tenantId.key).map { (id, name) -> SourceOption(id.value, name) }
             // Which providers check this tenant's text is a tenant setting; the report links there for whoever may change it.
-            "canManageSettings" to (SecurityContext.currentOrNull()?.hasPermission(tenantId.key, Permission.TENANT_SETTINGS) == true)
+            "canManageSettings" to (SecurityContext.currentOrNull()?.hasPermission(tenantId.key, Permission.INTEGRATIONS_MANAGE) == true)
             findingsModel(tenantId, page, filters)
         }
     }

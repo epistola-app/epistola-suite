@@ -240,6 +240,28 @@ class ImportCatalogZipHandler(
         return CarriedReleaseRef(name.registry, name.namespace, catalog.key.value, version, release.versionId)
     }
 
+    /**
+     * Refuses a release carrying quality profiles or a quality binding (wire v8, contract ADR 0010):
+     * this installation stores neither yet (ADR 0046), and receiving the release without them would
+     * keep something other than what it says it is. Refused before the release is recorded; the
+     * command's transaction takes back the releases it carried.
+     */
+    private fun refuseQualityContent(catalogKey: CatalogKey, version: String, manifest: app.epistola.catalog.protocol.CatalogManifest, resources: Collection<app.epistola.catalog.protocol.CatalogResource>) {
+        val carries = buildList {
+            manifest.resources.filter { it.type == "qualityProfile" }.forEach { add("quality profile '${it.key}'") }
+            if (manifest.catalog.quality != null) add("a quality binding on the catalog")
+            resources.filterIsInstance<app.epistola.catalog.protocol.TemplateResource>().filter { it.quality != null }.forEach { add("a quality binding on template '${it.key}'") }
+            manifest.dependencies.orEmpty().filterIsInstance<app.epistola.catalog.protocol.DependencyRef.QualityProfile>()
+                .forEach { add("quality profile '${it.key}' of catalog '${it.catalogKey}'") }
+        }.distinct()
+        if (carries.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "${catalogKey.value} $version carries ${carries.joinToString(", ")}. This Epistola does not support quality profiles yet, " +
+                    "so it cannot receive the release as it is. Release it without them, or upgrade Epistola once it supports them.",
+            )
+        }
+    }
+
     /** How the release [command] receives arrived; every receiving caller names it. */
     private fun provenanceOf(command: ImportCatalogZip) = checkNotNull(command.provenance) { "An import that receives a release names how it arrived" }
 
@@ -313,6 +335,8 @@ class ImportCatalogZipHandler(
                 "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
             )
         }
+
+        refuseQualityContent(catalogKey, version, manifest, bound.values)
 
         val missing = jdbi.withHandle<List<app.epistola.suite.catalog.dependencies.MissingReleaseDependency>, Exception> { handle ->
             manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
@@ -399,6 +423,7 @@ class ImportCatalogZipHandler(
                         is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.key}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.key}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.QualityProfile -> "quality profile '${dep.key}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(

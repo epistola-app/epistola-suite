@@ -12,7 +12,9 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationCode
@@ -73,14 +75,16 @@ class RecordClusterHeartbeatHandler(
  *
  * Audited: this is a deliberate operator action, unlike the infrastructural
  * [RecordClusterHeartbeat]. Not event-logged — nothing downstream reacts to it.
+ *
+ * The registry is the installation's, not a tenant's, so forgetting a node is the
+ * [PlatformRole.INSTALLATION_ADMINISTRATOR]'s (ADR 0048).
  */
 data class ForgetClusterNode(
     val nodeId: String,
-    override val tenantKey: TenantKey,
 ) : Command<StaleClusterNodePurge>,
-    RequiresPermission,
+    RequiresPlatformRole,
     NotEventLogged {
-    override val permission get() = Permission.DIAGNOSTICS_MANAGE
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component

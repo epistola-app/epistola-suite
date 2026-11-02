@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.effectivePermissions
+import app.epistola.suite.security.permissionsInEveryTenant
 
 /**
  * Exposed to Thymeleaf templates as `auth`.
@@ -32,6 +33,8 @@ class AuthContext(
         fun from(principal: EpistolaPrincipal, tenantKey: TenantKey): AuthContext {
             val names = mutableSetOf<String>()
             principal.rolesFor(tenantKey).effectivePermissions().mapTo(names) { it.name }
+            // What a platform role grants in every tenant (PLATFORM_OBSERVER's reads), as the mediator does.
+            principal.platformRoles.flatMap { it.permissionsInEveryTenant() }.mapTo(names) { it.name }
             principal.platformRoles.mapTo(names) { it.name }
             return AuthContext(names)
         }

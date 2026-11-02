@@ -19,7 +19,7 @@ data class SetExchangeDefaultNamespace(
     val namespace: String,
 ) : Command<Unit>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 @Component

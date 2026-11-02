@@ -14,13 +14,13 @@ import org.springframework.stereotype.Component
 
 /**
  * Reads the stored site banner (enabled or not) to populate the admin edit page.
- * Gated to the platform [PlatformRole.TENANT_MANAGER]; the auth-bypassing sibling
+ * Gated to the platform [PlatformRole.INSTALLATION_ADMINISTRATOR]; the auth-bypassing sibling
  * used for rendering is [ResolveSiteBanner].
  */
 class GetSiteBanner :
     Query<SiteBanner?>,
     RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component

@@ -18,7 +18,7 @@ data class ListApiKeys(
     val tenantId: TenantKey,
 ) : Query<List<ApiKey>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_USERS
+    override val permission get() = Permission.CREDENTIALS_MANAGE
     override val tenantKey get() = tenantId
 }
 

@@ -66,7 +66,7 @@ class CollectSmokeSecurityConfig {
             .exceptionHandling { exceptions ->
                 exceptions.authenticationEntryPoint(ApiProblemAuthenticationEntryPoint(objectMapper, bearerChallengeEnabled = false))
                 exceptions.accessDeniedHandler { request, response, _ ->
-                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.FORBIDDEN, "Access denied")
                 }
             }
         return http.build()

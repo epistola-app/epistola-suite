@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Sets (upserts) the installation-wide site banner. Gated to the platform
- * [PlatformRole.TENANT_MANAGER]. Clearing is [ClearSiteBanner].
+ * [PlatformRole.INSTALLATION_ADMINISTRATOR]. Clearing is [ClearSiteBanner].
  */
 data class SetSiteBanner(
     val message: String,
@@ -24,7 +24,7 @@ data class SetSiteBanner(
     val enabled: Boolean,
 ) : Command<Unit>,
     RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 
     init {
         validate("message", message.isNotBlank()) { "Message is required" }

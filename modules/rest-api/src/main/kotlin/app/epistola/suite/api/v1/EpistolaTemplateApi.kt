@@ -153,6 +153,7 @@ class EpistolaTemplateApi(
         release: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
+        refuseQualityBinding("createTemplate", createTemplateRequest.quality)
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val template = CreateDocumentTemplate(
             id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
@@ -195,6 +196,7 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
         ifMatch: String?,
     ): ResponseEntity<TemplateDto> {
+        refuseQualityBinding("updateTemplate", updateTemplateRequest.quality)
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.templateId(templateKey)
         val template = UpdateDocumentTemplate(

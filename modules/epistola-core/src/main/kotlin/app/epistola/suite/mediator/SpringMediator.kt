@@ -11,6 +11,7 @@ import app.epistola.suite.security.Authorized
 import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.security.currentUser
 import app.epistola.suite.security.requirePermission
@@ -365,7 +366,9 @@ class SpringMediator(
             is SystemInternal -> { /* no-op: system-internal operations bypass auth */ }
 
             is RequiresPermission -> {
-                requireTenantAccess(message.tenantKey)
+                // A permission a platform role grants in every tenant (PLATFORM_OBSERVER's reads)
+                // needs no membership there.
+                if (!SecurityContext.current().grantsInEveryTenant(message.permission)) requireTenantAccess(message.tenantKey)
                 requirePermission(message.tenantKey, message.permission)
             }
 

@@ -349,6 +349,7 @@ class EpistolaCatalogApi(
         updateCatalogReleaseRequest: UpdateCatalogReleaseRequest,
         ifMatch: String?,
     ): ResponseEntity<CatalogReleaseDto> {
+        refuseQualityBinding("updateCatalogRelease", updateCatalogReleaseRequest.quality)
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val request = updateCatalogReleaseRequest
         // An omitted or null member keeps what the draft has; its theme settings are contract ADR 0007.

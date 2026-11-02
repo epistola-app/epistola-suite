@@ -189,7 +189,7 @@
            th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
             View request log
         </a>
-        <form th:if="${run.status.name() == 'RUNNING'}"
+        <form th:if="${run.status.name() == 'RUNNING' and auth.has('DIAGNOSTICS_MANAGE')}"
               th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
               method="post"
               style="display: inline;">

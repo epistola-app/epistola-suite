@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
 data class GetExchangeConnection(override val tenantKey: TenantKey) :
     Query<ExchangeTenantConnection?>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 /** Everything the Exchange settings page renders, so the UI resolves no policy of its own. */
@@ -46,7 +46,7 @@ data class ExchangeSettings(
 data class GetExchangeSettings(override val tenantKey: TenantKey) :
     Query<ExchangeSettings>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 data class FindExchangeAuthorizationTenant(

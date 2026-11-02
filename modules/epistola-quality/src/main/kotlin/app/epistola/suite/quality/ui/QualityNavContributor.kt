@@ -15,12 +15,12 @@ import org.springframework.stereotype.Component
 
 /**
  * Adds "Quality" to the Settings group: the tenant's quality providers (ADR 0047). For whoever may
- * change tenant settings, while the quality feature is on.
+ * manage the tenant's integrations (providers send its text out), while the quality feature is on.
  */
 @Component
 class QualityNavContributor : NavContributor {
     override fun items(context: UiRequestContext): List<NavItem> {
-        if (!context.hasPermission(Permission.TENANT_SETTINGS)) return emptyList()
+        if (!context.hasPermission(Permission.INTEGRATIONS_MANAGE)) return emptyList()
         if (ResolveAvailableFeatures(context.tenantKey).query()[KnownFeatures.QUALITY] != true) return emptyList()
         return listOf(
             NavItem("settings", "quality-settings", "Quality", "quality/settings", order = 25, stage = KnownFeatures.stageOf(KnownFeatures.QUALITY)),

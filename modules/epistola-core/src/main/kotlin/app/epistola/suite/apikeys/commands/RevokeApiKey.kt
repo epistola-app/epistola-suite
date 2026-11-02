@@ -21,7 +21,7 @@ data class RevokeApiKey(
     val revokedBy: UserKey? = null,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_USERS
+    override val permission get() = Permission.CREDENTIALS_MANAGE
     override val tenantKey get() = tenantId
 }
 

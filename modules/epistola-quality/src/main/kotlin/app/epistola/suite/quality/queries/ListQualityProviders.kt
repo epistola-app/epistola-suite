@@ -50,7 +50,7 @@ data class ListQualityProviders(
     override val tenantKey: TenantKey,
 ) : Query<QualityProviderList>,
     RequiresPermission {
-    override val permission: Permission get() = Permission.TENANT_SETTINGS
+    override val permission: Permission get() = Permission.INTEGRATIONS_MANAGE
 }
 
 @Component

@@ -20,14 +20,17 @@ package app.epistola.suite.security
  * - `/epistola/global/content-viewer` → global viewer role (applies to all tenants)
  */
 enum class TenantRole {
-    /** Read-only access: view templates, themes, stencils, documents, reference data, catalogs. */
+    /** Read-only access to content: view templates, themes, stencils, reference data, catalogs. Not generated documents. */
     CONTENT_VIEWER,
 
     /** Modify templates, themes, stencils, and reference data. Implies viewer capabilities should also be granted. */
     CONTENT_AUTHOR,
 
-    /** Generate documents. Implies viewer capabilities should also be granted. */
+    /** Generate documents, and read the documents generated. */
     DOCUMENT_GENERATOR,
+
+    /** Read generated documents without generating: their personal data is not the viewer's to see. */
+    DOCUMENT_READER,
 
     /** Approve content: publish catalog versions and deploy them to environments. Separated from tenant administration. */
     CONTENT_PUBLISHER,

@@ -19,7 +19,7 @@ data class UpdateFeedbackStatus(
     val status: FeedbackStatus,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_MANAGE
     override val tenantKey get() = id.tenantKey
 }
 

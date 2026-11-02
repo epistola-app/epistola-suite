@@ -113,7 +113,7 @@
         </div>
     </th:block>
     <th:block th:fragment="feedback-detail-actions">
-        <form th:if="${isManager}"
+        <form th:if="${mayManageFeedback}"
               hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
               hx-target="#feedback-content"
               hx-swap="innerHTML"
