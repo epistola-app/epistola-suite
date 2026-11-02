@@ -6,9 +6,10 @@ package app.epistola.suite.stencils
 
 import app.epistola.suite.common.ids.StencilKey
 
+/** Deleting [stencilId] is refused: [usedBy] names the templates and stencils that use it. */
 class StencilInUseException(
     val stencilId: StencilKey,
-    val templateNames: List<String>,
+    val usedBy: List<String>,
 ) : RuntimeException(
-    "Cannot delete stencil '$stencilId': used by ${templateNames.joinToString(", ") { "'$it'" }}",
+    "Cannot delete stencil '$stencilId': used by ${usedBy.joinToString(", ") { "'$it'" }}",
 )
