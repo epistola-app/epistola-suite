@@ -45,12 +45,15 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -153,19 +156,21 @@ class EpistolaTemplateApi(
         release: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
-        refuseQualityBinding("createTemplate", createTemplateRequest.quality)
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val template = CreateDocumentTemplate(
-            id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
-            name = createTemplateRequest.name,
-            catalogVersion = draft.ref,
-            description = createTemplateRequest.description,
-            dataModel = createTemplateRequest.dataModel,
-            dataExamples = createTemplateRequest.dataExamples?.map { dto ->
-                DataExample(id = UUIDv7.generate().toString(), name = dto.name, data = dto.data, key = dto.key)
-            },
-        ).execute()
-        return workingCopyDto(draft, template).let { created(it.key, it) }
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            refuseQualityBinding("createTemplate", createTemplateRequest.quality)
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val template = CreateDocumentTemplate(
+                id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
+                name = createTemplateRequest.name,
+                catalogVersion = draft.ref,
+                description = createTemplateRequest.description,
+                dataModel = createTemplateRequest.dataModel,
+                dataExamples = createTemplateRequest.dataExamples?.map { dto ->
+                    DataExample(id = UUIDv7.generate().toString(), name = dto.name, data = dto.data, key = dto.key)
+                },
+            ).execute()
+            return workingCopyDto(draft, template).let { created(it.key, it) }
+        }
     }
 
     override fun getTemplate(
@@ -196,33 +201,35 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
         ifMatch: String?,
     ): ResponseEntity<TemplateDto> {
-        refuseQualityBinding("updateTemplate", updateTemplateRequest.quality)
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.templateId(templateKey)
-        val template = UpdateDocumentTemplate(
-            id = id,
-            name = updateTemplateRequest.name,
-            // The generated request cannot tell an omitted description from an explicit null, so null
-            // keeps the current one and an empty string removes it.
-            description = updateTemplateRequest.description,
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute()
-            ?: throw TemplateNotFoundException(id.tenantKey, id.key)
-        // The contract is part of the template: written against the revision the name change left.
-        var revision = template.revision
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            refuseQualityBinding("updateTemplate", updateTemplateRequest.quality)
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.templateId(templateKey)
+            val template = UpdateDocumentTemplate(
+                id = id,
+                name = updateTemplateRequest.name,
+                // The generated request cannot tell an omitted description from an explicit null, so null
+                // keeps the current one and an empty string removes it.
+                description = updateTemplateRequest.description,
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute()
+                ?: throw TemplateNotFoundException(id.tenantKey, id.key)
+            // The contract is part of the template: written against the revision the name change left.
+            var revision = template.revision
 
-        val dataModel = updateTemplateRequest.dataModel
-        val requestedExamples = updateTemplateRequest.dataExamples
-        if (dataModel != null || requestedExamples != null) {
-            // An example keeps its identity across updates by its key.
-            val current = GetDataContract(templateId = id, catalogVersion = draft.ref).query()?.dataExamples.orEmpty().associateBy { it.key }
-            val dataExamples = requestedExamples?.map { dto ->
-                DataExample(id = current[dto.key]?.id ?: UUIDv7.generate().toString(), name = dto.name, data = dto.data, key = dto.key)
+            val dataModel = updateTemplateRequest.dataModel
+            val requestedExamples = updateTemplateRequest.dataExamples
+            if (dataModel != null || requestedExamples != null) {
+                // An example keeps its identity across updates by its key.
+                val current = GetDataContract(templateId = id, catalogVersion = draft.ref).query()?.dataExamples.orEmpty().associateBy { it.key }
+                val dataExamples = requestedExamples?.map { dto ->
+                    DataExample(id = current[dto.key]?.id ?: UUIDv7.generate().toString(), name = dto.name, data = dto.data, key = dto.key)
+                }
+                revision = UpdateDataContract(templateId = id, dataModel = dataModel, dataExamples = dataExamples, catalogVersion = draft.ref, expectedRevision = revision).execute().revision
             }
-            revision = UpdateDataContract(templateId = id, dataModel = dataModel, dataExamples = dataExamples, catalogVersion = draft.ref, expectedRevision = revision).execute().revision
+            return okWithETag(revision, workingCopyDto(draft, workingCopy(draft, templateKey)))
         }
-        return okWithETag(revision, workingCopyDto(draft, workingCopy(draft, templateKey)))
     }
 
     /** Checked against the release preview and generation would render for the same selection. */
@@ -274,10 +281,12 @@ class EpistolaTemplateApi(
         release: String,
         templateKey: String,
     ): ResponseEntity<TemplateDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val template = workingCopy(draft, templateKey)
-        MarkTemplateReady(templateId = draft.templateId(templateKey), catalogVersion = draft.ref).execute()
-        return ResponseEntity.ok(workingCopyDto(draft, template))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val template = workingCopy(draft, templateKey)
+            MarkTemplateReady(templateId = draft.templateId(templateKey), catalogVersion = draft.ref).execute()
+            return ResponseEntity.ok(workingCopyDto(draft, template))
+        }
     }
 
     override fun deleteTemplate(
@@ -330,18 +339,20 @@ class EpistolaTemplateApi(
         templateKey: String,
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val templateId = draft.templateId(templateKey)
-        val variant = requestField("title", "name") {
-            CreateVariant(
-                id = VariantId(VariantKey.of(createVariantRequest.key), templateId),
-                title = createVariantRequest.name,
-                description = createVariantRequest.description,
-                attributes = createVariantRequest.attributes ?: emptyMap(),
-                catalogVersion = draft.ref,
-            ).execute() ?: throw TemplateNotFoundException(templateId.tenantKey, templateId.key)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val templateId = draft.templateId(templateKey)
+            val variant = requestField("title", "name") {
+                CreateVariant(
+                    id = VariantId(VariantKey.of(createVariantRequest.key), templateId),
+                    title = createVariantRequest.name,
+                    description = createVariantRequest.description,
+                    attributes = createVariantRequest.attributes ?: emptyMap(),
+                    catalogVersion = draft.ref,
+                ).execute() ?: throw TemplateNotFoundException(templateId.tenantKey, templateId.key)
+            }
+            return variantDto(draft, variant).let { created(it.key, it) }
         }
-        return variantDto(draft, variant).let { created(it.key, it) }
     }
 
     override fun getVariant(
@@ -370,20 +381,22 @@ class EpistolaTemplateApi(
         updateVariantRequest: UpdateVariantRequest,
         ifMatch: String?,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val current = workingVariant(draft, templateKey, variantKey)
-        val id = draft.variantId(templateKey, variantKey)
-        val variant = requestField("title", "name") {
-            UpdateVariant(
-                variantId = id,
-                title = updateVariantRequest.name ?: current.title,
-                attributes = updateVariantRequest.attributes ?: current.attributes,
-                catalogVersion = draft.ref,
-                // The merge above read the variant at `current`; a write in between must not be lost.
-                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-            ).execute() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val current = workingVariant(draft, templateKey, variantKey)
+            val id = draft.variantId(templateKey, variantKey)
+            val variant = requestField("title", "name") {
+                UpdateVariant(
+                    variantId = id,
+                    title = updateVariantRequest.name ?: current.title,
+                    attributes = updateVariantRequest.attributes ?: current.attributes,
+                    catalogVersion = draft.ref,
+                    // The merge above read the variant at `current`; a write in between must not be lost.
+                    expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+                ).execute() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+            }
+            return okWithETag(variant.revision, variantDto(draft, variant))
         }
-        return okWithETag(variant.revision, variantDto(draft, variant))
     }
 
     override fun deleteVariant(
@@ -411,11 +424,13 @@ class EpistolaTemplateApi(
         variantKey: String,
         ifMatch: String?,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.variantId(templateKey, variantKey)
-        val variant = SetDefaultVariant(variantId = id, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
-            ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
-        return okWithETag(variant.revision, variantDto(draft, variant))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.variantId(templateKey, variantKey)
+            val variant = SetDefaultVariant(variantId = id, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
+                ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+            return okWithETag(variant.revision, variantDto(draft, variant))
+        }
     }
 
     // ================== Content ==================
@@ -445,15 +460,17 @@ class EpistolaTemplateApi(
         updateVariantContentRequest: UpdateVariantContentRequest,
         ifMatch: String?,
     ): ResponseEntity<VariantContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        workingVariant(draft, templateKey, variantKey)
-        val saved = UpdateVariantContent(
-            variantId = draft.variantId(templateKey, variantKey),
-            templateModel = updateVariantContentRequest.templateModel,
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute()
-        return okWithETag(saved.revision, workingContent(draft, templateKey, variantKey).first)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            workingVariant(draft, templateKey, variantKey)
+            val saved = UpdateVariantContent(
+                variantId = draft.variantId(templateKey, variantKey),
+                templateModel = updateVariantContentRequest.templateModel,
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute()
+            return okWithETag(saved.revision, workingContent(draft, templateKey, variantKey).first)
+        }
     }
 
     override fun markVariantReady(
@@ -465,11 +482,13 @@ class EpistolaTemplateApi(
         templateKey: String,
         variantKey: String,
     ): ResponseEntity<VariantContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        workingVariant(draft, templateKey, variantKey)
-        MarkVariantReady(variantId = draft.variantId(templateKey, variantKey), catalogVersion = draft.ref).execute()
-        val (dto, revision) = workingContent(draft, templateKey, variantKey)
-        return okWithETag(revision, dto)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            workingVariant(draft, templateKey, variantKey)
+            MarkVariantReady(variantId = draft.variantId(templateKey, variantKey), catalogVersion = draft.ref).execute()
+            val (dto, revision) = workingContent(draft, templateKey, variantKey)
+            return okWithETag(revision, dto)
+        }
     }
 
     // ================== Helpers ==================

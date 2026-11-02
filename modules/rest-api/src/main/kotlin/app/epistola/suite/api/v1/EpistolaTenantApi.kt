@@ -87,6 +87,8 @@ import app.epistola.suite.environments.queries.ListEnvironmentPage
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
@@ -245,29 +247,31 @@ class EpistolaTenantApi(
         updateAttributeRequest: UpdateAttributeRequest,
         ifMatch: String?,
     ): ResponseEntity<AttributeDto> {
-        val clearsBinding = updateAttributeRequest.clearCodeListBinding == true
-        validate("clearCodeListBinding", !(clearsBinding && updateAttributeRequest.codeListBinding != null)) { "Send a codeListBinding or clearCodeListBinding, not both" }
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.attributeId(attributeKey)
-        // PATCH semantics: pull the current definition so we can write a
-        // full UpdateAttributeDefinition that only changes the fields the
-        // client sent. UpdateAttributeDefinition isn't itself partial.
-        val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
-        val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
-            draft.codeListAt(binding.catalogKey, binding.key)
-        } ?: current.codeListId.takeUnless { clearsBinding }
-        val attribute = requestField("displayName", "name") {
-            UpdateAttributeDefinition(
-                id = id,
-                displayName = updateAttributeRequest.name ?: current.displayName,
-                allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
-                codeListId = codeListId,
-                catalogVersion = draft.ref,
-                // The merge above read the attribute at `current`; a write in between must not be lost.
-                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-            ).execute() ?: throw draft.attributeNotFound(attributeKey)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.REFERENCE_EDIT) {
+            val clearsBinding = updateAttributeRequest.clearCodeListBinding == true
+            validate("clearCodeListBinding", !(clearsBinding && updateAttributeRequest.codeListBinding != null)) { "Send a codeListBinding or clearCodeListBinding, not both" }
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.attributeId(attributeKey)
+            // PATCH semantics: pull the current definition so we can write a
+            // full UpdateAttributeDefinition that only changes the fields the
+            // client sent. UpdateAttributeDefinition isn't itself partial.
+            val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
+            val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
+                draft.codeListAt(binding.catalogKey, binding.key)
+            } ?: current.codeListId.takeUnless { clearsBinding }
+            val attribute = requestField("displayName", "name") {
+                UpdateAttributeDefinition(
+                    id = id,
+                    displayName = updateAttributeRequest.name ?: current.displayName,
+                    allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
+                    codeListId = codeListId,
+                    catalogVersion = draft.ref,
+                    // The merge above read the attribute at `current`; a write in between must not be lost.
+                    expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+                ).execute() ?: throw draft.attributeNotFound(attributeKey)
+            }
+            return okWithETag(attribute.revision, attribute.toDto(draft))
         }
-        return okWithETag(attribute.revision, attribute.toDto(draft))
     }
 
     override fun deleteAttribute(
@@ -345,17 +349,19 @@ class EpistolaTenantApi(
         updateEnvironmentRequest: UpdateEnvironmentRequest,
         ifMatch: String?,
     ): ResponseEntity<EnvironmentDto> {
-        val id = environmentId(tenantKey, environmentKey)
-        // A partial update: what is left out stays as it is.
-        val current = GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
-        val environment = UpdateEnvironment(
-            id = id,
-            name = updateEnvironmentRequest.name ?: current.name,
-            production = updateEnvironmentRequest.production,
-            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-        ).execute()
-            ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
-        return okWithETag(environment.revision, environment.toDto())
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TENANT_SETTINGS) {
+            val id = environmentId(tenantKey, environmentKey)
+            // A partial update: what is left out stays as it is.
+            val current = GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
+            val environment = UpdateEnvironment(
+                id = id,
+                name = updateEnvironmentRequest.name ?: current.name,
+                production = updateEnvironmentRequest.production,
+                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+            ).execute()
+                ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
+            return okWithETag(environment.revision, environment.toDto())
+        }
     }
 
     override fun deleteEnvironment(
@@ -412,12 +418,14 @@ class EpistolaTenantApi(
         catalogKey: String,
         release: String,
     ): ResponseEntity<Unit> {
-        val environment = existingEnvironment(tenantKey, environmentKey)
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployCatalogRelease(environment, catalog.catalogId, release).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.ENVIRONMENT_DEPLOY) {
+            val environment = existingEnvironment(tenantKey, environmentKey)
+            val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+            if (!UndeployCatalogRelease(environment, catalog.catalogId, release).execute()) {
+                throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
+            }
+            return ResponseEntity.noContent().build()
         }
-        return ResponseEntity.noContent().build()
     }
 
     override fun listDeploymentHistory(

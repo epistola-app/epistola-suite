@@ -110,6 +110,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
@@ -194,21 +196,23 @@ class EpistolaCatalogApi(
         catalogKey: String,
         version: String,
     ): ResponseEntity<InstallCatalogReleaseResponse> {
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val result = InstallCatalogRelease(catalog.catalogId, version).execute()
-        if (result.aborted) throw IllegalStateException("Installing ${catalog.id.value} $version failed; nothing changed")
-        return ResponseEntity.ok(
-            InstallCatalogReleaseResponse(
-                registry = catalog.registry,
-                namespace = catalog.namespace,
-                catalogKey = catalog.id.value,
-                version = result.releaseVersion ?: version,
-                newlyInstalled = result.newlyInstalled,
-                total = result.results.size,
-                installedDependencies = result.installedDependencies.map { it.toDto() },
-                presentDependencies = result.presentDependencies.map { it.toDto() },
-            ),
-        )
+        authorizedOperation(TenantKey.of(tenantKey), Permission.CATALOG_MANAGE) {
+            val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+            val result = InstallCatalogRelease(catalog.catalogId, version).execute()
+            if (result.aborted) throw IllegalStateException("Installing ${catalog.id.value} $version failed; nothing changed")
+            return ResponseEntity.ok(
+                InstallCatalogReleaseResponse(
+                    registry = catalog.registry,
+                    namespace = catalog.namespace,
+                    catalogKey = catalog.id.value,
+                    version = result.releaseVersion ?: version,
+                    newlyInstalled = result.newlyInstalled,
+                    total = result.results.size,
+                    installedDependencies = result.installedDependencies.map { it.toDto() },
+                    presentDependencies = result.presentDependencies.map { it.toDto() },
+                ),
+            )
+        }
     }
 
     /**
@@ -320,11 +324,13 @@ class EpistolaCatalogApi(
         catalogKey: String,
         createCatalogReleaseRequest: CreateCatalogReleaseRequest,
     ): ResponseEntity<CatalogReleaseDto> {
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val draft = CreateCatalogDraft(catalog.catalogId, createCatalogReleaseRequest.name, createCatalogReleaseRequest.from).execute()
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .location(versionLocation(draft.versionId))
-            .body(draft.toDto(catalog))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+            val draft = CreateCatalogDraft(catalog.catalogId, createCatalogReleaseRequest.name, createCatalogReleaseRequest.from).execute()
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .location(versionLocation(draft.versionId))
+                .body(draft.toDto(catalog))
+        }
     }
 
     /** Discards a draft. The next version, a convention of this suite, starts again on the latest release. */
@@ -335,9 +341,11 @@ class EpistolaCatalogApi(
         catalogKey: String,
         release: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        DeleteCatalogDraft(draft.catalogId, draft.draftRef).execute()
-        return ResponseEntity.noContent().build()
+        authorizedOperation(TenantKey.of(tenantKey), Permission.CATALOG_RELEASE) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            DeleteCatalogDraft(draft.catalogId, draft.draftRef).execute()
+            return ResponseEntity.noContent().build()
+        }
     }
 
     override fun updateCatalogRelease(
@@ -349,27 +357,29 @@ class EpistolaCatalogApi(
         updateCatalogReleaseRequest: UpdateCatalogReleaseRequest,
         ifMatch: String?,
     ): ResponseEntity<CatalogReleaseDto> {
-        refuseQualityBinding("updateCatalogRelease", updateCatalogReleaseRequest.quality)
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val request = updateCatalogReleaseRequest
-        // An omitted or null member keeps what the draft has; its theme settings are contract ADR 0007.
-        UpdateCatalogDraft(
-            catalog = draft.catalogId,
-            draft = draft.draftRef,
-            name = request.name,
-            defaultTheme = request.defaultTheme?.let { theme ->
-                // The catalog its alias names, by the draft's declarations (ADR 0034, section 9).
-                val themeCatalog = app.epistola.suite.catalog.CatalogReferences.resolve(draft.catalogId, theme.catalogKey, ListCatalogDependencies(draft.catalogId, catalogVersion = draft.ref).query())
-                    ?: throw ValidationException("defaultTheme.catalogKey", "'${theme.catalogKey}' is not an alias this draft declares a dependency under", ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED)
-                CatalogDefaultTheme(ThemeKey.of(theme.key), themeCatalog)
-            },
-            presets = request.presets?.map { CatalogPreset(it.key, it.name, it.description) },
-            expectedRevision = ETags.expected(ifMatch),
-            // Null keeps the default theme; the flag removes it (and is refused beside a theme).
-            clearDefaultTheme = request.clearDefaultTheme == true,
-        ).execute()
-        val updated = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        return okWithETag(updated.version.revision, updated.version.toDto(updated.catalog))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            refuseQualityBinding("updateCatalogRelease", updateCatalogReleaseRequest.quality)
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val request = updateCatalogReleaseRequest
+            // An omitted or null member keeps what the draft has; its theme settings are contract ADR 0007.
+            UpdateCatalogDraft(
+                catalog = draft.catalogId,
+                draft = draft.draftRef,
+                name = request.name,
+                defaultTheme = request.defaultTheme?.let { theme ->
+                    // The catalog its alias names, by the draft's declarations (ADR 0034, section 9).
+                    val themeCatalog = app.epistola.suite.catalog.CatalogReferences.resolve(draft.catalogId, theme.catalogKey, ListCatalogDependencies(draft.catalogId, catalogVersion = draft.ref).query())
+                        ?: throw ValidationException("defaultTheme.catalogKey", "'${theme.catalogKey}' is not an alias this draft declares a dependency under", ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED)
+                    CatalogDefaultTheme(ThemeKey.of(theme.key), themeCatalog)
+                },
+                presets = request.presets?.map { CatalogPreset(it.key, it.name, it.description) },
+                expectedRevision = ETags.expected(ifMatch),
+                // Null keeps the default theme; the flag removes it (and is refused beside a theme).
+                clearDefaultTheme = request.clearDefaultTheme == true,
+            ).execute()
+            val updated = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
+            return okWithETag(updated.version.revision, updated.version.toDto(updated.catalog))
+        }
     }
 
     /** The number releasing the draft would give it, from the kind of change against its base. */
@@ -463,16 +473,18 @@ class EpistolaCatalogApi(
         release: String,
         mergeIntoCatalogDraftRequest: MergeIntoCatalogDraftRequest,
     ): ResponseEntity<MergeIntoCatalogDraftResponse> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val merged = MergeReleaseIntoDraft(
-            catalog = draft.catalogId,
-            release = mergeIntoCatalogDraftRequest.release,
-            resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeResolution.ofWire(side.name) ?: error("No resolution $side") },
-            catalogVersion = draft.ref,
-            expectedToken = mergeIntoCatalogDraftRequest.expectedToken,
-            mergedContent = mergeIntoCatalogDraftRequest.mergedContent.orEmpty(),
-        ).execute()
-        return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept, merged.merged))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val merged = MergeReleaseIntoDraft(
+                catalog = draft.catalogId,
+                release = mergeIntoCatalogDraftRequest.release,
+                resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeResolution.ofWire(side.name) ?: error("No resolution $side") },
+                catalogVersion = draft.ref,
+                expectedToken = mergeIntoCatalogDraftRequest.expectedToken,
+                mergedContent = mergeIntoCatalogDraftRequest.mergedContent.orEmpty(),
+            ).execute()
+            return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept, merged.merged))
+        }
     }
 
     /**
@@ -496,29 +508,31 @@ class EpistolaCatalogApi(
         release: String,
         releaseCatalogDraftRequest: ReleaseCatalogDraftRequest,
     ): ResponseEntity<ReleaseCatalogDraftResponse> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val result = ReleaseCatalogDraft(
-            catalog = draft.catalogId,
-            version = releaseCatalogDraftRequest.version,
-            notes = releaseCatalogDraftRequest.notes,
-            acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
-            catalogVersion = draft.ref,
-            releaseDependencies = releaseCatalogDraftRequest.releaseDependencies == true,
-            // A draft with no change against its base is refused with 409 `conflict` (contract).
-            requireChange = true,
-        ).execute()
-        val released = GetCatalogRelease(draft.catalogId, result.version).query()
-            ?: throw CatalogReleaseNotFoundException(draft.catalogKey, result.version)
-        return ResponseEntity.ok(
-            ReleaseCatalogDraftResponse(
-                release = released.toDto(draft.catalog),
-                unchangedContent = result.unchangedContent,
-                draftsBehind = result.draftsBehind,
-                releasedDependencies = result.releasedDependencies.map {
-                    ReleasedDependencyDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, releaseId = it.versionId, version = it.releaseVersion)
-                },
-            ),
-        )
+        authorizedOperation(TenantKey.of(tenantKey), Permission.CATALOG_RELEASE) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val result = ReleaseCatalogDraft(
+                catalog = draft.catalogId,
+                version = releaseCatalogDraftRequest.version,
+                notes = releaseCatalogDraftRequest.notes,
+                acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
+                catalogVersion = draft.ref,
+                releaseDependencies = releaseCatalogDraftRequest.releaseDependencies == true,
+                // A draft with no change against its base is refused with 409 `conflict` (contract).
+                requireChange = true,
+            ).execute()
+            val released = GetCatalogRelease(draft.catalogId, result.version).query()
+                ?: throw CatalogReleaseNotFoundException(draft.catalogKey, result.version)
+            return ResponseEntity.ok(
+                ReleaseCatalogDraftResponse(
+                    release = released.toDto(draft.catalog),
+                    unchangedContent = result.unchangedContent,
+                    draftsBehind = result.draftsBehind,
+                    releasedDependencies = result.releasedDependencies.map {
+                        ReleasedDependencyDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, releaseId = it.versionId, version = it.releaseVersion)
+                    },
+                ),
+            )
+        }
     }
 
     // ================== Changes and readiness ==================
@@ -545,8 +559,10 @@ class EpistolaCatalogApi(
         catalogKey: String,
         release: String,
     ): ResponseEntity<CatalogChangesDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        return ResponseEntity.ok(MarkCatalogReady(draft.catalogId, catalogVersion = draft.ref).execute().toDto(draft))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            return ResponseEntity.ok(MarkCatalogReady(draft.catalogId, catalogVersion = draft.ref).execute().toDto(draft))
+        }
     }
 
     // ================== Dependencies ==================
@@ -573,33 +589,35 @@ class EpistolaCatalogApi(
         updateCatalogDependenciesRequest: UpdateCatalogDependenciesRequest,
         ifMatch: String?,
     ): ResponseEntity<CatalogDependencyListResponse> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        // A declaration's alias is what content names the catalog by (contract ADR 0003). This
-        // installation names every catalog a catalog uses by that catalog's key until catalogs are
-        // told apart by namespace and key (ADR 0034, phase 4): another alias is refused, not ignored.
-        updateCatalogDependenciesRequest.dependencies.forEachIndexed { index, requirement ->
-            app.epistola.suite.validation.validate("dependencies[$index].alias", requirement.alias == null || requirement.alias == requirement.catalogKey, app.epistola.suite.validation.ValidationCode.CATALOG_DEPENDENCY_INVALID) {
-                "This installation names every catalog a catalog uses by that catalog's key: alias '${requirement.alias}' for '${requirement.catalogKey}' " +
-                    "is not supported until catalogs are told apart by namespace and key; leave it out, or give the catalog's key"
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            // A declaration's alias is what content names the catalog by (contract ADR 0003). This
+            // installation names every catalog a catalog uses by that catalog's key until catalogs are
+            // told apart by namespace and key (ADR 0034, phase 4): another alias is refused, not ignored.
+            updateCatalogDependenciesRequest.dependencies.forEachIndexed { index, requirement ->
+                app.epistola.suite.validation.validate("dependencies[$index].alias", requirement.alias == null || requirement.alias == requirement.catalogKey, app.epistola.suite.validation.ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+                    "This installation names every catalog a catalog uses by that catalog's key: alias '${requirement.alias}' for '${requirement.catalogKey}' " +
+                        "is not supported until catalogs are told apart by namespace and key; leave it out, or give the catalog's key"
+                }
             }
+            val declared = UpdateCatalogDependencies(
+                catalog = draft.catalogId,
+                dependencies = updateCatalogDependenciesRequest.dependencies.map {
+                    DeclaredCatalogDependency(
+                        registry = it.registry ?: identity.defaultRegistry,
+                        namespace = it.namespace,
+                        catalogKey = it.catalogKey,
+                        releaseVersion = it.version,
+                        versionId = it.releaseId,
+                    )
+                },
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute()
+            val revision = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release).version.revision
+            val hashes = ListReleaseContentHashes(draft.tenantKey).query()
+            return okWithETag(revision, CatalogDependencyListResponse(items = declared.map { it.toDependencyDto(hashes) }))
         }
-        val declared = UpdateCatalogDependencies(
-            catalog = draft.catalogId,
-            dependencies = updateCatalogDependenciesRequest.dependencies.map {
-                DeclaredCatalogDependency(
-                    registry = it.registry ?: identity.defaultRegistry,
-                    namespace = it.namespace,
-                    catalogKey = it.catalogKey,
-                    releaseVersion = it.version,
-                    versionId = it.releaseId,
-                )
-            },
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute()
-        val revision = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release).version.revision
-        val hashes = ListReleaseContentHashes(draft.tenantKey).query()
-        return okWithETag(revision, CatalogDependencyListResponse(items = declared.map { it.toDependencyDto(hashes) }))
     }
 
     // ================== Helpers ==================

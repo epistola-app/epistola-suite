@@ -22,10 +22,13 @@ import app.epistola.suite.api.v1.shared.toBlockStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -133,9 +136,11 @@ class EpistolaThemeApi : ThemesApi {
         release: String,
         themeKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val key = ThemeKey.of(themeKey)
-        if (!DeleteTheme(id = ThemeId(key, draft.catalogId), catalogVersion = draft.ref).execute()) throw ThemeNotFoundException(key)
-        return ResponseEntity.noContent().build()
+        authorizedOperation(TenantKey.of(tenantKey), Permission.THEME_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val key = ThemeKey.of(themeKey)
+            if (!DeleteTheme(id = ThemeId(key, draft.catalogId), catalogVersion = draft.ref).execute()) throw ThemeNotFoundException(key)
+            return ResponseEntity.noContent().build()
+        }
     }
 }

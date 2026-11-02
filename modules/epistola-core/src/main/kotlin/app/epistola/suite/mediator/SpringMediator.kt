@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.security.Authorized
+import app.epistola.suite.security.AuthorizedOperation
 import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
@@ -102,19 +103,21 @@ class SpringMediator(
             // One transaction around handler + IMMEDIATE events + event publication:
             // a throwing IMMEDIATE handler rolls the command back, and AFTER_COMMIT
             // listeners (EventLogSubscriber) bind to this transaction.
-            val result = inCommandTransaction(command) {
-                // On the catalog version the command names, if any; IMMEDIATE handlers see it too.
-                inTargetedVersion(command) {
-                    val handled = handler.handle(command)
-                    logger.debug("Command {} completed successfully", commandName)
+            val result = handlingIfAuthorized(command) {
+                inCommandTransaction(command) {
+                    // On the catalog version the command names, if any; IMMEDIATE handlers see it too.
+                    inTargetedVersion(command) {
+                        val handled = handler.handle(command)
+                        logger.debug("Command {} completed successfully", commandName)
 
-                    // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
-                    invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
+                        // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
+                        invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
 
-                    // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
-                    eventPublisher.publishEvent(CommandCompleted(command, handled))
+                        // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
+                        eventPublisher.publishEvent(CommandCompleted(command, handled))
 
-                    handled
+                        handled
+                    }
                 }
             }
 
@@ -145,7 +148,7 @@ class SpringMediator(
 
     @Suppress("UNCHECKED_CAST")
     private fun <R> ask(query: Query<R>): R {
-        enforceAuthorization(query)
+        enforceAuthorization(query, isQuery = true)
 
         val queryName = query::class.simpleName ?: "Unknown"
         logger.debug("Dispatching query: {}", queryName)
@@ -361,9 +364,16 @@ class SpringMediator(
         } ?: throw IllegalArgumentException("No handler found for query: ${queryClass.simpleName}")
     }
 
-    private fun enforceAuthorization(message: Any) {
+    /** Runs [block], handling [command], as an authorized command of its tenant when it is one ([AuthorizedOperation]). */
+    private fun <T> handlingIfAuthorized(command: Command<*>, block: () -> T): T = if (command is RequiresPermission) AuthorizedOperation.handlingCommand(command.tenantKey, block) else block()
+
+    private fun enforceAuthorization(message: Any, isQuery: Boolean = false) {
         when (message) {
             is SystemInternal -> { /* no-op: system-internal operations bypass auth */ }
+
+            // Part of what is already authorized (AuthorizedOperation): a query an authorized operation
+            // reads, or a message a command's handler builds on (partOfCurrentCommand).
+            is RequiresPermission if AuthorizedOperation.covers(message.tenantKey, isQuery) -> requireTenantAccess(message.tenantKey)
 
             is RequiresPermission -> {
                 // A permission a platform role grants in every tenant (PLATFORM_OBSERVER's reads)
