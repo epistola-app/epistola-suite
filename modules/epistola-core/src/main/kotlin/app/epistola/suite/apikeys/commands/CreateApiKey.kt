@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
@@ -52,6 +53,15 @@ class CreateApiKeyHandler(
 ) : CommandHandler<CreateApiKey, ApiKeyWithSecret> {
 
     override fun handle(command: CreateApiKey): ApiKeyWithSecret {
+        // A key may carry only roles its creator holds in the tenant. Roles do not inherit, and
+        // creating keys is an administrator's permission, so without this an administrator who
+        // does not publish could mint a key that does.
+        val grantable = SecurityContext.current().rolesFor(command.tenantId)
+        val ungrantable = command.roles - grantable
+        validate("roles", ungrantable.isEmpty()) {
+            "You can only grant roles you hold in this tenant: ${ungrantable.sortedBy { it.ordinal }.joinToString { it.name }}"
+        }
+
         val plaintextKey = apiKeyService.generateKey()
         val keyHash = apiKeyService.hashKey(plaintextKey)
         val keyPrefix = apiKeyService.extractPrefix(plaintextKey)

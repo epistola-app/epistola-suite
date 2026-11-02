@@ -547,7 +547,7 @@ API key authentication allows machine-to-machine access to the REST API without 
 
 API keys are managed per-tenant via the web UI at `/tenants/{tenantId}/api-keys`:
 
-- **Create:** Name the key, pick its **scope** (the tenant roles it authenticates as — `content-viewer` is the default, administration is never pre-selected), and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
+- **Create:** Name the key, pick its **scope** (the tenant roles it authenticates as — `content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
 - **List:** View all active keys with name, prefix, creation date, last used, and expiration.
 - **Revoke:** Delete a key to immediately invalidate it.
 

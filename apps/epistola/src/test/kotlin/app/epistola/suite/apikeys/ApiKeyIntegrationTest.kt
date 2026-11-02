@@ -9,12 +9,17 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -127,6 +132,66 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
                 .containsExactlyInAnyOrder(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR)
             assertThat(reloaded.roles).doesNotContain(TenantRole.TENANT_ADMINISTRATOR, TenantRole.CONTENT_AUTHOR)
         }
+    }
+
+    private fun member(
+        tenant: TenantKey,
+        tenantRoles: Set<TenantRole>,
+        globalRoles: Set<TenantRole> = emptySet(),
+    ): EpistolaPrincipal {
+        val id = UserKey.generate()
+        return EpistolaPrincipal(
+            userId = id,
+            externalId = "member-${id.value}",
+            email = "member-${id.value}@example.com",
+            displayName = "Member",
+            tenantMemberships = mapOf(tenant to tenantRoles),
+            globalRoles = globalRoles,
+            currentTenantId = tenant,
+        )
+    }
+
+    @Test
+    fun `an administrator cannot create a key with a role they do not hold`() {
+        val tenant = createTenant("Separation of duties")
+        val administrator = member(tenant.id, setOf(TenantRole.TENANT_ADMINISTRATOR))
+
+        assertThatThrownBy {
+            runAs(administrator) {
+                CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+            }
+        }.isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("CONTENT_PUBLISHER")
+
+        assertThat(withMediator { ListApiKeys(tenantId = tenant.id).query() }).isEmpty()
+    }
+
+    @Test
+    fun `an administrator who also holds a role may grant it`() {
+        val tenant = createTenant("Administrator and publisher")
+        val administrator = member(tenant.id, setOf(TenantRole.TENANT_ADMINISTRATOR, TenantRole.CONTENT_PUBLISHER))
+
+        val created = runAs(administrator) {
+            CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+        }
+
+        assertThat(created.apiKey.roles).containsExactly(TenantRole.CONTENT_PUBLISHER)
+    }
+
+    @Test
+    fun `a global role counts towards the roles an administrator may grant in a tenant`() {
+        val tenant = createTenant("Global publisher")
+        val administrator = member(
+            tenant.id,
+            tenantRoles = setOf(TenantRole.TENANT_ADMINISTRATOR),
+            globalRoles = setOf(TenantRole.CONTENT_PUBLISHER),
+        )
+
+        val created = runAs(administrator) {
+            CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+        }
+
+        assertThat(created.apiKey.roles).containsExactly(TenantRole.CONTENT_PUBLISHER)
     }
 
     @Test
