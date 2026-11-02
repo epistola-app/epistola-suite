@@ -223,10 +223,17 @@ class CatalogImportRows(
         return deps.filter { dep ->
             when (dep) {
                 is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.key}" !in found
+
                 is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.key}" !in found
+
                 is app.epistola.catalog.protocol.DependencyRef.Image -> "image:${dep.catalogKey}:${dep.key}" !in found
+
                 is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.key}" !in found
+
                 is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.key}" !in found
+
+                // The suite stores no quality profiles yet, so one named in another catalog is never there.
+                is app.epistola.catalog.protocol.DependencyRef.QualityProfile -> true
             }
         }
     }

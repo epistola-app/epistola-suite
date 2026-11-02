@@ -399,6 +399,7 @@ class ImportCatalogZipHandler(
                         is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.key}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.key}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.QualityProfile -> "quality profile '${dep.key}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(
