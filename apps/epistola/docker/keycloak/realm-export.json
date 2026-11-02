@@ -43,7 +43,11 @@
         },
         {
           "name": "platform",
-          "subGroups": [{ "name": "tenant-manager" }, { "name": "installation-administrator" }, { "name": "platform-observer" }]
+          "subGroups": [
+            { "name": "tenant-manager" },
+            { "name": "installation-administrator" },
+            { "name": "platform-observer" }
+          ]
         }
       ]
     }
