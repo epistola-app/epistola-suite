@@ -1,6 +1,6 @@
 # ADR 0043: Searching a tenant's catalogs and resources
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-02; implementation in 2.1, tracked in [#1228](https://github.com/epistola-app/epistola-suite/issues/1228))
 - **Date:** 2026-10-30
 - **Deciders:** Epistola team
 - **Tags:** search, ui, catalog, resources, mcp, database
