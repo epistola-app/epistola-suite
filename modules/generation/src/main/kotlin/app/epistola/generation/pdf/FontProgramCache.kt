@@ -11,6 +11,7 @@ import java.security.MessageDigest
 import java.util.HexFormat
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -45,11 +46,16 @@ class FontProgramCache(
 ) {
     /** One render's view of the cache: lookups through the same scope count as one use. */
     inner class Scope internal constructor() {
+        private val used: MutableSet<FontProgram> = ConcurrentHashMap.newKeySet()
+
         /**
          * The parsed font for [bytes], from the cache when the same content was parsed before.
          * [contentHash] must be the lowercase hex SHA-256 of [bytes]; it is computed when null.
          */
-        fun program(bytes: ByteArray, contentHash: String? = null): FontProgram = programFor(this, bytes, contentHash)
+        fun program(bytes: ByteArray, contentHash: String? = null): FontProgram = programFor(this, bytes, contentHash).also { used.add(it) }
+
+        /** The fonts this render has asked for so far: what a failure can name. */
+        internal val programs: Set<FontProgram> get() = used.toSet()
     }
 
     /** A scope for one render; every [FontCache] of that render shares it. */

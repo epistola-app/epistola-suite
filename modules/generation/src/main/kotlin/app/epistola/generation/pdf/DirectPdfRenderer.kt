@@ -124,40 +124,45 @@ class DirectPdfRenderer(
         // One scope per render: the parsed-font cache counts a face as reused only across renders.
         val fontScope = fontPrograms.scope()
 
-        if (TwoPassAnalyzer.requiresTwoPassRendering(styledDocument)) {
-            renderTwoPass(
-                document = styledDocument,
-                data = data,
-                outputStream = outputStream,
-                resolvedTheme = styledTheme,
-                metadata = metadata,
-                pdfaCompliant = pdfaCompliant,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontFamilyResolver,
-                renderingDefaults = renderingDefaults,
-                renderMode = renderMode,
-                scopedEvaluator = scopedEvaluator,
-                fontScope = fontScope,
-                clock = clock,
-                watermarkText = watermarkText,
-            )
-        } else {
-            renderSinglePass(
-                document = styledDocument,
-                data = data,
-                outputStream = outputStream,
-                resolvedTheme = styledTheme,
-                metadata = metadata,
-                pdfaCompliant = pdfaCompliant,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontFamilyResolver,
-                renderingDefaults = renderingDefaults,
-                renderMode = renderMode,
-                scopedEvaluator = scopedEvaluator,
-                fontScope = fontScope,
-                clock = clock,
-                watermarkText = watermarkText,
-            )
+        try {
+            if (TwoPassAnalyzer.requiresTwoPassRendering(styledDocument)) {
+                renderTwoPass(
+                    document = styledDocument,
+                    data = data,
+                    outputStream = outputStream,
+                    resolvedTheme = styledTheme,
+                    metadata = metadata,
+                    pdfaCompliant = pdfaCompliant,
+                    assetResolver = assetResolver,
+                    fontFamilyResolver = fontFamilyResolver,
+                    renderingDefaults = renderingDefaults,
+                    renderMode = renderMode,
+                    scopedEvaluator = scopedEvaluator,
+                    fontScope = fontScope,
+                    clock = clock,
+                    watermarkText = watermarkText,
+                )
+            } else {
+                renderSinglePass(
+                    document = styledDocument,
+                    data = data,
+                    outputStream = outputStream,
+                    resolvedTheme = styledTheme,
+                    metadata = metadata,
+                    pdfaCompliant = pdfaCompliant,
+                    assetResolver = assetResolver,
+                    fontFamilyResolver = fontFamilyResolver,
+                    renderingDefaults = renderingDefaults,
+                    renderMode = renderMode,
+                    scopedEvaluator = scopedEvaluator,
+                    fontScope = fontScope,
+                    clock = clock,
+                    watermarkText = watermarkText,
+                )
+            }
+        } catch (e: Exception) {
+            // iText refuses a PDF/A character no font has without naming it; say which, in what font, where.
+            throw UnrenderableCharacterException.from(e, styledDocument, data, fontScope.programs) ?: e
         }
     }
 

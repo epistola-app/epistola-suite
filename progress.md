@@ -2964,3 +2964,16 @@ cannot clear a default theme through generated clients (null and omitted are the
   labels derived from them, in that zone; `ChainSnapshot` now reads in UTC, and the golden snapshot is recorded
   again from the old chain in UTC. The test passes under UTC, CET, New York and Tokyo, and fails in Tokyo with
   the step-5 fix disabled.
+
+## Unrenderable characters and Word paste (2 November)
+
+Branch `fix/word-paste-unrenderable-glyphs`. Reported on 1.5.0: a PDF/A render failed with iText's
+"The '' glyph isn't defined in embedded font". The quoted character was invisible: one of the control
+characters Word puts in text, which no font has a glyph for. iText drops only Java's
+identifier-ignorable characters and the soft hyphen, so VT, FF, U+001C–1F and U+2028/9 reach the
+PDF/A check. Probed over all nine system fonts: Word's line break, page break, non-breaking and
+optional hyphen and its Symbol/Wingdings bullets fail in every one.
+
+| Change                                                                                                                                                                                                  | Coverage                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| The PDF/A refusal becomes `UnrenderableCharacterException` (an `IllegalArgumentException`): code point and name, the fonts lacking it, the template block with an excerpt, or the data path (no data quoted) | ✅ `UnrenderableCharacterTest` (3 of 4 fail without the translation); ✅ `DocumentTemplateRoutesTest` preview says which (500 before) |
