@@ -375,6 +375,24 @@ val tenant = createTenant("My Tenant")
 // slug: "tenantcommandstest-1" (derived from test class name)
 ```
 
+Its system catalog is **copied from a template tenant**, not installed: `SystemCatalogTemplate`
+installs the bundled system catalog once per test database, for real, into the tenant
+`system-catalog-template`, and each test tenant gets a copy of those rows under its own key.
+Installing it for every one of the thousands of tenants the tests create was most of the
+integration tests' time. `fixture { given { tenant(...) } }` and `scenario { given { tenant(...) } }`
+do the same.
+
+A test about installing the system catalog asks for the real install:
+
+```kotlin
+val tenant = createTenant("Sys1", SystemCatalogSetup.INSTALL)
+```
+
+`SystemCatalogTemplateTest` holds a copied tenant equal to an installed one (every tenant-scoped
+table), and `SystemCatalogTemplateEventHandlersTest` fails when an `EventHandler` reacts to a command
+the copy skips. A tenant created any other way (`TestNamespaces.createTenant(...).execute()`, over
+HTTP) installs it as production does.
+
 ### TestIdHelpers
 
 Generates unique sequential IDs to avoid collisions across parallel tests:

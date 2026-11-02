@@ -371,7 +371,7 @@ class CodeListApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("cl-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "CodeList Tenant").execute()
+        createTenant(tenantKey, "CodeList Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "cl-it").execute()
         tenantKey to created.plaintextKey
     }

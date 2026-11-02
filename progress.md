@@ -90,11 +90,20 @@ install in SHA-256: the fonts were unzipped, verified and hashed again for every
 Locally, full core suite back to back: `CreateTenant` 1,023 s → 643 s of thread time (738 → 462 ms
 each), `ImportCatalogZip` self 621 s → 115 s.
 
+Then, test tenants' system catalog copied from a template (`perf/tenant-template-copy`, #1268):
+per-statement work could only reshape the ~2,500 installs; not repeating them removes them.
+
+| What                                                                                                                                                        | Where                                                                            | Covered                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `createTenant` / fixture / scenario tenants get the system catalog as a copy of a template tenant's rows; `SystemCatalogSetup.INSTALL` installs it for real | `SystemCatalogTemplate`, `CreateTenant.installSystemCatalog`                     | ✅ `SystemCatalogTemplateTest` (fails when a table is not copied), every module's `test` green |
+| No `EventHandler` reacts to a command the copy skips                                                                                                        | `SystemCatalogTemplateEventHandlersTest`                                         | ✅ fails with an `EventHandler<ImportFont>` added                                              |
+| The install tests install for real                                                                                                                          | `InstallSystemCatalogTest`, `InstalledReleaseTest`, `SystemFontsIntegrationTest` | ✅                                                                                             |
+
 Noticed, not touched:
 
-- **The rest of a tenant's cost**: `RecordInstalledRelease` (~110 ms, re-fingerprints the system
-  catalog for every tenant) and nine `ImportFont` commands (~110 ms together) where `main` seeded
-  the fonts in three statements.
+- **The rest of a tenant's install cost** (now only for real installs): `RecordInstalledRelease`
+  re-fingerprints the system catalog for every tenant, and nine `ImportFont` commands where `main`
+  seeded the fonts in three statements.
 - **Test JVMs hash without the SHA intrinsics** (`-XX:TieredStopAtLevel=1`): C2 made a tenant 31 %
   cheaper locally, but doubled context boots on CI in PR #896, so it stays.
 

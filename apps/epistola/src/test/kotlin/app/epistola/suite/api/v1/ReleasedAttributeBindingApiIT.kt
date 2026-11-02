@@ -104,7 +104,7 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
     /** A tenant whose `letters` binds `preferred-language` to `system`'s `iso-639-1` and `tone` to its own `tones`, released 1.0.0, and an API key. */
     private fun released(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("rab-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Released binding").execute()
+        createTenant(tenantKey, "Released binding")
         CreateCatalog(tenantKey, letters, "Letters").execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("preferred-language"), testCatalog(TenantId(tenantKey), letters)),

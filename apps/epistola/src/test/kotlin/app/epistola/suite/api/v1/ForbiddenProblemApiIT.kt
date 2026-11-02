@@ -99,7 +99,7 @@ class ForbiddenProblemApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("forb-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Forbidden Tenant").execute()
+        createTenant(tenantKey, "Forbidden Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "forbidden-it", roles = TenantRole.entries.toSet()).execute()
         tenantKey to created.plaintextKey
     }

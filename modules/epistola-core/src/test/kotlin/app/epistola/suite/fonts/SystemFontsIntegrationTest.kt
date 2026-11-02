@@ -23,6 +23,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.SystemCatalogSetup
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -77,7 +78,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `a new tenant has the nine system font families`() {
-        val tenant = createTenant("Fonts1")
+        val tenant = createTenant("Fonts1", SystemCatalogSetup.INSTALL)
         withMediator {
             val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
@@ -95,7 +96,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `each family resolves four faces to real font binaries`() {
-        val tenant = createTenant("Fonts2")
+        val tenant = createTenant("Fonts2", SystemCatalogSetup.INSTALL)
         withMediator {
             for (slug in expectedSlugs) {
                 for ((weight, italic) in expectedFaces) {
@@ -119,7 +120,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `installing the system catalog again keeps the nine families`() {
-        val tenant = createTenant("Fonts3")
+        val tenant = createTenant("Fonts3", SystemCatalogSetup.INSTALL)
         withMediator {
             // CreateTenant installed the system catalog once; install it again: nothing changes.
             InstallSystemCatalog(tenant.id).execute()
@@ -132,7 +133,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     fun `creating a tenant reads no font face back from the database`() {
         // The install fetched the faces and checks the stored catalog with those bytes; reading all
         // 36 back (14 MB, one query each) was most of a tenant's creation and of its memory.
-        val statements = statementsOnThisThread { createTenant("Fonts Reads Tenant") }
+        val statements = statementsOnThisThread { createTenant("Fonts Reads Tenant", SystemCatalogSetup.INSTALL) }
 
         assertThat(statements.filter { "JOIN asset_content c ON c.content_hash = b.binary_hash" in it }).isEmpty()
     }
@@ -165,7 +166,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `every seeded system font face has a 64-char hex content hash, linked to its stored bytes`() {
-        val tenant = createTenant("Fonts Hash Tenant")
+        val tenant = createTenant("Fonts Hash Tenant", SystemCatalogSetup.INSTALL)
         val hashes = jdbi.withHandle<List<String?>, Exception> { handle ->
             // Each face is a binary of its font's content (ADR 0033): its hash, and a link to bytes stored under it.
             handle.createQuery(
@@ -199,7 +200,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `installing the system catalog again keeps every family's fingerprint`() {
-        val tenant = createTenant("Fonts Hash Idempotent Tenant")
+        val tenant = createTenant("Fonts Hash Idempotent Tenant", SystemCatalogSetup.INSTALL)
         withMediator {
             val before = expectedSlugs.associateWith { slug ->
                 GetFontFamilyFingerprint(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of(slug)).query()

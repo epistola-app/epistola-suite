@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.SystemCatalogSetup
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -43,7 +44,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `new tenant has system catalog installed by CreateTenant`() {
-        val tenant = createTenant("Sys1")
+        val tenant = createTenant("Sys1", SystemCatalogSetup.INSTALL)
 
         withMediator {
             val catalog = GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
@@ -56,7 +57,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `system catalog brings the three reserved code lists`() {
-        val tenant = createTenant("Sys2")
+        val tenant = createTenant("Sys2", SystemCatalogSetup.INSTALL)
         val tenantId = TenantId(tenant.id)
         val systemCatalogId = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
 
@@ -74,7 +75,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `system catalog binds reserved attributes to their canonical code lists`() {
-        val tenant = createTenant("Sys3")
+        val tenant = createTenant("Sys3", SystemCatalogSetup.INSTALL)
         val tenantId = TenantId(tenant.id)
         val systemCatalogId = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
 
@@ -102,7 +103,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `re-running install on the same version is a no-op`() {
-        val tenant = createTenant("Sys4")
+        val tenant = createTenant("Sys4", SystemCatalogSetup.INSTALL)
 
         withMediator {
             val result = InstallSystemCatalog(tenantKey = tenant.id).execute()
@@ -118,7 +119,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         // fingerprint-based, not version-string-based). If the upgrade path is
         // wired correctly, the installer should call `UpgradeCatalog` and
         // report `UPGRADED`, bringing the row back to the current bundle.
-        val tenant = createTenant("SysUpgrade")
+        val tenant = createTenant("SysUpgrade", SystemCatalogSetup.INSTALL)
 
         jdbi.useHandle<Exception> { handle ->
             // It holds no bundled release, so it has none installed (catalog_installed_releases).
@@ -146,7 +147,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `variant validation accepts a value present in system code list`() {
-        val tenant = createTenant("SysVal1")
+        val tenant = createTenant("SysVal1", SystemCatalogSetup.INSTALL)
 
         withMediator {
             assertThatCode {
@@ -157,7 +158,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `variant validation rejects a value absent from system code list`() {
-        val tenant = createTenant("SysVal2")
+        val tenant = createTenant("SysVal2", SystemCatalogSetup.INSTALL)
 
         withMediator {
             assertThatThrownBy {
@@ -175,7 +176,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         // `language` bound to ISO 639-1. The qualified-key form lets a
         // variant pick exactly one of the two without depending on
         // associateBy's pick.
-        val tenant = createTenant("SysVal3")
+        val tenant = createTenant("SysVal3", SystemCatalogSetup.INSTALL)
 
         withMediator {
             // The tenant's default catalog gains its own `language` attribute

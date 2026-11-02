@@ -105,7 +105,7 @@ class NotImplementedOperationsApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ni-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Not Implemented Tenant").execute()
+        createTenant(tenantKey, "Not Implemented Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "not-implemented-it", roles = TenantRole.entries.toSet()).execute()
         tenantKey to created.plaintextKey
     }

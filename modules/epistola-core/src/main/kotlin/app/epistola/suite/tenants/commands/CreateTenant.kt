@@ -33,11 +33,17 @@ import org.springframework.stereotype.Component
  * at once (ADR 0034, section 3), by the administrator creating it, and its default catalog is named in
  * the first; without one it is named under `local`, in [LocalAuthority.DEFAULT_NAMESPACE], since
  * nothing is derived from the tenant key.
+ *
+ * [installSystemCatalog] false leaves the system catalog out, for a caller that puts it in place
+ * itself: the tests copy it from a template tenant rather than install it for each of the thousands
+ * of tenants they create. No surface sets it; a tenant left without one gets it at the next start
+ * (`SystemCatalogBootstrap`).
  */
 data class CreateTenant(
     val id: TenantKey,
     val name: String,
     val namespaces: List<NamespaceName> = emptyList(),
+    val installSystemCatalog: Boolean = true,
 ) : Command<Tenant>,
     EntityIdentifiable,
     Routable,
@@ -107,7 +113,7 @@ class CreateTenantHandler(
         // boundary, so a failure to install rolls back the tenant creation — a
         // tenant should never exist without its system catalog.
         // `InstallSystemCatalog` is idempotent.
-        InstallSystemCatalog(tenantKey = command.id).execute()
+        if (command.installSystemCatalog) InstallSystemCatalog(tenantKey = command.id).execute()
 
         tenant
     }
