@@ -201,6 +201,47 @@ class OAuth2UserProvisioningServiceTest {
         assertThat(resolverCalls).isEmpty()
     }
 
+    /** A returning user whose earlier logins left this tenant role stored in `tenant_memberships`. */
+    private fun userWithStoredAdministrator() = existingUser().copy(
+        tenantMemberships = mapOf(TenantKey.of("acme-corp") to setOf(TenantRole.TENANT_ADMINISTRATOR)),
+    )
+
+    @Test
+    fun `a token without roles grants no tenant access, whatever earlier logins stored`() {
+        val principal = service(userWithStoredAdministrator()).provision(
+            oauth2User(mapOf("groups" to emptyList<String>())),
+            "keycloak",
+        )
+
+        assertThat(principal.tenantMemberships).isEmpty()
+        assertThat(principal.rolesFor(TenantKey.of("acme-corp"))).isEmpty()
+    }
+
+    @Test
+    fun `a token with only platform roles grants no tenant access, whatever earlier logins stored`() {
+        val principal = service(userWithStoredAdministrator()).provision(
+            oauth2User(mapOf("roles" to listOf("eps_tenant_manager"))),
+            "keycloak",
+        )
+
+        assertThat(principal.tenantMemberships).isEmpty()
+        assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
+    }
+
+    @Test
+    fun `a resolver that declines grants no stored tenant access`() {
+        val resolver = object : LoginMembershipResolver {
+            override fun resolve(email: String, user: User): ResolvedMemberships? = null
+        }
+
+        val principal = service(userWithStoredAdministrator(), membershipResolver = resolver).provision(
+            oauth2User(emptyMap()),
+            "keycloak",
+        )
+
+        assertThat(principal.tenantMemberships).isEmpty()
+    }
+
     @Test
     fun `syncs token memberships when any are present`() {
         val syncCalls = mutableListOf<Map<TenantKey, Set<TenantRole>>>()
