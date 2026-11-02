@@ -41,14 +41,15 @@ class CatalogContentsTest {
 
     @Test
     fun `a kind without a page of its own links to its list on the catalog, and New is withheld without the permission`() {
+        // Reference data needs REFERENCE_EDIT to create, as its commands do (not TENANT_SETTINGS).
         val contents = CatalogContents.of(acme, CatalogSegment(CatalogKey.of("letters")), listOf(resource("image", "logo", "Logo"))) {
-            it != Permission.TENANT_SETTINGS
+            it != Permission.REFERENCE_EDIT
         }
 
         assertThat(contents.groups.first { it.type == "image" }.items.single().href).isEqualTo("/tenants/acme/catalogs/letters/images")
         assertThat(contents.groups.first { it.type == "codeList" }.createWithheld).isTrue()
-        assertThat(contents.withheldLabels).containsExactly("attributes", "code lists")
-        assertThat(contents.addable.map { it.type }).doesNotContain("attribute", "codeList")
+        assertThat(contents.withheldLabels).containsExactly("fonts", "attributes", "code lists")
+        assertThat(contents.addable.map { it.type }).doesNotContain("font", "attribute", "codeList")
         assertThat(contents.groups.first { it.type == "template" }.mayCreate).isTrue()
     }
 

@@ -29,7 +29,7 @@
             <!--/* A catalog that cannot be changed here offers no create button, so its empty state does not invite one. */-->
                     <div class="empty-state-description" data-testid="empty-state-description"
                          th:text="${workspace?.catalog?.readOnly == true} ? 'This catalog is read-only here, so no attributes are added to it.' : 'Define attributes to classify template variants (e.g., language, brand, audience).'">Define attributes to classify template variants (e.g., language, brand, audience).</div>
-            <button th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}" type="button"
+            <button th:if="${auth.has('REFERENCE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
@@ -51,7 +51,7 @@
                 <col style="width: 12%" /><!-- Created -->
                 <!--/* Gated like the Actions td below — an unconditional col would
                        reserve a blank fixed-width column for viewer roles. */-->
-                <col th:if="${auth.has('TENANT_SETTINGS')}" style="width: 29%" /><!-- Actions: labelled buttons (Rename or move…, Edit, Delete) -->
+                <col th:if="${auth.has('REFERENCE_EDIT')}" style="width: 29%" /><!-- Actions: labelled buttons (Rename or move…, Edit, Delete) -->
             </colgroup>
             <thead>
                 <tr>
@@ -60,7 +60,7 @@
                     <th>Display name</th>
                     <th>Allowed values</th>
                     <th>Created</th>
-                    <th th:if="${auth.has('TENANT_SETTINGS')}"></th>
+                    <th th:if="${auth.has('REFERENCE_EDIT')}"></th>
                 </tr>
             </thead>
             <tbody id="attribute-rows">
@@ -85,7 +85,7 @@
                             <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${attr.createdAt}" th:title="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
+                        <td class="actions" th:if="${auth.has('REFERENCE_EDIT')}">
                             <th:block th:replace="~{fragments/refactoring :: row-action('attribute', ${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address}, ${attr.id})}" />
                             <th:block th:if="${catalogEditing.editable(attr.catalogKey)}">
                                 <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
@@ -224,7 +224,7 @@
         </form>
     </th:block>
     <th:block th:fragment="attribute-list-actions">
-        <button th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
+        <button th:if="${auth.has('REFERENCE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="attribute-create-open-action">

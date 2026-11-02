@@ -55,7 +55,7 @@ class AttributeHandler {
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.REFERENCE_EDIT)
         // Fragment models are lazy, so only the branch that renders evaluates —
         // one ListCodeLists per request, shared by the list and the dialog's <select>.
         // Opened from a list filtered to a draft, the dialog creates in that draft.
@@ -83,7 +83,7 @@ class AttributeHandler {
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.REFERENCE_EDIT)
 
         val form = request.form {
             field("constraintKind") {}
