@@ -74,7 +74,8 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         assertThat(quality.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"ws-nav-quality\"")
 
         val outside = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).body!!
-        assertThat(outside).doesNotContain("nav-item-quality")
+        // The exact id: the tenant's Settings group has its own "Quality" item, `nav-item-quality-settings` (ADR 0047).
+        assertThat(outside).doesNotContain("data-testid=\"nav-item-quality\"")
     }
 
     @Test
