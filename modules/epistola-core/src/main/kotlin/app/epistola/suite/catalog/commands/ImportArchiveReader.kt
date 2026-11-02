@@ -19,6 +19,8 @@ import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.dependencies.DependencyAliases
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
+import app.epistola.suite.catalog.sources.BundledReleaseArchives
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 
@@ -40,7 +42,36 @@ class ImportArchiveReader(
     private val sizeLimits: CatalogSizeLimits,
     private val schemaMigrator: CatalogSchemaMigrator,
 ) {
+    /** What reading an archive depends on besides its bytes and this reader's limits. */
+    private data class ReadOptions(val namespace: String?, val registry: String?, val confirmMigration: Boolean)
+
+    /**
+     * Bundled release archives as read ([BundledReleaseArchives]), by the archive's identity: weakly,
+     * so one goes when its archive does, and bounded. Every tenant installs the system catalog from
+     * the same array, and reading it (unzipping and verifying every binary's hash) was most of
+     * creating a tenant; reading it once also hands every tenant the same binary arrays, which the
+     * font store's hash cache recognises. An archive is read the same way every time for the same
+     * options, and nothing writes into what a read returns. Any other archive (an upload, a
+     * registry's, the Exchange's) is read anew, so nothing of it is kept past its import. Per reader,
+     * not per JVM: the limits are this context's.
+     */
+    private val bundledReads = Caffeine.newBuilder()
+        .weakKeys()
+        .maximumSize(16)
+        .build<ByteArray, Pair<ReadOptions, ParsedCatalogArchive>>()
+
     internal fun read(command: ImportCatalogZip): ParsedCatalogArchive {
+        if (!BundledReleaseArchives.isBundled(command.zipBytes)) return parse(command)
+        val options = ReadOptions(
+            namespace = command.namespace ?: command.legacyName?.namespace,
+            registry = command.registry ?: command.legacyName?.registry,
+            confirmMigration = command.confirmMigration,
+        )
+        val (readWith, parsed) = bundledReads.get(command.zipBytes) { options to parse(command) }
+        return if (readWith == options) parsed else parse(command)
+    }
+
+    private fun parse(command: ImportCatalogZip): ParsedCatalogArchive {
         // Size checks: compressed ZIP and decompressed total
         val maxZipSize = sizeLimits.maxZipSize.toBytes()
         val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()
