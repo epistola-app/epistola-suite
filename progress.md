@@ -2977,3 +2977,14 @@ optional hyphen and its Symbol/Wingdings bullets fail in every one.
 | Change                                                                                                                                                                                                  | Coverage                                                                                           |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | The PDF/A refusal becomes `UnrenderableCharacterException` (an `IllegalArgumentException`): code point and name, the fonts lacking it, the template block with an excerpt, or the data path (no data quoted) | ✅ `UnrenderableCharacterTest` (3 of 4 fail without the translation); ✅ `DocumentTemplateRoutesTest` preview says which (500 before) |
+| `TextCleanup` (table `text-cleanup.tsv`): Word's line/page break and U+2028/9 → line break, its hyphens → `-` / soft hyphen, its Symbol/Wingdings bullets → `•`, other C0 controls removed; in template text, expression values, rich-text data and datatable headers. Always under PDF/A (they failed, so no output to keep), otherwise from rendering defaults V8 (unreleased, so folded in rather than a V9) | ✅ `TextCleanupTest`; ✅ `WordPasteRenderTest` (all 4 fail with the cleanup off, incl. V6 defaults under PDF/A and V7 vs V8 outside it); ✅ generation `unitTest` (711) |
+
+Noticed, not touched:
+
+- `RenderingDefaults.ITEXT_VERSION` says `9.5.0` while the build uses iText 9.8.0, so every PDF's
+  engine version string names the wrong iText.
+- Text in the C1 range (U+0080–U+009F), what Windows-1252 text read as Latin-1 turns curly quotes
+  and dashes into, is dropped by iText without a word: content lost, not refused.
+- Characters a font lacks that are not Word's (✓ ☐ in most system fonts, Greek in Lora and
+  Merriweather, emoji, CJK) still fail a PDF/A render, now with a clear message. Fallback fonts are
+  a separate decision (size, licensing, shaping needs pdfCalligraph).

@@ -1,0 +1,18 @@
+# Characters that text pasted from Word (and other sources) carries but no font draws, and what each
+# one becomes. Read by TextCleanup when a PDF is rendered; the editor's paste cleanup
+# (modules/editor/src/main/typescript/prosemirror/text-cleanup.ts) holds a copy that a test keeps equal.
+#
+# Any other C0 control character, except tab, line feed and carriage return, is removed.
+#
+# code point	action	replacement	what it is
+U+000B	break		Word: manual line break (Shift+Enter)
+U+000C	break		Word: page or section break
+U+2028	break		Unicode line separator
+U+2029	break		Unicode paragraph separator
+U+001E	replace	U+002D	Word: non-breaking hyphen
+U+001F	replace	U+00AD	Word: optional hyphen
+U+F0B7	replace	U+2022	Word bullet, Symbol font
+U+F0A7	replace	U+2022	Word square bullet, Wingdings
+U+F076	replace	U+2022	Word diamond bullet, Wingdings
+U+F0D8	replace	U+2022	Word arrowhead bullet, Wingdings
+U+F0FC	replace	U+2022	Word check-mark bullet, Wingdings

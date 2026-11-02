@@ -154,6 +154,14 @@ data class RenderingDefaults(
      */
     val collapseBlockMargins: Boolean = false,
 
+    /**
+     * When true, the characters text pasted from Word carries and no font draws become what they
+     * mean ([TextCleanup]): a line break, a hyphen, a bullet. When false they are drawn as nothing.
+     * A PDF/A render cleans them up whatever this says: there they fail the render, so no earlier
+     * output exists to keep.
+     */
+    val cleanUpText: Boolean = false,
+
     /** What this version changes, in a sentence for an author choosing to release with it. */
     val summary: String = "",
 ) {
@@ -310,11 +318,15 @@ data class RenderingDefaults(
         /**
          * V8: a container's margins collapse with its first and last child's, as in CSS
          * ([collapseBlockMargins]), so a theme's block baseline is not added twice where blocks nest.
+         * Line breaks, hyphens and bullets pasted from Word render as such ([cleanUpText]) in a PDF
+         * that is not PDF/A too, where they were drawn as nothing.
          */
         val V8 = V7.copy(
             version = 8,
             collapseBlockMargins = true,
-            summary = "Where a container's spacing meets the spacing of the block inside it, the larger counts instead of both, as on the web.",
+            cleanUpText = true,
+            summary = "Where a container's spacing meets the spacing of the block inside it, the larger counts instead of both, as on the web. " +
+                "Line breaks, hyphens and bullets pasted from Word show as such instead of as nothing.",
         )
 
         /** The defaults version used for newly published template versions. */

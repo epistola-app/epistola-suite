@@ -10,6 +10,7 @@ import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.StyleApplicator
+import app.epistola.generation.pdf.TextCleanup
 import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.pdf.action.PdfAction
@@ -43,7 +44,12 @@ class ProseMirrorConverter(
     private val expressionEvaluator: CompositeExpressionEvaluator,
     private val defaultLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
     private val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+    /** Clean up characters no font draws ([TextCleanup]) in every string this converter sets. */
+    private val cleanUpText: Boolean = false,
 ) {
+    /** [text] as it is set in the PDF: cleaned up ([TextCleanup]) when this render does that. */
+    fun renderable(text: String): String = if (cleanUpText) TextCleanup.clean(text) else text
+
     /**
      * Converts ProseMirror JSON content to a list of iText block elements.
      *
@@ -423,11 +429,13 @@ class ProseMirrorConverter(
                 "text" -> {
                     val textContent = child["text"] as? String ?: ""
                     // Process any embedded expressions in the text using the default language
-                    val processedText = expressionEvaluator.processTemplate(
-                        textContent,
-                        defaultLanguage,
-                        data,
-                        loopContext,
+                    val processedText = renderable(
+                        expressionEvaluator.processTemplate(
+                            textContent,
+                            defaultLanguage,
+                            data,
+                            loopContext,
+                        ),
                     )
 
                     // Check for link mark to create a Link element instead of plain Text
@@ -477,7 +485,7 @@ class ProseMirrorConverter(
                     if (isRichTextDoc(value)) {
                         addRichTextInline(paragraph, value, fontCache, face)
                     } else {
-                        paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
+                        paragraph.add(Text(renderable(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value))))
                     }
                 }
             }
@@ -525,7 +533,7 @@ class ProseMirrorConverter(
             for (child in inline) {
                 when (child["type"] as? String) {
                     "text" -> {
-                        val textContent = child["text"] as? String ?: ""
+                        val textContent = renderable(child["text"] as? String ?: "")
                         val marks = child["marks"] as? kotlin.collections.List<Map<String, Any>>
                         val linkHref = marks?.findLinkHref()
                         val text: Text = if (linkHref != null) {

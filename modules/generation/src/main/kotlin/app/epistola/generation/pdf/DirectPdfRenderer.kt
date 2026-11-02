@@ -181,7 +181,9 @@ class DirectPdfRenderer(
         clock: Clock = Clock.systemUTC(),
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant, fontFamilyResolver, fontScope)
-        val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
+        // A PDF/A render fails on these characters, so cleaning them up there changes no earlier output.
+        val cleanUpText = pdfaCompliant || renderingDefaults.cleanUpText
+        val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults, cleanUpText)
         return RenderContext(
             data = data,
             loopContext = emptyMap(),
