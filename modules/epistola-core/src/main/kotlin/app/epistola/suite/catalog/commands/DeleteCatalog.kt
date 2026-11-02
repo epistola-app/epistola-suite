@@ -8,19 +8,20 @@ import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.releases.CatalogDraftLifecycle
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class DeleteCatalog(
     val catalog: CatalogId,
@@ -44,14 +45,15 @@ class DeleteCatalogHandler(
             "The system catalog cannot be deleted"
         }
 
-        // What another catalog's content uses keeps the catalog: deleting it would leave that content naming
-        // nothing, which no draft may hold (the catalog invariants).
-        val references = FindCatalogCrossReferences(command.catalog).query()
-        if (references.isNotEmpty()) {
-            throw CatalogInUseException(command.catalogKey, references)
-        }
-
         return jdbi.withHandle<Boolean, Exception> { handle ->
+            // What another catalog's drafts use keeps the catalog: deleting it would leave them naming what
+            // nothing they read has, which no draft may hold (DraftReferenceGuard, the catalog invariants).
+            // Asked as the save guard asks it, of every draft of every other catalog, before and after
+            // the delete in this transaction: every kind of reference, a stencil nested in a stencil and
+            // a parallel draft's included. What dangled already is not this delete's.
+            val drafts = otherDrafts(handle, command.catalog)
+            val before = drafts.associate { it.versionId to DraftResources.unresolved(handle, command.tenantKey, it.versionId) }
+
             // Its releases go with it, so none of them may still be served or depended on.
             ReleaseInUse.requireCatalogUnused(handle, command.catalog)
             // A draft an environment serves goes with the catalog, its deployment ended and logged.
@@ -82,7 +84,30 @@ class DeleteCatalogHandler(
             // contents those rows named are the collector's now (ResourceContentCollector, ADR 0033):
             // past the grace period, it takes them with their binaries and references.
 
+            val broken = drafts.flatMap { draft ->
+                (DraftResources.unresolved(handle, command.tenantKey, draft.versionId) - before.getValue(draft.versionId)).map { "${draft.label}: $it" }
+            }
+            // Thrown in the command's transaction, so nothing of the delete is kept.
+            if (broken.isNotEmpty()) throw CatalogInUseException(command.catalogKey, broken.sorted())
+
             deleted > 0
         }
     }
+
+    private data class Draft(val versionId: UUID, val label: String)
+
+    /** Every draft of the tenant's other catalogs, named as a message names it: `key draft "name"`. */
+    private fun otherDrafts(handle: Handle, catalog: CatalogId): List<Draft> = handle.createQuery(
+        """
+        SELECT v.version_id, c.catalog_key || ' draft ' || COALESCE('"' || v.name || '"', v.version_key) AS label
+        FROM catalog_versions v
+        JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
+        WHERE v.tenant_key = :tenantKey AND v.state = 'draft' AND v.catalog_id <> ${catalogAt("tenantKey", "id")}
+        ORDER BY label
+        """,
+    )
+        .bind("tenantKey", catalog.tenantKey)
+        .bindCatalog("id", catalog)
+        .map { rs, _ -> Draft(rs.getObject("version_id", UUID::class.java), rs.getString("label")) }
+        .list()
 }

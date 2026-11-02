@@ -75,6 +75,22 @@ Decided and closed:
 
 ## Touched
 
+### A catalog another catalog's draft uses is not deleted (2 November; branch `fix/catalog-removal-in-use`)
+
+`CatalogModelTest` failed on release/2.0 about every other run since it joined CI (59e4f1ad1,
+de3fcb52d, #1256): `remove catalog cat-b` went through while cat-a's stencil nested `cat-b:stencil-2`.
+
+| What                                                                                                                                                                                                                                                                                          | Where                                        | Covered                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Deleting a catalog compares what every draft of every other catalog cannot resolve before and after the delete, in its transaction, and refuses (409 `CatalogInUseException`, naming each reference) when anything is new: every reference kind, nested stencils and parallel drafts included | `DeleteCatalog`, `DraftResources.unresolved` | ✅ `CatalogDeletionTest` (new: nested stencil, failed before; template stencil, template image, own references not blocking), `CatalogModelTest` |
+| `FindCatalogCrossReferences` removed: it scanned the current version's template content in three shapes, outside the reference index                                                                                                                                                          | `catalog/queries`                            | its cases moved to `CatalogDeletionTest`                                                                                                         |
+
+Noticed, not touched:
+
+- **The check races a concurrent write.** It reads committed rows, like the save guard: a stencil
+  nested into another catalog's draft while its catalog is being deleted, both committing, still
+  dangles. Serialising the two is the concurrency track (#1250, TLA+), not this fix.
+
 ### A stencil instance turned into plain content keeps its own styles (2 November; branch `fix/upgrade-instance-styles`)
 
 Found by a local 1.5.0 → 2.0 upgrade of two customers' catalogs: a letter's closing block, an instance with `keepTogether` and `marginTop` whose copy differed from its stencil,
