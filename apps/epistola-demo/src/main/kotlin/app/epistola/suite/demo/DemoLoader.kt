@@ -36,8 +36,8 @@ import app.epistola.suite.quality.commands.IgnoreFinding
 import app.epistola.suite.quality.commands.RecordManualFinding
 import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.quality.commands.SaveQualityProviderSettings
-import app.epistola.suite.quality.queries.ListQualityProviders
 import app.epistola.suite.quality.queries.ListQualityFindings
+import app.epistola.suite.quality.queries.ListQualityProviders
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
