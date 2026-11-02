@@ -234,7 +234,8 @@ object StencilInstances {
                 else -> resolved ?: null.also { findings += finding(Problem.STENCIL_NOT_FOUND) }
             } ?: return
 
-            val inlined = inline(node.id, content.document)
+            // In its stored form, as a template's own instances are: one saved without a children slot gets it.
+            val inlined = inline(node.id, collapse(content.document))
             slots.getValue(childrenSlotId).children.forEach { placeholderId -> nodes.remove(placeholderId)?.slots?.forEach(slots::remove) }
             nodes.putAll(inlined.nodes)
             slots.putAll(inlined.slots)

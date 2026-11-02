@@ -8,8 +8,11 @@ import app.epistola.suite.assets.AssetIntegrationTest
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -19,9 +22,15 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.invariants.CatalogInvariants
@@ -42,7 +51,8 @@ import org.springframework.beans.factory.annotation.Autowired
  * no corruption here can trip would pass vacuously.
  *
  * The world: `base@1.0.0`; `shared@1.0.0` pinning it, with theme `brand`; `letters@1.0.0` pinning
- * `shared@1.0.0`, its template `invoice` using `shared:brand`, and image `logo`. Each test breaks it
+ * `shared@1.0.0`, its template `invoice` using `shared:brand`, image `logo`, and stencil `frame` nesting
+ * stencil `seal`. Each test breaks it
  * with one statement, since no command can.
  */
 @SkipCatalogInvariants("corrupts its catalogs on purpose, to see each invariant find it")
@@ -53,6 +63,24 @@ class CatalogInvariantsTest : IntegrationTestBase() {
     @Test
     fun `catalogs built through commands break no invariant`() {
         val tenant = world()
+        assertThat(violations(tenant)).isEmpty()
+    }
+
+    @Test
+    fun `a release still pinning a catalog that has come to use its own is no loop`() {
+        val tenant = world()
+        val shared = testCatalog(TenantId(tenant), CatalogKey.of("shared"))
+        val letters = testCatalog(TenantId(tenant), CatalogKey.of("letters"))
+        withMediator {
+            // letters stops using shared, so only its release 1.0.0 pins shared; then shared uses letters.
+            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), letters), clearThemeId = true).execute()
+            UpdateCatalogDependencies(letters, emptyList()).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House").execute()
+            val memo = TemplateId(TemplateKey.of("memo"), shared)
+            CreateDocumentTemplate(memo, "Memo").execute()
+            UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = letters).execute()
+        }
+
         assertThat(violations(tenant)).isEmpty()
     }
 
@@ -101,6 +129,17 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         """
         UPDATE catalog_version_dependencies SET dependency_key = 'letters', alias = 'letters'
         WHERE tenant_key = :t AND version_id = (SELECT next_version_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'shared')
+        """,
+    )
+
+    @Test
+    fun `a released stencil containing itself`() = assertFinds(
+        "stencil-never-contains-itself",
+        // letters@1.0.0 holds frame nesting seal; frame's content is made to nest frame.
+        """
+        UPDATE resource_references SET resource_key = 'frame'
+        WHERE tenant_key = :t AND resource_type = 'stencil' AND resource_key = 'seal'
+          AND content_hash IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND resource_type = 'stencil' AND resource_key = 'frame' AND version_id IN ($LETTERS_RELEASES))
         """,
     )
 
@@ -160,6 +199,9 @@ class CatalogInvariantsTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters.key, on = shared.key)
+            CreateStencil(StencilId(StencilKey.of("seal"), letters), "Seal").execute()
+            CreateStencil(StencilId(StencilKey.of("frame"), letters), "Frame").execute()
+            UpdateStencil(StencilId(StencilKey.of("frame"), letters), content = nesting("seal")).execute()
             UploadAsset(letters, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1).execute()
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = shared).execute()
@@ -168,6 +210,18 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         }
         return tenant
     }
+
+    /** Content that is one instance of [stencil], of its own catalog. */
+    private fun nesting(stencil: String) = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("children")),
+            "use" to Node(id = "use", type = "stencil", props = mapOf("stencilKey" to stencil)),
+        ),
+        slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf("use"))),
+        themeRef = ThemeRef.Inherit,
+    )
 
     private fun catalogIn(tenant: TenantKey, slug: String): CatalogId {
         val key = CatalogKey.of(slug)

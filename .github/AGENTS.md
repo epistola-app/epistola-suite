@@ -14,7 +14,9 @@ need. Tool versions come from `.mise.toml` via `mise-action`.
 | `docker`                | tests, checks, sbom | image build and publish, `v*` tags or a PR labelled `publish`                                                                                                                                                   |
 
 Other gates: `gitleaks.yml` (secret scan), `codeql.yml`, plus `vulnerability-advisories.yml`,
-`helm.yml` and `epistola-chart-smoke.yml` on their path filters.
+`helm.yml` and `epistola-chart-smoke.yml` on their path filters. Not a gate: `model-test.yml` runs
+`modelTest` nightly (1,000 sequences, on `release/2.0` until 2.0 is `main`), and on a pull request
+changing it.
 
 ## Rules
 

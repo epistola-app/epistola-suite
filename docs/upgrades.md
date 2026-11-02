@@ -105,8 +105,8 @@ For this upgrade:
 | `1x-catalog-dependency-cycles` | authored catalogs use each other, which 2.0 cannot release; move what they share into one of them, or into a catalog they all use |
 | `1x-missing-catalogs`          | a catalog uses a catalog the tenant does not have; install it, or change what uses it                                             |
 
-Both read what the upgrade keeps — each variant's and stencil's latest published version and draft,
-themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
+Both read what the upgrade keeps — each variant's and stencil's latest published version and its
+working copy (its draft, else its latest published version, else its latest archived one), themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
 a subscribed catalog receives its source's release. A check that cannot run refuses too. To
 go ahead regardless, once you have read why, skip a check by id:
 `EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
@@ -138,8 +138,9 @@ that outage, and tell the teams whose applications request documents.
    migration step, and nothing is done for you after startup.
    - **An authored catalog** keeps its next draft, with any unpublished 1.x work, and gets a draft
      **Published in 1.x** beside it holding what each template and stencil last published (a
-     template whose default variant was never published, or a stencil never published, is left
-     out). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
+     template whose default variant was never published is left out, and so is a stencil with no
+     published version, unless a published template uses it: 1.x let a version in use be archived,
+     and the draft holds that latest archived version). Where the two would be the same, there is only the next draft. Release "Published in 1.x"
      (or the next draft where there is none) from the catalog's page. Its number is suggested as the
      patch after the catalog's highest 1.x release, or 1.0.0.
    - **Dependencies:** 1.x declared none, so the upgrade declares every catalog a catalog's content
@@ -168,6 +169,30 @@ that outage, and tell the teams whose applications request documents.
 
 Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
 parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
+
+## From 2.0.0-alpha.1
+
+After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected. 1.x let you archive
+a stencil version that published templates used; a stencil left with no published version was not
+put in the "Published in 1.x" draft, which still named it, so the draft could not be released. The
+draft now holds such a stencil as its latest archived version, what those templates rendered.
+Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10 share), a later 2.0
+version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
+reports a checksum mismatch, and nothing is changed.
+
+Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
+in one transaction, before starting the later version:
+
+```bash
+psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
+```
+
+It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
+as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
+draft after its version was archived comes with that draft's content, not marked ready. Releasing
+refuses until it is ("not ready: stencil '…'"): check it, mark it ready, then release. A
+draft that then holds what its next draft holds is removed, as the upgrade does. Running it again
+changes nothing, and on a database that did not come from 1.x it only records the corrected steps. A database you rebuild from 1.x or from scratch needs no script.
 
 ## Backups and upgrades
 

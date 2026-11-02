@@ -77,6 +77,7 @@ import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException
+import app.epistola.suite.stencils.StencilInUseException
 import app.epistola.suite.stencils.StencilNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.templates.TemplateNotFoundException
@@ -316,6 +317,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         TemplateNotFoundException::class,
         StencilNotFoundException::class,
         StencilVersionNotFoundException::class,
+        StencilInUseException::class,
         FontNotFoundException::class,
         GenerationJobNotFoundException::class,
         GenerationJobNotCancellableException::class,

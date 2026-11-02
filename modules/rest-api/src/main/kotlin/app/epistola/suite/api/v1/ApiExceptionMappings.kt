@@ -70,6 +70,7 @@ import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
+import app.epistola.suite.stencils.StencilInUseException
 import app.epistola.suite.stencils.StencilNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.templates.TemplateNotFoundException
@@ -533,6 +534,13 @@ object ApiExceptionMappings {
             defaultDetail = "The draft has nothing to release: nothing changed against its base",
             extensions = { mapOf("base" to it.base) },
             logMessage = { "Release refused: ${it.message}" },
+        )
+
+        // The contract's generic type: a stencil in use is not a problem a caller acts on differently.
+        builder.register<StencilInUseException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The stencil is in use and cannot be deleted",
+            logMessage = { "Deleting a stencil refused: ${it.message}" },
         )
 
         builder.register<CatalogDraftInUseException>(

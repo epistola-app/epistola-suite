@@ -169,6 +169,7 @@ commands it ran left that class's tenants' catalogs consistent: `CatalogInvarian
 `modules/testing` is one SQL statement whose every `SELECT` returns the rows breaking one rule the
 database cannot enforce by itself (a release pins only releases the tenant has, what a release names
 resolves through its pins, a draft names nothing it cannot resolve, catalogs never use each other,
+a released stencil never contains itself,
 a draft row's identity is registered at its address, an image's bytes are stored, …). So every integration test also tests the sequence of
 commands it ran against those rules, at the cost of one query per class (`invariantChecks` in the
 test-run metrics). A violation fails the class and names the test that created the tenant.
@@ -180,6 +181,41 @@ test-run metrics). A violation fails the class and names the test that created t
   test method only the tenants that test creates are left out, on a class all of them.
 - `-PtestInvariants=report` writes violations to `build/invariant-violations/` instead of failing,
   to survey a suite after adding a rule; `off` skips the check.
+
+#### Random command sequences against the invariants
+
+`CatalogModelTest` (Kotest's property library, inside a JUnit test) runs random sequences of real
+catalog commands in a fresh tenant: catalogs, stencils, themes and templates created and deleted,
+content using stencils of other catalogs, stencils containing stencils (themselves among the picks), themes set, releases cut and deleted, dependencies
+declared, pinned and undeclared, resources moved. After every step the command must not have
+crashed (a null, cast or index error, or a raw SQL error: a refusal is any other exception) and the
+invariants above must hold. A step picks what it acts on from what exists then, so steps meet each
+other's work; one pick in eight names nothing, to keep refusals exercised. A failing sequence is
+shrunk and printed with the seed and what each step did.
+
+- It is opt-in, tagged `model` and left out of `test` and `integrationTest`:
+  `./gradlew :modules:epistola-core:modelTest` runs 100 sequences (about 1.5 minutes). CI runs
+  1,000 nightly (`model-test.yml`; run it by hand with a count or a seed from the Actions tab).
+  `-PmodelRuns=1000` searches harder (about 15 minutes); `-PmodelSeed=S` replays a failure. Without
+  a seed every run searches somewhere new, so rerun it with `modelTest --rerun`, or Gradle replays
+  the cached result.
+- The console line `Catalog model:` counts each step's outcomes and the first message of each kind
+  of refusal. A step that is never `done`, or always refused the same way, tests nothing: adjust its
+  picks.
+- A new command touching catalogs belongs in it as a step.
+
+#### Random 1.x installations through the upgrade
+
+`OneXUpgradeModelTest` (same task, same properties) generates 1.x installations: catalogs with
+releases, themes, stencils and templates, each stencil and variant with a version history, data
+contract versions, stencil instances (bare, an exact copy of the pinned version, or an edited one) of
+the template's own catalog, another or one the tenant lacks, and environment activations. Each is
+seeded on the last 1.x schema in a database of its own and put through the preflight and the 2.0
+chain. The preflight must refuse exactly the installations whose kept content uses a missing
+catalog or makes catalogs use each other; any other must upgrade with the catalog invariants holding,
+each next draft holding every working copy, and "Published in 1.x" (or the next draft, when that
+was dropped as the same) what each last published. Content carries markers (`T cat-a/tpl-0/default
+v2`), so the checks read which version a draft holds.
 
 ### App Integration Tests
 
@@ -482,6 +518,8 @@ also prints the slowest classes and costliest commands at the end of each run.
   compilation with 2g, as their own hardening intended
 - **`stress` tag** — `@Tag("stress")` tests (e.g. `StressIT`) run in `test` (so CI covers them) but
   not in the local `integrationTest` loop
+- **`model` tag** — `@Tag("model")` tests (`CatalogModelTest`) run only in `modelTest`: they take
+  minutes, too long for every build
 
 ## Adding Tests to a New Module
 
