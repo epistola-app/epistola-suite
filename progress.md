@@ -75,6 +75,29 @@ Decided and closed:
 
 ## Touched
 
+### Catalog commands at the same time: TLA+ (2 November; branch `verify/tla-release-ordering`)
+
+`specs/tla/CatalogConcurrency.tla` models declaring a dependency, releasing a draft and deleting a
+release as READ COMMITTED transactions with PostgreSQL's row locks; its invariants are the SQL rules
+of the same names. Each race it points at is proven by `CatalogConcurrencyTest`, which holds one
+command's transaction open while the other runs.
+
+| What                                                                                                                                                                                                                                                  | Where                                                                               | Covered                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Two catalogs declaring each other at once both passed `requireNoCycle` (it reads only committed declarations), leaving a cycle                                                                                                                        | `CatalogDependencyStore.requireNoCycle`: tenant-wide advisory lock before the check | ✅ `CatalogConcurrencyTest` (failed before: both declared, invariant `catalogs-never-use-each-other`)      |
+| A release deleted while a draft pinning it was saved, or while a release pinning it (a named draft's base) was cut: the check passed, the `DELETE` waited for the pin and went ahead, `ON DELETE SET NULL` left the pin naming a release that is gone | `ReleaseInUse.requireUnused`: the release row `FOR UPDATE` before the check         | ✅ `CatalogConcurrencyTest` 2 (failed before: deleted; invariant `pinned-release-present` for the release) |
+
+Noticed, not done:
+
+- Discarding a draft that another catalog's draft is declaring at that moment has the same shape (a
+  check, then a `DELETE` whose foreign key sets the declaration's target to null): the declaration
+  is left naming nothing. Next in the model.
+- Not modelled: installing a release (it writes declarations too), relocation, environment
+  deployments (`ReleaseInUse` now locks the release row, so a deployment being written is waited
+  for as well).
+- TLC itself was not run here: fetching `tla2tools.jar` needs a decision. The races were proven in
+  PostgreSQL instead.
+
 ### Deleting a stencil in use over REST (2 November; branch `fix/rest-stencil-in-use`)
 
 | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Where                                                                  | Covered                                       |
