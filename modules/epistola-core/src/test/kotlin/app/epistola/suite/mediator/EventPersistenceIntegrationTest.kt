@@ -11,6 +11,7 @@ import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.SystemCatalogTemplateMediator
 import app.epistola.suite.testing.metrics.MetricsRecordingMediator
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -38,10 +39,11 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
         }
 
         then {
-            // In tests the mediator is wrapped by the metrics-recording decorator
-            // (see MediatorMetricsConfiguration); the real dispatcher it delegates to
-            // is still the SpringMediator that publishes events / persists the audit log.
-            val dispatcher = (mediator as? MetricsRecordingMediator)?.delegate ?: mediator
+            // In tests the mediator is wrapped by the metrics-recording decorator and the
+            // system catalog template (see MediatorMetricsConfiguration); the real dispatcher
+            // they delegate to is still the SpringMediator that publishes events / persists the audit log.
+            val unwrapped = (mediator as? MetricsRecordingMediator)?.delegate ?: mediator
+            val dispatcher = (unwrapped as? SystemCatalogTemplateMediator)?.delegate ?: unwrapped
             assertThat(dispatcher).isInstanceOf(SpringMediator::class.java)
         }
     }

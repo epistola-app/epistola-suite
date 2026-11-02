@@ -6,6 +6,8 @@ package app.epistola.suite.testing.metrics
 
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.SpringMediator
+import app.epistola.suite.testing.SystemCatalogTemplateMediator
+import org.jdbi.v3.core.Jdbi
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
@@ -21,5 +23,5 @@ import org.springframework.context.annotation.Primary
 class MediatorMetricsConfiguration {
     @Bean
     @Primary
-    fun metricsRecordingMediator(delegate: SpringMediator): Mediator = MetricsRecordingMediator(delegate)
+    fun metricsRecordingMediator(delegate: SpringMediator, jdbi: Jdbi): Mediator = MetricsRecordingMediator(SystemCatalogTemplateMediator(delegate, jdbi))
 }
