@@ -8,6 +8,7 @@ import app.epistola.template.model.Margins
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.PageSettings
+import com.itextpdf.kernel.actions.data.ITextCoreProductData
 
 /**
  * Versioned set of rendering constants used during PDF generation.
@@ -172,8 +173,8 @@ data class RenderingDefaults(
     val pageFooterReservedHeight: Float get() = pageFooterPadding + pageFooterHeight
 
     companion object {
-        /** iText Core version used at build time. Update when upgrading iText. */
-        private const val ITEXT_VERSION = "9.5.0"
+        /** The iText Core on the classpath, as iText reports it: no constant to forget when upgrading. */
+        private val ITEXT_VERSION: String = ITextCoreProductData.getInstance().version
 
         /**
          * V1: Rendering defaults using the 4pt spacing grid (see [SpacingScale]).

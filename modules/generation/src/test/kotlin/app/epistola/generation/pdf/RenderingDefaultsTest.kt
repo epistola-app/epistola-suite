@@ -219,4 +219,16 @@ class RenderingDefaultsTest {
         val version = RenderingDefaults.V1.engineVersionString()
         assert(version.startsWith("epistola-gen-1+itext-")) { "Unexpected format: $version" }
     }
+
+    @Test
+    fun `engineVersionString names the iText on the classpath`() {
+        // The kernel jar's own Maven metadata, independent of how RenderingDefaults finds the version.
+        val properties = java.util.Properties().apply {
+            RenderingDefaultsTest::class.java.getResourceAsStream("/META-INF/maven/com.itextpdf/kernel/pom.properties")
+                .use { stream -> load(requireNotNull(stream) { "iText kernel pom.properties not on the classpath" }) }
+        }
+        val itext = properties.getProperty("version")
+
+        assertEquals("epistola-gen-${RenderingDefaults.CURRENT.version}+itext-$itext", RenderingDefaults.CURRENT.engineVersionString())
+    }
 }
