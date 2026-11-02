@@ -210,3 +210,213 @@ a.stat-card:hover {
 .catalog-graph-box-missing .catalog-graph-box-name {
   color: var(--ep-muted-foreground);
 }
+
+/* ── Catalog deployments: one card per environment ───────────────────── */
+
+/* Tile width for .ep-auto-grid; the cards stack to one column on phones. */
+.catalog-deployment-grid {
+  --ep-grid-min: 20rem;
+}
+
+.catalog-environment-card {
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-6);
+}
+
+.catalog-environment-card .catalog-box-title {
+  font-size: var(--ep-text-base);
+}
+
+.catalog-environment-card .catalog-box-value {
+  font-size: var(--ep-text-lg);
+}
+
+/* Each release the environment serves: version and Undeploy, its "since … · usage" caption. */
+.catalog-deployment-release,
+.catalog-deployment-follows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+}
+
+.catalog-environment-card .catalog-deployment-release {
+  gap: var(--ep-space-2);
+  padding-bottom: var(--ep-space-3);
+}
+
+.catalog-deployment-release {
+  padding-bottom: var(--ep-space-2);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.catalog-deployment-release:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.catalog-deployment-release-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-2);
+}
+
+.catalog-deployment-caption {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-environment-card .catalog-deployment-caption {
+  font-size: var(--ep-text-xs);
+  line-height: 1.5;
+}
+
+.catalog-deployment-empty {
+  display: flex;
+  align-items: baseline;
+}
+
+/* The deploy form sits at the card's foot: release, the replace option, the action. */
+.catalog-deploy-form {
+  flex-direction: column;
+  align-items: stretch;
+  border-top: 1px solid var(--ep-border-color);
+  padding-top: var(--ep-space-3);
+}
+
+.catalog-environment-card .catalog-deploy-form {
+  gap: var(--ep-space-3);
+  padding-top: var(--ep-space-4);
+}
+
+.catalog-deploy-form .ep-select {
+  width: 100%;
+}
+
+.catalog-deploy-form .ep-btn {
+  justify-content: center;
+}
+
+.catalog-deploy-title {
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  color: var(--ep-foreground);
+}
+
+.catalog-environment-card .catalog-deploy-title {
+  font-size: var(--ep-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-deploy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-2);
+}
+
+.catalog-deploy-replace-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ep-space-1);
+  min-width: 0;
+}
+
+.catalog-deploy-replace {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-1);
+}
+
+.catalog-deploy-submit {
+  margin-left: auto;
+}
+
+/* The "?" beside "instead of the others": a native disclosure, floating on desktop. */
+.catalog-deploy-help {
+  position: relative;
+  display: inline-flex;
+}
+
+.catalog-deploy-help summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ep-muted-foreground);
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: var(--ep-transition-colors);
+}
+
+.catalog-deploy-help summary .ep-icon {
+  color: inherit;
+  stroke-width: 1.5;
+}
+
+.catalog-deploy-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalog-deploy-help summary:hover,
+.catalog-deploy-help[open] summary {
+  color: var(--ep-foreground);
+}
+
+.catalog-deploy-help summary:focus-visible {
+  outline: none;
+  box-shadow: var(--ep-ring);
+}
+
+.catalog-deploy-help-text {
+  position: absolute;
+  top: calc(100% + var(--ep-space-2));
+  left: 0;
+  z-index: var(--ep-z-dropdown);
+  width: min(16rem, calc(100vw - var(--ep-space-8)));
+  margin: 0;
+  padding: var(--ep-space-3);
+  background: var(--ep-white);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  box-shadow: var(--ep-shadow-lg);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+}
+
+/* On phones the hint opens inline under the option instead of as a floating card. */
+@media (max-width: 40rem) {
+  .catalog-deploy-help {
+    display: contents;
+  }
+
+  .catalog-deploy-help-text {
+    flex-basis: 100%;
+    position: static;
+    width: auto;
+    margin-top: var(--ep-space-2);
+    padding: var(--ep-space-2) 0 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .catalog-deploy-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalog-deploy-submit {
+    margin-left: auto;
+  }
+}

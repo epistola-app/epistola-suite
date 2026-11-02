@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.deploymentCard
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
@@ -163,8 +164,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         assertThat(deployed.body).doesNotContain("data-testid=\"deploy-refusal\"")
         assertThat(withMediator { ListDeployments(tenant.id).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("what it depends on is used, not deployed").containsExactly("dep-deps@1.0.0")
-        assertThat(live(tenant, "shared").substringAfter("data-environment=\"production\"").substringBefore("</tr>"))
-            .contains("v1.0.0, comes along with dep-deps")
+        assertThat(deploymentCard(live(tenant, "shared"), "production")).contains("v1.0.0, comes along with dep-deps")
         val environment = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments/production", String::class.java).body!!
         assertThat(environment.substringAfter("data-testid=\"environment-implicit\"")).contains(">Shared<").contains("v1.0.0").contains("dep-deps")
     }
