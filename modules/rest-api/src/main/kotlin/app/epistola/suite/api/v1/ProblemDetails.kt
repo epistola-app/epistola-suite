@@ -48,9 +48,15 @@ object ApiProblemTypes {
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
     val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
-    val ACCESS_DENIED = problem("ACCESS_DENIED", "Access Denied", HttpStatus.FORBIDDEN, "The authenticated caller is not allowed to access the requested resource.", listOf("tenantId"))
-    val PERMISSION_DENIED = problem("PERMISSION_DENIED", "Permission Denied", HttpStatus.FORBIDDEN, "The caller lacks the required fine-grained permission.", listOf("requiredPermission", "tenantId"))
-    val PLATFORM_ACCESS_DENIED = problem("PLATFORM_ACCESS_DENIED", "Platform Access Denied", HttpStatus.FORBIDDEN, "The caller lacks the required platform role.", listOf("requiredRole"))
+
+    /**
+     * Every refused authorization: the contract registers one 403 type. Which members are present
+     * says what was refused: `requiredPermission` and `tenantKey` for a permission lacking in a
+     * tenant, `tenantKey` alone for no access to the tenant, `requiredPlatformRole` for a platform
+     * role, `reason` when a policy refused. Permissions and roles are named as the contract's
+     * `x-required-permissions` names them (`TEMPLATE_EDIT`).
+     */
+    val FORBIDDEN = problem("FORBIDDEN", "Forbidden", HttpStatus.FORBIDDEN, "The authenticated caller is refused. `requiredPermission` with `tenantKey` names a permission lacking in a tenant, `tenantKey` alone no access to the tenant, `requiredPlatformRole` a platform role, and `reason` a policy refusal.", listOf("requiredPermission", "tenantKey", "requiredPlatformRole", "reason"))
     val OPERATION_NOT_IMPLEMENTED = problem("OPERATION_NOT_IMPLEMENTED", "Operation Not Implemented", HttpStatus.NOT_IMPLEMENTED, "The requested API operation is part of the contract but has not been implemented by this server yet.", listOf("operation"))
     val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
     val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
@@ -135,9 +141,7 @@ object ApiProblemTypes {
         BAD_REQUEST,
         UNAUTHORIZED,
         API_KEY_AUTH_DISABLED,
-        ACCESS_DENIED,
-        PERMISSION_DENIED,
-        PLATFORM_ACCESS_DENIED,
+        FORBIDDEN,
         OPERATION_NOT_IMPLEMENTED,
         INTERNAL_ERROR,
         METHOD_NOT_ALLOWED,
@@ -267,7 +271,7 @@ fun HttpServletRequest.problemInstance(): URI = URI.create(requestUriWithQuery()
 fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = when (statusCode.value()) {
     400 -> BAD_REQUEST
     401 -> UNAUTHORIZED
-    403 -> ACCESS_DENIED
+    403 -> FORBIDDEN
     404 -> NOT_FOUND
     405 -> METHOD_NOT_ALLOWED
     406 -> NOT_ACCEPTABLE

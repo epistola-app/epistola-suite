@@ -151,7 +151,7 @@ class SecurityConfig(
             .exceptionHandling { exceptions ->
                 exceptions.authenticationEntryPoint(ApiProblemAuthenticationEntryPoint(objectMapper, jwtResourceServerEnabled))
                 exceptions.accessDeniedHandler { request, response, _ ->
-                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.FORBIDDEN, "Access denied")
                 }
             }
 
@@ -331,7 +331,7 @@ class SecurityConfig(
             }
             exceptions.accessDeniedHandler { request, response, _ ->
                 if (wantsProblemDetail(request)) {
-                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.FORBIDDEN, "Access denied")
                 } else {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN)
                 }

@@ -85,30 +85,38 @@ backing query is only `RequiresAuthentication` and the page needs tighter gating
 
 ## What a denied API caller receives
 
-Each failed check maps to an RFC 7807 `application/problem+json` body, **HTTP 403**
+Each failed check maps to an RFC 9457 `application/problem+json` body, **HTTP 403**
 (`ApiExceptionHandler` + `ApiProblemTypes`). A missing/invalid/expired key is **401**
 `unauthorized`, before any permission check.
 
-| Failure                           | Exception                       | `type` slug              | Names                            |
-| --------------------------------- | ------------------------------- | ------------------------ | -------------------------------- |
-| Lacks the fine-grained permission | `PermissionDeniedException`     | `permission-denied`      | `requiredPermission`, `tenantId` |
-| No access to the tenant           | `TenantAccessDeniedException`   | `access-denied`          | `tenantId`                       |
-| Lacks the platform role           | `PlatformAccessDeniedException` | `platform-access-denied` | `requiredRole`                   |
+Every refusal is the contract's one 403 type, `forbidden`. Which members are present says what was
+refused (contract `ForbiddenProblemDetail`, ADR 0048):
 
-The missing permission is named in both the `detail` string and a machine-readable extension
-(kebab-case, e.g. `template-edit`), so an integrator can resolve a 403 without server logs:
+| Failure                           | Exception                       | Members                           |
+| --------------------------------- | ------------------------------- | --------------------------------- |
+| Lacks the fine-grained permission | `PermissionDeniedException`     | `requiredPermission`, `tenantKey` |
+| No access to the tenant           | `TenantAccessDeniedException`   | `tenantKey`                       |
+| Lacks the platform role           | `PlatformAccessDeniedException` | `requiredPlatformRole`            |
+
+A fourth member, `reason`, is reserved for a policy refusal with no single permission to grant;
+the suite does not send it yet. Permissions and roles are named as the contract's
+`x-required-permissions` and `x-required-platform-roles` name them (`TEMPLATE_EDIT`), in the
+`detail` string and the member, so an integrator can resolve a 403 without server logs:
 
 ```json
 {
-  "type": "https://epistola.app/errors/permission-denied",
-  "title": "Permission Denied",
+  "type": "https://epistola.app/errors/forbidden",
+  "title": "Forbidden",
   "status": 403,
-  "detail": "Missing required permission: template-edit",
-  "requiredPermission": "template-edit",
-  "tenantId": "acme",
+  "detail": "Missing required permission: TEMPLATE_EDIT",
+  "requiredPermission": "TEMPLATE_EDIT",
+  "tenantKey": "acme",
   "instance": "/api/tenants/acme/catalogs/default/templates"
 }
 ```
+
+Before 2.0 the suite sent three types of its own (`permission-denied`, `access-denied`,
+`platform-access-denied`) with `tenantId`, `requiredRole` and kebab-case names.
 
 ## API keys are least-privilege
 

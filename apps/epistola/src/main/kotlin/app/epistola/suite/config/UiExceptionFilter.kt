@@ -98,17 +98,17 @@ class UiExceptionFilter(
         return when (cause::class.simpleName) {
             "TenantAccessDeniedException" -> {
                 log.warn("Tenant access denied: {}", cause.message)
-                UiError(403, ApiProblemTypes.ACCESS_DENIED, "You don't have access to this tenant.")
+                UiError(403, ApiProblemTypes.FORBIDDEN, "You don't have access to this tenant.")
             }
 
             "PermissionDeniedException" -> {
                 log.warn("Permission denied: {}", cause.message)
-                UiError(403, ApiProblemTypes.PERMISSION_DENIED, "You don't have permission to perform this action.")
+                UiError(403, ApiProblemTypes.FORBIDDEN, "You don't have permission to perform this action.")
             }
 
             "PlatformAccessDeniedException" -> {
                 log.warn("Platform access denied: {}", cause.message)
-                UiError(403, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "This action requires platform administrator access.")
+                UiError(403, ApiProblemTypes.FORBIDDEN, "This action requires platform administrator access.")
             }
 
             "ValidationException" -> {
