@@ -24,6 +24,7 @@ import {
 } from '../shortcuts/text-runtime.js';
 import { epistolaInputRules } from './input-rules.js';
 import { bubbleMenuPlugin } from './bubble-menu.js';
+import { pasteCleanupPlugin } from './text-cleanup.js';
 import type { ExpressionNodeViewOptions } from './ExpressionNodeView.js';
 
 type TextShortcutCommandId =
@@ -209,5 +210,6 @@ export function createPlugins(schema: Schema, _options: PluginOptions): Plugin[]
     dropCursor(),
     gapCursor(),
     bubbleMenuPlugin(schema),
+    pasteCleanupPlugin(schema),
   ];
 }

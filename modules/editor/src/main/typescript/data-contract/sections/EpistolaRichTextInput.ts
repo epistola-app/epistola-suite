@@ -30,6 +30,7 @@ import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-li
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { bubbleMenuPlugin } from '../../prosemirror/bubble-menu.js';
+import { pasteCleanupPlugin } from '../../prosemirror/text-cleanup.js';
 import {
   richTextBlockSchema,
   EMPTY_RICH_TEXT_BLOCK_DOC,
@@ -80,6 +81,7 @@ export function buildRichTextInputPlugins(
       // Schema-adaptive: with the value subset schema this renders marks +
       // list buttons only (no heading/expression nodes to offer).
       bubbleMenuPlugin(schema, { isEditable }),
+      pasteCleanupPlugin(schema),
     ];
   }
 
@@ -111,6 +113,7 @@ export function buildRichTextInputPlugins(
     // Inline schema exposes marks only, so the shared menu renders formatting
     // controls without any block/list actions.
     bubbleMenuPlugin(schema, { isEditable }),
+    pasteCleanupPlugin(schema),
   ];
 }
 
