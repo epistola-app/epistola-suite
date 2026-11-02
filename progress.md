@@ -98,6 +98,37 @@ fixes below.
 Noticed, not done: nothing on the server refuses saving a stencil cycle (REST and MCP can save one);
 by the documented design it is refused at mark ready and release, not at save. A decision, not a bug.
 
+### Quality findings per catalog version, ADR 0044 step 2 (1 November; branch `feat/quality-ledger-reshape`)
+
+Agreed with the user: findings belong to what was checked, a variant in a version with its context,
+not to the template's content alone; no stored "resolved" for a check's findings; notes and comments
+per template, across versions.
+
+| What                                                                                                                                                                                                                       | Where                                                                                                                                          | Coverage                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A check per source, variant and input key (`quality_checks`), its findings under it; the key hashes template and variant content, what they refer to as the version resolves it, the default theme and the tenant language | `V20261101002000`, `quality_input_key`, `SubmitQualityFindings`, `GetQualityInputKey`                                                          | ✅ `QualityVersionsIntegrationTest` (8, new; the theme and language tests fail with those parts taken out of the key), `SubmitQualityFindingsIntegrationTest` |
+| Each version shows per variant and source the check with its key there, else the newest as outdated; panel, report and a finding's page read the version they are of; a release keeps its checks                           | `quality_current_variants`, `quality_current_checks`, `QualityFindingSql`, `GetFindingsForSubject`, `ListQualityFindings`, `GetQualityFinding` | ✅ `QualityVersionsIntegrationTest`, `QualityCascadeIntegrationTest` (a released variant's finding read in the release)                                       |
+| A check's finding is not stored resolved; only a person's note is, and a note shows in every version                                                                                                                       | `SubmitQualityFindings`, `RecordManualFinding`                                                                                                 | ✅ `SubmitQualityFindingsIntegrationTest`, `ManualFindingIntegrationTest`, `QualityHandlerHtmxTest`                                                           |
+| Comments keyed by the problem, as ignores; relocation repoints them                                                                                                                                                        | `AddFindingComment`, `GetFindingComments`, `OnResourceRelocatedRepointFindings`                                                                | ✅ `SubmitQualityFindingsIntegrationTest` (a problem that comes back keeps its comments), `ManualFindingIntegrationTest`                                      |
+| Saves, ready marks and "Check now" check the draft they were made in; the timer is keyed per draft                                                                                                                         | `QualityCheckScheduling`, `OnVariantReadyRunChecks`, `QualityHandler`                                                                          | ✅ `TextChecksIntegrationTest`, `QualityVersionsIntegrationTest`                                                                                              |
+| Superseded checks deleted when the source checks the variant again; a release's stay                                                                                                                                       | `quality_live_input_keys`                                                                                                                      | ✅ `QualityVersionsIntegrationTest`                                                                                                                           |
+| Upgrade: 1.x open findings under `checked-before-2.0` (outdated), resolved ones and template-level check findings dropped, notes, comments and ignores kept                                                                | `V20261101002000`                                                                                                                              | ✅ `QualityResultsMigrationTest` (new; fails with the comment step after the delete), `TwoZeroChainEquivalenceIT` (intended.txt)                              |
+| Outdated badge in the report and on a finding's page                                                                                                                                                                       | `badges.html`, `list.html`, `detail.html`                                                                                                      | ✅ `QualityHandlerHtmxTest` (new)                                                                                                                             |
+
+Noticed, not touched:
+
+- **Fingerprints hold the variant's URN, which holds its address.** A relocated template's next check
+  computes new fingerprints, so its ignores and comments no longer match (the relocation handler
+  repoints the stored URNs, not what a source computes). Fingerprints should hold identity, not address.
+- **The report's links name no version.** On a draft's report, a row links to the editor of the next
+  version.
+- **A key change without a trigger is not checked.** A theme edited, a dependency re-pinned or the
+  tenant language changed leaves findings outdated until a save, a ready mark or "Check now".
+- **The key follows references one level**, and leaves out the installation default language and a
+  provider's configuration (a changed built-in rule set in a suite release shows nothing outdated).
+- **The report computes every variant's key per request** (one `quality_input_key` per variant of the
+  catalog); fine for an alpha catalog, to be measured before a large one.
+
 ### Language checks pilot, ADR 0044 (31 October; branch `feat/quality-language-pilot`)
 
 ADR 0044 replaces the pre-2.0 drafts 0012 and 0031: check results are a cache keyed by checker,
@@ -131,7 +162,7 @@ Noticed, not touched:
   "Utilize" where the writing rules suggest "Use". Overlapping findings need grouping by span and
   category before the panel shows both (ADR 0044 follow-up).
 - The ledger is versionless, so a save to a draft other than the next version is not checked
-  (ADR 0044 section 8).
+  (ADR 0044 section 8). Done on `feat/quality-ledger-reshape` (below).
 - The local `epistola-postgres` database fails Flyway validation against `release/2.0` (migrations
   rewritten in place); the demo was run on a throwaway database instead.
 

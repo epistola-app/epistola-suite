@@ -25,7 +25,11 @@ data class QualityFindingComment(
     val createdAt: Instant,
 )
 
-/** The discussion on one finding, oldest first. */
+/**
+ * The discussion on the problem [findingKey] reports, oldest first: comments belong to the problem
+ * (scope, source, rule, fingerprint), as an ignore does, so this is the same discussion in every
+ * version and through every check that reports it (ADR 0044).
+ */
 data class GetFindingComments(
     override val tenantKey: TenantKey,
     val findingKey: QualityFindingKey,
@@ -41,10 +45,13 @@ class GetFindingCommentsHandler(
     override fun handle(query: GetFindingComments): List<QualityFindingComment> = jdbi.withHandle<List<QualityFindingComment>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, body, author_id, author_name, created_at
-            FROM quality_finding_comments
-            WHERE tenant_key = :tenantKey AND finding_id = :findingKey
-            ORDER BY created_at ASC, id ASC
+            SELECT c.id, c.body, c.author_id, c.author_name, c.created_at
+            FROM quality_findings f
+            JOIN quality_finding_comments c
+              ON c.tenant_key = f.tenant_key AND c.ignore_scope_urn = f.ignore_scope_urn AND c.source_id = f.source_id
+             AND c.rule_id = f.rule_id AND c.finding_fingerprint = f.fingerprint
+            WHERE f.tenant_key = :tenantKey AND f.id = :findingKey
+            ORDER BY c.created_at ASC, c.id ASC
             """,
         )
             .bind("tenantKey", query.tenantKey)

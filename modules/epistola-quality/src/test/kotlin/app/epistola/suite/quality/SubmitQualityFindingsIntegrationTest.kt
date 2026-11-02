@@ -79,9 +79,8 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         }
 
         assertThat(result.opened).isEqualTo(1)
-        assertThat(result.reopened).isZero()
         assertThat(result.unchanged).isZero()
-        assertThat(result.resolved).isZero()
+        assertThat(result.dropped).isZero()
 
         val findings = readBack(subject).findings
         assertThat(findings).singleElement().satisfies({
@@ -137,9 +136,12 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         assertThat(finding.severity).isEqualTo(QualitySeverity.ERROR)
     }
 
-    /** The core promise: fix the problem, the source stops reporting it, it closes by itself. */
+    /**
+     * The core promise: fix the problem, the source stops reporting it, and it is gone. Not stored as
+     * resolved (ADR 0044): what the check shown does not report, nobody needs to see.
+     */
     @Test
-    fun `a fingerprint the source no longer reports is resolved`() {
+    fun `a fingerprint the source no longer reports is gone`() {
         val subject = newSubject()
         withMediator {
             SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"), finding("fp-2"))).execute()
@@ -147,13 +149,13 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         val result = withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
 
-        assertThat(result.resolved).isEqualTo(1)
+        assertThat(result.dropped).isEqualTo(1)
         assertThat(result.unchanged).isEqualTo(1)
 
-        val byFingerprint = readBack(subject).findings.associateBy { it.fingerprint }
-        assertThat(byFingerprint["fp-1"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
-        assertThat(byFingerprint["fp-2"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
-        assertThat(byFingerprint["fp-2"]!!.resolvedAt).isNotNull()
+        assertThat(readBack(subject).findings).singleElement().satisfies({
+            assertThat(it.fingerprint).isEqualTo("fp-1")
+            assertThat(it.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+        })
     }
 
     /**
@@ -164,7 +166,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
      * empty" guard would silently strand every open finding as OPEN forever.
      */
     @Test
-    fun `an empty submission resolves everything the source had open`() {
+    fun `an empty submission clears everything the source had reported`() {
         val subject = newSubject()
         withMediator {
             SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"), finding("fp-2"))).execute()
@@ -172,34 +174,33 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         val result = withMediator { SubmitQualityFindings(sourceA, subject, emptyList()).execute() }
 
-        assertThat(result.resolved).isEqualTo(2)
-        assertThat(readBack(subject).findings)
-            .allSatisfy { assertThat(it.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED) }
+        assertThat(result.dropped).isEqualTo(2)
+        assertThat(readBack(subject).findings).isEmpty()
+        // Checked, nothing wrong: not the same as never checked.
+        assertThat(readBack(subject).checks).singleElement().satisfies({
+            assertThat(it.sourceId).isEqualTo(sourceA)
+            assertThat(it.current).isTrue()
+        })
     }
 
-    /**
-     * A resurfacing problem must reuse its original row, not insert a new one — that row identity is
-     * what lets comments (a reviewer's discussion) survive a resolve/resurface cycle.
-     */
+    /** A problem that goes and comes back keeps its discussion, which belongs to the problem, not to a row. */
     @Test
-    fun `a resolved fingerprint reopens on its original row`() {
+    fun `a problem that comes back keeps its comments`() {
         val subject = newSubject()
         withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
         val original = readBack(subject).findings.single()
+        withMediator { app.epistola.suite.quality.commands.AddFindingComment(subject.tenantKey, original.key, "Still wrong.").execute() }
 
         withMediator { SubmitQualityFindings(sourceA, subject, emptyList()).execute() }
-        assertThat(readBack(subject).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
+        assertThat(readBack(subject).findings).isEmpty()
 
+        testClock.advanceBy(Duration.ofHours(1))
         val result = withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
 
-        assertThat(result.reopened).isEqualTo(1)
-        assertThat(result.opened).isZero()
-
-        val reopened = readBack(subject).findings.single()
-        assertThat(reopened.key).isEqualTo(original.key)
-        assertThat(reopened.firstSeenAt).isEqualTo(original.firstSeenAt)
-        assertThat(reopened.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
-        assertThat(reopened.resolvedAt).isNull()
+        assertThat(result.opened).isEqualTo(1)
+        val back = readBack(subject).findings.single()
+        assertThat(back.commentCount).isEqualTo(1)
+        assertThat(back.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
     }
 
     /**
@@ -212,12 +213,10 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-a"))).execute() }
         withMediator { SubmitQualityFindings(sourceB, subject, listOf(finding("fp-b"))).execute() }
 
-        // A submits an empty set — it may resolve only its own.
+        // A submits an empty set — it may clear only its own.
         withMediator { SubmitQualityFindings(sourceA, subject, emptyList()).execute() }
 
-        val byFingerprint = readBack(subject).findings.associateBy { it.fingerprint }
-        assertThat(byFingerprint["fp-a"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
-        assertThat(byFingerprint["fp-b"]!!.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
+        assertThat(readBack(subject).findings.map { it.fingerprint }).containsExactly("fp-b")
     }
 
     /** Findings for one variant must not be resolved by a submission for a sibling variant. */
@@ -238,26 +237,25 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         withMediator { SubmitQualityFindings(sourceA, first, emptyList()).execute() }
 
-        assertThat(readBack(first).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.RESOLVED)
+        assertThat(readBack(first).findings).isEmpty()
         assertThat(readBack(second).findings.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
     }
 
     /**
-     * The ledger stamps the input fingerprint itself. A source cannot supply one — there is nowhere
-     * on [SubmittedFinding] to put it — precisely so a remote source's differently-normalized hash
-     * can never make its findings read as permanently stale.
+     * A finding is stored under the input key its check read, which the ledger computes from what
+     * the version holds (`quality_input_key`), never one a source made up.
      */
     @Test
-    fun `the ledger stamps the input fingerprint from the live document`() {
+    fun `a finding is stored under the variant's input key and is current while it is unchanged`() {
         val subject = newSubject()
         withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
 
         val read = readBack(subject)
         val finding = read.findings.single()
 
-        assertThat(finding.inputFingerprint).isNotNull()
-        assertThat(finding.inputFingerprint).isEqualTo(read.currentInputFingerprint)
-        assertThat(read.isStale(finding)).isFalse()
+        assertThat(finding.inputKey).isNotNull().hasSize(64)
+        assertThat(finding.inputKey).isEqualTo(read.currentInputKey)
+        assertThat(finding.outdated).isFalse()
     }
 
     /**
@@ -335,7 +333,8 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         val subject = newSubject()
 
         assertThatThrownBy {
-            SubmitQualityFindings(QualitySourceId.MANUAL, subject, listOf(finding("fp-1")))
+            // The constructor's own checks, before any key is read.
+            SubmitQualityFindings(QualitySourceId.MANUAL, subject, INPUT_KEY, listOf(finding("fp-1")))
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("RecordManualFinding")
     }
@@ -349,7 +348,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         val subject = newSubject()
 
         assertThatThrownBy {
-            SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1", "a"), finding("fp-1", "b")))
+            SubmitQualityFindings(sourceA, subject, INPUT_KEY, listOf(finding("fp-1", "a"), finding("fp-1", "b")))
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("fp-1")
     }
@@ -432,5 +431,10 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         withMediator { SubmitQualityFindings(sourceA, subject, listOf(finding("fp-1"))).execute() }
 
         assertThat(readBack(subject).findings.single().messageCode).isNull()
+    }
+
+    private companion object {
+        /** Any key: these submissions are refused before one is read. */
+        const val INPUT_KEY = "0000000000000000000000000000000000000000000000000000000000000000"
     }
 }

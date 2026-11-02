@@ -55,11 +55,12 @@ This record decides how results are computed, stored, kept current and scheduled
 | ----------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | **Results**       | What a provider reported for one unit, keyed by (provider, its configuration, rules, locale, unit hash) | Immutable; reaped when unused   |
 | **Decisions**     | What people said: ignores (with a reason), comments, hand-raised notes                                  | Kept; keyed by problem identity |
-| **Findings view** | Per catalog version and subject: the results for its current content, with decisions applied            | Derived; rebuildable            |
+| **Findings view** | Per catalog version and variant: the check of what the variant reads there, with decisions applied      | Derived; rebuildable            |
 
-The findings view is materialized, so the report keeps filtering, counting and paging in SQL, and
-holds nothing that cannot be recomputed. A problem is **resolved** when the current result no longer
-contains it and **outdated** when the subject's content has a key no result exists for yet.
+The findings view is derived in SQL, so the report keeps filtering, counting and paging there, and
+holds nothing that cannot be recomputed. A problem is **resolved** when the check shown no longer
+reports it (nothing is stored for it) and **outdated** when the variant reads something no check
+has seen yet.
 
 ### 2. The unit is the provider's
 
@@ -68,11 +69,24 @@ Each provider declares its unit (ADR 0047):
 - **A text block** (crude rules, LanguageTool): one paragraph or heading, extracted as text with
   placeholders (3.). Its key holds the hash of that text. An edit re-checks the blocks it changed; a
   block shared by many templates of a tenant is checked once.
-- **A subject** (an LLM, structural checks): a variant or stencil, keyed by its content hash.
+- **A subject** (an LLM, structural checks): a variant or stencil, keyed by its input key (below).
 
 The key always holds the provider's configuration (its version and settings) and the hash of the
 rules it was given (ADR 0046), so a profile edit re-checks only with the providers whose rules
 changed, and an upgrade is a new key, not an invalidation.
+
+**A variant's input key.** What a check of a variant reads depends on the variant and on the version
+it is in: two variants of one template are checked apart, and the same variant reads another theme,
+stencil or language in another version. So a check is stored under the variant's **input key in
+the version checked**, one hash of: the template's content (data model, examples, theme, variants
+and their attributes), the variant's content, each resource either refers to by the content that
+version resolves it to (another catalog's through the version its alias declares), the version's
+default theme, and the tenant's language. An edit to one variant changes its own key only; an edit
+to the template, or to what they refer to, changes the keys of the variants that read it. The key
+is computed by the suite from what the version holds, never by a provider, and read before the
+check reads the variant, so a save during a check leaves its findings outdated rather than
+current. Until recorded reads exist, references are followed one level, and the installation's
+default language is not in the key.
 
 **A result that read more.** A provider that asks for more of the template while checking (an LLM
 through its tools, ADR 0047; a structural check resolving a stencil) records each read by what it
@@ -110,13 +124,17 @@ language chosen) is shown as skipped. Neither ever resolves a finding.
 
 ### 6. Versions
 
-The findings view is per catalog version: a draft shows its own findings, the report the next
-version's, and a release keeps the view it was released with, which blocking rules read (ADR 0046).
-A draft cut from a release shares every hash with it, so it starts with its results cached.
+The findings view is per catalog version: per variant and source, the check under the variant's
+input key in that version, else the newest check, shown as outdated. A draft shows its own findings
+(the editor's panel and "Check now" use the version the editor has open), the report the next
+version's unless it names another, and a release, whose keys never change, keeps what was checked
+before it was cut, which blocking rules read (ADR 0046). A draft cut from a release has the
+release's keys, so it shows the release's findings without a check. A check under a key no version
+has any more is deleted when its source checks the variant again.
 
 ## The pilot
 
-Built and merged as alpha, a slice that borrows the current ledger as the findings view:
+Built as alpha, in two steps. The first borrowed the 1.x ledger as the findings view:
 
 - text extraction from `text` nodes, with placeholders; the result cache
   (`quality_text_results`) per tenant;
@@ -126,9 +144,20 @@ Built and merged as alpha, a slice that borrows the current ledger as the findin
 - per-provider triggers; saves and ready marks on a cluster timer; "Check now" in the request;
 - a failing provider keeps its findings, and the panel says what was skipped or failed.
 
-**Not built yet:** decisions apart from results and the view per version (the next step, before
-profiles and LLMs); locations (findings point at node ids, the quote in their evidence); schema-aware
-extraction; stencils as subjects; recorded reads; reaping unused results.
+The second keys findings by what was checked and derives the view per version:
+
+- a check (`quality_checks`) per source, variant and input key, its findings under it; the input
+  key computed in SQL (`quality_input_key`) from what the version holds;
+- the view per catalog version through `quality_current_checks`: the panel, the report and a
+  finding's page read the version they are of;
+- a check's finding is never stored as resolved; only a person's note is, and a note belongs to its
+  template and shows in every version;
+- comments keyed by the problem, as ignores already were;
+- saves, ready marks and "Check now" check the draft they were made in.
+
+**Not built yet:** locations (findings point at node ids, the quote in their evidence); schema-aware
+extraction; stencils as subjects; recorded reads; a periodic sweep of superseded checks and unused
+text results; checking a variant whose key changed without a trigger.
 
 **Measured by the pilot:** how often a save finds its blocks cached, how long a check takes with and
 without LanguageTool, and how many findings a realistic catalog produces.
@@ -138,8 +167,7 @@ without LanguageTool, and how many findings a realistic catalog produces.
 - A unit is checked once per key in a tenant; an edit costs a check of what it changed.
 - No finding is current when its input changed: the input is the key, or its recorded reads are.
 - Text reaches a provider only as extracted template text with placeholders.
-- The ledger's reconciliation, stored resolution and versionless subject are replaced in steps; the
-  pilot keeps them so the report does not change while the cache proves itself.
+- The ledger's stored resolution and versionless subject are gone; reconciliation stays, per check.
 - Results grow with distinct text and need reaping (results no findings view references).
 
 ## Open questions

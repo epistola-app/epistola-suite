@@ -5,6 +5,8 @@
 package app.epistola.suite.quality.ui
 
 import app.epistola.suite.catalog.queries.FindCatalogsByKey
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
@@ -75,22 +77,27 @@ import org.springframework.web.servlet.function.ServerResponse
 class QualityHandler(
     private val registry: QualitySourceRegistry,
 ) {
+    /** The editor's panel, for the version the editor has open (`letters@<draft>`), else the next one. */
     fun editorFindings(request: ServerRequest): ServerResponse {
         val variantId = request.editorVariantId() ?: return ServerResponse.badRequest().build()
+        val version = request.editorVersion() ?: return ServerResponse.badRequest().build()
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(editorPanel(variantId))
+            .body(editorPanel(variantId, version.ref))
     }
 
     fun runEditorChecks(request: ServerRequest): ServerResponse {
         val variantId = request.editorVariantId() ?: return ServerResponse.badRequest().build()
+        val version = request.editorVersion() ?: return ServerResponse.badRequest().build()
+        // A release is read-only and never checked: it shows the checks of the draft it was.
+        if (version.ref?.draft is DraftRef.Released) return ServerResponse.badRequest().build()
 
-        val run = RunQualityChecks(variantId).execute()
+        val run = RunQualityChecks(variantId, catalogVersion = version.ref).execute()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
-                editorPanel(variantId).copy(
+                editorPanel(variantId, version.ref).copy(
                     checks = run.sources.map { EditorSourceRun(it.sourceId.value, it.displayName, it.status.name, it.reason) },
                 ),
             )
@@ -388,11 +395,17 @@ class QualityHandler(
         return variantId(templateId)
     }
 
-    private fun editorPanel(variantId: VariantId): EditorQualityPanel {
+    /** The version in the editor's path, `null` inside for the next one; null when the path names no version. */
+    private fun ServerRequest.editorVersion(): EditorVersion? = runCatching { EditorVersion(catalogSegment().ref(tenantId().key)) }.getOrNull()
+
+    private data class EditorVersion(val ref: CatalogReleaseRef?)
+
+    private fun editorPanel(variantId: VariantId, version: CatalogReleaseRef?): EditorQualityPanel {
         val subjectFindings = GetFindingsForSubject(
             catalog = variantId.catalogId,
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
+            catalogVersion = version,
         ).query()
         val findings = subjectFindings.findings.map { finding ->
             EditorQualityFinding(
@@ -407,7 +420,7 @@ class QualityHandler(
                 primaryNodeId = finding.primaryNodeId,
                 path = finding.path,
                 docsUrl = finding.docsUrl,
-                stale = subjectFindings.isStale(finding),
+                stale = finding.outdated,
                 commentCount = finding.commentCount,
                 quote = finding.context.path("quote").takeIf { it.isString }?.asString(),
                 suggestions = finding.context.path("suggestions").toList().map { it.asString("") },
@@ -415,7 +428,7 @@ class QualityHandler(
         }
 
         return EditorQualityPanel(
-            currentInputFingerprint = subjectFindings.currentInputFingerprint,
+            currentInputKey = subjectFindings.currentInputKey,
             findings = findings,
             openCount = findings.count { it.status == EffectiveQualityStatus.OPEN.name },
             staleCount = findings.count { it.stale },
@@ -450,6 +463,8 @@ class QualityHandler(
 
         return QualityFilters(
             catalog = catalogParam ?: template?.first?.let { FindCatalogsByKey(tenantId().key, it).query().only },
+            // The version the page is of (`letters@<draft>`, a release), else the catalog's next.
+            version = catalogParam?.let { runCatching { catalogParam()?.ref(tenantId().key) }.getOrNull() },
             templateKey = template?.second,
             sourceId = queryParam("source")?.takeIf { it.isNotBlank() }?.let { QualitySourceId(it) },
             severity = queryParam("severity").toEnumOrNull<QualitySeverity>(),
@@ -503,7 +518,8 @@ class QualityHandler(
         "selectedSeverity" to filters.severity
         "selectedStatus" to filters.status
         "selectedSource" to filters.sourceId?.value
-        "selectedCatalog" to filters.catalog?.address
+        // With the version, so every filter request reads the version the page is of.
+        "selectedCatalog" to filters.catalog?.let { catalog -> filters.version?.let { "${catalog.address}@${it.draft}" } ?: catalog.address }
         // Round-trips the same `catalogKey/templateKey` the option carries, so the picker
         // re-selects after a swap.
         "selectedTemplate" to filters.selectedTemplateValue()
@@ -519,7 +535,8 @@ class QualityHandler(
     )
 
     data class EditorQualityPanel(
-        val currentInputFingerprint: String?,
+        /** The variant's input key in the version the editor has open (ADR 0044); null when it holds none. */
+        val currentInputKey: String?,
         val findings: List<EditorQualityFinding>,
         val openCount: Int,
         val staleCount: Int,
@@ -557,6 +574,7 @@ class QualityHandler(
 
     private data class QualityFilters(
         val catalog: CatalogId?,
+        val version: CatalogReleaseRef?,
         val templateKey: TemplateKey?,
         val sourceId: QualitySourceId?,
         val severity: QualitySeverity?,
@@ -572,6 +590,7 @@ class QualityHandler(
         fun toQuery(tenantId: TenantId) = ListQualityFindings(
             tenantKey = tenantId.key,
             catalog = catalog,
+            catalogVersion = version,
             templateKey = templateKey,
             sourceId = sourceId,
             severity = severity,

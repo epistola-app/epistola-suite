@@ -6,6 +6,8 @@ package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -18,8 +20,6 @@ import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
-import app.epistola.suite.templates.currentTemplateJoin
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -48,7 +48,8 @@ enum class QualityFindingSort(
 }
 
 /**
- * The tenant-wide quality report: every finding, from every source, filtered and paged.
+ * The tenant-wide quality report: every finding the version each catalog means shows (its next
+ * version, unless a message targets another; ADR 0044), from every source, filtered and paged.
  *
  * ### Effective status is filtered in SQL, deliberately
  *
@@ -61,6 +62,8 @@ enum class QualityFindingSort(
 data class ListQualityFindings(
     override val tenantKey: TenantKey,
     val catalog: CatalogId? = null,
+    /** The version of [catalog] to report on: a draft or a release; null for each catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef? = null,
     val templateKey: TemplateKey? = null,
     val sourceId: QualitySourceId? = null,
     val ruleId: String? = null,
@@ -73,9 +76,11 @@ data class ListQualityFindings(
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<QualityFindingPage>,
+    ReleaseReadable,
     RequiresPermission {
     init {
         validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+        validate("catalogVersion", catalogVersion == null || catalogVersion.catalog == catalog) { "The version is of the catalog reported on" }
     }
 
     val catalogKey: CatalogKey? get() = catalog?.key
@@ -88,41 +93,25 @@ class ListQualityFindingsHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<ListQualityFindings, QualityFindingPage> {
     override fun handle(query: ListQualityFindings): QualityFindingPage = jdbi.withHandle<QualityFindingPage, Exception> { handle ->
+        // A catalog filter narrows the checks too, so only that catalog's variants have their key computed.
+        val checks = "k.tenant_key = :tenantKey" + if (query.catalogKey != null) " AND k.catalog_id = ${catalogAt("tenantKey", "catalogKey")}" else ""
         val sql = buildString {
             append(
                 """
                 SELECT x.*, COUNT(*) OVER()::int AS total_count
                 FROM (
-                    SELECT f.*, $TEMPLATE_ADDRESS_COLUMNS,
-                           CASE WHEN f.status = 'RESOLVED'             THEN 'RESOLVED'
-                                WHEN i.finding_fingerprint IS NOT NULL THEN 'IGNORED'
-                                ELSE 'OPEN' END AS effective_status,
-                           i.reason AS ignore_reason,
-                           (f.source_id <> :manualSourceId) AS reconciled,
-                           COALESCE(c.comment_count, 0)::int AS comment_count
-                    FROM quality_findings f
-                    ${currentTemplateJoin("f")}
-                    LEFT JOIN quality_finding_ignores i
-                           ON i.tenant_key       = f.tenant_key
-                          AND i.ignore_scope_urn = f.ignore_scope_urn
-                          AND i.source_id        = f.source_id
-                          AND i.rule_id          = f.rule_id
-                          AND i.finding_fingerprint = f.fingerprint
-                          AND i.revoked_at IS NULL
-                    LEFT JOIN LATERAL (
-                        SELECT COUNT(*) AS comment_count
-                        FROM quality_finding_comments qc
-                        WHERE qc.tenant_key = f.tenant_key AND qc.finding_id = f.id
-                    ) c ON TRUE
-                    WHERE f.tenant_key = :tenantKey
+                    SELECT s.*, ${QualityFindingSql.columns("s")}
+                    FROM (${QualityFindingSql.shown(checks, "f.tenant_key = :tenantKey")}) s
+                    ${QualityFindingSql.decisions("s")}
+                    WHERE s.tenant_key = :tenantKey
                 """.trimIndent(),
             )
             if (query.catalogKey != null) append(" AND template.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.templateKey != null) append(" AND template.id = :templateKey")
-            if (query.sourceId != null) append(" AND f.source_id = :sourceId")
-            if (query.ruleId != null) append(" AND f.rule_id = :ruleId")
-            if (query.severity != null) append(" AND f.severity = :severity")
-            if (!query.searchTerm.isNullOrBlank()) append(" AND f.message ILIKE :searchTerm ESCAPE '\\'")
+            if (query.sourceId != null) append(" AND s.source_id = :sourceId")
+            if (query.ruleId != null) append(" AND s.rule_id = :ruleId")
+            if (query.severity != null) append(" AND s.severity = :severity")
+            if (!query.searchTerm.isNullOrBlank()) append(" AND s.message ILIKE :searchTerm ESCAPE '\\'")
             append(") x")
             // Outside the subselect, because effective_status does not exist inside it. The window
             // total is evaluated after this filter, so it always matches the rows returned.

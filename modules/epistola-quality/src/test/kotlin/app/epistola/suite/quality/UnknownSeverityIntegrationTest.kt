@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.quality.queries.GetFindingsForSubject
 import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -62,17 +63,22 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
         fingerprint: String = "fp-$severity",
     ): QualityFindingKey {
         val key = QualityFindingKey.generate()
+        // The check the row belongs to, through the command: an empty answer of the remote checker,
+        // given once, since a second answer would replace the rows inserted under the first.
+        val read = withMediator { GetFindingsForSubject(subject.catalogId, subject.templateKey, subject.variantKey!!).query() }
+        if (read.checks.isEmpty()) withMediator { SubmitQualityFindings(QualitySourceId("remote-checker"), subject, emptyList()).execute() }
+        val inputKey = read.currentInputKey
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO quality_findings (
                     tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type,
                     ignore_scope_urn, template_resource_id, variant_key, node_ids,
-                    message, fingerprint, context, status, first_seen_at, last_seen_at
+                    message, fingerprint, input_key, context, status, first_seen_at, last_seen_at
                 ) VALUES (
                     :tenantKey, :id, 'remote-checker', 'remote.rule', :severity, :subjectUrn, :subjectType,
                     :ignoreScopeUrn, ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, '{}',
-                    'A remote checker used its own vocabulary', :fingerprint, '{}'::jsonb, 'OPEN', NOW(), NOW()
+                    'A remote checker used its own vocabulary', :fingerprint, :inputKey, '{}'::jsonb, 'OPEN', NOW(), NOW()
                 )
                 """,
             )
@@ -80,6 +86,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                 .bind("id", key.value)
                 .bind("severity", severity)
                 .bind("fingerprint", fingerprint)
+                .bind("inputKey", inputKey)
                 .bind("subjectUrn", subject.urn)
                 .bind("subjectType", subject.type.name)
                 .bind("ignoreScopeUrn", subject.ignoreScopeUrn)

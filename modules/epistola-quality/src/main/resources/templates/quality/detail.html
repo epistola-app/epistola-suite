@@ -25,6 +25,7 @@
                         <div class="ep-row ep-gap-3 ep-row-wrap" style="margin-bottom: var(--ep-space-4);">
                             <th:block th:insert="~{quality/fragments/badges :: severity-badge(${finding.severity})}" />
                             <th:block th:insert="~{quality/fragments/badges :: status-badge(${finding.effectiveStatus})}" />
+                            <th:block th:insert="~{quality/fragments/badges :: outdated-badge(${finding})}" />
                             <span class="badge badge-outline" th:text="${sourceName}">Example checks</span>
                         </div>
 

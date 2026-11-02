@@ -102,11 +102,12 @@ feature toggle — the routes stay registered, which mirrors feedback.
 
 ## The model
 
-| Table                      | What it holds                                                                            |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| `quality_findings`         | Every finding, from every source, including human ones                                   |
-| `quality_finding_ignores`  | "This is a false positive, because…" — the only user-authored state a source cares about |
-| `quality_finding_comments` | Discussion on a finding. Local-only                                                      |
+| Table                      | What it holds                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `quality_checks`           | That a source checked a variant as one input key names it, even when it found nothing                    |
+| `quality_findings`         | What a check reported (under its check), and the notes people raised (no check)                          |
+| `quality_finding_ignores`  | "This is a false positive, because…" — the only user-authored state a source cares about                 |
+| `quality_finding_comments` | Discussion on a problem, keyed as an ignore is, so it holds in every version and every check. Local-only |
 
 Findings are **self-describing**: each carries its own `ruleId`, `severity`, `message` and
 optional `docsUrl`. There is deliberately no local rule catalog — a remote source can add
@@ -147,12 +148,12 @@ database removes it (`V20261101000350__quality_2_0.sql`):
   ([ADR 0037](adr/0037-resource-identity-and-relocation.md)), so deleting a template from every
   version, or deleting its catalog or tenant, takes its findings and ignores with it. A template
   that only leaves a draft but stays in a release keeps them.
-- **Variant:** no table holds a variant's identity across versions (it is an entry of its
-  template's content, [ADR 0038](adr/0038-catalogs-in-2-0.md)), so a finding keeps its
-  `variant_key` and the trigger `trg_release_resources_quality_findings_follow_variant` follows
-  it: when a template's row in `release_resources` stops holding a variant (its content changes
-  or the row goes) and no other row of that template, draft or release, still holds it, the
-  variant's findings are deleted.
+- **Variant:** a variant is a row of its own in each version (`release_resources`, type
+  `variant`), so the trigger `trg_release_resources_quality_follow_variant` follows it: when the
+  last row of any version, draft or release, holding the variant goes, its checks (and with them
+  their findings) and the notes on it are deleted. A draft dropping a variant a release still
+  holds leaves them: the release shows them.
+- **Comments** reference the template's identity as ignores do, and go with it.
 
 **Why foreign keys rather than an event handler.** They point quality → core, the same
 direction the module dependency already points, so the cleanup costs nothing architecturally:
@@ -162,8 +163,8 @@ able to fail.
 
 Two subtleties, both pinned by `QualityCascadeIntegrationTest`:
 
-- A **template-subject** finding has a NULL `variant_key`, so the variant trigger never matches
-  it: such a finding survives a variant being deleted.
+- A **note about a whole template** has a NULL `variant_key`, so the variant trigger never matches
+  it: it survives a variant being deleted. (A check is always of a variant.)
 - **Ignores cascade too**, and that is a correctness rule rather than tidiness. URNs are built
   from slugs, so deleting `invoice` and creating a new `invoice` reproduces `ignore_scope_urn`
   _exactly_ — a reviewer's "does not apply here" from the deleted template would silently
@@ -201,28 +202,63 @@ different problem, that belongs in the fingerprint.
 > the match key for re-submission and the value on the wire. See
 > [Catalog resource relocation](catalog-resource-relocation.md).
 
-## Reconciliation: how findings resolve themselves
+## Checks, versions and outdated findings
 
-A source submits its **full current finding set** for a subject, not a delta:
+A check is stored under the **input key** of what it read
+([ADR 0044](adr/0044-quality-results-keyed-by-content.md)): `quality_input_key(tenant, version,
+template, variant)` hashes, for one catalog version,
 
-- a fingerprint not seen before **opens**;
-- one already open is **refreshed** (severity/message may change) and keeps its
-  `first_seen_at` and its row id;
-- one previously resolved **reopens on its original row**, so its comments survive;
-- anything the source previously reported and now omits is **resolved**.
+- the template's content (its data model, examples, theme, variants and their attributes),
+- the variant's content,
+- each resource either refers to, by the content that version resolves it to (in its own catalog
+  the row of that version, in another the row of the version its alias declares; `none` where
+  nothing answers),
+- the version's default theme, and the tenant's language.
 
-That last rule is the whole design. An author fixes a problem, the source stops reporting
-it, and it closes with nobody clicking anything. No source tracks deltas; no UI needs a
-"mark fixed" button for automated findings.
+So the key belongs to a variant **in a version**: a draft cut from a release has the release's
+keys, an edit to the variant changes only its own key, an edit to the template changes every
+variant's, and a changed theme, stencil, font or tenant language changes the keys of the variants
+that read it.
 
-Two properties are load-bearing and easy to break:
+Every catalog version shows, per variant and source, the check whose key is the variant's key
+there; failing that the newest check, marked **outdated**; failing that, nothing ("not checked
+yet"). The views `quality_current_variants` and `quality_current_checks` compute this for the
+version a caller means (`catalog_current_versions`: the targeted draft or release, else the
+catalog's next version), so the editor panel, the report and their filters and paging stay in SQL.
+A release never changes, so its keys never do: it keeps showing what was checked before it was
+cut. The editor's panel and "Check now" use the version the editor has open (`letters@<draft>`);
+a release is never checked.
 
-- **An empty submission is meaningful** — it resolves everything that source had open for
-  the subject. It needs no special case because `fingerprint <> ALL('{}')` is TRUE in
-  Postgres. A "skip the UPDATE when the list is empty" optimisation would strand every open
-  finding as OPEN forever.
-- **Reconciliation is scoped by `source_id`** — a source can never resolve another's
-  findings, nor a human's. Without it the last source submission would win.
+The key is read **before** the check reads the variant, so a save while a check runs leaves its
+findings under the older key, shown as outdated, never under the newer one. The ledger computes
+the key, never a source.
+
+**Not in the key**, so unable to make a finding outdated: the installation's default language, a
+provider's own configuration (a LanguageTool upgrade, a built-in rule changed in a release of this
+suite; the text result cache is keyed by it, so a check after such a change is right), and what a
+referenced resource refers to in turn.
+
+### Reconciliation, per check
+
+A source submits its **full current finding set** for one check (variant, input key), not a
+delta:
+
+- a fingerprint the check had not reported **opens** (keeping when the source first reported the
+  problem for the variant, under any key);
+- one it had is **refreshed** (severity, message may change) and keeps its row id;
+- one it no longer reports **goes**. A check's finding is never stored as resolved: what the check
+  shown does not report, nobody needs to see.
+
+An author fixes a problem, the source stops reporting it, and it is gone with nobody clicking
+anything. Two properties are load-bearing:
+
+- **An empty submission is meaningful**: checked, nothing wrong. It still writes the check row,
+  which is what tells "nothing wrong" from "not checked yet".
+- **Reconciliation is scoped by `source_id`**: a source never removes another's findings, nor a
+  person's notes.
+
+When a source checks a variant again, its checks under keys no version has any more
+(`quality_live_input_keys`) are deleted with their findings: what the variant read before an edit.
 
 ## Fingerprints
 
@@ -242,7 +278,7 @@ example of both sides:
 
 - `example.long-text` **excludes** the text. Editing a too-long block that stays too long is
   the _same_ problem, so it keeps its ignore. Shorten it past the threshold and it
-  auto-resolves — that is the correct exit, not a new fingerprint.
+  goes — that is the correct exit, not a new fingerprint.
 - A rule where the text _is_ the problem (a misspelling) would **include** the word: fixing
   one typo and introducing another is a different problem and must not inherit the old
   ignore.
@@ -254,8 +290,12 @@ what is **not** in that key:
 
 - **No version.** An ignore carries forward across edits and releases. Key it per release and
   every release resurfaces every previously-dismissed finding.
-- **No finding row.** There is no FK. An ignore must outlive its finding (which
-  auto-resolves) and be able to pre-exist a resurface.
+- **No finding row.** There is no FK. An ignore must outlive its finding (which goes when no
+  longer reported) and be able to pre-exist a resurface.
+
+**Comments are keyed the same way**: by the problem, not by a finding's row. A finding's row
+belongs to one check, and a check is replaced when the variant changes; the discussion is about
+the problem and holds in every version and through every check that reports it.
 
 `IGNORED` is **not a stored status** — it is derived from a live ignore row at read time.
 That makes "an unchanged fingerprint retains its ignore" true by construction, with no
@@ -309,10 +349,10 @@ An absent entry in a resolved facet means **unknown**, not broken. A source must
 unknown input so a resolver gap cannot manufacture findings.
 
 Remote checks use the same requirement idea, but not the same call path. A remote run gets an
-immutable manifest for one `run_id` and input fingerprint: small facts can be pushed inline, while
-large artifacts such as rendered PDFs are exposed through short-lived run-bound handles. The remote
-checker submits its full finding set later with the `run_id` / `input_fingerprint`; stale or failed
-runs must not auto-resolve old findings.
+immutable manifest for one `run_id` and input key: small facts can be pushed inline, while large
+artifacts such as rendered PDFs are exposed through short-lived run-bound handles. The remote
+checker submits its full finding set later under that input key; a failed run submits nothing, so
+the previous check stays.
 
 Several ship today; these are worth reading in this order:
 
@@ -334,11 +374,12 @@ Several ship today; these are worth reading in this order:
 ### Remote
 
 Implement no `QualityFindingSource`. A remote checker participates through a run/input/result
-protocol: Epistola creates a run for a source, subject and input fingerprint; grants only the
+protocol: Epistola creates a run for a source, subject and input key; grants only the
 declared inputs for that run; and later accepts a full finding set or failure for the same
-`run_id` / `input_fingerprint`. Small input facts can ride inline; large artifacts such as rendered
-PDFs use short-lived run-bound handles. Old results must never be stamped current, and a failed or
-timed-out run must not auto-resolve previous findings.
+`run_id` and input key (`GetQualityInputKey`). Small input facts can ride inline; large artifacts
+such as rendered PDFs use short-lived run-bound handles. A submission is stored under the key the
+run was handed, so old results are never stamped current, and a failed or timed-out run submits
+nothing.
 
 A remote checker then reads dispositions back with a `since` cursor. A remote checker needs no hub
 by definition — an HTTP endpoint is enough — though the hub is the likely first implementation.
@@ -362,29 +403,11 @@ list, as the automated findings. It inherits the ignore flow, the report filters
 node highlight for free.
 
 **Manual findings do not reconcile.** An automated source submits a full set, which is what
-lets its findings auto-resolve; a person submits one note and walks away, so there is
-nothing to auto-resolve against. They need `ResolveManualFinding` and a human. The read
-model exposes `reconciled` so the UI offers a Resolve action for exactly these — it is a
-genuine second lifecycle, surfaced rather than hidden.
-
-## Staleness
-
-Checks run out of band, so a finding is always "as of the last check". The ledger stamps
-each finding with an `input_fingerprint` — a hash of the document it was computed against —
-and the editor compares that to the document live now to mark a finding outdated rather than
-present a stale claim as current.
-
-**The ledger computes it, never the source.** Postgres normalizes `jsonb` key order, so
-`md5(template_model::text)` is stable server-side; a remote source hashing the JSON _it_
-fetched would produce a different string for the very same document, and every finding it
-submitted would read as permanently stale — silently, forever.
-
-Manual findings carry no input fingerprint: a human's remark is not "computed against" a
-revision and must never be marked outdated by an edit.
-
-> **Proposed:** [ADR 0044](adr/0044-quality-results-keyed-by-content.md) replaces this stamp
-> and, in steps, the reconciling ledger: check results become a cache keyed by the content they
-> checked, and findings a view per catalog version derived from it.
+lets its findings go when fixed; a person submits one note and walks away, so there is
+nothing to reconcile against. They need `ResolveManualFinding` and a human, and are the only
+findings stored as resolved. A note belongs to its template, not to a check or a version: it shows
+in every version and is never outdated. The read model exposes `reconciled` so the UI offers a
+Resolve action for exactly these — it is a genuine second lifecycle, surfaced rather than hidden.
 
 ## Triggers
 
@@ -394,17 +417,17 @@ revision and must never be marked outdated by an edit.
 | A ready mark (`OnVariantReadyRunChecks`) | The variant marked ready, at once      | yes   |
 | Editor "Check now"                       | The open variant, in the request       | yes   |
 
-All of them dispatch the same `RunQualityChecks`, so reconciliation, ignores and staleness
+All of them dispatch the same `RunQualityChecks`, so reconciliation, ignores and outdated findings
 behave identically wherever a check was triggered from.
 
 A save and a ready mark do not run the checks themselves: they schedule the variant's
-quality-check **cluster timer** (`QualityCheckTimer`, [timers](timers.md)), one per variant. A
+quality-check **cluster timer** (`QualityCheckTimer`, [timers](timers.md)), one per variant and draft. A
 save sets it `epistola.quality.check-on-save-delay` out (5 s) and each later save moves it, so a
 burst of autosaves is checked once, after the last; a ready mark sets it due at once. The timer row
 is written in the save's own transaction (the handlers are `IMMEDIATE`), so a save that rolls back
-leaves no timer, and the check runs later, on one node, as the tenant's system user. A save that
-targets a draft other than the catalog's next version is not checked yet: the ledger keeps no
-version (ADR 0044, section 8).
+leaves no timer, and the check runs later, on one node, as the tenant's system user, in the draft
+the save or the mark was made in. A draft released or discarded before its timer is due is not
+checked.
 
 The ready trigger was an `AFTER_COMMIT` event handler until the language checks, and never ran:
 the mediator invokes `IMMEDIATE` event handlers only.
@@ -587,12 +610,10 @@ cannot "just fix it".
 
 - **Compatibility verdicts are a separate system, by decision** — see
   [Compatibility is not a quality source](#compatibility-is-not-a-quality-source).
-- **Late submissions get stamped current.** A source that analysed a stale copy and submits
-  afterwards has its findings stamped with the _current_ input fingerprint, so they read as
-  fresh. The fix is an echo — the source returns the fingerprint it was handed and the ledger
-  rejects a mismatch. Deferred.
-- **Resolved findings accumulate.** Reconciliation never deletes (a cascade would eat the
-  comments). Retention pruning is not built.
+- **Checks of keys no version has stay until the same source checks the variant again.** A
+  variant edited and never checked again keeps its older check, shown as outdated, which is the
+  point; a periodic sweep of superseded checks is not built.
+- **A change without a trigger is not checked.** An import, a relocation or a changed dependency
+  shows the variant's findings as outdated until something checks it.
 - **Comments are local-only.** A disposition has an obvious meaning to a remote checker
-  ("stop reporting this"); a comment does not, and inventing an answer would bake it in. The
-  finding id is stable, so a future sync has something to hang off.
+  ("stop reporting this"); a comment does not, and inventing an answer would bake it in.

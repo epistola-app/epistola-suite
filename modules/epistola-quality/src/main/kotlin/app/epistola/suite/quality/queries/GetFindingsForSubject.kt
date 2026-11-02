@@ -5,8 +5,8 @@
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
@@ -21,46 +21,49 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubjectType
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
-import app.epistola.suite.templates.currentTemplateJoin
 import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.sql.ResultSet
+import java.time.Instant
+import java.util.UUID
+
+/** What one source's check shown for a variant was: when it ran, and whether it read what the variant reads now. */
+data class SubjectCheck(
+    val sourceId: QualitySourceId,
+    val checkedAt: Instant,
+    /** False: the variant changed since, in the version looked at; its findings are shown as outdated. */
+    val current: Boolean,
+)
 
 /**
- * The findings for one subject, plus what the subject currently hashes to — everything the editor
- * panel needs in one round trip.
+ * What the editor panel shows for one variant in one catalog version (ADR 0044): per source, the
+ * findings of the check with the variant's input key there, else of its newest check, marked
+ * outdated; and the notes people raised on it.
  *
- * [SubjectFindings.currentInputFingerprint] is what makes the panel honest. Checks run out of band,
- * so a finding is always "as of the last check"; comparing it against each finding's stored
- * `inputFingerprint` is how the panel knows to mark one outdated rather than presenting a stale
- * claim as current.
+ * [checks] says, per source, which check that was; a source with none has not checked the variant
+ * yet. [currentInputKey] is the variant's key in the version, null when it does not hold the variant.
  */
 data class SubjectFindings(
-    /** Hash of the template model the subject resolves to right now. Null when it has no model. */
-    val currentInputFingerprint: String?,
+    val currentInputKey: String?,
     val findings: List<QualityFinding>,
-) {
-    /** True when [finding] was computed against a different document than the one live now. */
-    fun isStale(finding: QualityFinding): Boolean = finding.inputFingerprint != null &&
-        currentInputFingerprint != null &&
-        finding.inputFingerprint != currentInputFingerprint
-}
+    val checks: List<SubjectCheck> = emptyList(),
+)
 
 /**
- * Reads every finding recorded against a variant, whatever its source or status.
- *
- * Resolved findings are included: the panel needs them to show a finding clearing after a fix, and
- * the caller filters. Ignored ones carry their reason.
+ * Reads the findings a catalog version shows for one variant, whatever their source or status: a
+ * note a person resolved is included, and the caller filters.
  */
 data class GetFindingsForSubject(
     val catalog: CatalogId,
     val templateKey: TemplateKey,
     val variantKey: String,
+    /** The version looked at: a draft, a release, or null for the catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef? = null,
 ) : Query<SubjectFindings>,
+    ReleaseReadable,
     RequiresPermission {
     override val tenantKey: TenantKey get() = catalog.tenantKey
     val catalogKey: CatalogKey get() = catalog.key
@@ -73,65 +76,60 @@ class GetFindingsForSubjectHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetFindingsForSubject, SubjectFindings> {
     override fun handle(query: GetFindingsForSubject): SubjectFindings = jdbi.withHandle<SubjectFindings, Exception> { handle ->
-        // The variant's working model — the document the editor is showing, and the same one
-        // SubmitQualityFindings hashes, so the two fingerprints are comparable by construction.
-        val currentInputFingerprint = handle.createQuery(
-            """
-            SELECT md5(template_model::text)
-            FROM current_template_variants
-            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
-              AND template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
-            """,
-        )
+        val templateId = handle.createQuery("SELECT ${templateIn("tenantKey", "catalogKey", "templateKey")}")
             .bind("tenantKey", query.tenantKey)
             .bindCatalog("catalogKey", query.catalog)
             .bind("templateKey", query.templateKey)
+            .mapTo(UUID::class.java)
+            .findOne()
+            .orElse(null)
+            ?: return@withHandle SubjectFindings(null, emptyList())
+
+        val currentInputKey = handle.createQuery(
+            """
+            SELECT input_key FROM quality_current_variants
+            WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
+            """,
+        )
+            .bind("tenantKey", query.tenantKey)
+            .bind("templateId", templateId)
             .bind("variantKey", query.variantKey)
             .mapTo(String::class.java)
             .findOne()
             .orElse(null)
 
-        val findings = handle.createQuery(
+        val checks = handle.createQuery(
             """
-            SELECT f.*, $TEMPLATE_ADDRESS_COLUMNS,
-                   CASE WHEN f.status = 'RESOLVED'             THEN 'RESOLVED'
-                        WHEN i.finding_fingerprint IS NOT NULL THEN 'IGNORED'
-                        ELSE 'OPEN' END AS effective_status,
-                   i.reason AS ignore_reason,
-                   (f.source_id <> :manualSourceId) AS reconciled,
-                   COALESCE(c.comment_count, 0)::int AS comment_count
-            FROM quality_findings f
-            ${currentTemplateJoin("f")}
-            -- The ignore is keyed on scope+fingerprint, never on the finding row, which is exactly
-            -- why it survives a resolve/resurface cycle and a version publish.
-            LEFT JOIN quality_finding_ignores i
-                   ON i.tenant_key       = f.tenant_key
-                  AND i.ignore_scope_urn = f.ignore_scope_urn
-                  AND i.source_id        = f.source_id
-                  AND i.rule_id          = f.rule_id
-                  AND i.finding_fingerprint = f.fingerprint
-                  AND i.revoked_at IS NULL
-            LEFT JOIN LATERAL (
-                SELECT COUNT(*) AS comment_count
-                FROM quality_finding_comments qc
-                WHERE qc.tenant_key = f.tenant_key AND qc.finding_id = f.id
-            ) c ON TRUE
-            WHERE f.tenant_key = :tenantKey
-              AND f.template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND f.variant_key = :variantKey
-            ORDER BY CASE f.severity WHEN 'ERROR' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END,
-                     f.last_seen_at DESC,
-                     f.id
+            SELECT source_id, checked_at, current FROM quality_current_checks
+            WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
+            ORDER BY source_id
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bindCatalog("catalogKey", query.catalog)
-            .bind("templateKey", query.templateKey)
+            .bind("templateId", templateId)
+            .bind("variantKey", query.variantKey)
+            .map { rs, _ -> SubjectCheck(QualitySourceId(rs.getString("source_id")), rs.getTimestamp("checked_at").toInstant(), rs.getBoolean("current")) }
+            .list()
+
+        val subject = "s.tenant_key = :tenantKey AND s.template_resource_id = :templateId AND s.variant_key = :variantKey"
+        val findings = handle.createQuery(
+            """
+            SELECT s.*, ${QualityFindingSql.columns("s")}
+            FROM (${QualityFindingSql.shown(subject.replace("s.", "k."), subject.replace("s.", "f."))}) s
+            ${QualityFindingSql.decisions("s")}
+            ORDER BY CASE s.severity WHEN 'ERROR' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END,
+                     s.last_seen_at DESC,
+                     s.id
+            """,
+        )
+            .bind("tenantKey", query.tenantKey)
+            .bind("templateId", templateId)
             .bind("variantKey", query.variantKey)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
             .map { rs, _ -> mapFinding(rs, objectMapper) }
             .list()
 
-        SubjectFindings(currentInputFingerprint = currentInputFingerprint, findings = findings)
+        SubjectFindings(currentInputKey = currentInputKey, findings = findings, checks = checks)
     }
 }
 
@@ -160,7 +158,8 @@ internal fun mapFinding(
     messageCode = rs.getString("message_code"),
     docsUrl = rs.getString("docs_url"),
     fingerprint = rs.getString("fingerprint"),
-    inputFingerprint = rs.getString("input_fingerprint"),
+    inputKey = rs.getString("input_key"),
+    outdated = rs.getBoolean("outdated"),
     context = objectMapper.readTree(rs.getString("context")) as ObjectNode,
     metadata = objectMapper.readTree(rs.getString("metadata")) as ObjectNode,
     effectiveStatus = EffectiveQualityStatus.valueOf(rs.getString("effective_status")),

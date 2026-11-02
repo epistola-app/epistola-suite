@@ -79,13 +79,11 @@ enum class QualitySeverity {
 /** What kind of thing a finding is about. Mirrors the entity types a subject URN can name. */
 enum class QualitySubjectType { TEMPLATE, VARIANT, VERSION, CONTRACT_VERSION }
 
-/** OPEN or RESOLVED as persisted; see [EffectiveQualityStatus] for what a reader actually sees. */
-enum class QualityStatus { OPEN, RESOLVED }
-
 /**
  * What a reader sees. `IGNORED` is deliberately **not** a persisted status — it is derived from a
- * live ignore row at read time, which is what keeps "an unchanged fingerprint retains its ignore"
- * true by construction across a resolve/resurface cycle.
+ * live ignore row at read time, so an ignore holds wherever the same problem is reported again.
+ * `RESOLVED` is a person's note a person resolved: a check's finding is never stored resolved, it is
+ * simply not shown once the check shown no longer reports it (ADR 0044).
  */
 enum class EffectiveQualityStatus { OPEN, IGNORED, RESOLVED }
 
@@ -263,7 +261,16 @@ data class QualityFinding(
     val messageCode: String?,
     val docsUrl: String?,
     val fingerprint: String,
-    val inputFingerprint: String?,
+    /**
+     * The input key of the check that reported it (ADR 0044): what that check read. Null for a
+     * person's note, which no check computed.
+     */
+    val inputKey: String?,
+    /**
+     * True when the variant reads differently now, in the catalog version being looked at, than when
+     * this was checked: shown as the newest answer there is, not as current. Never true for a note.
+     */
+    val outdated: Boolean = false,
     /** Evidence, shown to the reader. */
     val context: ObjectNode,
     /** Operational data, never shown to the reader. */
@@ -318,12 +325,15 @@ data class QualityFindingPage(
     val total: Int,
 )
 
-/** Outcome of a reconciling submission — what actually changed, for logging and the "Check now" UI. */
+/**
+ * Outcome of a submission, against what the same source last reported for the same input: [opened]
+ * is new, [unchanged] was reported before, [dropped] is no longer reported. For logging and the "Check
+ * now" UI.
+ */
 data class SubmitFindingsResult(
     val opened: Int,
-    val reopened: Int,
-    val resolved: Int,
     val unchanged: Int,
+    val dropped: Int,
 )
 
 /** Convenience: the URN of any entity, for callers building a [QualitySubject] by hand. */

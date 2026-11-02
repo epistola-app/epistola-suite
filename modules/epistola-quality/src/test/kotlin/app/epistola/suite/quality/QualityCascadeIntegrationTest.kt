@@ -4,6 +4,8 @@
 
 package app.epistola.suite.quality
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -12,6 +14,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.commands.AddFindingComment
 import app.epistola.suite.quality.commands.IgnoreFinding
+import app.epistola.suite.quality.commands.RecordManualFinding
 import app.epistola.suite.quality.commands.SubmitQualityFindings
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -125,33 +128,36 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
         withMediator {
             app.epistola.suite.templates.contracts.commands.UpdateDataContract(templateId, dataExamples = listOf(app.epistola.suite.templates.model.DataExample("e", "Example", tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode()))).execute()
             SubmitQualityFindings(source, QualitySubject.of(variantId), listOf(finding("fp-released"))).execute()
-            mediator.releaseNext(templateId.catalogId)
         }
+        val release = withMediator { mediator.releaseNext(templateId.catalogId) }
 
         withMediator { DeleteVariant(variantId).execute() }
 
-        assertThat(withMediator { ListQualityFindings(tenant.id).query().items }.map { it.fingerprint }).containsExactly("fp-released")
+        // The next version no longer holds the variant; the release does, and still shows its finding.
+        assertThat(withMediator { ListQualityFindings(tenant.id).query().items }).isEmpty()
+        val inRelease = withMediator {
+            ListQualityFindings(tenant.id, catalog = templateId.catalogId, catalogVersion = CatalogReleaseRef(templateId.catalogId, DraftRef.Released(release))).query().items
+        }
+        assertThat(inRelease.map { it.fingerprint }).containsExactly("fp-released")
     }
 
     /**
-     * A template-subject finding has a NULL `variant_key`, so the variant FK must not apply to it —
-     * under MATCH SIMPLE it is skipped. Deleting some *other* variant must leave it standing.
+     * A note about a template as a whole has no variant, so deleting a variant must leave it
+     * standing. (A check is always of a variant, ADR 0044; only a person remarks on a template.)
      */
     @Test
-    fun `a template-level finding survives a variant deletion`() {
+    fun `a template-level note survives a variant deletion`() {
         val tenant = createTenant("Cascade Template Level")
         val templateId = newTemplate(tenant.id)
         val variantId = newVariant(templateId)
 
-        withMediator {
-            SubmitQualityFindings(source, QualitySubject.of(templateId), listOf(finding("fp-template"))).execute()
-        }
+        withMediator { RecordManualFinding(QualitySubject.of(templateId), "The whole template needs a review").execute() }
 
         withMediator { DeleteVariant(variantId).execute() }
 
         assertThat(withMediator { ListQualityFindings(tenant.id).query().items })
             .singleElement()
-            .satisfies({ assertThat(it.fingerprint).isEqualTo("fp-template") })
+            .satisfies({ assertThat(it.message).isEqualTo("The whole template needs a review") })
     }
 
     /**
