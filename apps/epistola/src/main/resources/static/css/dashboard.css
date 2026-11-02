@@ -173,3 +173,40 @@ a.stat-card:hover {
 .catalog-box-actions:empty {
   display: none;
 }
+
+/* ── Catalog dependency drawing (catalogs/graph.html) ─────────────────── */
+
+/* A node's text is HTML inside the SVG (a foreignObject), so a long catalog name or address
+   truncates with an ellipsis within the box instead of spilling over its edge; the full text
+   stays in the tooltip. */
+.catalog-graph-box {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ep-space-1);
+  height: 100%;
+  line-height: 1.35;
+}
+
+.catalog-graph-box-name {
+  overflow: hidden;
+  color: var(--ep-card-foreground);
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-graph-box-detail {
+  overflow: hidden;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A catalog that is not in this tenant is drawn muted, over its dashed box. */
+.catalog-graph-box-missing .catalog-graph-box-name {
+  color: var(--ep-muted-foreground);
+}

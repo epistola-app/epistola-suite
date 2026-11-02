@@ -63,6 +63,8 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
         listOf("shared", "letters", "unrelated").forEach { assertThat(graph).contains("data-catalog=\"${tenant.id.value}/$it\"") }
         assertThat(graph).contains("data-testid=\"catalog-graph-edge\"").contains(">v1.0.0<")
         assertThat(graph).`as`("each catalog opens its own Dependencies page").contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/dependencies\"")
+        assertThat(graph).`as`("a node's text is HTML in its box, so a long name ellipsises instead of spilling")
+            .contains("catalog-graph-box-name")
 
         assertThat(page("/tenants/${tenant.id.value}/catalogs")).contains("href=\"/tenants/${tenant.id.value}/catalogs/graph\"")
     }
