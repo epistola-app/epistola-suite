@@ -82,6 +82,27 @@ class OneXCatalogChecksTest {
     }
 
     @Test
+    fun `an archived version a variant keeps as its working copy counts`() {
+        val report = oneX("preflight_archived_working_copy") {
+            catalog("letters")
+            catalog("brand")
+            // brand's template uses letters' theme; letters' template has only an archived version,
+            // which the upgrade keeps as its working copy, and it uses brand. Found by OneXUpgradeModelTest.
+            exec("INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('house', 'acme', 'letters', 'House')")
+            template("brand", "invoice", themeOf = "house")
+            template("letters", "memo", model = """{"nodes": {"n": {"type": "stencil", "props": {"stencilId": "x", "catalogKey": "brand"}}}}""", status = "archived")
+        }
+
+        assertThat(report.problems).singleElement().satisfies({ (check, problem) ->
+            assertThat(check).isEqualTo(CatalogDependencyCycleCheck)
+            assertThat(problem.details).containsExactly(
+                "template invoice in 'brand' uses 'letters' (theme house)",
+                "template memo variant main in 'letters' uses 'brand' (content)",
+            )
+        })
+    }
+
+    @Test
     fun `a 2_0 database is not what the 1_x checks are about`() {
         val url = database("preflight_head")
         Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration").load().migrate()

@@ -41,7 +41,7 @@ import tools.jackson.databind.node.ObjectNode
 object TemplateContentV8 {
 
     /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-    const val CHECKSUM: Int = -1619668852
+    const val CHECKSUM: Int = -1785816924
 
     /** A stencil's working copy: its 1.x draft, else its latest published, else latest archived version. */
     class Stencil(val tenantKey: String, val resourceId: String, val catalogKey: String, val key: String, val content: ObjectNode, val parameterSchema: JsonNode?)
@@ -52,8 +52,8 @@ object TemplateContentV8 {
     /** A stored 1.x template version of a template of [catalogKey]. */
     class TemplateVersion(val tenantKey: String, val templateResourceId: String, val variantKey: String, val id: Int, val model: JsonNode, val catalogKey: String, val templateKey: String)
 
-    /** What a stencil becomes: its working copy, schema and flag, and its latest published version. */
-    class ConvertedStencil(val content: JsonNode, val parameterSchema: JsonNode?, val readsTemplateData: Boolean, val published: ConvertedVersion?)
+    /** What a stencil becomes: its working copy, schema and flag, its latest published version and its latest archived one. */
+    class ConvertedStencil(val content: JsonNode, val parameterSchema: JsonNode?, val readsTemplateData: Boolean, val published: ConvertedVersion?, val archived: ConvertedVersion?)
 
     /** A stencil version in v8, with the schema it declares. */
     class ConvertedVersion(val content: JsonNode, val parameterSchema: JsonNode?)
@@ -121,21 +121,25 @@ object TemplateContentV8 {
                 row.passParameters.forEach { name -> passParameters(content, name) }
                 val readsTemplateData = readsTemplateData(content, row.aliases)
                 if (readsTemplateData) note("stencil ${row.catalogKey}/${row.key}", "reads the template's data; it is marked readsTemplateData")
-                val latest = stencilVersions.filter { it.tenantKey == stencil.tenantKey && it.resourceId == stencil.resourceId && it.status == "published" }.maxByOrNull { it.id }
                 val added = linkedSetOf<String>()
                 val schema = withBound(stencil.parameterSchema, row, added)
-                val published = latest?.let { version ->
-                    val versionContent = version.content.deepCopy() as? ObjectNode
-                    versionContent?.let { c -> row.passParameters.forEach { name -> passParameters(c, name) } }
-                    ConvertedVersion(
-                        versionContent?.let { CatalogDocumentMigration.templateDocumentV7ToV8(it).document } ?: version.content,
-                        withBound(version.parameterSchema, row, added),
-                    )
-                }
+
+                fun latest(status: String) = stencilVersions.filter { it.tenantKey == stencil.tenantKey && it.resourceId == stencil.resourceId && it.status == status }
+                    .maxByOrNull { it.id }
+                    ?.let { version ->
+                        val versionContent = version.content.deepCopy() as? ObjectNode
+                        versionContent?.let { c -> row.passParameters.forEach { name -> passParameters(c, name) } }
+                        ConvertedVersion(
+                            versionContent?.let { CatalogDocumentMigration.templateDocumentV7ToV8(it).document } ?: version.content,
+                            withBound(version.parameterSchema, row, added),
+                        )
+                    }
+                val published = latest("published")
+                val archived = latest("archived")
                 if (added.isNotEmpty()) {
                     note("stencil ${row.catalogKey}/${row.key}", "templates bind ${added.joinToString(", ") { "'$it'" }}, which it no longer declared; declared again as optional")
                 }
-                converted[key(stencil.tenantKey, stencil.resourceId)] = ConvertedStencil(CatalogDocumentMigration.templateDocumentV7ToV8(content).document, schema, readsTemplateData, published)
+                converted[key(stencil.tenantKey, stencil.resourceId)] = ConvertedStencil(CatalogDocumentMigration.templateDocumentV7ToV8(content).document, schema, readsTemplateData, published, archived)
             }
             return Result(models, converted, report)
         }
