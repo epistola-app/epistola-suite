@@ -170,7 +170,27 @@ class FindStencilUsagesTest : IntegrationTestBase() {
         }
     }
 
-    private fun buildTemplateModelWithStencil(stencilKey: StencilKey): TemplateDocument {
+    @Test
+    fun `finds the stencils that contain it, of its own catalog and of another`() {
+        val tenant = createTenant("Stencil In Stencils")
+        val tenantId = TenantId(tenant.id)
+        val own = testCatalog(tenantId, CatalogKey.of("parts"))
+        val other = testCatalog(tenantId, CatalogKey.of("brand"))
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = own.key, name = "Parts").execute()
+            CreateCatalog(tenantKey = tenant.id, id = other.key, name = "Brand").execute()
+            val stencilKey = TestIdHelpers.nextStencilId()
+            val stencilId = StencilId(stencilKey, own)
+            CreateStencil(id = stencilId, name = "Seal").execute()
+            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), own), name = "Frame", content = buildTemplateModelWithStencil(stencilKey)).execute()
+            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), other), name = "Letterhead", content = buildTemplateModelWithStencil(stencilKey, own.key.value)).execute()
+
+            assertThat(FindStencilUsages(stencilId = stencilId).query()).containsExactly("Frame", "Letterhead")
+        }
+    }
+
+    private fun buildTemplateModelWithStencil(stencilKey: StencilKey, catalogKey: String? = null): TemplateDocument {
         val rootId = "root-1"
         val slotId = "slot-1"
         val stencilNodeId = "stencil-1"
@@ -186,9 +206,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
                 stencilNodeId to Node(
                     id = stencilNodeId,
                     type = "stencil",
-                    props = mapOf(
-                        "stencilKey" to stencilKey.value,
-                    ),
+                    props = listOfNotNull("stencilKey" to stencilKey.value, catalogKey?.let { "catalogKey" to it }).toMap(),
                 ),
             ),
             slots = mapOf(

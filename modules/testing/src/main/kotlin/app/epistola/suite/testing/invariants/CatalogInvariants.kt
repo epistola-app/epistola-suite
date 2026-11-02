@@ -20,7 +20,7 @@ data class InvariantViolation(val invariant: String, val tenantKey: String, val 
  * led there, written as SQL that returns the rows breaking it. The database enforces what one row or
  * one table can (foreign keys, checks, the next-draft and variant triggers); these are the rules that
  * span tables and that only the code keeps: a reference resolving through the declared dependency, a
- * release pinning releases only, catalogs never using each other. A rule the database already
+ * release pinning releases only, catalogs never using each other, a released stencil never containing itself. A rule the database already
  * enforces is left out (`CatalogInvariantsTest` tried each corruption: a catalog without its next
  * draft and a version holding one identity twice are refused by triggers).
  *
@@ -112,6 +112,24 @@ walk AS (
     SELECT w.tenant_key, w.start, e.dst, w.path || w.cur
     FROM walk w JOIN edge e ON e.tenant_key = w.tenant_key AND e.src = w.cur
     WHERE w.cur <> w.start AND NOT w.cur = ANY (w.path[2:])
+),
+-- A released stencil's instances of its own catalog's stencils; one of another catalog cannot lead
+-- back, since catalogs never use each other. A draft may hold a cycle: saves do not judge whether a
+-- stencil fits, and marking it ready or releasing refuses one (docs/stencils.md).
+nest AS (
+    SELECT r.tenant_key, r.version_id, r.resource_key AS src, x.resource_key AS dst
+    FROM release_resources r
+    JOIN ver ON ver.tenant_key = r.tenant_key AND ver.version_id = r.version_id AND ver.state = 'released'
+    JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
+    WHERE r.resource_type = 'stencil' AND r.parent_id IS NULL AND x.resource_type = 'stencil'
+      AND (x.alias IS NULL OR resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, NULL, x.alias) = r.catalog_id)
+),
+nest_walk AS (
+    SELECT tenant_key, version_id, src AS start, dst AS cur, ARRAY[src] AS path FROM nest
+    UNION ALL
+    SELECT w.tenant_key, w.version_id, w.start, n.dst, w.path || w.cur
+    FROM nest_walk w JOIN nest n ON n.tenant_key = w.tenant_key AND n.version_id = w.version_id AND n.src = w.cur
+    WHERE w.cur <> w.start AND NOT w.cur = ANY (w.path[2:])
 )
 
 SELECT 'base-is-release' AS invariant, v.tenant_key,
@@ -156,6 +174,12 @@ SELECT DISTINCT ON (w.tenant_key, w.start) 'catalogs-never-use-each-other', w.te
        (SELECT string_agg(pc.label, ' -> ' ORDER BY o) FROM unnest(w.path || w.cur) WITH ORDINALITY u(id, o)
         JOIN cat pc ON pc.tenant_key = w.tenant_key AND pc.catalog_id = u.id)
 FROM walk w JOIN cat c ON c.tenant_key = w.tenant_key AND c.catalog_id = w.start
+WHERE w.cur = w.start
+
+UNION ALL
+SELECT DISTINCT ON (w.tenant_key, w.version_id, w.start) 'stencil-never-contains-itself', w.tenant_key,
+       ver.label || ': stencil ' || w.start || ' contains itself through ' || array_to_string(w.path || w.cur, ' -> ')
+FROM nest_walk w JOIN ver ON ver.tenant_key = w.tenant_key AND ver.version_id = w.version_id
 WHERE w.cur = w.start
 
 UNION ALL
