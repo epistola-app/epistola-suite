@@ -20,15 +20,18 @@ import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mcp.dto.FontInfo
 import app.epistola.suite.mcp.dto.FontVariantInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
@@ -61,6 +64,7 @@ class FontMcpTools(
             "can be changed here (never `system`).",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.REFERENCE_VIEW)
     fun listFonts(
         @McpToolParam(
             description = "Catalog slug to filter by. Omit to list across all catalogs.",
@@ -70,20 +74,22 @@ class FontMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<FontInfo> {
-        val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        val editability = catalogEditability()
-        return mediator.query(ListFonts(tenantId = tenantId, catalog = filter, catalogVersion = version))
-            .map { font ->
-                val variants = mediator.query(
-                    GetFontVariants(
-                        fontId = FontId(font.slug, font.catalogId),
-                        catalogVersion = version,
-                    ),
-                ).map { FontVariantInfo(it.weight, it.italic) }
-                FontInfo.from(font, variants, editability.editable(font.catalogId))
-            }
+        mcpOperation(this::listFonts) {
+            val tenantId = TenantId(mcpTenantKey())
+            val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            val editability = catalogEditability()
+            return mediator.query(ListFonts(tenantId = tenantId, catalog = filter, catalogVersion = version))
+                .map { font ->
+                    val variants = mediator.query(
+                        GetFontVariants(
+                            fontId = FontId(font.slug, font.catalogId),
+                            catalogVersion = version,
+                        ),
+                    ).map { FontVariantInfo(it.weight, it.italic) }
+                    FontInfo.from(font, variants, editability.editable(font.catalogId))
+                }
+        }
     }
 
     @McpTool(
@@ -95,6 +101,7 @@ class FontMcpTools(
             "Requires the TEMPLATE_EDIT and REFERENCE_EDIT permissions.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.REFERENCE_EDIT)
     fun uploadFont(
         @McpToolParam(description = "Catalog key to upload into. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -112,30 +119,32 @@ class FontMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): FontInfo {
-        val tenantId = TenantId(mcpTenantKey())
-        val catalog = mcpCatalog(catalogId)
-        val slug = FontKey.of(fontId)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        val fontKind = try {
-            FontKind.fromWire(kind)
-        } catch (e: IllegalArgumentException) {
-            throw ValidationException("kind", "${e.message}. Use one of ${FontKind.entries.joinToString { it.wire }}")
+        mcpOperation(this::uploadFont) {
+            val tenantId = TenantId(mcpTenantKey())
+            val catalog = mcpCatalog(catalogId)
+            val slug = FontKey.of(fontId)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            val fontKind = try {
+                FontKind.fromWire(kind)
+            } catch (e: IllegalArgumentException) {
+                throw ValidationException("kind", "${e.message}. Use one of ${FontKind.entries.joinToString { it.wire }}")
+            }
+            // Every face is validated before any is stored; a face's file is the font's own binary (ADR 0033).
+            val parsed = parseFaces(objectMapper.parseArgument("faces", faces, ArrayNode::class.java))
+            val variants = parsed.map { face -> ImportFontVariant(face.weight, face.italic, face.mediaType.mimeType, face.bytes) }
+            ImportFont(
+                catalog = catalog,
+                slug = slug.value,
+                name = name,
+                kind = fontKind.wire,
+                variants = variants,
+                catalogVersion = version,
+            ).execute()
+            val font = ListFonts(tenantId = tenantId, catalog = catalog, catalogVersion = version).query().first { it.slug == slug }
+            val stored = GetFontVariants(fontId = FontId(slug, catalog), catalogVersion = version).query()
+                .map { FontVariantInfo(it.weight, it.italic) }
+            return FontInfo.from(font, stored, catalogEditability().editable(catalog))
         }
-        // Every face is validated before any is stored; a face's file is the font's own binary (ADR 0033).
-        val parsed = parseFaces(objectMapper.parseArgument("faces", faces, ArrayNode::class.java))
-        val variants = parsed.map { face -> ImportFontVariant(face.weight, face.italic, face.mediaType.mimeType, face.bytes) }
-        ImportFont(
-            catalog = catalog,
-            slug = slug.value,
-            name = name,
-            kind = fontKind.wire,
-            variants = variants,
-            catalogVersion = version,
-        ).execute()
-        val font = ListFonts(tenantId = tenantId, catalog = catalog, catalogVersion = version).query().first { it.slug == slug }
-        val stored = GetFontVariants(fontId = FontId(slug, catalog), catalogVersion = version).query()
-            .map { FontVariantInfo(it.weight, it.italic) }
-        return FontInfo.from(font, stored, catalogEditability().editable(catalog))
     }
 
     private class Face(val weight: Int, val italic: Boolean, val bytes: ByteArray, val mediaType: AssetMediaType)

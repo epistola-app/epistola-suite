@@ -21,16 +21,19 @@ import app.epistola.suite.mcp.dto.ThemeSummaryInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -56,6 +59,7 @@ class ThemeMcpTools(
             "what styling a template can pick from.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.THEME_VIEW)
     fun listThemes(
         @McpToolParam(
             description = "Catalog key to filter by. Omit to list across all catalogs.",
@@ -69,14 +73,16 @@ class ThemeMcpTools(
         search: String?,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<ThemeSummaryInfo> = mediator.query(
-        ListThemes(
-            tenantId = mcpTenantId(),
-            catalog = catalogFilter(catalogId),
-            searchTerm = search,
-            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
-        ),
-    ).map { ThemeSummaryInfo.from(it) }
+    ): List<ThemeSummaryInfo> = mcpOperation(this::listThemes) {
+        mediator.query(
+            ListThemes(
+                tenantId = mcpTenantId(),
+                catalog = catalogFilter(catalogId),
+                searchTerm = search,
+                catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
+            ),
+        ).map { ThemeSummaryInfo.from(it) }
+    }
 
     @McpTool(
         name = "get_theme",
@@ -84,6 +90,7 @@ class ThemeMcpTools(
             "Returns the structured style definitions the renderer applies.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.THEME_VIEW)
     fun getTheme(
         @McpToolParam(description = "Catalog key the theme belongs to.")
         catalogId: String,
@@ -92,8 +99,10 @@ class ThemeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): ThemeInfo? {
-        val id = ThemeId(ThemeKey.of(themeId), mcpCatalog(catalogId))
-        return mediator.query(GetTheme(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
+        mcpOperation(this::getTheme) {
+            val id = ThemeId(ThemeKey.of(themeId), mcpCatalog(catalogId))
+            return mediator.query(GetTheme(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
+        }
     }
 
     @McpTool(
@@ -104,6 +113,7 @@ class ThemeMcpTools(
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.THEME_EDIT)
     fun createTheme(
         @McpToolParam(description = "Catalog key to create the theme in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -125,23 +135,25 @@ class ThemeMcpTools(
         defaultBlockStyles: String? = null,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): ThemeInfo = ThemeInfo.from(
-        CreateTheme(
-            id = themeId(catalogId, themeId),
-            name = name,
-            description = description?.takeIf { it.isNotBlank() },
-            documentStyles = parseDocumentStyles(documentStyles) ?: emptyMap(),
-            pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
-            blockStylePresets = objectMapper.parseOptionalArgument(
-                "blockStylePresets",
-                blockStylePresets,
-                BlockStylePresets::class.java,
-            ),
-            spacingUnit = spacingUnit,
-            defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-        ).execute(),
-    )
+    ): ThemeInfo = mcpOperation(this::createTheme) {
+        ThemeInfo.from(
+            CreateTheme(
+                id = themeId(catalogId, themeId),
+                name = name,
+                description = description?.takeIf { it.isNotBlank() },
+                documentStyles = parseDocumentStyles(documentStyles) ?: emptyMap(),
+                pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
+                blockStylePresets = objectMapper.parseOptionalArgument(
+                    "blockStylePresets",
+                    blockStylePresets,
+                    BlockStylePresets::class.java,
+                ),
+                spacingUnit = spacingUnit,
+                defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            ).execute(),
+        )
+    }
 
     @McpTool(
         name = "update_theme",
@@ -153,6 +165,7 @@ class ThemeMcpTools(
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.THEME_EDIT)
     fun updateTheme(
         @McpToolParam(description = "Catalog key the theme belongs to.")
         catalogId: String,
@@ -188,32 +201,34 @@ class ThemeMcpTools(
         catalogVersion: String? = null,
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
-    ): ThemeInfo = UpdateTheme(
-        id = themeId(catalogId, themeId),
-        name = name?.takeIf { it.isNotBlank() },
-        description = description?.takeIf { it.isNotBlank() },
-        documentStyles = parseDocumentStyles(documentStyles),
-        pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
-        blockStylePresets = objectMapper.parseOptionalArgument(
-            "blockStylePresets",
-            blockStylePresets,
-            BlockStylePresets::class.java,
-        ),
-        mergeBlockStylePresets = objectMapper.parseOptionalArgument(
-            "mergeBlockStylePresets",
-            mergeBlockStylePresets,
-            BlockStylePresets::class.java,
-        ),
-        removeBlockStylePresets = objectMapper.parseOptionalArgument(
-            "removeBlockStylePresets",
-            removeBlockStylePresets,
-            Array<String>::class.java,
-        )?.toSet().orEmpty(),
-        spacingUnit = spacingUnit,
-        defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
-        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-        expectedRevision = expectedRevision,
-    ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
+    ): ThemeInfo = mcpOperation(this::updateTheme) {
+        UpdateTheme(
+            id = themeId(catalogId, themeId),
+            name = name?.takeIf { it.isNotBlank() },
+            description = description?.takeIf { it.isNotBlank() },
+            documentStyles = parseDocumentStyles(documentStyles),
+            pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
+            blockStylePresets = objectMapper.parseOptionalArgument(
+                "blockStylePresets",
+                blockStylePresets,
+                BlockStylePresets::class.java,
+            ),
+            mergeBlockStylePresets = objectMapper.parseOptionalArgument(
+                "mergeBlockStylePresets",
+                mergeBlockStylePresets,
+                BlockStylePresets::class.java,
+            ),
+            removeBlockStylePresets = objectMapper.parseOptionalArgument(
+                "removeBlockStylePresets",
+                removeBlockStylePresets,
+                Array<String>::class.java,
+            )?.toSet().orEmpty(),
+            spacingUnit = spacingUnit,
+            defaultBlockStyles = parseBlockStyles(defaultBlockStyles),
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            expectedRevision = expectedRevision,
+        ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun parseDocumentStyles(json: String?): DocumentStyles? = objectMapper.parseOptionalArgument("documentStyles", json, Map::class.java) as DocumentStyles?
@@ -253,12 +268,15 @@ class ThemeMcpTools(
             "(its own and its dependencies'). A block's stylePreset must be one of those once any are declared.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun getCatalogThemeSettings(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogThemeSettingsInfo = settingsInfo(catalogId, catalogVersion)
+    ): CatalogThemeSettingsInfo = mcpOperation(this::getCatalogThemeSettings) {
+        settingsInfo(catalogId, catalogVersion)
+    }
 
     @McpTool(
         name = "set_catalog_theme_settings",
@@ -268,6 +286,7 @@ class ThemeMcpTools(
             "{\"key\", \"name\", \"description\"?}; keys are lowercase with dashes, each once.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun setCatalogThemeSettings(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -282,23 +301,25 @@ class ThemeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogThemeSettingsInfo {
-        val catalog = mcpCatalog(catalogId)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        if (defaultThemeKey != null || clearDefaultTheme == true) {
-            val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.takeIf { c -> c.isNotBlank() }?.let(::mcpCatalog) ?: catalog) }
-            SetCatalogDefaultTheme(catalog, theme, catalogVersion = version).execute()
+        mcpOperation(this::setCatalogThemeSettings) {
+            val catalog = mcpCatalog(catalogId)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            if (defaultThemeKey != null || clearDefaultTheme == true) {
+                val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.takeIf { c -> c.isNotBlank() }?.let(::mcpCatalog) ?: catalog) }
+                SetCatalogDefaultTheme(catalog, theme, catalogVersion = version).execute()
+            }
+            if (presets != null) {
+                val declared = objectMapper.readTree(presets).iterator().asSequence().map { node ->
+                    CatalogPreset(
+                        key = node.get("key").asString(),
+                        name = node.get("name")?.asString() ?: node.get("key").asString(),
+                        description = node.get("description")?.takeUnless { it.isNull }?.asString(),
+                    )
+                }.toList()
+                SetCatalogPresets(catalog, declared, catalogVersion = version).execute()
+            }
+            return settingsInfo(catalogId, catalogVersion)
         }
-        if (presets != null) {
-            val declared = objectMapper.readTree(presets).iterator().asSequence().map { node ->
-                CatalogPreset(
-                    key = node.get("key").asString(),
-                    name = node.get("name")?.asString() ?: node.get("key").asString(),
-                    description = node.get("description")?.takeUnless { it.isNull }?.asString(),
-                )
-            }.toList()
-            SetCatalogPresets(catalog, declared, catalogVersion = version).execute()
-        }
-        return settingsInfo(catalogId, catalogVersion)
     }
 
     @McpTool(
@@ -308,8 +329,11 @@ class ThemeMcpTools(
             "Returns which catalogs took it and which had no next release, each by its `address`, `namespace/key`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )
-    fun applyHouseTheme(): HouseThemeApplied = ApplyHouseTheme(mcpTenantId().key).execute()
-        .let { result -> HouseThemeApplied(result.applied.map { it.toString() }, result.skipped.map { it.toString() }) }
+    @McpPermission(Permission.TENANT_SETTINGS)
+    fun applyHouseTheme(): HouseThemeApplied = mcpOperation(this::applyHouseTheme) {
+        ApplyHouseTheme(mcpTenantId().key).execute()
+            .let { result -> HouseThemeApplied(result.applied.map { it.toString() }, result.skipped.map { it.toString() }) }
+    }
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
         val catalog = mcpCatalog(catalogId)

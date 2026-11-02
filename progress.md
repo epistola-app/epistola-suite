@@ -94,6 +94,20 @@ Noticed, not touched:
 - **A customer's theme sets `fontFamily: "Arial, sans-serif"`**, which every render ignores with
   a warning (1.5.0 too, so not a regression); the letters render in the default font.
 
+### MCP tools enforce the permission they declare (2 November; branch `fix/mcp-tool-permissions`, on `fix/rest-permissions-contract-alignment`)
+
+| What                                                                                                                                                                                                                  | Where                                                | Covered                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every MCP tool declares its permission in code (`@McpPermission`) and runs as an authorized operation of it (`mcpOperation`): what it reads to do and answer needs no permission of its own; its commands are checked | `support/McpPermission.kt`, all 67 tools in 17 files | ✅ `McpToolPermissionIT` (new, over the transport: every tool with every role but the granting ones, refused naming it, and with only those, not refused); a probe before found `update_template`, `update_variant`, `mark_*_ready`, `release_draft`, `discard_draft`, `deploy_release` refusing undeclared view permissions |
+| The mark-ready tools answered by calling the `get_catalog_changes` tool, asking its permission                                                                                                                        | `ReadyMcpTools.changes`                              | ✅ `McpToolPermissionIT` (failed with `CATALOG_VIEW` before)                                                                                                                                                                                                                                                                 |
+| `docs/mcp.md` lists every tool's permission, read tools included; `upload_font` needs `REFERENCE_EDIT` only (documented with `TEMPLATE_EDIT` too)                                                                     | `docs/mcp.md`                                        | ✅ `McpToolPermissionIT` checks every table row against the declarations                                                                                                                                                                                                                                                     |
+
+Noticed, not touched:
+
+- **The test holds enforcement to the declaration, not the declaration to sense.** Roles are coarse
+  (the viewer grants every view permission), so a read tool declaring the wrong view permission, or
+  an edit one, would pass; declarations are reviewed with the tool.
+
 ### REST operations enforce the contract's permission; reference forms ask for REFERENCE_EDIT (2 November; branch `fix/rest-permissions-contract-alignment`)
 
 Agreed with the user, ahead of ADR 0048 step 1 (#1253): an operation enforces exactly the permission

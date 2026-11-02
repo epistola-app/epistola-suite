@@ -6,6 +6,9 @@ package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.mcp.dto.ComponentTypeInfo
 import app.epistola.suite.mcp.support.ComponentRegistryProvider
+import app.epistola.suite.mcp.support.McpPermission
+import app.epistola.suite.mcp.support.mcpOperation
+import app.epistola.suite.security.Permission
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -31,7 +34,10 @@ class ComponentMcpTools(
             "- absent means the component has no parameter support.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun listComponentTypes(): List<ComponentTypeInfo> = registry.components
+    @McpPermission()
+    fun listComponentTypes(): List<ComponentTypeInfo> = mcpOperation(this::listComponentTypes) {
+        registry.components
+    }
 
     @McpTool(
         name = "get_component_type",
@@ -40,8 +46,11 @@ class ComponentMcpTools(
             "one type's slots or props. See `list_component_types` for how the `parameters` field works.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission()
     fun getComponentType(
         @McpToolParam(description = "Component type discriminator, e.g. 'text', 'container', 'datatable'.")
         type: String,
-    ): ComponentTypeInfo? = registry.get(type)
+    ): ComponentTypeInfo? = mcpOperation(this::getComponentType) {
+        registry.get(type)
+    }
 }

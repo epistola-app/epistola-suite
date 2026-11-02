@@ -14,16 +14,19 @@ import app.epistola.suite.mcp.dto.StencilUsageInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.GetStencil
@@ -54,6 +57,7 @@ class StencilMcpTools(
             "AI can find relevant stencils by name or tag.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.STENCIL_VIEW)
     fun listStencils(
         @McpToolParam(
             description = "Catalog key to filter by. Omit to list across all catalogs.",
@@ -72,15 +76,17 @@ class StencilMcpTools(
         tag: String?,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<StencilInfo> = mediator.query(
-        ListStencils(
-            tenantId = mcpTenantId(),
-            catalog = catalogFilter(catalogId),
-            searchTerm = search,
-            tag = tag,
-            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
-        ),
-    ).map { StencilInfo.from(it) }
+    ): List<StencilInfo> = mcpOperation(this::listStencils) {
+        mediator.query(
+            ListStencils(
+                tenantId = mcpTenantId(),
+                catalog = catalogFilter(catalogId),
+                searchTerm = search,
+                tag = tag,
+                catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
+            ),
+        ).map { StencilInfo.from(it) }
+    }
 
     @McpTool(
         name = "get_stencil",
@@ -88,6 +94,7 @@ class StencilMcpTools(
             "(JSON Schema). Use `list_stencils` first to find candidate IDs.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.STENCIL_VIEW)
     fun getStencil(
         @McpToolParam(description = "Catalog key the stencil belongs to.")
         catalogId: String,
@@ -95,7 +102,9 @@ class StencilMcpTools(
         stencilId: String,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { StencilDetailInfo.from(it) }
+    ): StencilDetailInfo? = mcpOperation(this::getStencil) {
+        mediator.query(GetStencil(stencilId(catalogId, stencilId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { StencilDetailInfo.from(it) }
+    }
 
     @McpTool(
         name = "list_stencil_usages",
@@ -105,6 +114,7 @@ class StencilMcpTools(
             "100 per page.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.STENCIL_VIEW)
     fun listStencilUsages(
         @McpToolParam(description = "Catalog key the stencil belongs to.")
         catalogId: String,
@@ -115,10 +125,12 @@ class StencilMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<StencilUsageInfo> {
-        val id = stencilId(catalogId, stencilId)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        if (GetStencil(id, catalogVersion = version).query() == null) throw notFound("Stencil", catalogId, stencilId)
-        return GetStencilUsagePage(id, page = page ?: 1, catalogVersion = version).query().items.map(StencilUsageInfo::from)
+        mcpOperation(this::listStencilUsages) {
+            val id = stencilId(catalogId, stencilId)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            if (GetStencil(id, catalogVersion = version).query() == null) throw notFound("Stencil", catalogId, stencilId)
+            return GetStencilUsagePage(id, page = page ?: 1, catalogVersion = version).query().items.map(StencilUsageInfo::from)
+        }
     }
 
     @McpTool(
@@ -129,6 +141,7 @@ class StencilMcpTools(
             "Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.STENCIL_EDIT)
     fun createStencil(
         @McpToolParam(description = "Catalog key to create the stencil in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -159,18 +172,20 @@ class StencilMcpTools(
         readsTemplateData: Boolean?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): StencilInfo = StencilInfo.from(
-        CreateStencil(
-            id = stencilId(catalogId, stencilId),
-            name = name,
-            description = description?.takeIf { it.isNotBlank() },
-            tags = tags.orEmpty(),
-            content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
-            parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
-            readsTemplateData = readsTemplateData ?: false,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-        ).execute(),
-    )
+    ): StencilInfo = mcpOperation(this::createStencil) {
+        StencilInfo.from(
+            CreateStencil(
+                id = stencilId(catalogId, stencilId),
+                name = name,
+                description = description?.takeIf { it.isNotBlank() },
+                tags = tags.orEmpty(),
+                content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
+                parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
+                readsTemplateData = readsTemplateData ?: false,
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            ).execute(),
+        )
+    }
 
     @McpTool(
         name = "update_stencil",
@@ -179,6 +194,7 @@ class StencilMcpTools(
             "`list_stencil_usages` afterwards. Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.STENCIL_EDIT)
     fun updateStencil(
         @McpToolParam(description = "Catalog key the stencil belongs to.")
         catalogId: String,
@@ -202,18 +218,20 @@ class StencilMcpTools(
         catalogVersion: String? = null,
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
-    ): StencilInfo = UpdateStencil(
-        id = stencilId(catalogId, stencilId),
-        name = name?.takeIf { it.isNotBlank() },
-        description = description?.takeIf { it.isNotBlank() },
-        tags = tags,
-        content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
-        parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
-        clearParameterSchema = parameterSchema == null && clearParameterSchema == true,
-        readsTemplateData = readsTemplateData,
-        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-        expectedRevision = expectedRevision,
-    ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
+    ): StencilInfo = mcpOperation(this::updateStencil) {
+        UpdateStencil(
+            id = stencilId(catalogId, stencilId),
+            name = name?.takeIf { it.isNotBlank() },
+            description = description?.takeIf { it.isNotBlank() },
+            tags = tags,
+            content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
+            parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
+            clearParameterSchema = parameterSchema == null && clearParameterSchema == true,
+            readsTemplateData = readsTemplateData,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            expectedRevision = expectedRevision,
+        ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
+    }
 
     private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), mcpCatalog(catalogId))
 }

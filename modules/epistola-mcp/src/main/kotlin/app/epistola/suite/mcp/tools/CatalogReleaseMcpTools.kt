@@ -29,10 +29,13 @@ import app.epistola.suite.mcp.dto.MergeSidesInfo
 import app.epistola.suite.mcp.dto.MergedReleaseInfo
 import app.epistola.suite.mcp.dto.ReleaseNumberInfo
 import app.epistola.suite.mcp.dto.ReleasedDraftInfo
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
@@ -59,6 +62,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "With `contentHash`, only the releases with that content (none: an empty list).",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun listCatalogReleases(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
@@ -67,22 +71,24 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "A release's `contentHash` (`v6:` and 64 hex digits) to list only the releases with that content.", required = false)
         contentHash: String? = null,
     ): List<CatalogReleaseInfo> {
-        val wanted = contentHash?.trim()?.takeIf { it.isNotEmpty() }
-        // As REST `listCatalogReleases?contentHash=`: a filter, and anything but a content hash is refused.
-        if (wanted != null && !(CONTENT_HASH.matches(wanted) && CatalogCanonicalizer.isContentHash(wanted))) {
-            throw ValidationException("contentHash", "'$wanted' is not a content hash: `v6:` followed by 64 lowercase hex digits, as a release's `contentHash`")
-        }
-        val only = status(status)
-        val releases = when {
-            wanted == null -> ListCatalogReleases(mcpCatalog(catalogId), only, withBehind = true).query()
+        mcpOperation(this::listCatalogReleases) {
+            val wanted = contentHash?.trim()?.takeIf { it.isNotEmpty() }
+            // As REST `listCatalogReleases?contentHash=`: a filter, and anything but a content hash is refused.
+            if (wanted != null && !(CONTENT_HASH.matches(wanted) && CatalogCanonicalizer.isContentHash(wanted))) {
+                throw ValidationException("contentHash", "'$wanted' is not a content hash: `v6:` followed by 64 lowercase hex digits, as a release's `contentHash`")
+            }
+            val only = status(status)
+            val releases = when {
+                wanted == null -> ListCatalogReleases(mcpCatalog(catalogId), only, withBehind = true).query()
 
-            // A draft has no content hash.
-            only == CatalogReleaseStatus.DRAFT -> emptyList()
+                // A draft has no content hash.
+                only == CatalogReleaseStatus.DRAFT -> emptyList()
 
-            // Found in the database, as REST does it.
-            else -> ListReleasesByContentHash(mcpCatalog(catalogId), wanted).query().items
+                // Found in the database, as REST does it.
+                else -> ListReleasesByContentHash(mcpCatalog(catalogId), wanted).query().items
+            }
+            return releases.map(CatalogReleaseInfo::from)
         }
-        return releases.map(CatalogReleaseInfo::from)
     }
 
     @McpTool(
@@ -94,6 +100,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "another draft has the name. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun startDraft(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -101,15 +108,18 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         name: String,
         @McpToolParam(description = "A release number, `next`, or a draft's `versionId` to copy. From `list_catalog_releases`.", required = false)
         from: String?,
-    ): CatalogReleaseInfo = CatalogReleaseInfo.from(
-        CreateCatalogDraft(mcpCatalog(catalogId), name, from?.trim()?.takeIf { it.isNotEmpty() }).execute(),
-    )
+    ): CatalogReleaseInfo = mcpOperation(this::startDraft) {
+        CatalogReleaseInfo.from(
+            CreateCatalogDraft(mcpCatalog(catalogId), name, from?.trim()?.takeIf { it.isNotEmpty() }).execute(),
+        )
+    }
 
     @McpTool(
         name = "rename_draft",
         description = "Give a draft another name; its `versionId` does not change. The next release has no name of its own. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun renameDraft(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -117,9 +127,11 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         draft: String,
         @McpToolParam(description = "The new name.")
         name: String,
-    ): CatalogReleaseInfo = CatalogReleaseInfo.from(
-        RenameCatalogDraft(mcpCatalog(catalogId), draftRefOf(draft), name).execute(),
-    )
+    ): CatalogReleaseInfo = mcpOperation(this::renameDraft) {
+        CatalogReleaseInfo.from(
+            RenameCatalogDraft(mcpCatalog(catalogId), draftRefOf(draft), name).execute(),
+        )
+    }
 
     @McpTool(
         name = "discard_draft",
@@ -130,15 +142,18 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "cannot be undone. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
     )
+    @McpPermission(Permission.CATALOG_RELEASE)
     fun discardDraft(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "`next`, or a draft's `versionId`. From `list_catalog_releases`.")
         draft: String,
     ): List<CatalogReleaseInfo> {
-        val catalog = mcpCatalog(catalogId)
-        DeleteCatalogDraft(catalog, draftRefOf(draft)).execute()
-        return ListCatalogReleases(catalog).query().map(CatalogReleaseInfo::from)
+        mcpOperation(this::discardDraft) {
+            val catalog = mcpCatalog(catalogId)
+            DeleteCatalogDraft(catalog, draftRefOf(draft)).execute()
+            return ListCatalogReleases(catalog).query().map(CatalogReleaseInfo::from)
+        }
     }
 
     @McpTool(
@@ -149,16 +164,19 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "`reasons` that make it more than a fix. Show the user the number and the reasons before releasing.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun previewReleaseNumber(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): ReleaseNumberInfo {
-        val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
-        val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf) ?: DraftRef.Next
-        return ReleaseNumberInfo.from(AssessDraftNumber(catalog, ref).query() ?: throw CatalogReleaseNotFoundException(catalogKey, ref.toString()))
+        mcpOperation(this::previewReleaseNumber) {
+            val catalog = mcpCatalog(catalogId)
+            val catalogKey = catalog.key
+            val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf) ?: DraftRef.Next
+            return ReleaseNumberInfo.from(AssessDraftNumber(catalog, ref).query() ?: throw CatalogReleaseNotFoundException(catalogKey, ref.toString()))
+        }
     }
 
     @McpTool(
@@ -175,6 +193,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "generation, so release only when the user asks to. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.CATALOG_RELEASE)
     fun releaseDraft(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -193,21 +212,23 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "With `continueEverydayWork`: keep the previous next release as parallel work under this name. Omit to discard it.", required = false)
         keepPreviousAs: String? = null,
     ): ReleasedDraftInfo {
-        val catalog = mcpCatalog(catalogId)
-        val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf)
-        return ReleasedDraftInfo.from(
-            ReleaseCatalogDraft(
-                catalog = catalog,
-                version = version?.trim()?.takeIf { it.isNotEmpty() },
-                notes = notes?.takeIf { it.isNotBlank() },
-                acknowledgedBehind = acknowledgedBehind.orEmpty().map { it.trim() }.toSet(),
-                catalogVersion = ref?.let { CatalogReleaseRef(catalog, it) },
-                releaseDependencies = releaseDependencies == true,
-                continueEverydayWork = if (continueEverydayWork == true) ContinueEverydayWork(keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() }) else null,
-                // As REST: a draft that changed nothing against its base has nothing to release.
-                requireChange = true,
-            ).execute(),
-        )
+        mcpOperation(this::releaseDraft) {
+            val catalog = mcpCatalog(catalogId)
+            val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf)
+            return ReleasedDraftInfo.from(
+                ReleaseCatalogDraft(
+                    catalog = catalog,
+                    version = version?.trim()?.takeIf { it.isNotEmpty() },
+                    notes = notes?.takeIf { it.isNotBlank() },
+                    acknowledgedBehind = acknowledgedBehind.orEmpty().map { it.trim() }.toSet(),
+                    catalogVersion = ref?.let { CatalogReleaseRef(catalog, it) },
+                    releaseDependencies = releaseDependencies == true,
+                    continueEverydayWork = if (continueEverydayWork == true) ContinueEverydayWork(keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() }) else null,
+                    // As REST: a draft that changed nothing against its base has nothing to release.
+                    requireChange = true,
+                ).execute(),
+            )
+        }
     }
 
     @McpTool(
@@ -225,6 +246,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "difference is a `CONFLICT`; `notice` says either.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun previewMerge(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
@@ -233,8 +255,10 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): DraftMergeInfo {
-        val catalog = mcpCatalog(catalogId)
-        return DraftMergeInfo.from(PreviewDraftMerge(catalog, release.trim(), draftScope(catalog, draft)).query())
+        mcpOperation(this::previewMerge) {
+            val catalog = mcpCatalog(catalogId)
+            return DraftMergeInfo.from(PreviewDraftMerge(catalog, release.trim(), draftScope(catalog, draft)).query())
+        }
     }
 
     @McpTool(
@@ -250,6 +274,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "`merge_release` as `mergedContent`, with this `token`. Changes nothing.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun getMergeSides(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
@@ -260,8 +285,10 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): MergeSidesInfo {
-        val catalog = mcpCatalog(catalogId)
-        return MergeSidesInfo.from(GetDraftMergeSides(catalog, release.trim(), entry.trim(), draftScope(catalog, draft)).query())
+        mcpOperation(this::getMergeSides) {
+            val catalog = mcpCatalog(catalogId)
+            return MergeSidesInfo.from(GetDraftMergeSides(catalog, release.trim(), entry.trim(), draftScope(catalog, draft)).query())
+        }
     }
 
     @McpTool(
@@ -279,6 +306,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "the release changed since that preview (preview again). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun mergeRelease(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
@@ -297,16 +325,18 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         )
         mergedContent: Map<String, Any?>? = null,
     ): MergedReleaseInfo {
-        val catalog = mcpCatalog(catalogId)
-        val sides = resolutions.orEmpty().mapValues { (resource, side) ->
-            MergeResolution.ofWire(side)
-                ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
+        mcpOperation(this::mergeRelease) {
+            val catalog = mcpCatalog(catalogId)
+            val sides = resolutions.orEmpty().mapValues { (resource, side) ->
+                MergeResolution.ofWire(side)
+                    ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
+            }
+            val content = mergedContent.orEmpty().mapValues { (entry, value) -> contentObject(entry, value) }
+            val scope = draftScope(catalog, draft)
+            val result = MergeReleaseIntoDraft(catalog, release.trim(), sides, scope, expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute()
+            val unused = GetCatalogBorrowing(catalog, scope).query().unused.map { it.alias }
+            return MergedReleaseInfo.from(result, unused)
         }
-        val content = mergedContent.orEmpty().mapValues { (entry, value) -> contentObject(entry, value) }
-        val scope = draftScope(catalog, draft)
-        val result = MergeReleaseIntoDraft(catalog, release.trim(), sides, scope, expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute()
-        val unused = GetCatalogBorrowing(catalog, scope).query().unused.map { it.alias }
-        return MergedReleaseInfo.from(result, unused)
     }
 
     /** [value], merged content for [entry], as an object: given as one, or as a JSON object string. */

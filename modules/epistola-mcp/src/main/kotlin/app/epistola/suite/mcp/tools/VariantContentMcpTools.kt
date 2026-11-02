@@ -13,11 +13,14 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.VariantContentInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.Permission
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.TemplateDocument
 import org.springframework.ai.mcp.annotation.McpTool
@@ -44,6 +47,7 @@ class VariantContentMcpTools(
             "`templateModel`. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun updateVariantContent(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -60,17 +64,19 @@ class VariantContentMcpTools(
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
     ): VariantContentInfo {
-        val variant = VariantId(
-            VariantKey.of(variantId),
-            TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId)),
-        )
-        val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
-        val stored = UpdateVariantContent(
-            variantId = variant,
-            templateModel = document,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-            expectedRevision = expectedRevision,
-        ).execute()
-        return VariantContentInfo(variantId = variantId, templateModel = stored.templateModel.takeIf { returnContent == true }, revision = stored.revision)
+        mcpOperation(this::updateVariantContent) {
+            val variant = VariantId(
+                VariantKey.of(variantId),
+                TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId)),
+            )
+            val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
+            val stored = UpdateVariantContent(
+                variantId = variant,
+                templateModel = document,
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+                expectedRevision = expectedRevision,
+            ).execute()
+            return VariantContentInfo(variantId = variantId, templateModel = stored.templateModel.takeIf { returnContent == true }, revision = stored.revision)
+        }
     }
 }
