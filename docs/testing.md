@@ -23,8 +23,9 @@
 # Specific test class
 ./gradlew test --tests "app.epistola.suite.tenants.TenantCommandsTest"
 
-# Coverage report
-./gradlew koverHtmlReport
+# Coverage report (coverage is measured only when a Kover task is asked for;
+# plain `test` runs uninstrumented)
+./gradlew test koverHtmlReport
 # Report: build/reports/kover/html/index.html
 ```
 
