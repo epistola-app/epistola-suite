@@ -18,6 +18,8 @@ uuid-creator = "6.1.1"
 spring-web = "7.0.9"
 playwright = "1.63.0"
 epistola-contract = "2.0.0-alpha.5"
+# TLC, the TLA+ model checker (specs/tla): the last stable release; 1.8.0 is a prerelease rebuilt nightly.
+tla2tools = "1.7.4"
 epistola-hub-client = "0.7.0"
 epistola-exchange-client = "0.1.1"
 aws-sdk = "2.55.12"
@@ -36,6 +38,7 @@ jackson = "3.1.7"
 jackson2 = "2.21.7"
 
 [libraries]
+tla2tools = { module = "org.lamport:tla2tools", version.ref = "tla2tools" }
 semver4j = { module = "org.semver4j:semver4j", version.ref = "semver4j" }
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
 jdbi-bom = { module = "org.jdbi:jdbi3-bom", version.ref = "jdbi" }

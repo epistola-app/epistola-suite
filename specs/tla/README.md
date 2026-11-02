@@ -23,12 +23,12 @@ The invariants are `CatalogInvariants`' SQL rules of the same names: `NeverUseEa
 (`catalogs-never-use-each-other`), `ReleasePinsReleases` (`release-pins-releases`) and
 `PinnedReleasePresent` (`pinned-release-present`).
 
-The constant `Fixed` switches in the two locks the fix takes, so both designs are checked:
+The constant `Fixed` switches in the locks the fix takes, so both designs are checked:
 
-| Config                        | Fixed   | Expected                                                     |
-| ----------------------------- | ------- | ------------------------------------------------------------ |
-| `CatalogConcurrency.cfg`      | `FALSE` | violations of `NeverUseEachOther` and `PinnedReleasePresent` |
-| `CatalogConcurrencyFixed.cfg` | `TRUE`  | none                                                         |
+| Config                        | Fixed   | Expected                                          |
+| ----------------------------- | ------- | ------------------------------------------------- |
+| `CatalogConcurrency.cfg`      | `FALSE` | violations of all three invariants, one race each |
+| `CatalogConcurrencyFixed.cfg` | `TRUE`  | none                                              |
 
 The races, each proven by `CatalogConcurrencyTest` (it failed before the fix):
 
@@ -40,6 +40,13 @@ The races, each proven by `CatalogConcurrencyTest` (it failed before the fix):
    commit and then goes ahead, and `ON DELETE SET NULL` leaves the pin naming a release that is gone.
    Fix: the release's row locked `FOR UPDATE` before the check (`ReleaseInUse.requireUnused`), so
    the check waits for the pin and then sees it.
+3. **A draft written while it is released** (found by TLC, not by reading the code): the release
+   reads the draft's declarations, a declaration of it commits, and the release then freezes it,
+   unpinned (`ReleasePinsReleases`). A write takes only a key-share lock on the draft's row, which
+   the release's `UPDATE` does not wait for. Fix: the release locks the draft's row `FOR UPDATE`
+   before it reads it (`CatalogDrafts.lockForRelease`), and the freeze check every write makes
+   (`requireWritableVersion`) reads it `FOR SHARE`: a write waits for the release and then finds
+   the draft released, or the release waits for the write and then reads it.
 
 Not modelled yet: discarding a draft another catalog's draft is naming at that moment, installing a
 release, and relocation. Discarding a draft has the same shape as deleting a release (a check, then
@@ -47,14 +54,16 @@ a `DELETE` whose foreign key sets the declaration's target to null), so it is th
 
 ## Running TLC
 
-TLC needs Java and `tla2tools.jar` from the [TLA+ releases](https://github.com/tlaplus/tlaplus/releases)
-(1.8.0 or later); it is not part of the build.
-
 ```bash
-cd specs/tla
-java -XX:+UseParallelGC -cp tla2tools.jar tlc2.TLC -workers auto -config CatalogConcurrency.cfg CatalogConcurrency.tla
-java -XX:+UseParallelGC -cp tla2tools.jar tlc2.TLC -workers auto -config CatalogConcurrencyFixed.cfg CatalogConcurrency.tla
+./gradlew :specs:tla:tlc
 ```
+
+It runs TLC (the stable release, 1.7.4, its jar checked against a SHA-256 in `build.gradle.kts`) on
+each configuration: the code before the fixes once per invariant, each of which must be violated
+(TLC stops at the first violation, and which comes first varies), and the fixed code, which must
+hold everywhere. A failure prints TLC's output, with the steps that break the invariant. TLC runs on
+a copy of the specs in `build/tlc/`, since it writes a trace module beside the spec it checks. It is
+not part of `check` yet.
 
 The instance is two catalogs, two sessions and two commands per session; raise `MaxCmds` or add a
 catalog to search further, at the cost of time.

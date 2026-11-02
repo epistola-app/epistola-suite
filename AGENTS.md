@@ -34,6 +34,7 @@ detail belongs in the area guide, the rule card (`.agents/rules/`), or the doc t
 - `modules/epistola-audit`, `-crypto`, `-version-check`, `loadtest` — audit log, credential encryption, release check, load tests
 - `modules/epistola-support*` — commercial tier: hub client plus feedback, snapshots, upgrading, telemetry
 - `modules/testing` — shared test infrastructure, not production code
+- `specs/tla` — TLA+ models of commands running at the same time, checked by TLC (`./gradlew :specs:tla:tlc`)
 
 Each module owns its Flyway migrations and may ship its own handlers and templates.
 `modules/design-system` is a pnpm package, not a Gradle project.
