@@ -75,6 +75,12 @@ Decided and closed:
 
 ## Touched
 
+### Deleting a stencil in use over REST (2 November; branch `fix/rest-stencil-in-use`)
+
+| What                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Where                                                                  | Covered                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| `deleteStencil` on a stencil in use answered `500 internal-error`: `StencilInUseException` had no REST mapping. It now answers the generic `409 conflict`, its detail naming what uses the stencil; not a type of its own, as contract #111 lets a server send only registered types. Its `templateNames` is `usedBy`, as it names stencils too. The contract's `deleteStencil` still said the delete goes through and leaves references naming nothing; corrected in the contract | `ApiExceptionMappings`, `ApiExceptionHandler`, `StencilInUseException` | ✅ `StencilInUseApiTest` (failed before: 500) |
+
 ### Stencils in stencils (1 November; branch `tests/nested-stencils-model`)
 
 `CatalogModelTest` got a step that saves a stencil's content as instances of stencils (itself, its
