@@ -11,11 +11,13 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
 import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.invariants.CatalogInvariants
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
@@ -106,6 +108,28 @@ class CatalogConcurrencyTest : IntegrationTestBase() {
 
         assertThat(second.exceptionOrNull()).isInstanceOf(ReleaseInUseException::class.java)
         assertThat(withMediator { GetCatalog(testCatalog(tenant, shared)).query()!!.latestReleaseVersion }).isEqualTo(release)
+    }
+
+    @Test
+    fun `a draft is not changed while it is being released`() {
+        val tenant = createTenant("Concurrent write to a draft being released").id
+        val draft = withMediator {
+            CreateCatalog(tenant, shared, "Shared").execute()
+            CreateCatalog(tenant, letters, "Letters").execute()
+            GetCatalogDraft(testCatalog(tenant, shared)).query()!!.versionId
+        }
+        val target = withMediator { GetCatalog(testCatalog(tenant, shared)).query()!! }
+
+        val second = whileHeldOpen(
+            hold = { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() },
+            contend = {
+                UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, shared.value, versionId = draft))).execute()
+            },
+        )
+
+        // Refused, or written into the next draft as it would be had it run after: never into the release.
+        second.exceptionOrNull()?.let { assertThat(it).isInstanceOf(CatalogReleaseIsReleasedException::class.java) }
+        assertThat(CatalogInvariants.check(jdbi, tenant.value)).isEmpty()
     }
 
     /**

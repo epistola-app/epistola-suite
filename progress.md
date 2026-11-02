@@ -82,10 +82,11 @@ release as READ COMMITTED transactions with PostgreSQL's row locks; its invarian
 of the same names. Each race it points at is proven by `CatalogConcurrencyTest`, which holds one
 command's transaction open while the other runs.
 
-| What                                                                                                                                                                                                                                                  | Where                                                                               | Covered                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Two catalogs declaring each other at once both passed `requireNoCycle` (it reads only committed declarations), leaving a cycle                                                                                                                        | `CatalogDependencyStore.requireNoCycle`: tenant-wide advisory lock before the check | ✅ `CatalogConcurrencyTest` (failed before: both declared, invariant `catalogs-never-use-each-other`)      |
-| A release deleted while a draft pinning it was saved, or while a release pinning it (a named draft's base) was cut: the check passed, the `DELETE` waited for the pin and went ahead, `ON DELETE SET NULL` left the pin naming a release that is gone | `ReleaseInUse.requireUnused`: the release row `FOR UPDATE` before the check         | ✅ `CatalogConcurrencyTest` 2 (failed before: deleted; invariant `pinned-release-present` for the release) |
+| What                                                                                                                                                                                                                                                  | Where                                                                                                                                | Covered                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Two catalogs declaring each other at once both passed `requireNoCycle` (it reads only committed declarations), leaving a cycle                                                                                                                        | `CatalogDependencyStore.requireNoCycle`: tenant-wide advisory lock before the check                                                  | ✅ `CatalogConcurrencyTest` (failed before: both declared, invariant `catalogs-never-use-each-other`)      |
+| A release deleted while a draft pinning it was saved, or while a release pinning it (a named draft's base) was cut: the check passed, the `DELETE` waited for the pin and went ahead, `ON DELETE SET NULL` left the pin naming a release that is gone | `ReleaseInUse.requireUnused`: the release row `FOR UPDATE` before the check                                                          | ✅ `CatalogConcurrencyTest` 2 (failed before: deleted; invariant `pinned-release-present` for the release) |
+| A draft written while it was released (found by TLC): the release read the draft's declarations, a declaration committed meanwhile, and the release froze it unpinned; a write's key-share lock does not hold up the release's `UPDATE`               | `CatalogDrafts.lockForRelease` (`FOR UPDATE` before the release reads the draft), `requireWritableVersion` reads the row `FOR SHARE` | ✅ `CatalogConcurrencyTest` (failed before: invariant `release-pins-releases`)                             |
 
 Noticed, not done:
 
@@ -95,8 +96,17 @@ Noticed, not done:
 - Not modelled: installing a release (it writes declarations too), relocation, environment
   deployments (`ReleaseInUse` now locks the release row, so a deployment being written is waited
   for as well).
-- TLC itself was not run here: fetching `tla2tools.jar` needs a decision. The races were proven in
-  PostgreSQL instead.
+- TLC runs as `./gradlew :specs:tla:tlc` (1.7.4, checksum-checked): before the fixes every invariant
+  is violated, after them none in 61,231 states. Not in `check` or CI yet.
+- The next-version hand-over during a release discards the old next version after the same
+  `namedBy` check, and the resource holders check (a resource only the discarded draft holds) has
+  the same check-then-delete shape. Neither is modelled yet.
+- `requireWritableVersion` now reads the draft's row `FOR SHARE` on every write: two writers share
+  it, but a write waits for a release of the same draft, and an editor's `requireRevision`
+  (`FOR UPDATE`) waits for writes in flight. The core suite passed; no load test was run.
+- Writes that check the freeze through `inDraft` instead of `requireWritableVersion` take no lock on
+  the draft's row, so they may still land in a draft being released (unproven). Not modelled: the model has
+  declarations only, not content.
 
 ### Deleting a stencil in use over REST (2 November; branch `fix/rest-stencil-in-use`)
 

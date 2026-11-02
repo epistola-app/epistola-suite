@@ -27,9 +27,10 @@
 (* KEY SHARE holders and makes their foreign-key check fail once it        *)
 (* commits. A check that ran before such a wait is not run again.          *)
 (*                                                                         *)
-(* Fixed = FALSE is the code as it is; Fixed = TRUE adds the two locks the *)
-(* fix takes: a tenant-wide advisory lock before the cycle check, and the  *)
-(* release's row locked FOR UPDATE before the in-use check.                *)
+(* Fixed = FALSE is the code as it was; Fixed = TRUE adds the locks the    *)
+(* fix takes: a tenant-wide advisory lock before the cycle check; the      *)
+(* release's row locked FOR UPDATE before the in-use check; and a draft    *)
+(* being released locked FOR UPDATE, which a write reads FOR SHARE.        *)
 (*                                                                         *)
 (* The invariants are the SQL rules of CatalogInvariants with the same     *)
 (* names: catalogs-never-use-each-other, release-pins-releases and         *)
@@ -88,7 +89,7 @@ Uses(D) == {<<Cat(d.from), d.to>> : d \in D}
 RECURSIVE Closure(_, _)
 Closure(E, n) ==
     IF n = 0 THEN E
-    ELSE Closure(E \cup {<<x[1], y[2]>> : x \in E, y \in {e \in E : e[1] = x[2]}}, n - 1)
+    ELSE Closure(E \cup {e \in Cats \X Cats : \E m \in Cats : <<e[1], m>> \in E /\ <<m, e[2]>> \in E}, n - 1)
 
 Acyclic(E) == \A c \in Cats : <<c, c>> \notin Closure(E, Cardinality(Cats))
 
@@ -137,8 +138,10 @@ DeclareCheck(p, c) ==
         added == <<c, d.to>>
         pinTo == Highest(d.to)
     IN
-    /\ (Fixed => advisory \in {None, p})
+    /\ (Fixed => advisory \in {None, p} /\ FreeOfOthers(Draft(c), p))
     /\ advisory' = IF Fixed THEN p ELSE advisory
+    \* requireWritableVersion reads the draft's row FOR SHARE (Fixed): a release's FOR UPDATE waits for it.
+    /\ keyShare' = IF Fixed THEN [keyShare EXCEPT ![Draft(c)] = @ \cup {p}] ELSE keyShare
     /\ IF /\ d.to # c
           /\ IsDraft(Draft(c))
           /\ Acyclic(Uses(others) \cup {added})
@@ -146,10 +149,10 @@ DeclareCheck(p, c) ==
           /\ (d.kind = "declareDraft" => IsDraft(Draft(d.to)))
        THEN /\ pc' = [pc EXCEPT ![p] = "write"]
             /\ plan' = [plan EXCEPT ![p] = [pin |-> IF d.kind = "declarePin" THEN pinTo ELSE None]]
-            /\ UNCHANGED <<keyShare, forUpdate>>
+            /\ UNCHANGED forUpdate
        ELSE \* refused: the transaction rolls back, letting go of what it locked (Done)
             /\ pc' = [pc EXCEPT ![p] = "refused"]
-            /\ UNCHANGED <<plan, keyShare, forUpdate>>
+            /\ UNCHANGED <<plan, forUpdate>>
 
 \* The INSERT: TARGET resolves against what is committed, then the foreign key locks the target.
 DeclareWrite(p, c) ==
@@ -188,6 +191,9 @@ PinOf(x) ==
 ReleaseCheck(p, c) ==
     LET own == {x \in decls : x.from = Draft(c)}
     IN
+    \* lockForRelease (Fixed): the draft's row FOR UPDATE before anything of it is read.
+    /\ (Fixed => FreeOfOthers(Draft(c), p) /\ NoSharersBut(Draft(c), p))
+    /\ forUpdate' = IF Fixed THEN [forUpdate EXCEPT ![Draft(c)] = p] ELSE forUpdate
     /\ IF IsDraft(Draft(c)) /\ \A x \in own : PinOf(x) # Refuse
        THEN LET pinned == {[x EXCEPT !.pin = PinOf(x), !.target = PinOf(x)] : x \in own}
                 \* replace() deletes and inserts each changed row: those take KEY SHARE on their pin.
@@ -196,7 +202,7 @@ ReleaseCheck(p, c) ==
                /\ plan' = [plan EXCEPT ![p] = [own |-> own, pinned |-> pinned, inserted |-> inserted]]
        ELSE /\ pc' = [pc EXCEPT ![p] = "refused"]
             /\ UNCHANGED plan
-    /\ UNCHANGED <<keyShare, forUpdate, advisory>>
+    /\ UNCHANGED <<keyShare, advisory>>
 
 ReleaseWrite(p, c) ==
     LET locks == {x.target : x \in plan[p].inserted}

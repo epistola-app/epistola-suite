@@ -225,7 +225,7 @@ transaction commits cannot see its write. [`specs/tla/CatalogConcurrency.tla`](.
 models declaring a dependency, releasing a draft and deleting a release as PostgreSQL runs them
 (statement reads, the key-share lock a foreign key takes, the lock a `DELETE` waits for), and its
 invariants are the SQL rules above of the same names. TLC, the TLA+ model checker, tries every
-interleaving of a small instance; the spec's [README](../specs/tla/README.md) says how to run it.
+interleaving of a small instance: `./gradlew :specs:tla:tlc` (the spec's [README](../specs/tla/README.md)).
 
 What it finds is proven against PostgreSQL by `CatalogConcurrencyTest`: one command runs in a
 transaction the test holds open, the other runs meanwhile, and the holder commits once the other is
