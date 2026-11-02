@@ -385,6 +385,13 @@ No configuration property is needed — the registration ID from the OAuth2 logi
 
 See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization and the hierarchical group path convention, or [docs/authentik-setup.md](authentik-setup.md) for authentik.
 
+### Roles come from the token
+
+Every OIDC login grants exactly the tenant, global and platform roles in that login's token. The roles
+stored in `tenant_memberships` by earlier logins are a record, never a fallback: a user whose groups
+are all removed at the identity provider has no tenant access at their next login. (Demo mode's
+login resolver is the one exception, and only when the token carries no tenant or global roles.)
+
 ### Auto-Provisioning
 
 When a user logs in via OAuth2 for the first time, they are automatically created in the database. This is enabled by default in the `keycloak` profile:

@@ -169,10 +169,12 @@ class OAuth2UserProvisioningService(
         val flatRoles = extractFlatRolesList(oauth2User)
         val parsed = parseGroupMemberships(groups) + parseFlatRoles(flatRoles)
 
+        // The token is authoritative: an OIDC login grants exactly the tenant roles the identity
+        // provider sent. The memberships stored by earlier logins are never a fallback, because
+        // nothing removes them when the provider takes a user's roles away, so falling back to
+        // them would keep access the provider has revoked.
         val tokenMemberships = parsed.tenantRoles
-        val mergedMemberships = if (tokenMemberships.isNotEmpty() || parsed.globalRoles.isNotEmpty()) {
-            tokenMemberships
-        } else if (membershipResolver != null) {
+        if (tokenMemberships.isEmpty() && parsed.globalRoles.isEmpty() && membershipResolver != null) {
             val resolved = membershipResolver.resolve(email, user)
             if (resolved != null) {
                 // The resolver supplies a fallback tenant *membership*; it is not a reason to drop
@@ -186,9 +188,6 @@ class OAuth2UserProvisioningService(
                     platformRoles = resolved.platformRoles + parsed.platformRoles,
                 )
             }
-            user.tenantMemberships
-        } else {
-            user.tenantMemberships
         }
 
         if (tokenMemberships.isNotEmpty()) {
@@ -200,7 +199,7 @@ class OAuth2UserProvisioningService(
         }
 
         return user.toEpistolaPrincipal(
-            memberships = mergedMemberships,
+            memberships = tokenMemberships,
             globalRoles = parsed.globalRoles,
             platformRoles = parsed.platformRoles,
         )
