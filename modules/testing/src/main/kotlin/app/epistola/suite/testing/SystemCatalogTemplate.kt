@@ -37,6 +37,10 @@ enum class SystemCatalogSetup {
  *
  * The ids in the copy stay the template's: every key of those tables includes the tenant key, so the
  * same id under another tenant is another row.
+ *
+ * What this gives up (shared ids, the install's commands not sent, the install path run by few
+ * tests, triggers off for the copy) and how each shows when a test misbehaves: docs/testing.md,
+ * "Test tenants and the system catalog template".
  */
 @Component
 class SystemCatalogTemplate(private val jdbi: Jdbi) {

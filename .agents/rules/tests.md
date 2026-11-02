@@ -36,6 +36,11 @@ faster and deterministic. Reach for Playwright only when the behaviour lives in 
   philosophy is deterministic-only — no retry masking.
 - **Time** comes from `EpistolaClockExtension` / `testClock` / `EpistolaClock.withClock`, never a
   wall-clock sleep or a JVM `now()`.
+- **Test tenants' system catalog is a copy** of a template tenant's (`createTenant()`, fixture,
+  scenario); a test about installing it passes `SystemCatalogSetup.INSTALL`. Only that template
+  creates a tenant without one (`SystemCatalogInstallUsageTest`). When a test behaves differently
+  from production around a tenant's catalogs, read the known limits in
+  [`docs/testing.md`](../../docs/testing.md#known-limits-and-what-to-suspect-when-a-test-misbehaves).
 - Integration and UI tests need Docker (Testcontainers). App-level tasks need `pnpm build` once
   first.
 
