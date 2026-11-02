@@ -489,6 +489,11 @@ inherits it; the caller's target is restored when the message ends. A message th
 works on the next release. A self-managed command (`RefreshCodeList`) applies the target in each
 transaction it opens.
 
+[ADR 0049](adr/0049-content-addressed-by-an-explicit-version.md) (proposed) replaces this ambient
+target with an explicit version, area by area: a message carries the resolved `version_id`, SQL binds
+it, and a read that means the default version asks for `catalogs.next_version_id` by name. New code,
+starting with search (ADR 0043), is written that way.
+
 The REST API's `…/releases/{release}/…` paths take `next`, a draft's release id or a release number
 (`ResolveCatalogRelease`), pass the draft they name to every message they dispatch
 (`ResolvedCatalogRelease.ref`), and read a released version from its retained content.
