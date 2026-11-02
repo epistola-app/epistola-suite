@@ -204,6 +204,19 @@ shrunk and printed with the seed and what each step did.
   picks.
 - A new command touching catalogs belongs in it as a step.
 
+#### Random 1.x installations through the upgrade
+
+`OneXUpgradeModelTest` (same task, same properties) generates 1.x installations: catalogs with
+releases, themes, stencils and templates, each stencil and variant with a version history, data
+contract versions, stencil instances (bare, an exact copy of the pinned version, or an edited one) of
+the template's own catalog, another or one the tenant lacks, and environment activations. Each is
+seeded on the last 1.x schema in a database of its own and put through the preflight and the 2.0
+chain. The preflight must refuse exactly the installations whose kept content uses a missing
+catalog or makes catalogs use each other; any other must upgrade with the catalog invariants holding,
+each next draft holding every working copy, and "Published in 1.x" (or the next draft, when that
+was dropped as the same) what each last published. Content carries markers (`T cat-a/tpl-0/default
+v2`), so the checks read which version a draft holds.
+
 ### App Integration Tests
 
 Extend `BaseIntegrationTest`. Boots the full app with security:
