@@ -51,9 +51,9 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         val subject = withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
 
@@ -77,8 +77,8 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
             .isEqualTo(EffectiveQualityStatus.IGNORED)
 
         val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
-        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog)), catalogVersion = null).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint, catalogVersion = null).execute() }
 
         // The source submits again, as it does on every sweep. Rebuilding the subject at the new
         // address recomputes its URNs -- which is precisely what breaks if the ignore was left
@@ -129,9 +129,9 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             listOf(invoice, invoiceV2).map { templateId ->
-                CreateDocumentTemplate(id = templateId, name = templateId.key.value).execute()
+                CreateDocumentTemplate(id = templateId, name = templateId.key.value, catalogVersion = null).execute()
                 val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-                CreateVariant(id = variantId, title = "Default", description = null).execute()
+                CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
                 QualitySubject.of(variantId)
             }
         }
@@ -149,8 +149,8 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { IgnoreFinding(neighbour.tenantKey, neighbourFinding.key, "Intentional").execute() }
 
         val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, invoice.key.value)
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
-        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog)), catalogVersion = null).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint, catalogVersion = null).execute() }
 
         // The next sweep of the template that did not move.
         withMediator {
@@ -170,5 +170,6 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         catalog = testCatalog(subject.tenantKey, subject.catalogKey),
         templateKey = subject.templateKey,
         variantKey = subject.variantKey!!,
+        catalogVersion = null,
     ).query()
 }

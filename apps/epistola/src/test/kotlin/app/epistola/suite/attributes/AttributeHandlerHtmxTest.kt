@@ -71,6 +71,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
                     displayName = "Locales",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("en", "English")),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -118,6 +119,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
                     displayName = "Locales",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("en", "English")),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -190,6 +192,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
                         AttributeKey.of("language"),
                         CatalogId.default(TenantId(testTenant.id)),
                     ),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(persisted).isNotNull
@@ -230,6 +233,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
                         AttributeKey.of("language"),
                         CatalogId.default(TenantId(testTenant.id)),
                     ),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(persisted).isNotNull
@@ -254,10 +258,12 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
                 CreateAttributeDefinition(
                     id = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(testTenant.id))),
                     displayName = "Brand Channel",
+                    catalogVersion = null,
                 ).execute()
                 CreateAttributeDefinition(
                     id = AttributeId(AttributeKey.of("audience"), CatalogId.default(TenantId(testTenant.id))),
                     displayName = "Audience Segment",
+                    catalogVersion = null,
                 ).execute()
             }
         }

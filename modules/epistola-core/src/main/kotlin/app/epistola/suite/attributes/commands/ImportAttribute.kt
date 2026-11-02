@@ -7,7 +7,9 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -36,6 +38,8 @@ import tools.jackson.databind.ObjectMapper
  */
 data class ImportAttribute(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val slug: String,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
@@ -44,7 +48,8 @@ data class ImportAttribute(
     val codeListSlug: CodeListKey? = null,
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
-) : Command<InstallStatus>,
+) : CatalogReleaseScoped,
+    Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -67,7 +72,7 @@ class ImportAttributeHandler(
         val id = app.epistola.suite.common.ids.AttributeId(AttributeKey.of(command.slug), command.catalog)
         val existed = jdbi.withHandle<Boolean, Exception> { handle ->
             val binding = command.codeListSlug?.let { slug -> attributes.bindingOf(handle, command.catalog, app.epistola.suite.common.ids.CodeListId(slug, command.codeListCatalog ?: command.catalog)) }
-            attributes.put(handle, id, app.epistola.suite.attributes.AttributeFields(command.displayName, command.allowedValues, binding, command.metadata), app.epistola.suite.security.currentUserIdOrNull()?.value)
+            attributes.put(handle, handle.versionOf(command.catalog, command), id, app.epistola.suite.attributes.AttributeFields(command.displayName, command.allowedValues, binding, command.metadata), app.epistola.suite.security.currentUserIdOrNull()?.value)
         }
         return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }

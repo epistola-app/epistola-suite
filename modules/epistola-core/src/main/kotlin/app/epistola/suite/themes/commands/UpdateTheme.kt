@@ -7,6 +7,8 @@ package app.epistola.suite.themes.commands
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.common.Revisions
@@ -58,7 +60,7 @@ data class UpdateTheme(
     val defaultBlockStyles: Map<String, Any?>? = null,
     val clearDefaultBlockStyles: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
     /** The theme's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -91,22 +93,22 @@ class UpdateThemeHandler(
     private val themes: ThemeStore,
 ) : CommandHandler<UpdateTheme, Theme?> {
     override fun handle(command: UpdateTheme): Theme? {
-        val saved = save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        val saved = save(command, at)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        saved?.let { usedCatalogs.declare(command.id.catalogId, it.crossCatalogRefs(objectMapper)) }
+        saved?.let { usedCatalogs.declare(at, it.crossCatalogRefs(objectMapper)) }
         return saved
     }
 
-    private fun save(command: UpdateTheme): Theme? {
+    private fun save(command: UpdateTheme, at: ContentVersion): Theme? {
         requireCatalogEditable(command.id.catalogId)
-        val catalog = command.id.catalogId
         return jdbi.withHandle<Theme?, Exception> { handle ->
             // Locked, so the change is applied to what is there, and two writers do not race.
-            val revision = DraftResources.lockRevision(handle, catalog, ThemeStore.THEME, command.id.key.value) ?: return@withHandle null
+            val revision = DraftResources.lockRevision(handle, at, ThemeStore.THEME, command.id.key.value) ?: return@withHandle null
             Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, revision)
-            val current = checkNotNull(ThemeReads.get(handle, objectMapper, catalog, command.id.key)) { "Theme ${command.id.key.value} is locked, so it is there" }
+            val current = checkNotNull(ThemeReads.get(handle, objectMapper, at, command.id.key)) { "Theme ${command.id.key.value} is locked, so it is there" }
             if (!command.changesSomething()) return@withHandle current
-            themes.save(handle, current, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
+            themes.save(handle, at, current, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
         }
     }
 

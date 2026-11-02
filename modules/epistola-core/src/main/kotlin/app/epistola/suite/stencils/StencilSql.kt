@@ -4,9 +4,6 @@
 
 package app.epistola.suite.stencils
 
-import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
-
 /**
  * The identity of the stencil a caller named by address.
  *
@@ -15,5 +12,6 @@ import app.epistola.suite.catalog.versionAt
  * read and violates the NOT NULL parent on a write -- so neither silently succeeds.
  *
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
+ * @param versionParam name of the bound version ([app.epistola.suite.catalog.bindVersion]) the stencil is read in.
  */
-internal fun stencilAtAddress(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_stencils WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
+internal fun stencilAtAddress(tenantParam: String, versionParam: String, keyParam: String): String = "(SELECT resource_id FROM version_stencils WHERE tenant_key = :$tenantParam AND version_id = :$versionParam AND id = :$keyParam)"

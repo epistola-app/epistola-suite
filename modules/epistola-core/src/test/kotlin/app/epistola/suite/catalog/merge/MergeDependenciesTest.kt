@@ -54,11 +54,11 @@ class MergeDependenciesTest : IntegrationTestBase() {
 
     private fun released(tenant: TenantKey, catalog: CatalogKey, vararg versions: String) {
         CreateCatalog(tenantKey = tenant, id = catalog, name = catalog.value).execute()
-        CreateTheme(id = theme(tenant, catalog, "th${catalog.value.take(3)}"), name = "${catalog.value} 0").execute()
+        CreateTheme(id = theme(tenant, catalog, "th${catalog.value.take(3)}"), name = "${catalog.value} 0", catalogVersion = null).execute()
         versions.forEachIndexed { index, version ->
-            if (index > 0) UpdateTheme(theme(tenant, catalog, "th${catalog.value.take(3)}"), name = "${catalog.value} $index").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = version).execute()
+            if (index > 0) UpdateTheme(theme(tenant, catalog, "th${catalog.value.take(3)}"), name = "${catalog.value} $index", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = version, catalogVersion = null).execute()
         }
     }
 
@@ -69,10 +69,10 @@ class MergeDependenciesTest : IntegrationTestBase() {
             released(tenant, shared, "1.0.0", "1.1.0", "1.2.0")
             released(tenant, other, "1.0.0")
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(id = theme(tenant, letters, "brand"), name = "Brand").execute()
+            CreateTheme(id = theme(tenant, letters, "brand"), name = "Brand", catalogVersion = null).execute()
             declare(tenant, letters, mapOf(shared to "1.0.0"))
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0", catalogVersion = null).execute()
 
             val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             declare(tenant, letters, fix, fixRef)
@@ -84,14 +84,14 @@ class MergeDependenciesTest : IntegrationTestBase() {
         return tenant
     }
 
-    private fun pins(tenant: TenantKey): Map<String, String?> = ListCatalogDependencies(testCatalog(tenant, letters)).query().associate { it.catalogKey to it.releaseVersion }
+    private fun pins(tenant: TenantKey): Map<String, String?> = ListCatalogDependencies(testCatalog(tenant, letters), catalogVersion = null).query().associate { it.catalogKey to it.releaseVersion }
 
     @Test
     fun `a dependency the release re-pinned and one the draft added are two changes, taken and kept without a conflict`() {
         // A fix moves its pin (a fix: nothing it uses broke); adding a dependency would need a minor.
         val tenant = lines("Merge Dependencies Apart", fix = mapOf(shared to "1.1.0"), next = mapOf(shared to "1.0.0", other to "1.0.0"))
         withMediator {
-            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.0.1", catalogVersion = null).query()
 
             assertThat(preview.resources.filter { it.isSetting }.associate { it.contentKey to it.outcome }).containsExactlyInAnyOrderEntriesOf(
                 mapOf(
@@ -103,7 +103,7 @@ class MergeDependenciesTest : IntegrationTestBase() {
             )
             assertThat(preview.conflicts).isEmpty()
 
-            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1", expectedToken = preview.token).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1", expectedToken = preview.token, catalogVersion = null).execute()
 
             assertThat(merged.taken).containsExactly("catalogDependency/shared")
             assertThat(pins(tenant)).isEqualTo(mapOf("shared" to "1.1.0", "other" to "1.0.0"))
@@ -114,7 +114,7 @@ class MergeDependenciesTest : IntegrationTestBase() {
     fun `a dependency the release dropped is dropped, and one the draft added stays`() {
         val tenant = lines("Merge Dependencies Dropped", fix = emptyMap(), next = mapOf(shared to "1.0.0", other to "1.0.0"))
         withMediator {
-            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1").execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1", catalogVersion = null).execute()
 
             assertThat(merged.removed).containsExactly("catalogDependency/shared")
             assertThat(pins(tenant)).isEqualTo(mapOf("other" to "1.0.0"))
@@ -125,11 +125,11 @@ class MergeDependenciesTest : IntegrationTestBase() {
     fun `only both sides re-pinning the same catalog differently is a conflict`() {
         val tenant = lines("Merge Dependencies Clash", fix = mapOf(shared to "1.2.0"), next = mapOf(shared to "1.1.0"))
         withMediator {
-            val conflict = PreviewDraftMerge(testCatalog(tenant, letters), "1.0.1").query().conflicts.single()
+            val conflict = PreviewDraftMerge(testCatalog(tenant, letters), "1.0.1", catalogVersion = null).query().conflicts.single()
             assertThat(conflict.contentKey to (conflict.ours to conflict.theirs)).isEqualTo("catalogDependency/shared" to (MergeChange.MODIFIED to MergeChange.MODIFIED))
             assertThat(conflict.name).isEqualTo("shared")
 
-            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1", resolutions = mapOf("catalogDependency/shared" to MergeResolution.Theirs)).execute()
+            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.0.1", resolutions = mapOf("catalogDependency/shared" to MergeResolution.Theirs), catalogVersion = null).execute()
 
             assertThat(pins(tenant)).isEqualTo(mapOf("shared" to "1.2.0"))
         }

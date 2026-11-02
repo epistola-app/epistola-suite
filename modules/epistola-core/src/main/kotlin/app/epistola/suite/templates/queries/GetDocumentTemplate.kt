@@ -5,12 +5,12 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -25,8 +25,8 @@ import org.springframework.stereotype.Component
 
 data class GetDocumentTemplate(
     val id: TemplateId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<DocumentTemplate?>,
     RequiresPermission {
@@ -42,13 +42,13 @@ class GetDocumentTemplateHandler(
         handle.createQuery(
             """
                 SELECT $TEMPLATE_COLUMNS
-                FROM current_templates dt
-                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                FROM version_templates dt
+                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.version_id = :v
                 """,
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bindCatalog("catalogKey", query.id.catalogId)
+            .bindVersion("v", handle.versionOf(query.id.catalogId, query).versionId)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)

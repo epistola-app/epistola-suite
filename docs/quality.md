@@ -222,9 +222,10 @@ that read it.
 
 Every catalog version shows, per variant and source, the check whose key is the variant's key
 there; failing that the newest check, marked **outdated**; failing that, nothing ("not checked
-yet"). The views `quality_current_variants` and `quality_current_checks` compute this for the
-version a caller means (`catalog_current_versions`: the targeted draft or release, else the
-catalog's next version), so the editor panel, the report and their filters and paging stay in SQL.
+yet"). The views `quality_version_variants` and `quality_version_checks` compute this for every
+version, and a read filters them by the version it means (ADR 0049: the draft or release its message
+names, else the catalog's next version), so the editor panel, the report and their filters and paging
+stay in SQL.
 A release never changes, so its keys never do: it keeps showing what was checked before it was
 cut. The editor's panel and "Check now" use the version the editor has open (`letters@<draft>`);
 a release is never checked.

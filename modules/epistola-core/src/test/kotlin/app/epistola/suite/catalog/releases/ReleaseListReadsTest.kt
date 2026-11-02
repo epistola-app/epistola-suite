@@ -44,8 +44,8 @@ class ReleaseListReadsTest : IntegrationTestBase() {
         val tenant = withMediator { createTenant("lean-release-reads").id }
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant, letters)), "Brand").execute()
-            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, png(), 1, 1, id = AssetKey.of("logo")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant, letters)), "Brand", catalogVersion = null).execute()
+            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, png(), 1, 1, id = AssetKey.of("logo"), catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), letters))
         }
 

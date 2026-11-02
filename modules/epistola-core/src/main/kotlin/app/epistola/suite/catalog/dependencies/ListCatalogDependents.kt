@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -48,7 +49,8 @@ class ListCatalogDependentsHandler(
             val target = handle.findCatalog(query.catalog) ?: return@withHandle emptyList()
             val identity = Triple(target.registry, target.namespace, query.catalogKey.value)
             others.mapNotNull { other ->
-                store.declarations(handle, other.catalogId).firstOrNull { it.identity == identity }
+                // What each other catalog's next version declares: the default, by name.
+                store.declarations(handle, ContentVersion.next(handle, other.catalogId)).firstOrNull { it.identity == identity }
                     ?.let { CatalogDependent(other.id.value, other.name, it.releaseVersion, other.namespace) }
             }.sortedBy { it.name.lowercase() }
         }

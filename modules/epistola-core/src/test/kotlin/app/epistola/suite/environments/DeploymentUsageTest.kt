@@ -52,12 +52,12 @@ class DeploymentUsageTest : IntegrationTestBase() {
         val (tenant, variant) = withMediator {
             val tenant = createTenant("Deployment usage").id
             val templateId = TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant)))
-            CreateDocumentTemplate(templateId, "Letter").execute()
+            CreateDocumentTemplate(templateId, "Letter", catalogVersion = null).execute()
             val variant = VariantId(VariantKey.of("standard"), templateId)
-            CreateVariant(id = variant, title = "Standard", description = null, attributes = emptyMap()).execute()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
+            CreateVariant(id = variant, title = "Standard", description = null, attributes = emptyMap(), catalogVersion = null).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter 2")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter 2"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
             val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
             CreateEnvironment(test, "Test").execute()

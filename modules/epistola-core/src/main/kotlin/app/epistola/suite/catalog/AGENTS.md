@@ -17,7 +17,7 @@ Every SQL statement reading or writing catalog content names the catalog version
 catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
 
 A released version never changes (ADR 0036, the freeze): every writer of a version's rows refuses a
-released one first (`requireWritableVersion`, `Handle.writable` or `inDraft`), or belongs to the
+released one first (`ContentVersions.writable`, `Handle.writable(at)` or `inDraft`), or belongs to the
 release path; `FrozenVersionWriteGuardTest` holds that.
 
 A release is a release however it arrived (ADR 0036): a catalog's version is its highest release.

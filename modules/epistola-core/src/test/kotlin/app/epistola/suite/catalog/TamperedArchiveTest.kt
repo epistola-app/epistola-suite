@@ -44,9 +44,9 @@ class TamperedArchiveTest : IntegrationTestBase() {
         val archive = withMediator {
             val id = testCatalog(a, catalog)
             CreateCatalog(tenantKey = a, id = catalog, name = "Tampered").execute()
-            UploadAsset(id, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1).execute()
-            MarkCatalogReady(id).execute()
-            ReleaseCatalogDraft(catalog = id, version = "1.0.0").execute()
+            UploadAsset(id, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1, catalogVersion = null).execute()
+            MarkCatalogReady(id, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = id, version = "1.0.0", catalogVersion = null).execute()
             ExportCatalogZip(id, "1.0.0").execute().zipBytes
         }
         val entries = entries(archive)

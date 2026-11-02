@@ -129,9 +129,9 @@ class McpReadyToolsIntegrationTest : IntegrationTestBase() {
         seedTemplateOnStencil(tenantId, fill = "body")
         val system = runAsApiKey(tenantId) {
             readyTools.markCatalogReady("default")
-            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("default")), "1.0.0").execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("default")), "1.0.0", catalogVersion = null).execute()
             val system = GetCatalog(testCatalog(tenantId.key, CatalogKey.of("system"))).query()!!
-            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.of("default")), listOf(DeclaredCatalogDependency(system.registry, system.namespace, "system", system.latestReleaseVersion))).execute()
+            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.of("default")), listOf(DeclaredCatalogDependency(system.registry, system.namespace, "system", system.latestReleaseVersion)), catalogVersion = null).execute()
             system
         }
 

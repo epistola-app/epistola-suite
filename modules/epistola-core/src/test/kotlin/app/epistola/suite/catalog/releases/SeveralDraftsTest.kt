@@ -28,7 +28,6 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -78,9 +77,6 @@ class SeveralDraftsTest : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Autowired
-    private lateinit var targeting: CatalogReleaseTargeting
-
-    @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
 
     private val letters = CatalogKey.of("letters")
@@ -99,9 +95,9 @@ class SeveralDraftsTest : IntegrationTestBase() {
     private fun released(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(brand(tenant), "Brand").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters)).execute()
+        CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters), catalogVersion = null).execute()
         mediator.releaseNext(catalogId(tenant))
         tenant
     }
@@ -120,6 +116,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
             handle.createQuery("SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND version_key = :k")
                 .bind("t", tenant).bind("k", draft.key).mapTo(UUID::class.java).one()
         }
+
+        is DraftRef.At -> draft.versionId
 
         DraftRef.Next -> jdbi.withHandle<UUID, Exception> { handle ->
             handle.createQuery(
@@ -182,11 +180,11 @@ class SeveralDraftsTest : IntegrationTestBase() {
     fun `a draft started from the next version is a copy of it, unreleased changes and ready marks included, on its base`() {
         val tenant = released("drafts-from-next")
         withMediator {
-            UpdateTheme(brand(tenant), name = "Brand, edited").execute()
+            UpdateTheme(brand(tenant), name = "Brand, edited", catalogVersion = null).execute()
             val colours = CodeListId(CodeListKey.of("colours"), catalogId(tenant))
-            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue", 1))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), catalogId(tenant)), "Colour", codeListId = colours).execute()
-            MarkTemplateReady(invoice(tenant)).execute()
+            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue", 1)), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), catalogId(tenant)), "Colour", codeListId = colours, catalogVersion = null).execute()
+            MarkTemplateReady(invoice(tenant), catalogVersion = null).execute()
         }
 
         val next = withMediator { GetCatalogDraft(testCatalog(tenant, letters)).query()!! }
@@ -205,7 +203,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     @Test
     fun `a draft started from nothing named is a copy of the highest release, on it`() {
         val tenant = released("drafts-default-from")
-        withMediator { UpdateTheme(brand(tenant), name = "Brand, edited").execute() }
+        withMediator { UpdateTheme(brand(tenant), name = "Brand, edited", catalogVersion = null).execute() }
 
         val created = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "Fixes").execute() }
 
@@ -218,7 +216,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     fun `parallel work started from a release holds what the release holds, on that release`() {
         val tenant = released("drafts-from-release")
         val releasedDigests = digests(tenant, DraftRef.Next)
-        withMediator { UpdateTheme(brand(tenant), name = "Brand, edited later").execute() }
+        withMediator { UpdateTheme(brand(tenant), name = "Brand, edited later", catalogVersion = null).execute() }
 
         val fromRelease = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "From one", from = "1.0.0").execute() }
         val ref = DraftRef.Id(fromRelease.versionId)
@@ -311,8 +309,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val tenant = released("drafts-discard-next")
         val before = versionId(tenant, DraftRef.Next)
         withMediator {
-            UpdateTheme(brand(tenant), name = "Brand, edited").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal").execute()
+            UpdateTheme(brand(tenant), name = "Brand, edited", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal", catalogVersion = null).execute()
         }
 
         withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
@@ -321,8 +319,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThat(reopened.versionId).`as`("a fresh draft").isNotEqualTo(before)
         assertThat(reopened.base).isEqualTo("1.0.0")
         assertThat(themeName(tenant, null)).isEqualTo("Brand")
-        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))).query() }).isNull()
-        assertThat(withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters)).query() }.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
+        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), catalogVersion = null).query() }).isNull()
+        assertThat(withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query() }.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
     }
 
     @Test
@@ -331,11 +329,11 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val redesign = work(tenant, "Redesign")
         val nextBefore = versionId(tenant, DraftRef.Next)
         withMediator {
-            UpdateTheme(brand(tenant), name = "Brand, fixed").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            UpdateTheme(brand(tenant), name = "Brand, fixed", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
         }
 
-        val result = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters)).execute() }
+        val result = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = null).execute() }
 
         assertThat(result.version).`as`("a fix: the next patch").isEqualTo("1.0.1")
         assertThat(result.draftsBehind).containsExactly("Redesign")
@@ -373,10 +371,10 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val tenant = released("drafts-identity-released")
         val seasonal = ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))
         withMediator {
-            CreateTheme(seasonal, "Seasonal").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, letters)).execute()
-            DeleteTheme(seasonal).execute()
+            CreateTheme(seasonal, "Seasonal", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = null).execute()
+            DeleteTheme(seasonal, catalogVersion = null).execute()
         }
         fun released(): UUID = jdbi.withHandle<UUID, Exception> { handle ->
             handle.createQuery("SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = '1.1.0') AND resource_type = 'theme' AND resource_key = 'seasonal'")
@@ -400,7 +398,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         lateinit var redesign: DraftRef
         withMediator {
             CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), CatalogKey.of("shared"))), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), CatalogKey.of("shared"))), "House", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), CatalogKey.of("shared")))
         }
         redesign = work(tenant, "Redesign")
@@ -428,27 +426,12 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val tenant = released("drafts-relocate")
         withMediator { CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute() }
         val move = listOf(testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(CatalogKey.of("shared")))
-        assertThat(withMediator { PreviewCatalogResourceMove(tenant, move).query() }.warnings.map { it.code }).doesNotContain("left-behind-draft")
+        assertThat(withMediator { PreviewCatalogResourceMove(tenant, move, catalogVersion = null).query() }.warnings.map { it.code }).doesNotContain("left-behind-draft")
 
         work(tenant, "Redesign")
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant, move).query() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant, move, catalogVersion = null).query() }
         assertThat(preview.blockers).isEmpty()
         assertThat(preview.warnings.filter { it.code == "left-behind-draft" }.map { it.message }).singleElement().asString().startsWith("Redesign of ")
-    }
-
-    @Test
-    fun `a nested target wins inside it and the caller's comes back after it`() {
-        val tenant = released("drafts-nesting")
-        val redesign = work(tenant, "Redesign")
-        val nextId = versionId(tenant, DraftRef.Next)
-        val work = versionId(tenant, redesign)
-        fun current(): UUID = jdbi.withHandle<UUID, Exception> { it.createQuery("SELECT ${versionAt("t", "c")}").bind("t", tenant).bindCatalog("c", testCatalog(tenant, letters)).mapTo(UUID::class.java).one() }
-
-        val seen = TransactionTemplate(transactionManager).execute {
-            listOf(current()) + targeting.within(work) { listOf(current()) + targeting.within(nextId) { listOf(current()) } + listOf(current()) } + listOf(current())
-        }
-
-        assertThat(seen).containsExactly(nextId, work, nextId, work, nextId)
     }
 }

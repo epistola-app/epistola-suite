@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -34,7 +35,7 @@ data class RemoveUnusedCatalogDependencies(
     val catalog: CatalogId,
     val aliases: List<String>,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<RemovedCatalogDependencies>,
     RequiresPermission {
@@ -60,8 +61,9 @@ class RemoveUnusedCatalogDependenciesHandler(
         return jdbi.inTransaction<RemovedCatalogDependencies, Exception> { handle ->
             handle.findCatalog(command.catalog) ?: throw CatalogNotFoundException(command.catalogKey)
             requireCatalogEditable(command.catalog)
-            val declarations = store.declarations(handle, command.catalog)
-            store.replace(handle, command.catalog, declarations.filterNot { it.alias in command.aliases })
+            val at = handle.versionOf(command.catalog, command)
+            val declarations = store.declarations(handle, at)
+            store.replace(handle, at, declarations.filterNot { it.alias in command.aliases })
             RemovedCatalogDependencies(command.aliases.distinct())
         }
     }

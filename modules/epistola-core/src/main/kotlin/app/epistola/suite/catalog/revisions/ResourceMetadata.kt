@@ -4,7 +4,7 @@
 
 package app.epistola.suite.catalog.revisions
 
-import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.catalog.releases.ContentVersion
 import org.jdbi.v3.core.Handle
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -23,10 +23,10 @@ object ResourceMetadata {
 
     /**
      * [payload] (a stored content, `{ "resource": … }`) with its resource's `metadata` set: [explicit]
-     * when given (empty: none), else what the targeted draft's row [type] [key] of [catalog] holds now
+     * when given (empty: none), else what version [at]'s row [type] [key] holds now
      * ([held]).
      */
-    fun carried(handle: Handle, catalog: CatalogId, type: String, key: String, payload: JsonNode, explicit: ProducerMetadata?, objectMapper: ObjectMapper): JsonNode = with(payload, if (explicit != null) explicit.takeIf { it.isNotEmpty() }?.let { objectMapper.valueToTree<JsonNode>(it) } else held(handle, catalog, type, key))
+    fun carried(handle: Handle, at: ContentVersion, type: String, key: String, payload: JsonNode, explicit: ProducerMetadata?, objectMapper: ObjectMapper): JsonNode = with(payload, if (explicit != null) explicit.takeIf { it.isNotEmpty() }?.let { objectMapper.valueToTree<JsonNode>(it) } else held(handle, at, type, key))
 
     /** [payload] with its resource's `metadata` [metadata], or none when null or empty. */
     fun with(payload: JsonNode, metadata: JsonNode?): JsonNode {
@@ -36,8 +36,8 @@ object ResourceMetadata {
         return copy
     }
 
-    /** The metadata the targeted draft's row [type] [key] of [catalog] holds; null when none or no row. */
-    fun held(handle: Handle, catalog: CatalogId, type: String, key: String): JsonNode? = DraftResources.metadataOf(handle, catalog, type, key)
+    /** The metadata version [at]'s row [type] [key] holds; null when none or no row. */
+    fun held(handle: Handle, at: ContentVersion, type: String, key: String): JsonNode? = DraftResources.metadataOf(handle, at, type, key)
         ?.let { MAPPER.readTree(it) }
         ?.takeIf { it.isObject && !it.isEmpty }
 

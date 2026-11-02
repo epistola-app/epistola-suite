@@ -47,14 +47,14 @@ class QualityTwoLettersIntegrationTest : IntegrationTestBase() {
         val (acme, bureau) = listOf("acme", "bureau").map { namespace ->
             CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
             val template = TemplateId(TemplateKey.of("invoice"), CatalogId(namespace, letters, TenantId(tenant)))
-            CreateDocumentTemplate(template, "Invoice of $namespace").execute()
+            CreateDocumentTemplate(template, "Invoice of $namespace", catalogVersion = null).execute()
             QualitySubject.of(VariantId(VariantKey.INITIAL, template))
         }
         acme to bureau
     }
 
     private fun findingsOf(subject: QualitySubject) = withMediator {
-        GetFindingsForSubject(subject.catalogId, subject.templateKey, subject.variantKey!!).query().findings
+        GetFindingsForSubject(subject.catalogId, subject.templateKey, subject.variantKey!!, catalogVersion = null).query().findings
     }
 
     @Test
@@ -70,7 +70,7 @@ class QualityTwoLettersIntegrationTest : IntegrationTestBase() {
 
         assertThat(findingsOf(acme).single().effectiveStatus).isEqualTo(EffectiveQualityStatus.IGNORED)
         assertThat(findingsOf(bureau).single().effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
-        val listed = withMediator { ListQualityFindings(acme.tenantKey, catalog = bureau.catalogId).query() }
+        val listed = withMediator { ListQualityFindings(acme.tenantKey, catalog = bureau.catalogId, catalogVersion = null).query() }
         assertThat(listed.items.map { it.catalogAddress }).containsExactly("bureau/letters")
     }
 }

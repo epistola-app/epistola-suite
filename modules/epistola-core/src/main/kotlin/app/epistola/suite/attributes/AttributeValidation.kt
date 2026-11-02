@@ -7,6 +7,7 @@ package app.epistola.suite.attributes
 import app.epistola.suite.attributes.codelists.queries.CodeListEntryExists
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.validate
@@ -35,22 +36,25 @@ import app.epistola.suite.validation.validate
  *
  * Catalog slugs match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so splitting
  * on the first `.` is unambiguous.
+ *
+ * Definitions and code lists are read in [catalogVersion] for its catalog (the version the caller
+ * writes), else in each catalog's next version; null reads every catalog's next version.
  */
-fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>) {
+fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>, catalogVersion: CatalogReleaseRef?) {
     if (attributes.isEmpty()) return
 
-    val definitions = ListAttributeDefinitions(tenantId).query()
+    val definitions = ListAttributeDefinitions(tenantId, catalogVersion = catalogVersion).query()
     val byQualified = definitions.associateBy { "${it.catalogKey.value}.${it.id.value}" }
     val byBareSlug = definitions.associateBy { it.id.value }
 
     for ((key, value) in attributes) {
         val definition = if ('.' in key) byQualified[key] else byBareSlug[key]
         validate("attributes", definition != null) { "Unknown attribute '$key'. Define it in the attribute registry first." }
-        validateValue(key, value, definition!!)
+        validateValue(key, value, definition!!, catalogVersion)
     }
 }
 
-private fun validateValue(key: String, value: String, definition: VariantAttributeDefinition) {
+private fun validateValue(key: String, value: String, definition: VariantAttributeDefinition, catalogVersion: CatalogReleaseRef?) {
     val codeListId = definition.codeListId
     if (codeListId != null) {
         val exists = CodeListEntryExists(
@@ -59,6 +63,7 @@ private fun validateValue(key: String, value: String, definition: VariantAttribu
             code = value,
             // The list's catalog at the version the attribute's catalog declares (ADR 0033, step 3).
             boundFrom = definition.catalogId,
+            catalogVersion = catalogVersion,
         ).query()
         validate("attributes", exists) {
             "Invalid value '$value' for attribute '$key'. Not a member of code list '${codeListId.catalogKey.value}/${codeListId.key.value}'."

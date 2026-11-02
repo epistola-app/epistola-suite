@@ -50,7 +50,7 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val tKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(tKey, catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Load Test Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Load Test Template", catalogVersion = null).execute()
             templateKey = tKey.value
         }
 

@@ -70,8 +70,8 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val released = withMediator {
             seedResources(catalog)
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         val rebuilt = assembler.assemble(catalog, "1.0.0")
@@ -85,20 +85,20 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val (image, first) = withMediator {
             val seeded = seedResources(catalog)
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            seeded to ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            seeded to ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         // Everything the release named, changed or gone: the theme edited, the image deleted, the
         // template's model replaced. None of it may reach 1.0.0.
         val second = withMediator {
-            UpdateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, revised").execute()
-            DeleteAsset(catalog.tenantKey, image).execute()
+            UpdateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, revised", catalogVersion = null).execute()
+            DeleteAsset(catalog.tenantKey, image, catalogVersion = null).execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
-            UpdateVariantContent(variant, model("changed")).execute()
-            MarkVariantReady(variant).execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "2.0.0").execute()
+            UpdateVariantContent(variant, model("changed"), catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "2.0.0", catalogVersion = null).execute()
         }
 
         assertThat(second.fingerprint).`as`("the working copy really did change").isNotEqualTo(first.fingerprint)
@@ -112,7 +112,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
     /** A theme, an image and a template with a published model — the shapes that can lose bytes. */
     private fun seedResources(catalog: CatalogId): AssetKey {
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
         val image = UploadAsset(
             catalog = testCatalog(catalog.tenantKey, catalog.key),
             name = "logo.png",
@@ -120,11 +120,12 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             content = ByteArray(120) { ((it * 11) % 256).toByte() },
             width = 1,
             height = 1,
+            catalogVersion = null,
         ).execute().id
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
-        CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateVariantContent(variant, model("original")).execute()
-        MarkVariantReady(variant).execute()
+        CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, model("original"), catalogVersion = null).execute()
+        MarkVariantReady(variant, catalogVersion = null).execute()
         return image
     }
 

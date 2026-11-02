@@ -50,9 +50,9 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("dep-page")
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-page"))).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-page")), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-page")), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-page")), version = "1.0.0", catalogVersion = null).execute()
         }
 
         val before = live(tenant, "dep-page")
@@ -78,13 +78,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
             // A correction, so the next patch.
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.1").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.1", catalogVersion = null).execute()
             DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.0").execute()
             DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.1").execute()
         }
@@ -110,13 +110,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
             // A correction, so the next patch.
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.1.0").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.1.0", catalogVersion = null).execute()
             DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.0").execute()
         }
 
@@ -144,14 +144,14 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0", catalogVersion = null).execute()
             val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!
-            UpdateCatalogDependencies(testCatalog(tenant.id, key), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
-            CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
+            UpdateCatalogDependencies(testCatalog(tenant.id, key), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         val deployed = restTemplate.postForEntity(
@@ -184,7 +184,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("dep-norelease")
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand", catalogVersion = null).execute()
         }
 
         val body = live(tenant, "dep-norelease")
@@ -200,9 +200,9 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-guard"))).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-guard")), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-guard")), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-guard")), version = "1.0.0", catalogVersion = null).execute()
             DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.of("dep-guard")), "1.0.0").execute()
         }
 

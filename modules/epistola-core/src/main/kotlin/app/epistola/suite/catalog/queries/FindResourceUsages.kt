@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Component
 data class FindResourceUsages(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<Map<String, List<ResourceUsage>>>,
     RequiresPermission {
@@ -50,7 +51,7 @@ class FindResourceUsagesHandler(
 ) : QueryHandler<FindResourceUsages, Map<String, List<ResourceUsage>>> {
 
     override fun handle(query: FindResourceUsages): Map<String, List<ResourceUsage>> = jdbi.withHandle<Map<String, List<ResourceUsage>>, Exception> { handle ->
-        val graph = graphs.buildOn(handle, query.tenantKey)
+        val graph = graphs.buildOn(handle, query.tenantKey, handle.addressedVersion(query))
         val names = graph.nodes.associate { it.address to it.name }
         val address = query.catalog.address
         graph.edges

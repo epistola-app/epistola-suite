@@ -34,6 +34,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
+import app.epistola.suite.testing.atNext
 
 /**
  * A draft's stencils are stored as JSON (ADR 0033, step 4): `{ "resource": <StencilResource> }`
@@ -77,19 +78,19 @@ class StencilStorageTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, parts.key, "Parts").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), parts), "Header").execute()
-            val created = CreateStencil(footer, "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand()).execute()
-            assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetStencil(footer).query())
+            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), parts), "Header", catalogVersion = null).execute()
+            val created = CreateStencil(footer, "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand(), catalogVersion = null).execute()
+            assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetStencil(footer, catalogVersion = null).query())
         }
 
-        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_stencils WHERE tenant_key = '${tenant.value}' AND id = 'footer'"))
+        val payload = objectMapper.readTree(one("SELECT payload::text FROM ${atNext("version_stencils")} current_stencils WHERE tenant_key = '${tenant.value}' AND id = 'footer'"))
         assertThat(payload.path("resource").path("type").asString()).isEqualTo("stencil")
         assertThat(payload.path("resource").path("tags").toList().map { it.asString() }).containsExactly("legal")
         assertThat(
             one(
                 """
-                SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type DESC) FROM current_stencils s
+                SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type DESC) FROM ${atNext("version_stencils")} s
                 JOIN release_resources r ON r.tenant_key = s.tenant_key AND r.version_id = s.version_id AND r.resource_type = 'stencil' AND r.resource_key = s.id
                 JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
                 WHERE s.tenant_key = '${tenant.value}' AND s.id = 'footer'
@@ -97,15 +98,15 @@ class StencilStorageTest : IntegrationTestBase() {
             ),
         ).`as`("the nested stencil by its catalog's alias; the theme of its own catalog relative, as a release says it").isEqualTo("/theme/brand,parts/stencil/header")
         assertThat(payload.path("resource").path("content").path("themeRef").path("catalogKey").isString).`as`("stored relative").isFalse()
-        assertThat(withMediator { GetStencil(footer).query() }!!.content.themeRef).`as`("read qualified")
+        assertThat(withMediator { GetStencil(footer, catalogVersion = null).query() }!!.content.themeRef).`as`("read qualified")
             .isEqualTo(ThemeRefOverride(themeKey = "brand", catalogKey = "letters"))
         assertThat(one("SELECT CAST(to_regclass('stencils') IS NULL AS TEXT)")).isEqualTo("true")
 
-        val saved = withMediator { UpdateStencil(footer, name = "Footer, renamed").execute() }
-        assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(withMediator { GetStencil(footer).query() })
+        val saved = withMediator { UpdateStencil(footer, name = "Footer, renamed", catalogVersion = null).execute() }
+        assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(withMediator { GetStencil(footer, catalogVersion = null).query() })
         assertThat(saved!!.description).`as`("a save keeps what it does not change").isEqualTo("At the bottom")
         assertThat(saved.tags).containsExactly("legal")
-        assertThat(saved.content).isEqualTo(withMediator { GetStencil(footer).query() }!!.content)
+        assertThat(saved.content).isEqualTo(withMediator { GetStencil(footer, catalogVersion = null).query() }!!.content)
     }
 
     @Test
@@ -114,17 +115,17 @@ class StencilStorageTest : IntegrationTestBase() {
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateStencil(StencilId(StencilKey.of("alpha"), letters), "A", tags = listOf("legal", "footer")).execute()
-            CreateStencil(StencilId(StencilKey.of("beta"), letters), "B", tags = listOf("header")).execute()
-            CreateStencil(StencilId(StencilKey.of("gamma"), letters), "C").execute()
+            CreateStencil(StencilId(StencilKey.of("alpha"), letters), "A", tags = listOf("legal", "footer"), catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("beta"), letters), "B", tags = listOf("header"), catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("gamma"), letters), "C", catalogVersion = null).execute()
         }
         withMediator {
-            assertThat(ListStencils(TenantId(tenant), tag = "legal").query().map { it.id.value }).containsExactly("alpha")
-            assertThat(ListStencils(TenantId(tenant), tag = "header").query().map { it.id.value }).containsExactly("beta")
-            assertThat(CountStencils(TenantId(tenant), tag = "footer").query()).isEqualTo(1)
-            assertThat(ListStencils(TenantId(tenant), tag = "lega").query()).`as`("a whole tag, not a part").isEmpty()
-            assertThat(ListStencils(TenantId(tenant), tag = "say \"hi\"").query()).`as`("a quote is part of the tag").isEmpty()
-            assertThat(CountStencils(TenantId(tenant), tag = "say \"hi\"").query()).isZero()
+            assertThat(ListStencils(TenantId(tenant), tag = "legal", catalogVersion = null).query().map { it.id.value }).containsExactly("alpha")
+            assertThat(ListStencils(TenantId(tenant), tag = "header", catalogVersion = null).query().map { it.id.value }).containsExactly("beta")
+            assertThat(CountStencils(TenantId(tenant), tag = "footer", catalogVersion = null).query()).isEqualTo(1)
+            assertThat(ListStencils(TenantId(tenant), tag = "lega", catalogVersion = null).query()).`as`("a whole tag, not a part").isEmpty()
+            assertThat(ListStencils(TenantId(tenant), tag = "say \"hi\"", catalogVersion = null).query()).`as`("a quote is part of the tag").isEmpty()
+            assertThat(CountStencils(TenantId(tenant), tag = "say \"hi\"", catalogVersion = null).query()).isZero()
         }
     }
 
@@ -134,15 +135,15 @@ class StencilStorageTest : IntegrationTestBase() {
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand").execute()
-            CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", tags = listOf("legal"), content = usesHeaderAndBrand().copy(nodes = usesHeaderAndBrand().nodes - "header", slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", tags = listOf("legal"), content = usesHeaderAndBrand().copy(nodes = usesHeaderAndBrand().nodes - "header", slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList()))), catalogVersion = null).execute()
         }
         val version = withMediator { mediator.releaseNext(letters) }
         val released = CatalogReleaseRef(letters, DraftRef.Released(version))
 
         fun content(list: List<Stencil>) = list.map { listOf(it.id, it.name, it.description, it.tags, it.content, it.parameterSchema, it.readsTemplateData) }
         withMediator {
-            val drafted = ListStencils(TenantId(tenant), catalog = letters).query()
+            val drafted = ListStencils(TenantId(tenant), catalog = letters, catalogVersion = null).query()
             assertThat(drafted).isNotEmpty()
             assertThat(content(ListStencils(TenantId(tenant), catalog = letters, catalogVersion = released).query())).isEqualTo(content(drafted))
         }
@@ -156,14 +157,15 @@ class StencilStorageTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, parts.key, "Parts").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), parts), "Header").execute()
-            CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand()).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), parts), "Header", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand(), catalogVersion = null).execute()
             CreateStencil(
                 StencilId(StencilKey.of("address"), letters),
                 "Address",
                 parameterSchema = objectMapper.readTree("""{"type":"object","properties":{"street":{"type":"string"}}}"""),
                 readsTemplateData = true,
+                catalogVersion = null,
             ).execute()
         }
         StencilStorageConversion.verify(jdbi, objectMapper, stencils, letters)

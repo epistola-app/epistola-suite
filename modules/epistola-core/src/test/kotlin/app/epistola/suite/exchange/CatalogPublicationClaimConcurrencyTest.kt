@@ -60,7 +60,7 @@ class CatalogPublicationClaimConcurrencyTest : ExchangeIntegrationTestBase() {
                 val key = CatalogKey.of("race-$index")
                 CreateCatalog(tenant.id, key, key.value).execute()
                 ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             }
             queued += publicationIds()
         }
@@ -118,7 +118,7 @@ class CatalogPublicationClaimConcurrencyTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, key, key.value).execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
         }
 
         val claimed = withMediator { store.claimDue(10) }

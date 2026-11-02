@@ -9,10 +9,11 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.IMAGE_COLUMNS
 import app.epistola.suite.assets.IMAGE_ROWS
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -49,8 +50,8 @@ data class ListImagePage(
     val searchTerm: String? = null,
     val limit: Int,
     val offset: Int,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<ImagePage>,
     RequiresPermission {
@@ -68,9 +69,9 @@ class ListImagePageHandler(
         val rows = handle.createQuery(
             """
             SELECT $IMAGE_COLUMNS, COUNT(*) OVER()::bigint AS total_count
-            FROM current_images a
+            FROM version_images a
             WHERE a.tenant_key = :tenantKey
-              AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+              AND a.version_id = :v
               AND a.media_type LIKE 'image/%'
               AND (CAST(:searchTerm AS text) IS NULL OR a.name ILIKE :searchTerm)
             ORDER BY a.created_at DESC, a.id
@@ -78,7 +79,7 @@ class ListImagePageHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bindCatalog("catalogKey", query.catalog)
+            .bindVersion("v", handle.versionOf(query.catalog, query).versionId)
             .bind("searchTerm", query.searchTerm?.let { "%$it%" })
             .bind("limit", query.limit)
             .bind("offset", query.offset)

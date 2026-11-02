@@ -4,6 +4,8 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -54,6 +56,7 @@ class GetQualityFindingHandler(
             .bind("tenantKey", query.tenantKey)
             .bind("findingKey", query.findingKey.value)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
+            .bindVersion(QualityFindingSql.VERSION, handle.addressedVersion(query))
             .map { rs, _ -> mapFinding(rs, objectMapper) }
             .findOne()
             .orElse(null)

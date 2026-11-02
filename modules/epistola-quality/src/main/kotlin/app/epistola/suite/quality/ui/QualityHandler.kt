@@ -119,7 +119,7 @@ class QualityHandler(
             "workspaceCatalog" to segment
             "catalogSegment" to segment.value
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
-            "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT).query()
+            "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT, catalogVersion = null).query()
             "sources" to registry.namesFor(tenantId.key).map { (id, name) -> SourceOption(id.value, name) }
             // Which providers check this tenant's text is a tenant setting; the report links there for whoever may change it.
             "canManageSettings" to (SecurityContext.currentOrNull()?.hasPermission(tenantId.key, Permission.INTEGRATIONS_MANAGE) == true)
@@ -246,7 +246,7 @@ class QualityHandler(
             // Named, so the trailing variant-options fragment does not ride along into the dialog.
             fragment("quality/manual-form", "content") {
                 "tenantId" to tenantId.key
-                "templates" to ListDocumentTemplates(tenantId, catalog = catalog, limit = TEMPLATE_FILTER_LIMIT).query()
+                "templates" to ListDocumentTemplates(tenantId, catalog = catalog, limit = TEMPLATE_FILTER_LIMIT, catalogVersion = null).query()
                 "severities" to QualitySeverity.entries
             }
             onFullPage { redirect(listPath(tenantId.key, catalog.address)) }
@@ -266,7 +266,7 @@ class QualityHandler(
 
         return request.htmx {
             fragment("quality/manual-form", "variant-options") {
-                "variants" to ListVariants(templateRef).query()
+                "variants" to ListVariants(templateRef, catalogVersion = null).query()
             }
         }
     }

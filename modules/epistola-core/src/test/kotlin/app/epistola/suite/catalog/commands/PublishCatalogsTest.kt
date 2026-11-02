@@ -40,11 +40,11 @@ class PublishCatalogsTest : IntegrationTestBase() {
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateCatalog(tenant, forms, "Forms").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
         val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
-        CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared)).execute()
-        CreateTheme(ThemeId(ThemeKey.of("plain"), testCatalog(TenantId(tenant), forms)), "Plain").execute()
+        CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
+        CreateTheme(ThemeId(ThemeKey.of("plain"), testCatalog(TenantId(tenant), forms)), "Plain", catalogVersion = null).execute()
         tenant
     }
 
@@ -78,7 +78,7 @@ class PublishCatalogsTest : IntegrationTestBase() {
         val tenant = tenant("publish-refused")
 
         // Not marked ready, nothing can be published; forms is marked ready by hand and goes through.
-        withMediator { MarkCatalogReady(testCatalog(tenant, forms)).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, forms), catalogVersion = null).execute() }
         val result = publish(tenant, listOf(shared, letters, forms), markReady = false)
 
         val byCatalog = result.outcomes.associateBy { it.catalog.key }

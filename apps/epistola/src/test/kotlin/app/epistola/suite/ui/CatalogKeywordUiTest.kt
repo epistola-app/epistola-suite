@@ -43,6 +43,7 @@ class CatalogKeywordUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("onderwerp"), testCatalog(TenantId(tenant.id), catalogKey)),
                 displayName = "Onderwerp",
                 allowedValues = listOf(longValue),
+                catalogVersion = null,
             ).execute()
             UpdateCatalogMetadata(
                 catalog = testCatalog(tenant.id, catalogKey),

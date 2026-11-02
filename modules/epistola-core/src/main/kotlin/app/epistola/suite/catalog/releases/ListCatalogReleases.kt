@@ -125,8 +125,13 @@ class GetCatalogDraftHandler(
             versions.all(handle, query.catalog, numbers).firstOrNull { version ->
                 when (val ref = query.draft) {
                     DraftRef.Next -> version.isNext
+
                     is DraftRef.Id -> version.status == CatalogReleaseStatus.DRAFT && version.versionId == ref.key
+
                     is DraftRef.Released -> version.status == CatalogReleaseStatus.RELEASED && version.version == ref.version
+
+                    // Internal only; never asked for by a caller of this query.
+                    is DraftRef.At -> false
                 }
             }
         }
@@ -157,6 +162,7 @@ class CatalogReleaseReader(
                     DraftRef.Next -> d.isNext
                     is DraftRef.Id -> d.key == draft.key
                     is DraftRef.Released -> false
+                    is DraftRef.At -> d.versionId == draft.versionId
                 }
             }
         return open.mapNotNull { d -> AssessDraftNumber(catalog, d.ref).query()?.let { d.key to it.suggested } }.toMap()

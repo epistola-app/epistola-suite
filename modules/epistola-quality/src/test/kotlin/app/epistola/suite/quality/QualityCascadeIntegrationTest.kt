@@ -65,13 +65,13 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
 
     private fun newTemplate(tenantKey: app.epistola.suite.common.ids.TenantKey, name: String = "Invoice"): TemplateId {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
-        withMediator { CreateDocumentTemplate(id = templateId, name = name).execute() }
+        withMediator { CreateDocumentTemplate(id = templateId, name = name, catalogVersion = null).execute() }
         return templateId
     }
 
     private fun newVariant(templateId: TemplateId): VariantId {
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        withMediator { CreateVariant(id = variantId, title = "Variant", description = null).execute() }
+        withMediator { CreateVariant(id = variantId, title = "Variant", description = null, catalogVersion = null).execute() }
         return variantId
     }
 
@@ -83,14 +83,14 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
         val subject = QualitySubject.of(variantId)
 
         withMediator { SubmitQualityFindings(source, subject, listOf(finding())).execute() }
-        val key = withMediator { ListQualityFindings(tenant.id).query().items.single().key }
+        val key = withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items.single().key }
         withMediator {
             AddFindingComment(tenant.id, key, "worth discussing").execute()
             IgnoreFinding(tenant.id, key, "not applicable").execute()
         }
         assertThat(countIn("quality_findings", tenant.id)).isEqualTo(1)
 
-        withMediator { DeleteDocumentTemplate(templateId).execute() }
+        withMediator { DeleteDocumentTemplate(templateId, catalogVersion = null).execute() }
 
         assertThat(countIn("quality_findings", tenant.id)).isZero()
         assertThat(countIn("quality_finding_comments", tenant.id)).isZero()
@@ -110,9 +110,9 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
         }
         assertThat(countIn("quality_findings", tenant.id)).isEqualTo(2)
 
-        withMediator { DeleteVariant(doomed).execute() }
+        withMediator { DeleteVariant(doomed, catalogVersion = null).execute() }
 
-        val remaining = withMediator { ListQualityFindings(tenant.id).query().items }
+        val remaining = withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items }
         assertThat(remaining).singleElement().satisfies({ assertThat(it.fingerprint).isEqualTo("fp-survivor") })
     }
 
@@ -126,15 +126,15 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
         val templateId = newTemplate(tenant.id)
         val variantId = newVariant(templateId)
         withMediator {
-            app.epistola.suite.templates.contracts.commands.UpdateDataContract(templateId, dataExamples = listOf(app.epistola.suite.templates.model.DataExample("e", "Example", tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode()))).execute()
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(templateId, dataExamples = listOf(app.epistola.suite.templates.model.DataExample("e", "Example", tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode())), catalogVersion = null).execute()
             SubmitQualityFindings(source, QualitySubject.of(variantId), listOf(finding("fp-released"))).execute()
         }
         val release = withMediator { mediator.releaseNext(templateId.catalogId) }
 
-        withMediator { DeleteVariant(variantId).execute() }
+        withMediator { DeleteVariant(variantId, catalogVersion = null).execute() }
 
         // The next version no longer holds the variant; the release does, and still shows its finding.
-        assertThat(withMediator { ListQualityFindings(tenant.id).query().items }).isEmpty()
+        assertThat(withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items }).isEmpty()
         val inRelease = withMediator {
             ListQualityFindings(tenant.id, catalog = templateId.catalogId, catalogVersion = CatalogReleaseRef(templateId.catalogId, DraftRef.Released(release))).query().items
         }
@@ -153,9 +153,9 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
 
         withMediator { RecordManualFinding(QualitySubject.of(templateId), "The whole template needs a review").execute() }
 
-        withMediator { DeleteVariant(variantId).execute() }
+        withMediator { DeleteVariant(variantId, catalogVersion = null).execute() }
 
-        assertThat(withMediator { ListQualityFindings(tenant.id).query().items })
+        assertThat(withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items })
             .singleElement()
             .satisfies({ assertThat(it.message).isEqualTo("The whole template needs a review") })
     }
@@ -175,20 +175,20 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
         val subject = QualitySubject.of(variantId)
 
         withMediator { SubmitQualityFindings(source, subject, listOf(finding())).execute() }
-        val key = withMediator { ListQualityFindings(tenant.id).query().items.single().key }
+        val key = withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items.single().key }
         withMediator { IgnoreFinding(tenant.id, key, "reviewed on the OLD template").execute() }
 
-        withMediator { DeleteDocumentTemplate(templateId).execute() }
+        withMediator { DeleteDocumentTemplate(templateId, catalogVersion = null).execute() }
 
         // Same keys, so the same URNs and the same fingerprint — a fresh template as far as anyone
         // reviewing is concerned.
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            CreateVariant(id = variantId, title = "Variant", description = null).execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(id = variantId, title = "Variant", description = null, catalogVersion = null).execute()
             SubmitQualityFindings(source, subject, listOf(finding())).execute()
         }
 
-        val resurfaced = withMediator { ListQualityFindings(tenant.id).query().items.single() }
+        val resurfaced = withMediator { ListQualityFindings(tenant.id, catalogVersion = null).query().items.single() }
         assertThat(resurfaced.effectiveStatus)
             .describedAs("a stale ignore must not suppress a finding on a template nobody has reviewed")
             .isEqualTo(EffectiveQualityStatus.OPEN)

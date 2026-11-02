@@ -34,6 +34,11 @@ internal object RepoSources {
         path.name.endsWith(".kt") && "/src/main/" in relativize(path)
     }
 
+    /** All SQL resources under apps and modules src/main: the Flyway migrations and any statement kept in a file. */
+    fun mainSqlFiles(): List<Path> = sourceFiles { path ->
+        path.name.endsWith(".sql") && "/src/main/" in relativize(path)
+    }
+
     /** All Kotlin test sources under apps and modules src/test, excluding build output. */
     fun testKotlinFiles(): List<Path> = sourceFiles { path ->
         path.name.endsWith(".kt") && "/src/test/" in relativize(path)

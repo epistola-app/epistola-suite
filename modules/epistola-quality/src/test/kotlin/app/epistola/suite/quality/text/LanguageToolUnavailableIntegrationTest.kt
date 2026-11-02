@@ -84,11 +84,11 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
         val variantId = withMediator {
             SetTenantDefaultLocale(tenantId = tenant.id, locale = "nl-NL").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Brief").execute()
-            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Standaard", description = null).execute() }
+            CreateDocumentTemplate(id = templateId, name = "Brief", catalogVersion = null).execute()
+            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Standaard", description = null, catalogVersion = null).execute() }
         }
 
-        val run = withMediator { RunQualityChecks(variantId).execute() }
+        val run = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         val languageTool = run.sources.single { it.sourceId == QualitySourceId("languagetool") }
         assertThat(languageTool.status).isEqualTo(SourceRunStatus.SKIPPED)
@@ -102,10 +102,10 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
             SetTenantDefaultLocale(tenantId = tenant.id, locale = "nl-NL").execute()
             SaveQualityProviderSettings(tenant.id, enabled = setOf(QualitySourceId("languagetool"))).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Brief").execute()
+            CreateDocumentTemplate(id = templateId, name = "Brief", catalogVersion = null).execute()
             VariantId(TestIdHelpers.nextVariantId(), templateId).also {
-                CreateVariant(id = it, title = "Standaard", description = null).execute()
-                UpdateVariantContent(it, document("t" to doc(paragraph(text("Wij sturen u de de stukken middels deze brief."))))).execute()
+                CreateVariant(id = it, title = "Standaard", description = null, catalogVersion = null).execute()
+                UpdateVariantContent(it, document("t" to doc(paragraph(text("Wij sturen u de de stukken middels deze brief.")))), catalogVersion = null).execute()
             }
         }
         val languageTool = QualitySourceId("languagetool")
@@ -118,13 +118,13 @@ class LanguageToolUnavailableIntegrationTest : IntegrationTestBase() {
             ).execute()
         }
 
-        val run = withMediator { RunQualityChecks(variantId).execute() }
+        val run = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         assertThat(run.sources.single { it.sourceId == languageTool }.status).isEqualTo(SourceRunStatus.FAILED)
         assertThat(run.sources.single { it.sourceId == QualitySourceId("builtin") }.status).isEqualTo(SourceRunStatus.CHECKED)
 
         val findings = withMediator {
-            GetFindingsForSubject(catalog = testCatalog(variantId.tenantKey, variantId.catalogKey), templateKey = variantId.templateKey, variantKey = variantId.key.value).query().findings
+            GetFindingsForSubject(catalog = testCatalog(variantId.tenantKey, variantId.catalogKey), templateKey = variantId.templateKey, variantKey = variantId.key.value, catalogVersion = null).query().findings
         }
         assertThat(findings.single { it.sourceId == languageTool }.effectiveStatus).isEqualTo(EffectiveQualityStatus.OPEN)
         assertThat(findings.filter { it.sourceId == QualitySourceId("builtin") }.map { it.ruleId })

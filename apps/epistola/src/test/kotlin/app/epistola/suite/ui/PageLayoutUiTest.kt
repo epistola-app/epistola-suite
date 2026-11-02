@@ -61,7 +61,7 @@ class PageLayoutUiTest : BasePlaywrightTest() {
     fun `a list's labelled row actions fit inside their column`() {
         val tenant = createTenant("Row Action Layout")
         withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("welcome"), CatalogId.default(TenantId(tenant.id))), "Welcome").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("welcome"), CatalogId.default(TenantId(tenant.id))), "Welcome", catalogVersion = null).execute()
         }
 
         gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
@@ -84,7 +84,7 @@ class PageLayoutUiTest : BasePlaywrightTest() {
     fun `the publish dialog keeps Publish in view however many changes it lists`() {
         val tenant = createTenant("Publish Dialog Layout")
         withMediator {
-            (1..14).forEach { CreateDocumentTemplate(TemplateId(TemplateKey.of("letter-$it"), CatalogId.default(TenantId(tenant.id))), "Letter $it").execute() }
+            (1..14).forEach { CreateDocumentTemplate(TemplateId(TemplateKey.of("letter-$it"), CatalogId.default(TenantId(tenant.id))), "Letter $it", catalogVersion = null).execute() }
         }
         page.setViewportSize(1280, 720)
 

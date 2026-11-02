@@ -51,8 +51,8 @@ class ConcurrentReleaseTest : IntegrationTestBase() {
         val catalog = testCatalog(tenant.id, catalogKey)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Race Cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), testCatalog(TenantId(tenant.id), catalogKey)), name = "T1").execute()
-            MarkCatalogReady(catalog).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), testCatalog(TenantId(tenant.id), catalogKey)), name = "T1", catalogVersion = null).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
         }
 
         val holderReady = CountDownLatch(1)
@@ -63,7 +63,7 @@ class ConcurrentReleaseTest : IntegrationTestBase() {
             val holder = holderThread.submit {
                 withMediator {
                     TransactionTemplate(transactionManager).executeWithoutResult {
-                        ReleaseCatalogDraft(catalog = catalog, version = "1.0.0").execute()
+                        ReleaseCatalogDraft(catalog = catalog, version = "1.0.0", catalogVersion = null).execute()
                         holderReady.countDown()
                         releaseHolder.await(HOLD_SECONDS, TimeUnit.SECONDS)
                     }
@@ -72,7 +72,7 @@ class ConcurrentReleaseTest : IntegrationTestBase() {
             assertThat(holderReady.await(HOLD_SECONDS, TimeUnit.SECONDS)).isTrue()
 
             val contender = contenderThread.submit<ReleaseCatalogDraftResult> {
-                withMediator { ReleaseCatalogDraft(catalog = catalog, version = "1.0.0").execute() }
+                withMediator { ReleaseCatalogDraft(catalog = catalog, version = "1.0.0", catalogVersion = null).execute() }
             }
             assertThatThrownBy { contender.get(1, TimeUnit.SECONDS) }
                 .describedAs("the second release must wait on the first, not race past it")

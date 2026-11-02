@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.template.model.Node
@@ -22,6 +23,13 @@ object StencilReferences {
 
     /** The stencil's catalog, bound with [app.epistola.suite.catalog.bindCatalog]. */
     const val CATALOG_PARAM = "stencilRefCatalogKey"
+
+    /**
+     * The version [usedBy] reads the referenced catalog in, bound with
+     * [app.epistola.suite.catalog.bindVersion]: that version for its catalog, every other catalog's
+     * next version; null for every catalog's next version ([inVersionOrNext]).
+     */
+    const val VERSION_PARAM = "stencilRefVersion"
 
     /** The tenant the statement reads, bound under this name by every caller. */
     private const val TENANT_PARAM = "tenantId"
@@ -60,7 +68,7 @@ object StencilReferences {
      * once) published templates still name the old address; reporting them under the stencil that
      * now carries the key is how an author finds them. A same-keyed stencil that still exists in
      * another catalog is not dangling, so it is never counted here (#1024). Upgrades stay on
-     * [refersTo]: they rewrite only instances that name this exact stencil.
+     * [refersTo]: they rewrite only instances that name this exact stencil. Needs [VERSION_PARAM] bound too.
      */
     fun usedBy(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
@@ -69,10 +77,9 @@ object StencilReferences {
             ${referencedCatalog(nodeAlias, templateAlias)} = ${catalogAt(TENANT_PARAM, CATALOG_PARAM)}
             OR NOT EXISTS (
                 SELECT 1 FROM release_wire_resources referenced
-                JOIN catalog_current_versions referenced_version
-                  ON referenced_version.tenant_key = referenced.tenant_key AND referenced_version.version_id = referenced.version_id
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
-                  AND referenced_version.catalog_id = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND referenced.catalog_id = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND ${inVersionOrNext("referenced", VERSION_PARAM)}
                   AND referenced.resource_type = 'stencil'
                   AND referenced.resource_key = :$KEY_PARAM
             )

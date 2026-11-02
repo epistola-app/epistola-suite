@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.merge
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -54,7 +54,7 @@ data class MergeReleaseIntoDraft(
     val release: String,
     val resolutions: Map<String, MergeResolution> = emptyMap(),
     /** The draft to merge into; null for the catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
     /** The [DraftMergePreview.token] the merge was confirmed against; null merges whatever the state is now. */
     val expectedToken: String? = null,
     /**
@@ -124,7 +124,6 @@ class MergeRefusedException(val catalogKey: CatalogKey, override val message: St
 class MergeReleaseIntoDraftHandler(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
-    private val targeting: CatalogReleaseTargeting,
     private val planner: DraftMergePlanner,
     private val mergers: ResourceMergers,
     private val writer: DraftResourceWriter,
@@ -139,8 +138,10 @@ class MergeReleaseIntoDraftHandler(
         val catalog = command.catalog
         val (tenantKey, catalogKey) = catalog.tenantKey to catalog.key
         requireCatalogEditable(catalog)
-        val plan = planner.plan(catalog, command.release, command.catalogVersion?.draft?.toString() ?: "next")
+        val plan = planner.plan(catalog, command.release, command.catalogVersion?.draft?.toString() ?: "next", command.catalogVersion)
         val draft = plan.inputs.draft
+        // Every read and write below is of that draft.
+        val at = ContentVersion(catalog, draft.versionId)
         if (command.release in plan.inputs.contained) {
             throw MergeNotApplicableException(catalogKey, "${draft.label} of '${catalogKey.value}' already contains ${command.release}")
         }
@@ -155,20 +156,17 @@ class MergeReleaseIntoDraftHandler(
 
         // Merged content read as an import reads content, before anything is written.
         val resolutions = command.resolutions + plan.entries.filter { it.contentKey in command.mergedContent }.associate { sides ->
-            sides.contentKey to MergeResolution.Content(targeting.within(draft.versionId) { mergedContent.read(catalog, plan, sides, command.mergedContent.getValue(sides.contentKey)) })
+            sides.contentKey to MergeResolution.Content(mergedContent.read(catalog, plan, sides, command.mergedContent.getValue(sides.contentKey)))
         }
         val actions = plan.entries.zip(plan.resources).associate { (sides, classified) ->
             sides.contentKey to mergers.of(sides.type).plan(sides, classified, resolutions[sides.contentKey])
         }.filterValues { it != MergeAction.Keep }
         // What the merge would make of the draft: refused before anything is written when it would not resolve.
-        targeting.within(draft.versionId) { referenceCheck.requireResolved(catalog, plan, actions) }
-        val (writes, after) = targeting.within(draft.versionId) {
-            val writes = writer.apply(catalog, command.release, draft.label, actions)
-            val after = inputs.draftInput(catalog)
-            // In the merge's transaction: what it wrote is checked too, as the database holds it.
-            referenceCheck.requireResolved(catalog, plan, actions, after)
-            writes to after
-        }
+        referenceCheck.requireResolved(catalog, plan, actions)
+        val writes = writer.apply(at, command.release, draft.label, actions)
+        val after = inputs.draftInput(at)
+        // In the merge's transaction: what it wrote is checked too, as the database holds it.
+        referenceCheck.requireResolved(catalog, plan, actions, after)
         val recorded = objectMapper.writeValueAsString(resolutions.toSortedMap().mapValues { it.value.wire })
         val held = fingerprints.storeBaseline(held(plan, actions, after.fingerprints))
         jdbi.useHandle<Exception> { drafts.recordMerged(it, tenantKey, draft.versionId, command.release, plan.inputs.mergeBase, recorded, held) }

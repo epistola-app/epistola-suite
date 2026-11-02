@@ -63,10 +63,10 @@ class FontStoragePerfTest : IntegrationTestBase() {
         val one = FontId(FontKey.of("font-0"), catalog)
         var flip = 0
         val results = listOf(
-            measure("list a catalog's fonts") { ListFonts(TenantId(tenant), catalog = catalog).query() },
-            measure("list a tenant's fonts") { ListFonts(TenantId(tenant)).query() },
-            measure("read a font's faces") { GetFontVariants(one).query() },
-            measure("resolve a face's bytes") { ResolveFontFace(catalog, FontKey.of("font-0"), 700, false).query() },
+            measure("list a catalog's fonts") { ListFonts(TenantId(tenant), catalog = catalog, catalogVersion = null).query() },
+            measure("list a tenant's fonts") { ListFonts(TenantId(tenant), catalogVersion = null).query() },
+            measure("read a font's faces") { GetFontVariants(one, catalogVersion = null).query() },
+            measure("resolve a face's bytes") { ResolveFontFace(catalog, FontKey.of("font-0"), 700, false, catalogVersion = null).query() },
             measure("save a font", runs = 50, warmup = 5) { FontFixtures.importFont(catalog, "font-0", "Font ${flip++}", mapOf((400 to false) to regular, (700 to false) to bold)) },
         )
         val report = buildString {

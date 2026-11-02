@@ -5,9 +5,10 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -15,7 +16,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.STENCIL_COLUMNS
-import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.asRead
 import org.jdbi.v3.core.Jdbi
@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component
 
 data class GetStencil(
     val id: StencilId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<Stencil?>,
     RequiresPermission {
@@ -42,13 +42,13 @@ class GetStencilHandler(
         handle.createQuery(
             """
             SELECT $STENCIL_COLUMNS
-            $STENCIL_FROM
-            WHERE s.id = :id AND s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+            FROM version_stencils s
+            WHERE s.id = :id AND s.tenant_key = :tenantId AND s.version_id = :v
             """,
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bindCatalog("catalogKey", query.id.catalogId)
+            .bindVersion("v", handle.versionOf(query.id.catalogId, query).versionId)
             .mapTo<Stencil>()
             .map { it.asRead(objectMapper) }
             .findOne()

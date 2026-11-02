@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.GetCatalogRelease
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
@@ -50,7 +51,7 @@ import tools.jackson.databind.ObjectMapper
  *
  * Internally the same archive reader fills a draft ([intoDraft], copying a release into a draft) or
  * restores a tenant snapshot ([restore]); those keep the per-resource import they always had, into
- * the version the transaction targets. Each resource is written by [CatalogResourceInstaller].
+ * that draft, else into the catalog's next version. Each resource is written by [CatalogResourceInstaller].
  */
 data class ImportCatalogZip(
     override val tenantKey: TenantKey,
@@ -87,12 +88,13 @@ data class ImportCatalogZip(
      */
     val sourceUrl: String? = null,
     /**
-     * Fills a new draft with a release of the catalog itself (`CreateCatalogVersion` from a released
-     * version), into the version that command targets: only the content, its dependency
-     * declarations and ready marks are written. The catalog's metadata and its import time stay, since
-     * the archive is the catalog's own past, not a new arrival. Internal so no API can set it.
+     * The `version_id` of a new draft to fill with a release of the catalog itself
+     * (`CreateCatalogVersion` from a released version): only the content, its dependency declarations
+     * and ready marks are written. The catalog's metadata and its import time stay, since the archive
+     * is the catalog's own past, not a new arrival. Null for any other import, which fills the
+     * catalog's next version. Internal so no API can set it.
      */
-    internal val intoDraft: Boolean = false,
+    internal val intoDraft: java.util.UUID? = null,
     /**
      * A tenant snapshot's catalog, restored as it was: it fills the catalog's next version, as imports
      * did before contract 2.0. Internal so no API can set it.
@@ -129,7 +131,7 @@ data class ImportCatalogZip(
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
     // draft, which starting a draft does, is editing it.
-    override val permission get() = if (intoDraft) Permission.TEMPLATE_EDIT else Permission.CATALOG_MANAGE
+    override val permission get() = if (intoDraft != null) Permission.TEMPLATE_EDIT else Permission.CATALOG_MANAGE
 }
 
 /** The import conflicts with what the tenant has: another catalog under the key, or the release under other content. */
@@ -227,7 +229,7 @@ class ImportCatalogZipHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
-        if (command.intoDraft || command.restore) return importArchive(command)
+        if (command.intoDraft != null || command.restore) return importArchive(command)
         return install(command)
     }
 
@@ -391,7 +393,10 @@ class ImportCatalogZipHandler(
         val (entries, manifest, catalogCtx) = parsed
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         val catalog = CatalogId(manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey), catalogKey, TenantId(command.tenantKey))
-        val receiving = !command.intoDraft && !command.restore
+        val receiving = command.intoDraft == null && !command.restore
+
+        // The version the archive fills: the draft it was asked to fill, else the catalog's next version.
+        fun filled(): ContentVersion = jdbi.withHandle<ContentVersion, Exception> { h -> command.intoDraft?.let { ContentVersion(catalog, it) } ?: ContentVersion.next(h, catalog) }
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before it is written.
         validateCatalogNameLength(manifest.catalog.name)
 
@@ -442,10 +447,10 @@ class ImportCatalogZipHandler(
         // conflicts; MERGE keeps the version's other resources, so never prunes.)
         val prunesStale = receiving || (existingCatalog != null && command.fillMode == DraftFillMode.REPLACE)
         val staleBefore = if (prunesStale) {
-            val installed = analyzer.installedByType(catalog)
+            val installed = analyzer.installedByType(filled())
             val stale = analyzer.computeStale(installed, manifestSlugs)
             if (stale.isNotEmpty()) {
-                val conflicts = analyzer.findConflicts(catalog, stale)
+                val conflicts = analyzer.findConflicts(filled(), stale)
                 if (conflicts.isNotEmpty()) throw CatalogUpgradeConflictException(conflicts)
             }
             stale
@@ -465,7 +470,8 @@ class ImportCatalogZipHandler(
             )
         }
 
-        val (results, bound) = resources.install(catalog, parsed, receiving)
+        val at = filled()
+        val (results, bound) = resources.install(at, parsed, receiving)
 
         val anyFailed = results.any { it.status == InstallStatus.FAILED }
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
@@ -487,15 +493,15 @@ class ImportCatalogZipHandler(
                 )
                 return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true, catalog = catalog)
             }
-            analyzer.removeStale(catalog, staleBefore)
+            analyzer.removeStale(at, staleBefore)
             rows.updateReceived(catalog, manifest.catalog.name, manifest.catalog.description, catalogMetadataJson)
-            jdbi.useHandle<Exception> { dependencyStore.replace(it, catalog, declared) }
-            rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
-            markReady(catalog, manifest.resources)
+            jdbi.useHandle<Exception> { dependencyStore.replace(it, at, declared) }
+            rows.updateThemeSettings(at, manifest.catalog, objectMapper)
+            markReady(at, manifest.resources)
             // Recorded first, then the next version moves to it: the next version is based on it.
             RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release, provenance = provenanceOf(command)).execute()
         } else if (!anyFailed) {
-            if (!command.intoDraft) {
+            if (command.intoDraft == null) {
                 rows.updateMetadata(
                     catalog,
                     manifest.catalog.name,
@@ -506,18 +512,18 @@ class ImportCatalogZipHandler(
             // The archive's declarations, locked as it was cut. A restore's MERGE keeps those it does not name.
             jdbi.useHandle<Exception> { handle ->
                 val kept = if (existingCatalog != null && command.fillMode != DraftFillMode.REPLACE) {
-                    dependencyStore.declarations(handle, catalog).filter { local -> declared.none { it.identity == local.identity } }
+                    dependencyStore.declarations(handle, at).filter { local -> declared.none { it.identity == local.identity } }
                 } else {
                     emptyList()
                 }
-                dependencyStore.replace(handle, catalog, declared + kept)
+                dependencyStore.replace(handle, at, declared + kept)
             }
             // A merge into existing work keeps its theme settings; a fresh or replacing import, or one
             // filling a draft (a release copied into it), takes the archive's.
-            if (existingCatalog == null || command.fillMode == DraftFillMode.REPLACE || command.intoDraft) {
-                rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
+            if (existingCatalog == null || command.fillMode == DraftFillMode.REPLACE || command.intoDraft != null) {
+                rows.updateThemeSettings(at, manifest.catalog, objectMapper)
             }
-            markReady(catalog, manifest.resources)
+            markReady(at, manifest.resources)
         }
 
         if (!receiving && existingCatalog != null && command.fillMode == DraftFillMode.REPLACE) {
@@ -531,7 +537,7 @@ class ImportCatalogZipHandler(
                     results.count { it.status == InstallStatus.FAILED },
                 )
             } else {
-                val removed = analyzer.removeStale(catalog, staleBefore)
+                val removed = analyzer.removeStale(at, staleBefore)
                 logger.info("REPLACE of '{}' — {} local-only resource(s) pruned", catalogKey.value, removed.size)
             }
         }
@@ -542,7 +548,7 @@ class ImportCatalogZipHandler(
         // updated_at: a no-op re-import advances this in lockstep and does NOT
         // register as drift; only a later edit does. With released_at
         // it is the GREATEST(released_at, imported_at) drift baseline.
-        if (!command.intoDraft) rows.touchImportedAt(catalog)
+        if (command.intoDraft == null) rows.touchImportedAt(catalog)
 
         ImportCatalogZipResult(
             catalogKey = catalogKey,
@@ -554,14 +560,14 @@ class ImportCatalogZipHandler(
     }
 
     /**
-     * Marks [resources] ready in the version the transaction targets: what an archive brings is
-     * released content, ready as it is (contract ADR 0002).
+     * Marks [resources] ready in version [at]: what an archive brings is released content, ready as it
+     * is (contract ADR 0002).
      */
-    private fun markReady(catalog: CatalogId, resources: List<app.epistola.catalog.protocol.ResourceEntry>) {
+    private fun markReady(at: ContentVersion, resources: List<app.epistola.catalog.protocol.ResourceEntry>) {
         jdbi.useHandle<Exception> { handle ->
             for (entry in resources) {
-                readyMarks.resourceId(handle, catalog, entry.type, entry.key)
-                    ?.let { readyMarks.mark(handle, catalog.tenantKey, it) }
+                readyMarks.resourceId(handle, at.catalog, entry.type, entry.key)
+                    ?.let { readyMarks.mark(handle, at, it) }
             }
         }
     }

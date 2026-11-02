@@ -5,11 +5,11 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.CatalogResource
-import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.ContentLayout
 import app.epistola.suite.catalog.types.ResourceTypes
-import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -34,22 +34,21 @@ class VersionResourceReader(
     }
 
     /**
-     * Every resource of the version [catalog]'s callers mean ([versionAt]: the targeted version,
-     * else the current one), by type and key, each in its released form as stored.
+     * Every resource of version [at], by type and key, each in its released form as stored.
      */
-    fun read(handle: Handle, catalog: CatalogId): List<VersionResource> {
+    fun read(handle: Handle, at: ContentVersion): List<VersionResource> {
         val rows = handle.createQuery(
             """
             SELECT r.resource_type, r.resource_key, r.resource_id, r.version_id, r.name, r.description, c.payload::text AS payload
             FROM release_wire_resources r
             JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-            WHERE r.tenant_key = :t AND r.version_id = ${versionAt("t", "c")}
+            WHERE r.tenant_key = :t AND r.version_id = :v
               AND r.resource_type IN (<types>)
             ORDER BY r.resource_type, r.resource_key
             """,
         )
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
+            .bind("t", at.tenantKey)
+            .bindVersion("v", at.versionId)
             .bindList("types", types.names.toList())
             .map { rs, _ ->
                 Row(
@@ -63,7 +62,7 @@ class VersionResourceReader(
                 )
             }
             .list()
-        val parts = partsOf(handle, catalog, rows)
+        val parts = partsOf(handle, at, rows)
         return rows.map { row ->
             val resource = when (val layout = types.of(row.type).layout) {
                 ContentLayout.Single -> StoredContent.resourceOf(row.payload)
@@ -77,21 +76,21 @@ class VersionResourceReader(
     }
 
     /**
-     * What the version [catalog]'s callers mean keeps beside each resource's released form (ADR 0033:
+     * What version [at] keeps beside each resource's released form (ADR 0033:
      * the envelope's other members, a code list's `source`), by content key; resources with none are
      * left out. A release stores the content its draft does, so it retains these with it.
      */
-    fun settings(handle: Handle, catalog: CatalogId): Map<String, tools.jackson.databind.node.ObjectNode> = handle.createQuery(
+    fun settings(handle: Handle, at: ContentVersion): Map<String, tools.jackson.databind.node.ObjectNode> = handle.createQuery(
         """
         SELECT r.resource_type, r.resource_key, (c.payload - 'resource')::text AS settings
         FROM release_wire_resources r
         JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-        WHERE r.tenant_key = :t AND r.version_id = ${versionAt("t", "c")}
+        WHERE r.tenant_key = :t AND r.version_id = :v
           AND r.resource_type IN (<types>) AND c.payload - 'resource' <> '{}'::jsonb
         """,
     )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bindList("types", types.names.toList())
         .map { rs, _ -> "${rs.getString("resource_type")}/${rs.getString("resource_key")}" to objectMapper.readTree(rs.getString("settings")) as tools.jackson.databind.node.ObjectNode }
         .list()
@@ -101,7 +100,7 @@ class VersionResourceReader(
     fun bind(resource: VersionResource): CatalogResource = objectMapper.treeToValue(resource.resource, types.of(resource.type).wireClass)
 
     /** The stored part contents of every row of [rows] whose type has parts, by the row's resource id, then by part key. */
-    private fun partsOf(handle: Handle, catalog: CatalogId, rows: List<Row>): Map<UUID, Map<String, JsonNode>> {
+    private fun partsOf(handle: Handle, at: ContentVersion, rows: List<Row>): Map<UUID, Map<String, JsonNode>> {
         val parents = rows.filter { types.of(it.type).layout is ContentLayout.Parts }
         if (parents.isEmpty()) return emptyMap()
         val partTypes = parents.map { (types.of(it.type).layout as ContentLayout.Parts).partType }.distinct()
@@ -114,7 +113,7 @@ class VersionResourceReader(
               AND p.parent_id IN (<parents>) AND p.resource_type IN (<partTypes>)
             """,
         )
-            .bind("t", catalog.tenantKey)
+            .bind("t", at.tenantKey)
             .bind("versionId", parents.first().versionId)
             .bindList("parents", parents.map { it.resourceId })
             .bindList("partTypes", partTypes)
@@ -135,7 +134,7 @@ class VersionResourceReader(
     )
 
     /**
-     * One reference a resource of a current version holds (`resource_references`, ADR 0033): the
+     * One reference a resource of a version holds (`resource_references`, ADR 0033): the
      * resource by its catalog's address (`namespace/key`), type and key (a template's for what one of
      * its parts holds), and what it names: the [alias] of a catalog (null for its own) and the type
      * and key there.
@@ -150,26 +149,26 @@ class VersionResourceReader(
     )
 
     /**
-     * Every reference held by a resource of the version each catalog of [tenantKey] means (the
-     * targeted version, else the current one), parts included, as stored contents index them: what
-     * uses what, for the resource graph.
+     * Every reference held by a resource of each catalog of [tenantKey] in [version] for its catalog,
+     * else in the catalog's next version, parts included, as stored contents index them: what uses
+     * what, for the resource graph.
      */
-    fun currentReferences(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey): List<HeldReference> = handle.createQuery(
+    fun heldReferences(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, version: UUID?): List<HeldReference> = handle.createQuery(
         """
         SELECT DISTINCT c.namespace || '/' || c.catalog_key AS catalog_address,
                COALESCE(parent.resource_type, r.resource_type) AS resource_type,
                COALESCE(parent.resource_key, r.resource_key) AS resource_key,
                rr.alias, rr.resource_type AS referenced_type, rr.resource_key AS referenced_key
         FROM release_resources r
-        JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
         JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
         JOIN resource_references rr ON rr.tenant_key = r.tenant_key AND rr.content_hash = r.content_hash
         LEFT JOIN release_resources parent ON parent.tenant_key = r.tenant_key AND parent.version_id = r.version_id
              AND parent.resource_id = r.parent_id AND parent.parent_id IS NULL
-        WHERE r.tenant_key = :t
+        WHERE r.tenant_key = :t AND ${inVersionOrNext("r", "version")}
         """,
     )
         .bind("t", tenantKey)
+        .bindVersion("version", version)
         .map { rs, _ ->
             HeldReference(
                 rs.getString("catalog_address"),

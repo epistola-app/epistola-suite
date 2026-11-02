@@ -7,6 +7,7 @@ package app.epistola.suite.stencils
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceChange
 import app.epistola.suite.catalog.types.ResourceType
@@ -26,8 +27,9 @@ class StencilResourceType : ResourceType<StencilResource> {
     override val wireClass = StencilResource::class.java
     override val installedAfter = setOf("theme", "font", "image")
 
-    override fun receive(catalog: CatalogId, resource: StencilResource, arrival: Arrival): InstallStatus = ImportStencil(
-        catalog = catalog,
+    override fun receive(at: ContentVersion, resource: StencilResource, arrival: Arrival): InstallStatus = ImportStencil(
+        catalog = at.catalog,
+        catalogVersion = at.ref,
         slug = resource.key,
         name = resource.name,
         description = resource.description,
@@ -39,8 +41,8 @@ class StencilResourceType : ResourceType<StencilResource> {
         metadata = resource.metadata.orEmpty(),
     ).execute()
 
-    override fun markReady(catalog: CatalogId, key: String): Boolean {
-        MarkStencilReady(StencilId(StencilKey.of(key), catalog)).execute()
+    override fun markReady(at: ContentVersion, key: String): Boolean {
+        MarkStencilReady(StencilId(StencilKey.of(key), at.catalog), catalogVersion = at.ref).execute()
         return true
     }
 

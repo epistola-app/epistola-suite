@@ -50,8 +50,8 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
             ).execute()
             // The tenant holds several namespaces through its Exchange connection, so a catalog names one.
             CreateCatalog(tenant.id, catalogKey, "Invoices", namespace = "public-services").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             // Exchange *accepting* a release is what makes the namespace consequential to change:
             // a submission it takes and then rejects has published nothing.
             worker.run()

@@ -8,11 +8,12 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -26,7 +27,7 @@ import org.springframework.stereotype.Component
 data class BrowseCatalog(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<BrowseResult>,
     RequiresPermission {
@@ -79,23 +80,23 @@ class BrowseCatalogHandler(
     private fun installedResources(query: BrowseCatalog): List<BrowseResource> = jdbi.withHandle<List<BrowseResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' as type, id as slug, name, NULL as description FROM current_templates WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'template' as type, id as slug, name, NULL as description FROM version_templates WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'theme', id, name, description FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'theme', id, name, description FROM version_themes WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'stencil', id, name, description FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'stencil', id, name, description FROM version_stencils WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'attribute', id, display_name, NULL FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'attribute', id, display_name, NULL FROM version_attributes WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'image', id::text, name, NULL FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'image', id::text, name, NULL FROM version_images WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'codeList', id, display_name, description FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'codeList', id, display_name, description FROM version_code_lists WHERE tenant_key = :tenantKey AND version_id = :v
             UNION ALL
-            SELECT 'font', slug::text, name, NULL FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'font', slug::text, name, NULL FROM version_fonts WHERE tenant_key = :tenantKey AND version_id = :v
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bindCatalog("catalogKey", query.catalog)
+            .bindVersion("v", handle.versionOf(query.catalog, query).versionId)
             .map { rs, _ ->
                 BrowseResource(
                     type = rs.getString("type"),
@@ -134,23 +135,23 @@ class BrowseCatalogHandler(
         val installedKeys = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT 'template:' || id FROM current_templates WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'template:' || id FROM version_templates WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'theme:' || id FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'theme:' || id FROM version_themes WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'stencil:' || id FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'stencil:' || id FROM version_stencils WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'attribute:' || id FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'attribute:' || id FROM version_attributes WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'image:' || id FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'image:' || id FROM version_images WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'codeList:' || id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'codeList:' || id FROM version_code_lists WHERE tenant_key = :tenantKey AND version_id = :v
                 UNION ALL
-                SELECT 'font:' || slug FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'font:' || slug FROM version_fonts WHERE tenant_key = :tenantKey AND version_id = :v
                 """,
             )
                 .bind("tenantKey", query.tenantKey)
-                .bindCatalog("catalogKey", query.catalog)
+                .bindVersion("v", handle.versionOf(query.catalog, query).versionId)
                 .mapTo(String::class.java)
                 .set()
         }

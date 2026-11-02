@@ -172,7 +172,7 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
                 on?.let { assertThat(blocker.source).isEqualTo(it) }
             }
 
-        assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute() } }
+        assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint, catalogVersion = null).execute() } }
             .isInstanceOf(CatalogResourceMoveBlockedException::class.java)
 
         for (source in sources) {

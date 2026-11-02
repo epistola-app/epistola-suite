@@ -138,7 +138,7 @@ class AttributeHandler {
 
         if (result.hasErrors()) {
             // Prefill shared by both render paths — one code-list query.
-            val codeLists = ListCodeLists(tenantId).query()
+            val codeLists = ListCodeLists(tenantId, catalogVersion = null).query()
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
                 // the list) with inline errors + preserved values. `tenantId` and
@@ -313,7 +313,7 @@ class AttributeHandler {
         val attributes = ListAttributeDefinitions(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { draftBarFor(tenantId, it) }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = it.tenantId, catalog = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/attributes", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/attributes", n) }
         "pageTitle" to "Attributes - Epistola"
         "tenant" to tenant
         "tenantId" to tenantId.key

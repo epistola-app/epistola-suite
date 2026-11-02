@@ -68,14 +68,14 @@ class RefactoringActionsHtmxTest : BaseIntegrationTest() {
         SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = relocation).execute()
         val catalog = testCatalog(TenantId(tenant), letters)
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(ThemeId(ThemeKey.of("house"), catalog), "House").execute()
-        CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("langs"), catalog), displayName = "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
-        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalog), "Tone", allowedValues = listOf("formal")).execute()
-        UploadAsset(catalog = catalog, name = "logo.png", mediaType = AssetMediaType.PNG, content = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47), width = 1, height = 1, id = image).execute()
+        CreateTheme(ThemeId(ThemeKey.of("house"), catalog), "House", catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header", catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("langs"), catalog), displayName = "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalog), "Tone", allowedValues = listOf("formal"), catalogVersion = null).execute()
+        UploadAsset(catalog = catalog, name = "logo.png", mediaType = AssetMediaType.PNG, content = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47), width = 1, height = 1, id = image, catalogVersion = null).execute()
         val ttf = resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray
-        ImportFont(catalog = catalog, slug = "brandfont", name = "Brand font", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", ttf))).execute()
-        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample()
+        ImportFont(catalog = catalog, slug = "brandfont", name = "Brand font", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", ttf)), catalogVersion = null).execute()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         tenant
     }
 
@@ -126,8 +126,8 @@ class RefactoringActionsHtmxTest : BaseIntegrationTest() {
     fun `a page opened in a draft moves in that draft, and a release offers nothing`() {
         val tenant = seed("Refactor drafts and releases")
         val draft = withMediator {
-            MarkCatalogReady(testCatalog(TenantId(tenant), letters)).execute()
-            ReleaseCatalogDraft(testCatalog(TenantId(tenant), letters), "1.0.0").execute()
+            MarkCatalogReady(testCatalog(TenantId(tenant), letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(TenantId(tenant), letters), "1.0.0", catalogVersion = null).execute()
             CreateCatalogDraft(testCatalog(TenantId(tenant), letters), "Redesign", "next").execute().versionId
         }
 

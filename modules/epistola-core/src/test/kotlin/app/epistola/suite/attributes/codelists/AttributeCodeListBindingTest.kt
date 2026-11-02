@@ -48,18 +48,20 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 displayName = "Languages",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
 
             val attr = CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), catalogId),
                 displayName = "Language",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
             assertThat(attr.codeListId).isEqualTo(codeListId)
             assertThat(attr.allowedValues).isEmpty()
 
-            val fetched = GetAttributeDefinition(AttributeId(attr.id, catalogId)).query()
+            val fetched = GetAttributeDefinition(AttributeId(attr.id, catalogId), catalogVersion = null).query()
             assertThat(fetched).isNotNull()
             assertThat(fetched!!.codeListId?.key?.value).isEqualTo("languages")
         }
@@ -77,6 +79,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 displayName = "Mixed",
                 allowedValues = listOf("a", "b"),
                 codeListId = CodeListId(CodeListKey.of("anything"), catalogId),
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("cannot have both")
@@ -101,6 +104,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("cross"), catalogId),
                 displayName = "Cross-tenant",
                 codeListId = CodeListId(CodeListKey.of("foreign"), otherCatalogId),
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("same tenant")
@@ -118,6 +122,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                     id = AttributeId(AttributeKey.of("region"), catalogId),
                     displayName = "Region",
                     codeListId = CodeListId(CodeListKey.of("does-not-exist"), catalogId),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(app.epistola.suite.attributes.codelists.CodeListNotFoundException::class.java)
         }
@@ -136,18 +141,21 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 displayName = "Colors",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue")),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("color"), catalogId),
                 displayName = "Color",
                 allowedValues = listOf("red", "blue"),
+                catalogVersion = null,
             ).execute()
 
             val updated = UpdateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("color"), catalogId),
                 displayName = "Color",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
             assertThat(updated?.codeListId).isEqualTo(codeListId)
@@ -168,16 +176,19 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 displayName = "Statuses",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("on", "On"), CodeListEntry("off", "Off")),
+                catalogVersion = null,
             ).execute()
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
             val updated = UpdateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
+                catalogVersion = null,
             ).execute()
 
             assertThat(updated?.codeListId).isNull()

@@ -56,6 +56,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 title = "Extra Variant",
                 description = null,
                 attributes = emptyMap(),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -76,11 +77,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+                catalogVersion = null,
             ).execute()
             // The filter bar lists only attributes that at least one variant
             // actually uses — defining a value without using it would clutter
@@ -91,6 +94,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 title = "English Acme",
                 description = null,
                 attributes = mapOf("lang" to "en", "brand" to "acme"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -122,6 +126,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
 
             // Default variant has no attributes. Create two more with different languages.
@@ -130,12 +135,14 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 title = "English",
                 description = null,
                 attributes = mapOf("lang" to "en"),
+                catalogVersion = null,
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "Dutch",
                 description = null,
                 attributes = mapOf("lang" to "nl"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -161,12 +168,14 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "English",
                 description = null,
                 attributes = mapOf("lang" to "en"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -190,11 +199,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+                catalogVersion = null,
             ).execute()
 
             CreateVariant(
@@ -202,18 +213,21 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 title = "EN Acme",
                 description = null,
                 attributes = mapOf("lang" to "en", "brand" to "acme"),
+                catalogVersion = null,
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "EN Globex",
                 description = null,
                 attributes = mapOf("lang" to "en", "brand" to "globex"),
+                catalogVersion = null,
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "NL Acme",
                 description = null,
                 attributes = mapOf("lang" to "nl", "brand" to "acme"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -259,6 +273,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 title = "To Delete",
                 description = null,
                 attributes = emptyMap(),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -310,6 +325,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -342,12 +358,14 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
+                catalogVersion = null,
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                 title = "With Attr",
                 description = null,
                 attributes = mapOf("lang" to "en"),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -375,7 +393,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             extra = VariantId(VariantKey.of("extra"), TemplateId(template.id, CatalogId.default(TenantId(tenant.id))))
-            CreateVariant(id = extra, title = "Extra Variant", description = null, attributes = emptyMap()).execute()
+            CreateVariant(id = extra, title = "Extra Variant", description = null, attributes = emptyMap(), catalogVersion = null).execute()
             tenant to template
         }
 
@@ -384,7 +402,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         page.getByTestId("confirm-dialog-confirm").click()
         page.htmxSettle()
 
-        org.assertj.core.api.Assertions.assertThat(withMediator { GetVariant(extra).query() }!!.isDefault).isTrue()
+        org.assertj.core.api.Assertions.assertThat(withMediator { GetVariant(extra, catalogVersion = null).query() }!!.isDefault).isTrue()
     }
 
     private fun createTenantAndTemplate(): Pair<Tenant, DocumentTemplate> {
@@ -394,6 +412,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val template = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
             name = "UI Test Template",
+            catalogVersion = null,
         ).execute()
         return tenant to template
     }

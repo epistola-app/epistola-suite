@@ -59,7 +59,7 @@ class DemoTemplateReadParityTest : IntegrationTestBase() {
         fun DocumentTemplate.fields() = listOf(id, catalogKey, namespace, name, description, themeKey, themeCatalogKey, themeCatalogNamespace, pdfaEnabled)
         fun TemplateVariant.fields() = listOf(id, catalogKey, templateKey, title, description, attributes, isDefault)
 
-        val drafted = withMediator { ListDocumentTemplates(TenantId(tenant), catalog = catalog, limit = 500).query() }.sortedBy { it.id.value }
+        val drafted = withMediator { ListDocumentTemplates(TenantId(tenant), catalog = catalog, limit = 500, catalogVersion = null).query() }.sortedBy { it.id.value }
         val releasedTemplates = withMediator { ListDocumentTemplates(TenantId(tenant), catalog = catalog, limit = 500, catalogVersion = released).query() }.sortedBy { it.id.value }
         assertThat(drafted).isNotEmpty()
         assertThat(releasedTemplates.map { it.fields() }).isEqualTo(drafted.map { it.fields() })
@@ -69,19 +69,19 @@ class DemoTemplateReadParityTest : IntegrationTestBase() {
                 val id = TemplateId(template.id, catalog)
                 assertThat(GetDocumentTemplate(id, released).query()?.fields()).`as`(template.id.value).isEqualTo(template.fields())
 
-                val draftContract = GetDataContract(id).query()!!
+                val draftContract = GetDataContract(id, catalogVersion = null).query()!!
                 val releasedContract = GetDataContract(id, released).query()!!
                 assertThat(releasedContract.dataModel).`as`("${template.id} data model").isEqualTo(draftContract.dataModel)
                 assertThat(releasedContract.dataExamples).`as`("${template.id} data examples").isEqualTo(draftContract.dataExamples)
 
-                val draftVariants = ListVariants(id).query()
+                val draftVariants = ListVariants(id, catalogVersion = null).query()
                 val releasedVariants = ListVariants(id, released).query()
                 assertThat(releasedVariants.map { it.fields() }).`as`("${template.id} variants").isEqualTo(draftVariants.map { it.fields() })
                 for (variant in draftVariants) {
                     val variantId = VariantId(variant.id, id)
                     assertThat(GetVariantContent(variantId, released).query())
                         .`as`("${template.id}/${variant.id} model")
-                        .isEqualTo(GetVariantContent(variantId).query())
+                        .isEqualTo(GetVariantContent(variantId, catalogVersion = null).query())
                 }
             }
         }

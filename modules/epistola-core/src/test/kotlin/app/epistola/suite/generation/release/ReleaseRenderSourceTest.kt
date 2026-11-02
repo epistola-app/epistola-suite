@@ -79,11 +79,11 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     fun `a release renders its own theme, model and contract after the working copy moves on`() {
         val catalog = authoredCatalog("rr-own")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
             invoice(catalog, theme = ThemeKey.of("brand"), nodeId = "original", withSchema = true)
             release(catalog, "1.0.0")
 
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), documentStyles = mapOf("color" to "#0000ff")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), documentStyles = mapOf("color" to "#0000ff"), catalogVersion = null).execute()
             publish(variant(catalog), model("changed"))
         }
 
@@ -99,7 +99,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     fun `a release renders its theme's own spacing unit`() {
         val catalog = authoredCatalog("rr-spacing")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f).execute()
+            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f, catalogVersion = null).execute()
             invoice(catalog, theme = ThemeKey.of("airy"), nodeId = "body")
             release(catalog, "1.0.0")
         }
@@ -115,11 +115,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     fun `a template that names no theme renders with the default theme its release was published with`() {
         val catalog = authoredCatalog("rr-catalog-default")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
-            CreateTheme(ThemeId(ThemeKey.of("other"), catalog), "Other", documentStyles = mapOf("color" to "#0000ff")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("other"), catalog), "Other", documentStyles = mapOf("color" to "#0000ff"), catalogVersion = null).execute()
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
                 testCatalog(catalog.tenantKey, catalog.key),
                 app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("brand"), catalog),
+                catalogVersion = null,
             ).execute()
             invoice(catalog, theme = null, nodeId = "body")
             release(catalog, "1.0.0")
@@ -128,6 +129,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
                 testCatalog(catalog.tenantKey, catalog.key),
                 app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("other"), catalog),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -142,15 +144,15 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
             release(shared, "1.0.0")
             declareDependency(tenant.id, letters.key, on = shared.key)
             invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
             release(letters, "1.0.0")
 
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff"), catalogVersion = null).execute()
             release(shared, "1.1.0")
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#00ff00")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#00ff00"), catalogVersion = null).execute()
         }
 
         val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value)
@@ -167,12 +169,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         val letters = catalogIn(tenant.id, "letters")
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
             release(shared, "1.0.0")
             declareDependency(tenant.id, letters.key, on = shared.key)
             invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
             release(letters, "1.0.0")
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff"), catalogVersion = null).execute()
             release(shared, "1.1.0")
 
             CreateEnvironment(production, "Production").execute()
@@ -204,6 +206,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
                 ThemeId(ThemeKey.of("brand"), shared),
                 "Brand",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "brand-sans", "catalogKey" to "base")),
+                catalogVersion = null,
             ).execute()
             release(shared, "1.0.0")
             declareDependency(tenant.id, letters.key, on = shared.key)
@@ -235,6 +238,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
                 ThemeId(ThemeKey.of("brand"), letters),
                 "Brand",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
+                catalogVersion = null,
             ).execute()
             invoice(letters, theme = ThemeKey.of("brand"), nodeId = "body")
             release(letters, "1.0.0")
@@ -258,7 +262,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             withMediator {
-                CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+                CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
                 declareDependency(tenant.id, letters.key, on = shared.key)
                 invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
                 release(letters, "1.0.0")
@@ -281,10 +285,11 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
                 content = bytes,
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute().id
             invoice(catalog, theme = null, nodeId = "body")
             release(catalog, "1.0.0")
-            DeleteAsset(catalog.tenantKey, asset).execute()
+            DeleteAsset(catalog.tenantKey, asset, catalogVersion = null).execute()
             asset
         }
 
@@ -318,25 +323,25 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
     private fun invoice(catalog: CatalogId, theme: ThemeKey?, themeCatalog: CatalogKey? = null, nodeId: String, withSchema: Boolean = false) {
         val templateId = TemplateId(TemplateKey.of("invoice"), catalog)
-        CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+        CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         if (withSchema) {
             // Before publishing, as an author would: publishing the template publishes its contract draft.
-            UpdateDataContract(templateId = templateId, dataModel = JsonNodeFactory.instance.objectNode().put("type", "object")).execute()
+            UpdateDataContract(templateId = templateId, dataModel = JsonNodeFactory.instance.objectNode().put("type", "object"), catalogVersion = null).execute()
         }
         if (theme != null) {
-            UpdateDocumentTemplate(templateId, themeId = theme, themeCatalog = testCatalog(templateId.tenantKey, themeCatalog ?: catalog.key)).execute()
+            UpdateDocumentTemplate(templateId, themeId = theme, themeCatalog = testCatalog(templateId.tenantKey, themeCatalog ?: catalog.key), catalogVersion = null).execute()
         }
         publish(variant(catalog), model(nodeId))
     }
 
     private fun publish(variant: VariantId, model: TemplateDocument) {
-        UpdateVariantContent(variant, model).execute()
-        MarkVariantReady(variant).execute()
+        UpdateVariantContent(variant, model, catalogVersion = null).execute()
+        MarkVariantReady(variant, catalogVersion = null).execute()
     }
 
     private fun release(catalog: CatalogId, version: String) {
-        MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = version).execute()
+        MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = version, catalogVersion = null).execute()
     }
 
     private fun variant(catalog: CatalogId) = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
@@ -359,6 +364,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             name = slug,
             kind = FontKind.SANS.wire,
             variants = listOf(ImportFontVariant(400, false, "font/ttf", bytes)),
+            catalogVersion = null,
         ).execute()
     }
 

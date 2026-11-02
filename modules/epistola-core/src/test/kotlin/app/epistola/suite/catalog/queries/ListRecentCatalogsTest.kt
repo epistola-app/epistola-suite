@@ -27,7 +27,7 @@ class ListRecentCatalogsTest : IntegrationTestBase() {
         withMediator {
             listOf("alpha", "beta", "gamma").forEach { CreateCatalog(tenant, CatalogKey.of(it), it.replaceFirstChar(Char::uppercase)).execute() }
             // Alpha, created first, changes last.
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.of("alpha"))), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.of("alpha"))), "Brand", catalogVersion = null).execute()
         }
 
         val recent = withMediator { ListRecentCatalogs(tenant, limit = 2).query() }

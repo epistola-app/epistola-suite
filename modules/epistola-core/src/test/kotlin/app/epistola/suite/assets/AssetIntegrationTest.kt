@@ -48,6 +48,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             content = testPngBytes,
             width = 1,
             height = 1,
+            catalogVersion = null,
         ).execute()
 
         assertThat(asset.id).isNotNull()
@@ -62,14 +63,14 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `list assets returns uploaded assets in reverse chronological order`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "first.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "first.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
         // The frozen test clock would give both uploads the same created_at and tie the ordering.
         testClock.advanceBy(java.time.Duration.ofSeconds(1))
-        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "second.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "second.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
         // Scope to the authored catalog: every tenant also subscribes to the
         // shared `system` catalog, which seeds its own asset (the System Badge).
-        val assets = ListAssets(tenantId = tenant.id, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT)).query()
+        val assets = ListAssets(tenantId = tenant.id, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT), catalogVersion = null).query()
 
         assertThat(assets).hasSize(2)
         assertThat(assets[0].name).isEqualTo("second.png")
@@ -80,10 +81,10 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `list assets with search filter`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
-        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "banner.jpeg", AssetMediaType.JPEG, testPngBytes, 1, 1).execute()
+        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
+        UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "banner.jpeg", AssetMediaType.JPEG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val results = ListAssets(tenantId = tenant.id, searchTerm = "logo").query()
+        val results = ListAssets(tenantId = tenant.id, searchTerm = "logo", catalogVersion = null).query()
 
         assertThat(results).hasSize(1)
         assertThat(results[0].name).isEqualTo("logo.png")
@@ -92,9 +93,9 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `get asset metadata`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val asset = GetAsset(tenantId = tenant.id, assetId = uploaded.id).query()
+        val asset = GetAsset(tenantId = tenant.id, assetId = uploaded.id, catalogVersion = null).query()
 
         assertThat(asset).isNotNull
         assertThat(asset!!.name).isEqualTo("test.png")
@@ -104,9 +105,9 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `get asset content`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val content = GetAssetContent(tenantId = tenant.id, assetId = uploaded.id).query()
+        val content = GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalogVersion = null).query()
 
         assertThat(content).isNotNull
         assertThat(content!!.content).isEqualTo(testPngBytes)
@@ -116,16 +117,16 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `get asset content filters by catalog key when provided`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
         // Matching catalog → resolves
-        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT)).query())
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT), catalogVersion = null).query())
             .isNotNull
         // Different catalog → not found (cross-catalog identity is respected)
-        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalog = testCatalog(tenant.id, CatalogKey.of("other-catalog"))).query())
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalog = testCatalog(tenant.id, CatalogKey.of("other-catalog")), catalogVersion = null).query())
             .isNull()
         // No catalog supplied → assetId-only fallback still resolves
-        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id).query())
+        assertThat(GetAssetContent(tenantId = tenant.id, assetId = uploaded.id, catalogVersion = null).query())
             .isNotNull
     }
 
@@ -133,7 +134,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `get asset returns null for non-existent asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        val asset = GetAsset(tenantId = tenant.id, assetId = AssetKey.generate()).query()
+        val asset = GetAsset(tenantId = tenant.id, assetId = AssetKey.generate(), catalogVersion = null).query()
 
         assertThat(asset).isNull()
     }
@@ -141,12 +142,12 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `delete asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val deleted = DeleteAsset(tenantId = tenant.id, assetId = uploaded.id).execute()
+        val deleted = DeleteAsset(tenantId = tenant.id, assetId = uploaded.id, catalogVersion = null).execute()
         assertThat(deleted).isTrue()
 
-        val asset = GetAsset(tenantId = tenant.id, assetId = uploaded.id).query()
+        val asset = GetAsset(tenantId = tenant.id, assetId = uploaded.id, catalogVersion = null).query()
         assertThat(asset).isNull()
     }
 
@@ -154,7 +155,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `delete returns false for non-existent asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        val deleted = DeleteAsset(tenantId = tenant.id, assetId = AssetKey.generate()).execute()
+        val deleted = DeleteAsset(tenantId = tenant.id, assetId = AssetKey.generate(), catalogVersion = null).execute()
 
         assertThat(deleted).isFalse()
     }
@@ -164,14 +165,14 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        UploadAsset(testCatalog(tenant1.id, CatalogKey.DEFAULT), "tenant1-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
-        UploadAsset(testCatalog(tenant2.id, CatalogKey.DEFAULT), "tenant2-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        UploadAsset(testCatalog(tenant1.id, CatalogKey.DEFAULT), "tenant1-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
+        UploadAsset(testCatalog(tenant2.id, CatalogKey.DEFAULT), "tenant2-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
         // Scope to the authored catalog: the shared `system` catalog every
         // tenant subscribes to seeds its own asset (the System Badge), which is
         // not a cross-tenant leak.
-        val tenant1Assets = ListAssets(tenantId = tenant1.id, catalog = testCatalog(tenant1.id, CatalogKey.DEFAULT)).query()
-        val tenant2Assets = ListAssets(tenantId = tenant2.id, catalog = testCatalog(tenant2.id, CatalogKey.DEFAULT)).query()
+        val tenant1Assets = ListAssets(tenantId = tenant1.id, catalog = testCatalog(tenant1.id, CatalogKey.DEFAULT), catalogVersion = null).query()
+        val tenant2Assets = ListAssets(tenantId = tenant2.id, catalog = testCatalog(tenant2.id, CatalogKey.DEFAULT), catalogVersion = null).query()
 
         assertThat(tenant1Assets).hasSize(1)
         assertThat(tenant1Assets[0].name).isEqualTo("tenant1-logo.png")
@@ -184,9 +185,9 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val uploaded = UploadAsset(testCatalog(tenant1.id, CatalogKey.DEFAULT), "secret.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(testCatalog(tenant1.id, CatalogKey.DEFAULT), "secret.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val content = GetAssetContent(tenantId = tenant2.id, assetId = uploaded.id).query()
+        val content = GetAssetContent(tenantId = tenant2.id, assetId = uploaded.id, catalogVersion = null).query()
 
         assertThat(content).isNull()
     }
@@ -198,7 +199,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val oversizedContent = ByteArray(5 * 1024 * 1024 + 1) // 5MB + 1 byte
 
             assertThatThrownBy {
-                UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "huge.png", AssetMediaType.PNG, oversizedContent, 100, 100).execute()
+                UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "huge.png", AssetMediaType.PNG, oversizedContent, 100, 100, catalogVersion = null).execute()
             }.isInstanceOf(AssetTooLargeException::class.java)
         }
     }
@@ -209,7 +210,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val tenant = createTenant("Test Tenant")
 
             assertThatThrownBy {
-                UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "  ", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+                UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "  ", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
     }
@@ -226,6 +227,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             content = svgBytes,
             width = null,
             height = null,
+            catalogVersion = null,
         ).execute()
 
         assertThat(asset.width).isNull()
@@ -238,20 +240,21 @@ class AssetIntegrationTest : IntegrationTestBase() {
         withMediator {
             val tenant = createTenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
-            val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "header.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+            val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "header.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithAsset(asset.id),
+                catalogVersion = null,
             ).execute()
 
             assertThatThrownBy {
-                DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
+                DeleteAsset(tenantId = tenant.id, assetId = asset.id, catalogVersion = null).execute()
             }.isInstanceOf(AssetInUseException::class.java)
                 .hasMessageContaining("Invoice")
         }
@@ -261,19 +264,20 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `find asset usages returns template info for referenced asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Welcome Letter").execute()
+        CreateDocumentTemplate(id = templateId, name = "Welcome Letter", catalogVersion = null).execute()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateVariantContent(
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
+            catalogVersion = null,
         ).execute()
 
-        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id).query()
+        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id, catalogVersion = null).query()
 
         assertThat(usages).hasSize(1)
         assertThat(usages[0].templateName).isEqualTo("Welcome Letter")
@@ -282,9 +286,9 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `find asset usages returns empty for unused asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
-        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
-        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id).query()
+        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id, catalogVersion = null).query()
 
         assertThat(usages).isEmpty()
     }
@@ -293,25 +297,27 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `delete asset succeeds when asset removed from template`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(testCatalog(tenant.id, CatalogKey.DEFAULT), "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1, catalogVersion = null).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Receipt").execute()
+        CreateDocumentTemplate(id = templateId, name = "Receipt", catalogVersion = null).execute()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
         UpdateVariantContent(
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
+            catalogVersion = null,
         ).execute()
 
         // Remove asset from template by updating with empty model
         UpdateVariantContent(
             variantId = variantId,
             templateModel = buildEmptyTemplateModel(),
+            catalogVersion = null,
         ).execute()
 
-        val deleted = DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
+        val deleted = DeleteAsset(tenantId = tenant.id, assetId = asset.id, catalogVersion = null).execute()
         assertThat(deleted).isTrue()
     }
 

@@ -30,25 +30,25 @@ class RequiredVariantTitleTest {
 
     @Test
     fun `CreateVariant rejects a blank title`() {
-        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "   ", description = null) }
+        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "   ", description = null, catalogVersion = null) }
         assertEquals("title", thrown.field)
     }
 
     @Test
     fun `UpdateVariant rejects a blank title`() {
-        val thrown = assertThrows<ValidationException> { UpdateVariant(variantId, title = "", attributes = emptyMap()) }
+        val thrown = assertThrows<ValidationException> { UpdateVariant(variantId, title = "", attributes = emptyMap(), catalogVersion = null) }
         assertEquals("title", thrown.field)
     }
 
     @Test
     fun `CreateVariant rejects an over-length title`() {
-        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "x".repeat(101), description = null) }
+        val thrown = assertThrows<ValidationException> { CreateVariant(variantId, title = "x".repeat(101), description = null, catalogVersion = null) }
         assertEquals("title", thrown.field)
     }
 
     @Test
     fun `a non-blank title is accepted`() {
-        CreateVariant(variantId, title = "English", description = null)
-        UpdateVariant(variantId, title = "English", attributes = emptyMap())
+        CreateVariant(variantId, title = "English", description = null, catalogVersion = null)
+        UpdateVariant(variantId, title = "English", attributes = emptyMap(), catalogVersion = null)
     }
 }

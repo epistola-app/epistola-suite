@@ -123,7 +123,7 @@ class DisconnectExchangeConnectionTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Disconnect queue").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             assertThat(publication(tenant.id, catalogKey).status.isActive).isTrue()
 
             DisconnectExchangeConnection(tenant.id, forgetLocally = true).execute()

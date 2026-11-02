@@ -45,7 +45,7 @@ class TemplateApplicationTabHtmxTest : BaseIntegrationTest() {
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
                     val catalog = testCatalog(TenantId(tenant.id), letters)
-                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample()
+                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
                     setup(tenant, catalog)
                 }
             }

@@ -55,9 +55,9 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
@@ -67,6 +67,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
             catalog = testCatalog(subject.tenantKey, subject.catalogKey),
             templateKey = subject.templateKey,
             variantKey = subject.variantKey!!,
+            catalogVersion = null,
         ).query()
     }
 
@@ -228,7 +229,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
                 TestIdHelpers.nextVariantId(),
                 TemplateId(first.templateKey, CatalogId.default(TenantId(first.tenantKey))),
             )
-            CreateVariant(id = variantId, title = "Second", description = null).execute()
+            CreateVariant(id = variantId, title = "Second", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
 
@@ -334,7 +335,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             // The constructor's own checks, before any key is read.
-            SubmitQualityFindings(QualitySourceId.MANUAL, subject, INPUT_KEY, listOf(finding("fp-1")))
+            SubmitQualityFindings(QualitySourceId.MANUAL, subject, INPUT_KEY, listOf(finding("fp-1")), catalogVersion = null)
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("RecordManualFinding")
     }
@@ -348,7 +349,7 @@ class SubmitQualityFindingsIntegrationTest : IntegrationTestBase() {
         val subject = newSubject()
 
         assertThatThrownBy {
-            SubmitQualityFindings(sourceA, subject, INPUT_KEY, listOf(finding("fp-1", "a"), finding("fp-1", "b")))
+            SubmitQualityFindings(sourceA, subject, INPUT_KEY, listOf(finding("fp-1", "a"), finding("fp-1", "b")), catalogVersion = null)
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("fp-1")
     }

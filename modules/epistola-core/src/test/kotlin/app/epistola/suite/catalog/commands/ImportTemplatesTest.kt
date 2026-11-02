@@ -36,6 +36,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import app.epistola.suite.testing.atNext
 
 class ImportTemplatesTest : IntegrationTestBase() {
 
@@ -67,6 +68,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -74,7 +76,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT pdfa_enabled
-                FROM current_templates
+                FROM ${atNext("version_templates")} current_templates
                 WHERE tenant_key = :tenantKey AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default') AND id = :templateKey
                 """,
             )
@@ -113,12 +115,13 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results).hasSize(1)
             assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
 
-            val variants = ListVariants(templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId))).query()
+            val variants = ListVariants(templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId)), catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].isDefault).isTrue()
             assertThat(variants[0].id.value).isEqualTo("default")
@@ -147,9 +150,10 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            val variants = ListVariants(templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))).query()
+            val variants = ListVariants(templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId)), catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].title).isEqualTo("english-invoice")
         }
@@ -178,12 +182,13 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results[0].status).isNotEqualTo(ImportStatus.FAILED)
 
             val templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId))
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(variants).hasSize(2)
 
             val defaults = variants.filter { it.isDefault }
@@ -218,9 +223,10 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            assertThat(ListVariants(templateId = templateId).query()).hasSize(2)
+            assertThat(ListVariants(templateId = templateId, catalogVersion = null).query()).hasSize(2)
 
             // Second import: only one variant — orphan "english" should be removed
             ImportTemplates(
@@ -238,9 +244,10 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            val remaining = ListVariants(templateId = templateId).query()
+            val remaining = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(remaining).hasSize(1)
             assertThat(remaining[0].id.value).isEqualTo("default")
         }
@@ -268,6 +275,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -299,6 +307,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -327,6 +336,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         variants = emptyList(),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -357,6 +367,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
@@ -368,6 +379,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                 id = variantId,
                 title = "New Variant",
                 description = null,
+                catalogVersion = null,
             ).execute()
 
             assertThat(variant).isNotNull
@@ -385,7 +397,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
             // Newly created empty template: template row + default variant with
             // its starting content. Exactly what the REST createTemplate endpoint
             // leaves behind.
-            CreateDocumentTemplate(id = templateId, name = "Shell Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Shell Template", catalogVersion = null).execute()
 
             // Full template import over the shell (the catalog-ZIP MERGE path).
             val results = ImportTemplates(
@@ -403,13 +415,14 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.UPDATED)
         }
 
         // The import ran to completion: the variant holds the imported model.
-        val content = withMediator { GetVariantContent(VariantId(VariantKey.INITIAL, templateId)).query() }
+        val content = withMediator { GetVariantContent(VariantId(VariantKey.INITIAL, templateId), catalogVersion = null).query() }
         assertThat(content!!.nodes.keys).isEqualTo(templateModel.nodes.keys)
     }
 }

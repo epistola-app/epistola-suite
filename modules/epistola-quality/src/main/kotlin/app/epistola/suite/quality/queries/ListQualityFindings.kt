@@ -5,9 +5,11 @@
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -63,7 +65,7 @@ data class ListQualityFindings(
     override val tenantKey: TenantKey,
     val catalog: CatalogId? = null,
     /** The version of [catalog] to report on: a draft or a release; null for each catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
     val templateKey: TemplateKey? = null,
     val sourceId: QualitySourceId? = null,
     val ruleId: String? = null,
@@ -125,6 +127,7 @@ class ListQualityFindingsHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantKey", query.tenantKey)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
+            .bindVersion(QualityFindingSql.VERSION, handle.addressedVersion(query))
         query.catalog?.let { jdbiQuery.bindCatalog("catalogKey", it) }
         query.templateKey?.let { jdbiQuery.bind("templateKey", it) }
         query.sourceId?.let { jdbiQuery.bind("sourceId", it.value) }

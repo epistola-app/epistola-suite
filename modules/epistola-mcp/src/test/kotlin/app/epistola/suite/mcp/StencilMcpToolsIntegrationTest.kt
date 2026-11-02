@@ -62,7 +62,7 @@ class StencilMcpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(createTenant("MCP Get Stencil Tenant").id)
         val stencilKey = withMediator {
             val id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-            CreateStencil(id = id, name = "Parametrised Header", parameterSchema = parameterSchema()).execute()
+            CreateStencil(id = id, name = "Parametrised Header", parameterSchema = parameterSchema(), catalogVersion = null).execute()
             id.key
         }
 

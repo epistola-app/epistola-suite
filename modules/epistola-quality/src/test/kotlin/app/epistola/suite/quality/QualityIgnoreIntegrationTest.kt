@@ -45,9 +45,9 @@ class QualityIgnoreIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
@@ -57,6 +57,7 @@ class QualityIgnoreIntegrationTest : IntegrationTestBase() {
             catalog = testCatalog(subject.tenantKey, subject.catalogKey),
             templateKey = subject.templateKey,
             variantKey = subject.variantKey!!,
+            catalogVersion = null,
         ).query()
     }
 

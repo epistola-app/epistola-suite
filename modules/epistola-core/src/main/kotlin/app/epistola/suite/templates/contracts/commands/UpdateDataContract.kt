@@ -7,8 +7,9 @@ package app.epistola.suite.templates.contracts.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -43,8 +44,8 @@ data class UpdateDataContract(
     val dataExamples: List<DataExample>? = null,
     val clearDataModel: Boolean = false,
     val forceUpdate: Boolean = false,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -73,10 +74,11 @@ class UpdateDataContractHandler(
         val template = command.templateId
         requireCatalogEditable(template.catalogId)
         return jdbi.inTransaction<UpdateDataContractResult, Exception> { handle ->
-            val current = readDataContract(handle, objectMapper, template, forUpdate = true)
+            val at = handle.versionOf(template.catalogId, command)
+            val current = readDataContract(handle, objectMapper, at, template, forUpdate = true)
                 ?: throw TemplateNotFoundException(template.tenantKey, template.key)
             // The row is locked now, so its revision holds until this transaction ends.
-            Revisions.refuse("Template '${template.key.value}'", command.expectedRevision, templateRevision(handle, template))
+            Revisions.refuse("Template '${template.key.value}'", command.expectedRevision, templateRevision(handle, at, template))
 
             command.dataModel?.let { jsonSchemaValidator.requireStorableDataModel(it) }
             val dataModel = if (command.clearDataModel) null else command.dataModel ?: current.dataModel
@@ -92,7 +94,7 @@ class UpdateDataContractHandler(
                 }
             }
 
-            val revision = writeContract(handle, templates, objectMapper, template, dataModel, examples)
+            val revision = writeContract(handle, templates, objectMapper, at, template, dataModel, examples)
 
             // As stored: each example by its key, which is its id from now on.
             val stored = TemplateStore.examplesOf(TemplateStore.entriesOf(examples, objectMapper), objectMapper)
@@ -109,18 +111,19 @@ internal fun JsonSchemaValidator.requireStorableDataModel(model: ObjectNode) {
 }
 
 /**
- * Saves [template]'s data contract: [dataModel] and [examples], each example by its key (derived
+ * Saves [template]'s data contract in draft [at]: [dataModel] and [examples], each example by its key (derived
  * when it has none) as the wire form keeps it. The template's revision after the write.
  */
 internal fun writeContract(
     handle: org.jdbi.v3.core.Handle,
     templates: TemplateStore,
     objectMapper: ObjectMapper,
+    at: ContentVersion,
     template: app.epistola.suite.common.ids.TemplateId,
     dataModel: tools.jackson.databind.node.ObjectNode?,
     examples: List<app.epistola.suite.templates.model.DataExample>,
 ): Long = checkNotNull(
-    templates.modify(handle, template, app.epistola.suite.security.currentUserIdOrNull()?.value, null, "Template '${template.key.value}'") { stored ->
+    templates.modify(handle, at, template, app.epistola.suite.security.currentUserIdOrNull()?.value, null, "Template '${template.key.value}'") { stored ->
         stored.copy(
             dataModel = dataModel?.let { objectMapper.convertValue(it, object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}) },
             dataExamples = TemplateStore.entriesOf(examples, objectMapper),

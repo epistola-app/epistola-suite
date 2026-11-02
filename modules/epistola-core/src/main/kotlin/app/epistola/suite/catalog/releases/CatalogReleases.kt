@@ -7,10 +7,11 @@ package app.epistola.suite.catalog.releases
 import app.epistola.suite.catalog.CatalogMetrics
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.isNext
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.setNext
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -154,19 +155,18 @@ data class CatalogDraft(
 class CatalogDrafts(private val metrics: CatalogMetrics) {
 
     /**
-     * The draft a caller means: the one its message targets (see [CatalogReleaseTargeting]), else the
-     * catalog's next version. Null when there is none (a subscribed catalog, or a next version that was
-     * discarded and not opened again).
+     * Version [at], when it is a draft. Null when it is not (a subscribed catalog's installed release),
+     * or there is none (a next version that was discarded and not opened again).
      */
-    fun draft(handle: Handle, catalog: CatalogId): CatalogDraft? = handle
-        .createQuery("$SELECT WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND state = 'draft'")
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+    fun draft(handle: Handle, at: ContentVersion): CatalogDraft? = handle
+        .createQuery("$SELECT WHERE tenant_key = :t AND version_id = :v AND state = 'draft'")
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .map(::toDraft)
         .findOne()
         .orElse(null)
 
-    /** The catalog's next version, whichever draft a message targets; null when it has none. */
+    /** The catalog's next version, when it is a draft; null when it has none. */
     fun next(handle: Handle, catalog: CatalogId): CatalogDraft? = drafts(handle, catalog).firstOrNull { it.isNext }
 
     /** Every open draft of the catalog: the next version first, then parallel work, oldest first. */
@@ -183,6 +183,7 @@ class CatalogDrafts(private val metrics: CatalogMetrics) {
             DraftRef.Next -> draft.isNext
             is DraftRef.Id -> draft.key == ref.key
             is DraftRef.Released -> false
+            is DraftRef.At -> draft.versionId == ref.versionId
         }
     }
 

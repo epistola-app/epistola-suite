@@ -187,26 +187,26 @@ polyglot dependencies. A JavaScript expression is never evaluated as another lan
 - **On render** — a template stored by an earlier release still loads and can be opened and fixed
   in the editor, but previewing or generating it fails with the same message.
 
-Nothing is migrated or deleted. To find working models that still contain one, run this against
-the suite database (PostgreSQL), then rewrite each expression in JSONata, mark the template ready and
-release its catalog:
+Nothing is migrated or deleted. To find working models that still contain one in each catalog's
+next version, run this against the suite database (PostgreSQL), then rewrite each expression in
+JSONata, mark the template ready and release its catalog:
 
 ```sql
 -- Template variants
 SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
-FROM current_template_variants v
-JOIN current_templates t
-  ON t.tenant_key = v.tenant_key AND t.catalog_id = v.catalog_id AND t.resource_id = v.template_resource_id
+FROM version_template_variants v
+JOIN version_templates t
+  ON t.tenant_key = v.tenant_key AND t.version_id = v.version_id AND t.resource_id = v.template_resource_id
 JOIN catalogs c
-  ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+  ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id AND c.next_version_id = t.version_id
 WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
 ORDER BY 1, 2, 3, 4;
 
 -- Stencils
 SELECT s.tenant_key, c.catalog_key, s.id AS stencil
-FROM stencils s
+FROM version_stencils s
 JOIN catalogs c
-  ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
+  ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id AND c.next_version_id = s.version_id
 WHERE jsonb_path_exists(s.content, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
 ORDER BY 1, 2, 3;
 ```

@@ -41,6 +41,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
+import app.epistola.suite.testing.atNext
 
 /**
  * A draft's variant attributes are stored as JSON (ADR 0033, step 3): `{ "resource":
@@ -69,19 +70,19 @@ class AttributeStorageTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, shared.key, "Shared").execute()
-            CreateCodeList(CodeListId(CodeListKey.of("languages"), shared), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
-            val created = CreateAttributeDefinition(language, "Language", codeListId = CodeListId(CodeListKey.of("languages"), shared)).execute()
-            assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetAttributeDefinition(language).query())
+            CreateCodeList(CodeListId(CodeListKey.of("languages"), shared), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+            val created = CreateAttributeDefinition(language, "Language", codeListId = CodeListId(CodeListKey.of("languages"), shared), catalogVersion = null).execute()
+            assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetAttributeDefinition(language, catalogVersion = null).query())
             assertThat(created.codeListId).isEqualTo(CodeListId(CodeListKey.of("languages"), shared))
         }
 
-        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_attributes WHERE tenant_key = '${tenant.value}' AND id = 'language' AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')"))
+        val payload = objectMapper.readTree(one("SELECT payload::text FROM ${atNext("version_attributes")} current_attributes WHERE tenant_key = '${tenant.value}' AND id = 'language' AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')"))
         assertThat(payload.path("resource").path("codeListBinding").path("catalogKey").asString()).isEqualTo("shared")
         assertThat(payload.path("resource").path("codeListBinding").path("key").asString()).isEqualTo("languages")
         assertThat(
             one(
                 """
-                SELECT x.alias || '/' || x.resource_type || '/' || x.resource_key FROM current_attributes a
+                SELECT x.alias || '/' || x.resource_type || '/' || x.resource_key FROM ${atNext("version_attributes")} a
                 JOIN release_resources r ON r.tenant_key = a.tenant_key AND r.version_id = a.version_id AND r.resource_type = 'attribute' AND r.resource_key = a.id
                 JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
                 WHERE a.tenant_key = '${tenant.value}' AND a.id = 'language' AND a.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')
@@ -90,8 +91,8 @@ class AttributeStorageTest : IntegrationTestBase() {
         ).isEqualTo("shared/codeList/languages")
         assertThat(one("SELECT CAST(to_regclass('variant_attribute_definitions') IS NULL AS TEXT)")).isEqualTo("true")
 
-        val saved = withMediator { UpdateAttributeDefinition(language, "Language, renamed", codeListId = CodeListId(CodeListKey.of("languages"), shared)).execute() }
-        assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(withMediator { GetAttributeDefinition(language).query() })
+        val saved = withMediator { UpdateAttributeDefinition(language, "Language, renamed", codeListId = CodeListId(CodeListKey.of("languages"), shared), catalogVersion = null).execute() }
+        assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(withMediator { GetAttributeDefinition(language, catalogVersion = null).query() })
     }
 
     @Test
@@ -101,10 +102,10 @@ class AttributeStorageTest : IntegrationTestBase() {
         val list = CodeListId(CodeListKey.of("regions"), letters)
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateCodeList(list, "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = list).execute()
+            CreateCodeList(list, "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe")), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = list, catalogVersion = null).execute()
         }
-        assertThatThrownBy { withMediator { DeleteCodeList(list).execute() } }.isInstanceOf(CodeListInUseException::class.java)
+        assertThatThrownBy { withMediator { DeleteCodeList(list, catalogVersion = null).execute() } }.isInstanceOf(CodeListInUseException::class.java)
     }
 
     /**
@@ -122,24 +123,25 @@ class AttributeStorageTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, shared.key, "Shared").execute()
-            CreateCodeList(list, "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
+            CreateCodeList(list, "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
             val version = mediator.releaseNext(shared)
-            CreateAttributeDefinition(language, "Language", codeListId = list).execute()
+            CreateAttributeDefinition(language, "Language", codeListId = list, catalogVersion = null).execute()
             // Letters uses shared's release, not its draft.
             val target = app.epistola.suite.catalog.queries.GetCatalog(shared).query()!!
             app.epistola.suite.catalog.commands.UpdateCatalogDependencies(
                 letters,
                 listOf(app.epistola.suite.catalog.commands.DeclaredCatalogDependency(target.registry, target.namespace, shared.key.value, version)),
+                catalogVersion = null,
             ).execute()
-            UpdateCodeList(list, "Languages", entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("fr", "Français"))).execute()
+            UpdateCodeList(list, "Languages", entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("fr", "Français")), catalogVersion = null).execute()
         }
 
         withMediator {
-            validateAttributes(TenantId(tenant), mapOf("letters.language" to "nl"))
-            assertThatThrownBy { validateAttributes(TenantId(tenant), mapOf("letters.language" to "fr")) }
+            validateAttributes(TenantId(tenant), mapOf("letters.language" to "nl"), catalogVersion = null)
+            assertThatThrownBy { validateAttributes(TenantId(tenant), mapOf("letters.language" to "fr"), catalogVersion = null) }
                 .`as`("not in the release the binding pins").isInstanceOf(ValidationException::class.java)
-            assertThat(ListCodeListEntries(list, boundFrom = letters).query().map { it.code }).containsExactly("nl")
-            assertThat(ListCodeListEntries(list).query().map { it.code }).`as`("the list's own draft").containsExactlyInAnyOrder("nl", "fr")
+            assertThat(ListCodeListEntries(list, boundFrom = letters, catalogVersion = null).query().map { it.code }).containsExactly("nl")
+            assertThat(ListCodeListEntries(list, catalogVersion = null).query().map { it.code }).`as`("the list's own draft").containsExactlyInAnyOrder("nl", "fr")
         }
     }
 
@@ -151,7 +153,7 @@ class AttributeStorageTest : IntegrationTestBase() {
         val released = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))
         fun content(list: List<app.epistola.suite.attributes.model.VariantAttributeDefinition>) = list.map { listOf(it.id, it.catalogKey, it.displayName, it.allowedValues, it.codeListId) }.sortedBy { it.first().toString() }
 
-        val drafted = withMediator { ListAttributeDefinitions(catalog.tenantId, catalog = catalog).query() }
+        val drafted = withMediator { ListAttributeDefinitions(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }
         assertThat(drafted).isNotEmpty()
         assertThat(content(withMediator { ListAttributeDefinitions(catalog.tenantId, catalog = catalog, catalogVersion = released).query() })).isEqualTo(content(drafted))
     }
@@ -168,8 +170,8 @@ class AttributeStorageTest : IntegrationTestBase() {
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("language"), letters), "Language", codeListId = CodeListId(CodeListKey.of("iso-639-1"), systemCatalog(tenant))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), letters), "Tone", allowedValues = listOf("formal", "casual")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("language"), letters), "Language", codeListId = CodeListId(CodeListKey.of("iso-639-1"), systemCatalog(tenant)), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), letters), "Tone", allowedValues = listOf("formal", "casual"), catalogVersion = null).execute()
         }
         AttributeStorageConversion.verify(jdbi, objectMapper, attributes, letters)
     }

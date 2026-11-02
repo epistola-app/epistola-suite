@@ -35,10 +35,10 @@ class ReleasedThemePageHtmxTest : BaseIntegrationTest() {
         val catalog = CatalogId.default(TenantId(tenant.id))
         val brand = ThemeId(ThemeKey.of("brand"), catalog)
         withMediator {
-            CreateTheme(brand, "Brand as released").execute()
-            MarkCatalogReady(catalog).execute()
-            ReleaseCatalogDraft(catalog, "1.0.0").execute()
-            UpdateTheme(brand, name = "Brand as drafted").execute()
+            CreateTheme(brand, "Brand as released", catalogVersion = null).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog, "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(brand, name = "Brand as drafted", catalogVersion = null).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${catalog.address}@1.0.0/themes/brand", String::class.java)

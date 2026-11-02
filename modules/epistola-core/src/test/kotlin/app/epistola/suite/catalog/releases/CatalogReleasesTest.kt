@@ -87,9 +87,9 @@ class CatalogReleasesTest : IntegrationTestBase() {
     fun `an address resolves a catalog by its name, a draft by next or its id, and a release by its number`() {
         val tenant = catalog("versions-resolve")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), letters))
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, renamed").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, renamed", catalogVersion = null).execute()
         }
         val namespace = withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.namespace
 
@@ -167,7 +167,7 @@ class CatalogReleasesTest : IntegrationTestBase() {
         }
         val workRef = DraftRef.Id(work.versionId)
         assertThatThrownBy { runAs(author) { DeleteCatalogDraft(testCatalog(tenant, letters), workRef).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(author) { ReleaseCatalogDraft(testCatalog(tenant, letters)).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(author) { ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = null).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
         assertThatThrownBy { runAs(author) { DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), testCatalog(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)).tenantKey, letters), "1.0.0").execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
 

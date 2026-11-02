@@ -115,7 +115,7 @@ class QualityVersionsIntegrationTest : IntegrationTestBase() {
     fun `editing one variant leaves another variant's findings current`() {
         val first = newVariant()
         val second = withMediator {
-            VariantId(TestIdHelpers.nextVariantId(), first.templateId).also { CreateVariant(id = it, title = "Second", description = null).execute() }
+            VariantId(TestIdHelpers.nextVariantId(), first.templateId).also { CreateVariant(id = it, title = "Second", description = null, catalogVersion = null).execute() }
         }
         save(first, EMPTY)
         save(second, EMPTY)
@@ -134,14 +134,14 @@ class QualityVersionsIntegrationTest : IntegrationTestBase() {
         val variantId = newVariant()
         val themeId = ThemeId(ThemeKey.of("house"), variantId.catalogId)
         withMediator {
-            CreateTheme(id = themeId, name = "House").execute()
-            UpdateDocumentTemplate(variantId.templateId, themeId = themeId.key, themeCatalog = variantId.catalogId).execute()
+            CreateTheme(id = themeId, name = "House", catalogVersion = null).execute()
+            UpdateDocumentTemplate(variantId.templateId, themeId = themeId.key, themeCatalog = variantId.catalogId, catalogVersion = null).execute()
         }
         save(variantId, EMPTY)
         check(variantId)
         assertThat(read(variantId).example().single().outdated).isFalse()
 
-        withMediator { UpdateTheme(themeId, description = "Warmer colours").execute() }
+        withMediator { UpdateTheme(themeId, description = "Warmer colours", catalogVersion = null).execute() }
 
         assertThat(read(variantId).example().single().outdated).isTrue()
     }
@@ -192,8 +192,8 @@ class QualityVersionsIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Quality Versions")
         return withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Default", description = null).execute() }
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
+            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Default", description = null, catalogVersion = null).execute() }
         }
     }
 

@@ -6,7 +6,9 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.stencils.qualifiedIn
 import app.epistola.template.model.TemplateDocument
 import tools.jackson.databind.JsonNode
@@ -14,19 +16,19 @@ import tools.jackson.databind.ObjectMapper
 
 /*
  * The one read interface for templates and their variants (ADR 0033, step 7a): the views
- * `current_templates` and `current_template_variants`, which answer a draft's rows or, for a message
- * that targets a release, the release's content. Readers name a template through [templateIn] and
- * map through the column lists here, so a draft and a release read the same way.
+ * `version_templates` and `version_template_variants`, which hold every version's, a draft's rows or a
+ * release's content; a statement names the version it reads by `version_id`. Readers name a template
+ * through [templateIn] and map through the column lists here, so a draft and a release read the same way.
  */
 
 /**
- * The identity of the template at `(:catalogParam, :keyParam)` in the version a caller means, a
- * draft's or a release's; NULL when there is none, which matches no row.
+ * The identity of the template at `(:catalogParam, :keyParam)` in version `:versionParam` (bound with
+ * `bindVersion`), a draft's or a release's; NULL when there is none, which matches no row.
  */
-fun templateIn(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_templates WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
+fun templateIn(tenantParam: String, catalogParam: String, keyParam: String, versionParam: String): String = "(SELECT ti.resource_id FROM version_templates ti WHERE ti.tenant_key = :$tenantParam AND ti.catalog_id = ${catalogAt(tenantParam, catalogParam)} AND ti.id = :$keyParam AND ti.version_id = :$versionParam)"
 
 /**
- * The columns [DocumentTemplate] maps from, for a query over `current_templates dt`. Catalog keys and
+ * The columns [DocumentTemplate] maps from, for a query over `version_templates dt`. Catalog keys and
  * namespaces are looked up row by row rather than joined (ThemePlanStabilityTest).
  */
 const val TEMPLATE_COLUMNS: String =
@@ -40,7 +42,7 @@ const val TEMPLATE_COLUMNS: String =
 
 /**
  * The columns [app.epistola.suite.templates.model.TemplateVariant] maps from, for a query over
- * `current_template_variants tv` already filtered to the template bound as `:templateId`.
+ * `version_template_variants tv` already filtered to the template bound as `:templateId`.
  */
 const val VARIANT_COLUMNS: String =
     "tv.id, tv.tenant_key, " +
@@ -75,29 +77,30 @@ object TemplateModels {
     fun read(json: String, catalogKey: String, objectMapper: ObjectMapper): TemplateDocument = read(objectMapper.readValue(json, TemplateDocument::class.java), catalogKey, objectMapper)
 }
 
-/** Template [id] in the version the handle means, a draft's or a release's; null when there is none. */
-fun documentTemplate(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.TemplateId): DocumentTemplate? = handle
-    .createQuery("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.id = :id")
+/** Template [id] in version [at], a draft's or a release's; null when there is none. */
+fun documentTemplate(handle: org.jdbi.v3.core.Handle, at: ContentVersion, id: app.epistola.suite.common.ids.TemplateId): DocumentTemplate? = handle
+    .createQuery("SELECT $TEMPLATE_COLUMNS FROM version_templates dt WHERE dt.tenant_key = :tenantId AND dt.version_id = :v AND dt.id = :id")
     .bind("id", id.key.value)
     .bind("tenantId", id.tenantKey)
-    .bindCatalog("catalogKey", id.catalogId)
+    .bindVersion("v", at.versionId)
     .mapTo(DocumentTemplate::class.java)
     .findOne()
     .orElse(null)
 
-/** Variant [id] in the version the handle means, a draft's or a release's; null when there is none. */
-fun templateVariant(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.VariantId): app.epistola.suite.templates.model.TemplateVariant? = handle
+/** Variant [id] in version [at], a draft's or a release's; null when there is none. */
+fun templateVariant(handle: org.jdbi.v3.core.Handle, at: ContentVersion, id: app.epistola.suite.common.ids.VariantId): app.epistola.suite.templates.model.TemplateVariant? = handle
     .createQuery(
         """
-        SELECT $VARIANT_COLUMNS FROM current_template_variants tv
-        WHERE tv.id = :variantId AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
-          AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+        SELECT $VARIANT_COLUMNS FROM version_template_variants tv
+        WHERE tv.id = :variantId AND tv.tenant_key = :tenantId AND tv.version_id = :v
+          AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId", "v")}
         """,
     )
     .bind("variantId", id.key.value)
     .bind("templateId", id.templateKey.value)
     .bind("tenantId", id.tenantKey)
     .bindCatalog("catalogKey", id.catalogId)
+    .bindVersion("v", at.versionId)
     .mapTo(app.epistola.suite.templates.model.TemplateVariant::class.java)
     .findOne()
     .orElse(null)

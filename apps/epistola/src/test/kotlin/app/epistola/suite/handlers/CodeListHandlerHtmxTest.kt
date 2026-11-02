@@ -263,6 +263,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             val persisted = withMediator {
                 GetCodeList(
                     CodeListId(CodeListKey.of("languages"), CatalogId.default(TenantId(testTenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(persisted).isNotNull
@@ -372,6 +373,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             displayName = "Deletable",
             sourceType = CodeListSource.INLINE,
             entries = listOf(CodeListEntry("test", "Test")),
+            catalogVersion = null,
         ).execute()
         Seeded(tenantId.key.value, codeListId.catalogKey.value, codeListId.key.value)
     }
@@ -386,6 +388,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             displayName = "In Use",
             sourceType = CodeListSource.INLINE,
             entries = listOf(CodeListEntry("a", "A")),
+            catalogVersion = null,
         ).execute()
         // An attribute binding keeps the code list in use → DeleteCodeList
         // throws CodeListInUseException.
@@ -393,6 +396,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             id = AttributeId(AttributeKey.of("bound"), catalogId),
             displayName = "Bound",
             codeListId = codeListId,
+            catalogVersion = null,
         ).execute()
         Seeded(tenantId.key.value, codeListId.catalogKey.value, codeListId.key.value)
     }

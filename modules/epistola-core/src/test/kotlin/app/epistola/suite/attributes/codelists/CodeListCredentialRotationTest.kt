@@ -25,6 +25,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import app.epistola.suite.testing.atNext
 
 /** Two keys of 32 bytes (`openssl rand -base64 32`), fixed for the test: the retired one and the primary. */
 private const val OLD_KEY = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
@@ -55,7 +56,7 @@ class CodeListCredentialRotationTest : IntegrationTestBase() {
     private fun stored(tenant: TenantId): Pair<String, String> = jdbi.withHandle<Pair<String, String>, Exception> { h ->
         h.createQuery(
             """
-            SELECT rc.credential, r.content_hash FROM current_code_lists t
+            SELECT rc.credential, r.content_hash FROM ${atNext("version_code_lists")} t
             JOIN resource_credentials rc ON rc.tenant_key = t.tenant_key AND rc.credential_id = t.credential_id
             JOIN release_resources r ON r.tenant_key = t.tenant_key AND r.version_id = t.version_id AND r.resource_type = 'codeList' AND r.resource_key = t.id
             WHERE t.tenant_key = :t AND t.id = 'remote'
@@ -68,7 +69,7 @@ class CodeListCredentialRotationTest : IntegrationTestBase() {
         val tenant = TenantId(createTenant("Code list rotation").id)
         val id = CodeListId(CodeListKey.of("remote"), CatalogId.default(tenant))
         withMediator {
-            CreateCodeList(id, "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "rotate-me").execute()
+            CreateCodeList(id, "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "rotate-me", catalogVersion = null).execute()
         }
         // A credential under the retired key, as one stored before the rotation is: no command
         // encrypts under a key that is not primary.
@@ -86,6 +87,6 @@ class CodeListCredentialRotationTest : IntegrationTestBase() {
         assertThat(result.credentialsReencrypted["resource_credentials.credential"]).isEqualTo(1)
         assertThat(cipher.keyIdOf(after)).isEqualTo("k-new")
         assertThat(hashAfter).`as`("the content names the credential by id, so it does not change").isEqualTo(hashBefore)
-        assertThat(withMediator { GetCodeList(id).query()!! }.credential?.value).isEqualTo("rotate-me")
+        assertThat(withMediator { GetCodeList(id, catalogVersion = null).query()!! }.credential?.value).isEqualTo("rotate-me")
     }
 }

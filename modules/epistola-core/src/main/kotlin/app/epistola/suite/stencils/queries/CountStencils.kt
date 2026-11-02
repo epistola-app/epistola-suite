@@ -5,11 +5,12 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -32,8 +33,8 @@ data class CountStencils(
     val catalog: CatalogId? = null,
     val searchTerm: String? = null,
     val tag: String? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<Long>,
     RequiresPermission {
@@ -52,7 +53,7 @@ class CountStencilsHandler(
 ) : QueryHandler<CountStencils, Long> {
     override fun handle(query: CountStencils): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            append("SELECT COUNT(*) FROM current_stencils s WHERE s.tenant_key = :tenantId")
+            append("SELECT COUNT(*) FROM version_stencils s WHERE s.tenant_key = :tenantId AND ${inVersionOrNext("s", "version")}")
             if (query.catalogKey != null) {
                 append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
@@ -64,7 +65,7 @@ class CountStencilsHandler(
                 append(" AND s.tags @> jsonb_build_array(CAST(:tag AS TEXT))")
             }
         }
-        val jdbiQuery = handle.createQuery(sql).bind("tenantId", query.tenantId.key)
+        val jdbiQuery = handle.createQuery(sql).bind("tenantId", query.tenantId.key).bindVersion("version", handle.addressedVersion(query))
         if (query.catalogKey != null) {
             jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }

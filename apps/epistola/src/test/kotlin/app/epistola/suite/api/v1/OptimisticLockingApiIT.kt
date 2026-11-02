@@ -73,7 +73,7 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
     fun `a variant's content is written only against the ETag it was read at`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val templateKey = TestIdHelpers.nextTemplateId()
-        withMediator { CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenantKey))), "Locked").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenantKey))), "Locked", catalogVersion = null).execute().withRequiredDataExample() }
         val content = "${withMediator { CatalogApiPaths.version(tenantKey) }}/templates/${templateKey.value}/variants/${VariantKey.INITIAL.value}/content"
 
         val read = call(HttpMethod.GET, content, apiKey)
@@ -100,7 +100,7 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
     fun `a template's ETag covers its name and data contract`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val templateKey = TestIdHelpers.nextTemplateId()
-        withMediator { CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenantKey))), "Locked").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenantKey))), "Locked", catalogVersion = null).execute().withRequiredDataExample() }
         val template = "${withMediator { CatalogApiPaths.version(tenantKey) }}/templates/${templateKey.value}"
 
         val etag = call(HttpMethod.GET, template, apiKey).headers.eTag
@@ -159,6 +159,7 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+                catalogVersion = null,
             ).execute()
         }
         val list = "${withMediator { CatalogApiPaths.version(tenantKey) }}/code-lists/locales"

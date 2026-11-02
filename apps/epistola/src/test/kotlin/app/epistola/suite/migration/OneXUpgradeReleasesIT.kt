@@ -128,7 +128,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         assertThat(releases).`as`("every release records its content hash").allSatisfy { assertThat(it.contentHash).startsWith("v6:") }
         val invoice = requireNotNull(assembler.assemble(letters, "1.1.1")).content.resourceDetails.values.mapNotNull { it.resource as? TemplateResource }.single()
         assertThat(objectMapper.writeValueAsString(invoice.templateModel)).`as`("the release holds what 1.x published").contains("Dear customer").doesNotContain("Draft wording")
-        val next = asTenant { app.epistola.suite.templates.queries.variants.GetVariantContent(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("default"), app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters))).query() }
+        val next = asTenant { app.epistola.suite.templates.queries.variants.GetVariantContent(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("default"), app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters)), catalogVersion = null).query() }
         assertThat(objectMapper.writeValueAsString(next)).`as`("the next draft keeps the unpublished 1.x work").contains("Draft wording")
         assertThat(invoice.dataExamples.orEmpty().map { it.key }).`as`("the published contract's example, by its key").containsExactly("default")
 

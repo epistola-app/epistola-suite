@@ -6,6 +6,7 @@ package app.epistola.suite.themes
 
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceType
 import app.epistola.suite.common.ids.CatalogId
@@ -20,8 +21,9 @@ class ThemeResourceType : ResourceType<ThemeResource> {
     override val wireClass = ThemeResource::class.java
     override val installedAfter = setOf("font", "image")
 
-    override fun receive(catalog: CatalogId, resource: ThemeResource, arrival: Arrival): InstallStatus = ImportTheme(
-        catalog = catalog,
+    override fun receive(at: ContentVersion, resource: ThemeResource, arrival: Arrival): InstallStatus = ImportTheme(
+        catalog = at.catalog,
+        catalogVersion = at.ref,
         slug = resource.key,
         name = resource.name,
         description = resource.description,

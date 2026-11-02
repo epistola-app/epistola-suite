@@ -9,7 +9,9 @@ import app.epistola.catalog.protocol.CodeListBindingRef
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -25,7 +27,7 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /**
- * The columns an attribute read selects from `current_attributes` aliased `t`, mapped by
+ * The columns an attribute read selects from `version_attributes` aliased `t`, mapped by
  * [AttributeRows]. The bound code list's catalog is the one its alias resolves to
  * (`resolve_catalog_alias`), selected once; catalog names come from the mapper, not from joins or
  * per-row lookups (ThemePlanStabilityTest).
@@ -116,41 +118,43 @@ class AttributeStore(
         return CodeListBindingRef(catalogKey = codeList.catalogKey.value.takeUnless { codeList.catalogId == owner }, key = codeList.key.value)
     }
 
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: AttributeFields): String = contents.store(handle, catalog.tenantKey, ATTRIBUTE, ResourceMetadata.carried(handle, catalog, ATTRIBUTE, key, payload(key, fields), fields.metadata, objectMapper))
+    /** Stores [fields] as attribute [key] of version [at] and returns its content hash. */
+    fun store(handle: Handle, at: ContentVersion, key: String, fields: AttributeFields): String = contents.store(handle, at.tenantKey, ATTRIBUTE, ResourceMetadata.carried(handle, at, ATTRIBUTE, key, payload(key, fields), fields.metadata, objectMapper))
 
-    /** Adds attribute [id] to the targeted draft; one already there is a unique violation. */
-    fun create(handle: Handle, id: AttributeId, fields: AttributeFields, actor: UUID?): VariantAttributeDefinition {
-        DraftResources.insert(handle, id.catalogId, ATTRIBUTE, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, null, actor)
-        return checkNotNull(get(handle, id)) { "Attribute ${id.key.value} was just written" }
+    /** Adds attribute [id] to draft [at]; one already there is a unique violation. */
+    fun create(handle: Handle, at: ContentVersion, id: AttributeId, fields: AttributeFields, actor: UUID?): VariantAttributeDefinition {
+        DraftResources.insert(handle, at, ATTRIBUTE, id.key.value, store(handle, at, id.key.value, fields), fields.name, null, actor)
+        return checkNotNull(get(handle, at, id)) { "Attribute ${id.key.value} was just written" }
     }
 
-    /** Saves [fields] as attribute [id] of the targeted draft; false when it holds none, or it moved on. */
-    fun write(handle: Handle, id: AttributeId, fields: AttributeFields, actor: UUID?, expectedRevision: Long? = null): Boolean = DraftResources.update(handle, id.catalogId, ATTRIBUTE, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, null, actor, expectedRevision) != null
+    /** Saves [fields] as attribute [id] of draft [at]; false when it holds none, or it moved on. */
+    fun write(handle: Handle, at: ContentVersion, id: AttributeId, fields: AttributeFields, actor: UUID?, expectedRevision: Long? = null): Boolean = DraftResources.update(handle, at, ATTRIBUTE, id.key.value, store(handle, at, id.key.value, fields), fields.name, null, actor, expectedRevision) != null
 
-    /** Creates or replaces attribute [id] in the targeted draft; true when it was there already. */
-    fun put(handle: Handle, id: AttributeId, fields: AttributeFields, actor: UUID?): Boolean {
-        if (write(handle, id, fields, actor)) return true
-        DraftResources.insert(handle, id.catalogId, ATTRIBUTE, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, null, actor)
+    /** Creates or replaces attribute [id] in draft [at]; true when it was there already. */
+    fun put(handle: Handle, at: ContentVersion, id: AttributeId, fields: AttributeFields, actor: UUID?): Boolean {
+        if (write(handle, at, id, fields, actor)) return true
+        DraftResources.insert(handle, at, ATTRIBUTE, id.key.value, store(handle, at, id.key.value, fields), fields.name, null, actor)
         return false
     }
 
-    fun delete(handle: Handle, id: AttributeId): Boolean = DraftResources.delete(handle, id.catalogId, ATTRIBUTE, id.key.value)
+    /** Removes attribute [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: AttributeId): Boolean = DraftResources.delete(handle, at, ATTRIBUTE, id.key.value)
 
-    /** Attribute [id] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, id: AttributeId): VariantAttributeDefinition? = handle
-        .createQuery("SELECT $ATTRIBUTE_COLUMNS FROM current_attributes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
+    /** Attribute [id] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, id: AttributeId): VariantAttributeDefinition? = handle
+        .createQuery("SELECT $ATTRIBUTE_COLUMNS FROM version_attributes t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :k")
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("k", id.key.value)
         .map(AttributeRows.of(handle, objectMapper, id.tenantKey))
         .findOne()
         .orElse(null)
 
-    /** What attribute [id] says, read from its content; null when the version holds none. */
-    fun fields(handle: Handle, id: AttributeId): AttributeFields? = handle
-        .createQuery("SELECT t.payload::text FROM current_attributes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
+    /** What attribute [id] says in version [at], read from its content; null when the version holds none. */
+    fun fields(handle: Handle, at: ContentVersion, id: AttributeId): AttributeFields? = handle
+        .createQuery("SELECT t.payload::text FROM version_attributes t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :k")
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("k", id.key.value)
         .mapTo(String::class.java)
         .findOne()

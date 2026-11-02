@@ -117,13 +117,14 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = enabled).execute()
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Walkthrough Template").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Walkthrough Template", catalogVersion = null).execute()
 
         val variant = CreateVariant(
             id = VariantId(TestIdHelpers.nextVariantId(), templateId),
             title = "Walkthrough Variant",
             description = null,
             attributes = emptyMap(),
+            catalogVersion = null,
         ).execute()
 
         return Triple(tenant, template, variant!!.id.toString())

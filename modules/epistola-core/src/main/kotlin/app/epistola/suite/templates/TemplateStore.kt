@@ -7,14 +7,13 @@ package app.epistola.suite.templates
 import app.epistola.catalog.protocol.DataExampleEntry
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.VariantEntry
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.StoredContent
 import app.epistola.suite.catalog.revisions.TemplateContents
 import app.epistola.suite.catalog.revisions.VariantRows
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
@@ -96,8 +95,8 @@ data class LoadedTemplate(
  * each variant's on a row of its own ([VariantRows]), as
  * [TemplateContents] shapes them, so a release cut from the draft stores exactly the same. A write
  * stores what changed only: saving a variant writes its one content, under its own revision, and
- * leaves the template's row and the other variants alone. Read back through `current_templates` and
- * `current_template_variants`.
+ * leaves the template's row and the other variants alone. Read back through `version_templates` and
+ * `version_template_variants`.
  */
 @Component
 class TemplateStore(
@@ -162,26 +161,26 @@ class TemplateStore(
     }
 
     /**
-     * Adds [template] to the targeted draft of [catalog], every variant with its model; one already
-     * there is a unique violation. Its identity.
+     * Adds [template] to draft [at], every variant with its model; one already there is a unique
+     * violation. Its identity.
      */
-    fun create(handle: Handle, catalog: CatalogId, template: StoredTemplate, actor: UUID?): UUID {
-        val head = contents.store(handle, catalog.tenantKey, TemplateStore.TEMPLATE, headPayload(template))
-        val id = DraftResources.insert(handle, catalog, TEMPLATE, template.key, head, template.name, template.description, actor)
+    fun create(handle: Handle, at: ContentVersion, template: StoredTemplate, actor: UUID?): UUID {
+        val head = contents.store(handle, at.tenantKey, TemplateStore.TEMPLATE, headPayload(template))
+        val id = DraftResources.insert(handle, at, TEMPLATE, template.key, head, template.name, template.description, actor)
         template.variants.forEach { variant ->
-            val model = checkNotNull(model(handle, catalog.tenantKey, variant)) { "Variant ${variant.key} of ${template.key} has no model" }
-            val hash = contents.store(handle, catalog.tenantKey, TemplateContents.VARIANT_KIND, partPayload(template, variant, model))
-            VariantRows.insert(handle, catalog, id, variant.key, hash, variant.title, variant.description, actor)
+            val model = checkNotNull(model(handle, at.tenantKey, variant)) { "Variant ${variant.key} of ${template.key} has no model" }
+            val hash = contents.store(handle, at.tenantKey, TemplateContents.VARIANT_KIND, partPayload(template, variant, model))
+            VariantRows.insert(handle, at, id, variant.key, hash, variant.title, variant.description, actor)
         }
         return id
     }
 
     /**
-     * Saves [after] over [before] in the targeted draft of [catalog]: the template's content when it
+     * Saves [after] over [before] in draft [at]: the template's content when it
      * changed, and each variant that changed, was added or went. Null when the template's row moved on
      * from [expectedRevision]; else its row after the write.
      */
-    fun save(handle: Handle, catalog: CatalogId, before: LoadedTemplate, after: StoredTemplate, actor: UUID?, expectedRevision: Long? = null): DraftResources.Updated? = write(handle, catalog, before, after, actor, expectedRevision)?.first
+    fun save(handle: Handle, at: ContentVersion, before: LoadedTemplate, after: StoredTemplate, actor: UUID?, expectedRevision: Long? = null): DraftResources.Updated? = write(handle, at, before, after, actor, expectedRevision)?.first
 
     /** What the template's content says of it: everything but its variants' own fields. */
     private fun headOf(template: StoredTemplate): StoredTemplate = template.copy(
@@ -189,13 +188,13 @@ class TemplateStore(
     )
 
     /** [save], with the revision of each variant row it wrote, by key. */
-    private fun write(handle: Handle, catalog: CatalogId, before: LoadedTemplate, after: StoredTemplate, actor: UUID?, expectedRevision: Long?): Pair<DraftResources.Updated, Map<String, Long>>? {
-        val tenantKey = catalog.tenantKey
+    private fun write(handle: Handle, at: ContentVersion, before: LoadedTemplate, after: StoredTemplate, actor: UUID?, expectedRevision: Long?): Pair<DraftResources.Updated, Map<String, Long>>? {
+        val tenantKey = at.tenantKey
         // The template's content is written only when what it says changed: saving a variant leaves it alone.
         val headChanged = headOf(after) != headOf(before.template)
         val updated = if (headChanged || after.name != before.template.name || after.description != before.template.description || expectedRevision != null) {
             val head = if (headChanged) contents.store(handle, tenantKey, TEMPLATE, headPayload(after)) else before.contentHash
-            DraftResources.update(handle, catalog, TEMPLATE, after.key, head, after.name, after.description, actor, expectedRevision) ?: return null
+            DraftResources.update(handle, at, TEMPLATE, after.key, head, after.name, after.description, actor, expectedRevision) ?: return null
         } else {
             // The template's own row is untouched: only variants changed.
             DraftResources.Updated(before.revision, before.updatedAt)
@@ -208,31 +207,31 @@ class TemplateStore(
             val model = checkNotNull(model(handle, tenantKey, variant.copy(contentHash = variant.contentHash ?: old?.contentHash))) { "Variant ${variant.key} of ${after.key} has no model" }
             val hash = contents.store(handle, tenantKey, TemplateContents.VARIANT_KIND, partPayload(after, variant, model))
             if (old == null) {
-                VariantRows.insert(handle, catalog, before.resourceId, variant.key, hash, variant.title, variant.description, actor)
+                VariantRows.insert(handle, at, before.resourceId, variant.key, hash, variant.title, variant.description, actor)
             } else if (hash != old.contentHash) {
-                VariantRows.update(handle, catalog, before.resourceId, variant.key, hash, variant.title, variant.description, actor)?.let { written[variant.key] = it.revision }
+                VariantRows.update(handle, at, before.resourceId, variant.key, hash, variant.title, variant.description, actor)?.let { written[variant.key] = it.revision }
             }
         }
-        (previous.keys - after.variants.map { it.key }.toSet()).forEach { VariantRows.delete(handle, catalog, before.resourceId, it) }
+        (previous.keys - after.variants.map { it.key }.toSet()).forEach { VariantRows.delete(handle, at, before.resourceId, it) }
         return updated to written
     }
 
     /**
-     * Changes template [id] of the targeted draft by [change], under its row's lock: refused as stale
+     * Changes template [id] of draft [at] by [change], under its row's lock: refused as stale
      * when its row moved on from [expectedRevision] ([Revisions.refuse]); null when the draft has no
      * such template or [change] declines. The template as saved, and its row after the write.
      */
-    fun modify(handle: Handle, id: TemplateId, actor: UUID?, expectedRevision: Long?, label: String, change: (StoredTemplate) -> StoredTemplate?): Pair<StoredTemplate, DraftResources.Updated>? {
-        val revision = DraftResources.lockRevision(handle, id.catalogId, TEMPLATE, id.key.value) ?: return null
+    fun modify(handle: Handle, at: ContentVersion, id: TemplateId, actor: UUID?, expectedRevision: Long?, label: String, change: (StoredTemplate) -> StoredTemplate?): Pair<StoredTemplate, DraftResources.Updated>? {
+        val revision = DraftResources.lockRevision(handle, at, TEMPLATE, id.key.value) ?: return null
         Revisions.refuse(label, expectedRevision, revision)
-        val current = get(handle, id) ?: return null
+        val current = get(handle, at, id) ?: return null
         val changed = change(current.template) ?: return null
-        val updated = checkNotNull(save(handle, id.catalogId, current, changed, actor)) { "Template ${id.key.value} was locked" }
+        val updated = checkNotNull(save(handle, at, current, changed, actor)) { "Template ${id.key.value} was locked" }
         return changed to updated
     }
 
     /**
-     * Changes variant [id] by [change], under its own lock and revision: refused as stale when it moved
+     * Changes variant [id] of draft [at] by [change], under its own lock and revision: refused as stale when it moved
      * on from [expectedRevision]; null when there is no such variant or [change] declines. Another
      * variant's revision is not this one's, so saving one does not refuse a save of another. A change
      * of what the template's content says of its variants (attributes, the default) takes the
@@ -241,6 +240,7 @@ class TemplateStore(
      */
     fun modifyVariant(
         handle: Handle,
+        at: ContentVersion,
         id: VariantId,
         actor: UUID?,
         expectedRevision: Long?,
@@ -248,26 +248,27 @@ class TemplateStore(
         headChange: Boolean = true,
         change: (StoredTemplate) -> StoredTemplate?,
     ): Pair<StoredTemplate, Long>? {
-        if (headChange) DraftResources.lockRevision(handle, id.catalogId, TEMPLATE, id.templateKey.value) ?: return null
-        val revision = VariantRows.lockRevision(handle, id.catalogId, id.templateKey.value, id.key.value) ?: return null
+        if (headChange) DraftResources.lockRevision(handle, at, TEMPLATE, id.templateKey.value) ?: return null
+        val revision = VariantRows.lockRevision(handle, at, id.templateKey.value, id.key.value) ?: return null
         Revisions.refuse(label, expectedRevision, revision)
-        val current = get(handle, id.templateId) ?: return null
+        val current = get(handle, at, id.templateId) ?: return null
         val changed = change(current.template) ?: return null
         check(headChange || headOf(changed) == headOf(current.template)) { "A change of variant ${id.key.value}'s own content changed its template's" }
-        val (_, written) = checkNotNull(write(handle, id.catalogId, current, changed, actor, null)) { "Template ${id.templateKey.value} was locked" }
+        val (_, written) = checkNotNull(write(handle, at, current, changed, actor, null)) { "Template ${id.templateKey.value} was locked" }
         return changed to (written[id.key.value] ?: revision)
     }
 
-    fun delete(handle: Handle, id: TemplateId): Boolean = DraftResources.delete(handle, id.catalogId, TEMPLATE, id.key.value)
+    /** Removes template [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: TemplateId): Boolean = DraftResources.delete(handle, at, TEMPLATE, id.key.value)
 
-    /** Template [id] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, id: TemplateId): LoadedTemplate? {
+    /** Template [id] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, id: TemplateId): LoadedTemplate? {
         val row = handle
             .createQuery(
-                "SELECT payload::text AS payload, revision, resource_id, content_hash, updated_at, version_id, version FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
+                "SELECT payload::text AS payload, revision, resource_id, content_hash, updated_at, version_id, version FROM version_templates WHERE tenant_key = :t AND version_id = :v AND id = :k",
             )
             .bind("t", id.tenantKey)
-            .bindCatalog("c", id.catalogId)
+            .bindVersion("v", at.versionId)
             .bind("k", id.key.value)
             .map { rs, _ ->
                 listOf(rs.getString("payload"), rs.getLong("revision").toString(), rs.getString("resource_id"), rs.getString("content_hash"), rs.getString("version_id"), rs.getString("version")) to
@@ -281,21 +282,21 @@ class TemplateStore(
         // rows holds them in the template's content, which the view reads.
         val variants = VariantRows.of(handle, id.tenantKey, resourceId, columns[4]?.let(UUID::fromString), columns[5])
             .mapValues { (_, row) -> listOf(row.title, row.description, row.contentHash) }
-            .ifEmpty { legacyVariants(handle, id, columns[2]) }
+            .ifEmpty { legacyVariants(handle, at, id, columns[2]) }
         return LoadedTemplate(of(objectMapper.readTree(columns[0]), variants), columns[1].toLong(), resourceId, columns[3], updatedAt)
     }
 
-    /** The variants' fields of template [id] as `current_template_variants` reads them from content retained before variants had rows. */
-    private fun legacyVariants(handle: Handle, id: TemplateId, resourceId: String): Map<String, List<String?>> = handle
+    /** The variants' fields of template [id] in version [at] as `version_template_variants` reads them from content retained before variants had rows. */
+    private fun legacyVariants(handle: Handle, at: ContentVersion, id: TemplateId, resourceId: String): Map<String, List<String?>> = handle
         .createQuery(
             """
             SELECT tv.id, tv.title, tv.description, tv.model_hash
-            FROM current_template_variants tv
-            WHERE tv.tenant_key = :t AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = CAST(:id AS UUID)
+            FROM version_template_variants tv
+            WHERE tv.tenant_key = :t AND tv.version_id = :v AND tv.template_resource_id = CAST(:id AS UUID)
             """,
         )
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("id", resourceId)
         .map { rs, _ -> rs.getString("id") to listOf(rs.getString("title"), rs.getString("description"), rs.getString("model_hash")) }
         .list()

@@ -5,7 +5,6 @@
 package app.epistola.suite.mediator
 
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.security.Authorized
 import app.epistola.suite.security.AuthorizedOperation
@@ -48,10 +47,9 @@ import kotlin.reflect.full.allSupertypes
  * JDBI joins this transaction via SpringConnectionFactory + SpringAwareTransactionHandler,
  * so nested `jdbi.inTransaction { }` in handlers participates instead of committing early.
  *
- * A message that names a catalog version ([CatalogReleaseScoped]) runs on that version: the version is
- * resolved before the handler runs, a query that names one runs in a read-only transaction, and
- * [CatalogReleaseTargeting] makes that transaction's content SQL answer the named version for its
- * catalog. Messages it dispatches inherit it; the caller's target is restored afterwards.
+ * A message that names a catalog version ([CatalogReleaseScoped]) carries it to its handler, which
+ * resolves it and binds it to its statements (ADR 0049); the mediator sets nothing for it, so nothing
+ * is inherited by the messages a handler dispatches. It only refuses a command that names a release.
  *
  * Uses lazy handler discovery to support handlers that are initialized late
  * (e.g., handlers with Spring Batch job dependencies).
@@ -64,7 +62,6 @@ class SpringMediator(
     private val commandListeners: List<CommandListener>,
     private val queryListeners: List<QueryListener>,
     private val transactionManager: PlatformTransactionManager?,
-    private val versionTargeting: CatalogReleaseTargeting? = null,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -105,19 +102,16 @@ class SpringMediator(
             // listeners (EventLogSubscriber) bind to this transaction.
             val result = handlingIfAuthorized(command) {
                 inCommandTransaction(command) {
-                    // On the catalog version the command names, if any; IMMEDIATE handlers see it too.
-                    inTargetedVersion(command) {
-                        val handled = handler.handle(command)
-                        logger.debug("Command {} completed successfully", commandName)
+                    val handled = handler.handle(command)
+                    logger.debug("Command {} completed successfully", commandName)
 
-                        // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
-                        invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
+                    // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
+                    invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
 
-                        // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
-                        eventPublisher.publishEvent(CommandCompleted(command, handled))
+                    // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
+                    eventPublisher.publishEvent(CommandCompleted(command, handled))
 
-                        handled
-                    }
+                    handled
                 }
             }
 
@@ -163,11 +157,7 @@ class SpringMediator(
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         return try {
-            val result = if (targetOf(query) == null) {
-                handler.handle(query)
-            } else {
-                inReadTransaction { inTargetedVersion(query) { handler.handle(query) } }
-            }
+            val result = handler.handle(query)
             logger.debug("Query {} completed successfully", queryName)
 
             // Notify cross-cutting query listeners (read auditing, …). Fired for
@@ -239,44 +229,6 @@ class SpringMediator(
         val target = (command as? CatalogReleaseScoped)?.catalogVersion ?: return
         val released = target.draft as? app.epistola.suite.catalog.releases.DraftRef.Released ?: return
         throw app.epistola.suite.catalog.ReleasedVersionReadOnlyException(target.catalog, released.version)
-    }
-
-    private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }
-
-    /** Runs [block] on the catalog version [message] names, if it names one. */
-    private fun <R> inTargetedVersion(message: Any, block: () -> R): R {
-        val target = targetOf(message) ?: return block()
-        val targeting = requireNotNull(versionTargeting)
-        // A release is read by a message that can read one (ADR 0033); for any other, resolve says it is not found.
-        val released = target.draft as? app.epistola.suite.catalog.releases.DraftRef.Released
-        if (released != null && message is app.epistola.suite.catalog.releases.ReleaseReadable) {
-            return targeting.withinRelease(targeting.resolveRelease(target), released.version, block)
-        }
-        return targeting.within(targeting.resolve(target, write = message is Command<*>), block)
-    }
-
-    /**
-     * A query that names a catalog version needs a transaction to carry the target. REQUIRED: one
-     * dispatched inside a command joins the command's.
-     */
-    private fun <R> inReadTransaction(block: () -> R): R {
-        if (transactionManager == null) return block()
-        val definition = DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRED).apply { isReadOnly = true }
-        val status = transactionManager.getTransaction(definition)
-        try {
-            val result = block()
-            transactionManager.commit(status)
-            return result
-        } catch (e: Throwable) {
-            if (!status.isCompleted) {
-                try {
-                    transactionManager.rollback(status)
-                } catch (rollbackFailure: Exception) {
-                    e.addSuppressed(rollbackFailure)
-                }
-            }
-            throw e
-        }
     }
 
     private fun <R> invokeEventHandlers(command: Command<R>, result: R, phase: EventPhase) {

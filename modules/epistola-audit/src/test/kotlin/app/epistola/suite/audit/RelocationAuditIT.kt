@@ -44,9 +44,9 @@ class RelocationAuditIT : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute()
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))), "Header").execute()
-            val plan = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
-            MoveCatalogResources(tenant.id, listOf(relocation), plan.planFingerprint).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))), "Header", catalogVersion = null).execute()
+            val plan = PreviewCatalogResourceMove(tenant.id, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenant.id, listOf(relocation), plan.planFingerprint, catalogVersion = null).execute()
         }
 
         assertThat(latestDetails(tenant.id.value, "MoveCatalogResources"))

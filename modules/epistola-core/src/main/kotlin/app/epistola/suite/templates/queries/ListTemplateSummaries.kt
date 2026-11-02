@@ -5,12 +5,13 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -87,8 +88,8 @@ data class ListTemplateSummaries(
     val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<TemplateSummaryPage>,
     RequiresPermission {
@@ -126,8 +127,8 @@ class ListTemplateSummariesHandler(
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
-                FROM current_templates dt
-                WHERE dt.tenant_key = :tenantId
+                FROM version_templates dt
+                WHERE dt.tenant_key = :tenantId AND ${inVersionOrNext("dt", "version")}
                 """.trimIndent(),
             )
             if (query.catalogKey != null) {
@@ -144,6 +145,7 @@ class ListTemplateSummariesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+            .bindVersion("version", handle.addressedVersion(query))
         if (query.catalogKey != null) {
             jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }

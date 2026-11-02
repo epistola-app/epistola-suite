@@ -70,7 +70,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         moved = { tenant -> address(tenant, CatalogResourceType.STENCIL, letters, "header") },
         setup = { tenant ->
             val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
-            CreateStencil(header, "Header").execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
         },
         model = { catalog -> templateEmbedding("header", catalog.value) },
     )
@@ -78,7 +78,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     @Test
     fun `a moved theme is exported at its new address and installs elsewhere`() = roundTrip(
         moved = { tenant -> address(tenant, CatalogResourceType.THEME, letters, "brand") },
-        setup = { tenant -> CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute() },
+        setup = { tenant -> CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", catalogVersion = null).execute() },
         model = { catalog -> usesTheme("brand", catalog.value) },
     )
 
@@ -106,16 +106,16 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         val variant = templateVariant(tenant, letters)
         // Export carries a template only once it has a published version.
         publishTemplate(tenant, letters, textModel()) {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme"), catalogVersion = null).execute()
         }
-        withMediator { UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme")).execute() }
+        withMediator { UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme"), catalogVersion = null).execute() }
         move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
 
         val fresh = installBoth(tenant, "attribute")
 
-        val installed = withMediator { ListVariants(templateVariant(fresh, letters).templateId).query() }.single { it.id == variant.key }
+        val installed = withMediator { ListVariants(templateVariant(fresh, letters).templateId, catalogVersion = null).query() }.single { it.id == variant.key }
         assertThat(installed.attributes).containsExactlyEntriesOf(mapOf("shared.brand" to "acme"))
-        withMediator { UpdateVariant(templateVariant(fresh, letters), "Main", installed.attributes).execute() }
+        withMediator { UpdateVariant(templateVariant(fresh, letters), "Main", installed.attributes, catalogVersion = null).execute() }
     }
 
     @Test
@@ -127,18 +127,20 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
                 displayName = "Countries",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("nl", "Nederland")),
+                catalogVersion = null,
             ).execute()
             CreateAttributeDefinition(
                 AttributeId(AttributeKey.of("country"), catalogId(tenant, letters)),
                 "Country",
                 codeListId = CodeListId(CodeListKey.of("countries"), catalogId(tenant, letters)),
+                catalogVersion = null,
             ).execute()
         }
         move(tenant, address(tenant, CatalogResourceType.CODE_LIST, letters, "countries").movedTo(shared))
 
         val fresh = installBoth(tenant, "code list")
 
-        val attribute = withMediator { GetAttributeDefinition(AttributeId(AttributeKey.of("country"), catalogId(fresh, letters))).query()!! }
+        val attribute = withMediator { GetAttributeDefinition(AttributeId(AttributeKey.of("country"), catalogId(fresh, letters)), catalogVersion = null).query()!! }
         assertThat(attribute.codeListId).isEqualTo(CodeListId(CodeListKey.of("countries"), catalogId(fresh, shared)))
     }
 
@@ -151,7 +153,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         assertThat(unzipText(withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), letters)) }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
         val fresh = installBoth(tenant, "template")
 
-        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared))).query() }).isNotNull()
+        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared)), catalogVersion = null).query() }).isNotNull()
     }
 
     /** Exports `shared` and `letters` from [tenant] and installs them, in that order, in a fresh tenant. */
@@ -179,16 +181,16 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters)))
         withMediator {
             setup(tenant)
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, model(letters)).execute()
-            MarkVariantReady(variant).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, model(letters), catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
         }
         move(tenant, moved.movedTo(shared))
         withMediator {
             // The republished invoice names shared itself, which letters then depends on.
             declareDependency(tenant, letters, on = shared)
-            UpdateVariantContent(variant, model(shared)).execute()
-            MarkVariantReady(variant).execute()
+            UpdateVariantContent(variant, model(shared), catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
         }
 
         val sharedZip = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), shared)) }.zipBytes

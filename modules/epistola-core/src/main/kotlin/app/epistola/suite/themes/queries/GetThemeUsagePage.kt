@@ -5,10 +5,12 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -64,7 +66,7 @@ data class GetThemeUsagePage(
     val limit: Int = DEFAULT_USAGE_PAGE_SIZE,
     val offset: Int = 0,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<ThemeUsagePage>,
     RequiresPermission {
@@ -79,6 +81,7 @@ class GetThemeUsagePageHandler(
     override fun handle(query: GetThemeUsagePage): ThemeUsagePage = jdbi.withHandle<ThemeUsagePage, Exception> { handle ->
         val limit = query.limit.coerceIn(1, MAX_USAGE_PAGE_SIZE)
         val offset = query.offset.coerceAtLeast(0)
+        val version = handle.addressedVersion(query)
 
         val rows = handle.createQuery(
             """
@@ -131,10 +134,10 @@ class GetThemeUsagePageHandler(
                             THEN template_theme.catalog_id
                         ELSE catalog_theme.catalog_id
                     END AS effective_theme_catalog_id
-                FROM current_template_variants variant
-                JOIN current_templates template
+                FROM version_template_variants variant
+                JOIN version_templates template
                   ON template.tenant_key = variant.tenant_key
-                 AND template.catalog_id = variant.catalog_id
+                 AND template.version_id = variant.version_id
                  AND template.resource_id = variant.template_resource_id
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key
@@ -142,13 +145,15 @@ class GetThemeUsagePageHandler(
                 JOIN catalog_versions template_version
                   ON template_version.tenant_key = template.tenant_key
                  AND template_version.version_id = template.version_id
-                LEFT JOIN current_themes template_theme
+                LEFT JOIN version_themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
-                LEFT JOIN current_themes catalog_theme
+                 AND ${inVersionOrNext("template_theme", "version")}
+                LEFT JOIN version_themes catalog_theme
                   ON catalog_theme.tenant_key = template_version.tenant_key
                  AND catalog_theme.resource_id = template_version.default_theme_resource_id
-                WHERE variant.tenant_key = :tenantKey
+                 AND ${inVersionOrNext("catalog_theme", "version")}
+                WHERE variant.tenant_key = :tenantKey AND ${inVersionOrNext("variant", "version")}
             ),
             matching_usage AS (
                 SELECT *
@@ -160,9 +165,10 @@ class GetThemeUsagePageHandler(
                           usage.effective_theme_catalog_id IS NULL
                           AND (
                               SELECT COUNT(*)
-                              FROM current_themes candidate
+                              FROM version_themes candidate
                               WHERE candidate.tenant_key = :tenantKey
                                 AND candidate.id = :themeKey
+                                AND ${inVersionOrNext("candidate", "version")}
                                
                           ) = 1
                       )
@@ -178,6 +184,7 @@ class GetThemeUsagePageHandler(
             .bind("tenantKey", query.themeId.tenantKey)
             .bind("themeKey", query.themeId.key)
             .bindCatalog("themeCatalog", query.themeId.catalogId)
+            .bindVersion("version", version)
             .bind("limit", limit)
             .bind("offset", offset)
             .map { rs, _ ->

@@ -14,7 +14,6 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -22,6 +21,7 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -52,6 +52,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
                     displayName = "Any list",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("x", "X")),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -69,6 +70,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
                 UpdateCodeList(
                     id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                     displayName = "Renamed",
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -83,6 +85,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
             assertThatThrownBy {
                 DeleteCodeList(
                     id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -97,6 +100,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
             assertThatThrownBy {
                 RefreshCodeList(
                     id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -114,6 +118,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
                     codeListId = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                     code = "eu",
                     hidden = true,
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -163,15 +168,15 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
     ) {
         val source = sourceUrl?.let { CodeListSourceSettings(CodeListSource.URL, it, app.epistola.suite.catalog.AuthType.NONE, null) }
         jdbi.useTransaction<Exception> { handle ->
-            codeLists.create(handle, CodeListId(CodeListKey.of(slug), testCatalog(tenantId.key, catalog)), CodeListFields(display, null, emptyList(), source), null)
+            codeLists.create(handle, nextVersion(testCatalog(tenantId.key, catalog)), CodeListId(CodeListKey.of(slug), testCatalog(tenantId.key, catalog)), CodeListFields(display, null, emptyList(), source), null)
         }
     }
 
     private fun seedEntry(tenantId: TenantId, catalog: CatalogKey, slug: String, code: String, label: String) {
         val id = CodeListId(CodeListKey.of(slug), testCatalog(tenantId.key, catalog))
         jdbi.useTransaction<Exception> { handle ->
-            val fields = requireNotNull(codeLists.fields(handle, id))
-            codeLists.save(handle, id, fields.copy(entries = fields.entries + CodeListEntry(code, label)), null)
+            val fields = requireNotNull(codeLists.fields(handle, nextVersion(id.catalogId), id))
+            codeLists.save(handle, nextVersion(id.catalogId), id, fields.copy(entries = fields.entries + CodeListEntry(code, label)), null)
         }
     }
 }

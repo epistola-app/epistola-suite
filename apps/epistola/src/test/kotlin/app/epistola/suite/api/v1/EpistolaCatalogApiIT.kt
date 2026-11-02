@@ -140,6 +140,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
             ReleaseCatalogDraft(
                 catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)),
                 version = "1.0.0",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -163,9 +164,9 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0").execute()
-            DeleteTheme(ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenantKey), CatalogKey.of(catalogSlug)))).execute()
-            MarkCatalogReady(testCatalog(tenantKey, CatalogKey.of(catalogSlug))).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0", catalogVersion = null).execute()
+            DeleteTheme(ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenantKey), CatalogKey.of(catalogSlug))), catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenantKey, CatalogKey.of(catalogSlug)), catalogVersion = null).execute()
         }
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
 
@@ -192,8 +193,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0").execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug))).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0", catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), catalogVersion = null).execute()
         }
 
         val response = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "1.0.1"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java)
@@ -213,7 +214,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "drafts-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0").execute() }
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0", catalogVersion = null).execute() }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
 
@@ -276,7 +277,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "behind-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0").execute() }
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0", catalogVersion = null).execute() }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
         val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.releaseId")
@@ -298,8 +299,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
             val catalogKey = CatalogKey.of(catalogSlug)
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), testCatalog(TenantId(tenantKey), catalogKey)), "Seasonal").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), testCatalog(TenantId(tenantKey), catalogKey)), "Seasonal", catalogVersion = null).execute()
             SetTenantDefaultTheme(tenantKey, testCatalog(tenantKey, catalogKey), ThemeKey.of("seasonal")).execute()
         }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
@@ -393,13 +394,13 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogKey = CatalogKey.of(slug)
         val theme = ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenantKey), catalogKey))
         withMediator {
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0", catalogVersion = null).execute()
             val fix = CreateCatalogDraft(testCatalog(tenantKey, catalogKey), "Fix", "1.0.0").execute()
             val fixRef = CatalogReleaseRef(testCatalog(tenantKey, catalogKey), DraftRef.Id(fix.versionId))
             UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
             MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = fixRef).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.1", catalogVersion = fixRef).execute()
-            UpdateTheme(theme, name = "Ours").execute()
+            UpdateTheme(theme, name = "Ours", catalogVersion = null).execute()
         }
         val next = versionPath(tenantKey, slug, "next")
 
@@ -433,13 +434,13 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogKey = CatalogKey.of(slug)
         val theme = ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenantKey), catalogKey))
         withMediator {
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0", catalogVersion = null).execute()
             val fix = CreateCatalogDraft(testCatalog(tenantKey, catalogKey), "Fix", "1.0.0").execute()
             val fixRef = CatalogReleaseRef(testCatalog(tenantKey, catalogKey), DraftRef.Id(fix.versionId))
             UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
             MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = fixRef).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.1", catalogVersion = fixRef).execute()
-            UpdateTheme(theme, name = "Ours").execute()
+            UpdateTheme(theme, name = "Ours", catalogVersion = null).execute()
         }
         val next = versionPath(tenantKey, slug, "next")
         fun preview() = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
@@ -450,7 +451,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(preview().body!!, "$.token")).isEqualTo(token)
 
         // The draft changes after the preview: the merge confirmed against it is refused.
-        withMediator { UpdateTheme(theme, name = "Ours, again").execute() }
+        withMediator { UpdateTheme(theme, name = "Ours, again", catalogVersion = null).execute() }
         val outdated = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$token"}""")
         assertThat(outdated.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(JsonPath.read<String>(outdated.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-preview-outdated")
@@ -495,9 +496,9 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of(slug)
         CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Rel $slug").execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("tha"), testCatalog(tenantId, catalogKey)), name = "Th").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("tha"), testCatalog(tenantId, catalogKey)), name = "Th", catalogVersion = null).execute()
         // A release takes what is marked ready, so the theme is marked ready to be releasable.
-        MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+        MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {

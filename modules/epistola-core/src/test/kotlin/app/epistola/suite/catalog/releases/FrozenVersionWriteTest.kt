@@ -52,7 +52,7 @@ class FrozenVersionWriteTest : IntegrationTestBase() {
     private fun released(name: String): Pair<TenantKey, Pair<String, UUID>> = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(brand(tenant), "Brand").execute()
+        CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
         val before = nextKeyAndId(tenant)
         mediator.releaseNext(testCatalog(tenant, letters))
         tenant to before
@@ -76,14 +76,13 @@ class FrozenVersionWriteTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a writer of draft content refuses a released version even when a transaction targets it`() {
+    fun `a writer of draft content refuses a released version it is given`() {
         val (tenant, before) = released("frozen-writer")
 
         assertThatThrownBy {
             jdbi.useTransaction<Exception> { handle ->
-                // Target the released row the way CatalogReleaseTargeting targets a draft.
-                handle.createQuery("SELECT set_config('epistola.content_version', :v, true)").bind("v", before.second.toString()).mapTo(String::class.java).one()
-                DraftResources.delete(handle, testCatalog(tenant, letters), ThemeStore.THEME, "brand")
+                // Given the released row as the version to write, as a message naming it would.
+                DraftResources.delete(handle, app.epistola.suite.catalog.releases.ContentVersion(testCatalog(tenant, letters), before.second), ThemeStore.THEME, "brand")
             }
         }.isInstanceOf(CatalogReleaseIsReleasedException::class.java)
 

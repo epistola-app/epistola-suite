@@ -24,6 +24,7 @@ import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import app.epistola.suite.testing.atNext
 
 /**
  * A moved template keeps what its models mean, and stores them in its new catalog's form (ADR 0033):
@@ -43,7 +44,7 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
     /** The variant's model as stored: its `themeRef` as the row holds it. */
     private fun storedThemeRef(tenant: app.epistola.suite.common.ids.TenantKey, templateResource: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM current_template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
+            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM ${atNext("version_template_variants")} v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
         ).bind("t", tenant).bind("k", templateResource).mapTo(String::class.java).findOne().orElse("<relative>")
     }
 
@@ -52,14 +53,14 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
         val tenant = tenantWith("Template theme relocation")
         val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
-            CreateDocumentTemplate(invoice, "Invoice").execute()
-            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute()
+            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters), catalogVersion = null).execute()
         }
 
         move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "house").movedTo(shared, "brand"))
 
-        val template = withMediator { app.epistola.suite.templates.queries.GetDocumentTemplate(invoice).query()!! }
+        val template = withMediator { app.epistola.suite.templates.queries.GetDocumentTemplate(invoice, catalogVersion = null).query()!! }
         assertThat(listOf(template.themeKey?.value, template.themeCatalogKey?.value)).`as`("named by alias and key, it follows").containsExactly("brand", "shared")
     }
 
@@ -69,11 +70,11 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
         val leaving = TemplateId(TemplateKey.of("leaving"), catalogId(tenant, letters))
         val joining = TemplateId(TemplateKey.of("joining"), catalogId(tenant, shared))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
-            CreateDocumentTemplate(leaving, "Leaving").execute()
-            CreateDocumentTemplate(joining, "Joining").execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, leaving), model("house", null)).execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, joining), model("house", "letters")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House", catalogVersion = null).execute()
+            CreateDocumentTemplate(leaving, "Leaving", catalogVersion = null).execute()
+            CreateDocumentTemplate(joining, "Joining", catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, leaving), model("house", null), catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, joining), model("house", "letters"), catalogVersion = null).execute()
         }
         assertThat(storedThemeRef(tenant, "leaving")).isEqualTo("<relative>")
         assertThat(storedThemeRef(tenant, "joining")).isEqualTo("letters")
@@ -97,8 +98,8 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
         assertThat(storedThemeRef(tenant, "leaving")).isEqualTo("letters")
         assertThat(storedThemeRef(tenant, "joining")).isEqualTo("<relative>")
         withMediator {
-            val left = GetVariantContent(VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("leaving"), catalogId(tenant, shared)))).query()
-            val joined = GetVariantContent(VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("joining"), catalogId(tenant, letters)))).query()
+            val left = GetVariantContent(VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("leaving"), catalogId(tenant, shared))), catalogVersion = null).query()
+            val joined = GetVariantContent(VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("joining"), catalogId(tenant, letters))), catalogVersion = null).query()
             assertThat(left?.themeRef).isEqualTo(ThemeRefOverride(themeKey = "house", catalogKey = "letters"))
             assertThat(joined?.themeRef).isEqualTo(ThemeRefOverride(themeKey = "house", catalogKey = "letters"))
         }

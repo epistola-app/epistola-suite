@@ -46,9 +46,9 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         val work = withMediator {
             TestNamespaces.createTenant(tenantKey, "Editor Draft Tenant").execute()
             CreateCatalog(tenantKey = tenantKey, id = letters, name = "Letters").execute()
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            MarkCatalogReady(testCatalog(tenantKey, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0").execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            MarkCatalogReady(testCatalog(tenantKey, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0", catalogVersion = null).execute()
             requireNotNull(CreateCatalogDraft(testCatalog(tenantKey, letters), "Redesign").execute().versionId)
         }
 

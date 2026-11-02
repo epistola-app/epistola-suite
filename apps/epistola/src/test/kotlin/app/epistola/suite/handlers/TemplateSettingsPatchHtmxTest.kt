@@ -59,11 +59,13 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateTheme(
                     id = ThemeId(ThemeKey.of("brand-theme"), CatalogId.default(tenantId)),
                     name = "Brand Theme",
+                    catalogVersion = null,
                 ).execute()
                 val tplKey = TestIdHelpers.nextTemplateId()
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(tenantId)),
                     name = "Invoice",
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -90,6 +92,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.themeKey).isEqualTo(ThemeKey.of("brand-theme"))
@@ -108,14 +111,16 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateTheme(
                     id = ThemeId(ThemeKey.of("brand-theme"), CatalogId.default(tenantId)),
                     name = "Brand Theme",
+                    catalogVersion = null,
                 ).execute()
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = ThemeKey.of("brand-theme"),
                     themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -139,6 +144,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.themeKey).isNull()
@@ -157,6 +163,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
                     name = "Invoice",
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -180,6 +187,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.themeKey).isNull()
@@ -199,14 +207,16 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateTheme(
                     id = ThemeId(currentTheme, CatalogId.default(tenantId)),
                     name = "Current Theme",
+                    catalogVersion = null,
                 ).execute()
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = currentTheme,
                     themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -233,6 +243,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.themeKey).isEqualTo(ThemeKey.of("current-theme"))
@@ -251,6 +262,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
                     name = "Invoice",
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -278,6 +290,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.name).isEqualTo("Quarterly Invoice")
@@ -296,6 +309,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
                     name = "Invoice",
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -318,6 +332,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.name).isEqualTo("Invoice")
@@ -334,10 +349,10 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 val t = createTenant("Settings Patch Pdfa On")
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 // pdfa_enabled defaults to TRUE; start from false so this test
                 // proves the enable transition rather than the column default.
-                UpdateDocumentTemplate(id = templateId, pdfaEnabled = false).execute()
+                UpdateDocumentTemplate(id = templateId, pdfaEnabled = false, catalogVersion = null).execute()
                 t to tplKey.value
             }
             tenant = seed.first
@@ -363,6 +378,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.pdfaEnabled).isTrue()
@@ -379,10 +395,11 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 val t = createTenant("Settings Patch Pdfa Off")
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     pdfaEnabled = true,
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -405,6 +422,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.pdfaEnabled).isFalse()
@@ -421,10 +439,11 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 val t = createTenant("Settings Patch Pdfa False")
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(TenantId(t.id)))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     pdfaEnabled = true,
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -451,6 +470,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.pdfaEnabled).isFalse()
@@ -464,7 +484,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         given {
             templateId = withMediator {
                 val tenantId = TenantId(createTenant("Settings Patch Description").id)
-                TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)).also { CreateDocumentTemplate(id = it, name = "Invoice").execute() }
+                TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)).also { CreateDocumentTemplate(id = it, name = "Invoice", catalogVersion = null).execute() }
             }
         }
 
@@ -480,7 +500,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val textarea = Regex("<textarea[^>]*template-description-input[^>]*>[^<]*</textarea>").find(response.body!!)?.value
             assertThat(textarea).contains("maxlength=\"2000\"").contains("Sent to residents &amp; companies")
-            assertThat(withMediator { GetDocumentTemplate(id = templateId).query() }!!.description).isEqualTo("Sent to residents & companies")
+            assertThat(withMediator { GetDocumentTemplate(id = templateId, catalogVersion = null).query() }!!.description).isEqualTo("Sent to residents & companies")
         }
     }
 
@@ -492,7 +512,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             templateId = withMediator {
                 val tenantId = TenantId(createTenant("Settings Patch Description Clear").id)
                 TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-                    .also { CreateDocumentTemplate(id = it, name = "Invoice", description = "Old notes").execute() }
+                    .also { CreateDocumentTemplate(id = it, name = "Invoice", description = "Old notes", catalogVersion = null).execute() }
             }
         }
 
@@ -502,7 +522,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         then {
             assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(withMediator { GetDocumentTemplate(id = templateId).query() }!!.description).isNull()
+            assertThat(withMediator { GetDocumentTemplate(id = templateId, catalogVersion = null).query() }!!.description).isNull()
         }
     }
 
@@ -540,6 +560,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(TenantId(b.id))),
                     name = "Tenant B Template",
+                    catalogVersion = null,
                 ).execute()
                 a to tplKey.value
             }
@@ -574,6 +595,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 CreateDocumentTemplate(
                     id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
                     name = "Invoice",
+                    catalogVersion = null,
                 ).execute()
                 t to tplKey.value
             }
@@ -609,6 +631,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val updated = withMediator {
                 GetDocumentTemplate(
                     id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(updated!!.name).isEqualTo("Renamed Without Htmx")
@@ -674,6 +697,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         CreateDocumentTemplate(
             id = TemplateId(tplKey, CatalogId.default(TenantId(t.id))),
             name = templateName,
+            catalogVersion = null,
         ).execute()
         t to tplKey.value
     }
@@ -681,6 +705,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     private fun nameOf(tenant: Tenant, templateKey: String): String? = withMediator {
         GetDocumentTemplate(
             id = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(tenant.id))),
+            catalogVersion = null,
         ).query()?.name
     }
 

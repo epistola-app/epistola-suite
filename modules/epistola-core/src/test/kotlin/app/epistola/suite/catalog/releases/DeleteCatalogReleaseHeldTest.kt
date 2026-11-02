@@ -59,7 +59,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
     private fun twoDrafts(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), "Brand").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), "Brand", catalogVersion = null).execute()
         mediator.releaseNext(id(tenant))
         CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
@@ -67,14 +67,14 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
     }
 
     /** Which resources the next version holds, by type and key. */
-    private fun inNext(tenant: TenantKey, type: String) = withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters)).query() }.resources
+    private fun inNext(tenant: TenantKey, type: String) = withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query() }.resources
         .filter { it.type == type }.map { it.slug }
 
     @Test
     fun `a next version holding the tenant's default theme alone is not discarded`() {
         val tenant = twoDrafts("held-default-theme")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = null).execute()
             SetTenantDefaultTheme(tenant, testCatalog(tenant, letters), ThemeKey.of("seasonal")).execute()
         }
 
@@ -90,13 +90,13 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
     fun `a next version whose theme is the default but also held by a release is discarded`() {
         val tenant = twoDrafts("held-default-theme-shared")
         withMediator {
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), name = "Brand, edited").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), name = "Brand, edited", catalogVersion = null).execute()
             SetTenantDefaultTheme(tenant, testCatalog(tenant, letters), ThemeKey.of("brand")).execute()
         }
 
         withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
 
-        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("brand"), id(tenant))).query()!! }.name).`as`("back to the release").isEqualTo("Brand")
+        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), catalogVersion = null).query()!! }.name).`as`("back to the release").isEqualTo("Brand")
     }
 
     @Test
@@ -104,8 +104,8 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val tenant = twoDrafts("held-code-list")
         val colours = CodeListId(CodeListKey.of("colours"), id(tenant))
         withMediator {
-            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant, shared)), "Colour", codeListId = colours).execute()
+            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant, shared)), "Colour", codeListId = colours, catalogVersion = null).execute()
         }
 
         assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
@@ -120,8 +120,8 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val tenant = twoDrafts("held-code-list-own")
         val colours = CodeListId(CodeListKey.of("colours"), id(tenant))
         withMediator {
-            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant)), "Colour", codeListId = colours).execute()
+            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant)), "Colour", codeListId = colours, catalogVersion = null).execute()
         }
 
         withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
@@ -134,15 +134,15 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val tenant = twoDrafts("held-template-theme")
         val letter = TemplateId(TemplateKey.of("letter"), id(tenant, shared))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
-            CreateDocumentTemplate(letter, "Letter").execute()
-            UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalog = testCatalog(letter.tenantKey, letters)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = null).execute()
+            CreateDocumentTemplate(letter, "Letter", catalogVersion = null).execute()
+            UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalog = testCatalog(letter.tenantKey, letters), catalogVersion = null).execute()
         }
 
         assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("template shared/letter (theme letters/seasonal)")
             }
-        assertThat(withMediator { GetDocumentTemplate(letter).query()!! }.themeKey?.value).isEqualTo("seasonal")
+        assertThat(withMediator { GetDocumentTemplate(letter, catalogVersion = null).query()!! }.themeKey?.value).isEqualTo("seasonal")
     }
 }

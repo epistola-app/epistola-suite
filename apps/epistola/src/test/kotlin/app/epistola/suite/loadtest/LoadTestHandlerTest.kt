@@ -49,6 +49,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             UpdateDataContract(
                 templateId = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(TenantKey.of(tenantKey)))),
                 dataExamples = examples,
+                catalogVersion = null,
             ).execute()
         }
     }

@@ -25,6 +25,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
+import app.epistola.suite.testing.atNext
 
 /**
  * Verifies the audit columns (`created_by` / `updated_by`) added by the
@@ -60,7 +61,7 @@ class AuditColumnsIT : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT created_by, updated_by
-                FROM current_themes
+                FROM ${atNext("version_themes")} current_themes
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
@@ -108,7 +109,7 @@ class AuditColumnsIT : IntegrationTestBase() {
 
         // 1. User A creates a theme.
         asUser(principalWithFullAccess(userAModel.id, "audit-user-a")) {
-            mediator.send(CreateTheme(id = themeId, name = "Audited Theme"))
+            mediator.send(CreateTheme(id = themeId, name = "Audited Theme", catalogVersion = null))
         }
 
         val afterCreate = readAuditColumns(themeId)
@@ -117,7 +118,7 @@ class AuditColumnsIT : IntegrationTestBase() {
 
         // 2-3. User B updates the theme.
         asUser(principalWithFullAccess(userBModel.id, "audit-user-b")) {
-            mediator.send(UpdateTheme(id = themeId, name = "Audited Theme (edited by B)"))
+            mediator.send(UpdateTheme(id = themeId, name = "Audited Theme (edited by B)", catalogVersion = null))
         }
 
         val afterUpdate = readAuditColumns(themeId)
@@ -138,7 +139,7 @@ class AuditColumnsIT : IntegrationTestBase() {
 
         // Row is still present and readable.
         val stillThere = asUser(principalWithFullAccess(userBModel.id, "audit-user-b")) {
-            mediator.query(app.epistola.suite.themes.queries.GetTheme(id = themeId))
+            mediator.query(app.epistola.suite.themes.queries.GetTheme(id = themeId, catalogVersion = null))
         }
         assertThat(stillThere).isNotNull
         assertThat(stillThere!!.name).isEqualTo("Audited Theme (edited by B)")

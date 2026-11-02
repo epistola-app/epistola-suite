@@ -19,6 +19,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
+import app.epistola.suite.testing.atNext
 
 /**
  * Verifies the mediator's per-command transaction contract:
@@ -49,12 +50,13 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
                 CreateStencil(
                     id = StencilId(StencilKey.of("tx-rollback-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                     name = ROLLBACK_MARKER,
+                    catalogVersion = null,
                 ).execute()
             }.hasMessageContaining("Simulated IMMEDIATE event-handler failure")
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM ${atNext("version_stencils")} current_stencils WHERE name = :name")
                 .bind("name", ROLLBACK_MARKER)
                 .mapTo(Int::class.java)
                 .one()
@@ -84,11 +86,12 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
             CreateStencil(
                 id = StencilId(StencilKey.of("tx-commit-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                 name = COMMIT_MARKER,
+                catalogVersion = null,
             ).execute()
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM ${atNext("version_stencils")} current_stencils WHERE name = :name")
                 .bind("name", COMMIT_MARKER)
                 .mapTo(Int::class.java)
                 .one()

@@ -8,8 +8,9 @@ import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -37,8 +38,8 @@ data class CreateVariant(
     val title: String,
     val description: String?,
     val attributes: Map<String, String> = emptyMap(),
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<TemplateVariant?>,
     RequiresPermission {
@@ -62,18 +63,19 @@ class CreateVariantHandler(
         requireCatalogEditable(command.id.catalogId)
 
         val auditUser = currentUserIdOrNull()?.value
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
 
         // Validate attributes against the tenant's attribute definitions
-        validateAttributes(command.id.tenantId, command.attributes)
+        validateAttributes(command.id.tenantId, command.attributes, command.catalogVersion)
         // An attribute of another catalog names it by alias (`system.locale`): that catalog is declared now,
         // as every write that starts using another catalog declares it (contract ADR 0003).
-        usedCatalogs.declareAttributes(command.id.catalogId, command.attributes.keys)
+        usedCatalogs.declareAttributes(at, command.attributes.keys)
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             // A new variant starts with the empty document.
             val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
             val model = templates.storedModel(prepared.templateModelJson)
-            templates.modify(handle, command.id.templateId, auditUser, null, "Template '${command.id.templateKey.value}'") { template ->
+            templates.modify(handle, at, command.id.templateId, auditUser, null, "Template '${command.id.templateKey.value}'") { template ->
                 if (template.variant(command.id.key.value) != null) throw DuplicateIdException("variant", command.id.key.value)
                 requireDistinctAttributeSet(template, command.id.key.value, command.attributes)
                 template.copy(
@@ -88,7 +90,7 @@ class CreateVariantHandler(
                     ),
                 )
             } ?: return@inTransaction null
-            templateVariant(handle, command.id)
+            templateVariant(handle, at, command.id)
         }
     }
 }

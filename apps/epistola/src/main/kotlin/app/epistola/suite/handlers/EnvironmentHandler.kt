@@ -420,6 +420,7 @@ class EnvironmentHandler(
                 data = data,
                 releaseVersion = version,
                 environmentId = environmentId.key,
+                catalogVersion = null,
             ).query()
         } catch (e: RuntimeException) {
             return detail(request, error = "The document could not be made: ${e.message}")

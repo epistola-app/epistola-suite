@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Component
 data class ListCatalogDependencies(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
@@ -38,6 +39,6 @@ class ListCatalogDependenciesHandler(
 ) : QueryHandler<ListCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(query: ListCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        store.declarations(handle, query.catalog)
+        store.declarations(handle, handle.versionOf(query.catalog, query))
     }
 }

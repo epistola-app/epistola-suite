@@ -42,10 +42,10 @@ class RelocationBatchTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalogId(tenant, letters)), "Tone", listOf("formal")).execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme", "letters.tone" to "formal")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme"), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalogId(tenant, letters)), "Tone", listOf("formal"), catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme", "letters.tone" to "formal"), catalogVersion = null).execute()
         }
         val brand = address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand")
         val tone = address(tenant, CatalogResourceType.ATTRIBUTE, letters, "tone")
@@ -63,10 +63,10 @@ class RelocationBatchTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("old")).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand-next"), catalogId(tenant, letters)), "Next brand", listOf("new")).execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariant(variant, "Main", mapOf("letters.brand" to "old", "letters.brand-next" to "new")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("old"), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand-next"), catalogId(tenant, letters)), "Next brand", listOf("new"), catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariant(variant, "Main", mapOf("letters.brand" to "old", "letters.brand-next" to "new"), catalogVersion = null).execute()
         }
 
         // Retire the current brand attribute to shared, and promote its successor into the name.
@@ -89,16 +89,16 @@ class RelocationBatchTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariant(variant, "Main", mapOf("brand" to "acme")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme"), catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariant(variant, "Main", mapOf("brand" to "acme"), catalogVersion = null).execute()
         }
 
         move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").renamedTo("label"))
 
         assertThat(attributesOf(template, variant)).containsExactlyEntriesOf(mapOf("letters.label" to "acme"))
         // And the variant is still valid against the registry: saving it again succeeds.
-        withMediator { UpdateVariant(variant, "Main", attributesOf(template, variant)).execute() }
+        withMediator { UpdateVariant(variant, "Main", attributesOf(template, variant), catalogVersion = null).execute() }
     }
 
     @Test
@@ -107,9 +107,9 @@ class RelocationBatchTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariant(variant, "Main", mapOf("brand" to "acme")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme"), catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariant(variant, "Main", mapOf("brand" to "acme"), catalogVersion = null).execute()
         }
 
         val plan = move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
@@ -141,9 +141,9 @@ class RelocationBatchTest : RelocationTestSupport() {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         withMediator {
-            CreateStencil(header, "Header").execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateEmbedding("header", letters.value)).execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateEmbedding("header", letters.value), catalogVersion = null).execute()
         }
 
         move(
@@ -153,7 +153,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         )
 
         val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(template.key, catalogId(tenant, shared)))
-        val props = withMediator { GetVariantContent(movedVariant).query()!! }.nodes.getValue("stencil-instance").props!!
+        val props = withMediator { GetVariantContent(movedVariant, catalogVersion = null).query()!! }.nodes.getValue("stencil-instance").props!!
         assertThat(props["catalogKey"]).isEqualTo(shared.value)
         assertThat(props["stencilKey"]).isEqualTo("masthead")
     }
@@ -164,10 +164,10 @@ class RelocationBatchTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, letters)), "Header").execute()
-            CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant, letters)), "Footer").execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("top", "header", letters.value), Triple("bottom", "footer", letters.value)))).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, letters)), "Header", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant, letters)), "Footer", catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("top", "header", letters.value), Triple("bottom", "footer", letters.value))), catalogVersion = null).execute()
         }
 
         val plan = move(
@@ -177,7 +177,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         )
 
         assertThat(plan.mutableRewriteCount).isEqualTo(1)
-        val nodes = withMediator { GetVariantContent(variant).query()!! }.nodes
+        val nodes = withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }.nodes
         assertThat(nodes.getValue("top").props).containsEntry("catalogKey", shared.value).containsEntry("stencilKey", "header")
         assertThat(nodes.getValue("bottom").props).containsEntry("catalogKey", archive.value).containsEntry("stencilKey", "closing")
     }
@@ -209,13 +209,13 @@ class RelocationBatchTest : RelocationTestSupport() {
         val tenant = tenantWith("Cycle resolved by batch")
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("base"), catalogId(tenant, shared)), "Base").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute()
-            CreateStencil(header, "Header").execute()
-            UpdateStencil(header, content = usesTheme("brand", letters.value)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("base"), catalogId(tenant, shared)), "Base", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", catalogVersion = null).execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
+            UpdateStencil(header, content = usesTheme("brand", letters.value), catalogVersion = null).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
-            CreateDocumentTemplate(invoice, "Invoice").execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value)).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value), catalogVersion = null).execute()
         }
         val stencil = address(tenant, CatalogResourceType.STENCIL, letters, "header")
         val theme = address(tenant, CatalogResourceType.THEME, letters, "brand")
@@ -227,7 +227,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         assertThat(identityAt(tenant, stencil.copy(catalogKey = shared.value))).isNotNull()
     }
 
-    private fun attributesOf(template: TemplateId, variant: VariantId): Map<String, String> = withMediator { ListVariants(template).query() }
+    private fun attributesOf(template: TemplateId, variant: VariantId): Map<String, String> = withMediator { ListVariants(template, catalogVersion = null).query() }
         .single { it.id == variant.key }
         .attributes
 }

@@ -5,8 +5,9 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ContentVersions
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.CatalogId
@@ -74,16 +75,18 @@ class SetTenantDefaultThemeHandler(
         }
 
         val catalog = checkNotNull(command.catalog) { "validated in init" }
+        // A tenant's setting: the theme as its catalog's next version holds it.
+        val next = ContentVersions.next(handle, catalog)
 
         val themeExists = handle.createQuery(
             """
-            SELECT COUNT(*) FROM current_themes
-            WHERE id = :themeId AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+            SELECT COUNT(*) FROM version_themes
+            WHERE id = :themeId AND tenant_key = :tenantId AND version_id = :v
             """,
         )
             .bind("themeId", command.themeId)
             .bind("tenantId", command.tenantId)
-            .bindCatalog("catalogKey", catalog)
+            .bindVersion("v", next)
             .mapTo<Long>()
             .one() > 0
 
@@ -93,13 +96,14 @@ class SetTenantDefaultThemeHandler(
 
         handle.createQuery(
             updateTenantReturningTenant(
-                "default_theme_resource_id = ${themeAtAddress("tenantId", "catalogKey", "themeId")}",
+                "default_theme_resource_id = ${themeAtAddress("tenantId", "catalogKey", "themeId", "v")}",
                 "id = :tenantId",
             ),
         )
             .bind("tenantId", command.tenantId)
             .bind("themeId", command.themeId)
             .bindCatalog("catalogKey", catalog)
+            .bindVersion("v", next)
             .mapTo<Tenant>()
             .one()
     }

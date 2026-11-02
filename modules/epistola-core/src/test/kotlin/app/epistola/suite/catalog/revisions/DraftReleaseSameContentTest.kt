@@ -94,7 +94,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
         val tenant = createTenant("Same export").id
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         seed(letters)
-        val drafted = withMediator { contentBuilder.build(letters) }
+        val drafted = withMediator { contentBuilder.buildNext(letters) }
         val version = withMediator { mediator.releaseNext(letters) }
         val released = checkNotNull(assembler.assemble(letters, version)).content
 
@@ -116,9 +116,9 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
     /** A catalog holding one of every type stored as JSON, its references into itself included. */
     private fun seed(letters: CatalogId) = withMediator {
         CreateCatalog(letters.tenantKey, letters.key, "Letters").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system"))).execute()
-        CreateCodeList(CodeListId(CodeListKey.of("regions"), letters), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
-        CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = CodeListId(CodeListKey.of("regions"), letters)).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")), catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("regions"), letters), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe")), catalogVersion = null).execute()
+        CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = CodeListId(CodeListKey.of("regions"), letters), catalogVersion = null).execute()
         app.epistola.suite.testing.FontFixtures.importFont(
             letters,
             "house-sans",
@@ -133,6 +133,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
             null,
             null,
             id = app.epistola.suite.common.ids.AssetKey.of("mark"),
+            catalogVersion = null,
         ).execute()
         // Names a theme of its own catalog: a release says that relatively.
         CreateStencil(
@@ -145,12 +146,13 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
                 themeRef = ThemeRefOverride(themeKey = "brand"),
             ),
+            catalogVersion = null,
         ).execute()
         // A template: its own theme by the editor's qualified name, a second variant described.
         val template = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("invoice"), letters)
-        app.epistola.suite.templates.commands.CreateDocumentTemplate(template, "Invoice").execute()
-        app.epistola.suite.templates.commands.UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters).execute()
-        app.epistola.suite.templates.commands.variants.CreateVariant(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("second"), template), "Second", "For courts").execute()
+        app.epistola.suite.templates.commands.CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+        app.epistola.suite.templates.commands.UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters, catalogVersion = null).execute()
+        app.epistola.suite.templates.commands.variants.CreateVariant(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("second"), template), "Second", "For courts", catalogVersion = null).execute()
         app.epistola.suite.templates.commands.variants.UpdateVariantContent(
             app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, template),
             TemplateDocument(
@@ -160,6 +162,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
                 themeRef = ThemeRefOverride(themeKey = "brand", catalogKey = "letters"),
             ),
+            catalogVersion = null,
         ).execute()
     }
 }

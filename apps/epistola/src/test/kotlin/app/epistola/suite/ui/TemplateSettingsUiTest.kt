@@ -97,6 +97,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             UpdateDocumentTemplate(
                 id = TemplateId(seeded.second.id, CatalogId.default(TenantId(seeded.first.id))),
                 pdfaEnabled = false,
+                catalogVersion = null,
             ).execute()
             seeded
         }
@@ -122,12 +123,13 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             val catalogId = CatalogId.default(tenantId)
             val currentTheme = ThemeId(ThemeKey.of("current-theme"), catalogId)
             val staleTheme = ThemeId(ThemeKey.of("stale-theme"), catalogId)
-            CreateTheme(id = currentTheme, name = "Current Theme").execute()
-            CreateTheme(id = staleTheme, name = "Soon Deleted Theme").execute()
+            CreateTheme(id = currentTheme, name = "Current Theme", catalogVersion = null).execute()
+            CreateTheme(id = staleTheme, name = "Soon Deleted Theme", catalogVersion = null).execute()
             UpdateDocumentTemplate(
                 id = TemplateId(seeded.second.id, catalogId),
                 themeId = currentTheme.key,
                 themeCatalog = testCatalog(TemplateId(seeded.second.id, catalogId).tenantKey, currentTheme.catalogKey),
+                catalogVersion = null,
             ).execute()
             Triple(seeded.first, seeded.second, staleTheme)
         }
@@ -138,7 +140,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
 
         // The page still offers this option, but another user/tab removes it
         // before the selection reaches the server.
-        withMediator { DeleteTheme(staleTheme).execute() }
+        withMediator { DeleteTheme(staleTheme, catalogVersion = null).execute() }
         select.selectOption("${CatalogId.default(TenantId(tenant.id)).address}/stale-theme")
 
         assertThat(select).hasValue("${CatalogId.default(TenantId(tenant.id)).address}/current-theme")
@@ -152,8 +154,8 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     fun `an inline save refreshes what the bar says is not published`() {
         val (tenant, template) = withMediator {
             createTemplate().also { (tenant, _) ->
-                MarkCatalogReady(testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
+                MarkCatalogReady(testCatalog(tenant.id, CatalogKey.DEFAULT), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.DEFAULT), catalogVersion = null).execute()
             }
         }
 
@@ -186,6 +188,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         val template = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
             name = "Settings UI Template",
+            catalogVersion = null,
         ).execute().withRequiredDataExample()
         // The deployment matrix only renders rows when an environment exists.
         CreateEnvironment(

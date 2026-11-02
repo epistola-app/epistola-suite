@@ -111,12 +111,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("release-description")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description").execute()
-            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0", catalogVersion = null).execute()
 
             val releases = ListCatalogReleases(testCatalog(a, catalog)).query().filter { it.status == CatalogReleaseStatus.RELEASED }.associateBy { it.version }
             val first = manifestOf(ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).release
@@ -141,12 +141,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("release-description-fp")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description FP").execute()
-            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            val released = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            val released = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0", catalogVersion = null).execute()
             val archive = ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes
             val bare = withRelease(archive) { it.remove(listOf("releaseId", "metadata", "base")) }
 
@@ -165,12 +165,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         val catalog = CatalogKey.of(name.lowercase().replace(' ', '-'))
         return withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
-            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0", catalogVersion = null).execute()
             Lineage(a, catalog, ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes)
         }
     }

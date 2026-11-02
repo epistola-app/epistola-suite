@@ -7,9 +7,12 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -41,8 +44,8 @@ data class GetAssetContent(
     val assetId: AssetKey,
     /** The asset's catalog, by its address (ADR 0034, section 9); null for whichever has it. */
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<AssetContent?>,
     RequiresPermission {
@@ -64,7 +67,9 @@ class GetAssetContentHandler(
     override fun handle(query: GetAssetContent): AssetContent? {
         // 1. The image, with the hash its bytes are stored under.
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
-            handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog)
+            // Of [catalog]'s version addressed, else of the version addressed and every other catalog's next version.
+            val version = if (query.catalog != null) handle.versionOf(query.catalog, query).versionId else handle.addressedVersion(query)
+            handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog, version)
         } ?: return null
 
         // 2. Its bytes, by that hash. An image without one had no bytes to keep (V20261101000600).
@@ -89,20 +94,20 @@ private data class AssetMeta(
     val contentHash: String?,
 )
 
-private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog: app.epistola.suite.common.ids.CatalogId?): AssetMeta? = createQuery(
+private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog: app.epistola.suite.common.ids.CatalogId?, version: java.util.UUID?): AssetMeta? = createQuery(
     """
     SELECT a.id, a.tenant_key, (SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id) AS catalog_key,
            a.media_type, a.content_hash
-    FROM current_images a
+    FROM version_images a
     WHERE a.id = :assetId
       AND a.tenant_key = :tenantId
-      ${if (catalog != null) "AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}" else ""}
+      AND ${if (catalog != null) "a.version_id = :version" else inVersionOrNext("a", "version")}
     LIMIT 1
     """,
 )
     .bind("assetId", assetId.value)
     .bind("tenantId", tenantId)
-    .apply { catalog?.let { bindCatalog("catalogKey", it) } }
+    .bindVersion("version", version)
     .map { rs, _ ->
         AssetMeta(
             id = AssetKey(rs.getString("id")),

@@ -6,6 +6,8 @@ package app.epistola.suite.fonts.commands
 
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FontStore
@@ -37,8 +39,8 @@ import org.springframework.stereotype.Component
  */
 data class DeleteFont(
     val fontId: FontId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -59,12 +61,13 @@ class DeleteFontHandler(
         // Catalog editability — one Epistola supplies (e.g. `system`) rejects.
         requireCatalogEditable(catalog)
 
-        if (jdbi.withHandle<Boolean, Exception> { fonts.get(it, command.fontId) == null }) return false
-        val usages = FindFontUsages(command.fontId).query()
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(catalog, command) }
+        if (jdbi.withHandle<Boolean, Exception> { fonts.get(it, at, command.fontId) == null }) return false
+        val usages = FindFontUsages(command.fontId, command.catalogVersion).query()
         if (usages.isNotEmpty()) throw FontInUseException(command.fontId.key, usages)
 
         // Its faces' files are its binaries: they go when nothing names them any more (the content collector).
-        val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, command.fontId) }
+        val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, at, command.fontId) }
         logger.info("Deleted font {} ({}) for tenant {}", command.fontId.key, catalog.key, command.fontId.tenantKey)
         return deleted
     }

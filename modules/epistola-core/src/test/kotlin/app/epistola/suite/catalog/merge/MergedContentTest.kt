@@ -69,11 +69,11 @@ class MergedContentTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand").execute()
-            CreateDocumentTemplate(id = invoice(tenant), name = "Invoice").execute()
-            CreateVariant(variant(tenant, "english"), title = "English", description = null).execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand", catalogVersion = null).execute()
+            CreateDocumentTemplate(id = invoice(tenant), name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(variant(tenant, "english"), title = "English", description = null, catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0", catalogVersion = null).execute()
 
             val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             fix(tenant, fixRef)
@@ -107,10 +107,10 @@ class MergedContentTest : IntegrationTestBase() {
     fun `the sides of a conflict are its content in the merge base, the draft and the release`() {
         val tenant = bothRetitled("Merge Sides Conflict")
         withMediator {
-            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0", catalogVersion = null).query()
             assertThat(preview.conflicts.map { it.contentKey }).containsExactly("template/invoice")
 
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
 
             assertThat(sides.entry).isEqualTo("template/invoice")
             assertThat(sides.mergeBase).isEqualTo("1.0.0")
@@ -129,13 +129,13 @@ class MergedContentTest : IntegrationTestBase() {
             fix = { tenant, fixRef -> CreateTheme(id = ThemeId(ThemeKey.of("extra"), testCatalog(TenantId(tenant), letters)), name = "Extra", catalogVersion = fixRef).execute() },
         )
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "theme/extra").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "theme/extra", catalogVersion = null).query()
             assertThat(sides.base).isNull()
             assertThat(sides.draft).isNull()
             assertThat(sides.release).containsEntry("type", "theme").containsEntry("key", "extra").containsEntry("name", "Extra")
 
             listOf("template/invoice", "theme/nothing").forEach { entry ->
-                assertThatThrownBy { GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", entry).query() }
+                assertThatThrownBy { GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", entry, catalogVersion = null).query() }
                     .`as`(entry).isInstanceOf(MergeEntryNotFoundException::class.java)
             }
         }
@@ -146,18 +146,18 @@ class MergedContentTest : IntegrationTestBase() {
         val tenant = createTenant("Merge Sides Settings").id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant), shared)), name = "Base").execute()
-            MarkCatalogReady(testCatalog(tenant, shared)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant), shared)), name = "Base", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0", catalogVersion = null).execute()
         }
         val sharedName = withMediator { GetCatalog(testCatalog(tenant, shared)).query()!! }
         val fingerprint = withMediator { ListCatalogReleases(testCatalog(tenant, shared)).query().single { it.version == "1.0.0" }.fingerprint }
         // The parallel work pins shared 1.0.0 and declares a preset; the next release names shared's draft and declares another.
         withMediator {
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("own"), testCatalog(TenantId(tenant), letters)), name = "Own").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("own"), testCatalog(TenantId(tenant), letters)), name = "Own", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0", catalogVersion = null).execute()
             val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(sharedName.registry, sharedName.namespace, "shared", releaseVersion = "1.0.0")), catalogVersion = fixRef).execute()
             SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("callout", "Callout")), catalogVersion = fixRef).execute()
@@ -165,15 +165,15 @@ class MergedContentTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", catalogVersion = fixRef).execute()
 
             val sharedDraft = ListCatalogReleases(testCatalog(tenant, shared)).query().single { it.isNext }.versionId
-            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(sharedName.registry, sharedName.namespace, "shared", versionId = sharedDraft))).execute()
-            SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("note", "Note", "A side note"))).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(sharedName.registry, sharedName.namespace, "shared", versionId = sharedDraft)), catalogVersion = null).execute()
+            SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("note", "Note", "A side note")), catalogVersion = null).execute()
 
-            val presets = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalog/presets").query()
+            val presets = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalog/presets", catalogVersion = null).query()
             assertThat(presets.base).isEqualTo(mapOf("presets" to emptyList<Any>()))
             assertThat(presets.draft).isEqualTo(mapOf("presets" to listOf(mapOf("key" to "note", "name" to "Note", "description" to "A side note"))))
             assertThat(presets.release).isEqualTo(mapOf("presets" to listOf(mapOf("key" to "callout", "name" to "Callout"))))
 
-            val dependency = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalogDependency/shared").query()
+            val dependency = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalogDependency/shared", catalogVersion = null).query()
             assertThat(dependency.base).isNull()
             assertThat(dependency.release).isEqualTo(
                 mapOf("alias" to "shared", "registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to "1.0.0", "releaseFingerprint" to fingerprint),
@@ -182,7 +182,7 @@ class MergedContentTest : IntegrationTestBase() {
                 mapOf("alias" to "shared", "registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to null, "releaseFingerprint" to null, "releaseId" to sharedDraft),
             )
 
-            val defaultTheme = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalog/defaultTheme")
+            val defaultTheme = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "catalog/defaultTheme", catalogVersion = null)
             assertThatThrownBy { defaultTheme.query() }.`as`("neither side changed it").isInstanceOf(MergeEntryNotFoundException::class.java)
         }
     }
@@ -196,7 +196,7 @@ class MergedContentTest : IntegrationTestBase() {
             val lines = mediator.parallelReleaseLines(producer, catalog)
             ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ImportCatalogZip(tenantKey = tenant, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            assertThatThrownBy { GetDraftMergeSides(testCatalog(tenant, catalog), "1.0.1", "theme/brand").query() }
+            assertThatThrownBy { GetDraftMergeSides(testCatalog(tenant, catalog), "1.0.1", "theme/brand", catalogVersion = null).query() }
                 .isInstanceOfSatisfying(MergeBaseMissingException::class.java) { assertThat(it.version).isEqualTo("1.0.0") }
         }
     }
@@ -205,20 +205,20 @@ class MergedContentTest : IntegrationTestBase() {
     fun `a conflict resolved to merged content keeps both changes, and is changed and not ready`() {
         val tenant = bothRetitled("Merge Merged Template")
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
 
-            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides))).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides)), catalogVersion = null).execute()
 
             assertThat(merged.merged).containsExactly("template/invoice")
             assertThat(merged.taken).isEmpty()
             assertThat(merged.kept).isEmpty()
-            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query().alreadyMerged).isTrue()
-            val template = GetCatalogResourceChanges(testCatalog(tenant, letters)).query().resources.single { it.type == "template" && it.slug == "invoice" }
+            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0", catalogVersion = null).query().alreadyMerged).isTrue()
+            val template = GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query().resources.single { it.type == "template" && it.slug == "invoice" }
             assertThat(template.state).isEqualTo(CatalogResourceState.MODIFIED)
             assertThat(template.ready).`as`("merged content is reviewed before it is released").isFalse()
         }
         withMediator {
-            val titles = app.epistola.suite.templates.queries.variants.ListVariants(invoice(tenant)).query().associate { it.id.value to it.title }
+            val titles = app.epistola.suite.templates.queries.variants.ListVariants(invoice(tenant), catalogVersion = null).query().associate { it.id.value to it.title }
             assertThat(titles).containsExactlyInAnyOrderEntriesOf(mapOf("initial" to "Standard", "english" to "English (fixed)"))
         }
     }
@@ -226,26 +226,26 @@ class MergedContentTest : IntegrationTestBase() {
     @Test
     fun `merged content awaits review until every part of it is marked ready, and an edit alone does not end it`() {
         val tenant = bothRetitled("Merge Merged Review")
-        fun awaiting() = GetCatalogResourceChanges(testCatalog(tenant, letters)).query().mergedForReview.map { "${it.type}/${it.slug}" }
+        fun awaiting() = GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query().mergedForReview.map { "${it.type}/${it.slug}" }
         withMediator {
             assertThat(awaiting()).`as`("nothing merged yet").isEmpty()
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
-            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides))).execute()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
+            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides)), catalogVersion = null).execute()
         }
         withMediator { assertThat(awaiting()).containsExactly("template/invoice") }
 
         withMediator { retitle(tenant, "initial", "Standard, edited") }
         withMediator { assertThat(awaiting()).`as`("an edit leaves the rest of the merged content unreviewed").containsExactly("template/invoice") }
 
-        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "initial")).execute() }
+        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "initial"), catalogVersion = null).execute() }
         withMediator { assertThat(awaiting()).`as`("one of its two variants marked").containsExactly("template/invoice") }
 
-        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "english")).execute() }
+        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "english"), catalogVersion = null).execute() }
         withMediator { assertThat(awaiting()).isEmpty() }
 
         withMediator { retitle(tenant, "english", "English, edited after review") }
         withMediator {
-            val template = GetCatalogResourceChanges(testCatalog(tenant, letters)).query().resources.single { it.type == "template" && it.slug == "invoice" }
+            val template = GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query().resources.single { it.type == "template" && it.slug == "invoice" }
             assertThat(template.ready).isFalse()
             assertThat(template.mergedForReview).`as`("reviewed since the merge; now an ordinary change").isFalse()
         }
@@ -255,8 +255,8 @@ class MergedContentTest : IntegrationTestBase() {
     fun `a conflict resolved to a side is not merged content to review`() {
         val tenant = bothRetitled("Merge Side Not Merged")
         withMediator {
-            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", resolutions = mapOf("template/invoice" to MergeResolution.Ours)).execute()
-            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().mergedForReview).isEmpty()
+            MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", resolutions = mapOf("template/invoice" to MergeResolution.Ours), catalogVersion = null).execute()
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = null).query().mergedForReview).isEmpty()
         }
     }
 
@@ -264,13 +264,13 @@ class MergedContentTest : IntegrationTestBase() {
     fun `merged content using a stencil the result does not have refuses the merge`() {
         val tenant = bothRetitled("Merge Merged Missing Stencil")
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
             val content = combined(sides).let { it + ("templateModel" to withStencil(it["templateModel"], "ghost")) }
 
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content)).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content), catalogVersion = null).execute() }
                 .isInstanceOf(MergeRefusedException::class.java)
                 .hasMessageContaining("template 'invoice' uses stencil 'ghost', which this catalog does not have")
-            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query().alreadyMerged).`as`("nothing changed").isFalse()
+            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0", catalogVersion = null).query().alreadyMerged).`as`("nothing changed").isFalse()
         }
     }
 
@@ -278,7 +278,7 @@ class MergedContentTest : IntegrationTestBase() {
     fun `merged content that is not valid for its entry is refused, the field naming the entry`() {
         val tenant = bothRetitled("Merge Merged Invalid")
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
             val good = combined(sides)
             val cases = mapOf(
                 good + ("key" to "Invoice!") to "mergedContent.template/invoice/key",
@@ -289,11 +289,11 @@ class MergedContentTest : IntegrationTestBase() {
                 good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice/name",
             )
             cases.forEach { (content, field) ->
-                assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content)).execute() }
+                assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to content), catalogVersion = null).execute() }
                     .`as`(field)
                     .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.field).isEqualTo(field) }
             }
-            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query().alreadyMerged).`as`("nothing changed").isFalse()
+            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0", catalogVersion = null).query().alreadyMerged).`as`("nothing changed").isFalse()
         }
     }
 
@@ -304,8 +304,8 @@ class MergedContentTest : IntegrationTestBase() {
             fix = { tenant, fixRef -> retitle(tenant, "english", "English (fixed)", fixRef) },
         )
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to sides.release!!)).execute() }
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("template/invoice" to sides.release!!), catalogVersion = null).execute() }
                 .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("template/invoice")
         }
@@ -314,7 +314,7 @@ class MergedContentTest : IntegrationTestBase() {
     @Test
     fun `a conflict resolved both to a side and to merged content is refused`() {
         assertThatThrownBy {
-            MergeReleaseIntoDraft(testCatalog(TenantKey.of("acme"), letters), "1.1.0", resolutions = mapOf("template/invoice" to MergeResolution.Theirs), mergedContent = mapOf("template/invoice" to mapOf("type" to "template")))
+            MergeReleaseIntoDraft(testCatalog(TenantKey.of("acme"), letters), "1.1.0", resolutions = mapOf("template/invoice" to MergeResolution.Theirs), mergedContent = mapOf("template/invoice" to mapOf("type" to "template")), catalogVersion = null)
         }
             .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.field).isEqualTo("mergedContent.template/invoice") }
     }
@@ -323,9 +323,9 @@ class MergedContentTest : IntegrationTestBase() {
     fun `merged content made from an outdated preview is refused`() {
         val tenant = bothRetitled("Merge Merged Outdated")
         withMediator {
-            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice").query()
+            val sides = GetDraftMergeSides(testCatalog(tenant, letters), "1.1.0", "template/invoice", catalogVersion = null).query()
             retitle(tenant, "initial", "Standard (again)")
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides))).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides)), catalogVersion = null).execute() }
                 .isInstanceOf(MergePreviewOutdatedException::class.java)
         }
     }
@@ -335,16 +335,16 @@ class MergedContentTest : IntegrationTestBase() {
         val tenant = lines(
             "Merge Merged Presets",
             fix = { tenant, fixRef -> SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("callout", "Callout")), catalogVersion = fixRef).execute() },
-            next = { tenant -> SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("note", "Note"))).execute() },
+            next = { tenant -> SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("note", "Note")), catalogVersion = null).execute() },
         )
         withMediator {
             val merged = mapOf("presets" to listOf(mapOf("key" to "callout", "name" to "Callout"), mapOf("key" to "note", "name" to "Note")))
             assertThatThrownBy {
-                MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("catalog/presets" to mapOf("presets" to listOf(mapOf("key" to "Bad Key", "name" to "Bad"))))).execute()
+                MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("catalog/presets" to mapOf("presets" to listOf(mapOf("key" to "Bad Key", "name" to "Bad")))), catalogVersion = null).execute()
             }.isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.field).isEqualTo("mergedContent.catalog/presets/presets[0]") }
 
-            assertThat(MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("catalog/presets" to merged)).execute().merged).containsExactly("catalog/presets")
-            assertThat(GetCatalogThemeSettings(testCatalog(tenant, letters)).query().presets).containsExactly(CatalogPreset("callout", "Callout"), CatalogPreset("note", "Note"))
+            assertThat(MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", mergedContent = mapOf("catalog/presets" to merged), catalogVersion = null).execute().merged).containsExactly("catalog/presets")
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant, letters), catalogVersion = null).query().presets).containsExactly(CatalogPreset("callout", "Callout"), CatalogPreset("note", "Note"))
         }
     }
 

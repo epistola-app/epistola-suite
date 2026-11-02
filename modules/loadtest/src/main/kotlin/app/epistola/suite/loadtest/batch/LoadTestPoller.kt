@@ -4,7 +4,7 @@
 
 package app.epistola.suite.loadtest.batch
 
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inNextVersion
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -131,16 +131,16 @@ class LoadTestPoller(
             FROM claimed
             WHERE load_test_runs.id = claimed.id
             RETURNING load_test_runs.id, tenant_key,
-                      (SELECT cat.catalog_key FROM current_templates t
+                      (SELECT cat.catalog_key FROM version_templates t
                         JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
                         WHERE t.tenant_key = load_test_runs.tenant_key
-                          AND t.resource_id = load_test_runs.template_resource_id) AS catalog_key, (SELECT cat.namespace FROM current_templates t
+                          AND t.resource_id = load_test_runs.template_resource_id AND ${inNextVersion("t")}) AS catalog_key, (SELECT cat.namespace FROM version_templates t
                         JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
                         WHERE t.tenant_key = load_test_runs.tenant_key
-                          AND t.resource_id = load_test_runs.template_resource_id) AS namespace,
-                      (SELECT t.id FROM current_templates t
+                          AND t.resource_id = load_test_runs.template_resource_id AND ${inNextVersion("t")}) AS namespace,
+                      (SELECT t.id FROM version_templates t
                         WHERE t.tenant_key = load_test_runs.tenant_key
-                          AND t.resource_id = load_test_runs.template_resource_id) AS template_key,
+                          AND t.resource_id = load_test_runs.template_resource_id AND ${inNextVersion("t")}) AS template_key,
                       variant_key, version_key, environment_key,
                       target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                       completed_count, failed_count, total_duration_ms, avg_response_time_ms,

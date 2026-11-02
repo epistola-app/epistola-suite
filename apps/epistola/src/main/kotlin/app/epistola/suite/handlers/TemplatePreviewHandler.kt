@@ -83,6 +83,7 @@ class TemplatePreviewHandler(
                     variantId = variantId.key,
                     data = dataNode,
                     releaseVersion = previewRequest.releaseVersion,
+                    catalogVersion = null,
                 ).query()
             } else {
                 // Render the working model, optionally with live template model from editor

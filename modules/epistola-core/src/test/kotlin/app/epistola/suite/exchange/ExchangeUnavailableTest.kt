@@ -53,7 +53,7 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Outage").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
 
             // Exchange goes away entirely — not an error response, no response at all.
             exchange.close()

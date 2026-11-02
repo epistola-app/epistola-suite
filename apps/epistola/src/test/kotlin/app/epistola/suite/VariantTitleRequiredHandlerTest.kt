@@ -63,6 +63,7 @@ class VariantTitleRequiredHandlerTest : BaseIntegrationTest() {
             CreateDocumentTemplate(
                 id = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id))),
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -89,11 +90,12 @@ class VariantTitleRequiredHandlerTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             CreateVariant(
                 id = VariantId(VariantKey.of("english"), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()
         }
 
@@ -119,11 +121,12 @@ class VariantTitleRequiredHandlerTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             CreateVariant(
                 id = VariantId(VariantKey.of("english"), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()
         }
 

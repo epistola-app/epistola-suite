@@ -70,9 +70,9 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             variantId
         }
     }
@@ -82,6 +82,7 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
             catalog = testCatalog(variantId.tenantKey, variantId.catalogKey),
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
+            catalogVersion = null,
         ).query()
     }
 
@@ -89,9 +90,9 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `a finding shows when a check reports it and goes when the author fixes it`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         val open = findingsFor(variantId).findings
         assertThat(open).singleElement().satisfies({
@@ -103,8 +104,8 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
 
         // The author fills the block in and the check runs again. Nobody resolves anything: the check
         // of what the variant reads now reports nothing, so nothing is shown.
-        withMediator { UpdateVariantContent(variantId, documentWithText("Dear customer, your invoice is attached.")).execute() }
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText("Dear customer, your invoice is attached."), catalogVersion = null).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         assertThat(findingsFor(variantId).findings).isEmpty()
     }
@@ -112,11 +113,11 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `re-running against an unchanged draft is idempotent`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
         val first = findingsFor(variantId).findings.single()
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
         val second = findingsFor(variantId).findings.single()
 
         // Same row, still open — a re-run must not churn the ledger.
@@ -129,12 +130,12 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `an ignore survives a later check run`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
         val finding = findingsFor(variantId).findings.single()
         withMediator { IgnoreFinding(variantId.tenantKey, finding.key, "placeholder, filled at render time").execute() }
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         val after = findingsFor(variantId).findings.single()
         assertThat(after.effectiveStatus).isEqualTo(EffectiveQualityStatus.IGNORED)
@@ -144,9 +145,9 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `checks run against the draft rather than the published version`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
         val read = findingsFor(variantId)
 
         // The finding is stored under the draft's input key, so the editor shows it as current.
@@ -162,27 +163,27 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `a finding computed before an edit reads as stale afterwards`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         // Edit the draft without re-running the checks — exactly what the editor sees mid-session.
-        withMediator { UpdateVariantContent(variantId, documentWithText("   ")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText("   "), catalogVersion = null).execute() }
 
         val read = findingsFor(variantId)
         assertThat(read.findings.single().outdated).isTrue()
         assertThat(read.checks.single { it.sourceId == read.findings.single().sourceId }.current).isFalse()
 
         // Re-running clears the staleness.
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
         assertThat(findingsFor(variantId).findings.single().outdated).isFalse()
     }
 
     @Test
     fun `a variant with no findings produces an empty ledger`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("Dear customer, your invoice is attached.")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText("Dear customer, your invoice is attached."), catalogVersion = null).execute() }
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         assertThat(findingsFor(variantId).findings).isEmpty()
     }
@@ -191,9 +192,9 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
     @Test
     fun `running a source subset skips the others`() {
         val variantId = newVariant()
-        withMediator { UpdateVariantContent(variantId, documentWithText("")).execute() }
+        withMediator { UpdateVariantContent(variantId, documentWithText(""), catalogVersion = null).execute() }
 
-        val results = withMediator { RunQualityChecks(variantId, sourceIds = setOf(QualitySourceId("nope"))).execute() }
+        val results = withMediator { RunQualityChecks(variantId, sourceIds = setOf(QualitySourceId("nope")), catalogVersion = null).execute() }
 
         assertThat(results.sources).isEmpty()
         assertThat(findingsFor(variantId).findings).isEmpty()

@@ -128,10 +128,10 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             tenant = tenant("Catalog Links Tenant")
             CreateCatalog(tenantKey = tenant.id, id = billing, name = "Billing").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenant.id), billing))
-            templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice").execute().id
+            templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice", catalogVersion = null).execute().id
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
-            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()
+            val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null).execute()!!
+            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice"), catalogVersion = null).execute()
             // Generation renders billing's latest release.
             mediator.publishAndRelease(variantId)
             GenerateDocument(

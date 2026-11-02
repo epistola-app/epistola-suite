@@ -95,7 +95,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
     private lateinit var contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder
 
     @Autowired
-    private lateinit var targeting: app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     @Autowired
     private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
@@ -112,6 +112,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("audience"), testCatalog(TenantId(source.id), catalogKey)),
                 displayName = "Audience",
                 allowedValues = listOf("municipalities"),
+                catalogVersion = null,
             ).execute()
             val image = UploadAsset(
                 catalog = testCatalog(source.id, catalogKey),
@@ -120,6 +121,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 content = createMinimalPng(),
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
             val imageSlug = image.id.value
 
@@ -139,7 +141,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
 
             val exported = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(source.id), catalogKey))
-            assertThatThrownBy { DeleteAsset(source.id, image.id).execute() }
+            assertThatThrownBy { DeleteAsset(source.id, image.id, catalogVersion = null).execute() }
                 .isInstanceOf(AssetInUseException::class.java)
                 .hasMessageContaining("Catalog: Metadata Catalog Renamed")
             exported
@@ -177,6 +179,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 content = createMinimalPng(),
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
             UpdateCatalogMetadata(
                 catalog = testCatalog(tenant.id, catalogKey),
@@ -186,13 +189,13 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
             // A draft of the same catalog started from nothing: the presentation is catalog-wide, the image is not in it.
             val empty = app.epistola.suite.catalog.releases.CreateCatalogDraft(testCatalog(tenant.id, catalogKey), name = "Empty").execute()
-            val emptyId = targeting.resolve(
-                app.epistola.suite.catalog.releases.CatalogReleaseRef(testCatalog(tenant.id, catalogKey), app.epistola.suite.catalog.releases.DraftRef.Id(empty.versionId)),
-            )
+            val emptyId = jdbi.withHandle<java.util.UUID, Exception> {
+                requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(tenant.id, catalogKey), app.epistola.suite.catalog.releases.DraftRef.Id(empty.versionId)))
+            }
 
-            assertThat(contentBuilder.build(testCatalog(tenant.id, catalogKey)).catalog.presentation?.iconImageKey).isEqualTo(image.id.value)
+            assertThat(contentBuilder.buildNext(testCatalog(tenant.id, catalogKey)).catalog.presentation?.iconImageKey).isEqualTo(image.id.value)
             val inEmpty = org.springframework.transaction.support.TransactionTemplate(transactionManager)
-                .execute { targeting.within(emptyId) { contentBuilder.build(testCatalog(tenant.id, catalogKey)) } }.catalog.presentation
+                .execute { contentBuilder.build(app.epistola.suite.catalog.releases.ContentVersion(testCatalog(tenant.id, catalogKey), emptyId)) }.catalog.presentation
             assertThat(inEmpty?.iconImageKey).isNull()
             assertThat(inEmpty?.imageKeys.orEmpty()).isEmpty()
         }
@@ -220,6 +223,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             CreateDocumentTemplate(
                 id = TemplateId(templateKey, catalogId),
                 name = "Round-Trip Template",
+                catalogVersion = null,
             ).execute()
 
             // Create a theme
@@ -228,6 +232,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = ThemeId(themeKey, catalogId),
                 name = "Round-Trip Theme",
                 description = "A test theme",
+                catalogVersion = null,
             ).execute()
 
             // Assign theme to template
@@ -236,6 +241,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = templateId,
                 themeId = themeKey,
                 themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
+                catalogVersion = null,
             ).execute()
 
             // Create an attribute
@@ -244,6 +250,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = AttributeId(attrKey, catalogId),
                 displayName = "Round-Trip Attribute",
                 allowedValues = listOf("value-a", "value-b"),
+                catalogVersion = null,
             ).execute()
 
             // Add a contract with schema and publish it
@@ -257,10 +264,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 dataExamples = listOf(
                     DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // Mark the default variant ready, as authoring does before a release.
-            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId), catalogVersion = null).execute()
 
             // Upload an asset (small PNG stub)
             val pngBytes = createMinimalPng()
@@ -271,6 +279,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 content = pngBytes,
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
 
             // Export the catalog as ZIP
@@ -300,18 +309,19 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // Verify the catalog still exists with all resources via browse
             val browseResult = BrowseCatalog(
                 catalog = testCatalog(tenantKey, catalogKey),
+                catalogVersion = null,
             ).query()
 
             assertThat(browseResult.resources).isNotEmpty()
 
             // Verify theme reference survived the round-trip
-            val reimportedTemplate = GetDocumentTemplate(templateId).query()
+            val reimportedTemplate = GetDocumentTemplate(templateId, catalogVersion = null).query()
             assertThat(reimportedTemplate).isNotNull
             assertThat(reimportedTemplate!!.themeKey).isEqualTo(themeKey)
             assertThat(reimportedTemplate.themeCatalogKey).isEqualTo(catalogKey)
 
             // Verify contract data survived the round-trip
-            val reimportedContract = GetDataContract(templateId = templateId).query()
+            val reimportedContract = GetDataContract(templateId = templateId, catalogVersion = null).query()
             assertThat(reimportedContract).isNotNull
             assertThat(reimportedContract!!.dataModel).isNotNull
             val properties = reimportedContract.dataModel!!.get("properties")
@@ -423,6 +433,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             CreateDocumentTemplate(
                 id = TemplateId(templateKey, catalogId),
                 name = "Rich-Text Ref Template",
+                catalogVersion = null,
             ).execute()
 
             val templateId = TemplateId(templateKey, catalogId)
@@ -453,10 +464,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 dataExamples = listOf(
                     DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // Mark the default variant ready, as authoring does before a release.
-            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId), catalogVersion = null).execute()
 
             val exportResult = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), catalogKey))
             assertThat(exportResult.zipBytes).isNotEmpty()
@@ -472,7 +484,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             }
 
             // Verify every \$ref URL came back identical.
-            val reimportedContract = GetDataContract(templateId = templateId).query()
+            val reimportedContract = GetDataContract(templateId = templateId, catalogVersion = null).query()
             val properties = reimportedContract!!.dataModel!!.get("properties")
 
             val greeting = properties.get("greeting")
@@ -630,12 +642,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     CodeListEntry("us", "United States"),
                     CodeListEntry("apac", "Asia-Pacific"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("region"), sourceId),
                 displayName = "Region",
                 codeListId = CodeListId(CodeListKey.of("regions"), sourceId),
+                catalogVersion = null,
             ).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), sourceKey))
@@ -659,15 +673,15 @@ class CatalogExportImportTest : IntegrationTestBase() {
             }
             val importedCatalogId = testCatalog(targetId, result.catalogKey)
 
-            val codeList = GetCodeList(CodeListId(CodeListKey.of("regions"), importedCatalogId)).query()
+            val codeList = GetCodeList(CodeListId(CodeListKey.of("regions"), importedCatalogId), catalogVersion = null).query()
             assertThat(codeList).isNotNull()
             assertThat(codeList!!.displayName).isEqualTo("Regions")
 
-            val entries = ListCodeListEntries(CodeListId(CodeListKey.of("regions"), importedCatalogId)).query()
+            val entries = ListCodeListEntries(CodeListId(CodeListKey.of("regions"), importedCatalogId), catalogVersion = null).query()
             assertThat(entries).extracting<String> { it.code }
                 .containsExactlyInAnyOrder("eu", "us", "apac")
 
-            val attr = GetAttributeDefinition(AttributeId(AttributeKey.of("region"), importedCatalogId)).query()
+            val attr = GetAttributeDefinition(AttributeId(AttributeKey.of("region"), importedCatalogId), catalogVersion = null).query()
             assertThat(attr).isNotNull()
             assertThat(attr!!.codeListSlug?.value).isEqualTo("regions")
             // Same-catalog binding stays same-catalog after re-import; the
@@ -708,20 +722,22 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 content = createMinimalPng(),
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
 
             // A template in the source catalog references that asset, qualified by
             // its owning catalog (the cross-catalog reference shape the picker writes).
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute().withRequiredDataExample()
+            CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template", catalogVersion = null).execute().withRequiredDataExample()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateWithCrossCatalogImage(asset.id.value, assetCatalogKey.value),
+                catalogVersion = null,
             ).execute()
-            MarkVariantReady(variantId).execute()
+            MarkVariantReady(variantId, catalogVersion = null).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), sourceKey)) to asset.id.value
         }
@@ -808,16 +824,17 @@ class CatalogExportImportTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Stencil Export").execute()
             val plainId = StencilId(StencilKey.of("plain"), catalogId)
-            CreateStencil(id = plainId, name = "Plain", content = stencilContentWithRoot("first-root")).execute()
-            UpdateStencil(plainId, content = stencilContentWithRoot("edited-root")).execute()
+            CreateStencil(id = plainId, name = "Plain", content = stencilContentWithRoot("first-root"), catalogVersion = null).execute()
+            UpdateStencil(plainId, content = stencilContentWithRoot("edited-root"), catalogVersion = null).execute()
             CreateStencil(
                 id = StencilId(StencilKey.of("reader"), catalogId),
                 name = "Reader",
                 content = stencilContentWithRoot("reader-root"),
                 readsTemplateData = true,
+                catalogVersion = null,
             ).execute()
 
-            val exported = contentBuilder.build(testCatalog(tenant.id, catalogKey)).resourceDetails.values
+            val exported = contentBuilder.buildNext(testCatalog(tenant.id, catalogKey)).resourceDetails.values
                 .map { it.resource }.filterIsInstance<app.epistola.catalog.protocol.StencilResource>().associateBy { it.key }
 
             assertThat(exported.keys).containsExactlyInAnyOrder("plain", "reader")
@@ -839,19 +856,20 @@ class CatalogExportImportTest : IntegrationTestBase() {
             name = "Imported",
             content = stencilContentWithRoot(root),
             readsTemplateData = readsTemplateData,
+            catalogVersion = null,
         ).execute()
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Stencil Import").execute()
 
             assertThat(import("first-root")).isEqualTo(InstallStatus.INSTALLED)
-            assertThat(GetStencil(stencilId).query()!!.content.root).isEqualTo("first-root")
+            assertThat(GetStencil(stencilId, catalogVersion = null).query()!!.content.root).isEqualTo("first-root")
 
             // Local edits are replaced by the next import: the archive is the source.
-            UpdateStencil(stencilId, content = stencilContentWithRoot("local-root")).execute()
+            UpdateStencil(stencilId, content = stencilContentWithRoot("local-root"), catalogVersion = null).execute()
             assertThat(import("second-root", readsTemplateData = true)).isEqualTo(InstallStatus.UPDATED)
 
-            val stored = GetStencil(stencilId).query()!!
+            val stored = GetStencil(stencilId, catalogVersion = null).query()!!
             assertThat(stored.content.root).isEqualTo("second-root")
             assertThat(stored.readsTemplateData).isTrue()
         }
@@ -888,17 +906,19 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 name = "Greeting",
                 content = stencilContentWithRoot("greeting-root"),
                 parameterSchema = parameterSchema,
+                catalogVersion = null,
             ).execute()
 
             // Template embedding the stencil with a binding + snapshot, published.
             val templateId = TemplateId(templateKey, sourceCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
+            CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute().withRequiredDataExample()
             val variantId = VariantId(variantKey, templateId)
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateEmbeddingParametrisedStencil(stencilSlug = stencilKey.value),
+                catalogVersion = null,
             ).execute()
-            MarkVariantReady(variantId).execute()
+            MarkVariantReady(variantId, catalogVersion = null).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(source.id), catalogKey)).zipBytes
         }
@@ -919,11 +939,12 @@ class CatalogExportImportTest : IntegrationTestBase() {
             }
 
             // 1. The stencil's parameter_schema survived export + import.
-            assertThat(GetStencil(StencilId(StencilKey.of("greeting"), targetCatalogId)).query()!!.parameterSchema).isEqualTo(parameterSchema)
+            assertThat(GetStencil(StencilId(StencilKey.of("greeting"), targetCatalogId), catalogVersion = null).query()!!.parameterSchema).isEqualTo(parameterSchema)
 
             // 2. The consuming template's stencil node kept its parameter binding props.
             val imported = GetVariantContent(
                 variantId = VariantId(variantKey, TemplateId(templateKey, targetCatalogId)),
+                catalogVersion = null,
             ).query()
             assertThat(imported).isNotNull
             val stencilNode = imported!!.nodes.values.single { it.type == "stencil" }
@@ -941,6 +962,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 templateId = templateKey,
                 variantId = variantKey,
                 data = ObjectMapper().createObjectNode(),
+                catalogVersion = null,
             ).query()
             assertThat(pdf).isNotEmpty()
             assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
@@ -964,6 +986,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             name = "Widget",
             content = content,
             parameterSchema = parameterSchema,
+            catalogVersion = null,
         ).execute()
 
         withMediator {

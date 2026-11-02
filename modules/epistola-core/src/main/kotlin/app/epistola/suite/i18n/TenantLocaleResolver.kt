@@ -5,6 +5,7 @@
 package app.epistola.suite.i18n
 
 import app.epistola.generation.RenderCulture
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.query
@@ -89,9 +90,10 @@ class TenantLocaleResolver(
      * [resolveCulture] that loads the variant's attributes itself, so the three
      * render call sites (preview, variant-preview, batch executor) don't each
      * repeat the `GetVariant` + null-handling dance. A missing variant resolves
-     * to the tenant/app chain.
+     * to the tenant/app chain. The variant is read in [catalogVersion] (the version being rendered)
+     * when that names its catalog, else in its catalog's next version.
      */
-    fun resolveCulture(tenant: Tenant, variantId: VariantId): RenderCulture = resolveCulture(tenant, GetVariant(variantId = variantId).query()?.attributes ?: emptyMap())
+    fun resolveCulture(tenant: Tenant, variantId: VariantId, catalogVersion: CatalogReleaseRef?): RenderCulture = resolveCulture(tenant, GetVariant(variantId = variantId, catalogVersion = catalogVersion).query()?.attributes ?: emptyMap())
 
     val applicationDefault: String get() = properties.defaultLocale
 

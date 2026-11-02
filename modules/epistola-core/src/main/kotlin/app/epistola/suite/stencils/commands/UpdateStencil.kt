@@ -11,10 +11,11 @@ import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.PresetUse
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -24,7 +25,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
-import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilStore
 import app.epistola.suite.stencils.declaresNoParameters
@@ -57,8 +57,8 @@ data class UpdateStencil(
     val parameterSchema: JsonNode? = null,
     val clearParameterSchema: Boolean = false,
     val readsTemplateData: Boolean? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The stencil's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -101,23 +101,24 @@ class UpdateStencilHandler(
     private val stencils: StencilStore,
 ) : CommandHandler<UpdateStencil, Stencil?> {
     override fun handle(command: UpdateStencil): Stencil? {
-        val saved = save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        val saved = save(command, at)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        if (saved != null) command.content?.let { usedCatalogs.declare(command.id.catalogId, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        if (saved != null) command.content?.let { usedCatalogs.declare(at, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
         return saved
     }
 
-    private fun save(command: UpdateStencil): Stencil? {
+    private fun save(command: UpdateStencil, at: ContentVersion): Stencil? {
         requireCatalogEditable(command.id.catalogId)
         command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
-        command.content?.let { PresetUse.requireAvailable(command.id.catalogId, it) }
+        command.content?.let { PresetUse.requireAvailable(command.id.catalogId, it, catalogVersion = command.catalogVersion) }
         val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
         if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.withHandle<Stencil?, Exception> { handle ->
             // Locked, so the change is applied to what is there, and two writers do not race.
-            val revision = DraftResources.lockRevision(handle, command.id.catalogId, StencilStore.STENCIL, command.id.key.value) ?: return@withHandle null
+            val revision = DraftResources.lockRevision(handle, at, StencilStore.STENCIL, command.id.key.value) ?: return@withHandle null
             Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, revision)
-            val current = checkNotNull(stencils.get(handle, command.id)) { "Stencil ${command.id.key.value} is locked, so it is there" }
+            val current = checkNotNull(stencils.get(handle, at, command.id)) { "Stencil ${command.id.key.value} is locked, so it is there" }
             val changes = command.name != null || command.clearDescription || command.description != null || command.tags != null ||
                 command.content != null || clearsParameterSchema || command.parameterSchema != null || command.readsTemplateData != null
             if (!changes) return@withHandle current
@@ -139,8 +140,8 @@ class UpdateStencilHandler(
                 parameterSchema = if (clearsParameterSchema) null else command.parameterSchema ?: current.parameterSchema,
                 readsTemplateData = command.readsTemplateData ?: current.readsTemplateData,
             )
-            if (!stencils.write(handle, command.id, fields, currentUserIdOrNull()?.value)) return@withHandle null
-            stencils.get(handle, command.id)
+            if (!stencils.write(handle, at, command.id, fields, currentUserIdOrNull()?.value)) return@withHandle null
+            stencils.get(handle, at, command.id)
         }
     }
 }

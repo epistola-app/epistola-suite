@@ -162,7 +162,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
             withMediator {
                 mediator.publishAndRelease(variant)
-                DeleteDocumentTemplate(variant.templateId).execute()
+                DeleteDocumentTemplate(variant.templateId, catalogVersion = null).execute()
             }
         }
 
@@ -186,7 +186,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
             withMediator {
                 mediator.publishAndRelease(variant)
-                DeleteDocumentTemplate(variant.templateId).execute()
+                DeleteDocumentTemplate(variant.templateId, catalogVersion = null).execute()
             }
         }
 
@@ -224,7 +224,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Back on the Dependencies page, which lists it.
             assertThat(response.headers.getFirst("HX-Location").orEmpty()).contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/dependencies")
-            val declared = withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }.single()
+            val declared = withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }.single()
             assertThat(declared.catalogKey).isEqualTo("shared")
             assertThat(declared.releaseVersion).isEqualTo("1.0.0")
         }
@@ -245,7 +245,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             withMediator {
                 mediator.publishAndRelease(shared)
                 val target = GetCatalog(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!
-                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
             }
         }
 
@@ -276,7 +276,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
                 mediator.publishAndRelease(letters)
                 mediator.publishAndRelease(shared)
                 val target = GetCatalog(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!
-                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
             }
         }
 
@@ -322,7 +322,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"").contains("no release 2.0.0 of shared")
-            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }).`as`("nothing declared").isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }).`as`("nothing declared").isEmpty()
         }
     }
 
@@ -347,7 +347,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"")
-            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }).isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }).isEmpty()
         }
     }
 
@@ -356,7 +356,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         val key = CatalogKey.of(catalogKey)
         CreateCatalog(tenantKey = tenant.id, id = key, name = name).execute()
         val templateId = TemplateId(TemplateKey.of(templateKey), testCatalog(TenantId(tenant.id), key))
-        CreateDocumentTemplate(id = templateId, name = templateKey).execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = templateId, name = templateKey, catalogVersion = null).execute().withRequiredDataExample()
         VariantId(VariantKey.INITIAL, templateId)
     }
 

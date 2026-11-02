@@ -64,7 +64,7 @@ class StencilStoragePerfTest : IntegrationTestBase() {
                 val catalog = testCatalog(tenant, CatalogKey.of("cat-$c"))
                 CreateCatalog(tenantKey = tenant, id = catalog.key, name = "Catalog $c").execute()
                 repeat(STENCILS) { s ->
-                    CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf(tags[s % 5], tags[(s + 2) % 5]), content = document(s)).execute()
+                    CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf(tags[s % 5], tags[(s + 2) % 5]), content = document(s), catalogVersion = null).execute()
                 }
                 mediator.releaseNext(catalog)
             }
@@ -73,12 +73,12 @@ class StencilStoragePerfTest : IntegrationTestBase() {
         val one = StencilId(StencilKey.of("stencil-0"), catalog)
         var flip = 0
         val results = listOf(
-            measure("list a catalog's stencils (page of 50)") { ListStencils(TenantId(tenant), catalog = catalog).query() },
-            measure("list a tenant's stencils (page of 50)") { ListStencils(TenantId(tenant)).query() },
-            measure("search a tenant's stencils by name") { ListStencils(TenantId(tenant), searchTerm = "/7").query() },
-            measure("filter a tenant's stencils by tag") { ListStencils(TenantId(tenant), tag = "legal").query() },
-            measure("read one stencil") { GetStencil(one).query() },
-            measure("save a stencil") { UpdateStencil(one, name = "Stencil ${flip++}").execute() },
+            measure("list a catalog's stencils (page of 50)") { ListStencils(TenantId(tenant), catalog = catalog, catalogVersion = null).query() },
+            measure("list a tenant's stencils (page of 50)") { ListStencils(TenantId(tenant), catalogVersion = null).query() },
+            measure("search a tenant's stencils by name") { ListStencils(TenantId(tenant), searchTerm = "/7", catalogVersion = null).query() },
+            measure("filter a tenant's stencils by tag") { ListStencils(TenantId(tenant), tag = "legal", catalogVersion = null).query() },
+            measure("read one stencil") { GetStencil(one, catalogVersion = null).query() },
+            measure("save a stencil") { UpdateStencil(one, name = "Stencil ${flip++}", catalogVersion = null).execute() },
         )
         val report = buildString {
             appendLine("operation,cold_ms,median_ms,p95_ms")

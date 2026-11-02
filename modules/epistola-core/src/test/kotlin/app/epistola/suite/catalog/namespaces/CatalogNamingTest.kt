@@ -57,9 +57,9 @@ class CatalogNamingTest : IntegrationTestBase() {
 
     /** A theme in [catalog] of [tenant], marked ready and released as [version]. */
     private fun release(tenant: TenantKey, catalog: CatalogKey, version: String, theme: String = "brand") {
-        CreateTheme(ThemeId(ThemeKey.of(theme), testCatalog(TenantId(tenant), catalog)), "Theme $theme").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = version).execute()
+        CreateTheme(ThemeId(ThemeKey.of(theme), testCatalog(TenantId(tenant), catalog)), "Theme $theme", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = version, catalogVersion = null).execute()
     }
 
     @Test
@@ -132,9 +132,9 @@ class CatalogNamingTest : IntegrationTestBase() {
             // Receiving needs no grant.
             ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(receiver), letters)), "Fix").execute()
-            MarkCatalogReady(testCatalog(receiver, letters)).execute()
-            val refused = refusal { ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0").execute() }
+            CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(receiver), letters)), "Fix", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(receiver, letters), catalogVersion = null).execute()
+            val refused = refusal { ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0", catalogVersion = null).execute() }
             assertThat(refused.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_NOT_HELD)
             assertThat(refused.message).isEqualTo("This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.")
             assertThat(GetCatalogNamespaceHolding(testCatalog(receiver, letters)).query())
@@ -142,7 +142,7 @@ class CatalogNamingTest : IntegrationTestBase() {
 
             GrantTenantNamespace(receiver, "gemeente-x.nl", "acme").execute()
             assertThat(GetCatalogNamespaceHolding(testCatalog(receiver, letters)).query().refusal).isNull()
-            ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0", catalogVersion = null).execute()
             assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, letters)).query().map { it.version }).containsExactly("1.1.0", "1.0.0")
         }
     }

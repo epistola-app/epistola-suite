@@ -5,12 +5,13 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -32,8 +33,8 @@ data class CountDocumentTemplates(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
     val searchTerm: String? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<Long>,
     RequiresPermission {
@@ -52,8 +53,8 @@ class CountDocumentTemplatesHandler(
 ) : QueryHandler<CountDocumentTemplates, Long> {
     override fun handle(query: CountDocumentTemplates): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            // Each catalog counts once, in its current version.
-            append("SELECT COUNT(*) FROM current_templates dt WHERE dt.tenant_key = :tenantId")
+            // Each catalog counts once: in the version the query addresses, else in its next version.
+            append("SELECT COUNT(*) FROM version_templates dt WHERE dt.tenant_key = :tenantId AND ${inVersionOrNext("dt", "version")}")
             if (query.catalogKey != null) {
                 append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
@@ -61,7 +62,7 @@ class CountDocumentTemplatesHandler(
                 append(" AND dt.name ILIKE :searchTerm")
             }
         }
-        val jdbiQuery = handle.createQuery(sql).bind("tenantId", query.tenantId.key)
+        val jdbiQuery = handle.createQuery(sql).bind("tenantId", query.tenantId.key).bindVersion("version", handle.addressedVersion(query))
         if (query.catalogKey != null) {
             jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }

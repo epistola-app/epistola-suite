@@ -46,9 +46,9 @@ class CreateTemplateWithContractTest : IntegrationTestBase() {
     fun `the template is created with its schema and examples`() {
         val example = DataExample(id = "e1", name = "Ada", data = json("""{"name":"Ada"}"""), key = "ada")
 
-        withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired), dataExamples = listOf(example)).execute() }
+        withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired), dataExamples = listOf(example), catalogVersion = null).execute() }
 
-        val contract = withMediator { GetDataContract(templateId).query()!! }
+        val contract = withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }
         assertThat(contract.dataModel).isEqualTo(json(nameRequired))
         assertThat(contract.dataExamples).isEqualTo(listOf(example.copy(id = "ada")))
     }
@@ -58,21 +58,21 @@ class CreateTemplateWithContractTest : IntegrationTestBase() {
         val example = DataExample(id = "e1", name = "Nameless", data = json("{}"), key = "nameless")
 
         assertThatThrownBy {
-            withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired), dataExamples = listOf(example)).execute() }
+            withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired), dataExamples = listOf(example), catalogVersion = null).execute() }
         }.isInstanceOf(DataModelValidationException::class.java)
 
-        assertThat(withMediator { GetDataContract(templateId).query() }).isNull()
+        assertThat(withMediator { GetDataContract(templateId, catalogVersion = null).query() }).isNull()
     }
 
     @Test
     fun `a schema without an example is refused, as an update of one is`() {
         assertThatThrownBy {
-            withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired)).execute() }
+            withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", dataModel = json(nameRequired), catalogVersion = null).execute() }
         }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.DATA_EXAMPLE_REQUIRED)
 
-        assertThat(withMediator { GetDataContract(templateId).query() }).isNull()
+        assertThat(withMediator { GetDataContract(templateId, catalogVersion = null).query() }).isNull()
     }
 
     @Test
@@ -84,6 +84,7 @@ class CreateTemplateWithContractTest : IntegrationTestBase() {
                     name = "Letter",
                     dataModel = json("""{"schemaVersion":5}"""),
                     dataExamples = listOf(DataExample(id = "e1", name = "Any", data = json("{}"), key = "any")),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -93,9 +94,9 @@ class CreateTemplateWithContractTest : IntegrationTestBase() {
 
     @Test
     fun `without a contract the template has no schema and no examples`() {
-        withMediator { CreateDocumentTemplate(id = templateId, name = "Letter").execute() }
+        withMediator { CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute() }
 
-        val contract = withMediator { GetDataContract(templateId).query()!! }
+        val contract = withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }
         assertThat(contract.dataModel).isNull()
         assertThat(contract.dataExamples).isEmpty()
     }

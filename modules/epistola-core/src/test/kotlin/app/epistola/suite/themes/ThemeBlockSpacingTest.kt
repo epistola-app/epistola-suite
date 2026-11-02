@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -42,20 +43,20 @@ class ThemeBlockSpacingTest : IntegrationTestBase() {
         val id = ThemeId(ThemeKey.of("airy"), testCatalog(tenant, catalog))
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Spaced").execute()
-            CreateTheme(id = id, name = "Airy", defaultBlockStyles = mapOf("marginBottom" to "10pt")).execute()
-            assertThat(GetTheme(id).query()!!.defaultBlockStyles).isEqualTo(mapOf("marginBottom" to "10pt"))
+            CreateTheme(id = id, name = "Airy", defaultBlockStyles = mapOf("marginBottom" to "10pt"), catalogVersion = null).execute()
+            assertThat(GetTheme(id, catalogVersion = null).query()!!.defaultBlockStyles).isEqualTo(mapOf("marginBottom" to "10pt"))
 
-            UpdateTheme(id, defaultBlockStyles = mapOf("marginTop" to "2sp", "marginBottom" to "8pt")).execute()
-            assertThat(GetTheme(id).query()!!.defaultBlockStyles).isEqualTo(mapOf("marginTop" to "2sp", "marginBottom" to "8pt"))
+            UpdateTheme(id, defaultBlockStyles = mapOf("marginTop" to "2sp", "marginBottom" to "8pt"), catalogVersion = null).execute()
+            assertThat(GetTheme(id, catalogVersion = null).query()!!.defaultBlockStyles).isEqualTo(mapOf("marginTop" to "2sp", "marginBottom" to "8pt"))
 
-            val exported = contentBuilder.build(testCatalog(tenant, catalog)).resourceDetails.getValue("theme/airy").resource as ThemeResource
+            val exported = contentBuilder.buildNext(testCatalog(tenant, catalog)).resourceDetails.getValue("theme/airy").resource as ThemeResource
             assertThat(exported.defaultBlockStyles).isEqualTo(mapOf("marginTop" to "2sp", "marginBottom" to "8pt"))
 
-            val resolved = resolver.resolveStyles(testCatalog(tenant, catalog), ThemeKey.of("airy"), null, TemplateDocument(root = "root", nodes = emptyMap(), slots = emptyMap()))
+            val resolved = resolver.resolveStyles(nextVersion(testCatalog(tenant, catalog)), ThemeKey.of("airy"), null, TemplateDocument(root = "root", nodes = emptyMap(), slots = emptyMap()))
             assertThat(resolved.defaultBlockStyles).isEqualTo(mapOf("marginTop" to "2sp", "marginBottom" to "8pt"))
 
-            UpdateTheme(id, clearDefaultBlockStyles = true).execute()
-            assertThat(GetTheme(id).query()!!.defaultBlockStyles).isNull()
+            UpdateTheme(id, clearDefaultBlockStyles = true, catalogVersion = null).execute()
+            assertThat(GetTheme(id, catalogVersion = null).query()!!.defaultBlockStyles).isNull()
         }
     }
 
@@ -65,7 +66,7 @@ class ThemeBlockSpacingTest : IntegrationTestBase() {
         assertThatThrownBy {
             withMediator {
                 CreateCatalog(tenantKey = tenant, id = catalog, name = "Spaced").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("loud"), testCatalog(tenant, catalog)), name = "Loud", defaultBlockStyles = mapOf("color" to "red")).execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("loud"), testCatalog(tenant, catalog)), name = "Loud", defaultBlockStyles = mapOf("color" to "red"), catalogVersion = null).execute()
             }
         }.isInstanceOf(ValidationException::class.java)
     }

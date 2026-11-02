@@ -158,10 +158,10 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
             val catalog = app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenant, catalogKey)).query()!!
             app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, catalog.registry, catalog.namespace).execute()
             app.epistola.suite.catalog.CatalogImportContext.runAsImport {
-                CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), catalogKey)), name = "Ours").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), catalogKey)), name = "Ours", catalogVersion = null).execute()
             }
-            MarkCatalogReady(testCatalog(tenant, catalogKey)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, catalogKey), "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalogKey), "1.1.0", catalogVersion = null).execute()
         }
         makeDue(tenant)
 
@@ -236,9 +236,10 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
+                catalogVersion = null,
             ).execute()
-            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version).execute()
+            MarkCatalogReady(testCatalog(publisher, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version, catalogVersion = null).execute()
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(publisher), catalogKey)).zipBytes
         }
     }

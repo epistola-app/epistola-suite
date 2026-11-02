@@ -39,6 +39,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import app.epistola.suite.testing.atNext
 
 /**
  * The merge base is found by the lineage releases record, never guessed from their numbers (contract
@@ -56,7 +57,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
     /** The names of the next release's themes, by key. */
     private fun themes(tenant: TenantKey, catalog: CatalogKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { h ->
         h.createQuery(
-            "SELECT t.id, t.name FROM current_themes t " +
+            "SELECT t.id, t.name FROM ${atNext("version_themes")} t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog))
@@ -77,12 +78,12 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v101, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val missing = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
+            val missing = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1", catalogVersion = null).query()
             assertThat(missing.missingBase).isEqualTo(MergeBaseRef("1.0.0", v100.fingerprint))
             assertThat(missing.base).isNull()
             assertThat(missing.resources).isEmpty()
             assertThat(missing.noCommonRelease).isFalse()
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", catalogVersion = null).execute() }
                 .isInstanceOfSatisfying(MergeBaseMissingException::class.java) {
                     assertThat(it.version).isEqualTo("1.0.0")
                     assertThat(it.fingerprint).isEqualTo(v100.fingerprint)
@@ -91,13 +92,13 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
 
             // Once B has 1.0.0, beside the others, the merge compares against it.
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1", catalogVersion = null).query()
             assertThat(preview.missingBase).isNull()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.filter { it.outcome != MergeOutcome.UNCHANGED }.associate { it.contentKey to it.outcome })
                 .containsExactlyInAnyOrderEntriesOf(mapOf("theme/brand" to MergeOutcome.THEIRS, "theme/added" to MergeOutcome.OURS))
 
-            val merged = MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", expectedToken = preview.token).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", expectedToken = preview.token, catalogVersion = null).execute()
             assertThat(merged.taken).containsExactly("theme/brand")
         }
         // 1.0.1's change taken, 1.1.0's addition kept.
@@ -111,20 +112,20 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("no-lineage")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "No Lineage").execute()
-            listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
-            UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it", catalogVersion = null).execute() }
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(theme(a, catalog, "thx"), name = "A's x", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0", catalogVersion = null).execute()
             // An archive from before releases named their base.
             val v110 = withoutBase(ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes)
 
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UpdateTheme(theme(b, catalog, "thy"), name = "B's y").execute()
+            UpdateTheme(theme(b, catalog, "thy"), name = "B's y", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.1.0", catalogVersion = null).query()
             assertThat(preview.base).isNull()
             assertThat(preview.missingBase).isNull()
             assertThat(preview.noCommonRelease).isTrue()

@@ -5,7 +5,6 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.StoredTemplate
 import app.epistola.suite.validation.validate

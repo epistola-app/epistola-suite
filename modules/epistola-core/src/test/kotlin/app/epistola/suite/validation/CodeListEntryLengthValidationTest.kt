@@ -40,11 +40,11 @@ class CodeListEntryLengthValidationTest {
     private val catalogId = testCatalog(tenantId, CatalogKey.DEFAULT)
     private val codeListId = CodeListId(CodeListKey.of("mycodelist"), catalogId)
 
-    private fun createWith(entry: CodeListEntry) = CreateCodeList(codeListId, displayName = "Codes", sourceType = CodeListSource.INLINE, entries = listOf(entry))
+    private fun createWith(entry: CodeListEntry) = CreateCodeList(codeListId, displayName = "Codes", sourceType = CodeListSource.INLINE, entries = listOf(entry), catalogVersion = null)
 
-    private fun updateWith(entry: CodeListEntry) = UpdateCodeList(codeListId, displayName = "Codes", entries = listOf(entry))
+    private fun updateWith(entry: CodeListEntry) = UpdateCodeList(codeListId, displayName = "Codes", entries = listOf(entry), catalogVersion = null)
 
-    private fun importWith(entry: CodeListEntry) = ImportCodeList(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "mycodelist", displayName = "Codes", entries = listOf(entry))
+    private fun importWith(entry: CodeListEntry) = ImportCodeList(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "mycodelist", displayName = "Codes", entries = listOf(entry), catalogVersion = null)
 
     @Test
     fun `the canonical code-list entry limits match the DB columns`() {

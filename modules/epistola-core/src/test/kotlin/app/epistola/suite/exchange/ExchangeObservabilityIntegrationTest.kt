@@ -50,7 +50,7 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability gauges").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
 
             metricsPublisher.publish()
 
@@ -80,7 +80,7 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability counters").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
 
             // The worker drains every due publication in the installation, so assert the counter
             // moved for this outcome rather than pinning an exact total.
@@ -92,7 +92,7 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
             val other = CatalogKey.of("observability-counters-error")
             CreateCatalog(tenant.id, other, "Observability counters error").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, other), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, other), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, other), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             exchange.submitResponse = { FakeExchangeServer.Response(500, """{"error":"boom"}""") }
 
             val errorsBefore = counter("epistola.exchange.publication.submissions", "error")
@@ -121,7 +121,7 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
                 ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             }
 
             val activity = GetExchangePublicationActivity(tenant.id).query()

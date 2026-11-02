@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogEditingProperties
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -21,8 +22,8 @@ import org.springframework.stereotype.Component
  * Declares a catalog the moment a write starts using it, so a draft's declarations always say
  * which other catalogs it uses (contract ADR 0003) and every surface declares the same way.
  *
- * A write that references a resource of another catalog the current version (the draft the
- * running message targets) does not declare yet declares that catalog: one that can be changed
+ * A write that references a resource of another catalog the version it writes does not declare yet
+ * declares that catalog: one that can be changed
  * here by naming its next version, which is what the draft then renders it from
  * ([DraftDependencyView]); one that cannot (Epistola supplies it, or the installation is run-only,
  * ADR 0032) by pinning its highest release. Releasing pins a named draft once that draft is
@@ -42,19 +43,20 @@ class UsedCatalogDeclarer(
     private val editing: CatalogEditingProperties,
 ) {
     /** [declareAliases] for the catalogs [references] point into. @return the declarations added. */
-    fun declare(catalog: CatalogId, references: Collection<DependencyRef>): List<CatalogDependencyDeclaration> = declareAliases(catalog, references.map { CatalogKey.of(it.catalogKey) })
+    fun declare(at: ContentVersion, references: Collection<DependencyRef>): List<CatalogDependencyDeclaration> = declareAliases(at, references.map { CatalogKey.of(it.catalogKey) })
 
     /**
      * [declareAliases] for the catalogs a variant's [attributes] name: an attribute of another catalog
      * is keyed `<alias>.<key>` (`system.locale`, contract ADR 0003).
      */
-    fun declareAttributes(catalog: CatalogId, attributes: Collection<String>): List<CatalogDependencyDeclaration> = declareAliases(catalog, attributeCatalogs(attributes))
+    fun declareAttributes(at: ContentVersion, attributes: Collection<String>): List<CatalogDependencyDeclaration> = declareAliases(at, attributeCatalogs(attributes))
 
-    /** Declares [used], a catalog a direct reference names (a template's theme, an attribute's code list), unless [catalog] declares it. */
-    fun declare(catalog: CatalogId, used: CatalogId?): List<CatalogDependencyDeclaration> {
+    /** Declares [used], a catalog a direct reference names (a template's theme, an attribute's code list), unless version [at] declares it. */
+    fun declare(at: ContentVersion, used: CatalogId?): List<CatalogDependencyDeclaration> {
+        val catalog = at.catalog
         if (used == null || used == catalog) return emptyList()
         return jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-            val declared = store.declarations(handle, catalog)
+            val declared = store.declarations(handle, at)
             if (declared.any { it.namespace == used.namespace && it.catalogKey == used.key.value }) return@inTransaction emptyList()
             val added = handle.createQuery(
                 "SELECT catalog_key, registry, namespace, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
@@ -64,17 +66,18 @@ class UsedCatalogDeclarer(
                 .map(::row)
                 .list()
                 .map { pinOrName(handle, catalog, it) }
-            if (added.isNotEmpty()) store.replace(handle, catalog, declared + added)
+            if (added.isNotEmpty()) store.replace(handle, at, declared + added)
             added
         }
     }
 
-    /** Declares each alias of [aliases] that [catalog] does not declare yet, itself excepted. @return the declarations added. */
-    fun declareAliases(catalog: CatalogId, aliases: Collection<CatalogKey>): List<CatalogDependencyDeclaration> {
+    /** Declares each alias of [aliases] that version [at] does not declare yet, its own catalog excepted. @return the declarations added. */
+    fun declareAliases(at: ContentVersion, aliases: Collection<CatalogKey>): List<CatalogDependencyDeclaration> {
+        val catalog = at.catalog
         val used = aliases.filter { it != catalog.key }.map { it.value }.toSet()
         if (used.isEmpty()) return emptyList()
         return jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-            val declared = store.declarations(handle, catalog)
+            val declared = store.declarations(handle, at)
             val missing = used.filter { alias -> declared.none { it.alias == alias } }
             if (missing.isEmpty()) return@inTransaction emptyList()
             val found = handle.createQuery(
@@ -92,7 +95,7 @@ class UsedCatalogDeclarer(
                 )
             }
             val added = found.map { pinOrName(handle, catalog, it) }
-            if (added.isNotEmpty()) store.replace(handle, catalog, declared + added)
+            if (added.isNotEmpty()) store.replace(handle, at, declared + added)
             added
         }
     }

@@ -68,6 +68,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = emptyData(),
+                    catalogVersion = null,
                 ),
             )
         }.then { setup, pdfBytes ->
@@ -80,7 +81,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
             val tenantId = TenantId(setup.tenant.id)
             val compositeTemplateId = TemplateId(setup.template.id, CatalogId.default(tenantId))
             val compositeVariantId = VariantId(setup.variant.id, compositeTemplateId)
-            val culture = localeResolver.resolveCulture(setup.tenant, compositeVariantId)
+            val culture = localeResolver.resolveCulture(setup.tenant, compositeVariantId, catalogVersion = null)
             assertThat(culture.locale.toLanguageTag()).isEqualTo("nl-NL")
         }
     }
@@ -104,6 +105,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = emptyData(),
+                    catalogVersion = null,
                 ),
             )
         }.then { setup, pdfBytes ->
@@ -112,7 +114,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
             val tenantId = TenantId(setup.tenant.id)
             val compositeTemplateId = TemplateId(setup.template.id, CatalogId.default(tenantId))
             val compositeVariantId = VariantId(setup.variant.id, compositeTemplateId)
-            val culture = localeResolver.resolveCulture(setup.tenant, compositeVariantId)
+            val culture = localeResolver.resolveCulture(setup.tenant, compositeVariantId, catalogVersion = null)
             // No tenant override + no variant attribute → app default (en-US).
             assertThat(culture.locale.toLanguageTag()).isEqualTo(localeResolver.applicationDefault)
         }

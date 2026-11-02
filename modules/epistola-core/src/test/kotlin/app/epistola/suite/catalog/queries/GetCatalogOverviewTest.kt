@@ -39,10 +39,10 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant), letters)
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(catalog) // 1.0.0; the next version continues on it
             CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in the next version
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal", catalogVersion = null).execute() // in the next version
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
             DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), testCatalog(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)).tenantKey, letters), "1.0.0", includeDependencies = true).execute()
         }

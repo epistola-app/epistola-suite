@@ -40,9 +40,9 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         val catalog = authoredCatalog("changes-new")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1", catalogVersion = null).execute()
 
-            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query()
+            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).query()
 
             assertThat(changes.latestVersion).isNull()
             assertThat(changes.hasUnreleasedChanges).isTrue()
@@ -60,12 +60,12 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         val catalog = authoredCatalog("changes-released")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
 
-            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query()
+            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).query()
 
             assertThat(changes.latestVersion).isEqualTo("1.0.0")
             assertThat(changes.hasUnreleasedChanges).isFalse()
@@ -79,14 +79,14 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         val catalog = authoredCatalog("changes-edit")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
 
-            UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
+            UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again", catalogVersion = null).execute()
 
-            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query()
+            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).query()
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.resources).extracting({ it.slug }, { it.state }).containsExactly(
@@ -101,15 +101,15 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         val catalog = authoredCatalog("changes-add-remove")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("kept"), catalog), name = "Kept").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("dropped"), catalog), name = "Dropped").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("kept"), catalog), name = "Kept", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("dropped"), catalog), name = "Dropped", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
 
-            DeleteTheme(id = ThemeId(ThemeKey.of("dropped"), catalog)).execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("added"), catalog), name = "Added").execute()
+            DeleteTheme(id = ThemeId(ThemeKey.of("dropped"), catalog), catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("added"), catalog), name = "Added", catalogVersion = null).execute()
 
-            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query()
+            val changes = GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).query()
 
             // The dropped theme is named although the working copy no longer has it: the release
             // recorded what it contained, so a removed resource is still identifiable.

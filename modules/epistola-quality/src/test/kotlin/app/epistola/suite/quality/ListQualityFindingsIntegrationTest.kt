@@ -47,9 +47,9 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = name).execute()
+            CreateDocumentTemplate(id = templateId, name = name, catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
@@ -61,7 +61,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
             SubmitQualityFindings(source, subject, (1..5).map { finding("fp-$it") }).execute()
         }
 
-        val page = withMediator { ListQualityFindings(subject.tenantKey).query() }
+        val page = withMediator { ListQualityFindings(subject.tenantKey, catalogVersion = null).query() }
 
         assertThat(page.items).hasSize(5)
         assertThat(page.total).isEqualTo(5)
@@ -84,7 +84,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
 
         // Ignore 6 of the 10, interleaved so a page-then-filter bug cannot pass by luck.
         val all = withMediator {
-            ListQualityFindings(subject.tenantKey, sort = QualityFindingSort.RULE, descending = false, limit = 100).query()
+            ListQualityFindings(subject.tenantKey, sort = QualityFindingSort.RULE, descending = false, limit = 100, catalogVersion = null).query()
         }.items.sortedBy { it.fingerprint }
         val ignored = listOf(0, 1, 3, 5, 7, 9).map { all[it] }
         withMediator { ignored.forEach { IgnoreFinding(subject.tenantKey, it.key, "not applicable").execute() } }
@@ -97,6 +97,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
                 descending = false,
                 limit = 4,
                 offset = 0,
+                catalogVersion = null,
             ).query()
         }
         val pageTwo = withMediator {
@@ -107,6 +108,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
                 descending = false,
                 limit = 4,
                 offset = 4,
+                catalogVersion = null,
             ).query()
         }
 
@@ -131,12 +133,12 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
         withMediator {
             SubmitQualityFindings(source, subject, listOf(finding("fp-1"), finding("fp-2"), finding("fp-3"))).execute()
         }
-        val all = withMediator { ListQualityFindings(subject.tenantKey).query() }.items.associateBy { it.fingerprint }
+        val all = withMediator { ListQualityFindings(subject.tenantKey, catalogVersion = null).query() }.items.associateBy { it.fingerprint }
         withMediator { IgnoreFinding(subject.tenantKey, all["fp-2"]!!.key, "by design").execute() }
         // fp-3 disappears from the source's set, so it resolves.
         withMediator { SubmitQualityFindings(source, subject, listOf(finding("fp-1"), finding("fp-2"))).execute() }
 
-        val open = withMediator { ListQualityFindings(subject.tenantKey, status = EffectiveQualityStatus.OPEN).query() }
+        val open = withMediator { ListQualityFindings(subject.tenantKey, status = EffectiveQualityStatus.OPEN, catalogVersion = null).query() }
 
         assertThat(open.total).isEqualTo(1)
         assertThat(open.items.single().fingerprint).isEqualTo("fp-1")
@@ -158,11 +160,11 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
             SubmitQualityFindings(other, subject, listOf(finding("fp-3", severity = QualitySeverity.ERROR))).execute()
         }
 
-        assertThat(withMediator { ListQualityFindings(subject.tenantKey, severity = QualitySeverity.ERROR).query() }.total)
+        assertThat(withMediator { ListQualityFindings(subject.tenantKey, severity = QualitySeverity.ERROR, catalogVersion = null).query() }.total)
             .isEqualTo(2)
-        assertThat(withMediator { ListQualityFindings(subject.tenantKey, sourceId = other).query() }.total)
+        assertThat(withMediator { ListQualityFindings(subject.tenantKey, sourceId = other, catalogVersion = null).query() }.total)
             .isEqualTo(1)
-        assertThat(withMediator { ListQualityFindings(subject.tenantKey, ruleId = "example.b").query() }.total)
+        assertThat(withMediator { ListQualityFindings(subject.tenantKey, ruleId = "example.b", catalogVersion = null).query() }.total)
             .isEqualTo(1)
     }
 
@@ -177,7 +179,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
             ).execute()
         }
 
-        val page = withMediator { ListQualityFindings(subject.tenantKey, searchTerm = "heading").query() }
+        val page = withMediator { ListQualityFindings(subject.tenantKey, searchTerm = "heading", catalogVersion = null).query() }
 
         assertThat(page.items).singleElement().satisfies({ assertThat(it.fingerprint).isEqualTo("fp-1") })
     }
@@ -199,7 +201,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
         }
 
         val page = withMediator {
-            ListQualityFindings(subject.tenantKey, sort = QualityFindingSort.SEVERITY, descending = false).query()
+            ListQualityFindings(subject.tenantKey, sort = QualityFindingSort.SEVERITY, descending = false, catalogVersion = null).query()
         }
 
         assertThat(page.items.map { it.severity })
@@ -220,7 +222,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
         val subject = newSubject()
         withMediator { SubmitQualityFindings(source, subject, listOf(finding("fp-1"))).execute() }
 
-        val page = withMediator { ListQualityFindings(subject.tenantKey, limit = 10, offset = 500).query() }
+        val page = withMediator { ListQualityFindings(subject.tenantKey, limit = 10, offset = 500, catalogVersion = null).query() }
 
         assertThat(page.items).isEmpty()
         assertThat(page.total).isZero()
@@ -234,7 +236,7 @@ class ListQualityFindingsIntegrationTest : IntegrationTestBase() {
         withMediator { SubmitQualityFindings(source, mine, listOf(finding("fp-mine"))).execute() }
         withMediator { SubmitQualityFindings(source, theirs, listOf(finding("fp-theirs"))).execute() }
 
-        val page = withMediator { ListQualityFindings(mine.tenantKey).query() }
+        val page = withMediator { ListQualityFindings(mine.tenantKey, catalogVersion = null).query() }
 
         assertThat(page.total).isEqualTo(1)
         assertThat(page.items.single().fingerprint).isEqualTo("fp-mine")

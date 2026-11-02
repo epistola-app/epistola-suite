@@ -42,11 +42,11 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val tenant = createTenant(tenantName)
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = templateName))
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = templateName, catalogVersion = null))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = templateName)
-        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = null))
         val releaseVersion = mediator.publishAndRelease(variantId)
         TemplateSetup(tenant, template, variant, releaseVersion)
     }
@@ -102,11 +102,11 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val setup2 = withAuthentication {
             val tenantId = TenantId(setup1.tenant.id)
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Less Popular"))
+            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Less Popular", catalogVersion = null))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
+            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Less Popular")
-            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = null))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
@@ -148,11 +148,11 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val setup2 = withAuthentication {
             val tenantId = TenantId(setup1.tenant.id)
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Template B"))
+            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Template B", catalogVersion = null))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
+            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Template B")
-            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = null))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
@@ -177,10 +177,10 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             mediator.send(CreateCatalog(tenantKey = inDefault.tenant.id, id = billing, name = "Billing"))
             // Same template slug as the default-catalog template, in another catalog.
             val templateId = TemplateId(inDefault.template.id, testCatalog(TenantId(inDefault.tenant.id), billing))
-            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
+            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
-            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))
+            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))!!
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(inDefault.tenant, template, variant, version)
         }

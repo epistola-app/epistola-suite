@@ -60,8 +60,8 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         val zip = withMediator {
             CreateCatalog(tenant.id, source, "Letters").execute()
             declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
-            CreateStencil(header, "Header").execute()
-            UpdateStencil(header, content = bindsSystemFont()).execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
+            UpdateStencil(header, content = bindsSystemFont(), catalogVersion = null).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
@@ -79,9 +79,9 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
 
         val zip = withMediator {
             CreateCatalog(tenant.id, source, "Source").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenantId, source)), "Brand").execute()
-            CreateStencil(header, "Header").execute()
-            UpdateStencil(header, content = usesOwnCatalogTheme()).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenantId, source)), "Brand", catalogVersion = null).execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
+            UpdateStencil(header, content = usesOwnCatalogTheme(), catalogVersion = null).execute()
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
 

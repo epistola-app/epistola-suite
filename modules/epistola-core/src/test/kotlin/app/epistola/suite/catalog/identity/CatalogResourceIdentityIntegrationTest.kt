@@ -53,9 +53,9 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId), "Brand").execute()
-            CreateStencil(stencilId, "Header").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId), "Invoice").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId), "Brand", catalogVersion = null).execute()
+            CreateStencil(stencilId, "Header", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId), "Invoice", catalogVersion = null).execute()
         }
 
         val resources = jdbi.withHandle<List<IdentityRow>, Exception> { handle ->
@@ -88,7 +88,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         assertThat(resources.map { it.resourceId }).doesNotHaveDuplicates()
         assertThat(resources).allMatch { it.catalogKey == "letters" }
 
-        withMediator { DeleteStencil(stencilId).execute() }
+        withMediator { DeleteStencil(stencilId, catalogVersion = null).execute() }
 
         val deletedIdentityExists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery(
@@ -126,8 +126,8 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Letters").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("first"), catalogId), "First").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("second"), catalogId), "Second").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("first"), catalogId), "First", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("second"), catalogId), "Second", catalogVersion = null).execute()
         }
 
         // Ordered by creation, so the identities should come back ascending if they are time-based.
@@ -234,7 +234,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
             val holder = holderThread.submit {
                 withMediator {
                     TransactionTemplate(transactionManager).executeWithoutResult {
-                        CreateTheme(id = themeId, name = "Brand").execute()
+                        CreateTheme(id = themeId, name = "Brand", catalogVersion = null).execute()
                         holderReady.countDown()
                         // Hold the address's uncommitted index entry while the contender tries for it.
                         releaseHolder.await(HOLD_SECONDS, TimeUnit.SECONDS)
@@ -246,7 +246,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
             val contender = contenderThread.submit<Result<Unit>> {
                 withMediator {
                     runCatching {
-                        CreateTheme(id = themeId, name = "Brand again").execute()
+                        CreateTheme(id = themeId, name = "Brand again", catalogVersion = null).execute()
                         Unit
                     }
                 }

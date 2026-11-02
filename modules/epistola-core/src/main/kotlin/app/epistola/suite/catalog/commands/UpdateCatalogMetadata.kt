@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.inNextVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeKey
@@ -254,10 +255,10 @@ class UpdateCatalogMetadataHandler(
         val referenced = listOfNotNull(presentation.iconImageKey) + presentation.imageKeys
         if (referenced.isEmpty()) return
 
-        // The images the version holds (ADR 0039: read as any image list reads them, not through the domain).
+        // The images its next version holds (ADR 0039: read as any image list reads them, not through the domain).
         val available = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id FROM current_images WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND media_type LIKE 'image/%'",
+                "SELECT a.id FROM version_images a WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND ${inNextVersion("a")} AND a.media_type LIKE 'image/%'",
             ).bind("t", command.tenantKey).bindCatalog("c", command.catalog).mapTo(String::class.java).set()
         }
         validate("presentation", referenced.all(available::contains)) {

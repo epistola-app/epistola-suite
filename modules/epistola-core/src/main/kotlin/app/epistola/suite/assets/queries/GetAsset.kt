@@ -8,9 +8,11 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.IMAGE_COLUMNS
 import app.epistola.suite.assets.IMAGE_ROWS
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -33,8 +35,8 @@ import java.util.UUID
 data class GetAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<Asset?>,
     RequiresPermission {
@@ -48,10 +50,11 @@ class GetAssetHandler(
 ) : QueryHandler<GetAsset, Asset?> {
 
     override fun handle(query: GetAsset): Asset? = jdbi.withHandle<Asset?, Exception> { handle ->
-        // An image key names one image of the tenant's current versions, whichever catalog has it.
-        handle.createQuery("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :tenantId AND a.id = :assetId LIMIT 1")
+        // An image key names one image of the version addressed and every other catalog's next version, whichever catalog has it.
+        handle.createQuery("SELECT $IMAGE_COLUMNS FROM version_images a WHERE a.tenant_key = :tenantId AND a.id = :assetId AND ${inVersionOrNext("a", "version")} LIMIT 1")
             .bind("assetId", query.assetId.value)
             .bind("tenantId", query.tenantId)
+            .bindVersion("version", handle.addressedVersion(query))
             .map(IMAGE_ROWS)
             .findOne()
             .orElse(null)

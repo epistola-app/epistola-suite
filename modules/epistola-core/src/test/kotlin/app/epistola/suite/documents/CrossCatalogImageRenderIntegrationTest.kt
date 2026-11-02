@@ -67,6 +67,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             content = testPngBytes,
             width = 1,
             height = 1,
+            catalogVersion = null,
         ).execute()
 
         // The template lives in the tenant's DEFAULT catalog and embeds that
@@ -120,7 +121,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
     ): ByteArray {
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
+        CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template", catalogVersion = null).execute()
 
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         val model = TemplateDocument(
@@ -135,7 +136,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        if (saved) UpdateVariantContent(variantId = variantId, templateModel = model).execute()
+        if (saved) UpdateVariantContent(variantId = variantId, templateModel = model, catalogVersion = null).execute()
 
         return PreviewVariant(
             catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
@@ -143,6 +144,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             variantId = VariantKey.INITIAL,
             data = objectMapper.createObjectNode(),
             templateModel = model.takeUnless { saved },
+            catalogVersion = null,
         ).query()
     }
 

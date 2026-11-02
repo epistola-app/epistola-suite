@@ -45,7 +45,8 @@ import tools.jackson.databind.ObjectMapper
  * while the tables had no statistics. The plan that went wrong put `resource_contents` (estimated
  * at one row) outermost in a nested loop and rescanned the tenant's `release_resources` rows once
  * per stored content: releasing a catalog went from 0.3 s to 8 s over 25 catalogs. The reads now go
- * through `catalog_version_resources(type)`, whose shape is fixed.
+ * through the views of every version's content (`version_themes`, …, ADR 0049), filtered by the
+ * version a statement binds, whose shape is fixed.
  *
  * This holds the shape, not a time, so machine load cannot fail it: on its own freshly migrated
  * database, with autoanalyze off on the storage tables, the generic plan of each read must not have
@@ -70,7 +71,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     /**
      * The generic plan of [sql], as JSON: prepared, as pgjdbc prepares a statement it runs often, and
      * planned with `plan_cache_mode = force_generic_plan`, so the values bound to it ([values]: $1
-     * tenant, $2 namespace, $3 catalog key, $4 resource key) do not shape it.
+     * tenant, $2 namespace, $3 catalog key, $4 version, $5 resource key) do not shape it.
      */
     private fun genericPlan(sql: String, values: List<String>): JsonNode = jdbi.inTransaction<JsonNode, Exception> { h ->
         h.execute("SET LOCAL plan_cache_mode = force_generic_plan")
@@ -120,7 +121,8 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         try {
             val tenant = withMediator { createTenant("Theme plan stability").id }
             val first = testCatalog(tenant, CatalogKey.of("cat-0"))
-            val values = listOf(tenant.value, first.namespace, first.key.value, "theme-0")
+            // The version is a parameter like any other: a generic plan does not depend on its value.
+            val values = listOf(tenant.value, first.namespace, first.key.value, "00000000-0000-0000-0000-000000000000", "theme-0")
             // Planned while the tables hold only the system catalog, as a fresh node's first reads are
             // (where the plan that went wrong was made), and again once they have grown.
             val early = plans(values)
@@ -129,16 +131,16 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                     val key = CatalogKey.of("cat-$c")
                     CreateCatalog(tenantKey = tenant, id = key, name = "Catalog $c").execute()
                     val catalog = testCatalog(tenant, key)
-                    repeat(THEMES) { t -> CreateTheme(ThemeId(ThemeKey.of("theme-$t"), catalog), "Theme $c/$t").execute() }
+                    repeat(THEMES) { t -> CreateTheme(ThemeId(ThemeKey.of("theme-$t"), catalog), "Theme $c/$t", catalogVersion = null).execute() }
                     repeat(CODE_LISTS) { l ->
-                        CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) }).execute()
-                        CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$l"), catalog), "Attribute $c/$l", codeListId = CodeListId(CodeListKey.of("list-$l"), catalog)).execute()
+                        CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) }, catalogVersion = null).execute()
+                        CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$l"), catalog), "Attribute $c/$l", codeListId = CodeListId(CodeListKey.of("list-$l"), catalog), catalogVersion = null).execute()
                     }
                     repeat(STENCILS) { s ->
-                        CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf("tag-${s % 3}"), content = themed("theme-${s % THEMES}")).execute()
+                        CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf("tag-${s % 3}"), content = themed("theme-${s % THEMES}"), catalogVersion = null).execute()
                     }
                     repeat(TEMPLATES) { t ->
-                        app.epistola.suite.templates.commands.CreateDocumentTemplate(app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("template-$t"), catalog), "Template $c/$t").execute()
+                        app.epistola.suite.templates.commands.CreateDocumentTemplate(app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of("template-$t"), catalog), "Template $c/$t", catalogVersion = null).execute()
                     }
                     mediator.releaseNext(catalog)
                 }
@@ -158,17 +160,17 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
 
     /** The generic plan of every read, and of the read before the fix ([BEFORE]), by name. */
     private fun plans(values: List<String>): Map<String, JsonNode> {
-        val catalog = "t.tenant_key = $1 AND t.catalog_id = epistola_catalog_id($1, $2, $3)"
-        val reads = listOf("current_themes", "current_code_lists", "current_attributes", "current_stencils").flatMap { view ->
+        // As the reads filter: by the catalog and the version they bind (ADR 0049).
+        val catalog = "t.tenant_key = $1 AND t.catalog_id = epistola_catalog_id($1, $2, $3) AND t.version_id = $4"
+        val reads = listOf("version_themes", "version_code_lists", "version_attributes", "version_stencils").flatMap { view ->
             listOf(
                 "$view of a catalog" to "SELECT t.payload FROM $view t WHERE $catalog",
-                "$view, one" to "SELECT t.payload FROM $view t WHERE $catalog AND t.id = $4",
+                "$view, one" to "SELECT t.payload FROM $view t WHERE $catalog AND t.id = $5",
             )
         } + listOf(
-            // Templates read through views of the same shape before they move (ADR 0033, step 7a).
-            "current_templates of a catalog" to "SELECT t.id, t.name, t.theme_key FROM current_templates t WHERE $catalog",
-            "current_templates, one" to "SELECT t.id, t.data_model FROM current_templates t WHERE $catalog AND t.id = $4",
-            "current_template_variants of a catalog" to "SELECT t.id, t.template_model FROM current_template_variants t WHERE $catalog",
+            "version_templates of a catalog" to "SELECT t.id, t.name, t.theme_key FROM version_templates t WHERE $catalog",
+            "version_templates, one" to "SELECT t.id, t.data_model FROM version_templates t WHERE $catalog AND t.id = $5",
+            "version_template_variants of a catalog" to "SELECT t.id, t.template_model FROM version_template_variants t WHERE $catalog",
         ) + (BEFORE to BEFORE_SQL)
         return reads.associate { (name, sql) -> name to genericPlan(sql, values) }
     }
@@ -180,18 +182,18 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         /**
          * A catalog's themes as `ExportThemes` read them before the fix (the 2.0 alpha chain's `V20261024114500`, as first
          * written, ADR 0033 step 1b): the version's rows from a view of two unions, joined to their
-         * content and their catalog, so the planner chose the join order.
+         * content and their catalog, so the planner chose the join order. The version is written as
+         * the default and a release by number, as that view chose them then; the session settings it
+         * read are gone (ADR 0049).
          */
         val BEFORE_SQL = """
             SELECT c.payload, k.catalog_key FROM (
                 SELECT r.* FROM release_resources r
-                WHERE r.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = r.tenant_key)
-                  AND r.catalog_id IS DISTINCT FROM NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
+                WHERE r.version_id IN (SELECT nv.next_version_id FROM catalogs nv WHERE nv.tenant_key = r.tenant_key)
+                  AND r.version_id IS DISTINCT FROM $4
                 UNION ALL
                 SELECT r.* FROM release_resources r
-                WHERE r.catalog_id = NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
-                  AND r.version_id IN (SELECT v.version_id FROM catalog_versions v WHERE v.state = 'released'
-                                       AND v.version = current_setting('epistola.release_version', TRUE))
+                WHERE r.version_id IN (SELECT v.version_id FROM catalog_versions v WHERE v.state = 'released' AND v.version_id = $4)
             ) r
             JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
             JOIN catalogs k ON k.tenant_key = r.tenant_key AND k.catalog_id = r.catalog_id

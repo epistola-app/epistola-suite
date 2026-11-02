@@ -5,8 +5,10 @@
 package app.epistola.suite.quality.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -62,7 +64,7 @@ data class SubmitQualityFindings(
     val inputKey: String,
     val findings: List<SubmittedFinding>,
     /** The catalog version that was checked, in which [subject]'s template is found; null for the next. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Command<SubmitFindingsResult>,
     CatalogReleaseScoped,
     RequiresPermission {
@@ -92,9 +94,10 @@ class SubmitQualityFindingsHandler(
 
         // One transaction (SpringMediator gives commands one), so a reader never sees a check half stored.
         return jdbi.inTransaction<SubmitFindingsResult, Exception> { handle ->
-            val templateId = handle.createQuery("SELECT ${templateIn("tenantKey", "catalogKey", "templateKey")}")
+            val templateId = handle.createQuery("SELECT ${templateIn("tenantKey", "catalogKey", "templateKey", "v")}")
                 .bind("tenantKey", command.subject.tenantKey)
                 .bindCatalog("catalogKey", command.subject.catalogId)
+                .bindVersion("v", handle.versionOf(command.subject.catalogId, command).versionId)
                 .bind("templateKey", command.subject.templateKey)
                 .mapTo(UUID::class.java)
                 .findOne()

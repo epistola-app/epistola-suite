@@ -5,8 +5,10 @@
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
@@ -61,7 +63,7 @@ data class GetFindingsForSubject(
     val templateKey: TemplateKey,
     val variantKey: String,
     /** The version looked at: a draft, a release, or null for the catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Query<SubjectFindings>,
     ReleaseReadable,
     RequiresPermission {
@@ -76,9 +78,11 @@ class GetFindingsForSubjectHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetFindingsForSubject, SubjectFindings> {
     override fun handle(query: GetFindingsForSubject): SubjectFindings = jdbi.withHandle<SubjectFindings, Exception> { handle ->
-        val templateId = handle.createQuery("SELECT ${templateIn("tenantKey", "catalogKey", "templateKey")}")
+        val at = handle.versionOf(query.catalog, query)
+        val templateId = handle.createQuery("SELECT ${templateIn("tenantKey", "catalogKey", "templateKey", "v")}")
             .bind("tenantKey", query.tenantKey)
             .bindCatalog("catalogKey", query.catalog)
+            .bindVersion("v", at.versionId)
             .bind("templateKey", query.templateKey)
             .mapTo(UUID::class.java)
             .findOne()
@@ -87,11 +91,12 @@ class GetFindingsForSubjectHandler(
 
         val currentInputKey = handle.createQuery(
             """
-            SELECT input_key FROM quality_current_variants
-            WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
+            SELECT input_key FROM quality_version_variants
+            WHERE tenant_key = :tenantKey AND version_id = :v AND template_resource_id = :templateId AND variant_key = :variantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
+            .bindVersion("v", at.versionId)
             .bind("templateId", templateId)
             .bind("variantKey", query.variantKey)
             .mapTo(String::class.java)
@@ -100,12 +105,13 @@ class GetFindingsForSubjectHandler(
 
         val checks = handle.createQuery(
             """
-            SELECT source_id, checked_at, current FROM quality_current_checks
-            WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
+            SELECT source_id, checked_at, current FROM quality_version_checks
+            WHERE tenant_key = :tenantKey AND version_id = :v AND template_resource_id = :templateId AND variant_key = :variantKey
             ORDER BY source_id
             """,
         )
             .bind("tenantKey", query.tenantKey)
+            .bindVersion("v", at.versionId)
             .bind("templateId", templateId)
             .bind("variantKey", query.variantKey)
             .map { rs, _ -> SubjectCheck(QualitySourceId(rs.getString("source_id")), rs.getTimestamp("checked_at").toInstant(), rs.getBoolean("current")) }
@@ -126,6 +132,7 @@ class GetFindingsForSubjectHandler(
             .bind("templateId", templateId)
             .bind("variantKey", query.variantKey)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
+            .bindVersion(QualityFindingSql.VERSION, at.versionId)
             .map { rs, _ -> mapFinding(rs, objectMapper) }
             .list()
 

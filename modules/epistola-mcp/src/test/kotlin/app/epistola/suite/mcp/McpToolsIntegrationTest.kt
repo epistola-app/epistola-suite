@@ -99,7 +99,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val templateKey = withMediator {
             val id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = id, name = "Welcome letter").execute()
+            CreateDocumentTemplate(id = id, name = "Welcome letter", catalogVersion = null).execute()
             id.key
         }
 
@@ -118,7 +118,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val templateKey = withMediator {
             val id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = id, name = "Invoice").execute()
+            CreateDocumentTemplate(id = id, name = "Invoice", catalogVersion = null).execute()
             id.key
         }
 
@@ -139,10 +139,10 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val templateKey = TestIdHelpers.nextTemplateId()
         withMediator {
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(tenantId)), "Moved").execute()
+            CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(tenantId)), "Moved", catalogVersion = null).execute()
             val relocation = testAddress(tenant.id, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
-            MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint, catalogVersion = null).execute()
         }
 
         val atOld = runAsApiKey(tenantId) { templateMcpTools.getTemplate(catalogId = "default", templateId = templateKey.value) }
@@ -159,7 +159,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
 
         val templateKey = withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readTree(
@@ -168,10 +168,11 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                 dataExamples = listOf(
                     DataExample(UUID.randomUUID().toString(), "default", objectMapper.readTree("""{"name":"Ada","amount":1}""") as ObjectNode),
                 ),
+                catalogVersion = null,
             ).execute()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateVariantContent(variantId = variantId, templateModel = simpleTemplateDocument()).execute()
-            MarkVariantReady(variantId).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = simpleTemplateDocument(), catalogVersion = null).execute()
+            MarkVariantReady(variantId, catalogVersion = null).execute()
             // Analysis checks data against the release preview would render, so the catalog is released.
             mediator.releaseNext(templateId.catalogId)
             templateId.key
@@ -203,7 +204,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         // Seed: template + variant + content + contract with example
         val (templateKey, variantKey) = withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+            CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute()
 
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             CreateVariant(
@@ -211,11 +212,13 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                 title = "English",
                 description = null,
                 attributes = emptyMap(),
+                catalogVersion = null,
             ).execute()
 
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = simpleTemplateDocument(),
+                catalogVersion = null,
             ).execute()
 
             UpdateDataContract(
@@ -229,6 +232,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                     ),
                 ),
                 forceUpdate = true,
+                catalogVersion = null,
             ).execute()
 
             templateId.key to variantId.key
@@ -256,7 +260,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invisible").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invisible", catalogVersion = null).execute()
         }
 
         // Bind a principal with currentTenantId = null

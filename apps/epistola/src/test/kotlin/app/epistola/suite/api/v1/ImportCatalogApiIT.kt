@@ -156,9 +156,9 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         val key = CatalogKey.of(catalog)
         namespace?.let { TestNamespaces.grant(tenant, it).execute() }
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = theme).execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = theme, catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0", catalogVersion = null).execute()
         ExportCatalogZip(testCatalog(tenant, key), "1.0.0").execute().zipBytes
     }
 

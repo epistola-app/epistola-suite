@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
 import java.sql.Connection
 import java.sql.DriverManager
+import app.epistola.suite.testing.atNext
 
 /**
  * The 2.0 upgrade's images (steps 3 and 6, ADR 0033): bytes a tenant kept apart (a sensitive image,
@@ -72,16 +73,16 @@ class ImagesToStorageMigrationTest {
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(connection.rows("SELECT content_hash FROM asset_content ORDER BY 1").map { it.single() })
                 .`as`("every tenant's bytes in the one store, each once").containsExactly(shared, secret, both)
-            val logo = mapper.readTree(connection.rows("SELECT payload::text FROM current_images WHERE id = 'logo'").single().single())
+            val logo = mapper.readTree(connection.rows("SELECT payload::text FROM ${atNext("version_images")} current_images WHERE id = 'logo'").single().single())
             assertThat(mapper.convertValue(logo.path("resource"), Map::class.java))
                 .isEqualTo(mapOf("key" to "logo", "name" to "Logo", "mediaType" to "image/png", "width" to 16, "height" to 16, "contentHash" to shared, "type" to "image"))
-            assertThat(connection.rows("SELECT id, content_hash, size_bytes::text FROM current_images ORDER BY id"))
+            assertThat(connection.rows("SELECT id, content_hash, size_bytes::text FROM ${atNext("version_images")} current_images ORDER BY id"))
                 .`as`("each image names its bytes and reads their size; one without bytes is kept without")
                 .containsExactly(listOf("logo", shared, "1"), listOf("lost", null, null), listOf("seal", secret, "2"))
             assertThat(
                 connection.rows(
                     """
-                    SELECT i.id FROM current_images i
+                    SELECT i.id FROM ${atNext("version_images")} i
                     JOIN release_resources r ON r.tenant_key = i.tenant_key AND r.version_id = i.version_id AND r.resource_type = 'image' AND r.resource_key = i.id
                     JOIN resource_binaries b ON b.tenant_key = r.tenant_key AND b.content_hash = r.content_hash
                     ORDER BY 1

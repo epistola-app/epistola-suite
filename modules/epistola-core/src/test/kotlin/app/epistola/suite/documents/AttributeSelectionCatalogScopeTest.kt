@@ -70,27 +70,28 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
             id = AttributeId(AttributeKey.of("lang"), testCatalog(tenantId, acme)),
             displayName = "Language",
             allowedValues = listOf("dutch", "english"),
+            catalogVersion = null,
         ).execute()
 
         val acmeLetter = TemplateId(letter, testCatalog(tenantId, acme))
-        CreateDocumentTemplate(id = acmeLetter, name = "Acme letter").execute()
-        CreateVariant(VariantId(VariantKey.of("nld"), acmeLetter), "Dutch", null, mapOf("lang" to "dutch")).execute()
-        CreateVariant(VariantId(VariantKey.of("eng"), acmeLetter), "English", null, english).execute()
+        CreateDocumentTemplate(id = acmeLetter, name = "Acme letter", catalogVersion = null).execute()
+        CreateVariant(VariantId(VariantKey.of("nld"), acmeLetter), "Dutch", null, mapOf("lang" to "dutch"), catalogVersion = null).execute()
+        CreateVariant(VariantId(VariantKey.of("eng"), acmeLetter), "English", null, english, catalogVersion = null).execute()
         // Generation renders acme's latest release, so both variants are published and acme released.
         ensureRequiredDataExample(acmeLetter)
         val dutch = VariantId(VariantKey.of("nld"), acmeLetter)
-        UpdateVariantContent(dutch, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
-        MarkVariantReady(dutch).execute()
+        UpdateVariantContent(dutch, TestTemplateBuilder.buildMinimal(name = "Acme letter"), catalogVersion = null).execute()
+        MarkVariantReady(dutch, catalogVersion = null).execute()
         val englishVariant = VariantId(VariantKey.of("eng"), acmeLetter)
-        UpdateVariantContent(englishVariant, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
+        UpdateVariantContent(englishVariant, TestTemplateBuilder.buildMinimal(name = "Acme letter"), catalogVersion = null).execute()
         mediator.publishAndRelease(englishVariant)
 
         if (withDecoyInDefault) {
             // Same template key in `default`, whose English variant happens to be called `nld` —
             // a key that also exists in acme, so the wrong answer would render without an error.
             val defaultLetter = TemplateId(letter, CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = defaultLetter, name = "Default letter").execute()
-            CreateVariant(VariantId(VariantKey.of("nld"), defaultLetter), "Decoy", null, english).execute()
+            CreateDocumentTemplate(id = defaultLetter, name = "Default letter", catalogVersion = null).execute()
+            CreateVariant(VariantId(VariantKey.of("nld"), defaultLetter), "Decoy", null, english, catalogVersion = null).execute()
         }
         tenantKey
     }

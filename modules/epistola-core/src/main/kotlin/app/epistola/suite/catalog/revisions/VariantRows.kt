@@ -5,10 +5,10 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.requireWritableVersion
-import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.writable
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.writable
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
@@ -19,7 +19,7 @@ import java.util.UUID
  * A template's variants as rows of their own in `release_resources` (ADR 0033, step 7b): storage
  * type [TYPE], each naming its template's row (`parent_id`, the template's identity) in the same
  * draft or release, with its own content, revision and bookkeeping. The one writer of variant rows.
- * Every draft write names the version its message targets (`versionAt`); the database keeps a row's
+ * Every draft write names the version it writes ([ContentVersion]); the database keeps a row's
  * revision and `updated_at`, checks it has its template's row, and deletes it with that row.
  */
 object VariantRows {
@@ -29,19 +29,19 @@ object VariantRows {
     /** A variant row of a release: its key, content, title and description. */
     data class Released(val key: String, val contentHash: String, val title: String, val description: String?)
 
-    /** Adds variant [key] of template [parentId] to the targeted draft of [catalog], holding [contentHash]. */
-    fun insert(handle: Handle, catalog: CatalogId, parentId: UUID, key: String, contentHash: String, title: String, description: String?, actor: UUID?) {
-        handle.requireWritableVersion(catalog)
-        handle.createUpdate(
+    /** Adds variant [key] of template [parentId] to draft [at], holding [contentHash]. */
+    fun insert(handle: Handle, at: ContentVersion, parentId: UUID, key: String, contentHash: String, title: String, description: String?, actor: UUID?) {
+        handle.writable(at).createUpdate(
             """
             INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, parent_id,
                 content_hash, name, description, created_by, updated_by)
-            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, '$TYPE', :key, variant_resource_id(:parent, :key), :parent,
+            VALUES (:t, ${catalogAt("t", "c")}, :v, '$TYPE', :key, variant_resource_id(:parent, :key), :parent,
                 :hash, :name, :description, :actor, :actor)
             """,
         )
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
+            .bind("t", at.tenantKey)
+            .bindCatalog("c", at.catalog)
+            .bindVersion("v", at.versionId)
             .bind("parent", parentId)
             .bind("key", key)
             .bind("hash", contentHash)
@@ -52,13 +52,13 @@ object VariantRows {
     }
 
     /**
-     * Points variant [key] of template [parentId] in the targeted draft at [contentHash], when its
+     * Points variant [key] of template [parentId] in draft [at] at [contentHash], when its
      * revision is still [expectedRevision] (null: whatever it is). Null when there is no such variant,
      * or it moved on; else its revision and `updated_at` after the change.
      */
     fun update(
         handle: Handle,
-        catalog: CatalogId,
+        at: ContentVersion,
         parentId: UUID,
         key: String,
         contentHash: String,
@@ -66,18 +66,18 @@ object VariantRows {
         description: String?,
         actor: UUID?,
         expectedRevision: Long? = null,
-    ): DraftResources.Updated? = handle.writable(catalog)
+    ): DraftResources.Updated? = handle.writable(at)
         .createQuery(
             """
             UPDATE release_resources
             SET content_hash = :hash, name = :name, description = :description, updated_by = :actor
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")}
+            WHERE tenant_key = :t AND version_id = :v
               AND resource_type = '$TYPE' AND resource_key = :key AND parent_id = :parent AND ${Revisions.MATCHES}
             RETURNING revision, updated_at
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("parent", parentId)
         .bind("key", key)
         .bind("hash", contentHash)
@@ -89,42 +89,42 @@ object VariantRows {
         .findOne()
         .orElse(null)
 
-    /** Removes variant [key] of template [parentId] from the targeted draft; false when there was none. */
-    fun delete(handle: Handle, catalog: CatalogId, parentId: UUID, key: String): Boolean = handle.writable(catalog)
+    /** Removes variant [key] of template [parentId] from draft [at]; false when there was none. */
+    fun delete(handle: Handle, at: ContentVersion, parentId: UUID, key: String): Boolean = handle.writable(at)
         .createUpdate(
             """
             DELETE FROM release_resources
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")}
+            WHERE tenant_key = :t AND version_id = :v
               AND resource_type = '$TYPE' AND resource_key = :key AND parent_id = :parent
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("parent", parentId)
         .bind("key", key)
         .execute() > 0
 
     /**
-     * The revision of variant [key] of template [templateKey] in the targeted draft, locking that one
+     * The revision of variant [key] of template [templateKey] in version [at], locking that one
      * row until the transaction ends (not its template's, nor its other variants'); null when there is
      * none.
      */
-    fun lockRevision(handle: Handle, catalog: CatalogId, templateKey: String, key: String): Long? = handle
+    fun lockRevision(handle: Handle, at: ContentVersion, templateKey: String, key: String): Long? = handle
         .createQuery(
             """
             SELECT v.revision FROM release_resources v
-            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version_id = ${versionAt("t", "c")}
+            WHERE v.tenant_key = :t AND v.version_id = :v
               AND v.resource_type = '$TYPE' AND v.resource_key = :key
               AND v.parent_id = (
                   SELECT t.resource_id FROM release_resources t
-                  WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.version_id = ${versionAt("t", "c")}
+                  WHERE t.tenant_key = :t AND t.version_id = :v
                     AND t.resource_type = 'template' AND t.resource_key = :template AND t.parent_id IS NULL
               )
             FOR UPDATE OF v
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("template", templateKey)
         .bind("key", key)
         .mapTo(Long::class.java)
@@ -132,23 +132,23 @@ object VariantRows {
         .orElse(null)
 
     /**
-     * Moves the variants of template [parentId] from the targeted draft of [source] to [target]'s,
+     * Moves the variants of template [parentId] from draft [source] to draft [target],
      * as its row moved (`DraftResources.move`): relocation moves them, no cascade does (ADR 0014),
      * and the database refuses at commit a template moved without them.
      */
-    fun move(handle: Handle, source: CatalogId, parentId: UUID, target: CatalogId) {
-        handle.writable(source).requireWritableVersion(target)
-        handle.createUpdate(
+    fun move(handle: Handle, source: ContentVersion, parentId: UUID, target: ContentVersion) {
+        handle.writable(source).writable(target).createUpdate(
             """
             UPDATE release_resources
-            SET catalog_id = ${catalogAt("t", "target")}, version_id = ${versionAt("t", "target")}
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")}
+            SET catalog_id = ${catalogAt("t", "target")}, version_id = :targetVersion
+            WHERE tenant_key = :t AND version_id = :sourceVersion
               AND resource_type = '$TYPE' AND parent_id = :parent
             """,
         )
             .bind("t", source.tenantKey)
-            .bindCatalog("source", source)
-            .bindCatalog("target", target)
+            .bindVersion("sourceVersion", source.versionId)
+            .bindCatalog("target", target.catalog)
+            .bindVersion("targetVersion", target.versionId)
             .bind("parent", parentId)
             .execute()
     }
@@ -158,7 +158,7 @@ object VariantRows {
 
     /**
      * The variant rows of template [parentId] in the draft [versionId] or the release [version] its row
-     * is of (as `current_templates` gives them), by key: one indexed read of that template's rows.
+     * is of (as `version_templates` gives them), by key: one indexed read of that template's rows.
      */
     fun of(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, parentId: UUID, versionId: UUID?, version: String?): Map<String, Row> = handle
         .createQuery(

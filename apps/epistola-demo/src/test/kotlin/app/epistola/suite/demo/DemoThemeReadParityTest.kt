@@ -47,7 +47,7 @@ class DemoThemeReadParityTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))
         val release = withMediator { ListCatalogReleases(catalog).query() }.first { it.status == CatalogReleaseStatus.RELEASED }
 
-        val drafted = withMediator { ListThemes(catalog.tenantId, catalog = catalog).query() }.sortedBy { it.id.value }
+        val drafted = withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }.sortedBy { it.id.value }
         val released = withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))).query() }.sortedBy { it.id.value }
 
         assertThat(drafted).isNotEmpty()

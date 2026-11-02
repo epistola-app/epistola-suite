@@ -73,18 +73,19 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         val tenant = tenantKey ?: createTenant("Text Checks").id
         return withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant)))
-            CreateDocumentTemplate(id = templateId, name = name).execute()
-            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Default", description = null).execute() }
+            CreateDocumentTemplate(id = templateId, name = name, catalogVersion = null).execute()
+            VariantId(TestIdHelpers.nextVariantId(), templateId).also { CreateVariant(id = it, title = "Default", description = null, catalogVersion = null).execute() }
         }
     }
 
-    private fun save(variantId: VariantId, model: TemplateDocument) = withMediator { UpdateVariantContent(variantId, model).execute() }
+    private fun save(variantId: VariantId, model: TemplateDocument) = withMediator { UpdateVariantContent(variantId, model, catalogVersion = null).execute() }
 
     private fun findingsFor(variantId: VariantId) = withMediator {
         GetFindingsForSubject(
             catalog = testCatalog(variantId.tenantKey, variantId.catalogKey),
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
+            catalogVersion = null,
         ).query().findings
     }
 
@@ -144,7 +145,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         val variantId = newVariant()
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
 
-        val run = withMediator { RunQualityChecks(variantId).execute() }
+        val run = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         val finding = findingsFor(variantId).single { it.sourceId == QualitySourceId("builtin") }
         assertThat(finding.ruleId).isEqualTo("clear-language.repeated-word")
@@ -164,10 +165,10 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
     fun `fixing the text clears the finding on the next run`() {
         val variantId = newVariant()
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         save(variantId, document("t" to doc(paragraph(text("Please return the form.")))))
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         assertThat(findingsFor(variantId).filter { it.sourceId == QualitySourceId("builtin") }).isEmpty()
     }
@@ -200,7 +201,7 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         withMediator { SaveFeatureToggle(variantId.tenantKey, KnownFeatures.QUALITY, enabled = true).execute() }
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
 
-        withMediator { MarkVariantReady(variantId).execute() }
+        withMediator { MarkVariantReady(variantId, catalogVersion = null).execute() }
         scheduling.runDue()
 
         assertThat(findingsFor(variantId).map { it.ruleId }).containsExactly("clear-language.repeated-word")
@@ -212,12 +213,12 @@ class TextChecksIntegrationTest : IntegrationTestBase() {
         val variantId = newVariant()
         save(variantId, document("t" to doc(paragraph(text("Please return the the form.")))))
 
-        val onSave = withMediator { RunQualityChecks(variantId, triggers = setOf(CheckTrigger.SAVE)).execute() }
+        val onSave = withMediator { RunQualityChecks(variantId, triggers = setOf(CheckTrigger.SAVE), catalogVersion = null).execute() }
 
         // The built-in engine runs on every trigger; LanguageTool is configured for save too, and is
         // skipped here only because no server is configured.
         assertThat(onSave.sources.map { it.sourceId.value }).contains("builtin", "languagetool")
-        assertThat(withMediator { RunQualityChecks(variantId, triggers = emptySet()).execute() }.sources.map { it.sourceId.value })
+        assertThat(withMediator { RunQualityChecks(variantId, triggers = emptySet(), catalogVersion = null).execute() }.sources.map { it.sourceId.value })
             .doesNotContain("builtin", "languagetool")
     }
 

@@ -37,6 +37,7 @@ class UploadAssetNameValidationTest {
         content = ByteArray(1),
         width = null,
         height = null,
+        catalogVersion = null,
     )
 
     @Test
