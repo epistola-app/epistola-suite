@@ -40,6 +40,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.NullNode
 import java.io.ByteArrayInputStream
 
 /**
@@ -287,6 +288,21 @@ class StencilIntegrationTest : IntegrationTestBase() {
         // Quality sources read the instance's schema snapshot, which only the expanded form carries.
         assertThat(context.templateModel.nodes.getValue("inst").props!![StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT])
             .isEqualTo(mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")), "required" to listOf("name")))
+    }
+
+    @Test
+    fun `a parameter schema given as JSON null is no schema, and the template still renders (#1255)`() = test {
+        val tenantId = TenantId(createTenant("Null Schema").id)
+        val stencil = stencilId(tenantId)
+        // What made 1.x store jsonb 'null': a schema passed on as a NullNode rather than left out.
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "NULL SCHEMA LOGO"), parameterSchema = NullNode.instance).execute()
+        UpdateStencil(id = stencil, content = letterhead(logo = "UPDATED LOGO"), parameterSchema = NullNode.instance).execute()
+        val variant = draftUsing(tenantId, templateFilling(stencil))
+
+        assertThat(GetStencil(id = stencil).query()!!.parameterSchema).isNull()
+        assertThat(previewText(variant)).contains("UPDATED LOGO", "Dear customer")
+        assertThat(GetEditorContext(variant).query()!!.templateModel.nodes.getValue("inst").props.orEmpty())
+            .doesNotContainKey(StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT)
     }
 
     @Test
