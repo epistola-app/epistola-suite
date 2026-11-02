@@ -61,7 +61,10 @@ involved.
 
 It is the one answer to what uses what. **Used by** (`FindResourceUsages`), the upgrade and merge
 check that a removed resource is not still used elsewhere (`CatalogUpgradeAnalyzer.findConflicts`),
-and organising catalogs (the dependency-cycle check and the release impact) all read it. The check
+and organising catalogs (the dependency-cycle check and the release impact) all read it. Deleting a
+catalog asks, of every draft of every other catalog, what it can no longer resolve once the catalog is
+gone (`DraftResources.unresolved`, as the save guard `DraftReferenceGuard` asks it), and refuses when
+anything is new. The check
 that discarding a draft does not take away what another version still names
 (`CatalogDraftCommands.holders`) reads the same index directly, limited to the references that point
 at an identity (an attribute's code list, a template's theme, the tenant's default theme).

@@ -31,6 +31,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.StencilInUseException
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
@@ -116,8 +117,84 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     DeleteCatalog(catalog = testCatalog(tenant.id, catalogKeyA)).execute()
                 }.isInstanceOf(CatalogInUseException::class.java)
-                    .hasMessageContaining("Dependent Template")
+                    .hasMessageContaining("template ${templateKey.value} uses theme del-cat-a:del-theme")
             }
+        }
+    }
+
+    @Nested
+    inner class DeleteCatalogInUseTests {
+
+        @Test
+        fun `a catalog whose stencil another catalog's stencil contains is not deleted`() {
+            // The sequence CatalogModelTest found: deleting cat-b left cat-a's draft naming a stencil nothing has.
+            val tenant = createTenant("Del Nested Stencil")
+            val (catA, catB) = listOf("cat-a", "cat-b").map { key ->
+                withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of(key), name = key).execute() }
+                testCatalog(tenant.id, CatalogKey.of(key))
+            }
+            withMediator {
+                CreateStencil(StencilId(StencilKey.of("stencil-2"), catB), "Stencil 2").execute()
+                CreateStencil(StencilId(StencilKey.of("stencil-1"), catA), "Stencil 1").execute()
+                UpdateStencil(StencilId(StencilKey.of("stencil-1"), catA), content = buildTemplateModelWithStencil(StencilKey.of("stencil-2"), "cat-b")).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteCatalog(catB).execute() } }
+                .isInstanceOf(CatalogInUseException::class.java)
+                .hasMessageContaining("stencil stencil-1 uses stencil cat-b:stencil-2")
+            assertThat(withMediator { GetCatalog(catB).query() }).`as`("nothing of it is deleted").isNotNull()
+        }
+
+        @Test
+        fun `a catalog whose stencil another catalog's template uses is not deleted`() {
+            val tenant = createTenant("Del Template Stencil")
+            val (shared, letters) = catalogs(tenant.id, "shared", "letters")
+            val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
+            withMediator {
+                CreateStencil(StencilId(StencilKey.of("header"), shared), "Header").execute()
+                CreateDocumentTemplate(template, "Letter").execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithStencil(StencilKey.of("header"), "shared")).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteCatalog(shared).execute() } }
+                .isInstanceOf(CatalogInUseException::class.java)
+                .hasMessageContaining("template ${template.key.value} uses stencil shared:header")
+        }
+
+        @Test
+        fun `a catalog whose image another catalog's template uses is not deleted`() {
+            val tenant = createTenant("Del Template Image")
+            val (shared, letters) = catalogs(tenant.id, "shared", "letters")
+            val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
+            withMediator {
+                val asset = UploadAsset(catalog = shared, name = "logo.png", mediaType = AssetMediaType.PNG, content = createMinimalPng(), width = 1, height = 1).execute()
+                CreateDocumentTemplate(template, "Letter").execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithAsset(asset.id)).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteCatalog(shared).execute() } }
+                .isInstanceOf(CatalogInUseException::class.java)
+                .hasMessageContaining("template ${template.key.value} uses image")
+        }
+
+        @Test
+        fun `a catalog whose content uses only its own resources is deleted`() {
+            val tenant = createTenant("Del Own Refs")
+            val (own) = catalogs(tenant.id, "own")
+            withMediator {
+                CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand").execute()
+                val template = TemplateId(TestIdHelpers.nextTemplateId(), own)
+                CreateDocumentTemplate(template, "Letter").execute()
+                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = own).execute()
+            }
+
+            assertThat(withMediator { DeleteCatalog(own).execute() }).isTrue()
+            assertThat(withMediator { GetCatalog(own).query() }).isNull()
+        }
+
+        private fun catalogs(tenantKey: app.epistola.suite.common.ids.TenantKey, vararg keys: String): List<CatalogId> = keys.map { key ->
+            withMediator { CreateCatalog(tenantKey = tenantKey, id = CatalogKey.of(key), name = key).execute() }
+            testCatalog(tenantKey, CatalogKey.of(key))
         }
     }
 
@@ -244,7 +321,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
         }
     }
 
-    private fun buildTemplateModelWithStencil(stencilKey: StencilKey): TemplateDocument {
+    private fun buildTemplateModelWithStencil(stencilKey: StencilKey, catalogKey: String? = null): TemplateDocument {
         val rootId = "root-1"
         val slotId = "slot-1"
         val stencilNodeId = "stencil-1"
@@ -260,9 +337,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 stencilNodeId to Node(
                     id = stencilNodeId,
                     type = "stencil",
-                    props = mapOf(
-                        "stencilKey" to stencilKey.value,
-                    ),
+                    props = listOfNotNull("stencilKey" to stencilKey.value, catalogKey?.let { "catalogKey" to it }).toMap(),
                 ),
             ),
             slots = mapOf(
