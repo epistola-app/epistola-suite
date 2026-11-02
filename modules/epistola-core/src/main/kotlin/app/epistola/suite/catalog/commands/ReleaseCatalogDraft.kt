@@ -217,6 +217,7 @@ class ReleaseCatalogDraftHandler(
 
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.catalog, command.catalogVersion?.draft ?: DraftRef.Next)
+                ?.also { drafts.lockForRelease(handle, command.catalog, it.versionId) }
         } ?: throw CatalogReleaseNotFoundException(command.catalogKey, command.catalogVersion?.draft?.toString() ?: DraftRef.NEXT)
         val keepAs = command.continueEverydayWork?.keepPreviousAs?.trim()
         val handsOver = command.continueEverydayWork != null && !draft.isNext

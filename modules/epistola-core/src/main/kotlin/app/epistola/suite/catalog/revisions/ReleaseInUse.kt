@@ -41,6 +41,16 @@ class ReleaseInUseException(
 object ReleaseInUse {
 
     fun requireUnused(handle: Handle, catalog: CatalogId, version: String) {
+        // The release's row first, as the delete would lock it: a version pinning it, or an
+        // environment deploying it, that is being written now holds a key-share lock on it, so this
+        // waits until it commits and then sees it. Checked first, the delete would wait for it anyway
+        // and then go ahead (CatalogConcurrencyTest, specs/tla/CatalogConcurrency.tla).
+        handle.createQuery("SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND version_id = ${releaseAt("t", "c", "v")} FOR UPDATE")
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
+            .bind("v", version)
+            .mapTo(java.util.UUID::class.java)
+            .findOne()
         val environments = handle.createQuery(
             """
             SELECT environment_key FROM environment_catalog_deployments

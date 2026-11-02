@@ -181,6 +181,13 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     private fun requireNoCycle(handle: Handle, catalog: CatalogId, added: List<CatalogDependencyDeclaration>) {
         val targets = added.map { it.catalogKey }.filter { it != catalog.key.value }.toSet()
         if (targets.isEmpty()) return
+        // One declaration added at a time per tenant, until it commits: the check reads only what is
+        // committed, so two catalogs declaring each other at once would each pass it
+        // (CatalogConcurrencyTest, specs/tla/CatalogConcurrency.tla).
+        handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:t || '/catalog-dependencies', 0))")
+            .bind("t", catalog.tenantKey)
+            .map { _, _ -> Unit }
+            .one()
         val uses = handle.createQuery(
             """
             SELECT DISTINCT c.catalog_key AS user_key, dc.catalog_key AS used_key

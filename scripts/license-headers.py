@@ -31,6 +31,9 @@ LINE_COMMENT_EXTENSIONS = {
     ".sh": "#",
     ".sql": "--",
     ".tsv": "#",
+    # TLA+ specifications and their TLC model configurations.
+    ".tla": "\\*",
+    ".cfg": "\\*",
 }
 
 BLOCK_COMMENT_EXTENSIONS = {

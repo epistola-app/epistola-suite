@@ -104,6 +104,7 @@ fun Handle.requireWritableVersion(catalog: CatalogId) {
         SELECT v.version_id, v.version FROM catalog_current_versions cv
         JOIN catalog_versions v ON v.tenant_key = cv.tenant_key AND v.version_id = cv.version_id
         WHERE cv.tenant_key = :t AND cv.catalog_id = ${catalogAt("t", "c")}
+        FOR SHARE OF v
         """,
     )
         .bind("t", catalog.tenantKey)

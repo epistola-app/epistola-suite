@@ -20,6 +20,7 @@ import org.jdbi.v3.core.statement.StatementContext
 import org.springframework.stereotype.Component
 import java.sql.ResultSet
 import java.time.OffsetDateTime
+import java.util.Optional
 import java.util.UUID
 
 /** Whether a catalog version can still be edited (contract ADR 0002). */
@@ -342,6 +343,22 @@ class CatalogDrafts(private val metrics: CatalogMetrics) {
             .findOne()
             .orElse(null)
         Revisions.refuse(resource, expected, current)
+    }
+
+    /**
+     * Locks draft [versionId] for the rest of a release, before the release reads it: a write to it,
+     * which reads the row `FOR SHARE` first ([app.epistola.suite.catalog.requireWritableVersion]), waits
+     * and then finds it released, and one already under way commits before the release reads the draft.
+     * Released or discarded while this waited, it answers as [freeze] does.
+     */
+    fun lockForRelease(handle: Handle, catalog: CatalogId, versionId: UUID) {
+        val releasedAs = handle.createQuery("SELECT version FROM catalog_versions WHERE tenant_key = :t AND version_id = :v FOR UPDATE")
+            .bind("t", catalog.tenantKey)
+            .bind("v", versionId)
+            .map { rs, _ -> Optional.ofNullable(rs.getString("version")) }
+            .findOne()
+            .orElseThrow { CatalogReleaseNotFoundException(catalog.key, versionId.toString()) }
+        if (releasedAs.isPresent) throw CatalogReleaseIsReleasedException(catalog.key, releasedAs.get())
     }
 
     /** Renames parallel work [versionId]. */
