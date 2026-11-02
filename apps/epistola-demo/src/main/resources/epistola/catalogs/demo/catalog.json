@@ -40,9 +40,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.8.0",
+    "version": "6.9.0",
     "releasedAt": "2026-10-22T00:00:00Z",
-    "fingerprint": "v6:ebf38bbe0a7190cdbb764de5abc91dedf9f7eceb1fba5264af2c476ca1e9e499"
+    "fingerprint": "v6:62f053aeedd2aff58cea75341c6a96811d3273d644d3fb4879945f844b901fa8"
   },
   "catalogDependencies": [
     {
@@ -139,7 +139,7 @@
       "type": "template",
       "key": "quality-showcase",
       "name": "Quality Showcase",
-      "description": "Deliberately flawed: an empty block, an overlong one, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
+      "description": "Deliberately flawed: an empty block, an overlong one, a paragraph with language mistakes, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
       "updatedAt": "2026-07-17T00:00:00Z",
       "detailUrl": "./resources/templates/quality-showcase.json"
     },

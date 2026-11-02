@@ -52,10 +52,23 @@ class TenantLocaleResolver(
      * `AttributeValidation`). Blank string values are ignored as if the key
      * wasn't there.
      */
-    fun resolve(tenant: Tenant, variantAttributes: Map<String, String>): String = variantAttributes["system.locale"].nullIfBlank()
-        ?: variantAttributes["locale"].nullIfBlank()
-        ?: tenant.defaultLocale
-        ?: properties.defaultLocale
+    fun resolve(tenant: Tenant, variantAttributes: Map<String, String>): String = resolveWithSource(tenant, variantAttributes).tag
+
+    /**
+     * [resolve]`(tenant, variantAttributes)`, saying which step of the chain answered.
+     *
+     * Formatting a date or a number in the installation default does no harm, but a check that reads
+     * the text *as* that language does: a spellchecker handed a Dutch template as `en-US` flags every
+     * word. [LocaleSource.INSTALLATION] tells such a caller that nobody chose the language.
+     */
+    fun resolveWithSource(tenant: Tenant, variantAttributes: Map<String, String>): ResolvedLocale {
+        val variant = variantAttributes["system.locale"].nullIfBlank() ?: variantAttributes["locale"].nullIfBlank()
+        return when {
+            variant != null -> ResolvedLocale(variant, LocaleSource.VARIANT)
+            tenant.defaultLocale != null -> ResolvedLocale(tenant.defaultLocale, LocaleSource.TENANT)
+            else -> ResolvedLocale(properties.defaultLocale, LocaleSource.INSTALLATION)
+        }
+    }
 
     /** [Locale] flavour of [resolve]`(tenant, variantAttributes)`. */
     fun resolveLocale(tenant: Tenant, variantAttributes: Map<String, String>): Locale = Locale.forLanguageTag(resolve(tenant, variantAttributes))
@@ -83,4 +96,16 @@ class TenantLocaleResolver(
     val applicationDefault: String get() = properties.defaultLocale
 
     private fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
+}
+
+/** Which step of the locale chain answered: the variant's attribute, the tenant's default, or the installation's. */
+enum class LocaleSource { VARIANT, TENANT, INSTALLATION }
+
+/** A BCP-47 [tag] and the step of the chain it came from. */
+data class ResolvedLocale(
+    val tag: String,
+    val source: LocaleSource,
+) {
+    /** Whether someone chose this language, for the template or for the tenant, rather than it being the installation's default. */
+    val chosen: Boolean get() = source != LocaleSource.INSTALLATION
 }

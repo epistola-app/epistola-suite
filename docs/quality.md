@@ -20,7 +20,7 @@ The feature is asked for three different things, and it is worth being explicit 
 
 | Need                                         | Surface                                       | Status  |
 | -------------------------------------------- | --------------------------------------------- | ------- |
-| "Tell me about the draft I am editing, now"  | Editor panel, checked on save                 | not yet |
+| "Tell me about the draft I am editing, now"  | Editor panel, checked on save                 | built   |
 | "Show me everything wrong across the tenant" | The report page, filtered by catalog/template | built   |
 | "Is our quality getting better or worse?"    | Daily snapshots, a trend                      | not yet |
 
@@ -382,32 +382,138 @@ submitted would read as permanently stale — silently, forever.
 Manual findings carry no input fingerprint: a human's remark is not "computed against" a
 revision and must never be marked outdated by an edit.
 
+> **Proposed:** [ADR 0044](adr/0044-quality-results-keyed-by-content.md) replaces this stamp
+> and, in steps, the reconciling ledger: check results become a cache keyed by the content they
+> checked, and findings a view per catalog version derived from it.
+
 ## Triggers
 
-| Trigger                                    | What runs                | Built |
-| ------------------------------------------ | ------------------------ | ----- |
-| `OnVariantReadyRunChecks` (`AFTER_COMMIT`) | The variant marked ready | yes   |
-| Editor "Check now"                         | The open variant         | yes   |
+| Trigger                                  | What runs                              | Built |
+| ---------------------------------------- | -------------------------------------- | ----- |
+| A save (`OnVariantSavedScheduleChecks`)  | The saved variant, a few seconds after | yes   |
+| A ready mark (`OnVariantReadyRunChecks`) | The variant marked ready, at once      | yes   |
+| Editor "Check now"                       | The open variant, in the request       | yes   |
 
 All of them dispatch the same `RunQualityChecks`, so reconciliation, ignores and staleness
 behave identically wherever a check was triggered from.
+
+A save and a ready mark do not run the checks themselves: they schedule the variant's
+quality-check **cluster timer** (`QualityCheckTimer`, [timers](timers.md)), one per variant. A
+save sets it `epistola.quality.check-on-save-delay` out (5 s) and each later save moves it, so a
+burst of autosaves is checked once, after the last; a ready mark sets it due at once. The timer row
+is written in the save's own transaction (the handlers are `IMMEDIATE`), so a save that rolls back
+leaves no timer, and the check runs later, on one node, as the tenant's system user. A save that
+targets a draft other than the catalog's next version is not checked yet: the ledger keeps no
+version (ADR 0044, section 8).
+
+The ready trigger was an `AFTER_COMMIT` event handler until the language checks, and never ran:
+the mediator invokes `IMMEDIATE` event handlers only.
 
 `RunQualityChecks` reads the variant's **persisted** working model, so an editor trigger
 is necessarily save-then-check — checking unsaved state would be stale-in, stale-out. A
 consequence worth rendering explicitly when the panel lands: an invalid model will not
 save, so neither editor trigger fires on an unsaveable document.
 
-**No autosave or daily sweep yet.** During alpha, checks run only on a ready mark and explicit
-"Check now". That keeps background cost and latency visible rather than hiding it in a scheduler.
-We do intend to add a periodic reconciliation sweep, but only with a run ledger and source tiering
-so cheap local checks, expensive local checks and remote checks do not share one trigger. The sweep
-should be the backstop, not the first scheduling primitive.
+**No daily sweep yet.** A template that changes without a save (an import, a relocation) is checked
+on its next save, ready mark or "Check now".
+
+`RunQualityChecks` manages its own transactions (`SelfManagedTransaction`): a language checker may
+be a server across the network, and no transaction waits on it. It returns what each source did:
+checked, skipped (with a reason, such as LanguageTool not being configured) or failed, which
+"Check now" shows in the panel.
+
+## Language checks
+
+> **Status:** Alpha, a pilot of [ADR 0044](adr/0044-quality-results-keyed-by-content.md); profiles
+> ([ADR 0046](adr/0046-quality-profiles-and-rules.md)), providers ([ADR 0047](adr/0047-quality-providers.md))
+> and locations ([ADR 0045](adr/0045-locations-in-a-template.md)) are proposed and not built.
+
+Language checks read a template's **text**: spelling, grammar, style and readability. They are run by
+**providers**, each a `TextChecker` bean and a quality source of its own, so one provider failing never
+resolves another's findings.
+
+| Provider       | Source id      | Where text goes                         | Runs on                                 | For a tenant                                             |
+| -------------- | -------------- | --------------------------------------- | --------------------------------------- | -------------------------------------------------------- |
+| Built-in rules | `builtin`      | nowhere: in-process                     | every trigger                           | always, with the quality feature                         |
+| LanguageTool   | `languagetool` | a LanguageTool server the operator runs | save, "Check now", ready (configurable) | when configured, and switched on in the quality settings |
+
+**What a provider sees.** The suite extracts each paragraph and heading of a template's `text`
+nodes (`TextBlockExtractor`) as text with **placeholders**: an expression becomes one character
+(U+FFFC), so a provider never learns which expression it stands for, let alone a value. Example data
+and generated documents never reach a provider. A finding that falls on a placeholder is dropped. A
+template holds stencil instances by reference, so a stencil's text is not checked as part of the
+templates that use it.
+
+**Rules.** The built-in engine runs **rules**: an id, a title, an intent (why), a severity and a check
+type with its parameters (`BuiltinRule`, `BuiltinCheck`): repeated words, a sentence-length limit,
+spacing, and word lists per language. Until quality profiles exist it runs
+`BuiltinRuleSets.CLEAR_LANGUAGE`, the rules the default profile will hold, with the ids it will use:
+
+| Rule                                      | Check                                                    | Severity |
+| ----------------------------------------- | -------------------------------------------------------- | -------- |
+| `clear-language.repeated-word`            | a word twice in a row ("dat dat", "had had" allowed)     | warning  |
+| `clear-language.sentence-length`          | more than 25 words in a sentence                         | info     |
+| `clear-language.double-space`             | two or more spaces between words                         | info     |
+| `clear-language.space-before-punctuation` | a space before punctuation, except in French             | info     |
+| `clear-language.plain-words`              | formal words with a plain alternative, Dutch and English | info     |
+
+LanguageTool reports under its own rule ids until profile rules map onto it.
+
+**Results are cached by content.** `quality_text_results` holds what a provider reported for a block,
+keyed by the provider, its configuration (the built-in engine's version and the hash of its rules;
+LanguageTool's server version and level), the locale and the hash of the block's text. A save is
+therefore checked for the paragraphs it changed, and a paragraph shared by many templates of a tenant
+is checked once. A changed configuration is a new key, so nothing is ever invalidated; the table can
+be emptied at any time and is filled again. It is per tenant, so a result never tells one tenant what
+another has written.
+
+**Triggers belong to the provider.** A run carries the triggers that asked for it (a save, "Check
+now", a ready mark; several when they were coalesced on the timer), and asks only the providers
+configured for one of them.
+
+**The language** is the variant's `system.locale`, else the tenant's default (`docs/locale.md`). The
+built-in rules always run; LanguageTool runs only for a language someone chose for the template or the
+tenant, never on the installation's default: a Dutch template checked as English would be flagged
+word by word. A variant with neither says so in the panel ("no language is set").
+
+**A finding** sits on the block's node, with its evidence in `context`: `quote` (the flagged text, as
+the author wrote it), `before` and `after`, `category`, `suggestions` and `explanation` (the rule's
+intent, or LanguageTool's description of its rule). The editor panel shows the quote and the
+suggestions; nothing is applied for the author. The fingerprint holds the flagged text for spelling
+and style, so another typo is another problem, and leaves it out for readability, so a reworded
+sentence that is still too long keeps its ignore.
+
+**Quality settings** (`/tenants/{tenant}/quality/settings`, under Settings, and linked from the
+report) list the installation's providers for a tenant administrator (`TENANT_SETTINGS`): where each
+sends text, when it runs, and a switch for the ones a tenant turns on. A provider the installation
+did not configure shows why it has no switch. The choice is stored per tenant in
+`quality_provider_settings`, with who changed it and when; no row means off.
+
+**LanguageTool** is an installation provider: unused unless the operator sets
+`epistola.quality.language-tool.url`, and then only for tenants that switch it on in their
+**quality settings** (off by default), because template text is sent to it. It is called at
+`POST {url}/v2/check` with LanguageTool's annotated text, each placeholder as markup it reads as the
+word `X`; several paragraphs go in one request. If the server is down, its earlier findings stay as
+they were and the run reports it as failed; the built-in rules run regardless.
 
 ## Configuration
 
-| Property                    | Default | Meaning                                           |
-| --------------------------- | ------- | ------------------------------------------------- |
-| `epistola.features.quality` | `false` | The feature toggle default (the feature is alpha) |
+| Property                                                | Default               | Meaning                                                                                    |
+| ------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------ |
+| `epistola.features.quality`                             | `false`               | The feature toggle default (the feature is alpha)                                          |
+| `epistola.quality.check-on-save`                        | `true`                | Check a variant after it is saved                                                          |
+| `epistola.quality.check-on-save-delay`                  | `5s`                  | How long after the last save the check runs                                                |
+| `epistola.quality.language-tool.url`                    | empty                 | A LanguageTool server, such as `http://languagetool:8010`; empty: LanguageTool is not used |
+| `epistola.quality.language-tool.level`                  | `default`             | LanguageTool's `level`; `picky` adds style rules                                           |
+| `epistola.quality.language-tool.connect-timeout`        | `2s`                  |                                                                                            |
+| `epistola.quality.language-tool.read-timeout`           | `20s`                 |                                                                                            |
+| `epistola.quality.language-tool.max-request-characters` | `20000`               | Text per request; more is split over several                                               |
+| `epistola.quality.language-tool.triggers`               | `SAVE,EXPLICIT,READY` | When LanguageTool runs                                                                     |
+
+In the Helm chart, set them as environment variables under `env`, for example
+`EPISTOLA_QUALITY_LANGUAGETOOL_URL`. To run LanguageTool locally:
+`podman run -d -p 8010:8010 docker.io/erikvl87/languagetool` and
+`--epistola.quality.language-tool.url=http://localhost:8010`.
 
 The feature is **alpha** (`FeatureStage.ALPHA`), so it renders an "Alpha" badge in the nav,
 on its own page, and in the admin Features list. Alpha is the honest label here: the
@@ -417,8 +523,11 @@ whatever they raise by hand. Expect the shape of the report, the editor panel, a
 ingest to move before this is stable.
 
 The demo catalog's **`quality-showcase`** template exists to be found wanting: an empty block,
-an overlong one, an image with no alt text, and a decorative image the accessibility source is
-right to stay quiet about — so the report has real findings to show. `DemoShowcaseQualityIntegrationTest`
+an overlong one, a paragraph of language mistakes (`n-language`: a repeated word, "utilise",
+"prior to", and a misspelling left for LanguageTool), an image with no alt text, and a decorative
+image the accessibility source is right to stay quiet about — so the report has real findings to
+show. Its variant names its language (`system.locale` `en-GB`), so a configured LanguageTool
+checks it for a tenant that switched it on. `DemoShowcaseQualityIntegrationTest`
 installs the bundled catalog and asserts exactly those, so the demo cannot quietly be tidied
 into demonstrating nothing. `DemoLoader` turns the toggle on for the demo tenant and seeds the
 human half too (a hand-raised finding, a comment, an ignore with a reason) — that half has no

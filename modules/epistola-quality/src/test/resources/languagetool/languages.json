@@ -1,0 +1,37 @@
+[
+  {
+    "name": "German (Germany)",
+    "code": "de",
+    "longCode": "de-DE"
+  },
+  {
+    "name": "English",
+    "code": "en",
+    "longCode": "en"
+  },
+  {
+    "name": "English (US)",
+    "code": "en",
+    "longCode": "en-US"
+  },
+  {
+    "name": "English (GB)",
+    "code": "en",
+    "longCode": "en-GB"
+  },
+  {
+    "name": "Dutch",
+    "code": "nl",
+    "longCode": "nl"
+  },
+  {
+    "name": "Dutch (Belgium)",
+    "code": "nl",
+    "longCode": "nl-BE"
+  },
+  {
+    "name": "Dutch",
+    "code": "nl",
+    "longCode": "nl-NL"
+  }
+]

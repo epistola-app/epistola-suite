@@ -4,7 +4,7 @@
     "type": "template",
     "key": "quality-showcase",
     "name": "Quality Showcase",
-    "description": "Deliberately flawed: an empty block, an overlong one, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
+    "description": "Deliberately flawed: an empty block, an overlong one, a paragraph with language mistakes, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
     "themeKey": "corporate",
     "dataModel": {
       "type": "object",
@@ -197,6 +197,27 @@
               ]
             }
           }
+        },
+        "n-language": {
+          "id": "n-language",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Please send us the the signed form. Utilise the reply envelope prior to the deadline, so that we recieve it in time."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
       },
       "slots": {
@@ -210,6 +231,7 @@
             "n-dynamic-only",
             "n-empty",
             "n-long",
+            "n-language",
             "n-unlabelled-image",
             "n-decorative-rule",
             "n-closing"
@@ -221,7 +243,9 @@
       {
         "key": "default",
         "name": "Default",
-        "attributes": {},
+        "attributes": {
+          "system.locale": "en-GB"
+        },
         "isDefault": true
       }
     ]

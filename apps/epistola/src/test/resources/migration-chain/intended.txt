@@ -1134,3 +1134,35 @@ $$
 
 # Hygiene before alpha.1: no content is stored as a separate `templateModel` any more.
 - row resource_content_kinds: {"kind":"templateModel"}
+
+# Added after the chain: the result cache of the language checks (ADR 0044, V20261101001800). A cache
+# of what a checker reported per block of template text; the seed holds none.
++ CREATE TABLE public.quality_text_results (
+    block_hash character(64) NOT NULL,
+    checked_at timestamp with time zone NOT NULL,
+    checker_id character varying(64) NOT NULL,
+    configuration character varying(200) NOT NULL,
+    diagnostics jsonb NOT NULL,
+    locale character varying(35) NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
++ ALTER TABLE ONLY public.quality_text_results
+    ADD CONSTRAINT quality_text_results_pkey PRIMARY KEY (tenant_key, checker_id, configuration, locale, block_hash)
++ ALTER TABLE ONLY public.quality_text_results
+    ADD CONSTRAINT quality_text_results_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
+
+# Added after the chain: which quality providers a tenant switched on (ADR 0047, V20261101001900).
+# The seed has no quality settings.
++ CREATE TABLE public.quality_provider_settings (
+    enabled boolean NOT NULL,
+    provider_id character varying(64) NOT NULL,
+    tenant_key public.tenant_key NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    updated_by uuid
+)
++ ALTER TABLE ONLY public.quality_provider_settings
+    ADD CONSTRAINT quality_provider_settings_pkey PRIMARY KEY (tenant_key, provider_id)
++ ALTER TABLE ONLY public.quality_provider_settings
+    ADD CONSTRAINT quality_provider_settings_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.quality_provider_settings
+    ADD CONSTRAINT quality_provider_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id) ON DELETE SET NULL

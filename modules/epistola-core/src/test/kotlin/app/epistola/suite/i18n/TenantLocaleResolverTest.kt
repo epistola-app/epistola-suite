@@ -54,6 +54,17 @@ class TenantLocaleResolverTest {
     }
 
     @Test
+    fun `resolveWithSource names the step of the chain that answered`() {
+        assertThat(resolver.resolveWithSource(tenant(defaultLocale = "nl-NL"), mapOf("system.locale" to "fr-FR")))
+            .isEqualTo(ResolvedLocale("fr-FR", LocaleSource.VARIANT))
+        assertThat(resolver.resolveWithSource(tenant(defaultLocale = "nl-NL"), emptyMap()))
+            .isEqualTo(ResolvedLocale("nl-NL", LocaleSource.TENANT))
+        val fallback = resolver.resolveWithSource(tenant(defaultLocale = null), mapOf("system.locale" to " "))
+        assertThat(fallback).isEqualTo(ResolvedLocale("en-US", LocaleSource.INSTALLATION))
+        assertThat(fallback.chosen).isFalse()
+    }
+
+    @Test
     fun `blank variant attribute falls through to tenant default`() {
         val tenant = tenant(defaultLocale = "nl-NL")
         val attrs = mapOf("system.locale" to "  ", "locale" to "")

@@ -1,6 +1,7 @@
 # ADR 0031: Quality findings that are never out of date
 
-- **Status:** Proposed
+- **Status:** Superseded by [ADR 0044](0044-quality-results-keyed-by-content.md) (2026-10-31)
+  — proposed, never accepted
 - **Date:** 2026-10-20
 - **Deciders:** Epistola team
 - **Tags:** quality, editor, maintainability, staleness, performance

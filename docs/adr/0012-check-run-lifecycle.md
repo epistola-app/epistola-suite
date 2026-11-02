@@ -1,6 +1,7 @@
 # ADR 0012: Editor check-run lifecycle — debounce, coalescing, and run-state
 
-- **Status:** Draft — discussion record, not accepted
+- **Status:** Superseded by [ADR 0044](0044-quality-results-keyed-by-content.md) (2026-10-31)
+  — draft discussion record, never accepted
 - **Date:** 2026-07-18
 - **Discussants:** Epistola team
 - **Tags:** quality, editor, ux, concurrency, cluster, scheduling

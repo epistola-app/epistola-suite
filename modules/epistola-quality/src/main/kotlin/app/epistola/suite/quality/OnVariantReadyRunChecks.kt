@@ -4,50 +4,49 @@
 
 package app.epistola.suite.quality
 
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
-import app.epistola.suite.mediator.execute
-import app.epistola.suite.mediator.query
-import app.epistola.suite.quality.commands.RunQualityChecks
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 /**
- * Re-runs the in-process checks when a variant is marked ready, so the report reflects it without
- * waiting for an author to open the editor and click "Check now".
+ * Checks a variant when it is marked ready, so the report reflects it without waiting for an author
+ * to open the editor and click "Check now".
  *
- * ### Why ready and not every save
+ * Marking ready is rare, deliberate, and the moment the document is declared fit to be released,
+ * which other people will rely on. Saves are checked too, a few seconds after the last one
+ * ([OnVariantSavedScheduleChecks]); a ready mark does not wait for that delay.
  *
- * Nothing is wired to `UpdateVariantContent`. The editor autosaves every few seconds, so a handler there
- * would run every source on every keystroke-batch, for every author, forever — and the findings
- * would be obsolete before they landed. Authors get an explicit "Check now" in the editor instead,
- * and the ledger stays honest in the meantime by marking pre-edit findings outdated.
+ * ### Why a timer, due now
  *
- * Marking ready is different: it is rare, deliberate, and the moment the document is declared fit to
- * be released, which other people will rely on.
+ * The check runs on the variant's quality-check timer ([QualityCheckTimer]) rather than in the request
+ * that marked it: a language checker may be a server across the network, and the author marking a
+ * variant ready should not wait on it. The same timer key means a save just before the mark is
+ * checked once, not twice.
  *
- * ### Why AFTER_COMMIT
+ * ### Why IMMEDIATE
  *
- * Failure is isolated at this phase, which is what we want: a quality check is an observation about
- * a ready mark, not a condition of it. A broken source must never be able to roll back an author's
- * mark. If this fails, the author can still run checks explicitly from the editor.
+ * The timer is written in the mark's own transaction, like an outbox: a mark that rolls back leaves no
+ * timer. No source runs here, so a broken source can never roll back an author's mark; it runs later,
+ * on the timer.
+ *
+ * This handler was `AFTER_COMMIT` until the language-check pilot, and never ran: the mediator invokes
+ * `IMMEDIATE` event handlers only, so marking a variant ready checked nothing.
  */
 @Component
 class OnVariantReadyRunChecks : EventHandler<MarkVariantReady> {
-    override val phase = EventPhase.AFTER_COMMIT
+    override val phase = EventPhase.IMMEDIATE
 
     override fun on(
         event: MarkVariantReady,
         result: Any?,
     ) {
-        val tenantKey = event.variantId.tenantKey
-        if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.QUALITY] != true) return
+        if (!QualityCheckTimer.enabledFor(event.variantId.tenantKey)) return
 
-        log.debug("Running quality checks after {} was marked ready", event.variantId.toUrn())
-        RunQualityChecks(event.variantId).execute()
+        log.debug("Checking {} after it was marked ready", event.variantId.toUrn())
+        QualityCheckTimer.schedule(event.variantId, Duration.ZERO, CheckTrigger.READY)
     }
 
     private companion object {

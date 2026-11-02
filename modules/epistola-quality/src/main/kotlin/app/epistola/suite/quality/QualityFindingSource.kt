@@ -6,6 +6,7 @@ package app.epistola.suite.quality
 
 import app.epistola.catalog.protocol.FontRef
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.quality.text.TextChecker
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import org.springframework.stereotype.Component
@@ -131,18 +132,24 @@ interface QualityFindingSource {
 @Component
 class QualitySourceRegistry(
     private val sources: List<QualityFindingSource>,
+    /**
+     * The language checkers (ADR 0044). Each is a source too: its findings carry its id, and the same
+     * two rules below hold for it, so they are checked across both lists.
+     */
+    private val textCheckers: List<TextChecker> = emptyList(),
 ) {
     init {
-        val reserved = sources.filter { it.sourceId == QualitySourceId.MANUAL }
+        val ids = sources.map { it.sourceId to it::class.java.name } + textCheckers.map { it.checkerId to it::class.java.name }
+        val reserved = ids.filter { it.first == QualitySourceId.MANUAL }
         require(reserved.isEmpty()) {
             "QualitySourceId.MANUAL is reserved for human-raised findings and cannot be claimed by a source: " +
-                reserved.joinToString { it::class.java.name }
+                reserved.joinToString { it.second }
         }
-        val duplicates = sources.groupBy { it.sourceId }.filterValues { it.size > 1 }
+        val duplicates = ids.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
         require(duplicates.isEmpty()) {
             "Duplicate quality source ids — reconciliation is scoped by source id, so two sources sharing one " +
                 "would resolve each other's findings: " +
-                duplicates.entries.joinToString { (id, dupes) -> "$id -> ${dupes.joinToString { it::class.java.name }}" }
+                duplicates.entries.joinToString { (id, dupes) -> "$id -> ${dupes.joinToString()}" }
         }
     }
 
@@ -152,6 +159,16 @@ class QualitySourceRegistry(
 
     /** The sources that should run for this tenant. */
     fun availableFor(tenantKey: TenantKey): List<QualityFindingSource> = sources.filter { it.isAvailable(tenantKey) }
+
+    /** The language checkers, run by `RunQualityChecks` through the result cache. */
+    fun textCheckers(): List<TextChecker> = textCheckers
+
+    /** A source's or a checker's name, for the report and the editor panel; null for one that runs elsewhere. */
+    fun displayName(sourceId: QualitySourceId): String? = byId(sourceId)?.displayName ?: textCheckers.firstOrNull { it.checkerId == sourceId }?.displayName
+
+    /** Every source a tenant's findings can come from here, sources and checkers, as (id, name). */
+    fun namesFor(tenantKey: TenantKey): List<Pair<QualitySourceId, String>> = availableFor(tenantKey).map { it.sourceId to it.displayName } +
+        textCheckers.map { it.checkerId to it.displayName }
 }
 
 /** The presets a template's theme styles, by key, and the theme's name; [themeName] null when none applies. */

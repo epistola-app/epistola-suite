@@ -101,8 +101,9 @@ object KnownFeatures {
         QUALITY to FeatureMetadata(
             "Quality",
             "Enables quality checks — a ledger of findings about templates, surfaced in a report and " +
-                "in the template editor. Findings are submitted by check sources (in-process or remote) " +
-                "and by reviewers; checks only ever analyse a template's example data.",
+                "in the template editor. Findings come from checks run on every save and from reviewers. " +
+                "Checks read templates only: never generated documents, and never example values. Providers " +
+                "that send text elsewhere, such as LanguageTool, are switched on in the quality settings.",
             stage = FeatureStage.ALPHA,
         ),
         AI_CHAT to FeatureMetadata(

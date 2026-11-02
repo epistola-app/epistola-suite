@@ -130,6 +130,36 @@
     overflow-wrap: anywhere;
   }
 
+  .quality-finding-quote {
+    font-size: var(--ep-text-xs);
+    font-style: italic;
+    color: var(--ep-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .quality-finding-suggestions {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .quality-panel-checks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    margin: 0;
+    padding: var(--ep-space-2);
+    list-style: none;
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .quality-check-failed {
+    color: var(--ep-red-700);
+  }
+
   .quality-finding-meta {
     display: flex;
     flex-direction: column;
