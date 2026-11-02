@@ -35,7 +35,7 @@ data class SaveQualityProviderSettings(
     val enabled: Set<QualitySourceId>,
 ) : Command<SavedQualityProviderSettings>,
     RequiresPermission {
-    override val permission: Permission get() = Permission.TENANT_SETTINGS
+    override val permission: Permission get() = Permission.INTEGRATIONS_MANAGE
 }
 
 @Component

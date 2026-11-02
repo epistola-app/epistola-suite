@@ -64,16 +64,19 @@ All Epistola groups live under a single root group:
       /epistola/tenants/{tenant}/content-viewer
       /epistola/tenants/{tenant}/content-author
       /epistola/tenants/{tenant}/document-generator
+      /epistola/tenants/{tenant}/document-reader
       /epistola/tenants/{tenant}/content-publisher
       /epistola/tenants/{tenant}/tenant-administrator
   /epistola/global                           <- global roles (all tenants)
     /epistola/global/content-viewer
     /epistola/global/content-author
     /epistola/global/document-generator
+    /epistola/global/document-reader
     /epistola/global/content-publisher
     /epistola/global/tenant-administrator
   /epistola/platform                         <- platform roles
     /epistola/platform/tenant-manager
+    /epistola/platform/installation-administrator
     /epistola/platform/platform-observer
 ```
 
@@ -89,28 +92,31 @@ All Epistola groups live under a single root group:
 
 **Tenant roles** (per-tenant or global):
 
-- `content-viewer` — read-only across the tenant
+- `content-viewer` — read-only content across the tenant; not generated documents
 - `content-author` — create/edit templates, themes, stencils, reference data (attributes, code lists, fonts)
-- `document-generator` — generate documents
-- `content-publisher` — release catalogs and deploy releases to environments
-- `tenant-administrator` — tenant settings, users/API keys, catalog management, diagnostics, and destructive restore (does **not** include publish)
+- `document-generator` — generate documents, and read the documents generated
+- `document-reader` — read generated documents without generating
+- `content-publisher` — release catalogs, deploy releases to environments, edit quality profiles
+- `tenant-administrator` — tenant settings, integrations, API keys, feedback, catalog management, diagnostics and audit (does **not** include publish)
 
 **Platform roles**:
 
-- `tenant-manager` — create and manage tenants across the platform
-- `platform-observer` — cross-tenant read-only access (diagnostics/logs/status)
+- `tenant-manager` — create and delete tenants, and grant them namespaces
+- `installation-administrator` — installation state: cluster maintenance, the site banner, data sharing
+- `platform-observer` — diagnostics and the audit trail in every tenant, read-only
 
 ### Permissions
 
 Tenant roles map to fine-grained permissions in application code (not in Keycloak). See [`authorization.md`](authorization.md) for the full permission catalog.
 
-| Role                   | Permissions                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `content-viewer`       | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW` |
-| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                  |
-| `document-generator`   | `DOCUMENT_GENERATE`                                                                              |
-| `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`                                       |
-| `tenant-administrator` | `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`                          |
+| Role                   | Permissions                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-viewer`       | `TEMPLATE_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `FEEDBACK_SUBMIT`                                                          |
+| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                                                             |
+| `document-generator`   | `DOCUMENT_GENERATE`, `DOCUMENT_VIEW`                                                                                                                        |
+| `document-reader`      | `DOCUMENT_VIEW`                                                                                                                                             |
+| `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`, `QUALITY_EDIT`                                                                                  |
+| `tenant-administrator` | `TENANT_SETTINGS`, `INTEGRATIONS_MANAGE`, `CREDENTIALS_MANAGE`, `FEEDBACK_MANAGE`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `DIAGNOSTICS_MANAGE`, `AUDIT_VIEW` |
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 

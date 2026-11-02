@@ -46,7 +46,7 @@ data class StartExchangeConnection(
     val requestRedirectUri: String,
 ) : Command<String>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 data class CompleteExchangeConnection(
@@ -57,7 +57,7 @@ data class CompleteExchangeConnection(
     val issuer: String,
 ) : Command<ExchangeTenantConnection>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 data class DisconnectExchangeConnection(
@@ -65,7 +65,7 @@ data class DisconnectExchangeConnection(
     val forgetLocally: Boolean = false,
 ) : Command<Unit>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 /**

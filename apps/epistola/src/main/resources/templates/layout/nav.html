@@ -27,7 +27,7 @@
         <!--/* A platform page has no workspace: the bar says Platform and the page, with the
                platform pages in a menu, and the account menu. */-->
         <div th:if="${ws == null and platformPage != null}" class="ws-crumbs" role="navigation" aria-label="Where you are">
-            <th:block th:if="${auth.has('TENANT_MANAGER')}">
+            <th:block th:if="${auth.has('TENANT_MANAGER') or auth.has('INSTALLATION_ADMINISTRATOR')}">
                 <div class="app-nav-dropdown ws-menu">
                     <button type="button" class="app-nav-dropdown-trigger ws-crumb" id="ws-platform-trigger"
                             aria-expanded="false" aria-haspopup="true" aria-controls="ws-platform-menu"
@@ -38,8 +38,10 @@
                     <div class="app-nav-dropdown-menu ws-menu-panel" id="ws-platform-menu" role="menu"
                          aria-label="Platform pages" data-testid="ws-platform-menu">
                         <a th:href="@{/}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Tenants</a>
-                        <a th:href="@{/platform/banner}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Site banner</a>
-                        <a th:href="@{/platform/sharing}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Shared with Epistola</a>
+                        <th:block th:if="${auth.has('INSTALLATION_ADMINISTRATOR')}">
+                            <a th:href="@{/platform/banner}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Site banner</a>
+                            <a th:href="@{/platform/sharing}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Shared with Epistola</a>
+                        </th:block>
                     </div>
                 </div>
                 <span class="ws-crumb-sep" aria-hidden="true">/</span>

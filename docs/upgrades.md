@@ -170,6 +170,26 @@ that outage, and tell the teams whose applications request documents.
 Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
 parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
 
+**Check who holds which role.** 2.0 changes what roles grant (ADR 0048, contract
+`x-authorization`). Nothing is migrated: roles come from your identity provider and API keys, so
+review them there before or with the upgrade.
+
+| Change                                                                                   | What to do                                                                                  |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `content-viewer` no longer reads generated documents; `document-generator` does          | Give the new `document-reader` role to people who read documents without generating them    |
+| An API key scoped to Viewer alone can no longer read documents                           | Add the Document reader (or Generator) scope to a key that fetches documents                |
+| Site banner, data sharing and forgetting cluster nodes need `installation-administrator` | Give the new platform role to whoever runs the installation; `tenant-manager` keeps tenants |
+| Exchange connection and quality providers need `INTEGRATIONS_MANAGE`                     | Nothing: `tenant-administrator` grants it                                                   |
+| Load tests need `DIAGNOSTICS_MANAGE` to start, `DIAGNOSTICS_VIEW` to read                | Nothing for administrators; generators no longer start them                                 |
+| Feedback needs `FEEDBACK_SUBMIT` (viewer) and `FEEDBACK_MANAGE` (administrator)          | Nothing: the roles grant them                                                               |
+| `platform-observer` now reads diagnostics and the audit trail in every tenant            | Check who holds it                                                                          |
+
+A refused REST request answers `https://epistola.app/errors/forbidden` with `requiredPermission`,
+`tenantKey` or `requiredPlatformRole`, permissions named as the contract names them
+(`TEMPLATE_EDIT`), instead of `permission-denied`, `access-denied` or `platform-access-denied`
+([`authorization.md`](authorization.md#what-a-denied-api-caller-receives)). Update integrations that
+match on the old types or on `tenantId` and `requiredRole`.
+
 ## From 2.0.0-alpha.1
 
 After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected. 1.x let you archive

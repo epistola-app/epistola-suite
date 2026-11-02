@@ -249,7 +249,7 @@ documentation cannot drift from the code without a test failing.
 They also get read/write on the shared `demo` tenant because that is where the showcase content
 lives — the demo catalog's quality showcase, the seeded findings, the banner — so a visitor who only
 ever saw their own sandbox would miss most of what the demo is for. Not administration, though:
-`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `TENANT_USERS` and
+`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `CREDENTIALS_MANAGE` and
 `CATALOG_MANAGE`, and a shared tenant any visitor could reconfigure is a demo that
 breaks for everyone else. Their own tenant is where they get to be an administrator.
 
@@ -289,8 +289,9 @@ tenant from `epistola.auth.local-users`.
 ## Platform administration
 
 Platform roles (`PlatformRole`, from `/epistola/platform/{role}` groups or `platform-roles` of a
-local user) apply across tenants. `TENANT_MANAGER` creates and deletes tenants, sets the site banner,
-and manages the **namespaces** each tenant holds (ADR 0034, section 3): the tenant list's
+local user) apply across tenants. `INSTALLATION_ADMINISTRATOR` sets the site banner, forgets
+cluster nodes and reviews what the installation shares with Epistola; `TENANT_MANAGER` creates and
+deletes tenants and manages the **namespaces** each tenant holds (ADR 0034, section 3): the tenant list's
 **Namespaces** action opens `/platform/tenants/{tenant}/namespaces`, where a namespace is granted
 under an authority (the organisation's own domain, or `exchange.epistola.app`) and revoked again
 once no catalog the tenant authors is named in it. A tenant is created with one namespace, which

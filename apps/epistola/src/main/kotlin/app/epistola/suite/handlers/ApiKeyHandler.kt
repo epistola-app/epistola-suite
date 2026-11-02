@@ -40,7 +40,7 @@ class ApiKeyHandler {
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_USERS)
+        requirePermission(tenantId.key, Permission.CREDENTIALS_MANAGE)
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("api-keys/new", "dialog") {
@@ -61,7 +61,7 @@ class ApiKeyHandler {
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_USERS)
+        requirePermission(tenantId.key, Permission.CREDENTIALS_MANAGE)
 
         val form = request.form {
             field("name") {
@@ -217,14 +217,15 @@ class ApiKeyHandler {
         // default; administration (settings, users, catalogs, logs and audit) is offered
         // but never pre-selected, keeping keys least-privilege unless deliberately escalated.
         val ROLE_OPTIONS = listOf(
-            RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access across the tenant.", defaultChecked = true),
+            RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access to templates, themes, stencils, reference data and catalogs. Not generated documents.", defaultChecked = true),
             RoleOption(TenantRole.CONTENT_AUTHOR.name, "Author", "Create and edit templates, themes, stencils, and reference data.", defaultChecked = false),
-            RoleOption(TenantRole.DOCUMENT_GENERATOR.name, "Generator", "Generate documents.", defaultChecked = false),
-            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish catalog releases and deploy them to environments.", defaultChecked = false),
+            RoleOption(TenantRole.DOCUMENT_GENERATOR.name, "Generator", "Generate documents, and read the documents generated.", defaultChecked = false),
+            RoleOption(TenantRole.DOCUMENT_READER.name, "Document reader", "Read generated documents without generating them.", defaultChecked = false),
+            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Release catalogs, deploy releases to environments, and edit quality profiles.", defaultChecked = false),
             RoleOption(
                 TenantRole.TENANT_ADMINISTRATOR.name,
                 "Administrator",
-                "Tenant settings, users, catalogs, logs and the audit trail.",
+                "Tenant settings, integrations, API keys, feedback, catalogs, logs and the audit trail.",
                 defaultChecked = false,
             ),
         )

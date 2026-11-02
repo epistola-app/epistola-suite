@@ -28,6 +28,8 @@ import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -72,6 +74,8 @@ class LoadTestHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
+        // Starting a run is managing diagnostics (StartLoadTest); reading runs is not.
+        requirePermission(tenantKey, Permission.DIAGNOSTICS_MANAGE)
 
         // Check if this is a template selection (HTMX cascade update)
         // Template select value is "namespace/catalogKey/templateKey" (ADR 0034, section 9)

@@ -57,7 +57,7 @@ data class StartLoadTest(
     SelfManagedTransaction {
     val tenantId: TenantKey get() = catalog.tenantKey
     val catalogKey: CatalogKey get() = catalog.key
-    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val permission get() = Permission.DIAGNOSTICS_MANAGE
     override val tenantKey get() = tenantId
 
     init {

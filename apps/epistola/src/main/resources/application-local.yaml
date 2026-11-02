@@ -78,6 +78,7 @@ epistola:
           - TENANT_ADMINISTRATOR
         platform-roles:
           - TENANT_MANAGER
+          - INSTALLATION_ADMINISTRATOR
       - username: user@local
         password: user
         display-name: Local User

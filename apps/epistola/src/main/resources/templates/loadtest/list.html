@@ -13,7 +13,8 @@
             </div>
             <div class="empty-state-title">No load tests yet</div>
             <div class="empty-state-description">Run a load test to measure document generation performance.</div>
-            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+            <div th:unless="${auth.has('DIAGNOSTICS_MANAGE')}" class="empty-state-description">Starting one needs a tenant administrator: load tests are an operational tool.</div>
+            <a th:if="${auth.has('DIAGNOSTICS_MANAGE')}" th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New load test
             </a>
@@ -75,7 +76,7 @@
         </table>
     </th:block>
     <th:block th:fragment="load-test-list-actions">
-        <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
+        <a th:if="${auth.has('DIAGNOSTICS_MANAGE')}" th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New load test
         </a>

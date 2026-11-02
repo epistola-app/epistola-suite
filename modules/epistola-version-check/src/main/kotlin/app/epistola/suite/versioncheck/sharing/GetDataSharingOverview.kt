@@ -38,7 +38,7 @@ data class DataSharingOverview(
 class GetDataSharingOverview :
     Query<DataSharingOverview>,
     RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component

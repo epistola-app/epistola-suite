@@ -88,9 +88,11 @@
     </div>
 
     <th:block th:fragment="tenant-list-actions">
-        <th:block th:if="${auth.has('TENANT_MANAGER')}">
+        <th:block th:if="${auth.has('INSTALLATION_ADMINISTRATOR')}">
             <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline" data-testid="platform-banner-link">Site banner</a>
             <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline" data-testid="platform-sharing-link">Shared with Epistola</a>
+        </th:block>
+        <th:block th:if="${auth.has('TENANT_MANAGER')}">
             <button type="button" class="ep-btn ep-btn-primary"
                     th:hx-get="@{/tenants/new}" hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="tenant-create-open">

@@ -23,7 +23,7 @@ data class ListFeedback(
     val sourceUrl: String? = null,
 ) : Query<List<FeedbackSummary>>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_SUBMIT
 }
 
 @Component

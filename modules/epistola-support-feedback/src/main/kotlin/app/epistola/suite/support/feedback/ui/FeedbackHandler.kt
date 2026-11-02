@@ -32,6 +32,7 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
@@ -127,7 +128,7 @@ class FeedbackHandler(
 
         // Access control: admin or creator only
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -144,7 +145,7 @@ class FeedbackHandler(
             "assets" to assets
             "activeNavSection" to "feedback"
             "statuses" to FeedbackStatus.entries
-            "isManager" to principal.isManager(tenantId.key)
+            "mayManageFeedback" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
         }
     }
 
@@ -232,7 +233,7 @@ class FeedbackHandler(
 
         // Only admin or creator can update status
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -250,7 +251,7 @@ class FeedbackHandler(
                 "comments" to comments
                 "assets" to assets
                 "statuses" to FeedbackStatus.entries
-                "isManager" to principal.isManager(tenantId.key)
+                "mayManageFeedback" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
             }
             onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
@@ -269,7 +270,7 @@ class FeedbackHandler(
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
 
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -290,7 +291,7 @@ class FeedbackHandler(
                 "tenantId" to tenantId.key
                 "feedback" to feedback
                 "comments" to comments
-                "isManager" to principal.isManager(tenantId.key)
+                "mayManageFeedback" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
             }
             onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
@@ -323,7 +324,7 @@ class FeedbackHandler(
         // Access control: admin or creator only
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 

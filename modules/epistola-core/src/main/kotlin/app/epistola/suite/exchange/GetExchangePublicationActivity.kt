@@ -69,7 +69,7 @@ data class GetExchangePublicationActivity(
     val limit: Int = 25,
 ) : Query<ExchangePublicationActivity>,
     RequiresPermission {
-    override val permission = Permission.TENANT_SETTINGS
+    override val permission = Permission.INTEGRATIONS_MANAGE
 }
 
 @Component

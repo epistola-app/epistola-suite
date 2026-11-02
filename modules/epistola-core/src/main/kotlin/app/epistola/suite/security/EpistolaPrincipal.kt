@@ -82,13 +82,15 @@ data class EpistolaPrincipal(
     /**
      * Check if the user has a specific permission in the given tenant.
      * Effective permissions are the union of all the user's role grants
-     * (per-tenant + global).
+     * (per-tenant + global), and what a platform role grants in every tenant.
      */
-    fun hasPermission(tenantId: TenantKey, permission: Permission): Boolean {
-        val roles = rolesFor(tenantId)
-        if (roles.isEmpty()) return false
-        return permission in roles.effectivePermissions()
-    }
+    fun hasPermission(tenantId: TenantKey, permission: Permission): Boolean = grantsInEveryTenant(permission) || permission in rolesFor(tenantId).effectivePermissions()
+
+    /**
+     * Whether a platform role grants [permission] in every tenant, member or not
+     * ([PlatformRole.permissionsInEveryTenant]): such a permission needs no tenant access.
+     */
+    fun grantsInEveryTenant(permission: Permission): Boolean = platformRoles.any { permission in it.permissionsInEveryTenant() }
 
     /**
      * Check if the user has the specified platform role.

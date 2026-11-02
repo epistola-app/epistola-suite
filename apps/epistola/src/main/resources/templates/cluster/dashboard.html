@@ -219,6 +219,9 @@
                 </tbody>
             </table>
             </div>
+            <p th:if="${report.forgetWithheld}" class="text-muted" data-testid="cluster-forget-withheld">
+                A node here is old enough to forget. Forgetting nodes is for an installation administrator: the cluster registry belongs to the whole installation, not to this tenant.
+            </p>
 
             <div class="cluster-work-section">
                 <h2>Scheduled tasks</h2>

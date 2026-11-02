@@ -47,7 +47,8 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
             add(NavItem("documents", "generation-history", "Generation", "generation-history", 20))
         }
-        if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
+        // An operational tool (ADR 0048): reading runs is diagnostics, starting one is managing them.
+        if (context.hasPermission(Permission.DIAGNOSTICS_VIEW)) {
             add(NavItem("documents", "load-tests", "Load tests", "load-tests", 30))
         }
 
@@ -58,7 +59,7 @@ class CoreNavContributor : NavContributor {
             add(NavItem("operations", "logs", "Logs", "logs", 45))
         }
         // The Audit item is contributed by the epistola-audit module's AuditNavContributor.
-        if (context.hasPermission(Permission.TENANT_USERS)) {
+        if (context.hasPermission(Permission.CREDENTIALS_MANAGE)) {
             add(NavItem("operations", "api-keys", "API keys", "api-keys", 40))
         }
 
@@ -66,6 +67,9 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.TENANT_SETTINGS)) {
             add(NavItem("settings", "features", "Features", "features", 10))
             add(NavItem("settings", "defaults", "Defaults", "defaults", 20))
+        }
+        // Settings that send tenant data out are their own permission (ADR 0048).
+        if (context.hasPermission(Permission.INTEGRATIONS_MANAGE)) {
             if (ResolveCatalogPublishingAvailability(context.tenantKey).query()) {
                 add(
                     NavItem(

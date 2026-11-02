@@ -4,8 +4,12 @@
 
 package app.epistola.suite.security
 
+import app.epistola.suite.cluster.ForgetClusterNode
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.documents.queries.ListDocuments
+import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.generation.collect.queries.ListConsumerStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -119,6 +123,70 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                 }.isInstanceOf(PlatformAccessDeniedException::class.java)
             }
         }
+    }
+
+    @Test
+    fun `a platform observer reads diagnostics in a tenant it is not a member of, and nothing else`() {
+        val tenantKey = withAuthentication { mediator.send(CreateTenant(id = TenantKey.of("authz-observed"), name = "Observed")).id }
+        val observer = principal("00000000-0000-0000-0000-000000000005", "observer", platformRoles = setOf(PlatformRole.PLATFORM_OBSERVER))
+
+        asPrincipal(observer) {
+            assertThat(mediator.query(ListConsumerStatus(tenantKey))).isNotNull()
+            assertThatThrownBy { mediator.query(ListEnvironments(app.epistola.suite.common.ids.TenantId(tenantKey))) }.isInstanceOf(TenantAccessDeniedException::class.java)
+            assertThatThrownBy { mediator.query(ListDocuments(tenantKey)) }.isInstanceOf(TenantAccessDeniedException::class.java)
+        }
+    }
+
+    @Test
+    fun `a content viewer does not read generated documents, a document reader does`() {
+        val tenantKey = withAuthentication { mediator.send(CreateTenant(id = TenantKey.of("authz-documents"), name = "Documents")).id }
+        val viewer = principal("00000000-0000-0000-0000-000000000006", "viewer", memberships = mapOf(tenantKey to setOf(TenantRole.CONTENT_VIEWER)))
+        val reader = principal("00000000-0000-0000-0000-000000000007", "reader", memberships = mapOf(tenantKey to setOf(TenantRole.DOCUMENT_READER)))
+
+        asPrincipal(viewer) {
+            assertThatThrownBy { mediator.query(ListDocuments(tenantKey)) }.isInstanceOf(PermissionDeniedException::class.java)
+        }
+        asPrincipal(reader) {
+            assertThat(mediator.query(ListDocuments(tenantKey))).isEmpty()
+        }
+    }
+
+    @Test
+    fun `forgetting a cluster node needs the installation administrator, not a tenant administrator`() {
+        val tenantAdministrator = principal(
+            "00000000-0000-0000-0000-000000000008",
+            "tenant-admin",
+            globalRoles = TenantRole.entries.toSet(),
+            platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        )
+
+        asPrincipal(tenantAdministrator) {
+            assertThatThrownBy { mediator.send(ForgetClusterNode(nodeId = "gone")) }
+                .isInstanceOf(PlatformAccessDeniedException::class.java)
+                .extracting { (it as PlatformAccessDeniedException).requiredRole }
+                .isEqualTo(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        }
+    }
+
+    private fun principal(
+        id: String,
+        name: String,
+        memberships: Map<TenantKey, Set<TenantRole>> = emptyMap(),
+        globalRoles: Set<TenantRole> = emptySet(),
+        platformRoles: Set<PlatformRole> = emptySet(),
+    ) = EpistolaPrincipal(
+        userId = UserKey.of(id),
+        externalId = name,
+        email = "$name@example.com",
+        displayName = name,
+        tenantMemberships = memberships,
+        globalRoles = globalRoles,
+        platformRoles = platformRoles,
+        currentTenantId = null,
+    ).also { ensureUser(it) }
+
+    private fun asPrincipal(principal: EpistolaPrincipal, block: () -> Unit) {
+        MediatorContext.runWithMediator(mediator) { SecurityContext.runWithPrincipal(principal) { block() } }
     }
 
     @Test

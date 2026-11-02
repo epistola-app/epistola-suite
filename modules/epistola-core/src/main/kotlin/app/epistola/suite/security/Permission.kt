@@ -9,7 +9,10 @@ package app.epistola.suite.security
  *
  * Permissions are application-specific and derived from composable [TenantRole]s
  * within Epistola (L4 in the authorization layer model). They are NOT stored
- * in Keycloak — the IDP only provides coarse roles (reader, editor, generator, manager).
+ * in Keycloak — the IDP only provides coarse roles.
+ *
+ * The contract publishes this vocabulary as data (`x-authorization` in the server stubs' spec), and
+ * `PermissionContractAlignmentTest` holds the two together: every name, and which roles grant it.
  *
  * This keeps the permission model decoupled from the IDP, allowing it to
  * evolve freely as features are added without reconfiguring identity providers.
@@ -53,6 +56,12 @@ enum class Permission {
      */
     CATALOG_PUBLISH,
 
+    /**
+     * Change quality profiles and bind them to a catalog or a template (contract ADR 0010, suite
+     * ADR 0046). The publisher's, not the author's: a profile's rules gate releases.
+     */
+    QUALITY_EDIT,
+
     /** Observability: application logs and diagnostics. */
     DIAGNOSTICS_VIEW,
 
@@ -68,7 +77,22 @@ enum class Permission {
 
     /** Tenant configuration: feature toggles, defaults, environments, entitlements. */
     TENANT_SETTINGS,
-    TENANT_USERS,
+
+    /**
+     * Settings that send tenant data out of the installation: the Exchange connection and the
+     * quality providers. Split from [TENANT_SETTINGS] like [CATALOG_PUBLISH] from [CATALOG_RELEASE]
+     * (ADR 0048). No REST operation requires it.
+     */
+    INTEGRATIONS_MANAGE,
+
+    /** API keys and, later, consumers: the credentials integrations call with. */
+    CREDENTIALS_MANAGE,
+
+    /** Send feedback to Epistola, and follow up on it: comments, attachments. No REST operation requires it. */
+    FEEDBACK_SUBMIT,
+
+    /** Manage the tenant's feedback: change its status, act on another member's. No REST operation requires it. */
+    FEEDBACK_MANAGE,
 }
 
 /**
@@ -78,13 +102,15 @@ enum class Permission {
  * all their roles' permission grants.
  */
 fun TenantRole.permissions(): Set<Permission> = when (this) {
+    // Reviewing content is not reading its output: generated documents carry personal data, so
+    // DOCUMENT_VIEW is DOCUMENT_GENERATOR's and DOCUMENT_READER's, not the viewer's (ADR 0048).
     TenantRole.CONTENT_VIEWER -> setOf(
         Permission.TEMPLATE_VIEW,
-        Permission.DOCUMENT_VIEW,
         Permission.THEME_VIEW,
         Permission.STENCIL_VIEW,
         Permission.REFERENCE_VIEW,
         Permission.CATALOG_VIEW,
+        Permission.FEEDBACK_SUBMIT,
     )
 
     TenantRole.CONTENT_AUTHOR -> setOf(
@@ -96,17 +122,25 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
 
     TenantRole.DOCUMENT_GENERATOR -> setOf(
         Permission.DOCUMENT_GENERATE,
+        Permission.DOCUMENT_VIEW,
+    )
+
+    TenantRole.DOCUMENT_READER -> setOf(
+        Permission.DOCUMENT_VIEW,
     )
 
     TenantRole.CONTENT_PUBLISHER -> setOf(
         Permission.CATALOG_RELEASE,
         Permission.ENVIRONMENT_DEPLOY,
         Permission.CATALOG_PUBLISH,
+        Permission.QUALITY_EDIT,
     )
 
     TenantRole.TENANT_ADMINISTRATOR -> setOf(
         Permission.TENANT_SETTINGS,
-        Permission.TENANT_USERS,
+        Permission.INTEGRATIONS_MANAGE,
+        Permission.CREDENTIALS_MANAGE,
+        Permission.FEEDBACK_MANAGE,
         Permission.CATALOG_MANAGE,
         Permission.DIAGNOSTICS_VIEW,
         Permission.DIAGNOSTICS_MANAGE,
@@ -119,3 +153,12 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
  * The result is the union of all individual role permission grants.
  */
 fun Set<TenantRole>.effectivePermissions(): Set<Permission> = flatMapTo(mutableSetOf()) { it.permissions() }
+
+/**
+ * The permissions [this] platform role grants in every tenant, read-only, whether or not the holder
+ * is a member there (contract `x-authorization` `grantsInEveryTenant`).
+ */
+fun PlatformRole.permissionsInEveryTenant(): Set<Permission> = when (this) {
+    PlatformRole.PLATFORM_OBSERVER -> setOf(Permission.DIAGNOSTICS_VIEW, Permission.AUDIT_VIEW)
+    PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR -> emptySet()
+}

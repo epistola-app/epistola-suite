@@ -103,10 +103,12 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("id=\"create-api-key-form\"")
             assertThat(response.body).contains("name=\"name\"")
             // The roles say what they grant now: publishing deploys too, and backups were withdrawn.
-            assertThat(response.body).contains("Publish catalog releases and deploy them to environments.")
+            assertThat(response.body).contains("Release catalogs, deploy releases to environments, and edit quality profiles.")
+            // A viewer reads no generated documents (ADR 0048); a document reader is its own scope.
+            assertThat(response.body).contains("Not generated documents.").contains("value=\"DOCUMENT_READER\"")
             assertThat(response.body).doesNotContain("backups").doesNotContain("archive template and stencil versions")
             // …and so were tenant snapshots (#1219): administration no longer restores anything.
-            assertThat(response.body).doesNotContain("snapshot").contains("Tenant settings, users, catalogs, logs and the audit trail.")
+            assertThat(response.body).doesNotContain("snapshot").contains("Tenant settings, integrations, API keys, feedback, catalogs, logs and the audit trail.")
             assertThat(response.body).contains("data-testid=\"api-key-roles\"")
             // A fragment, not the whole page (no app shell).
             assertThat(response.body).doesNotContain("<html")

@@ -19,9 +19,9 @@ import org.springframework.web.servlet.function.ServerResponse
 /**
  * Admin UI for the installation-wide site banner. It is a platform-level page (no
  * tenant in the URL — the banner spans all tenants) reachable from the tenant list
- * at `/`. Both routes dispatch through the mediator, so the platform `TENANT_MANAGER`
+ * at `/`. Both routes dispatch through the mediator, so the platform `INSTALLATION_ADMINISTRATOR`
  * gate on [GetSiteBanner] / [SetSiteBanner] / [ClearSiteBanner] is enforced centrally
- * (a non-manager hitting the URL gets the standard 403 page).
+ * (anyone else hitting the URL gets the standard 403 page).
  */
 @Component
 class SiteBannerHandler {

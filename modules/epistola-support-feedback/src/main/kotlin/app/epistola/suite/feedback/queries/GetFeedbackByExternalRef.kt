@@ -21,7 +21,7 @@ data class GetFeedbackByExternalRef(
     val externalRef: String,
 ) : Query<FeedbackId?>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_SUBMIT
 }
 
 @Component

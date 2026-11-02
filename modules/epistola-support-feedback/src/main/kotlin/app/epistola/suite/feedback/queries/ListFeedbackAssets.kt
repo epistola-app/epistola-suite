@@ -18,7 +18,7 @@ data class ListFeedbackAssets(
     val feedbackId: FeedbackId,
 ) : Query<List<FeedbackAsset>>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_VIEW
+    override val permission get() = Permission.FEEDBACK_SUBMIT
     override val tenantKey get() = feedbackId.tenantKey
 }
 
