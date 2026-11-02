@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 
@@ -12,7 +13,7 @@ import app.epistola.suite.catalog.versionAt
  * (a quality finding, a load-test run) to that template in the version its catalog's caller means
  * (`current_templates`), aliased `template`.
  */
-fun currentTemplateJoin(alias: String): String = "JOIN current_templates template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id"
+fun currentTemplateJoin(alias: String): String = "JOIN current_templates(${VERSION_ARGS}) template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id"
 
 /** The address columns a caller reading through [currentTemplateJoin] still expects to select. */
 const val TEMPLATE_ADDRESS_COLUMNS: String =

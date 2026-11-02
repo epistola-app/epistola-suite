@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -49,7 +50,7 @@ class GetQualityInputKeyHandler(
     override fun handle(query: GetQualityInputKey): QualityInputKey = jdbi.withHandle<QualityInputKey, Exception> { handle ->
         val key = handle.createQuery(
             """
-            SELECT q.input_key FROM quality_current_variants q
+            SELECT q.input_key FROM quality_current_variants(${VERSION_ARGS}) q
             WHERE q.tenant_key = :tenantKey AND q.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
               AND q.template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND q.variant_key = :variantKey
             """,

@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -57,7 +58,7 @@ class DeleteCodeListHandler(
             val attributeCount = handle.createQuery(
                 """
                 -- Bound by alias and key, resolved through the one alias resolver (ADR 0033).
-                SELECT COUNT(*) FROM catalog_version_references('attribute') x
+                SELECT COUNT(*) FROM catalog_version_references('attribute', ${VERSION_ARGS}) x
                 WHERE x.tenant_key = :tenantKey AND x.ref_type = 'codeList'
                   AND x.ref_catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND x.ref_key = CAST(:slug AS TEXT)
                 """,

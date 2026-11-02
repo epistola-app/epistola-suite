@@ -6,6 +6,7 @@ package app.epistola.suite.stencils
 
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.CatalogReferences
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.versionAt
@@ -74,7 +75,7 @@ class StencilResolvers(
     private fun read(handle: Handle, catalog: CatalogId, stencilKey: String): StencilInstances.Content? = handle.createQuery(
         """
             SELECT s.content::text, s.parameter_schema::text, s.reads_template_data
-            FROM current_stencils s
+            FROM current_stencils(${VERSION_ARGS}) s
             WHERE s.tenant_key = :tenantKey AND s.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey) AND s.id = :stencilKey
             """,
     )

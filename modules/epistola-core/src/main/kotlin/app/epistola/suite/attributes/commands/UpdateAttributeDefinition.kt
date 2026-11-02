@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.AttributeStore
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.currentTemplateViewJoin
@@ -107,7 +108,7 @@ class UpdateAttributeDefinitionHandler(
                     val valuesInUse = removedValues.filter { value ->
                         handle.createQuery(
                             """
-                            SELECT COUNT(*) FROM current_template_variants variants
+                            SELECT COUNT(*) FROM current_template_variants(${VERSION_ARGS}) variants
                             ${currentTemplateViewJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
                               AND ${AttributeReferences.usesValue("variants", "value")}

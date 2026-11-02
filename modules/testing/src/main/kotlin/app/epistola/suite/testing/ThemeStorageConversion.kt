@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
@@ -47,7 +48,7 @@ object ThemeStorageConversion {
                 val stored = handle.createQuery(
                     """
                     SELECT r.content_hash FROM release_resources r
-                    JOIN catalog_current_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id
+                    JOIN catalog_current_versions(${VERSION_ARGS}) v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id
                     WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.resource_type = 'theme' AND r.resource_key = :k
                     """,
                 ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("k", theme.id.value).mapTo(String::class.java).one()

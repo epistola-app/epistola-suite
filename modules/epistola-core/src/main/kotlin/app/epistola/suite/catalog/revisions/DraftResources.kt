@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.revisions
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
@@ -233,7 +234,7 @@ object DraftResources {
             """
             SELECT $ROW_COLUMNS
             $ROW_FROM
-            JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+            JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
             JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id AND v.state = 'draft'
             WHERE r.tenant_key = :t
               AND EXISTS (
@@ -360,7 +361,7 @@ object DraftResources {
                         AND h.resource_type = n.ref_type AND h.resource_key = n.ref_key)
                   AND NOT (n.ref_type IN ('image', 'attribute') AND n.alias IS NULL AND EXISTS (
                       SELECT 1 FROM release_resources h
-                      JOIN catalog_current_versions cv ON cv.tenant_key = h.tenant_key AND cv.version_id = h.version_id
+                      JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = h.tenant_key AND cv.version_id = h.version_id
                       WHERE h.tenant_key = :t AND h.resource_type = n.ref_type AND h.resource_key = n.ref_key))
             )
             SELECT DISTINCT x.type, x.key, x.alias, x.ref_type, x.ref_key

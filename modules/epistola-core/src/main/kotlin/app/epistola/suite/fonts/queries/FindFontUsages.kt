@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -62,7 +63,7 @@ class FindFontUsagesHandler(
         val themeUsages = handle.createQuery(
             """
             SELECT t.name AS name
-            FROM current_themes t
+            FROM current_themes(${VERSION_ARGS}) t
             WHERE t.tenant_key = :tenantKey
              
               AND (
@@ -86,8 +87,8 @@ class FindFontUsagesHandler(
         val templateUsages = handle.createQuery(
             """
             SELECT DISTINCT dt.name AS name
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
+            FROM current_template_variants(${VERSION_ARGS}) tv
+            JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                       AND dt.resource_id = tv.template_resource_id
             WHERE tv.tenant_key = :tenantKey
               AND (jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))

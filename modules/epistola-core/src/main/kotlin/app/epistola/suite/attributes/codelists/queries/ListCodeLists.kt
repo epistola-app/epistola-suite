@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_COLUMNS
 import app.epistola.suite.attributes.codelists.model.CodeList
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -97,7 +98,7 @@ private object CodeListList {
         val sql = buildString {
             append("SELECT $CODE_LIST_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_code_lists t WHERE t.tenant_key = :t")
+            append(" FROM current_code_lists(${VERSION_ARGS}) t WHERE t.tenant_key = :t")
             if (catalog != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
             append(" ORDER BY t.display_name ASC, t.catalog_id, t.id")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")

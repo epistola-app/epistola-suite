@@ -20,57 +20,30 @@ sealed interface VersionSelection {
 }
 
 /**
- * Reads one version of a catalog through the views every moved resource type reads
- * (the function `catalog_version_resources` and the views on it, ADR 0033), on a handle: the settings those views
- * read are set for the block and restored after it, so a caller reading a dependency's release or
- * another draft does not leak that choice into the rest of its transaction. The one place, beside the
- * mediator's targeting ([CatalogReleaseTargeting]), that says which version a read means.
+ * Reads one version of a catalog through the functions every moved resource type reads
+ * (`catalog_version_resources` and the reads on it, ADR 0033), on a handle: the target those
+ * functions are given ([CatalogReleaseTargeting.VersionTargetArguments]) is [selection] for the block
+ * only, so a caller reading a dependency's release or another draft does not leak that choice into
+ * the rest of its message. The one place, beside the mediator's targeting ([CatalogReleaseTargeting]),
+ * that says which version a read means.
  */
 object VersionReads {
-    private const val SETTINGS =
-        "current_setting('${CatalogReleaseTargeting.SETTING}', TRUE) AS v, " +
-            "current_setting('${CatalogReleaseTargeting.RELEASE_CATALOG_SETTING}', TRUE) AS rc, " +
-            "current_setting('${CatalogReleaseTargeting.RELEASE_VERSION_SETTING}', TRUE) AS rv"
-
     /** Runs [block] on [handle] reading [selection]; the meant version when it is null. */
-    fun <R> at(handle: Handle, selection: VersionSelection?, block: (Handle) -> R): R {
-        if (selection == null) return block(handle)
-        if (!handle.isInTransaction) return handle.inTransaction<R, Exception> { at(it, selection, block) }
-        val previous = handle.createQuery("SELECT $SETTINGS").map { rs, _ -> Triple(rs.getString("v"), rs.getString("rc"), rs.getString("rv")) }.one()
-        when (selection) {
-            is VersionSelection.Draft -> set(handle, selection.versionId.toString(), "", "")
+    fun <R> at(handle: Handle, selection: VersionSelection?, block: (Handle) -> R): R = when (selection) {
+        null -> block(handle)
 
-            is VersionSelection.Release -> handle.createQuery(
-                """
-                SELECT set_config('${CatalogReleaseTargeting.RELEASE_CATALOG_SETTING}', COALESCE(${catalogAt("t", "c")}::text, ''), TRUE) AS rc,
-                       set_config('${CatalogReleaseTargeting.RELEASE_VERSION_SETTING}', :rv, TRUE) AS rv
-                """,
-            )
-                .bind("t", selection.catalog.tenantKey)
-                .bindCatalog("c", selection.catalog)
-                .bind("rv", selection.version)
-                .mapToMap()
-                .one()
-        }
-        try {
-            return block(handle)
-        } finally {
-            set(handle, previous.first.orEmpty(), previous.second.orEmpty(), previous.third.orEmpty())
-        }
+        // A draft read on its own: no release read around it carries into it.
+        is VersionSelection.Draft -> CatalogReleaseTargeting.withDraft(selection.versionId) { block(handle) }
+
+        // A release read keeps the draft targeted around it, for the other catalogs.
+        is VersionSelection.Release -> CatalogReleaseTargeting.withRelease(catalogIdOf(handle, selection.catalog), selection.version) { block(handle) }
     }
 
-    private fun set(handle: Handle, version: String, releaseCatalog: String, releaseVersion: String) {
-        handle.createQuery(
-            """
-            SELECT set_config('${CatalogReleaseTargeting.SETTING}', :v, TRUE) AS v,
-                   set_config('${CatalogReleaseTargeting.RELEASE_CATALOG_SETTING}', :rc, TRUE) AS rc,
-                   set_config('${CatalogReleaseTargeting.RELEASE_VERSION_SETTING}', :rv, TRUE) AS rv
-            """,
-        )
-            .bind("v", version)
-            .bind("rc", releaseCatalog)
-            .bind("rv", releaseVersion)
-            .mapToMap()
-            .one()
-    }
+    /** The `catalog_id` of [catalog], or null when the tenant has none: then no release is read. */
+    private fun catalogIdOf(handle: Handle, catalog: CatalogId): UUID? = handle.createQuery("SELECT ${catalogAt("t", "c")}")
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .mapTo(UUID::class.java)
+        .findOne()
+        .orElse(null)
 }

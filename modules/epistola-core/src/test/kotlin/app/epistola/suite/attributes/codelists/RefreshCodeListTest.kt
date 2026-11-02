@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
@@ -119,7 +120,7 @@ class RefreshCodeListTest : IntegrationTestBase() {
         val catalog = CatalogId.default(tenantId)
         val id = CodeListId(CodeListKey.of("regions"), catalog)
         fun hash(): String = jdbi.withHandle<String, Exception> { h ->
-            h.createQuery("SELECT r.content_hash FROM release_resources r JOIN catalog_current_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id WHERE r.tenant_key = :t AND r.resource_type = 'codeList' AND r.resource_key = 'regions'")
+            h.createQuery("SELECT r.content_hash FROM release_resources r JOIN catalog_current_versions(${VERSION_ARGS}) v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id WHERE r.tenant_key = :t AND r.resource_type = 'codeList' AND r.resource_key = 'regions'")
                 .bind("t", tenant.id).mapTo(String::class.java).one()
         }
         fun ready(): Boolean? = jdbi.withHandle<Boolean?, Exception> { readyMarks.readiness(it, catalog)["codeList/regions"] }

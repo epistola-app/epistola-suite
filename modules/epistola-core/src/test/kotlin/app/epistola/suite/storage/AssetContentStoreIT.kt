@@ -8,6 +8,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -156,7 +157,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
      * `content_hash`, so this reads it directly (the "no other way" exception).
      */
     private fun systemAssetHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT content_hash FROM current_images WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system') AND content_hash IS NOT NULL")
+        handle.createQuery("SELECT content_hash FROM current_images(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system') AND content_hash IS NOT NULL")
             .bind("t", tenant)
             .mapTo(String::class.java)
             .list()

@@ -5,6 +5,7 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeatureKey
@@ -50,6 +51,9 @@ class JdbiConfig {
             // Join Spring-managed transactions (the mediator's per-command transaction)
             // instead of committing them mid-flight from nested jdbi.inTransaction calls.
             setTransactionHandler(SpringAwareTransactionHandler())
+            // The version a statement means is an argument of the functions it reads, bound from the
+            // running message's target (ADR 0049): the schema reads nothing from the session.
+            addCustomizer(CatalogReleaseTargeting.VersionTargetArguments)
             setSqlLogger(object : SqlLogger {
                 override fun logBeforeExecution(context: StatementContext) {
                     context.define(DATABASE_START_NANOS, System.nanoTime())

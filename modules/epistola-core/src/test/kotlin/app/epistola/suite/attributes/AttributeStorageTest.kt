@@ -17,6 +17,7 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.attributes.validateAttributes
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
@@ -75,13 +76,13 @@ class AttributeStorageTest : IntegrationTestBase() {
             assertThat(created.codeListId).isEqualTo(CodeListId(CodeListKey.of("languages"), shared))
         }
 
-        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_attributes WHERE tenant_key = '${tenant.value}' AND id = 'language' AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')"))
+        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = '${tenant.value}' AND id = 'language' AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')"))
         assertThat(payload.path("resource").path("codeListBinding").path("catalogKey").asString()).isEqualTo("shared")
         assertThat(payload.path("resource").path("codeListBinding").path("key").asString()).isEqualTo("languages")
         assertThat(
             one(
                 """
-                SELECT x.alias || '/' || x.resource_type || '/' || x.resource_key FROM current_attributes a
+                SELECT x.alias || '/' || x.resource_type || '/' || x.resource_key FROM current_attributes(${VERSION_ARGS}) a
                 JOIN release_resources r ON r.tenant_key = a.tenant_key AND r.version_id = a.version_id AND r.resource_type = 'attribute' AND r.resource_key = a.id
                 JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
                 WHERE a.tenant_key = '${tenant.value}' AND a.id = 'language' AND a.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = '${tenant.value}' AND catalog_key = 'letters')

@@ -82,8 +82,9 @@ class FrozenVersionWriteTest : IntegrationTestBase() {
         assertThatThrownBy {
             jdbi.useTransaction<Exception> { handle ->
                 // Target the released row the way CatalogReleaseTargeting targets a draft.
-                handle.createQuery("SELECT set_config('epistola.content_version', :v, true)").bind("v", before.second.toString()).mapTo(String::class.java).one()
-                DraftResources.delete(handle, testCatalog(tenant, letters), ThemeStore.THEME, "brand")
+                CatalogReleaseTargeting.withDraft(before.second) {
+                    DraftResources.delete(handle, testCatalog(tenant, letters), ThemeStore.THEME, "brand")
+                }
             }
         }.isInstanceOf(CatalogReleaseIsReleasedException::class.java)
 

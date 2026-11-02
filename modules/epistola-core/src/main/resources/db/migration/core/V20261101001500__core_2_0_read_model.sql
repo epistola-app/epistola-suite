@@ -245,19 +245,31 @@ AS $$
 SELECT EXISTS (SELECT 1 FROM catalog_versions v WHERE v.tenant_key = p_tenant AND v.version_id = p_version_id AND v.state = 'released')
 $$;
 
--- The version a caller means: the targeted release, else the targeted draft, else the catalog's next.
-CREATE VIEW catalog_current_versions AS
-SELECT DISTINCT ON (tenant_key, catalog_id) tenant_key, catalog_id, version_id
+-- The version a caller means, per catalog: the release it names (p_release_catalog at
+-- p_release_version), else the draft it names (p_draft_version) when that is one of the catalog's,
+-- else the catalog's next version. NULL for each is every catalog's next version. The caller says what
+-- it means; nothing is read from the session (ADR 0049).
+CREATE FUNCTION catalog_current_versions(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key tenant_key,
+        catalog_id UUID,
+        version_id UUID
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
+SELECT DISTINCT ON (v.tenant_key, v.catalog_id) v.tenant_key, v.catalog_id, v.version_id
 FROM catalog_versions v
 WHERE CASE
-          WHEN catalog_id = NULLIF(current_setting('epistola.release_catalog', true), '')::uuid
-              THEN state = 'released' AND version = current_setting('epistola.release_version', true)
-          ELSE version_id::text = current_setting('epistola.content_version', true)
-              OR version_id = (SELECT c.next_version_id FROM catalogs c WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id)
+          WHEN v.catalog_id = p_release_catalog
+              THEN v.state = 'released' AND v.version = p_release_version
+          ELSE v.version_id = p_draft_version
+              OR v.version_id = (SELECT c.next_version_id FROM catalogs c WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id)
       END
-ORDER BY tenant_key, catalog_id, ((version_id::text = current_setting('epistola.content_version', true)) IS TRUE) DESC;
+ORDER BY v.tenant_key, v.catalog_id, ((v.version_id = p_draft_version) IS TRUE) DESC
+$$;
 
-COMMENT ON VIEW catalog_current_versions IS 'Per catalog, the version a caller means: the one its transaction targets (epistola.content_version), else its next version.';
+COMMENT ON FUNCTION catalog_current_versions(uuid, uuid, text) IS 'Per catalog, the version a caller means: the release it names, else the draft it names, else its next version.';
 
 CREATE VIEW catalog_current_releases AS
 SELECT DISTINCT ON (v.tenant_key, v.catalog_id)
@@ -482,7 +494,7 @@ $$;
 
 COMMENT ON FUNCTION catalog_release_presets(p_manifest jsonb) IS 'A release''s declared presets, from its manifest, as a draft holds them (ADR 0036).';
 
-CREATE FUNCTION catalog_version_resources(p_type TEXT)
+CREATE FUNCTION catalog_version_resources(p_type TEXT, p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
     RETURNS TABLE (
         tenant_key    tenant_key,
         catalog_id    UUID,
@@ -506,7 +518,7 @@ CREATE FUNCTION catalog_version_resources(p_type TEXT)
 AS $$
 SELECT cv.tenant_key, cv.catalog_id, cv.version_id, vr.version, r.resource_type, r.resource_key, r.resource_id,
        r.content_hash, r.fingerprint, r.name, r.description, r.revision, r.created_at, r.updated_at, r.created_by, r.updated_by
-FROM catalog_current_versions cv
+FROM catalog_current_versions(p_draft_version, p_release_catalog, p_release_version) cv
 JOIN catalog_versions vr ON vr.tenant_key = cv.tenant_key AND vr.version_id = cv.version_id
 CROSS JOIN LATERAL (
     SELECT * FROM release_resources d
@@ -516,12 +528,12 @@ CROSS JOIN LATERAL (
 ) r
 $$;
 
-COMMENT ON FUNCTION catalog_version_resources(p_type text) IS 'Per catalog, the resource rows of one type of the version a caller means: the release its transaction targets (epistola.release_catalog, epistola.release_version), else the draft catalog_current_versions names.';
+COMMENT ON FUNCTION catalog_version_resources(text, uuid, uuid, text) IS 'Per catalog, the resource rows of one type of the version a caller means (catalog_current_versions).';
 
 -- 5. What the resources of one type of the versions a caller means refer to, resolved: each row of
 --    catalog_version_resources(type) with the references its content holds, and the catalog each
 --    names. "Used by" and "in use?" read this.
-CREATE FUNCTION catalog_version_references(p_type TEXT)
+CREATE FUNCTION catalog_version_references(p_type TEXT, p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
     RETURNS TABLE (
         tenant_key      tenant_key,
         catalog_id      UUID,
@@ -540,13 +552,13 @@ AS $$
 SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_key, r.resource_id,
        x.alias, x.resource_type, x.resource_key,
        resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, r.version, x.alias)
-FROM catalog_version_resources(p_type) r
+FROM catalog_version_resources(p_type, p_draft_version, p_release_catalog, p_release_version) r
 CROSS JOIN LATERAL (
     SELECT * FROM resource_references x WHERE x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash OFFSET 0
 ) x
 $$;
 
-COMMENT ON FUNCTION catalog_version_references(p_type text) IS 'The references of one resource type''s rows of the versions a caller means, each with the catalog it names (resolve_catalog_alias).';
+COMMENT ON FUNCTION catalog_version_references(text, uuid, uuid, text) IS 'The references of one resource type''s rows of the versions a caller means, each with the catalog it names (resolve_catalog_alias).';
 
 -- 8. The views that read the number, again: the number from the version's row.
 CREATE VIEW release_wire_resources AS
@@ -579,7 +591,30 @@ WHERE r.version_id IS NOT NULL AND r.resource_type NOT IN ('template', 'variant'
 COMMENT ON VIEW resource_content_digests IS 'The stored content of every catalog resource as one digest per part (a template per variant) and catalog version; what a ready mark records.';
 
 -- 5. The themes of a draft or a release, from their rows alone.
-CREATE VIEW current_themes AS
+CREATE FUNCTION current_themes(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key          tenant_key,
+        catalog_id          UUID,
+        version_id          UUID,
+        version             VARCHAR(128),
+        resource_id         UUID,
+        id                  TEXT,
+        name                TEXT,
+        payload             JSONB,
+        created_at          TIMESTAMPTZ,
+        updated_at          TIMESTAMPTZ,
+        created_by          UUID,
+        updated_by          UUID,
+        revision            BIGINT,
+        description         TEXT,
+        document_styles     JSONB,
+        page_settings       JSONB,
+        block_style_presets JSONB,
+        spacing_unit        NUMERIC(6, 2)
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        -- The released form is the content's `resource` (ADR 0033: one shape for every type).
        u.payload -> 'resource' ->> 'description' AS description,
@@ -594,14 +629,42 @@ FROM (
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
            (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
            r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('theme') r
-) u;
+    FROM catalog_version_resources('theme', p_draft_version, p_release_catalog, p_release_version) r
+) u
+$$;
 
-COMMENT ON VIEW current_themes IS 'The themes of the version a caller means, each as its JSON content (payload, the wire form): of the targeted release, else of the draft catalog_current_versions names.';
+COMMENT ON FUNCTION current_themes(uuid, uuid, text) IS 'The themes of the version a caller means, each as its JSON content (payload, the wire form): of the release it names, else of the draft catalog_current_versions answers.';
 
 -- 4. The code lists of a draft or a release, from their rows alone. `resource` is the released form.
 --    Columns derived from the content are for the statements that filter or order on them.
-CREATE VIEW current_code_lists AS
+CREATE FUNCTION current_code_lists(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key      tenant_key,
+        catalog_id      UUID,
+        version_id      UUID,
+        version         VARCHAR(128),
+        resource_id     UUID,
+        id              TEXT,
+        name            TEXT,
+        payload         JSONB,
+        row_description TEXT,
+        created_at      TIMESTAMPTZ,
+        updated_at      TIMESTAMPTZ,
+        created_by      UUID,
+        updated_by      UUID,
+        revision        BIGINT,
+        resource        JSONB,
+        display_name    TEXT,
+        description     TEXT,
+        entries         JSONB,
+        source_type     TEXT,
+        source_url      TEXT,
+        auth_type       TEXT,
+        credential_id   UUID
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        -- Its name and description from its row: reading them from the content would read the whole
        -- content, every entry of it.
@@ -619,14 +682,38 @@ FROM (
         SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
                (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
                r.description AS row_description, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-        FROM catalog_version_resources('codeList') r
+        FROM catalog_version_resources('codeList', p_draft_version, p_release_catalog, p_release_version) r
     ) p
-) u;
+) u
+$$;
 
-COMMENT ON VIEW current_code_lists IS 'The code lists of the version a caller means, each as its JSON content (payload: resource, the wire form, and source beside it).';
+COMMENT ON FUNCTION current_code_lists(uuid, uuid, text) IS 'The code lists of the version a caller means, each as its JSON content (payload: resource, the wire form, and source beside it).';
 
 -- 6. The attributes of a draft or a release, from their rows alone.
-CREATE VIEW current_attributes AS
+CREATE FUNCTION current_attributes(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key           tenant_key,
+        catalog_id           UUID,
+        version_id           UUID,
+        version              VARCHAR(128),
+        resource_id          UUID,
+        id                   TEXT,
+        name                 TEXT,
+        payload              JSONB,
+        created_at           TIMESTAMPTZ,
+        updated_at           TIMESTAMPTZ,
+        created_by           UUID,
+        updated_by           UUID,
+        revision             BIGINT,
+        display_name         TEXT,
+        allowed_values       JSONB,
+        code_list_alias      TEXT,
+        code_list_key        TEXT,
+        code_list_catalog_id UUID
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        u.name AS display_name,
        COALESCE(u.payload -> 'resource' -> 'allowedValues', '[]'::jsonb) AS allowed_values,
@@ -640,13 +727,34 @@ FROM (
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
            (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
            r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('attribute') r
-) u;
+    FROM catalog_version_resources('attribute', p_draft_version, p_release_catalog, p_release_version) r
+) u
+$$;
 
-COMMENT ON VIEW current_attributes IS 'The variant attributes of the version a caller means, each as its JSON content, with its code list binding resolved (resolve_catalog_alias).';
+COMMENT ON FUNCTION current_attributes(uuid, uuid, text) IS 'The variant attributes of the version a caller means, each as its JSON content, with its code list binding resolved (resolve_catalog_alias).';
 
 -- 5. The fonts of a draft or a release, from their rows alone.
-CREATE VIEW current_fonts AS
+CREATE FUNCTION current_fonts(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key  tenant_key,
+        catalog_id  UUID,
+        version_id  UUID,
+        version     VARCHAR(128),
+        resource_id UUID,
+        slug        TEXT,
+        name        TEXT,
+        payload     JSONB,
+        created_at  TIMESTAMPTZ,
+        updated_at  TIMESTAMPTZ,
+        created_by  UUID,
+        updated_by  UUID,
+        revision    BIGINT,
+        kind        TEXT,
+        variants    JSONB
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        u.payload -> 'resource' ->> 'kind' AS kind,
        COALESCE(u.payload -> 'resource' -> 'variants', '[]'::jsonb) AS variants
@@ -654,16 +762,40 @@ FROM (
     -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS slug, CAST(r.name AS TEXT) AS name,
            c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('font') r
+    FROM catalog_version_resources('font', p_draft_version, p_release_catalog, p_release_version) r
     CROSS JOIN LATERAL (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
-) u;
+) u
+$$;
 
-COMMENT ON VIEW current_fonts IS 'The fonts of the version a caller means, each as its JSON content (payload: resource, the wire form); its faces'' bytes are its resource_binaries.';
+COMMENT ON FUNCTION current_fonts(uuid, uuid, text) IS 'The fonts of the version a caller means, each as its JSON content (payload: resource, the wire form); its faces'' bytes are its resource_binaries.';
 
 -- 4. The images of a draft or a release, from their rows alone; its size is its bytes'.
-CREATE VIEW current_images AS
+CREATE FUNCTION current_images(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key   tenant_key,
+        catalog_id   UUID,
+        version_id   UUID,
+        version      VARCHAR(128),
+        resource_id  UUID,
+        id           TEXT,
+        name         TEXT,
+        payload      JSONB,
+        created_at   TIMESTAMPTZ,
+        updated_at   TIMESTAMPTZ,
+        created_by   UUID,
+        updated_by   UUID,
+        revision     BIGINT,
+        media_type   TEXT,
+        width        INTEGER,
+        height       INTEGER,
+        content_hash TEXT,
+        size_bytes   BIGINT
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        u.payload -> 'resource' ->> 'mediaType' AS media_type,
        CAST(u.payload -> 'resource' ->> 'width' AS INTEGER) AS width,
@@ -674,17 +806,41 @@ FROM (
     -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
            c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('image') r
+    FROM catalog_version_resources('image', p_draft_version, p_release_catalog, p_release_version) r
     CROSS JOIN LATERAL (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
-) u;
+) u
+$$;
 
-COMMENT ON VIEW current_images IS 'The images of the version a caller means, each as its JSON content (payload: resource, the wire form); its bytes are its resource_binaries.';
+COMMENT ON FUNCTION current_images(uuid, uuid, text) IS 'The images of the version a caller means, each as its JSON content (payload: resource, the wire form); its bytes are its resource_binaries.';
 
 -- 4. The stencils of a draft or a release, from their rows alone. Columns derived from the content
 --    are what the stencil reads map and filter on (tags in SQL over the JSON, ADR 0033).
-CREATE VIEW current_stencils AS
+CREATE FUNCTION current_stencils(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key          tenant_key,
+        catalog_id          UUID,
+        version_id          UUID,
+        version             VARCHAR(128),
+        resource_id         UUID,
+        id                  TEXT,
+        name                TEXT,
+        payload             JSONB,
+        created_at          TIMESTAMPTZ,
+        updated_at          TIMESTAMPTZ,
+        created_by          UUID,
+        updated_by          UUID,
+        revision            BIGINT,
+        description         TEXT,
+        tags                JSONB,
+        content             JSONB,
+        parameter_schema    JSONB,
+        reads_template_data BOOLEAN
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        -- The content's, not the row's: a release row carries its catalog index's summary, which
        -- an archive may word differently from the stencil it holds.
@@ -698,15 +854,43 @@ FROM (
     -- join (ThemePlanStabilityTest) nor repeat the lookup for every column read from it.
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
            c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('stencil') r
+    FROM catalog_version_resources('stencil', p_draft_version, p_release_catalog, p_release_version) r
     CROSS JOIN LATERAL (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
-) u;
+) u
+$$;
 
-COMMENT ON VIEW current_stencils IS 'The stencils of the version a caller means, each as its JSON content (payload: resource, the wire form).';
+COMMENT ON FUNCTION current_stencils(uuid, uuid, text) IS 'The stencils of the version a caller means, each as its JSON content (payload: resource, the wire form).';
 
-CREATE VIEW current_templates AS
+CREATE FUNCTION current_templates(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key        tenant_key,
+        catalog_id        UUID,
+        version_id        UUID,
+        version           VARCHAR(128),
+        resource_id       UUID,
+        id                TEXT,
+        name              TEXT,
+        content_hash      CHAR(64),
+        payload           JSONB,
+        created_at        TIMESTAMPTZ,
+        updated_at        TIMESTAMPTZ,
+        created_by        UUID,
+        updated_by        UUID,
+        revision          BIGINT,
+        description       TEXT,
+        pdfa_enabled      BOOLEAN,
+        data_model        JSONB,
+        data_examples     JSONB,
+        theme_key         TEXT,
+        theme_catalog_id  UUID,
+        theme_resource_id UUID,
+        variant_count     BIGINT
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT u.*,
        u.payload -> 'resource' ->> 'description' AS description,
        COALESCE(CAST(u.payload -> 'resource' ->> 'pdfaEnabled' AS BOOLEAN), TRUE) AS pdfa_enabled,
@@ -724,7 +908,7 @@ FROM (
     -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
            r.content_hash, c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('template') r
+    FROM catalog_version_resources('template', p_draft_version, p_release_catalog, p_release_version) r
     CROSS JOIN LATERAL (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
@@ -733,12 +917,37 @@ CROSS JOIN LATERAL (
     SELECT CASE WHEN u.payload -> 'resource' ->> 'themeKey' IS NOT NULL
                 THEN resolve_catalog_alias(u.tenant_key, u.catalog_id, u.version_id, u.version, u.payload -> 'resource' ->> 'themeCatalogKey')
            END AS catalog_id
-) theme;
+) theme
+$$;
 
-COMMENT ON VIEW current_templates IS 'The templates of the version a caller means, each as its JSON content (payload: resource, the wire form without its variants, which are rows of their own).';
+COMMENT ON FUNCTION current_templates(uuid, uuid, text) IS 'The templates of the version a caller means, each as its JSON content (payload: resource, the wire form without its variants, which are rows of their own).';
 
 -- A template's variants, read from its version's rows.
-CREATE VIEW current_template_variants AS
+CREATE FUNCTION current_template_variants(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key           tenant_key,
+        catalog_id           UUID,
+        version_id           UUID,
+        version              VARCHAR(128),
+        template_resource_id UUID,
+        id                   TEXT,
+        title                TEXT,
+        description          TEXT,
+        attributes           JSONB,
+        is_default           BOOLEAN,
+        metadata             JSONB,
+        model_hash           CHAR(64),
+        template_model       JSONB,
+        "position"           BIGINT,
+        created_at           TIMESTAMPTZ,
+        updated_at           TIMESTAMPTZ,
+        created_by           UUID,
+        updated_by           UUID,
+        revision             BIGINT
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT t.tenant_key, t.catalog_id, t.version_id, t.version, t.resource_id AS template_resource_id,
        e.slot ->> 'key' AS id,
        COALESCE(v.payload -> 'resource' ->> 'title', e.slot ->> 'title', e.slot ->> 'key') AS title,
@@ -757,7 +966,7 @@ SELECT t.tenant_key, t.catalog_id, t.version_id, t.version, t.resource_id AS tem
 FROM (
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, c.payload,
            r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources('template') r
+    FROM catalog_version_resources('template', p_draft_version, p_release_catalog, p_release_version) r
     CROSS JOIN LATERAL (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
@@ -782,6 +991,7 @@ LEFT JOIN LATERAL (
     JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
     WHERE CAST(x.slot ->> 'isDefault' AS BOOLEAN) AND v.content_hash IS NOT NULL AND v.payload -> 'resource' -> 'templateModel' IS NULL
     OFFSET 0
-) d ON TRUE;
+) d ON TRUE
+$$;
 
-COMMENT ON VIEW current_template_variants IS 'The variants of the templates of the version a caller means, each its own row (storage type variant) with its own content and revision.';
+COMMENT ON FUNCTION current_template_variants(uuid, uuid, text) IS 'The variants of the templates of the version a caller means, each its own row (storage type variant) with its own content and revision.';

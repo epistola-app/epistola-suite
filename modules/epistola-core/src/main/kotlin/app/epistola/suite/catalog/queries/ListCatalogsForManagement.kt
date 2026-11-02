@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CATALOG_RELEASE_JOIN
 import app.epistola.suite.catalog.CATALOG_ROW_COLUMNS
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -48,14 +49,14 @@ data class CatalogListRow(
 internal val CATALOG_ACTIVITY_CTE = """
             WITH activity(catalog_id, ts) AS (
                 SELECT catalog_id, content_updated_at FROM catalogs                      WHERE tenant_key = :t
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_templates            WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_template_variants   WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_themes       WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_stencils             WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_attributes WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_code_lists   WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_fonts        WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(created_at)   FROM current_images       WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_templates(${VERSION_ARGS})            WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_template_variants(${VERSION_ARGS})   WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_themes(${VERSION_ARGS})       WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_stencils(${VERSION_ARGS})             WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_code_lists(${VERSION_ARGS})   WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_fonts(${VERSION_ARGS})        WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(created_at)   FROM current_images(${VERSION_ARGS})       WHERE tenant_key = :t GROUP BY catalog_id
             )
 """
 

@@ -5,6 +5,7 @@
 package app.epistola.suite.assets
 
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
@@ -121,7 +122,7 @@ class ImageStore(
 
     /** Image [key] of [catalog] as the version the handle means holds it, or null. */
     fun get(handle: Handle, catalog: CatalogId, key: String): Asset? = handle
-        .createQuery("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND a.id = :k")
+        .createQuery("SELECT $IMAGE_COLUMNS FROM current_images(${VERSION_ARGS}) a WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND a.id = :k")
         .bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("k", key)
         .map(IMAGE_ROWS).findOne().orElse(null)
 

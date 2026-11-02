@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
@@ -58,7 +59,7 @@ class MarkStencilReadyHandler(
         jdbi.useTransaction<Exception> { handle ->
             DraftResources.lockRevision(handle, stencil.catalogId, StencilStore.STENCIL, stencil.key.value)
             val row = handle.createQuery(
-                "SELECT resource_id, content::text AS content FROM current_stencils WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
+                "SELECT resource_id, content::text AS content FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
             )
                 .bind("t", stencil.tenantKey)
                 .bindCatalog("c", stencil.catalogId)

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mediator
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -54,7 +55,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM current_stencils(${VERSION_ARGS}) WHERE name = :name")
                 .bind("name", ROLLBACK_MARKER)
                 .mapTo(Int::class.java)
                 .one()
@@ -88,7 +89,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM current_stencils(${VERSION_ARGS}) WHERE name = :name")
                 .bind("name", COMMIT_MARKER)
                 .mapTo(Int::class.java)
                 .one()

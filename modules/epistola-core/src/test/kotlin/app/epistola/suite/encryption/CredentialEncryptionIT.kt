@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
@@ -62,7 +63,7 @@ class CredentialEncryptionIT : IntegrationTestBase() {
         // Raw column read bypasses the Secret mapper: must be an enc: envelope,
         // and must NOT contain the plaintext anywhere.
         val raw = jdbi.withHandle<String, Exception> { handle ->
-            handle.createQuery("SELECT rc.credential FROM current_code_lists t JOIN resource_credentials rc ON rc.tenant_key = t.tenant_key AND rc.credential_id = t.credential_id WHERE t.id = :slug AND t.tenant_key = :tenant")
+            handle.createQuery("SELECT rc.credential FROM current_code_lists(${VERSION_ARGS}) t JOIN resource_credentials rc ON rc.tenant_key = t.tenant_key AND rc.credential_id = t.credential_id WHERE t.id = :slug AND t.tenant_key = :tenant")
                 .bind("slug", id.key.value)
                 .bind("tenant", id.tenantKey.value)
                 .mapTo(String::class.java)

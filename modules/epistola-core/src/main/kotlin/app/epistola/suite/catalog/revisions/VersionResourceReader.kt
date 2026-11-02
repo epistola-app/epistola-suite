@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.types.ContentLayout
 import app.epistola.suite.catalog.types.ResourceTypes
@@ -161,7 +162,7 @@ class VersionResourceReader(
                COALESCE(parent.resource_key, r.resource_key) AS resource_key,
                rr.alias, rr.resource_type AS referenced_type, rr.resource_key AS referenced_key
         FROM release_resources r
-        JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+        JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
         JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
         JOIN resource_references rr ON rr.tenant_key = r.tenant_key AND rr.content_hash = r.content_hash
         LEFT JOIN release_resources parent ON parent.tenant_key = r.tenant_key AND parent.version_id = r.version_id

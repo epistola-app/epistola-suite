@@ -8,6 +8,7 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.IMAGE_COLUMNS
 import app.epistola.suite.assets.IMAGE_ROWS
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -60,7 +61,7 @@ class ListAssetsHandler(
 ) : QueryHandler<ListAssets, List<Asset>> {
 
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
-        val sql = StringBuilder("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :tenantId")
+        val sql = StringBuilder("SELECT $IMAGE_COLUMNS FROM current_images(${VERSION_ARGS}) a WHERE a.tenant_key = :tenantId")
         if (query.catalogKey != null) sql.append(" AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
         if (!query.searchTerm.isNullOrBlank()) sql.append(" AND a.name ILIKE :searchTerm")
         sql.append(" ORDER BY a.created_at DESC")

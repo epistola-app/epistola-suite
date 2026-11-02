@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.bindVersionTarget
 import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -166,6 +167,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
                 .bind("releaseVersion", declaration.releaseVersion)
                 .bind("releaseFingerprint", declaration.releaseFingerprint)
                 .bind("draftKey", declaration.draftId)
+                // A batch part has a binding of its own, which VersionTargetArguments cannot reach.
+                .bindVersionTarget()
                 .add()
         }
         batch.execute()

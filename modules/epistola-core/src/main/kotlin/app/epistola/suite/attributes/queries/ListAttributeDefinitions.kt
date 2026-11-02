@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.queries
 import app.epistola.suite.attributes.ATTRIBUTE_COLUMNS
 import app.epistola.suite.attributes.AttributeRows
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -97,7 +98,7 @@ private object AttributeList {
         val sql = buildString {
             append("SELECT $ATTRIBUTE_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_attributes t WHERE t.tenant_key = :t")
+            append(" FROM current_attributes(${VERSION_ARGS}) t WHERE t.tenant_key = :t")
             if (catalog != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
             append(" ORDER BY t.display_name ASC, t.catalog_id, t.id")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")

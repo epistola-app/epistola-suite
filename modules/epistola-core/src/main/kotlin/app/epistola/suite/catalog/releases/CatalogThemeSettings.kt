@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
@@ -176,7 +177,7 @@ class SetCatalogDefaultThemeHandler(
                     ?: throw ValidationException("defaultTheme", "Theme '$name' cannot be looked up: the draft of '${theme.catalogKey.value}' this catalog uses is gone")
                 // That draft's themes, read where every version's are (ADR 0033).
                 VersionReads.at(handle, VersionSelection.Draft(versionId)) { at ->
-                    at.createQuery("SELECT resource_id FROM current_themes WHERE tenant_key = :t AND version_id = :v AND id = :theme")
+                    at.createQuery("SELECT resource_id FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :t AND version_id = :v AND id = :theme")
                         .bind("t", command.tenantKey)
                         .bind("v", versionId)
                         .bind("theme", theme.themeKey)
@@ -189,7 +190,7 @@ class SetCatalogDefaultThemeHandler(
 
             pinned != null -> VersionReads.at(handle, VersionSelection.Release(theme.catalog, pinned)) { at ->
                 at.createQuery(
-                    "SELECT resource_id FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
+                    "SELECT resource_id FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
                 )
                     .bind("t", command.tenantKey)
                     .bindCatalog("themeCatalog", theme.catalog)
@@ -201,7 +202,7 @@ class SetCatalogDefaultThemeHandler(
                 ?: throw ValidationException("defaultTheme", "Theme '$name' is not in v$pinned of '${theme.catalogKey.value}', the release this catalog uses")
 
             else -> handle.createQuery(
-                "SELECT resource_id FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
+                "SELECT resource_id FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
             )
                 .bind("t", command.tenantKey)
                 .bindCatalog("themeCatalog", theme.catalog)

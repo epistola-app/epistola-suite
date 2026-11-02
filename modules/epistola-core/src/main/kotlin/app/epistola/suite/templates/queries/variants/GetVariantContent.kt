@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -46,7 +47,7 @@ class GetVariantContentHandler(
     override fun handle(query: GetVariantContent): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT template_model::text FROM current_template_variants
+            SELECT template_model::text FROM current_template_variants(${VERSION_ARGS})
             WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
             """,
         )
@@ -87,7 +88,7 @@ class GetVariantContentAtRevisionHandler(
     override fun handle(query: GetVariantContentAtRevision): VariantContentAtRevision? = jdbi.withHandle<VariantContentAtRevision?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT template_model::text AS template_model, revision FROM current_template_variants
+            SELECT template_model::text AS template_model, revision FROM current_template_variants(${VERSION_ARGS})
             WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
             """,
         )

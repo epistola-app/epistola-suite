@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 
@@ -16,4 +17,4 @@ import app.epistola.suite.catalog.versionAt
  *
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
  */
-internal fun stencilAtAddress(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_stencils WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
+internal fun stencilAtAddress(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"

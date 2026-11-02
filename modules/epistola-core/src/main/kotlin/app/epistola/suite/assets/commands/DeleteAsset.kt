@@ -7,6 +7,7 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.queries.FindAssetUsages
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -53,7 +54,7 @@ class DeleteAssetHandler(
         val catalog = jdbi.withHandle<app.epistola.suite.common.ids.CatalogId?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT c.catalog_key, c.namespace FROM current_images a
+                SELECT c.catalog_key, c.namespace FROM current_images(${VERSION_ARGS}) a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
                 WHERE a.tenant_key = :tenantId AND a.id = :assetId
                 LIMIT 1

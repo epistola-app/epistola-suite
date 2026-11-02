@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
@@ -50,7 +51,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
 
     private fun currentInView(tenantKey: TenantKey, catalogKey: CatalogKey): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
         handle.createQuery(
-            "SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id " +
+            "SELECT cv.version_id FROM catalog_current_versions(${VERSION_ARGS}) cv JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id " +
                 "WHERE c.tenant_key = :t AND c.catalog_key = :c",
         )
             .bind("t", tenantKey).bind("c", catalogKey)

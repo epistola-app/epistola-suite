@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.revisions.ContentReference
@@ -174,7 +175,7 @@ class ReferenceRepointer(
     private fun uniqueAttributeKeys(handle: Handle, tenantKey: TenantKey, relocations: List<ResourceRelocation>): Set<String> {
         val renamed = relocations.filter { it.source.type == CatalogResourceType.ATTRIBUTE && it.source.key != it.target.key }.map { it.source.key }
         if (renamed.isEmpty()) return emptySet()
-        return handle.createQuery("SELECT id FROM current_attributes WHERE tenant_key = :t AND id IN (<keys>) GROUP BY id HAVING COUNT(*) = 1")
+        return handle.createQuery("SELECT id FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :t AND id IN (<keys>) GROUP BY id HAVING COUNT(*) = 1")
             .bind("t", tenantKey)
             .bindList("keys", renamed)
             .mapTo(String::class.java)

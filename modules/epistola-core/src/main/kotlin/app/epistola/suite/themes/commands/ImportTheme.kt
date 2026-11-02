@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -69,7 +70,7 @@ class ImportThemeHandler(
         val auditUser = currentUserIdOrNull()?.value
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM current_themes WHERE id = :id AND tenant_key = :tenantKey")
+            handle.createQuery("SELECT COUNT(*) > 0 FROM current_themes(${VERSION_ARGS}) WHERE id = :id AND tenant_key = :tenantKey")
                 .bind("id", themeKey.value)
                 .bind("tenantKey", command.tenantKey)
                 .mapTo(Boolean::class.java)

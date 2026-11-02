@@ -13,6 +13,7 @@ import app.epistola.suite.attributes.codelists.queries.CodeListEntryExists
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.revisions.ResourceContentCollector
 import app.epistola.suite.catalog.system.systemCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -53,7 +54,7 @@ class CodeListStorageTest : IntegrationTestBase() {
     private val entries = listOf(CodeListEntry("b", "Bravo", 2), CodeListEntry("a", "Alpha", 1), CodeListEntry("c", "Charlie", 3, hidden = true))
 
     private fun payload(tenant: TenantId, key: String): String = jdbi.withHandle<String, Exception> {
-        it.createQuery("SELECT payload::text FROM current_code_lists WHERE tenant_key = :t AND id = :k").bind("t", tenant.key).bind("k", key).mapTo(String::class.java).one()
+        it.createQuery("SELECT payload::text FROM current_code_lists(${VERSION_ARGS}) WHERE tenant_key = :t AND id = :k").bind("t", tenant.key).bind("k", key).mapTo(String::class.java).one()
     }
 
     private fun one(sql: String): String = jdbi.withHandle<String, Exception> { it.createQuery(sql).mapTo(String::class.java).one() }
@@ -106,7 +107,7 @@ class CodeListStorageTest : IntegrationTestBase() {
         withMediator {
             CreateCodeList(id, "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "first-secret").execute()
         }
-        val first = one("SELECT credential_id::text FROM current_code_lists WHERE tenant_key = '${tenant.key.value}' AND id = 'remote'")
+        val first = one("SELECT credential_id::text FROM current_code_lists(${VERSION_ARGS}) WHERE tenant_key = '${tenant.key.value}' AND id = 'remote'")
         assertThat(payload(tenant, "remote")).contains(first).doesNotContain("first-secret")
 
         val second = withMediator {

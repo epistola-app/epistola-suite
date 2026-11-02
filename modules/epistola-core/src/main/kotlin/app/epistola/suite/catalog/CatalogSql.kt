@@ -35,25 +35,38 @@ fun catalogsAt(tenantParam: String, listParam: String): String = "(SELECT episto
 fun <T : SqlStatement<T>> T.bindCatalogs(name: String, catalogs: Collection<CatalogId>): T = bindList(name, catalogs.map { it.key.value }).bindList("${name}_ns", catalogs.map { it.namespace })
 
 /**
- * The `version_id` of the version a caller means of the catalog it named by key (the
- * `catalog_current_versions` view): the version its transaction targets, when that is a version of
- * this catalog; else its installed release when it is subscribed; else its next version.
+ * The arguments every function that reads "the version a caller means" takes
+ * (`catalog_current_versions`, `catalog_version_resources`, `catalog_version_references` and the
+ * `current_*` reads): the draft and the release the running message targets, as named parameters.
+ * [CatalogReleaseTargeting.VersionTargetArguments][app.epistola.suite.catalog.releases.CatalogReleaseTargeting.VersionTargetArguments]
+ * binds them when the statement runs, from the target in scope then, so a statement built once still
+ * reads the version of the message that runs it. Unbound, they are NULL: every catalog's next version.
+ *
+ * The schema reads nothing from the session (ADR 0049): what a statement means is in its arguments.
+ */
+const val VERSION_ARGS: String =
+    "CAST(:epistolaDraftVersion AS uuid), CAST(:epistolaReleaseCatalog AS uuid), CAST(:epistolaReleaseVersion AS text)"
+
+/**
+ * The `version_id` of the version a caller means of the catalog it named by key
+ * (`catalog_current_versions`): the version its message targets, when that is a version of this
+ * catalog; else its installed release when it is subscribed; else its next version.
  *
  * Content rows belong to a catalog version (contract ADR 0002), so every statement on content names
  * one (`ContentVersionSqlTest`). A message that addresses one version -- the contract's
  * `…/versions/{catalogVersion}/…` paths -- implements
  * [CatalogReleaseScoped][app.epistola.suite.catalog.releases.CatalogReleaseScoped]; the mediator then
- * sets the PostgreSQL setting `epistola.content_version` to that version for the message's
- * transaction ([CatalogReleaseTargeting][app.epistola.suite.catalog.releases.CatalogReleaseTargeting]),
- * and this answers it for that catalog, in the handler and in every message it dispatches. A caller
- * that names none -- the UI, MCP, tenant-wide reads -- gets the current version. A catalog that does
- * not exist yields NULL, which matches no row on a read and violates the NOT NULL `version_id` on a
- * write.
+ * runs it with that version as its target
+ * ([CatalogReleaseTargeting][app.epistola.suite.catalog.releases.CatalogReleaseTargeting]), passed to
+ * the statement in [VERSION_ARGS], and this answers it for that catalog, in the handler and in every
+ * message it dispatches. A caller that names none -- the UI, MCP, tenant-wide reads -- gets the
+ * current version. A catalog that does not exist yields NULL, which matches no row on a read and
+ * violates the NOT NULL `version_id` on a write.
  *
  * @param tenantParam name of the bound tenant parameter.
  * @param catalogParam name of the bound catalog-key parameter.
  */
-fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = :$tenantParam AND cv.catalog_id = ${catalogAt(tenantParam, catalogParam)})"
+fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions(${VERSION_ARGS}) cv WHERE cv.tenant_key = :$tenantParam AND cv.catalog_id = ${catalogAt(tenantParam, catalogParam)})"
 
 /**
  * A scalar subquery for the row of release [versionParam] of a catalog (ADR 0036: every version is a
@@ -68,7 +81,7 @@ fun releaseAt(tenantParam: String, catalogParam: String, versionParam: String): 
  * and references to a resource by its identity, possibly in another catalog (a template's theme, an
  * attribute's code list, the tenant's default theme). Usable in a `JOIN ... ON` as well as a `WHERE`.
  */
-fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = $alias.tenant_key)"
+fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.version_id FROM catalog_current_versions(${VERSION_ARGS}) cv WHERE cv.tenant_key = $alias.tenant_key)"
 
 /**
  * The columns of a [Catalog] row over `catalogs c` joined with [CATALOG_RELEASE_JOIN]: the catalog's
@@ -101,7 +114,7 @@ fun setNext(tenantParam: String, versionParam: String): String = "UPDATE catalog
 fun Handle.requireWritableVersion(catalog: CatalogId) {
     val version = createQuery(
         """
-        SELECT v.version_id, v.version FROM catalog_current_versions cv
+        SELECT v.version_id, v.version FROM catalog_current_versions(${VERSION_ARGS}) cv
         JOIN catalog_versions v ON v.tenant_key = cv.tenant_key AND v.version_id = cv.version_id
         WHERE cv.tenant_key = :t AND cv.catalog_id = ${catalogAt("t", "c")}
         """,
@@ -152,4 +165,4 @@ fun Handle.contentRevision(table: String, keyColumn: String, catalog: CatalogId,
  * `current_templates`, aliased `template`, so a query can report the template's address. The views
  * are the read model the catalog's migrations define, so the join belongs with them.
  */
-fun currentTemplateViewJoin(alias: String): String = "JOIN current_templates template ON template.tenant_key = $alias.tenant_key AND template.catalog_id = $alias.catalog_id AND template.resource_id = $alias.template_resource_id"
+fun currentTemplateViewJoin(alias: String): String = "JOIN current_templates(${VERSION_ARGS}) template ON template.tenant_key = $alias.tenant_key AND template.catalog_id = $alias.catalog_id AND template.resource_id = $alias.template_resource_id"

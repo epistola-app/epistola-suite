@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
@@ -95,7 +96,7 @@ data class SavedVariantContent(val templateModel: TemplateDocument, val revision
 /** The revision of [variantId] in the version the caller means: its own row's; null when there is no such variant. */
 internal fun variantRevision(handle: Handle, variantId: VariantId): Long? = handle.createQuery(
     """
-    SELECT revision FROM current_template_variants
+    SELECT revision FROM current_template_variants(${VERSION_ARGS})
     WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
     """,
 )

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -131,8 +132,8 @@ class GetThemeUsagePageHandler(
                             THEN template_theme.catalog_id
                         ELSE catalog_theme.catalog_id
                     END AS effective_theme_catalog_id
-                FROM current_template_variants variant
-                JOIN current_templates template
+                FROM current_template_variants(${VERSION_ARGS}) variant
+                JOIN current_templates(${VERSION_ARGS}) template
                   ON template.tenant_key = variant.tenant_key
                  AND template.catalog_id = variant.catalog_id
                  AND template.resource_id = variant.template_resource_id
@@ -142,10 +143,10 @@ class GetThemeUsagePageHandler(
                 JOIN catalog_versions template_version
                   ON template_version.tenant_key = template.tenant_key
                  AND template_version.version_id = template.version_id
-                LEFT JOIN current_themes template_theme
+                LEFT JOIN current_themes(${VERSION_ARGS}) template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
-                LEFT JOIN current_themes catalog_theme
+                LEFT JOIN current_themes(${VERSION_ARGS}) catalog_theme
                   ON catalog_theme.tenant_key = template_version.tenant_key
                  AND catalog_theme.resource_id = template_version.default_theme_resource_id
                 WHERE variant.tenant_key = :tenantKey
@@ -160,7 +161,7 @@ class GetThemeUsagePageHandler(
                           usage.effective_theme_catalog_id IS NULL
                           AND (
                               SELECT COUNT(*)
-                              FROM current_themes candidate
+                              FROM current_themes(${VERSION_ARGS}) candidate
                               WHERE candidate.tenant_key = :tenantKey
                                 AND candidate.id = :themeKey
                                

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.loadtest.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
@@ -86,7 +87,7 @@ class GetLoadTestRunHandler(
                     ), 0)
                 END as failed_count
             FROM load_test_runs r
-            JOIN current_templates template ON template.tenant_key = r.tenant_key
+            JOIN current_templates(${VERSION_ARGS}) template ON template.tenant_key = r.tenant_key
                                             AND template.resource_id = r.template_resource_id
             JOIN catalogs cat ON cat.tenant_key = template.tenant_key AND cat.catalog_id = template.catalog_id
             WHERE r.id = :runId

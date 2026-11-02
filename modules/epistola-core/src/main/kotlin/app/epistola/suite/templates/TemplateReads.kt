@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.stencils.qualifiedIn
@@ -23,7 +24,7 @@ import tools.jackson.databind.ObjectMapper
  * The identity of the template at `(:catalogParam, :keyParam)` in the version a caller means, a
  * draft's or a release's; NULL when there is none, which matches no row.
  */
-fun templateIn(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_templates WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
+fun templateIn(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
 
 /**
  * The columns [DocumentTemplate] maps from, for a query over `current_templates dt`. Catalog keys and
@@ -77,7 +78,7 @@ object TemplateModels {
 
 /** Template [id] in the version the handle means, a draft's or a release's; null when there is none. */
 fun documentTemplate(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.TemplateId): DocumentTemplate? = handle
-    .createQuery("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.id = :id")
+    .createQuery("SELECT $TEMPLATE_COLUMNS FROM current_templates(${VERSION_ARGS}) dt WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.id = :id")
     .bind("id", id.key.value)
     .bind("tenantId", id.tenantKey)
     .bindCatalog("catalogKey", id.catalogId)
@@ -89,7 +90,7 @@ fun documentTemplate(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.com
 fun templateVariant(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.VariantId): app.epistola.suite.templates.model.TemplateVariant? = handle
     .createQuery(
         """
-        SELECT $VARIANT_COLUMNS FROM current_template_variants tv
+        SELECT $VARIANT_COLUMNS FROM current_template_variants(${VERSION_ARGS}) tv
         WHERE tv.id = :variantId AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
           AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
         """,

@@ -7,6 +7,7 @@ package app.epistola.suite.templates
 import app.epistola.catalog.protocol.DataExampleEntry
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.VariantEntry
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
@@ -264,7 +265,7 @@ class TemplateStore(
     fun get(handle: Handle, id: TemplateId): LoadedTemplate? {
         val row = handle
             .createQuery(
-                "SELECT payload::text AS payload, revision, resource_id, content_hash, updated_at, version_id, version FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
+                "SELECT payload::text AS payload, revision, resource_id, content_hash, updated_at, version_id, version FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
             )
             .bind("t", id.tenantKey)
             .bindCatalog("c", id.catalogId)
@@ -290,7 +291,7 @@ class TemplateStore(
         .createQuery(
             """
             SELECT tv.id, tv.title, tv.description, tv.model_hash
-            FROM current_template_variants tv
+            FROM current_template_variants(${VERSION_ARGS}) tv
             WHERE tv.tenant_key = :t AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = CAST(:id AS UUID)
             """,
         )

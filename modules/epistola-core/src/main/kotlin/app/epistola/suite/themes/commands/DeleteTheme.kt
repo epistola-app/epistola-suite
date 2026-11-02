@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindResourceUsages
@@ -60,7 +61,7 @@ class DeleteThemeHandler(
             val isDefaultTheme = handle.createQuery(
                 """
                 SELECT COUNT(*) FROM tenants t
-                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                JOIN current_themes(${VERSION_ARGS}) th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                 WHERE t.id = :tenantId
                   AND th.id = :themeId
                   AND th.catalog_id = ${catalogAt("tenantId", "catalogKey")}
@@ -82,17 +83,17 @@ class DeleteThemeHandler(
             val users = handle.createQuery(
                 """
                 WITH theme AS (
-                    SELECT resource_id FROM current_themes
+                    SELECT resource_id FROM current_themes(${VERSION_ARGS})
                     WHERE tenant_key = :tenantId AND id = :themeId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 )
                 SELECT 'the catalog''s default theme' FROM catalog_versions v, theme
                 WHERE v.tenant_key = :tenantId AND v.version_id = ${versionAt("tenantId", "catalogKey")} AND v.default_theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'template ' || dt.id FROM current_templates dt, theme
+                SELECT 'template ' || dt.id FROM current_templates(${VERSION_ARGS}) dt, theme
                 WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'variant ' || dt.id || '/' || tv.id FROM current_template_variants tv
-                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+                SELECT 'variant ' || dt.id || '/' || tv.id FROM current_template_variants(${VERSION_ARGS}) tv
+                JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
                 WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                   AND tv.template_model -> 'themeRef' ->> 'type' = 'override'
                   AND tv.template_model -> 'themeRef' ->> 'themeKey' = :themeId

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
@@ -35,7 +36,7 @@ object TemplateStorageConversion {
         val softly = SoftAssertions()
         var seen = 0
         jdbi.useHandle<Exception> { handle ->
-            val keys = handle.createQuery("SELECT id FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            val keys = handle.createQuery("SELECT id FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", catalog.tenantKey).bindCatalog("c", catalog).mapTo(String::class.java).list()
             for (key in keys) {
                 seen++

@@ -471,28 +471,32 @@ until it is released**; only releases are numbered.
 
 Every statement on content names its version through the helpers in
 [`CatalogSql.kt`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt):
-`versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`;
-`ContentVersionSqlTest` fails a statement that names none. The view answers, per catalog, the version
-the caller means:
+`versionAt(t, c)` and `inCurrentVersion(alias)`, over the function `catalog_current_versions`, or a
+read built on it (`catalog_version_resources(type, …)`, `current_templates(…)` and the other
+`current_*` reads); `ContentVersionSqlTest` fails a statement that names none. Each takes what the
+caller means as arguments, `VERSION_ARGS`: the draft and the release its message targets. It answers,
+per catalog:
 
-1. the version the transaction **targets**, when it is a version of that catalog;
-2. else the catalog's **next release**. Another draft is reached only by targeting it.
+1. the release the caller **targets**, when it is a release of that catalog;
+2. else the draft it targets, when that is a version of that catalog;
+3. else the catalog's **next version**. Another draft is reached only by targeting it.
 
 A command or query that addresses one draft implements
 [`CatalogReleaseScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/CatalogReleaseScoped.kt)
 and carries a `CatalogReleaseRef` (tenant, catalog, `DraftRef`: `Next` or `Id`). `SpringMediator`
 resolves it before the handler runs (an unknown draft is `CatalogReleaseNotFoundException`), runs a
-query that names one in a read-only transaction, and `CatalogReleaseTargeting` sets the PostgreSQL
-setting `epistola.content_version` to the draft's `version_id`, transaction-locally. Handlers written
-for "the" version of a catalog then work on that draft unchanged, and every message they dispatch
-inherits it; the caller's target is restored when the message ends. A message that names no version
-works on the next release. A self-managed command (`RefreshCodeList`) applies the target in each
-transaction it opens.
+query that names one in a read-only transaction, and runs the handler with that draft as its target
+(`CatalogReleaseTargeting`). A JDBI statement customizer, `CatalogReleaseTargeting.VersionTargetArguments`,
+binds the target to `VERSION_ARGS` when each statement runs, so a statement built once still reads the
+version of the message running it. Handlers written for "the" version of a catalog then work on that
+draft unchanged, and every message they dispatch inherits it; the caller's target is restored when the
+message ends. A message that names no version works on the next version, and so does a statement with
+nothing targeted. `VersionReads.at` reads a dependency's release or another draft for one block.
 
-[ADR 0049](adr/0049-content-addressed-by-an-explicit-version.md) (proposed) replaces this ambient
-target with an explicit version, area by area: a message carries the resolved `version_id`, SQL binds
-it, and a read that means the default version asks for `catalogs.next_version_id` by name. New code,
-starting with search (ADR 0043), is written that way.
+The schema reads nothing from the session: what a statement means is in its arguments
+([ADR 0049](adr/0049-content-addressed-by-an-explicit-version.md), `VersionTargetNotInSessionTest`).
+The target itself is still carried by the running message rather than passed down; ADR 0049 describes
+making that explicit too, area by area.
 
 The REST API's `…/releases/{release}/…` paths take `next`, a draft's release id or a release number
 (`ResolveCatalogRelease`), pass the draft they name to every message they dispatch

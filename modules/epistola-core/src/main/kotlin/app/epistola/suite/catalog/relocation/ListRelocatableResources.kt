@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.ids.TenantKey
@@ -73,38 +74,38 @@ class ListRelocatableResourcesHandler(
                            WHERE r.state = 'released' AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id
                        ) released
                 FROM catalogs c
-                JOIN catalog_current_versions cv ON cv.tenant_key = c.tenant_key AND cv.catalog_id = c.catalog_id
+                JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = c.tenant_key AND cv.catalog_id = c.catalog_id
                 WHERE c.tenant_key = :tenantKey AND COALESCE(c.source_url NOT LIKE 'classpath:%', TRUE)
             )
             SELECT resource_type, namespace, catalog_key, resource_key, resource_name, catalog_name, released
             FROM (
                 SELECT 'stencil' resource_type, c.namespace, c.catalog_key::text, s.id resource_key, s.name resource_name,
                        c.name catalog_name, c.released
-                FROM current_stencils s JOIN editable c ON c.version_id = s.version_id
+                FROM current_stencils(${VERSION_ARGS}) s JOIN editable c ON c.version_id = s.version_id
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'attribute', c.namespace, c.catalog_key::text, a.id::text, a.display_name, c.name, c.released
-                FROM current_attributes a JOIN editable c ON c.version_id = a.version_id
+                FROM current_attributes(${VERSION_ARGS}) a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'template', c.namespace, c.catalog_key::text, t.id::text, t.name, c.name, c.released
-                FROM current_templates t JOIN editable c ON c.version_id = t.version_id
+                FROM current_templates(${VERSION_ARGS}) t JOIN editable c ON c.version_id = t.version_id
                 WHERE t.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'codeList', c.namespace, c.catalog_key::text, l.id, l.display_name, c.name, c.released
-                FROM current_code_lists l JOIN editable c ON c.version_id = l.version_id
+                FROM current_code_lists(${VERSION_ARGS}) l JOIN editable c ON c.version_id = l.version_id
                 WHERE l.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'image', c.namespace, c.catalog_key::text, a.id::text, a.name, c.name, c.released
-                FROM current_images a JOIN editable c ON c.version_id = a.version_id
+                FROM current_images(${VERSION_ARGS}) a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'font', c.namespace, c.catalog_key::text, f.slug::text, f.name, c.name, c.released
-                FROM current_fonts f JOIN editable c ON c.version_id = f.version_id
+                FROM current_fonts(${VERSION_ARGS}) f JOIN editable c ON c.version_id = f.version_id
                 WHERE f.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'theme', c.namespace, c.catalog_key::text, th.id::text, th.name, c.name, c.released
-                FROM current_themes th JOIN editable c ON c.version_id = th.version_id
+                FROM current_themes(${VERSION_ARGS}) th JOIN editable c ON c.version_id = th.version_id
                 WHERE th.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -35,7 +36,7 @@ class CatalogImportRows(
                 """
                 UPDATE catalog_versions SET
                     default_theme_resource_id = (
-                        SELECT resource_id FROM current_themes
+                        SELECT resource_id FROM current_themes(${VERSION_ARGS})
                         WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = CAST(:theme AS TEXT)
                     ),
                     presets = CAST(:presets AS JSONB)
@@ -160,7 +161,7 @@ class CatalogImportRows(
             // Catalog-scoped: themes
             val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
             if (themeDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, th.id FROM current_themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, th.id FROM current_themes(${VERSION_ARGS}) th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", themeDeps.map { it.key })
                     .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -171,7 +172,7 @@ class CatalogImportRows(
             // Catalog-scoped: stencils
             val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
             if (stencilDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, st.id FROM current_stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, st.id FROM current_stencils(${VERSION_ARGS}) st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", stencilDeps.map { it.key })
                     .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -186,7 +187,7 @@ class CatalogImportRows(
             val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
             if (imageDeps.isNotEmpty()) {
                 handle.createQuery(
-                    "SELECT rc.catalog_key, a.id::text AS id FROM current_images a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
+                    "SELECT rc.catalog_key, a.id::text AS id FROM current_images(${VERSION_ARGS}) a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
                 )
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", imageDeps.map { it.key })
@@ -199,7 +200,7 @@ class CatalogImportRows(
             // shape as themes/stencils so the look-up cost is one PK probe.
             val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
             if (codeListDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, cl.id AS slug FROM current_code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND cl.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, cl.id AS slug FROM current_code_lists(${VERSION_ARGS}) cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND cl.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", codeListDeps.map { it.key })
                     .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
@@ -211,7 +212,7 @@ class CatalogImportRows(
             // as themes/stencils/code lists.
             val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
             if (fontDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM current_fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM current_fonts(${VERSION_ARGS}) fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", fontDeps.map { it.key })
                     .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }

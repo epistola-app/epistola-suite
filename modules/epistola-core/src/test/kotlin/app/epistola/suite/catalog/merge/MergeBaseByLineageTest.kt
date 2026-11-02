@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.merge
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -56,7 +57,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
     /** The names of the next release's themes, by key. */
     private fun themes(tenant: TenantKey, catalog: CatalogKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { h ->
         h.createQuery(
-            "SELECT t.id, t.name FROM current_themes t " +
+            "SELECT t.id, t.name FROM current_themes(${VERSION_ARGS}) t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog))

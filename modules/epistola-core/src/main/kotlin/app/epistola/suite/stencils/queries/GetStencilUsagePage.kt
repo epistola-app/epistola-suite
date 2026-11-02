@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -59,8 +60,8 @@ private val USAGE_CTE = """
                COALESCE(c.source_url LIKE 'classpath:%', FALSE) AS supplied,
                tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
-        FROM current_template_variants tv
-        JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
+        FROM current_template_variants(${VERSION_ARGS}) tv
+        JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                   AND dt.resource_id = tv.template_resource_id
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)

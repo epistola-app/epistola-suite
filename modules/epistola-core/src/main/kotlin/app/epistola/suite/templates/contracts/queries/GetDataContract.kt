@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.contracts.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -57,7 +58,7 @@ internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, templa
     return handle
         .createQuery(
             """
-            SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM current_templates
+            SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM current_templates(${VERSION_ARGS})
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k
             """,
         )

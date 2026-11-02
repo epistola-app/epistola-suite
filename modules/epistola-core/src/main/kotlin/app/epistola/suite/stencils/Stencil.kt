@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
@@ -97,4 +98,4 @@ internal const val STENCIL_COLUMNS: String =
         "s.name, s.description, s.tags, s.content, s.parameter_schema, s.reads_template_data, s.created_at, s.updated_at, s.created_by, s.updated_by, s.revision"
 
 /** The stencils of the versions callers mean (`current_stencils`, ADR 0033). */
-internal const val STENCIL_FROM: String = "FROM current_stencils s"
+internal const val STENCIL_FROM: String = "FROM current_stencils(${VERSION_ARGS}) s"

@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
@@ -257,7 +258,7 @@ class UpdateCatalogMetadataHandler(
         // The images the version holds (ADR 0039: read as any image list reads them, not through the domain).
         val available = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id FROM current_images WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND media_type LIKE 'image/%'",
+                "SELECT id FROM current_images(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND media_type LIKE 'image/%'",
             ).bind("t", command.tenantKey).bindCatalog("c", command.catalog).mapTo(String::class.java).set()
         }
         validate("presentation", referenced.all(available::contains)) {

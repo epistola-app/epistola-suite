@@ -8,6 +8,7 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.IMAGE_COLUMNS
 import app.epistola.suite.assets.IMAGE_ROWS
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -68,7 +69,7 @@ class ListImagePageHandler(
         val rows = handle.createQuery(
             """
             SELECT $IMAGE_COLUMNS, COUNT(*) OVER()::bigint AS total_count
-            FROM current_images a
+            FROM current_images(${VERSION_ARGS}) a
             WHERE a.tenant_key = :tenantKey
               AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
               AND a.media_type LIKE 'image/%'

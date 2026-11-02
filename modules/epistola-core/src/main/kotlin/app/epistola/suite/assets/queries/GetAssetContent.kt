@@ -6,6 +6,7 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -93,7 +94,7 @@ private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog
     """
     SELECT a.id, a.tenant_key, (SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id) AS catalog_key,
            a.media_type, a.content_hash
-    FROM current_images a
+    FROM current_images(${VERSION_ARGS}) a
     WHERE a.id = :assetId
       AND a.tenant_key = :tenantId
       ${if (catalog != null) "AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}" else ""}

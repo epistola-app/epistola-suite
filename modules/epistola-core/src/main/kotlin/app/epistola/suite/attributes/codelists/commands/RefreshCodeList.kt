@@ -13,7 +13,6 @@ import app.epistola.suite.attributes.codelists.service.CodeListFetchException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
@@ -62,7 +61,6 @@ const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its 
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
-    private val targeting: CatalogReleaseTargeting,
     private val codeLists: CodeListStore,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -102,7 +100,6 @@ class RefreshCodeListHandler(
         }
 
         return jdbi.inTransaction<CodeList?, Exception> { handle ->
-            targeting.apply(handle)
             DraftResources.lockRevision(handle, command.id.catalogId, CodeListStore.CODE_LIST, command.id.key.value) ?: return@inTransaction null
             val stored = checkNotNull(codeLists.fields(handle, command.id)) { "Code list ${command.id.key.value} is locked, so it is there" }
             val refreshed = stored.copy(entries = fetched)
@@ -118,13 +115,11 @@ class RefreshCodeListHandler(
 
     private fun recordRefresh(id: CodeListId, succeeded: Boolean, error: String?) {
         jdbi.useTransaction<Exception> { handle ->
-            targeting.apply(handle)
             codeLists.recordRefresh(handle, id, succeeded, error)
         }
     }
 
     private fun load(id: CodeListId): CodeList? = jdbi.inTransaction<CodeList?, Exception> { handle ->
-        targeting.apply(handle)
         codeLists.get(handle, id)
     }
 }

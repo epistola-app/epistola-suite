@@ -4,6 +4,7 @@
 
 package app.epistola.suite.loadtest.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
@@ -90,7 +91,7 @@ class StartLoadTestHandler(
                 """
                 SELECT EXISTS (
                     SELECT 1
-                    FROM current_template_variants
+                    FROM current_template_variants(${VERSION_ARGS})
                     WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :variantId
                       AND template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
                 )

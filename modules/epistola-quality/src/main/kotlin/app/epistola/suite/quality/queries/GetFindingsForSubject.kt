@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
@@ -87,7 +88,7 @@ class GetFindingsForSubjectHandler(
 
         val currentInputKey = handle.createQuery(
             """
-            SELECT input_key FROM quality_current_variants
+            SELECT input_key FROM quality_current_variants(${VERSION_ARGS})
             WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
             """,
         )
@@ -100,7 +101,7 @@ class GetFindingsForSubjectHandler(
 
         val checks = handle.createQuery(
             """
-            SELECT source_id, checked_at, current FROM quality_current_checks
+            SELECT source_id, checked_at, current FROM quality_current_checks(${VERSION_ARGS})
             WHERE tenant_key = :tenantKey AND template_resource_id = :templateId AND variant_key = :variantKey
             ORDER BY source_id
             """,

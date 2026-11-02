@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.merge
 
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -95,7 +96,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     private fun themeName(tenant: TenantKey, catalog: CatalogKey, key: String): String? = jdbi.withHandle<String?, Exception> { h ->
         // The next version's row of the theme: what the catalog's current version holds.
         h.createQuery(
-            "SELECT t.name FROM current_themes t " +
+            "SELECT t.name FROM current_themes(${VERSION_ARGS}) t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("k", key)

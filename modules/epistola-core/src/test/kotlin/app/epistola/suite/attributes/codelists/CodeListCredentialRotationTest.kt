@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
@@ -55,7 +56,7 @@ class CodeListCredentialRotationTest : IntegrationTestBase() {
     private fun stored(tenant: TenantId): Pair<String, String> = jdbi.withHandle<Pair<String, String>, Exception> { h ->
         h.createQuery(
             """
-            SELECT rc.credential, r.content_hash FROM current_code_lists t
+            SELECT rc.credential, r.content_hash FROM current_code_lists(${VERSION_ARGS}) t
             JOIN resource_credentials rc ON rc.tenant_key = t.tenant_key AND rc.credential_id = t.credential_id
             JOIN release_resources r ON r.tenant_key = t.tenant_key AND r.version_id = t.version_id AND r.resource_type = 'codeList' AND r.resource_key = t.id
             WHERE t.tenant_key = :t AND t.id = 'remote'

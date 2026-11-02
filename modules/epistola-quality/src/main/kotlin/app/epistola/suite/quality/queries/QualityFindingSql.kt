@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
 import app.epistola.suite.templates.currentTemplateJoin
 
@@ -21,7 +22,7 @@ internal object QualityFindingSql {
     fun shown(checkFilter: String, noteFilter: String): String =
         """
         SELECT f.*, NOT k.current AS outdated
-        FROM quality_current_checks k
+        FROM quality_current_checks(${VERSION_ARGS}) k
         JOIN quality_findings f
           ON f.tenant_key = k.tenant_key AND f.template_resource_id = k.template_resource_id AND f.variant_key = k.variant_key
          AND f.source_id = k.source_id AND f.input_key = k.input_key
@@ -39,7 +40,7 @@ internal object QualityFindingSql {
     const val OUTDATED: String =
         """
         (f.input_key IS NOT NULL AND f.input_key IS DISTINCT FROM (
-            SELECT q.input_key FROM quality_current_variants q
+            SELECT q.input_key FROM quality_current_variants(${VERSION_ARGS}) q
             WHERE q.tenant_key = f.tenant_key AND q.template_resource_id = f.template_resource_id AND q.variant_key = f.variant_key))
         """
 

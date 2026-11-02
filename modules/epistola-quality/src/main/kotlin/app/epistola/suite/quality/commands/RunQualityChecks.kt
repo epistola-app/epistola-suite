@@ -8,7 +8,6 @@ import app.epistola.catalog.protocol.FontRef
 import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -128,7 +127,6 @@ class RunQualityChecksHandler(
     private val textChecks: TextQualityChecks,
     private val locales: TenantLocaleResolver,
     private val jdbi: Jdbi,
-    private val targeting: CatalogReleaseTargeting,
 ) : CommandHandler<RunQualityChecks, QualityCheckRun> {
     override fun handle(command: RunQualityChecks): QualityCheckRun {
         val subject = QualitySubject.of(command.variantId)
@@ -265,10 +263,10 @@ class RunQualityChecksHandler(
 
     /**
      * The catalog [alias] means from the template's catalog, by the declarations of the version being
-     * checked: this command is self-managed, so the target is applied to the lookup's own transaction.
+     * checked: this command is self-managed, and its lookup's own transaction keeps the target, which
+     * every statement is given as it runs (ADR 0049).
      */
     private fun resolveAlias(subject: QualitySubject, alias: String?): app.epistola.suite.common.ids.CatalogId? = jdbi.inTransaction<app.epistola.suite.common.ids.CatalogId?, Exception> { handle ->
-        targeting.apply(handle)
         references.resolve(handle, subject.catalogId, alias)
     }
 

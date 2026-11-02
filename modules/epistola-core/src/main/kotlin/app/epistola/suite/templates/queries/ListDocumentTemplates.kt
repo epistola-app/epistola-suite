@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -96,7 +97,7 @@ class ListDocumentTemplatesHandler(
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
             // The view holds each catalog's version a caller means, a draft's or a release's.
-            append("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId")
+            append("SELECT $TEMPLATE_COLUMNS FROM current_templates(${VERSION_ARGS}) dt WHERE dt.tenant_key = :tenantId")
             if (query.catalogKey != null) {
                 append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }

@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.findCatalog
@@ -79,19 +80,19 @@ class BrowseCatalogHandler(
     private fun installedResources(query: BrowseCatalog): List<BrowseResource> = jdbi.withHandle<List<BrowseResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' as type, id as slug, name, NULL as description FROM current_templates WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'template' as type, id as slug, name, NULL as description FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'theme', id, name, description FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'theme', id, name, description FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'stencil', id, name, description FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'stencil', id, name, description FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'attribute', id, display_name, NULL FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'attribute', id, display_name, NULL FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'image', id::text, name, NULL FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'image', id::text, name, NULL FROM current_images(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'codeList', id, display_name, description FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+            SELECT 'codeList', id, display_name, description FROM current_code_lists(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'font', slug::text, name, NULL FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'font', slug::text, name, NULL FROM current_fonts(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -134,19 +135,19 @@ class BrowseCatalogHandler(
         val installedKeys = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT 'template:' || id FROM current_templates WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'template:' || id FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'theme:' || id FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'theme:' || id FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'stencil:' || id FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'stencil:' || id FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'attribute:' || id FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'attribute:' || id FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'image:' || id FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'image:' || id FROM current_images(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'codeList:' || id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT 'codeList:' || id FROM current_code_lists(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'font:' || slug FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'font:' || slug FROM current_fonts(${VERSION_ARGS}) WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", query.tenantKey)

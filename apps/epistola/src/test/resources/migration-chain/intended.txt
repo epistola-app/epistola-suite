@@ -243,46 +243,6 @@ $$
                    FROM public.resource_contents c_1
                   WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
                  OFFSET 0) c)) u
-+ CREATE VIEW public.current_images AS
- SELECT tenant_key,
-    catalog_id,
-    version_id,
-    version,
-    resource_id,
-    id,
-    name,
-    payload,
-    created_at,
-    updated_at,
-    created_by,
-    updated_by,
-    revision,
-    ((payload -> 'resource'::text) ->> 'mediaType'::text) AS media_type,
-    (((payload -> 'resource'::text) ->> 'width'::text))::integer AS width,
-    (((payload -> 'resource'::text) ->> 'height'::text))::integer AS height,
-    ((payload -> 'resource'::text) ->> 'contentHash'::text) AS content_hash,
-    ( SELECT ac.size_bytes
-           FROM public.asset_content ac
-          WHERE (ac.content_hash = (((u.payload -> 'resource'::text) ->> 'contentHash'::text))::character(64))) AS size_bytes
-   FROM ( SELECT r.tenant_key,
-            r.catalog_id,
-            r.version_id,
-            r.version,
-            r.resource_id,
-            r.resource_key AS id,
-            (r.name)::text AS name,
-            c.payload,
-            r.created_at,
-            r.updated_at,
-            r.created_by,
-            r.updated_by,
-            r.revision
-           FROM (public.catalog_version_resources('image'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
-             CROSS JOIN LATERAL ( SELECT c_1.payload
-                   FROM public.resource_contents c_1
-                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
-                 OFFSET 0) c)) u
-
 # Changed from the old chain: a catalog a tenant authored in 1.x is named under `local`, in its
 # tenant's namespace, not on exchange.epistola.app (step 1): until 2.0 a catalog left its installation
 # only through the Exchange, and those Exchange named (shipped, installed from or bound to it) keep
@@ -1056,61 +1016,6 @@ $$
            FROM ( SELECT COALESCE(((e.slot -> 'templateModel'::text) ->> 'revisionDigest'::text), (((t.payload -> 'resource'::text) -> 'templateModel'::text) ->> 'revisionDigest'::text)) AS model_hash) x
           WHERE (v.content_hash IS NULL)
          OFFSET 0) m ON (true))
-+ CREATE VIEW public.current_template_variants AS
- SELECT t.tenant_key,
-    t.catalog_id,
-    t.version_id,
-    t.version,
-    t.resource_id AS template_resource_id,
-    (e.slot ->> 'key'::text) AS id,
-    COALESCE(((v.payload -> 'resource'::text) ->> 'title'::text), (e.slot ->> 'title'::text), (e.slot ->> 'key'::text)) AS title,
-    COALESCE(((v.payload -> 'resource'::text) ->> 'description'::text), (v.payload ->> 'description'::text)) AS description,
-    COALESCE(NULLIF((e.slot -> 'attributes'::text), 'null'::jsonb), '{}'::jsonb) AS attributes,
-    COALESCE(((e.slot ->> 'isDefault'::text))::boolean, false) AS is_default,
-    NULLIF(COALESCE(((v.payload -> 'resource'::text) -> 'metadata'::text), (e.slot -> 'metadata'::text)), 'null'::jsonb) AS metadata,
-    v.content_hash AS model_hash,
-    COALESCE(((v.payload -> 'resource'::text) -> 'templateModel'::text), ((d.payload -> 'resource'::text) -> 'templateModel'::text)) AS template_model,
-    e."position",
-    COALESCE(v.created_at, t.created_at) AS created_at,
-    COALESCE(v.updated_at, t.updated_at) AS updated_at,
-    COALESCE(v.created_by, t.created_by) AS created_by,
-    COALESCE(v.updated_by, t.updated_by) AS updated_by,
-    COALESCE(v.revision, t.revision) AS revision
-   FROM (((( SELECT r.tenant_key,
-            r.catalog_id,
-            r.version_id,
-            r.version,
-            r.resource_id,
-            c.payload,
-            r.created_at,
-            r.updated_at,
-            r.created_by,
-            r.updated_by,
-            r.revision
-           FROM (public.catalog_version_resources('template'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
-             CROSS JOIN LATERAL ( SELECT c_1.payload
-                   FROM public.resource_contents c_1
-                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
-                 OFFSET 0) c)) t
-     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(((t.payload -> 'resource'::text) -> 'variants'::text), '[]'::jsonb)) WITH ORDINALITY e(slot, "position"))
-     LEFT JOIN LATERAL ( SELECT p.content_hash,
-            c.payload,
-            p.created_at,
-            p.updated_at,
-            p.created_by,
-            p.updated_by,
-            p.revision
-           FROM (public.release_resources p
-             JOIN public.resource_contents c ON ((((c.tenant_key)::text = (p.tenant_key)::text) AND (c.content_hash = p.content_hash))))
-          WHERE (((p.tenant_key)::text = (t.tenant_key)::text) AND (p.parent_id = t.resource_id) AND (p.resource_key = (e.slot ->> 'key'::text)) AND (p.catalog_id = t.catalog_id) AND ((p.resource_type)::text = 'variant'::text) AND (p.version_id = t.version_id))
-         OFFSET 0) v ON (true))
-     LEFT JOIN LATERAL ( SELECT c.payload
-           FROM ((jsonb_array_elements(((t.payload -> 'resource'::text) -> 'variants'::text)) x(slot)
-             JOIN public.release_resources p ON ((((p.tenant_key)::text = (t.tenant_key)::text) AND (p.parent_id = t.resource_id) AND (p.resource_key = (x.slot ->> 'key'::text)) AND (p.catalog_id = t.catalog_id) AND ((p.resource_type)::text = 'variant'::text) AND (p.version_id = t.version_id))))
-             JOIN public.resource_contents c ON ((((c.tenant_key)::text = (p.tenant_key)::text) AND (c.content_hash = p.content_hash))))
-          WHERE (((x.slot ->> 'isDefault'::text))::boolean AND (v.content_hash IS NOT NULL) AND (((v.payload -> 'resource'::text) -> 'templateModel'::text) IS NULL))
-         OFFSET 0) d ON (true))
-
 # Withdrawn before 2.0 (#1088): tenant backups, whose table nothing reads; step 14 drops it.
 - ALTER TABLE ONLY public.tenant_backups
     ADD CONSTRAINT tenant_backups_pkey PRIMARY KEY (id)
@@ -1169,8 +1074,8 @@ $$
 
 # Added after the chain: quality results by what was checked (ADR 0044, V20261101002000). A check
 # (quality_checks) per source, variant and input key, its findings under it; the input key computed
-# from what a catalog version holds (quality_input_key), and the views a version reads its findings
-# through. A 1.x finding joins one check under the key `checked-before-2.0`, which no version has, so
+# from what a catalog version holds (quality_input_key), and the reads a version reads its findings
+# through (functions of the version a caller means, with the read model's below). A 1.x finding joins one check under the key `checked-before-2.0`, which no version has, so
 # it shows as outdated until the variant is checked again; its row above has that key and no longer
 # the 1.x input fingerprint. Comments move from a finding's row to the problem, and the trigger that
 # followed variants in a template's content follows variant rows.
@@ -1326,27 +1231,6 @@ $$
 )
 + CREATE TRIGGER trg_release_resources_quality_follow_variant AFTER DELETE OR UPDATE OF resource_key ON public.release_resources FOR EACH ROW WHEN (((old.resource_type)::text = 'variant'::text)) EXECUTE FUNCTION public.quality_follow_variant()
 + CREATE UNIQUE INDEX uq_quality_findings_check ON public.quality_findings USING btree (tenant_key, template_resource_id, variant_key, source_id, input_key, fingerprint) WHERE (input_key IS NOT NULL)
-+ CREATE VIEW public.quality_current_checks AS
- SELECT DISTINCT ON (q.tenant_key, q.template_resource_id, q.variant_key, k.source_id) q.tenant_key,
-    q.catalog_id,
-    q.version_id,
-    q.template_resource_id,
-    q.variant_key,
-    k.source_id,
-    k.input_key,
-    k.checked_at,
-    ((k.input_key)::text = (q.input_key)::text) AS current
-   FROM (public.quality_current_variants q
-     JOIN public.quality_checks k ON ((((k.tenant_key)::text = (q.tenant_key)::text) AND (k.template_resource_id = q.template_resource_id) AND ((k.variant_key)::text = q.variant_key))))
-  ORDER BY q.tenant_key, q.template_resource_id, q.variant_key, k.source_id, ((k.input_key)::text = (q.input_key)::text) DESC, k.checked_at DESC
-+ CREATE VIEW public.quality_current_variants AS
- SELECT tenant_key,
-    catalog_id,
-    version_id,
-    template_resource_id,
-    id AS variant_key,
-    public.quality_input_key((tenant_key)::text, version_id, template_resource_id, id) AS input_key
-   FROM public.current_template_variants v
 - ALTER TABLE ONLY public.quality_finding_comments
     ADD CONSTRAINT quality_finding_comments_pkey PRIMARY KEY (tenant_key, finding_id, id)
 - ALTER TABLE ONLY public.quality_finding_comments
@@ -1412,3 +1296,552 @@ $$
 - CREATE TRIGGER trg_release_resources_quality_findings_follow_variant AFTER DELETE OR UPDATE OF content_hash ON public.release_resources FOR EACH ROW WHEN (((old.resource_type)::text = 'template'::text)) EXECUTE FUNCTION public.quality_findings_follow_variant()
 - CREATE UNIQUE INDEX uq_quality_findings_reconcile ON public.quality_findings USING btree (tenant_key, source_id, subject_urn, fingerprint)
 + row quality_checks: {"checked_at":"<now>","input_key":"checked-before-2.0","source_id":"lint","template_resource_id":"@1d93b7787552","tenant_key":"wide","variant_key":"formal"}
+
+# Changed from the old chain: the read model takes the catalog version a caller means as arguments
+# (ADR 0049). The old chain's view of it (catalog_current_versions) and its reads of a type's content
+# (current_*) read it from session settings (epistola.content_version, epistola.release_catalog,
+# epistola.release_version); here they are functions of the draft and release a caller means, and
+# catalog_version_resources and catalog_version_references take the same arguments. Each answers what
+# the view answered; called with NULLs, every catalog's next version.
+- CREATE FUNCTION public.catalog_version_references(p_type text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_key text, resource_id uuid, ref_alias character varying, ref_type character varying, ref_key text, ref_catalog_id uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_key, r.resource_id,
+       x.alias, x.resource_type, x.resource_key,
+       resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, r.version, x.alias)
+FROM catalog_version_resources(p_type) r
+CROSS JOIN LATERAL (
+    SELECT * FROM resource_references x WHERE x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash OFFSET 0
+) x
+$$
+- CREATE FUNCTION public.catalog_version_resources(p_type text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_type character varying, resource_key text, resource_id uuid, content_hash character, fingerprint character varying, name character varying, description text, revision bigint, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT cv.tenant_key, cv.catalog_id, cv.version_id, vr.version, r.resource_type, r.resource_key, r.resource_id,
+       r.content_hash, r.fingerprint, r.name, r.description, r.revision, r.created_at, r.updated_at, r.created_by, r.updated_by
+FROM catalog_current_versions cv
+JOIN catalog_versions vr ON vr.tenant_key = cv.tenant_key AND vr.version_id = cv.version_id
+CROSS JOIN LATERAL (
+    SELECT * FROM release_resources d
+    WHERE d.tenant_key = cv.tenant_key AND d.catalog_id = cv.catalog_id AND d.version_id = cv.version_id AND d.resource_type = p_type
+      AND d.parent_id IS NULL
+    OFFSET 0
+) r
+$$
+- CREATE VIEW public.catalog_current_versions AS
+ SELECT DISTINCT ON (tenant_key, catalog_id) tenant_key,
+    catalog_id,
+    version_id
+   FROM public.catalog_versions v
+  WHERE
+        CASE
+            WHEN (catalog_id = (NULLIF(current_setting('epistola.release_catalog'::text, true), ''::text))::uuid) THEN (((state)::text = 'released'::text) AND ((version)::text = current_setting('epistola.release_version'::text, true)))
+            ELSE (((version_id)::text = current_setting('epistola.content_version'::text, true)) OR (version_id = ( SELECT c.next_version_id
+               FROM public.catalogs c
+              WHERE (((c.tenant_key)::text = (v.tenant_key)::text) AND (c.catalog_id = v.catalog_id)))))
+        END
+  ORDER BY tenant_key, catalog_id, (((version_id)::text = current_setting('epistola.content_version'::text, true)) IS TRUE) DESC
+- CREATE VIEW public.current_attributes AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    name AS display_name,
+    COALESCE(((payload -> 'resource'::text) -> 'allowedValues'::text), '[]'::jsonb) AS allowed_values,
+    (((payload -> 'resource'::text) -> 'codeListBinding'::text) ->> 'catalogKey'::text) AS code_list_alias,
+    (((payload -> 'resource'::text) -> 'codeListBinding'::text) ->> 'key'::text) AS code_list_key,
+        CASE
+            WHEN ((((payload -> 'resource'::text) -> 'codeListBinding'::text) ->> 'key'::text) IS NOT NULL) THEN public.resolve_catalog_alias((tenant_key)::text, catalog_id, version_id, (version)::text, (((payload -> 'resource'::text) -> 'codeListBinding'::text) ->> 'catalogKey'::text))
+            ELSE NULL::uuid
+        END AS code_list_catalog_id
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            ( SELECT c.payload
+                   FROM public.resource_contents c
+                  WHERE (((c.tenant_key)::text = (r.tenant_key)::text) AND (c.content_hash = r.content_hash))) AS payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM public.catalog_version_resources('attribute'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)) u
+- CREATE VIEW public.current_code_lists AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    row_description,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    resource,
+    name AS display_name,
+    row_description AS description,
+    COALESCE((resource -> 'entries'::text), '[]'::jsonb) AS entries,
+    COALESCE(((payload -> 'source'::text) ->> 'type'::text), 'INLINE'::text) AS source_type,
+    ((payload -> 'source'::text) ->> 'url'::text) AS source_url,
+    COALESCE(((payload -> 'source'::text) ->> 'auth'::text), 'NONE'::text) AS auth_type,
+    (((payload -> 'source'::text) ->> 'credential'::text))::uuid AS credential_id
+   FROM ( SELECT p.tenant_key,
+            p.catalog_id,
+            p.version_id,
+            p.version,
+            p.resource_id,
+            p.id,
+            p.name,
+            p.payload,
+            p.row_description,
+            p.created_at,
+            p.updated_at,
+            p.created_by,
+            p.updated_by,
+            p.revision,
+            (p.payload -> 'resource'::text) AS resource
+           FROM ( SELECT r.tenant_key,
+                    r.catalog_id,
+                    r.version_id,
+                    r.version,
+                    r.resource_id,
+                    r.resource_key AS id,
+                    (r.name)::text AS name,
+                    ( SELECT c.payload
+                           FROM public.resource_contents c
+                          WHERE (((c.tenant_key)::text = (r.tenant_key)::text) AND (c.content_hash = r.content_hash))) AS payload,
+                    r.description AS row_description,
+                    r.created_at,
+                    r.updated_at,
+                    r.created_by,
+                    r.updated_by,
+                    r.revision
+                   FROM public.catalog_version_resources('codeList'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)) p) u
+- CREATE VIEW public.current_fonts AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    slug,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    ((payload -> 'resource'::text) ->> 'kind'::text) AS kind,
+    COALESCE(((payload -> 'resource'::text) -> 'variants'::text), '[]'::jsonb) AS variants
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS slug,
+            (r.name)::text AS name,
+            c.payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM (public.catalog_version_resources('font'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
+             CROSS JOIN LATERAL ( SELECT c_1.payload
+                   FROM public.resource_contents c_1
+                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
+                 OFFSET 0) c)) u
+- CREATE VIEW public.current_stencils AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    ((payload -> 'resource'::text) ->> 'description'::text) AS description,
+    COALESCE(((payload -> 'resource'::text) -> 'tags'::text), '[]'::jsonb) AS tags,
+    ((payload -> 'resource'::text) -> 'content'::text) AS content,
+    NULLIF(((payload -> 'resource'::text) -> 'parameterSchema'::text), 'null'::jsonb) AS parameter_schema,
+    COALESCE((((payload -> 'resource'::text) ->> 'readsTemplateData'::text))::boolean, false) AS reads_template_data
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            c.payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM (public.catalog_version_resources('stencil'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
+             CROSS JOIN LATERAL ( SELECT c_1.payload
+                   FROM public.resource_contents c_1
+                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
+                 OFFSET 0) c)) u
+- CREATE VIEW public.current_templates AS
+ SELECT u.tenant_key,
+    u.catalog_id,
+    u.version_id,
+    u.version,
+    u.resource_id,
+    u.id,
+    u.name,
+    u.content_hash,
+    u.payload,
+    u.created_at,
+    u.updated_at,
+    u.created_by,
+    u.updated_by,
+    u.revision,
+    ((u.payload -> 'resource'::text) ->> 'description'::text) AS description,
+    COALESCE((((u.payload -> 'resource'::text) ->> 'pdfaEnabled'::text))::boolean, true) AS pdfa_enabled,
+    NULLIF(((u.payload -> 'resource'::text) -> 'dataModel'::text), 'null'::jsonb) AS data_model,
+    COALESCE(( SELECT jsonb_agg((e.example || jsonb_build_object('id', COALESCE((e.example ->> 'key'::text), (e.example ->> 'name'::text)))) ORDER BY e.n) AS jsonb_agg
+           FROM jsonb_array_elements(NULLIF(((u.payload -> 'resource'::text) -> 'dataExamples'::text), 'null'::jsonb)) WITH ORDINALITY e(example, n)), '[]'::jsonb) AS data_examples,
+    ((u.payload -> 'resource'::text) ->> 'themeKey'::text) AS theme_key,
+    theme.catalog_id AS theme_catalog_id,
+    ( SELECT cr.resource_id
+           FROM public.catalog_resources cr
+          WHERE (((cr.tenant_key)::text = (u.tenant_key)::text) AND (cr.catalog_id = theme.catalog_id) AND ((cr.resource_type)::text = 'theme'::text) AND (cr.resource_key = ((u.payload -> 'resource'::text) ->> 'themeKey'::text)))) AS theme_resource_id,
+    (jsonb_array_length(COALESCE(((u.payload -> 'resource'::text) -> 'variants'::text), '[]'::jsonb)))::bigint AS variant_count
+   FROM (( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            r.content_hash,
+            c.payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM (public.catalog_version_resources('template'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)
+             CROSS JOIN LATERAL ( SELECT c_1.payload
+                   FROM public.resource_contents c_1
+                  WHERE (((c_1.tenant_key)::text = (r.tenant_key)::text) AND (c_1.content_hash = r.content_hash))
+                 OFFSET 0) c)) u
+     CROSS JOIN LATERAL ( SELECT
+                CASE
+                    WHEN (((u.payload -> 'resource'::text) ->> 'themeKey'::text) IS NOT NULL) THEN public.resolve_catalog_alias((u.tenant_key)::text, u.catalog_id, u.version_id, (u.version)::text, ((u.payload -> 'resource'::text) ->> 'themeCatalogKey'::text))
+                    ELSE NULL::uuid
+                END AS catalog_id) theme)
+- CREATE VIEW public.current_themes AS
+ SELECT tenant_key,
+    catalog_id,
+    version_id,
+    version,
+    resource_id,
+    id,
+    name,
+    payload,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by,
+    revision,
+    ((payload -> 'resource'::text) ->> 'description'::text) AS description,
+    COALESCE(((payload -> 'resource'::text) -> 'documentStyles'::text), '{}'::jsonb) AS document_styles,
+    NULLIF(((payload -> 'resource'::text) -> 'pageSettings'::text), 'null'::jsonb) AS page_settings,
+    NULLIF(((payload -> 'resource'::text) -> 'blockStylePresets'::text), 'null'::jsonb) AS block_style_presets,
+    (((payload -> 'resource'::text) ->> 'spacingUnit'::text))::numeric(6,2) AS spacing_unit
+   FROM ( SELECT r.tenant_key,
+            r.catalog_id,
+            r.version_id,
+            r.version,
+            r.resource_id,
+            r.resource_key AS id,
+            (r.name)::text AS name,
+            ( SELECT c.payload
+                   FROM public.resource_contents c
+                  WHERE (((c.tenant_key)::text = (r.tenant_key)::text) AND (c.content_hash = r.content_hash))) AS payload,
+            r.created_at,
+            r.updated_at,
+            r.created_by,
+            r.updated_by,
+            r.revision
+           FROM public.catalog_version_resources('theme'::text) r(tenant_key, catalog_id, version_id, version, resource_type, resource_key, resource_id, content_hash, fingerprint, name, description, revision, created_at, updated_at, created_by, updated_by)) u
++ CREATE FUNCTION public.catalog_current_versions(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT DISTINCT ON (v.tenant_key, v.catalog_id) v.tenant_key, v.catalog_id, v.version_id
+FROM catalog_versions v
+WHERE CASE
+          WHEN v.catalog_id = p_release_catalog
+              THEN v.state = 'released' AND v.version = p_release_version
+          ELSE v.version_id = p_draft_version
+              OR v.version_id = (SELECT c.next_version_id FROM catalogs c WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id)
+      END
+ORDER BY v.tenant_key, v.catalog_id, ((v.version_id = p_draft_version) IS TRUE) DESC
+$$
++ CREATE FUNCTION public.catalog_version_references(p_type text, p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_key text, resource_id uuid, ref_alias character varying, ref_type character varying, ref_key text, ref_catalog_id uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_key, r.resource_id,
+       x.alias, x.resource_type, x.resource_key,
+       resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, r.version, x.alias)
+FROM catalog_version_resources(p_type, p_draft_version, p_release_catalog, p_release_version) r
+CROSS JOIN LATERAL (
+    SELECT * FROM resource_references x WHERE x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash OFFSET 0
+) x
+$$
++ CREATE FUNCTION public.catalog_version_resources(p_type text, p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_type character varying, resource_key text, resource_id uuid, content_hash character, fingerprint character varying, name character varying, description text, revision bigint, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT cv.tenant_key, cv.catalog_id, cv.version_id, vr.version, r.resource_type, r.resource_key, r.resource_id,
+       r.content_hash, r.fingerprint, r.name, r.description, r.revision, r.created_at, r.updated_at, r.created_by, r.updated_by
+FROM catalog_current_versions(p_draft_version, p_release_catalog, p_release_version) cv
+JOIN catalog_versions vr ON vr.tenant_key = cv.tenant_key AND vr.version_id = cv.version_id
+CROSS JOIN LATERAL (
+    SELECT * FROM release_resources d
+    WHERE d.tenant_key = cv.tenant_key AND d.catalog_id = cv.catalog_id AND d.version_id = cv.version_id AND d.resource_type = p_type
+      AND d.parent_id IS NULL
+    OFFSET 0
+) r
+$$
++ CREATE FUNCTION public.current_attributes(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, display_name text, allowed_values jsonb, code_list_alias text, code_list_key text, code_list_catalog_id uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       u.name AS display_name,
+       COALESCE(u.payload -> 'resource' -> 'allowedValues', '[]'::jsonb) AS allowed_values,
+       u.payload -> 'resource' -> 'codeListBinding' ->> 'catalogKey' AS code_list_alias,
+       u.payload -> 'resource' -> 'codeListBinding' ->> 'key' AS code_list_key,
+       CASE WHEN u.payload -> 'resource' -> 'codeListBinding' ->> 'key' IS NOT NULL
+            THEN resolve_catalog_alias(u.tenant_key, u.catalog_id, u.version_id, u.version, u.payload -> 'resource' -> 'codeListBinding' ->> 'catalogKey')
+       END AS code_list_catalog_id
+FROM (
+    -- The content by its key, row by row, rather than a join (ThemePlanStabilityTest).
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+           (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
+           r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('attribute', p_draft_version, p_release_catalog, p_release_version) r
+) u
+$$
++ CREATE FUNCTION public.current_code_lists(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, payload jsonb, row_description text, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, resource jsonb, display_name text, description text, entries jsonb, source_type text, source_url text, auth_type text, credential_id uuid)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       -- Its name and description from its row: reading them from the content would read the whole
+       -- content, every entry of it.
+       u.name AS display_name,
+       u.row_description AS description,
+       COALESCE(u.resource -> 'entries', '[]'::jsonb) AS entries,
+       COALESCE(u.payload -> 'source' ->> 'type', 'INLINE') AS source_type,
+       u.payload -> 'source' ->> 'url' AS source_url,
+       COALESCE(u.payload -> 'source' ->> 'auth', 'NONE') AS auth_type,
+       CAST(u.payload -> 'source' ->> 'credential' AS UUID) AS credential_id
+FROM (
+    SELECT p.*, p.payload -> 'resource' AS resource
+    FROM (
+        -- The content by its key, row by row, rather than a join (ThemePlanStabilityTest).
+        SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+               (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
+               r.description AS row_description, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+        FROM catalog_version_resources('codeList', p_draft_version, p_release_catalog, p_release_version) r
+    ) p
+) u
+$$
++ CREATE FUNCTION public.current_fonts(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, slug text, name text, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, kind text, variants jsonb)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       u.payload -> 'resource' ->> 'kind' AS kind,
+       COALESCE(u.payload -> 'resource' -> 'variants', '[]'::jsonb) AS variants
+FROM (
+    -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS slug, CAST(r.name AS TEXT) AS name,
+           c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('font', p_draft_version, p_release_catalog, p_release_version) r
+    CROSS JOIN LATERAL (
+        SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
+    ) c
+) u
+$$
++ CREATE FUNCTION public.current_images(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, media_type text, width integer, height integer, content_hash text, size_bytes bigint)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       u.payload -> 'resource' ->> 'mediaType' AS media_type,
+       CAST(u.payload -> 'resource' ->> 'width' AS INTEGER) AS width,
+       CAST(u.payload -> 'resource' ->> 'height' AS INTEGER) AS height,
+       u.payload -> 'resource' ->> 'contentHash' AS content_hash,
+       (SELECT ac.size_bytes FROM asset_content ac WHERE ac.content_hash = CAST(u.payload -> 'resource' ->> 'contentHash' AS CHAR(64))) AS size_bytes
+FROM (
+    -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+           c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('image', p_draft_version, p_release_catalog, p_release_version) r
+    CROSS JOIN LATERAL (
+        SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
+    ) c
+) u
+$$
++ CREATE FUNCTION public.current_stencils(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, description text, tags jsonb, content jsonb, parameter_schema jsonb, reads_template_data boolean)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       -- The content's, not the row's: a release row carries its catalog index's summary, which
+       -- an archive may word differently from the stencil it holds.
+       u.payload -> 'resource' ->> 'description' AS description,
+       COALESCE(u.payload -> 'resource' -> 'tags', '[]'::jsonb) AS tags,
+       u.payload -> 'resource' -> 'content' AS content,
+       NULLIF(u.payload -> 'resource' -> 'parameterSchema', 'null'::jsonb) AS parameter_schema,
+       COALESCE(CAST(u.payload -> 'resource' ->> 'readsTemplateData' AS BOOLEAN), FALSE) AS reads_template_data
+FROM (
+    -- The content by its key, row by row: a fenced LATERAL, so the planner can neither reorder the
+    -- join (ThemePlanStabilityTest) nor repeat the lookup for every column read from it.
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+           c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('stencil', p_draft_version, p_release_catalog, p_release_version) r
+    CROSS JOIN LATERAL (
+        SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
+    ) c
+) u
+$$
++ CREATE FUNCTION public.current_template_variants(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, template_resource_id uuid, id text, title text, description text, attributes jsonb, is_default boolean, metadata jsonb, model_hash character, template_model jsonb, "position" bigint, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT t.tenant_key, t.catalog_id, t.version_id, t.version, t.resource_id AS template_resource_id,
+       e.slot ->> 'key' AS id,
+       COALESCE(v.payload -> 'resource' ->> 'title', e.slot ->> 'title', e.slot ->> 'key') AS title,
+       COALESCE(v.payload -> 'resource' ->> 'description', v.payload ->> 'description') AS description,
+       COALESCE(NULLIF(e.slot -> 'attributes', 'null'::jsonb), '{}'::jsonb) AS attributes,
+       COALESCE(CAST(e.slot ->> 'isDefault' AS BOOLEAN), FALSE) AS is_default,
+       NULLIF(COALESCE(v.payload -> 'resource' -> 'metadata', e.slot -> 'metadata'), 'null'::jsonb) AS metadata,
+       v.content_hash AS model_hash,
+       -- Its model; the default variant's for one that has none of its own (as a received release may
+       -- say).
+       COALESCE(v.payload -> 'resource' -> 'templateModel', d.payload -> 'resource' -> 'templateModel') AS template_model,
+       e.position,
+       COALESCE(v.created_at, t.created_at) AS created_at, COALESCE(v.updated_at, t.updated_at) AS updated_at,
+       COALESCE(v.created_by, t.created_by) AS created_by, COALESCE(v.updated_by, t.updated_by) AS updated_by,
+       COALESCE(v.revision, t.revision) AS revision
+FROM (
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, c.payload,
+           r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('template', p_draft_version, p_release_catalog, p_release_version) r
+    CROSS JOIN LATERAL (
+        SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
+    ) c
+) t
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.payload -> 'resource' -> 'variants', '[]'::jsonb)) WITH ORDINALITY AS e(slot, position)
+LEFT JOIN LATERAL (
+    SELECT p.content_hash, c.payload, p.created_at, p.updated_at, p.created_by, p.updated_by, p.revision
+    FROM release_resources p
+    JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
+    WHERE p.tenant_key = t.tenant_key AND p.parent_id = t.resource_id AND p.resource_key = e.slot ->> 'key'
+      AND p.catalog_id = t.catalog_id AND p.resource_type = 'variant'
+      AND p.version_id = t.version_id
+    OFFSET 0
+) v ON TRUE
+LEFT JOIN LATERAL (
+    SELECT c.payload
+    FROM jsonb_array_elements(t.payload -> 'resource' -> 'variants') x(slot)
+    JOIN release_resources p ON p.tenant_key = t.tenant_key AND p.parent_id = t.resource_id AND p.resource_key = x.slot ->> 'key'
+      AND p.catalog_id = t.catalog_id AND p.resource_type = 'variant'
+      AND p.version_id = t.version_id
+    JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
+    WHERE CAST(x.slot ->> 'isDefault' AS BOOLEAN) AND v.content_hash IS NOT NULL AND v.payload -> 'resource' -> 'templateModel' IS NULL
+    OFFSET 0
+) d ON TRUE
+$$
++ CREATE FUNCTION public.current_templates(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, content_hash character, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, description text, pdfa_enabled boolean, data_model jsonb, data_examples jsonb, theme_key text, theme_catalog_id uuid, theme_resource_id uuid, variant_count bigint)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       u.payload -> 'resource' ->> 'description' AS description,
+       COALESCE(CAST(u.payload -> 'resource' ->> 'pdfaEnabled' AS BOOLEAN), TRUE) AS pdfa_enabled,
+       NULLIF(u.payload -> 'resource' -> 'dataModel', 'null'::jsonb) AS data_model,
+       -- An example's id is its key; one a received release left without a key reads by its name.
+       COALESCE((SELECT jsonb_agg(e.example || jsonb_build_object('id', COALESCE(e.example ->> 'key', e.example ->> 'name')) ORDER BY e.n)
+                 FROM jsonb_array_elements(NULLIF(u.payload -> 'resource' -> 'dataExamples', 'null'::jsonb)) WITH ORDINALITY AS e(example, n)), '[]'::jsonb) AS data_examples,
+       u.payload -> 'resource' ->> 'themeKey' AS theme_key,
+       theme.catalog_id AS theme_catalog_id,
+       (SELECT cr.resource_id FROM catalog_resources cr
+        WHERE cr.tenant_key = u.tenant_key AND cr.catalog_id = theme.catalog_id AND cr.resource_type = 'theme'
+          AND cr.resource_key = u.payload -> 'resource' ->> 'themeKey') AS theme_resource_id,
+       CAST(jsonb_array_length(COALESCE(u.payload -> 'resource' -> 'variants', '[]'::jsonb)) AS BIGINT) AS variant_count
+FROM (
+    -- The content by its key, row by row: a fenced LATERAL (ThemePlanStabilityTest).
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+           r.content_hash, c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('template', p_draft_version, p_release_catalog, p_release_version) r
+    CROSS JOIN LATERAL (
+        SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
+    ) c
+) u
+CROSS JOIN LATERAL (
+    SELECT CASE WHEN u.payload -> 'resource' ->> 'themeKey' IS NOT NULL
+                THEN resolve_catalog_alias(u.tenant_key, u.catalog_id, u.version_id, u.version, u.payload -> 'resource' ->> 'themeCatalogKey')
+           END AS catalog_id
+) theme
+$$
++ CREATE FUNCTION public.current_themes(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, version character varying, resource_id uuid, id text, name text, payload jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, created_by uuid, updated_by uuid, revision bigint, description text, document_styles jsonb, page_settings jsonb, block_style_presets jsonb, spacing_unit numeric)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT u.*,
+       -- The released form is the content's `resource` (ADR 0033: one shape for every type).
+       u.payload -> 'resource' ->> 'description' AS description,
+       COALESCE(u.payload -> 'resource' -> 'documentStyles', '{}'::jsonb) AS document_styles,
+       NULLIF(u.payload -> 'resource' -> 'pageSettings', 'null'::jsonb) AS page_settings,
+       NULLIF(u.payload -> 'resource' -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
+       CAST(u.payload -> 'resource' ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
+FROM (
+    -- The content by its key, row by row, rather than a join: a join's order is the planner's to
+    -- choose, and a plan made before the tables have statistics put every stored content of the
+    -- tenant outermost (ThemePlanStabilityTest).
+    SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
+           (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
+           r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('theme', p_draft_version, p_release_catalog, p_release_version) r
+) u
+$$
++ CREATE FUNCTION public.quality_current_checks(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, template_resource_id uuid, variant_key text, source_id character varying, input_key character varying, checked_at timestamp with time zone, current boolean)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT DISTINCT ON (q.tenant_key, q.template_resource_id, q.variant_key, k.source_id)
+       q.tenant_key, q.catalog_id, q.version_id, q.template_resource_id, q.variant_key, k.source_id,
+       k.input_key, k.checked_at, (k.input_key = q.input_key) AS current
+FROM quality_current_variants(p_draft_version, p_release_catalog, p_release_version) q
+JOIN quality_checks k
+  ON k.tenant_key = q.tenant_key AND k.template_resource_id = q.template_resource_id AND k.variant_key = q.variant_key
+ORDER BY q.tenant_key, q.template_resource_id, q.variant_key, k.source_id,
+         (k.input_key = q.input_key) DESC, k.checked_at DESC
+$$
++ CREATE FUNCTION public.quality_current_variants(p_draft_version uuid, p_release_catalog uuid, p_release_version text) RETURNS TABLE(tenant_key public.tenant_key, catalog_id uuid, version_id uuid, template_resource_id uuid, variant_key text, input_key character varying)
+    LANGUAGE sql STABLE
+    AS $$
+SELECT v.tenant_key, v.catalog_id, v.version_id, v.template_resource_id, v.id AS variant_key,
+       quality_input_key(v.tenant_key, v.version_id, v.template_resource_id, v.id) AS input_key
+FROM current_template_variants(p_draft_version, p_release_catalog, p_release_version) v
+$$

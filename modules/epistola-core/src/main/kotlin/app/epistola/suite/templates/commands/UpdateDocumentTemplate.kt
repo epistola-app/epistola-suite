@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
@@ -97,7 +98,7 @@ class UpdateDocumentTemplateHandler(
                 val themeExists = handle.createQuery(
                     """
                     SELECT 1
-                    FROM current_themes
+                    FROM current_themes(${VERSION_ARGS})
                     WHERE tenant_key = :tenantId
                       AND catalog_id = ${catalogAt("tenantId", "themeCatalogKey")}
                       AND id = :themeId
@@ -140,7 +141,7 @@ class UpdateDocumentTemplateHandler(
 
 /** The revision of template [id] in the version the caller means, or null when there is no such template. */
 internal fun templateRevision(handle: Handle, id: TemplateId): Long? = handle.createQuery(
-    "SELECT revision FROM current_templates WHERE tenant_key = :t AND id = :k AND catalog_id = ${catalogAt("t", "c")}",
+    "SELECT revision FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :t AND id = :k AND catalog_id = ${catalogAt("t", "c")}",
 )
     .bind("t", id.tenantKey)
     .bindCatalog("c", id.catalogId)

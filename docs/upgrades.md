@@ -203,6 +203,11 @@ Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10
 version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
 reports a checksum mismatch, and nothing is changed.
 
+The read model (`V20261101001500`) was corrected after alpha.1 as well. Its reads of the catalog
+version a statement means (`catalog_current_versions`, `catalog_version_resources`,
+`catalog_version_references` and the eight `current_*` reads) took that version from session settings;
+they now take it as arguments (ADR 0049), so they are functions rather than views.
+
 Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
 in one transaction, before starting the later version:
 
@@ -210,12 +215,14 @@ in one transaction, before starting the later version:
 psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
 ```
 
-It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
+It records the corrected steps, replaces alpha.1's read-model views with the functions a later
+version creates, and gives each "Published in 1.x" draft the stencils it is missing,
 as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
 draft after its version was archived comes with that draft's content, not marked ready. Releasing
 refuses until it is ("not ready: stencil '…'"): check it, mark it ready, then release. A
 draft that then holds what its next draft holds is removed, as the upgrade does. Running it again
-changes nothing, and on a database that did not come from 1.x it only records the corrected steps. A database you rebuild from 1.x or from scratch needs no script.
+changes nothing, and on a database that did not come from 1.x it only records the corrected steps
+and replaces the read-model views. A database you rebuild from 1.x or from scratch needs no script.
 
 ## Backups and upgrades
 

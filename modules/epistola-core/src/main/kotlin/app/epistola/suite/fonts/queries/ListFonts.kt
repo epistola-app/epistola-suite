@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -92,7 +93,7 @@ private object FontList {
         val sql = buildString {
             append("SELECT $FONT_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_fonts f WHERE f.tenant_key = :tenantId")
+            append(" FROM current_fonts(${VERSION_ARGS}) f WHERE f.tenant_key = :tenantId")
             if (catalog != null) append(" AND f.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             append(" ORDER BY f.name ASC, f.catalog_id, f.slug")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")

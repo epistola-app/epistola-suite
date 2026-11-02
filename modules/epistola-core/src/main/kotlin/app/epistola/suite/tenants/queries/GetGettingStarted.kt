@@ -4,6 +4,7 @@
 
 package app.epistola.suite.tenants.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -46,7 +47,7 @@ class GetGettingStartedHandler(
         handle.createQuery(
             """
             SELECT
-                EXISTS (SELECT 1 FROM current_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                EXISTS (SELECT 1 FROM current_templates(${VERSION_ARGS}) t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
                         WHERE t.tenant_key = :t AND $NOT_SUPPLIED) AS has_template,
                 EXISTS (SELECT 1 FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                         WHERE r.state = 'released' AND r.tenant_key = :t AND $NOT_SUPPLIED) AS has_published,

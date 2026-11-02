@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -45,7 +46,7 @@ class GetVariantHandler(
         handle.createQuery(
             """
                 SELECT $VARIANT_COLUMNS
-                FROM current_template_variants tv
+                FROM current_template_variants(${VERSION_ARGS}) tv
                 WHERE tv.id = :variantId
                   AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
@@ -90,7 +91,7 @@ class GetVariantSummariesHandler(
                                                          AND d.resource_id = m.resource_id AND d.part = m.part
                         WHERE m.tenant_key = tv.tenant_key AND m.version_id = tv.version_id AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
                     ) as ready
-                FROM current_template_variants tv
+                FROM current_template_variants(${VERSION_ARGS}) tv
                 WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
                 $VARIANT_ORDER

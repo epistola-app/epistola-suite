@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.system.InstallSystemCatalog
@@ -170,7 +171,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             // Each face is a binary of its font's content (ADR 0033): its hash, and a link to bytes stored under it.
             handle.createQuery(
                 """
-                SELECT face ->> 'contentHash' FROM current_fonts f
+                SELECT face ->> 'contentHash' FROM current_fonts(${VERSION_ARGS}) f
                 CROSS JOIN LATERAL jsonb_array_elements(f.variants) face
                 WHERE f.tenant_key = :tenantKey AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                   AND EXISTS (

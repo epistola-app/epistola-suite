@@ -5,6 +5,7 @@
 package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetUsage
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
@@ -39,8 +40,8 @@ class FindAssetUsagesHandler(
                 SELECT DISTINCT usage_name AS template_name, variant_title
                 FROM (
                     SELECT dt.name AS usage_name, tv.title AS variant_title
-                    FROM current_template_variants tv
-                    JOIN current_templates dt ON dt.tenant_key = tv.tenant_key
+                    FROM current_template_variants(${VERSION_ARGS}) tv
+                    JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key
                         AND dt.catalog_id = tv.catalog_id
                         AND dt.resource_id = tv.template_resource_id
                     CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)

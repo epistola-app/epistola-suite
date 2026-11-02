@@ -5,6 +5,7 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.attributes.codelists.CodeListStore
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
@@ -32,7 +33,7 @@ object CodeListStorageConversion {
         jdbi.useHandle<Exception> { handle ->
             val stored = handle.createQuery(
                 """
-                SELECT t.id, r.content_hash, t.payload::text AS payload FROM current_code_lists t
+                SELECT t.id, r.content_hash, t.payload::text AS payload FROM current_code_lists(${VERSION_ARGS}) t
                 JOIN release_resources r ON r.tenant_key = t.tenant_key AND r.version_id = t.version_id AND r.resource_type = 'codeList' AND r.resource_key = t.id
                 WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")}
                 """,

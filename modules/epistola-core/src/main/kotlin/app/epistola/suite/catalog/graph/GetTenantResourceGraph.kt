@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -77,7 +78,7 @@ class TenantResourceGraphBuilder(
         """
         SELECT r.resource_id, r.resource_type, c.namespace, c.catalog_key::text AS catalog_key, r.resource_key, r.name AS resource_name, c.name AS catalog_name
         FROM release_wire_resources r
-        JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
+        JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
         JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
         WHERE r.tenant_key = :tenantKey
         ORDER BY c.name, r.resource_type, r.name
@@ -102,7 +103,7 @@ class TenantResourceGraphBuilder(
         """
             SELECT c.namespace, c.catalog_key::text AS catalog_key, d.alias, d.namespace AS dependency_namespace, d.dependency_key
             FROM catalog_version_dependencies d
-            JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
+            JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
             JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id
             WHERE d.tenant_key = :tenantKey
         """,

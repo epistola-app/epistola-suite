@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CodeListBindingRef
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
@@ -138,7 +139,7 @@ class AttributeStore(
 
     /** Attribute [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: AttributeId): VariantAttributeDefinition? = handle
-        .createQuery("SELECT $ATTRIBUTE_COLUMNS FROM current_attributes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
+        .createQuery("SELECT $ATTRIBUTE_COLUMNS FROM current_attributes(${VERSION_ARGS}) t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
         .bind("t", id.tenantKey)
         .bindCatalog("c", id.catalogId)
         .bind("k", id.key.value)
@@ -148,7 +149,7 @@ class AttributeStore(
 
     /** What attribute [id] says, read from its content; null when the version holds none. */
     fun fields(handle: Handle, id: AttributeId): AttributeFields? = handle
-        .createQuery("SELECT t.payload::text FROM current_attributes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
+        .createQuery("SELECT t.payload::text FROM current_attributes(${VERSION_ARGS}) t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k")
         .bind("t", id.tenantKey)
         .bindCatalog("c", id.catalogId)
         .bind("k", id.key.value)

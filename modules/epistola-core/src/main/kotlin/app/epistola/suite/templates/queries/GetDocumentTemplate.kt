@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -42,7 +43,7 @@ class GetDocumentTemplateHandler(
         handle.createQuery(
             """
                 SELECT $TEMPLATE_COLUMNS
-                FROM current_templates dt
+                FROM current_templates(${VERSION_ARGS}) dt
                 WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
         )

@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.catalog.archive.CatalogArchiveReader
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -272,8 +273,8 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
             SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
-            FROM current_template_variants v
-            JOIN current_templates t
+            FROM current_template_variants(${VERSION_ARGS}) v
+            JOIN current_templates(${VERSION_ARGS}) t
               ON t.tenant_key = v.tenant_key AND t.catalog_id = v.catalog_id AND t.resource_id = v.template_resource_id
             JOIN catalogs c
               ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id

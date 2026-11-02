@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -52,7 +53,7 @@ class CountStencilsHandler(
 ) : QueryHandler<CountStencils, Long> {
     override fun handle(query: CountStencils): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            append("SELECT COUNT(*) FROM current_stencils s WHERE s.tenant_key = :tenantId")
+            append("SELECT COUNT(*) FROM current_stencils(${VERSION_ARGS}) s WHERE s.tenant_key = :tenantId")
             if (query.catalogKey != null) {
                 append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }

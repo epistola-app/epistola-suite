@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -43,7 +44,7 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
     /** The variant's model as stored: its `themeRef` as the row holds it. */
     private fun storedThemeRef(tenant: app.epistola.suite.common.ids.TenantKey, templateResource: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM current_template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
+            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM current_template_variants(${VERSION_ARGS}) v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
         ).bind("t", tenant).bind("k", templateResource).mapTo(String::class.java).findOne().orElse("<relative>")
     }
 

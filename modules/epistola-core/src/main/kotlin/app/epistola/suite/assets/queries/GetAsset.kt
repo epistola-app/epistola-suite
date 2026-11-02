@@ -8,6 +8,7 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.IMAGE_COLUMNS
 import app.epistola.suite.assets.IMAGE_ROWS
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
@@ -49,7 +50,7 @@ class GetAssetHandler(
 
     override fun handle(query: GetAsset): Asset? = jdbi.withHandle<Asset?, Exception> { handle ->
         // An image key names one image of the tenant's current versions, whichever catalog has it.
-        handle.createQuery("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :tenantId AND a.id = :assetId LIMIT 1")
+        handle.createQuery("SELECT $IMAGE_COLUMNS FROM current_images(${VERSION_ARGS}) a WHERE a.tenant_key = :tenantId AND a.id = :assetId LIMIT 1")
             .bind("assetId", query.assetId.value)
             .bind("tenantId", query.tenantId)
             .map(IMAGE_ROWS)

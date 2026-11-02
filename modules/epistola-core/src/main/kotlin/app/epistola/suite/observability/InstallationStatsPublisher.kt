@@ -4,6 +4,7 @@
 
 package app.epistola.suite.observability
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -111,12 +112,12 @@ class InstallationStatsPublisher(
     internal enum class Entity(val metric: String, val table: String) {
         TENANTS("tenants", "tenants"),
 
-        // Each view holds each catalog's current version only (ADR 0033).
-        TEMPLATES("templates", "current_templates"),
-        THEMES("themes", "current_themes"),
+        // Each read, given no target, holds each catalog's current version only (ADR 0033, 0049).
+        TEMPLATES("templates", "current_templates(${VERSION_ARGS})"),
+        THEMES("themes", "current_themes(${VERSION_ARGS})"),
         CATALOGS("catalogs", "catalogs"),
-        STENCILS("stencils", "current_stencils"),
-        FONTS("fonts", "current_fonts"),
+        STENCILS("stencils", "current_stencils(${VERSION_ARGS})"),
+        FONTS("fonts", "current_fonts(${VERSION_ARGS})"),
         ENVIRONMENTS("environments", "environments"),
     }
 

@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireWritableVersion
@@ -150,7 +151,7 @@ class CodeListStore(
 
     /** Code list [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: CodeListId): CodeList? = handle
-        .createQuery("SELECT $CODE_LIST_COLUMNS FROM current_code_lists t WHERE ${codeListAt()}")
+        .createQuery("SELECT $CODE_LIST_COLUMNS FROM current_code_lists(${VERSION_ARGS}) t WHERE ${codeListAt()}")
         .bind("t", id.tenantKey)
         .bindCatalog("c", id.catalogId)
         .bind("key", id.key.value)
@@ -160,7 +161,7 @@ class CodeListStore(
 
     /** What code list [id] says, read from its content; null when the version holds none. */
     fun fields(handle: Handle, id: CodeListId): CodeListFields? = handle
-        .createQuery("SELECT t.payload::text FROM current_code_lists t WHERE ${codeListAt()}")
+        .createQuery("SELECT t.payload::text FROM current_code_lists(${VERSION_ARGS}) t WHERE ${codeListAt()}")
         .bind("t", id.tenantKey)
         .bindCatalog("c", id.catalogId)
         .bind("key", id.key.value)
@@ -176,7 +177,7 @@ class CodeListStore(
             """
             INSERT INTO code_list_refreshes (tenant_key, version_id, resource_id, last_refreshed_at, last_refresh_error)
             SELECT t.tenant_key, t.version_id, t.resource_id, CASE WHEN :succeeded THEN NOW() END, :error
-            FROM current_code_lists t WHERE ${codeListAt()} AND t.version_id IS NOT NULL
+            FROM current_code_lists(${VERSION_ARGS}) t WHERE ${codeListAt()} AND t.version_id IS NOT NULL
             ON CONFLICT (tenant_key, version_id, resource_id) DO UPDATE
             SET last_refreshed_at = CASE WHEN :succeeded THEN NOW() ELSE code_list_refreshes.last_refreshed_at END,
                 last_refresh_error = :error

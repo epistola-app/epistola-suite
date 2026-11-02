@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -126,7 +127,7 @@ class ListTemplateSummariesHandler(
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
-                FROM current_templates dt
+                FROM current_templates(${VERSION_ARGS}) dt
                 WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )

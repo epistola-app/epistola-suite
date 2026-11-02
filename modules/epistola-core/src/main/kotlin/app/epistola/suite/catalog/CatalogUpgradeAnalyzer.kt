@@ -47,13 +47,13 @@ class CatalogUpgradeAnalyzer(
     fun installedResources(catalog: CatalogId): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' AS type, id::text AS slug FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'stencil', id::text FROM current_stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'attribute', id FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'image', id::text FROM current_images WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'codeList', id FROM current_code_lists WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'font', slug::text FROM current_fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            SELECT 'template' AS type, id::text AS slug FROM current_templates(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            UNION ALL SELECT 'theme', id::text FROM current_themes(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            UNION ALL SELECT 'stencil', id::text FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'attribute', id FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            UNION ALL SELECT 'image', id::text FROM current_images(${VERSION_ARGS}) WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'codeList', id FROM current_code_lists(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            UNION ALL SELECT 'font', slug::text FROM current_fonts(${VERSION_ARGS}) WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             """,
         )
             .bind("t", catalog.tenantKey)
@@ -106,7 +106,7 @@ class CatalogUpgradeAnalyzer(
             handle.createQuery(
                 """
                 SELECT t.id FROM tenants t
-                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                JOIN current_themes(${VERSION_ARGS}) th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                 WHERE t.id = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug
                 """,
             ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", theme.slug)

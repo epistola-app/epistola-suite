@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -73,7 +74,7 @@ class GetCatalogDependencyGraphHandler(
                    d.registry || '/' || d.namespace || '/' || d.dependency_key AS to_identity,
                    d.release_version
             FROM catalog_version_dependencies d
-            JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
+            JOIN catalog_current_versions(${VERSION_ARGS}) cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
             JOIN catalogs owner ON owner.tenant_key = d.tenant_key AND owner.catalog_id = d.catalog_id
             LEFT JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry
                                      AND target.namespace = d.namespace AND target.catalog_key = d.dependency_key

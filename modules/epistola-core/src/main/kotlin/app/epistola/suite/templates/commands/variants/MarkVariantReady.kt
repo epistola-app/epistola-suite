@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
@@ -64,8 +65,8 @@ class MarkVariantReadyHandler(
             val row = handle.createQuery(
                 """
                 SELECT tv.template_resource_id, tv.template_model::text AS template_model, dt.data_model::text AS data_model
-                FROM current_template_variants tv
-                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+                FROM current_template_variants(${VERSION_ARGS}) tv
+                JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
                 WHERE tv.tenant_key = :t AND tv.id = :v AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = ${templateIn("t", "c", "k")}
                 """,
             )

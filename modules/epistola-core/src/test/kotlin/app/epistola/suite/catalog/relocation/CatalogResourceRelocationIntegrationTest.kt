@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -464,7 +465,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(identityAt(tenant.id, address.copy(catalogKey = targetCatalog.value))).isNotNull()
         // The hierarchy no longer stores a catalog of its own: it follows the template's, which is
         // the point of the re-key, so reading it back through the template is the real assertion.
-        assertThat(catalogKeysOfTemplatesOwning("current_template_variants", tenant.id)).containsExactly(targetCatalog.value)
+        assertThat(catalogKeysOfTemplatesOwning("current_template_variants(${VERSION_ARGS})", tenant.id)).containsExactly(targetCatalog.value)
 
         // Generation history did not: it records where the template lived at the time.
         assertThat(catalogKeysIn("documents", tenant.id)).containsExactly(sourceCatalog.value)
@@ -711,7 +712,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     }
 
     private fun attributeAuthor(tenantKey: TenantKey, catalogKey: CatalogKey): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
-        handle.createQuery("SELECT updated_by FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = 'language'")
+        handle.createQuery("SELECT updated_by FROM current_attributes(${VERSION_ARGS}) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = 'language'")
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey))
             .mapTo(java.util.UUID::class.java).findOne().orElse(null)
     }
@@ -721,7 +722,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         handle.createQuery(
             """
             SELECT e ->> 'code'
-            FROM current_code_lists lists
+            FROM current_code_lists(${VERSION_ARGS}) lists
             CROSS JOIN LATERAL jsonb_array_elements(lists.entries) e
             WHERE lists.tenant_key = :tenantKey AND lists.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND lists.id = :slug
             ORDER BY 1
@@ -738,7 +739,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         handle.createQuery(
             """
             SELECT list_catalog.catalog_key::text
-            FROM current_attributes a
+            FROM current_attributes(${VERSION_ARGS}) a
             JOIN catalogs list_catalog ON list_catalog.tenant_key = a.tenant_key AND list_catalog.catalog_id = a.code_list_catalog_id
             WHERE a.tenant_key = :tenantKey AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id = :id
             """,
@@ -878,7 +879,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT variants.attributes::text FROM current_template_variants variants
+                SELECT variants.attributes::text FROM current_template_variants(${VERSION_ARGS}) variants
                 ${app.epistola.suite.catalog.currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantKey AND template.id = :templateKey AND variants.id = :variantKey
                 """,

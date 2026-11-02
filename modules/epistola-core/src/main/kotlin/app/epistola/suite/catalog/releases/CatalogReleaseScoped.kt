@@ -13,9 +13,12 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
-import org.slf4j.LoggerFactory
+import org.jdbi.v3.core.qualifier.QualifiedType
+import org.jdbi.v3.core.statement.SqlStatement
+import org.jdbi.v3.core.statement.StatementContext
+import org.jdbi.v3.core.statement.StatementCustomizer
 import org.springframework.stereotype.Component
-import org.springframework.transaction.support.TransactionSynchronizationManager
+import java.sql.PreparedStatement
 import java.util.UUID
 
 /**
@@ -93,32 +96,29 @@ interface CatalogReleaseScoped {
 
 /**
  * A query that can read a released version as well as a draft (ADR 0033): its SQL reads through
- * `catalog_version_resources(type)` (or a view on it, such as `current_themes`), which answers the rows
+ * `catalog_version_resources(type, …)` (or a read on it, such as `current_themes(…)`), which answers the rows
  * of the release a message targets. A message that is not this, and names a release, finds nothing
  * there ([CatalogReleaseNotFoundException]), until its resource type moves.
  */
 interface ReleaseReadable : CatalogReleaseScoped
 
 /**
- * Makes a transaction work on one catalog version (contract ADR 0002).
+ * Makes a message work on one catalog version (contract ADR 0002).
  *
  * Content rows belong to a version, and every statement names the one it means through `versionAt`,
- * `inCurrentVersion` or `catalog_current_versions` (`CatalogSql.kt`). Those answer the catalog's
- * current version unless the transaction targets another: [within] sets the PostgreSQL setting
- * `epistola.content_version` to its `version_id`, transaction-locally, and the view prefers that
- * version for its own catalog. So handlers written for "the" version of a catalog work unchanged on
- * any draft, and messages they dispatch inherit the target. The setting is restored when the message
- * ends, so a nested message naming another version does not leak its target into its caller.
- *
- * A [SelfManagedTransaction][app.epistola.suite.mediator.SelfManagedTransaction] handler opens its own
- * transactions; it calls [apply] in each one to take the target its message named.
+ * `inCurrentVersion` or a function taking [VERSION_ARGS][app.epistola.suite.catalog.VERSION_ARGS]
+ * (`CatalogSql.kt`). Those answer the catalog's current version unless the message targets another:
+ * [within] and [withinRelease] hold the target for their block, and [VersionTargetArguments] passes
+ * it to every statement that runs inside it, as arguments. The schema reads nothing from the session
+ * (ADR 0049). So handlers written for "the" version of a catalog work unchanged on any draft, messages
+ * they dispatch inherit the target, a nested message naming another version does not leak its target
+ * into its caller, and a handler that opens its own transactions
+ * ([SelfManagedTransaction][app.epistola.suite.mediator.SelfManagedTransaction]) keeps it in each.
  */
 @Component
 class CatalogReleaseTargeting(
     private val jdbi: Jdbi,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
-
     /**
      * The `version_id` of the draft [ref] names.
      *
@@ -169,33 +169,8 @@ class CatalogReleaseTargeting(
             .orElse(null)
     }
 
-    /**
-     * Runs [block] with [versionId] as its catalog's version. Inside a transaction the setting is
-     * applied there; outside one (a self-managed command) only [current] carries it, for [apply].
-     */
-    fun <R> within(versionId: UUID, block: () -> R): R = ScopedValue.where(TARGET, versionId).call<R, RuntimeException> {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) return@call block()
-        val previous = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery("SELECT current_setting('$SETTING', TRUE)").mapTo(String::class.java).findOne().orElse(null)
-        }
-        jdbi.useHandle<Exception> { set(it, versionId.toString()) }
-        try {
-            block()
-        } finally {
-            try {
-                jdbi.useHandle<Exception> { set(it, previous.orEmpty()) }
-            } catch (e: Exception) {
-                // The transaction failed and will roll back, which reverts the setting with it.
-                logger.debug("Could not restore {} after a failed message: {}", SETTING, e.message)
-            }
-        }
-    }
-
-    /** Applies the target the running message named, if any, to [handle]'s transaction. */
-    fun apply(handle: Handle) {
-        current()?.let { set(handle, it.toString()) }
-        currentRelease()?.let { (catalogId, version) -> setRelease(handle, catalogId.toString(), version) }
-    }
+    /** Runs [block] with [versionId] as its catalog's version, and every statement inside it reading it. */
+    fun <R> within(versionId: UUID, block: () -> R): R = withDraft(versionId, block)
 
     /**
      * The `catalog_id` of the release [ref] names, for [withinRelease].
@@ -219,40 +194,8 @@ class CatalogReleaseTargeting(
             }
     }
 
-    /**
-     * Runs [block] reading release [version] of the catalog [catalogId] (ADR 0033): the settings
-     * `catalog_version_resources` reads, transaction-locally, restored when the message ends.
-     */
-    fun <R> withinRelease(catalogId: UUID, version: String, block: () -> R): R = ScopedValue.where(RELEASE_TARGET, catalogId to version).call<R, RuntimeException> {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) return@call block()
-        val previous = jdbi.withHandle<Pair<String?, String?>, Exception> { handle ->
-            handle.createQuery("SELECT current_setting('$RELEASE_CATALOG_SETTING', TRUE) AS c, current_setting('$RELEASE_VERSION_SETTING', TRUE) AS v")
-                .map { rs, _ -> rs.getString("c") to rs.getString("v") }
-                .one()
-        }
-        jdbi.useHandle<Exception> { setRelease(it, catalogId.toString(), version) }
-        try {
-            block()
-        } finally {
-            try {
-                jdbi.useHandle<Exception> { setRelease(it, previous.first.orEmpty(), previous.second.orEmpty()) }
-            } catch (e: Exception) {
-                logger.debug("Could not restore the release target after a failed message: {}", e.message)
-            }
-        }
-    }
-
-    private fun setRelease(handle: Handle, catalogId: String, version: String) {
-        handle.createQuery("SELECT set_config('$RELEASE_CATALOG_SETTING', :c, TRUE) AS c, set_config('$RELEASE_VERSION_SETTING', :v, TRUE) AS v")
-            .bind("c", catalogId)
-            .bind("v", version)
-            .mapToMap()
-            .one()
-    }
-
-    private fun set(handle: Handle, value: String) {
-        handle.createQuery("SELECT set_config('$SETTING', :value, TRUE)").bind("value", value).mapTo(String::class.java).one()
-    }
+    /** Runs [block] reading release [version] of the catalog [catalogId] (ADR 0033). */
+    fun <R> withinRelease(catalogId: UUID, version: String, block: () -> R): R = withRelease(catalogId, version, block)
 
     private fun catalogExists(handle: Handle, ref: CatalogReleaseRef): Boolean = handle
         .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c))")
@@ -261,22 +204,65 @@ class CatalogReleaseTargeting(
         .mapTo(Boolean::class.java)
         .one()
 
+    /**
+     * Passes the target in scope to the statement that runs, as the named parameters of
+     * [VERSION_ARGS][app.epistola.suite.catalog.VERSION_ARGS], when it names them. Bound when the
+     * statement runs rather than when its SQL is built, so a statement built once reads the version of
+     * the message running it. Installed on the application's [Jdbi] (`JdbiConfig`).
+     */
+    object VersionTargetArguments : StatementCustomizer {
+        const val DRAFT_VERSION: String = "epistolaDraftVersion"
+        const val RELEASE_CATALOG: String = "epistolaReleaseCatalog"
+        const val RELEASE_VERSION: String = "epistolaReleaseVersion"
+
+        private val UUID_TYPE: QualifiedType<UUID> = QualifiedType.of(UUID::class.java)
+        private val TEXT_TYPE: QualifiedType<String> = QualifiedType.of(String::class.java)
+
+        override fun beforeBinding(stmt: PreparedStatement, ctx: StatementContext) {
+            val names = ctx.parsedSql?.parameters?.parameterNames ?: return
+            if (DRAFT_VERSION !in names && RELEASE_CATALOG !in names && RELEASE_VERSION !in names) return
+            val release = currentRelease()
+            if (DRAFT_VERSION in names) ctx.binding.addNamed(DRAFT_VERSION, current(), UUID_TYPE)
+            if (RELEASE_CATALOG in names) ctx.binding.addNamed(RELEASE_CATALOG, release?.first, UUID_TYPE)
+            if (RELEASE_VERSION in names) ctx.binding.addNamed(RELEASE_VERSION, release?.second, TEXT_TYPE)
+        }
+    }
+
     companion object {
-        /** The PostgreSQL setting `catalog_current_versions` reads. */
-        const val SETTING: String = "epistola.content_version"
+        private val TARGET: ScopedValue<UUID?> = ScopedValue.newInstance()
 
-        /** The settings `catalog_version_resources` reads for a targeted release (ADR 0033). */
-        const val RELEASE_CATALOG_SETTING: String = "epistola.release_catalog"
-        const val RELEASE_VERSION_SETTING: String = "epistola.release_version"
+        private val RELEASE_TARGET: ScopedValue<Pair<UUID, String>?> = ScopedValue.newInstance()
 
-        private val TARGET: ScopedValue<UUID> = ScopedValue.newInstance()
-
-        private val RELEASE_TARGET: ScopedValue<Pair<UUID, String>> = ScopedValue.newInstance()
-
-        /** The `version_id` the running message targets, or null when it targets none. */
+        /** The `version_id` of the draft the running message targets, or null when it targets none. */
         fun current(): UUID? = if (TARGET.isBound) TARGET.get() else null
 
         /** The release (`catalog_id` and number) the running message reads, or null when it reads none. */
         fun currentRelease(): Pair<UUID, String>? = if (RELEASE_TARGET.isBound) RELEASE_TARGET.get() else null
+
+        /**
+         * Runs [block] with draft [versionId] as its catalog's version, and no release read: what
+         * [within] and a draft [VersionReads] selection mean.
+         */
+        internal fun <R> withDraft(versionId: UUID, block: () -> R): R = ScopedValue.where(TARGET, versionId).where(RELEASE_TARGET, null).call<R, RuntimeException>(block)
+
+        /**
+         * Runs [block] reading release [version] of [catalogId], or no release when [catalogId] is
+         * null; the draft targeted around it stays. What [withinRelease] and a release [VersionReads]
+         * selection mean.
+         */
+        internal fun <R> withRelease(catalogId: UUID?, version: String, block: () -> R): R = ScopedValue.where(RELEASE_TARGET, catalogId?.let { it to version }).call<R, RuntimeException>(block)
     }
+}
+
+/**
+ * Binds the target in scope to [VERSION_ARGS][app.epistola.suite.catalog.VERSION_ARGS] on this
+ * statement, as [CatalogReleaseTargeting.VersionTargetArguments] does when a statement runs. For the
+ * parts of a [org.jdbi.v3.core.statement.PreparedBatch]: each part has a binding of its own, which a
+ * statement customizer cannot reach, so a batch that names `VERSION_ARGS` calls this before each `add()`.
+ */
+fun <T : SqlStatement<T>> T.bindVersionTarget(): T {
+    val release = CatalogReleaseTargeting.currentRelease()
+    return bindByType(CatalogReleaseTargeting.VersionTargetArguments.DRAFT_VERSION, CatalogReleaseTargeting.current(), UUID::class.java)
+        .bindByType(CatalogReleaseTargeting.VersionTargetArguments.RELEASE_CATALOG, release?.first, UUID::class.java)
+        .bindByType(CatalogReleaseTargeting.VersionTargetArguments.RELEASE_VERSION, release?.second, String::class.java)
 }

@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.suite.assets.queries.ListImagePage
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.DraftRef
@@ -70,7 +71,7 @@ class FontStorageTest : IntegrationTestBase() {
                 """,
             ),
         ).`as`("each face linked to its bytes").isEqualTo("2")
-        assertThat(one("SELECT count(*) FROM current_images WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no image for a face").isEqualTo("0")
+        assertThat(one("SELECT count(*) FROM current_images(${VERSION_ARGS}) WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no image for a face").isEqualTo("0")
         assertThat(withMediator { ListImagePage(letters, limit = 50, offset = 0).query() }.items).isEmpty()
         assertThat(one("SELECT CAST(to_regclass('fonts') IS NULL AND to_regclass('font_variants') IS NULL AS TEXT)")).isEqualTo("true")
 

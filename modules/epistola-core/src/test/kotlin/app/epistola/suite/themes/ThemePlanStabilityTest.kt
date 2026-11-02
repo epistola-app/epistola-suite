@@ -76,7 +76,10 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         h.execute("SET LOCAL plan_cache_mode = force_generic_plan")
         h.execute("PREPARE plan_check AS $sql")
         try {
-            val arguments = values.take(PARAMETER.findAll(sql).map { it.value }.toSet().size).joinToString(", ") { "'${it.replace("'", "''")}'" }
+            // The read's own values, then NULL for the version it means (targets), the last three.
+            val count = PARAMETER.findAll(sql).map { it.value }.toSet().size
+            val own = if (TARGETS_FROM.containsMatchIn(sql)) count - 3 else count
+            val arguments = (values.take(own).map { "'${it.replace("'", "''")}'" } + List(count - own) { "NULL" }).joinToString(", ")
             val json = h.createQuery("EXPLAIN (FORMAT JSON) EXECUTE plan_check($arguments)").mapTo(String::class.java).one()
             objectMapper.readTree(json).get(0).get("Plan")
         } finally {
@@ -161,20 +164,29 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         val catalog = "t.tenant_key = $1 AND t.catalog_id = epistola_catalog_id($1, $2, $3)"
         val reads = listOf("current_themes", "current_code_lists", "current_attributes", "current_stencils").flatMap { view ->
             listOf(
-                "$view of a catalog" to "SELECT t.payload FROM $view t WHERE $catalog",
-                "$view, one" to "SELECT t.payload FROM $view t WHERE $catalog AND t.id = $4",
+                "$view of a catalog" to "SELECT t.payload FROM $view(${targets(4)}) t WHERE $catalog",
+                "$view, one" to "SELECT t.payload FROM $view(${targets(5)}) t WHERE $catalog AND t.id = $4",
             )
         } + listOf(
-            // Templates read through views of the same shape before they move (ADR 0033, step 7a).
-            "current_templates of a catalog" to "SELECT t.id, t.name, t.theme_key FROM current_templates t WHERE $catalog",
-            "current_templates, one" to "SELECT t.id, t.data_model FROM current_templates t WHERE $catalog AND t.id = $4",
-            "current_template_variants of a catalog" to "SELECT t.id, t.template_model FROM current_template_variants t WHERE $catalog",
+            // Templates read through reads of the same shape before they move (ADR 0033, step 7a).
+            "current_templates of a catalog" to "SELECT t.id, t.name, t.theme_key FROM current_templates(${targets(4)}) t WHERE $catalog",
+            "current_templates, one" to "SELECT t.id, t.data_model FROM current_templates(${targets(5)}) t WHERE $catalog AND t.id = $4",
+            "current_template_variants of a catalog" to "SELECT t.id, t.template_model FROM current_template_variants(${targets(4)}) t WHERE $catalog",
         ) + (BEFORE to BEFORE_SQL)
         return reads.associate { (name, sql) -> name to genericPlan(sql, values) }
     }
 
     private companion object {
         val PARAMETER = Regex("""\$\d""")
+
+        /**
+         * The version a read means (`VERSION_ARGS`), as the parameters from [first] on: unknown when
+         * the plan is made, as when the application binds them.
+         */
+        fun targets(first: Int) = "CAST(\$$first AS uuid), CAST(\$${first + 1} AS uuid), CAST(\$${first + 2} AS text)"
+
+        /** How a read's [targets] start, the cast of its first. */
+        val TARGETS_FROM = Regex("""\(CAST\(\$\d AS uuid\), CAST\(\$\d AS uuid\), CAST\(\$\d AS text\)\)""")
         const val BEFORE = "the read before the fix"
 
         /**
@@ -185,7 +197,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         val BEFORE_SQL = """
             SELECT c.payload, k.catalog_key FROM (
                 SELECT r.* FROM release_resources r
-                WHERE r.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = r.tenant_key)
+                WHERE r.version_id IN (SELECT cv.version_id FROM catalog_current_versions(${targets(4)}) cv WHERE cv.tenant_key = r.tenant_key)
                   AND r.catalog_id IS DISTINCT FROM NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
                 UNION ALL
                 SELECT r.* FROM release_resources r

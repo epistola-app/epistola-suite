@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.codelists.queries
 import app.epistola.suite.attributes.codelists.BoundCodeListVersion
 import app.epistola.suite.attributes.codelists.codeListAt
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -98,7 +99,7 @@ private object CodeListEntryList {
             if (paged) append(", ${Paging.TOTAL}")
             append(
                 """
-                FROM current_code_lists t
+                FROM current_code_lists(${VERSION_ARGS}) t
                 CROSS JOIN LATERAL jsonb_array_elements(t.entries) e
                 WHERE ${codeListAt()}
                 """,

@@ -28,8 +28,9 @@ for SQL (`epistola.content_version` for a draft, `epistola.release_catalog` with
 all in `V20261101001500__core_2_0_read_model.sql`. Tenant and catalog are bind parameters
 (`versionAt(tenantParam, catalogParam)`); the version is not.
 
-It was the right way to add drafts to code built for one: about 80 message types and 119 SQL uses of
-the helpers and views kept working unchanged. It is a compatibility layer, though, and it costs:
+It was the right way to add drafts to code built for one: about 80 message types, about 200 uses of
+the views and functions in 87 files and 168 of `versionAt`/`inCurrentVersion` in 92 kept working
+unchanged. It is a compatibility layer, though, and it costs:
 
 - **A statement's rows depend on state it does not show.** The same SQL reads a different version
   depending on the transaction it runs in. `ContentVersionSqlTest` accepts a statement that joins
@@ -42,15 +43,18 @@ the helpers and views kept working unchanged. It is a compatibility layer, thoug
 - **One target per catalog per transaction.** Work that needs two versions of a catalog switches the
   ambient target back and forth: nine `targeting.within(…)` calls in five handlers
   (`ReleaseCatalogDraft`, `MergeReleaseIntoDraft`, `MergeReferenceCheck`, `CatalogDraftCommands`,
-  `NextVersionChanges`).
+  `NextVersionChanges`), and `VersionReads.at` rewrites the settings around a block to read a
+  dependency's release or another draft (seven callers).
 - **Two carriers to keep in step.** A handler that opens its own transactions
   (`SelfManagedTransaction`) must call `targeting.apply(handle)` in each, or it silently reads the
   default.
 - **Releases use a second pair of settings** with their own branch in the view, although a release is
   a `catalog_versions` row like a draft (ADR 0036).
 
-None of this is visible outside the suite: no client, archive or API sees the settings. Changing it is
-not tied to the 2.0 alpha, and costs the same before or after 2.0.
+None of this is visible outside the suite: no client, archive or API sees the settings. The Kotlin
+side of a change costs the same before or after 2.0. The schema side does not: after 2.0.0 is GA a
+migration is never edited again, so session state baked into the read model would stay in the
+migrations for good, replaced by a later one at best.
 
 ## Considered options
 
@@ -62,11 +66,29 @@ not tied to the 2.0 alpha, and costs the same before or after 2.0.
    SQL uses and every nested dispatch, landing together. Rejected for its size and risk.
 3. **Row-level security on the setting.** Makes the target enforced rather than advisory, but it is
    still ambient, and a tenant-wide read would have to switch it off. Rejected.
-4. **Chosen: explicit versions, introduced beside the ambient target and moved to area by area.** New
-   code is explicit from the start; existing code moves when it is touched or when an area is
-   converted; the ambient target is removed when nothing reads it.
+4. **Chosen: the schema first, before 2.0 GA; then explicit versions in Kotlin, area by area.** The
+   read model takes the version as arguments, so no migration carries session state. The target the
+   Kotlin code passes stays ambient for now, bound to each statement as it runs; new code is explicit
+   from the start, existing code moves when it is touched or when an area is converted, and the
+   ambient target is removed when nothing reads it.
 
 ## Decision
+
+### 0. The schema reads nothing from the session
+
+`catalog_current_versions` and the eight `current_*` reads are functions of what the caller means
+(`p_draft_version`, `p_release_catalog`, `p_release_version`), and `catalog_version_resources` and
+`catalog_version_references` take the same arguments and pass them on, as do the quality module's
+`quality_current_variants` and `quality_current_checks` (`V20261101002000`, not yet shipped). They answer exactly what the
+views answered from the settings; `(NULL, NULL, NULL)` is every catalog's next version. This is done in
+`V20261101001500` itself, before 2.0 GA, with the 2.0.0-alpha.1 repair script putting the functions in
+place of alpha.1's views. `VersionTargetNotInSessionTest` keeps the settings out of every migration
+and statement.
+
+Until §1 to §4 land, statements pass `VERSION_ARGS` (`CatalogSql.kt`): named parameters that a JDBI
+statement customizer (`CatalogReleaseTargeting.VersionTargetArguments`) binds from the running
+message's target when the statement runs. The target lives in a `ScopedValue` only, so a handler that
+opens its own transactions keeps it without `targeting.apply(handle)`, which goes.
 
 ### 1. A version is part of a content address
 
@@ -85,10 +107,9 @@ settings, so a targeted transaction cannot change what it answers. It answers wh
 
 ### 3. SQL takes the version as a parameter
 
-Statements bind `:versionId` (or join the default helper). Functions taking the version sit beside
-today's: `version_resources(tenant, version_id, type)` and `version_references(…)`, with the per-type
-reads as functions of the version rather than views of the ambient one. A released version is read the
-same way as a draft, by its `version_id`, so the release settings go with the draft one.
+Statements bind the version they mean (or join the default helper) instead of `VERSION_ARGS`. The
+functions of §0 already take it as arguments; a statement passes a version it resolved, rather than
+the ambient target bound for it.
 
 ### 4. Nested work passes the version on
 
@@ -103,9 +124,8 @@ allowed only in a list of files not yet moved, which shrinks with each step and 
 
 ### 6. The ambient target is removed last
 
-When that list is empty, one migration replaces `catalog_current_versions` and what builds on it, and
-`CatalogReleaseTargeting`, its `ScopedValue`, the three settings and `SelfManagedTransaction`'s
-`apply` go.
+When that list is empty, `VERSION_ARGS`, `VersionTargetArguments` and `CatalogReleaseTargeting`'s
+`ScopedValue` go. No migration is needed: the schema already takes the version as arguments (§0).
 
 ## Consequences
 
@@ -117,24 +137,28 @@ When that list is empty, one migration replaces `catalog_current_versions` and w
   them pass the version on.
 - **Two ways coexist until the end.** The guard's list keeps the old way from spreading and shows what
   is left.
-- **Each step is a forward migration or none.** New functions are added beside the old; nothing is
-  rewritten in place (`v2.0.0-alpha.1` has shipped). Only the last step changes an existing view.
+- **The schema is settled before GA.** §0 rewrites `V20261101001500` once, which `v2.0.0-alpha.1`
+  shipped: its databases run the repair script (`docs/upgrades.md`, "From 2.0.0-alpha.1"), and a
+  later version refuses to start on one that has not, changing nothing. Every later step is Kotlin
+  only.
 - **Nothing outside the suite changes**: no contract, archive or API change.
 
 ## Delivery
 
-Each step is its own pull request, in 2.0 or later:
+Each step is its own pull request. The first before 2.0 GA, the rest in 2.0 or later:
 
+0. **The schema** (§0): the read-model functions, `VERSION_ARGS` and its customizer, the repair
+   script, and `VersionTargetNotInSessionTest`.
 1. **New code is explicit.** The default-version helper in `CatalogSql.kt` (no migration), and
    `SearchTenant` (ADR 0043) reading through it as its first user. The guard's list of files not yet
    moved, with today's files in it.
-2. **Functions of the version** (`version_resources`, `version_references`, the per-type reads), in one
-   forward migration, beside the views.
+2. **The shared storage code** (`DraftResources`, `VariantRows`, `CatalogDependencyStore`, …) takes a
+   resolved version; handlers not yet moved resolve the target once, at their top.
 3. **Work across versions first**: release, merge, import and next-version changes, which switch the
    target today and gain the most.
 4. **Then each area**, resource type by resource type, with the REST, UI and MCP entry points resolving
    the version they pass down.
-5. **Removal**: the migration and the code of §6, once the guard's list is empty.
+5. **Removal**: the code of §6, once the guard's list is empty.
 
 ## References
 

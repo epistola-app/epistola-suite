@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.inCurrentVersion
@@ -53,7 +54,7 @@ class DeleteAttributeDefinitionHandler(
             // Any variant, in any catalog, that still names this attribute (qualified or bare)
             val variantCount = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM current_template_variants variants
+                SELECT COUNT(*) FROM current_template_variants(${VERSION_ARGS}) variants
                 ${currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantId
                   AND ${AttributeReferences.uses("variants")}

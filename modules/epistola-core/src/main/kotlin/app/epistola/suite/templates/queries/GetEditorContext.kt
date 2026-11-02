@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
@@ -85,8 +86,8 @@ class GetEditorContextHandler(
                 tv.attributes as variant_attributes,
                 tv.template_model as draft_template_model,
                 tv.revision AS variant_revision
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+            FROM current_template_variants(${VERSION_ARGS}) tv
+            JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
             WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
               AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
               AND tv.id = :variantId

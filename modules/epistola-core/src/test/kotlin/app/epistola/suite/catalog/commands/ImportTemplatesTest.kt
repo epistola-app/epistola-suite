@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -74,7 +75,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT pdfa_enabled
-                FROM current_templates
+                FROM current_templates(${VERSION_ARGS})
                 WHERE tenant_key = :tenantKey AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default') AND id = :templateKey
                 """,
             )

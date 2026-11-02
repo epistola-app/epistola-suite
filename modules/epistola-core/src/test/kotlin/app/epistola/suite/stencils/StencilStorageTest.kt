@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.DraftRef
@@ -83,13 +84,13 @@ class StencilStorageTest : IntegrationTestBase() {
             assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetStencil(footer).query())
         }
 
-        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_stencils WHERE tenant_key = '${tenant.value}' AND id = 'footer'"))
+        val payload = objectMapper.readTree(one("SELECT payload::text FROM current_stencils(${VERSION_ARGS}) WHERE tenant_key = '${tenant.value}' AND id = 'footer'"))
         assertThat(payload.path("resource").path("type").asString()).isEqualTo("stencil")
         assertThat(payload.path("resource").path("tags").toList().map { it.asString() }).containsExactly("legal")
         assertThat(
             one(
                 """
-                SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type DESC) FROM current_stencils s
+                SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type DESC) FROM current_stencils(${VERSION_ARGS}) s
                 JOIN release_resources r ON r.tenant_key = s.tenant_key AND r.version_id = s.version_id AND r.resource_type = 'stencil' AND r.resource_key = s.id
                 JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
                 WHERE s.tenant_key = '${tenant.value}' AND s.id = 'footer'

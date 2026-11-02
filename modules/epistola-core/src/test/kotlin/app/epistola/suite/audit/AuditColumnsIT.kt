@@ -4,6 +4,7 @@
 
 package app.epistola.suite.audit
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -60,7 +61,7 @@ class AuditColumnsIT : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT created_by, updated_by
-                FROM current_themes
+                FROM current_themes(${VERSION_ARGS})
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )

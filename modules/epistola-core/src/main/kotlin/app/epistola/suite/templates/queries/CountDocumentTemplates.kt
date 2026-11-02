@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
@@ -53,7 +54,7 @@ class CountDocumentTemplatesHandler(
     override fun handle(query: CountDocumentTemplates): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
             // Each catalog counts once, in its current version.
-            append("SELECT COUNT(*) FROM current_templates dt WHERE dt.tenant_key = :tenantId")
+            append("SELECT COUNT(*) FROM current_templates(${VERSION_ARGS}) dt WHERE dt.tenant_key = :tenantId")
             if (query.catalogKey != null) {
                 append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }

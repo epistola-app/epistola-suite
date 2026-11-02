@@ -179,29 +179,56 @@ COMMENT ON COLUMN quality_findings.status IS
     'OPEN, or RESOLVED for a person''s note a person resolved. A check''s finding is always OPEN: one its source no longer reports is not shown, not resolved. IGNORED is derived from a live quality_finding_ignores row.';
 
 -- 4. Which check a version shows ------------------------------------------------------------------
--- Per variant of the version each catalog means (catalog_current_versions: the one a transaction
--- targets, else its next), its input key there.
-CREATE VIEW quality_current_variants AS
+-- Per variant of the version each catalog means (catalog_current_versions: the one the caller names,
+-- else its next), its input key there. The caller says what it means (ADR 0049).
+CREATE FUNCTION quality_current_variants(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key           tenant_key,
+        catalog_id           UUID,
+        version_id           UUID,
+        template_resource_id UUID,
+        variant_key          TEXT,
+        input_key            VARCHAR
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT v.tenant_key, v.catalog_id, v.version_id, v.template_resource_id, v.id AS variant_key,
        quality_input_key(v.tenant_key, v.version_id, v.template_resource_id, v.id) AS input_key
-FROM current_template_variants v;
+FROM current_template_variants(p_draft_version, p_release_catalog, p_release_version) v
+$$;
 
-COMMENT ON VIEW quality_current_variants IS
+COMMENT ON FUNCTION quality_current_variants(uuid, uuid, text) IS
     'Per variant of the catalog version a caller means, its quality input key there (ADR 0044).';
 
 -- Per such variant and source, the check shown: the one with the variant's key, else the newest, as
 -- outdated.
-CREATE VIEW quality_current_checks AS
+CREATE FUNCTION quality_current_checks(p_draft_version UUID, p_release_catalog UUID, p_release_version TEXT)
+    RETURNS TABLE (
+        tenant_key           tenant_key,
+        catalog_id           UUID,
+        version_id           UUID,
+        template_resource_id UUID,
+        variant_key          TEXT,
+        source_id            VARCHAR(64),
+        input_key            VARCHAR(64),
+        checked_at           TIMESTAMPTZ,
+        "current"            BOOLEAN
+    )
+    LANGUAGE sql
+    STABLE
+AS $$
 SELECT DISTINCT ON (q.tenant_key, q.template_resource_id, q.variant_key, k.source_id)
        q.tenant_key, q.catalog_id, q.version_id, q.template_resource_id, q.variant_key, k.source_id,
        k.input_key, k.checked_at, (k.input_key = q.input_key) AS current
-FROM quality_current_variants q
+FROM quality_current_variants(p_draft_version, p_release_catalog, p_release_version) q
 JOIN quality_checks k
   ON k.tenant_key = q.tenant_key AND k.template_resource_id = q.template_resource_id AND k.variant_key = q.variant_key
 ORDER BY q.tenant_key, q.template_resource_id, q.variant_key, k.source_id,
-         (k.input_key = q.input_key) DESC, k.checked_at DESC;
+         (k.input_key = q.input_key) DESC, k.checked_at DESC
+$$;
 
-COMMENT ON VIEW quality_current_checks IS
+COMMENT ON FUNCTION quality_current_checks(uuid, uuid, text) IS
     'Per variant of the catalog version a caller means and per source, the check shown: the one with the variant''s input key there (current), else the newest (outdated).';
 
 -- 5. Comments belong to the problem --------------------------------------------------------------

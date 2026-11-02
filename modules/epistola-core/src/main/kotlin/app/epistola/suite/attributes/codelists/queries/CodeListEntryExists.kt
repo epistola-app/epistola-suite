@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.BoundCodeListVersion
 import app.epistola.suite.attributes.codelists.codeListAt
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.VersionReads
 import app.epistola.suite.catalog.versionAt
@@ -56,7 +57,7 @@ class CodeListEntryExistsHandler(
 
     private fun exists(handle: org.jdbi.v3.core.Handle, query: CodeListEntryExists): Boolean = handle.createQuery(
         """
-            SELECT 1 FROM current_code_lists t
+            SELECT 1 FROM current_code_lists(${VERSION_ARGS}) t
             WHERE ${codeListAt()}
               AND t.entries @> jsonb_build_array(jsonb_build_object('code', CAST(:code AS TEXT)))
             """,

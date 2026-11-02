@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
@@ -32,7 +33,7 @@ internal const val THEME_COLUMNS: String =
     "t.tenant_key, t.catalog_id, t.id, t.payload::text AS payload, t.created_at, t.updated_at, t.created_by, t.updated_by, t.revision"
 
 /** `current_themes t`: the themes of the versions callers mean. */
-internal const val THEMES_WITH_CATALOG: String = "current_themes t"
+internal const val THEMES_WITH_CATALOG: String = "current_themes(${VERSION_ARGS}) t"
 
 /**
  * The one mapping from a theme's JSON content (its wire form, ADR 0033) to the [Theme] the suite

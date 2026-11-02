@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -119,7 +120,7 @@ class FontStore(
         """
         SELECT r.resource_key, r.content_hash FROM release_wire_resources r
         WHERE r.tenant_key = :t AND r.resource_type = 'font'
-          AND r.version_id = (SELECT v.version_id FROM catalog_current_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")})
+          AND r.version_id = (SELECT v.version_id FROM catalog_current_versions(${VERSION_ARGS}) v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")})
         """,
     ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
         .map { rs, _ -> rs.getString("resource_key") to rs.getString("content_hash").trim() }
@@ -148,13 +149,13 @@ class FontStore(
 
     /** Font [id] as the version the handle means holds it, or null. */
     fun get(handle: Handle, id: FontId): Font? = handle
-        .createQuery("SELECT $FONT_COLUMNS FROM current_fonts f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
+        .createQuery("SELECT $FONT_COLUMNS FROM current_fonts(${VERSION_ARGS}) f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
         .bind("t", id.tenantKey).bindCatalog("c", id.catalogId).bind("k", id.key.value)
         .mapTo(Font::class.java).findOne().orElse(null)
 
     /** The faces of font [id], by italic, then weight. */
     fun faces(handle: Handle, id: FontId): List<FontFace> = handle
-        .createQuery("SELECT f.variants::text FROM current_fonts f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
+        .createQuery("SELECT f.variants::text FROM current_fonts(${VERSION_ARGS}) f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
         .bind("t", id.tenantKey).bindCatalog("c", id.catalogId).bind("k", id.key.value)
         .mapTo(String::class.java).findOne().orElse(null)
         ?.let(::facesOf).orEmpty()

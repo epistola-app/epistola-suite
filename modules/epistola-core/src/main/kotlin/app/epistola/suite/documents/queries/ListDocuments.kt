@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
@@ -150,6 +151,6 @@ data class DocumentCatalog(
 internal val DOCUMENTS_OF_TEMPLATE = """
     AND (template_key = :templateId
          OR template_resource_id IN (
-             SELECT dt.resource_id FROM current_templates dt
+             SELECT dt.resource_id FROM current_templates(${VERSION_ARGS}) dt
              WHERE dt.tenant_key = :tenantId AND dt.id = :templateId))
 """

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.VERSION_ARGS
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.StencilId
@@ -38,15 +39,15 @@ class FindStencilUsagesHandler(
         handle.createQuery(
             """
             SELECT dt.name
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
+            FROM current_template_variants(${VERSION_ARGS}) tv
+            JOIN current_templates(${VERSION_ARGS}) dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                       AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND ${StencilReferences.usedBy("n", "dt")}
             UNION
             SELECT s.name
-            FROM current_stencils s
+            FROM current_stencils(${VERSION_ARGS}) s
             CROSS JOIN LATERAL jsonb_each(s.content -> 'nodes') AS n(key, value)
             WHERE s.tenant_key = :tenantId
               AND ${StencilReferences.usedBy("n", "s")}
