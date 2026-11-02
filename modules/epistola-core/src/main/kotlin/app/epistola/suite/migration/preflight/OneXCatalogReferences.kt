@@ -12,8 +12,9 @@ import java.sql.Connection
  * After the upgrade an authored catalog's first release, its "Published in 1.x" draft released by
  * its author, pins the catalogs it uses, so they are released first; these are the uses that order
  * it. Read from what the upgrade keeps: each
- * variant's and stencil's latest published version and its draft, every theme, attribute definition
- * and template, and the catalogs' details. Only an authored catalog's uses count: a subscribed
+ * variant's and stencil's latest published version and its working copy (its draft, else that latest
+ * published version, else its latest archived one), every theme, attribute definition and template,
+ * and the catalogs' details. Only an authored catalog's uses count: a subscribed
  * catalog has its installed release recorded as it is, and waits for nothing.
  */
 internal object OneXCatalogReferences {
@@ -79,19 +80,28 @@ internal object OneXCatalogReferences {
      * are foreign keys; a variant's attributes are keyed `catalog.attribute`.
      */
     private val USES = """
-        WITH kept_versions AS (
-            SELECT DISTINCT ON (tv.tenant_key, tv.template_resource_id, tv.variant_key, tv.status)
-                   tv.tenant_key, tv.template_resource_id, tv.variant_key, tv.template_model
+        WITH template_ranked AS (
+            SELECT tv.tenant_key, tv.template_resource_id, tv.variant_key, tv.template_model, tv.status,
+                   row_number() OVER (PARTITION BY tv.tenant_key, tv.template_resource_id, tv.variant_key, tv.status ORDER BY tv.id DESC) AS latest,
+                   bool_or(tv.status <> 'archived') OVER (PARTITION BY tv.tenant_key, tv.template_resource_id, tv.variant_key) AS current
             FROM template_versions tv
-            WHERE tv.status IN ('draft', 'published')
-            ORDER BY tv.tenant_key, tv.template_resource_id, tv.variant_key, tv.status, tv.id DESC
+        ),
+        -- The latest draft and published version, and the latest archived one when there is neither: the working copy.
+        kept_versions AS (
+            SELECT tenant_key, template_resource_id, variant_key, template_model
+            FROM template_ranked
+            WHERE latest = 1 AND (status <> 'archived' OR NOT current)
+        ),
+        stencil_ranked AS (
+            SELECT sv.tenant_key, sv.stencil_resource_id, sv.content, sv.status,
+                   row_number() OVER (PARTITION BY sv.tenant_key, sv.stencil_resource_id, sv.status ORDER BY sv.id DESC) AS latest,
+                   bool_or(sv.status <> 'archived') OVER (PARTITION BY sv.tenant_key, sv.stencil_resource_id) AS current
+            FROM stencil_versions sv
         ),
         kept_stencils AS (
-            SELECT DISTINCT ON (sv.tenant_key, sv.stencil_resource_id, sv.status)
-                   sv.tenant_key, sv.stencil_resource_id, sv.content
-            FROM stencil_versions sv
-            WHERE sv.status IN ('draft', 'published')
-            ORDER BY sv.tenant_key, sv.stencil_resource_id, sv.status, sv.id DESC
+            SELECT tenant_key, stencil_resource_id, content
+            FROM stencil_ranked
+            WHERE latest = 1 AND (status <> 'archived' OR NOT current)
         )
         SELECT dt.tenant_key, dt.catalog_key, 'template ' || dt.id || ' variant ' || kv.variant_key AS owner,
                ref #>> '{}' AS used_catalog, 'content' AS via

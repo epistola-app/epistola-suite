@@ -6,7 +6,8 @@
 - **Tags:** search, ui, catalog, resources, mcp, database
 - **Related:** [ADR 0033](0033-reading-any-release.md) (one content shape), [ADR 0036](0036-one-table-for-every-catalog-version.md)
   (one table for every catalog version), [ADR 0039](0039-catalog-knows-no-content-type.md) (catalog knows no
-  content type), [ADR 0010](0010-strict-script-src-csp.md) (strict CSP)
+  content type), [ADR 0010](0010-strict-script-src-csp.md) (strict CSP),
+  [ADR 0048](0048-authorization-decisions-behind-one-decision-point.md) (lists filtered in the database)
 
 ## Context
 
@@ -50,10 +51,11 @@ Search is one query in core, in a new `search` package:
 SearchTenant(tenantKey, text, filters: SearchFilters, sort: SearchSort, page) : Query<SearchResults>
 ```
 
-It implements `RequiresPermission(TEMPLATE_VIEW)` and returns a named result (`SearchResults`: groups of
+It implements `RequiresPermission(CATALOG_VIEW)` and returns a named result (`SearchResults`: groups of
 hits, a count per kind for the filter chips, and the page). Every surface reads it: the web palette and
-search page, and an MCP `search` tool. A REST endpoint waits for a contract change and is not part of
-this decision.
+search page, and an MCP `search` tool. A REST endpoint is not part of this decision; the contract
+proposes it as `searchTenant` (alpha, epistola-contract#115), with the same filters, grouping and
+permissions.
 
 The query runs as **one SQL statement**: catalogs, and the `release_resources` rows of each catalog's
 `catalog_current_versions` version, scoped to the tenant, matched, filtered, grouped, ranked and limited
@@ -114,6 +116,21 @@ typed text into text and filters, and is unit-tested on its own; a token it does
 **The palette carries the context it is opened in**: opened inside a catalog, an "In Letters" chip is
 set. It stays visible and removable when it empties the result, so the reader can always widen again
 (`.agents/rules/ui-affordances.md`).
+
+### What the reader may see
+
+Searching needs `CATALOG_VIEW`: every hit is in a catalog and is opened there. Since the 2.0
+vocabulary gives each kind its own view permission, each hit also needs the one that reads its kind:
+`TEMPLATE_VIEW` for templates, their variants and images, `STENCIL_VIEW`, `THEME_VIEW`, and
+`REFERENCE_VIEW` for attributes, code lists, fonts and quality profiles. A `viewPermission` on
+`ResourceType` names it, so a new type cannot be added without one.
+
+The handler turns the reader's permissions into the kinds they may read and binds them into the
+statement (`kind IN (:readableKinds)`), as ADR 0048 does for every list. A hit the reader may not see
+is never matched, grouped or counted: it is not in the page, its total or the counts per kind, and
+the search is not refused for it. Filtering in application code after the statement would shorten
+pages and count what the reader cannot open. When ADR 0048 scopes catalogs (`ResourceScope`), that
+scope binds into the same statement.
 
 ### Grouping, before the limit
 

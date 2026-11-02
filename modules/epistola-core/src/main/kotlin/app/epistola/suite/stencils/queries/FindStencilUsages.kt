@@ -17,8 +17,9 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Finds template names that reference a given stencil in their draft or published versions.
- * Used to check if a stencil is in use before deletion.
+ * Finds the names of the templates and stencils that use a given stencil, from any catalog of the
+ * tenant. Used to check if a stencil is in use before deletion: a stencil may contain stencils, of its
+ * own catalog or of one it declares.
  */
 data class FindStencilUsages(
     val stencilId: StencilId,
@@ -36,14 +37,20 @@ class FindStencilUsagesHandler(
     override fun handle(query: FindStencilUsages): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name
+            SELECT dt.name
             FROM current_template_variants tv
             JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                       AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND ${StencilReferences.usedBy("n", "dt")}
-            ORDER BY dt.name
+            UNION
+            SELECT s.name
+            FROM current_stencils s
+            CROSS JOIN LATERAL jsonb_each(s.content -> 'nodes') AS n(key, value)
+            WHERE s.tenant_key = :tenantId
+              AND ${StencilReferences.usedBy("n", "s")}
+            ORDER BY 1
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)

@@ -108,6 +108,10 @@ val testPostgresVersion = providers.gradleProperty("testPostgresVersion").orElse
 
 val testInvariants = providers.gradleProperty("testInvariants").orElse("fail")
 
+// The catalog model test (`CatalogModelTest`): how many command sequences, and a seed to replay one.
+val modelRuns = providers.gradleProperty("modelRuns")
+val modelSeed = providers.gradleProperty("modelSeed")
+
 fun Test.capJUnitParallelism() {
     systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
     systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
@@ -151,6 +155,8 @@ tasks.withType<Test>().configureEach {
     // What an integration test class does when it leaves its tenants' catalogs inconsistent
     // (CatalogInvariantsExtension): fail, report (write them under build/invariant-violations) or off.
     systemProperty("epistola.test.invariants", testInvariants.get())
+    modelRuns.orNull?.let { systemProperty("epistola.test.modelRuns", it) }
+    modelSeed.orNull?.let { systemProperty("epistola.test.modelSeed", it) }
 
     testLogging {
         events("passed", "skipped", "failed")
@@ -199,7 +205,7 @@ tasks.register<Test>("integrationTest") {
     classpath = testSourceSet.get().runtimeClasspath
     useJUnitPlatform {
         includeTags("integration")
-        excludeTags("ui", "perf", "stress")
+        excludeTags("ui", "perf", "stress", "model")
     }
     jvmArgs(springTestJvmArgs)
     capJUnitParallelism()
@@ -241,9 +247,11 @@ tasks.register<Test>("uiTest") {
 // hardened `uiTest` into `check` itself, so `gradle build` still covers UI
 // end-to-end through the right task without forking an empty UI JVM in every
 // other module. `stress` stays in `test` (so CI runs it) and out of the local
-// `integrationTest` loop, which is what the tag was introduced for.
+// `integrationTest` loop, which is what the tag was introduced for. `model` (the
+// random command sequences, `modelTest`) stays out of both: it costs the build too
+// much for a run that finds something only by chance.
 tasks.named<Test>("test") {
-    useJUnitPlatform { excludeTags("ui", "perf") }
+    useJUnitPlatform { excludeTags("ui", "perf", "model") }
     jvmArgs(springTestJvmArgs)
     capJUnitParallelism()
     // `--tests X` from the root runs every module's `test`, and Gradle fails a
@@ -274,4 +282,19 @@ tasks.register<Test>("perfTest") {
     testLogging { events("passed", "skipped", "failed", "standardOut") }
     filter { isFailOnNoMatchingTests = false }
     enabled = perfTestExplicitlyRequested
+}
+
+// Model tests — opt-in via `@Tag("model")`: random command sequences checked against
+// invariants (`CatalogModelTest`). Out of `test` and `integrationTest` because they
+// take minutes and each run searches somewhere new. `-PmodelRuns=N` / `-PmodelSeed=S`.
+tasks.register<Test>("modelTest") {
+    description = "Runs model tests: random command sequences against invariants (opt-in)"
+    group = "verification"
+    testClassesDirs = testSourceSet.get().output.classesDirs
+    classpath = testSourceSet.get().runtimeClasspath
+    useJUnitPlatform { includeTags("model") }
+    jvmArgs(springTestJvmArgs)
+    capJUnitParallelism()
+    testLogging { events("passed", "skipped", "failed", "standardOut") }
+    filter { isFailOnNoMatchingTests = false }
 }

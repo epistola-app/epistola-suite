@@ -6,6 +6,7 @@ package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -15,6 +16,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.themes.ThemeInUseException
@@ -29,7 +31,8 @@ import org.springframework.stereotype.Component
  * Constraint: cannot delete the tenant's current default theme — clear the
  * tenant default first (themes are optional, so zero themes is a valid state).
  *
- * Templates referencing this theme will gracefully fall back to their own styles.
+ * Refused while anything uses it: in its own draft, or in another catalog (by the resource graph,
+ * [FindResourceUsages]). Either would be left naming a theme its catalog's draft reads and no longer has.
  */
 data class DeleteTheme(
     val id: ThemeId,
@@ -49,7 +52,7 @@ class DeleteThemeHandler(
     /**
      * Deletes a theme by ID.
      * Returns true if a theme was deleted, false if not found.
-     * @throws ThemeInUseException if the theme is the tenant's default theme, or the version still uses it
+     * @throws ThemeInUseException if the theme is the tenant's default theme, or anything still uses it
      */
     override fun handle(command: DeleteTheme): Boolean {
         requireCatalogEditable(command.id.catalogId)
@@ -102,10 +105,17 @@ class DeleteThemeHandler(
                 .mapTo<String>()
                 .list()
             if (users.isNotEmpty()) {
-                throw ThemeInUseException(command.id.key, "this version still uses it: " + users.take(5).joinToString() + if (users.size > 5) ", and ${users.size - 5} more" else "")
+                throw ThemeInUseException(command.id.key, "this version still uses it: " + listed(users))
+            }
+            val elsewhere = FindResourceUsages(command.id.catalogId).query()["theme:${command.id.key.value}"].orEmpty()
+                .map { "${it.referenceType} ${it.referencedByName} (catalog ${it.referencedByCatalog})" }
+            if (elsewhere.isNotEmpty()) {
+                throw ThemeInUseException(command.id.key, "other catalogs use it: " + listed(elsewhere))
             }
 
             DraftResources.delete(handle, command.id.catalogId, ThemeStore.THEME, command.id.key.value)
         }
     }
+
+    private fun listed(users: List<String>) = users.take(5).joinToString() + if (users.size > 5) ", and ${users.size - 5} more" else ""
 }
