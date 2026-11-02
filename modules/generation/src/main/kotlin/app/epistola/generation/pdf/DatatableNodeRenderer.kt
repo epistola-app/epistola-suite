@@ -100,7 +100,7 @@ class DatatableNodeRenderer : NodeRenderer {
                 cell.setFont(context.fontCache.bold)
                 // TH role so screen readers associate data cells with headers (WCAG PDF6)
                 cell.accessibilityProperties.setRole(StandardRoles.TH)
-                cell.add(Paragraph(headerText))
+                cell.add(Paragraph(context.proseMirrorConverter.renderable(headerText)))
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
 
                 // Apply column-level styles

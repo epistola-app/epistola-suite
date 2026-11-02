@@ -76,6 +76,25 @@ Liberation Sans is metrically compatible with Helvetica — documents render ide
 
 Font variants available: regular, bold, italic, bold-italic.
 
+### Characters a font cannot draw
+
+PDF/A requires every character to be defined in its embedded font, so a character the font has no
+glyph for fails the render. iText drops Unicode format characters (zero-width space, joiners, bidi
+marks), most control characters and the soft hyphen first; everything else reaches the check.
+
+- **Text pasted from Word is cleaned up** (`TextCleanup`, table `text-cleanup.tsv`). Word's manual line break (U+000B) and
+  page break (U+000C) and the separators U+2028/2029 become a line break, its non-breaking hyphen
+  (U+001E) a hyphen, its optional hyphen (U+001F) a soft hyphen, and its Symbol and Wingdings
+  bullets (U+F0B7 and others) a bullet. Other control characters are removed. This applies to
+  template text, data values and datatable column headers, in every PDF/A render whatever its
+  rendering defaults (these characters failed it before, so there is no output to keep), and in
+  other PDFs from rendering defaults V8. The editor cleans up a paste with the same table, so Word's
+  line break lands in the document as a hard break.
+- **Any other character the font lacks** — an emoji, ✓ or ☐ in most system fonts, Greek in Lora or
+  Merriweather, Arabic, Thai, CJK — fails with `UnrenderableCharacterException`. Its message names
+  the code point, the fonts of the render that lack it, and where it occurs: the template block with
+  an excerpt, or the path into the data, never the data itself. The editor preview shows it.
+
 ### Document metadata
 
 Both modes set document metadata (title, author, subject, creator) via the PDF info dictionary. In PDF/A mode, this metadata is additionally written as XMP (required by the standard).
@@ -103,6 +122,8 @@ column, converted by the 2.0 migration chain.
 | `modules/generation/.../pdf/DirectPdfRenderer.kt`                         | Branches between `PdfDocument` and `PdfADocument` |
 | `modules/generation/.../pdf/FontCache.kt`                                 | Dual font strategy (embedded vs standard)         |
 | `modules/generation/.../pdf/PdfMetadata.kt`                               | Metadata model                                    |
+| `modules/generation/.../pdf/TextCleanup.kt`                               | Word's control characters and bullets cleaned up  |
+| `modules/generation/.../pdf/UnrenderableCharacterException.kt`            | Names a character no font of the render has       |
 | `modules/generation/src/main/resources/fonts/`                            | Liberation Sans TTF fonts (SIL OFL license)       |
 | `modules/generation/src/main/resources/color/sRGB.icc`                    | ICC color profile                                 |
 | `modules/epistola-core/.../templates/DocumentTemplate.kt`                 | `pdfaEnabled` field                               |

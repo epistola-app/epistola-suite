@@ -1986,6 +1986,53 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         @Test
+        fun `POST preview with a character the font cannot draw says which character and where`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                // A new template renders as PDF/A, and the built-in font has no emoji.
+                val body = """{
+                    "data": {},
+                    "templateModel": {
+                        "modelVersion": 1,
+                        "root": "root-1",
+                        "nodes": {
+                            "root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]},
+                            "greeting": {"id": "greeting", "type": "text", "props": {"content": {"type": "doc", "content": [
+                                {"type": "paragraph", "content": [{"type": "text", "text": "Thank you 😀"}]}
+                            ]}}}
+                        },
+                        "slots": {
+                            "slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": ["greeting"]}
+                        },
+                        "themeRef": {"type": "inherit"}
+                    }
+                }"""
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/${template.id}/variants/$variantId/preview",
+                    HttpEntity(body, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.body).contains("U+1F600 (GRINNING FACE)").contains("text block greeting")
+            }
+        }
+
+        @Test
         fun `POST live preview uses the editor theme spacing unit`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
