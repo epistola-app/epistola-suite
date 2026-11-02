@@ -45,8 +45,11 @@ import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -126,26 +129,28 @@ class EpistolaCodeListApi : CodeListsApi {
         updateCodeListRequest: UpdateCodeListRequest,
         ifMatch: String?,
     ): ResponseEntity<CodeListDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.codeListId(codeListKey)
-        // PATCH semantics — fetch current, merge with the request body, then
-        // replay through the full UpdateCodeList command (it isn't partial).
-        val current = GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
-        val updated = requestField("displayName", "name") {
-            UpdateCodeList(
-                id = id,
-                displayName = updateCodeListRequest.name ?: current.displayName,
-                description = updateCodeListRequest.description ?: current.description,
-                sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
-                authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
-                credential = updateCodeListRequest.credential ?: current.credential?.value,
-                entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
-                catalogVersion = draft.ref,
-                // The merge above read the list at `current`; a write in between must not be lost.
-                expectedRevision = ETags.expected(ifMatch) ?: current.revision,
-            ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.REFERENCE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.codeListId(codeListKey)
+            // PATCH semantics — fetch current, merge with the request body, then
+            // replay through the full UpdateCodeList command (it isn't partial).
+            val current = GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
+            val updated = requestField("displayName", "name") {
+                UpdateCodeList(
+                    id = id,
+                    displayName = updateCodeListRequest.name ?: current.displayName,
+                    description = updateCodeListRequest.description ?: current.description,
+                    sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
+                    authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
+                    credential = updateCodeListRequest.credential ?: current.credential?.value,
+                    entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
+                    catalogVersion = draft.ref,
+                    // The merge above read the list at `current`; a write in between must not be lost.
+                    expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+                ).execute() ?: throw draft.codeListNotFound(codeListKey)
+            }
+            return okWithETag(updated.revision, updated.toDto(draft.catalog))
         }
-        return okWithETag(updated.revision, updated.toDto(draft.catalog))
     }
 
     override fun deleteCodeList(
@@ -210,24 +215,26 @@ class EpistolaCodeListApi : CodeListsApi {
         updateCodeListEntryHiddenRequest: UpdateCodeListEntryHiddenRequest,
         ifMatch: String?,
     ): ResponseEntity<CodeListEntryDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.codeListId(codeListKey)
-        GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
-        val updated = UpdateCodeListEntryHidden(
-            codeListId = id,
-            code = code,
-            hidden = updateCodeListEntryHiddenRequest.hidden,
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute()
-        if (!updated) {
-            throw ValidationException(field = "code", message = "Code list entry '$code' not found")
+        authorizedOperation(TenantKey.of(tenantKey), Permission.REFERENCE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.codeListId(codeListKey)
+            GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
+            val updated = UpdateCodeListEntryHidden(
+                codeListId = id,
+                code = code,
+                hidden = updateCodeListEntryHiddenRequest.hidden,
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute()
+            if (!updated) {
+                throw ValidationException(field = "code", message = "Code list entry '$code' not found")
+            }
+            val entry = ListCodeListEntries(codeListId = id, includeHidden = true, catalogVersion = draft.ref).query()
+                .first { it.code == code }
+            // The code list's ETag: an entry is part of its list (contract `updateCodeListEntryHidden`).
+            val list = requireNotNull(GetCodeList(id = id, catalogVersion = draft.ref).query())
+            return okWithETag(list.revision, entry.toDto())
         }
-        val entry = ListCodeListEntries(codeListId = id, includeHidden = true, catalogVersion = draft.ref).query()
-            .first { it.code == code }
-        // The code list's ETag: an entry is part of its list (contract `updateCodeListEntryHidden`).
-        val list = requireNotNull(GetCodeList(id = id, catalogVersion = draft.ref).query())
-        return okWithETag(list.revision, entry.toDto())
     }
 
     private fun ResolvedCatalogRelease.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)

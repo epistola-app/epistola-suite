@@ -31,8 +31,11 @@ import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilNotFoundException
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -105,18 +108,20 @@ class EpistolaStencilApi(
         release: String,
         createStencilRequest: CreateStencilRequest,
     ): ResponseEntity<StencilDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val stencil = CreateStencil(
-            id = StencilId(StencilKey.of(createStencilRequest.key), draft.catalogId),
-            name = createStencilRequest.name,
-            description = createStencilRequest.description,
-            tags = createStencilRequest.tags ?: emptyList(),
-            content = createStencilRequest.content,
-            parameterSchema = createStencilRequest.parameterSchema,
-            catalogVersion = draft.ref,
-        ).execute()
+        authorizedOperation(TenantKey.of(tenantKey), Permission.STENCIL_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val stencil = CreateStencil(
+                id = StencilId(StencilKey.of(createStencilRequest.key), draft.catalogId),
+                name = createStencilRequest.name,
+                description = createStencilRequest.description,
+                tags = createStencilRequest.tags ?: emptyList(),
+                content = createStencilRequest.content,
+                parameterSchema = createStencilRequest.parameterSchema,
+                catalogVersion = draft.ref,
+            ).execute()
 
-        return stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)).let { created(it.key, it) }
+            return stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)).let { created(it.key, it) }
+        }
     }
 
     override fun getStencil(
@@ -142,18 +147,20 @@ class EpistolaStencilApi(
         updateStencilRequest: UpdateStencilRequest,
         ifMatch: String?,
     ): ResponseEntity<StencilDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.stencilId(stencilKey)
-        val stencil = UpdateStencil(
-            id = id,
-            name = updateStencilRequest.name,
-            description = updateStencilRequest.description,
-            tags = updateStencilRequest.tags,
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.STENCIL_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.stencilId(stencilKey)
+            val stencil = UpdateStencil(
+                id = id,
+                name = updateStencilRequest.name,
+                description = updateStencilRequest.description,
+                tags = updateStencilRequest.tags,
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
 
-        return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+            return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        }
     }
 
     override fun deleteStencil(
@@ -164,10 +171,12 @@ class EpistolaStencilApi(
         release: String,
         stencilKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.stencilId(stencilKey)
-        if (!DeleteStencil(id = id, catalogVersion = draft.ref).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
-        return ResponseEntity.noContent().build()
+        authorizedOperation(TenantKey.of(tenantKey), Permission.STENCIL_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.stencilId(stencilKey)
+            if (!DeleteStencil(id = id, catalogVersion = draft.ref).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
+            return ResponseEntity.noContent().build()
+        }
     }
 
     // ==================== Content ====================
@@ -196,20 +205,22 @@ class EpistolaStencilApi(
         updateStencilContentRequest: UpdateStencilContentRequest,
         ifMatch: String?,
     ): ResponseEntity<StencilContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.stencilId(stencilKey)
-        val content = updateStencilContentRequest.content
-            ?: throw ValidationException(field = "content", message = "Stencil content is required")
-        val parameterSchema = updateStencilContentRequest.parameterSchema
-        val stencil = UpdateStencil(
-            id = id,
-            content = content,
-            // Left out keeps the schema; an empty one (`{}`) removes it (UpdateStencil).
-            parameterSchema = parameterSchema,
-            catalogVersion = draft.ref,
-            expectedRevision = ETags.expected(ifMatch),
-        ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        authorizedOperation(TenantKey.of(tenantKey), Permission.STENCIL_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.stencilId(stencilKey)
+            val content = updateStencilContentRequest.content
+                ?: throw ValidationException(field = "content", message = "Stencil content is required")
+            val parameterSchema = updateStencilContentRequest.parameterSchema
+            val stencil = UpdateStencil(
+                id = id,
+                content = content,
+                // Left out keeps the schema; an empty one (`{}`) removes it (UpdateStencil).
+                parameterSchema = parameterSchema,
+                catalogVersion = draft.ref,
+                expectedRevision = ETags.expected(ifMatch),
+            ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+            return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        }
     }
 
     /**
@@ -224,24 +235,26 @@ class EpistolaStencilApi(
         release: String,
         stencilKey: String,
     ): ResponseEntity<MarkStencilReadyResponse> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val id = draft.stencilId(stencilKey)
-        workingCopy(draft, stencilKey)
-        MarkStencilReady(stencilId = id, catalogVersion = draft.ref).execute()
-        val stencil = workingCopy(draft, stencilKey)
-        val notFitting = generateSequence(1) { it + 1 }
-            .map { GetStencilUsagePage(id, page = it, catalogVersion = draft.ref).query() }
-            .takeWhileInclusive { it.page < it.totalPages }
-            .flatMap { it.items.asSequence() }
-            .map { it.toUsageDto() }
-            .filterNot { it.fits }
-            .toList()
-        return ResponseEntity.ok(
-            MarkStencilReadyResponse(
-                stencil = stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)),
-                notFitting = notFitting,
-            ),
-        )
+        authorizedOperation(TenantKey.of(tenantKey), Permission.STENCIL_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val id = draft.stencilId(stencilKey)
+            workingCopy(draft, stencilKey)
+            MarkStencilReady(stencilId = id, catalogVersion = draft.ref).execute()
+            val stencil = workingCopy(draft, stencilKey)
+            val notFitting = generateSequence(1) { it + 1 }
+                .map { GetStencilUsagePage(id, page = it, catalogVersion = draft.ref).query() }
+                .takeWhileInclusive { it.page < it.totalPages }
+                .flatMap { it.items.asSequence() }
+                .map { it.toUsageDto() }
+                .filterNot { it.fits }
+                .toList()
+            return ResponseEntity.ok(
+                MarkStencilReadyResponse(
+                    stencil = stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)),
+                    notFitting = notFitting,
+                ),
+            )
+        }
     }
 
     // ==================== Usage ====================

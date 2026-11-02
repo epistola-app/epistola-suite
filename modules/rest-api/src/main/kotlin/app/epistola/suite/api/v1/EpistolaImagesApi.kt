@@ -33,6 +33,8 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.authorizedOperation
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.core.io.ByteArrayResource
@@ -170,14 +172,16 @@ class EpistolaImagesApi(
         // contract still declares the parameter; it goes in its next major (2.0).
         @Suppress("UNUSED_PARAMETER") force: Boolean,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val key = AssetKey.of(imageKey)
-        val image = GetAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).query()
-        if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
-            throw AssetNotFoundException(draft.tenantKey, key)
+        authorizedOperation(TenantKey.of(tenantKey), Permission.TEMPLATE_EDIT) {
+            val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+            val key = AssetKey.of(imageKey)
+            val image = GetAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).query()
+            if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
+                throw AssetNotFoundException(draft.tenantKey, key)
+            }
+            DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).execute()
+            return ResponseEntity.noContent().build()
         }
-        DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).execute()
-        return ResponseEntity.noContent().build()
     }
 
     // From the header only: decoding a file that declares a huge size would take the node's memory.

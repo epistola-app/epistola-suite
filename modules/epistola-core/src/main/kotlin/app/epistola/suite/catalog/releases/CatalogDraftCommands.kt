@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.partOfCurrentCommand
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.validate
@@ -229,7 +230,15 @@ class CatalogReleaseCopier(
     private val contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) {
-    fun copy(catalog: CatalogId, release: CatalogRelease, into: UUID) {
+    fun copy(catalog: CatalogId, release: CatalogRelease, into: UUID) = partOfCurrentCommand(catalog.tenantKey) { copyAsPartOfCommand(catalog, release, into) }
+
+    /**
+     * Exporting the release and importing it into the draft are how the command opening the draft
+     * does what it was authorized for, not further requests of its caller ([partOfCurrentCommand]):
+     * an author opening a draft needs no `CATALOG_VIEW` to export, a publisher discarding the next
+     * version no `TEMPLATE_EDIT` to fill the one opened in its place.
+     */
+    private fun copyAsPartOfCommand(catalog: CatalogId, release: CatalogRelease, into: UUID) {
         val version = requireNotNull(release.version)
         val archive = ExportCatalogZip(catalog, version).execute()
         val imported = targeting.within(into) {

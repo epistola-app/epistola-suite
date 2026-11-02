@@ -91,8 +91,8 @@ data class CatalogContents(val groups: List<Group>) {
             Kind("theme", "Themes", "Theme", "New theme", "themes", Permission.THEME_EDIT, ownPage = true),
             Kind("image", "Images", "Image", "Upload image", "images", Permission.TEMPLATE_EDIT, ownPage = false),
             Kind("font", "Fonts", "Font", "Add font", "fonts", Permission.REFERENCE_EDIT, ownPage = false),
-            Kind("attribute", "Attributes", "Attribute", "New attribute", "attributes", Permission.TENANT_SETTINGS, ownPage = false),
-            Kind("codeList", "Code lists", "Code list", "New code list", "code-lists", Permission.TENANT_SETTINGS, ownPage = true),
+            Kind("attribute", "Attributes", "Attribute", "New attribute", "attributes", Permission.REFERENCE_EDIT, ownPage = false),
+            Kind("codeList", "Code lists", "Code list", "New code list", "code-lists", Permission.REFERENCE_EDIT, ownPage = true),
         )
 
         /**

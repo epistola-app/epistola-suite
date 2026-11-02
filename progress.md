@@ -75,6 +75,28 @@ Decided and closed:
 
 ## Touched
 
+### REST operations enforce the contract's permission; reference forms ask for REFERENCE_EDIT (2 November; branch `fix/rest-permissions-contract-alignment`)
+
+Agreed with the user, ahead of ADR 0048 step 1 (#1253): an operation enforces exactly the permission
+the contract declares, and answering a write is not authorized a second time.
+
+| What                                                                                                                                                                                                           | Where                                                                                                    | Covered                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every REST operation declaring a permission is driven with every role but the ones granting it (403 naming it) and with only those (no refusal); a new contract operation fails until listed                   | `OperationPermissionContractIT`                                                                          | ✅ new; found 28 writes needing an undeclared view permission, and inputs it needed corrected                                                                     |
+| A REST write is authorized as a whole: its declared permission once, then the queries it makes in that tenant need none (commands are still checked)                                                           | `AuthorizedOperation`, `authorizedOperation`, `SpringMediator`, 28 operations in 7 controllers           | ✅ `OperationPermissionContractIT` (28 failed before), `MediatorAuthorizationTest` (new: other tenant, commands, end of scope, own permission)                    |
+| Opening a draft from a release exports and imports it as part of the command, not as further requests of the caller (an author needed `CATALOG_VIEW`, a publisher discarding the next version `TEMPLATE_EDIT`) | `partOfCurrentCommand`, `CatalogReleaseCopier`                                                           | ✅ `OperationPermissionContractIT` (`createCatalogRelease`, `deleteCatalogRelease` failed before), `MediatorAuthorizationTest` (grants nothing outside a command) |
+| Attribute and code-list create forms and buttons ask for `REFERENCE_EDIT`, as their commands, not `TENANT_SETTINGS`                                                                                            | `AttributeHandler`, `CodeListHandler`, `CatalogContents`, `attributes/list.html`, `code-lists/list.html` | ✅ `AttributeHandlerHtmxTest`, `CodeListHandlerHtmxTest` (new; both failed before)                                                                                |
+
+Noticed, not touched:
+
+- **`updateTenant` with no change answers 200 without `TENANT_SETTINGS`.** A null name is a no-op that
+  reads the tenant, which any member may; nothing changes, but the operation's permission is not
+  enforced for it. The test sends a name.
+- **MCP tools and UI handlers do not use `authorizedOperation`.** A UI user holding only an edit role
+  is still refused reading the answer to a save; people hold viewer and author together in practice.
+- **Commands built as export-then-import** elsewhere than the copier would need `partOfCurrentCommand`
+  too; only the copier was found by the REST test.
+
 ### Contract 2.0.0-alpha.6 (2 November; branch `chore/contract-2.0.0-alpha.6`)
 
 Alpha.6 is contract PRs #115 (tenant search), #116 (quality profiles), #117 (the authorization

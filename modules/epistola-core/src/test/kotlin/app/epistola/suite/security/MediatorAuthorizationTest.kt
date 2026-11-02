@@ -5,9 +5,12 @@
 package app.epistola.suite.security
 
 import app.epistola.suite.cluster.ForgetClusterNode
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.documents.queries.ListDocuments
+import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.generation.collect.queries.ListConsumerStatus
 import app.epistola.suite.mediator.Command
@@ -165,6 +168,36 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                 .isInstanceOf(PlatformAccessDeniedException::class.java)
                 .extracting { (it as PlatformAccessDeniedException).requiredRole }
                 .isEqualTo(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        }
+    }
+
+    @Test
+    fun `an authorized operation reads what it needs without the caller's view permission, and writes nothing more`() {
+        val tenantKey = withAuthentication { mediator.send(CreateTenant(id = TenantKey.of("authz-operation"), name = "Operation")).id }
+        val other = withAuthentication { mediator.send(CreateTenant(id = TenantKey.of("authz-operation-other"), name = "Other")).id }
+        val author = principal(
+            "00000000-0000-0000-0000-000000000009",
+            "author-only",
+            memberships = mapOf(tenantKey to setOf(TenantRole.CONTENT_AUTHOR), other to setOf(TenantRole.CONTENT_AUTHOR)),
+        )
+        val environments = ListEnvironments(app.epistola.suite.common.ids.TenantId(tenantKey))
+
+        asPrincipal(author) {
+            assertThatThrownBy { mediator.query(environments) }.`as`("outside an operation, a read needs its permission").isInstanceOf(PermissionDeniedException::class.java)
+            authorizedOperation(tenantKey, Permission.TEMPLATE_EDIT) {
+                assertThat(mediator.query(environments)).`as`("inside, it is part of the operation").isNotNull()
+                assertThatThrownBy { mediator.query(ListEnvironments(app.epistola.suite.common.ids.TenantId(other))) }
+                    .`as`("a read of another tenant is not").isInstanceOf(PermissionDeniedException::class.java)
+                assertThatThrownBy { mediator.send(CreateEnvironment(EnvironmentId(EnvironmentKey.of("refused"), app.epistola.suite.common.ids.TenantId(tenantKey)), "Refused")) }
+                    .`as`("a command is checked as always").isInstanceOf(PermissionDeniedException::class.java)
+                partOfCurrentCommand(tenantKey) {
+                    assertThatThrownBy { mediator.query(ListEnvironments(app.epistola.suite.common.ids.TenantId(other))) }
+                        .`as`("outside a command's handling, part of a command grants nothing").isInstanceOf(PermissionDeniedException::class.java)
+                }
+            }
+            assertThatThrownBy { mediator.query(environments) }.`as`("the grant ends with the operation").isInstanceOf(PermissionDeniedException::class.java)
+            assertThatThrownBy { authorizedOperation(tenantKey, Permission.TENANT_SETTINGS) { } }
+                .`as`("the operation's own permission is required").isInstanceOf(PermissionDeniedException::class.java)
         }
     }
 

@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -335,6 +336,36 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""id="dialog-mount"""")
             assertThat(response.body).doesNotContain("""id="create-attribute-dialog"""")
             assertThat(response.body).doesNotContain("create-attribute-form")
+        }
+    }
+
+    @Test
+    fun `creating attributes needs REFERENCE_EDIT, as the command does, not TENANT_SETTINGS`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Attribute Permission")
+        }
+
+        whenever {
+            // An author holds REFERENCE_EDIT, which the create command requires; an administrator holds
+            // TENANT_SETTINGS, which the form used to require, and not REFERENCE_EDIT.
+            fun asRole(role: String, url: String) = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                HttpEntity<Void>(htmxHeaders().apply { set(TEST_TENANT_ROLES_HEADER, "CONTENT_VIEWER,$role") }),
+                String::class.java,
+            )
+            val base = "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/attributes"
+            listOf(asRole("CONTENT_AUTHOR", "$base/new"), asRole("TENANT_ADMINISTRATOR", "$base/new"), asRole("CONTENT_AUTHOR", base), asRole("TENANT_ADMINISTRATOR", base))
+        }
+
+        then {
+            val (authorForm, administratorForm, authorList, administratorList) = result<List<org.springframework.http.ResponseEntity<String>>>()
+            assertThat(authorForm.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(administratorForm.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+            assertThat(authorList.body).contains("attributes/new")
+            assertThat(administratorList.body).doesNotContain("attributes/new")
         }
     }
 

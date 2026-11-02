@@ -83,7 +83,7 @@ class CodeListHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.REFERENCE_EDIT)
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("code-lists/new", "dialog") {
@@ -106,7 +106,7 @@ class CodeListHandler(
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        requirePermission(tenantId.key, Permission.REFERENCE_EDIT)
 
         val form = request.form {
             field("slug") {

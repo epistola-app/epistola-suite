@@ -98,6 +98,25 @@ A message that declares **nothing** is rejected at runtime (`must implement Auth
 build-time `AuthorizationCoverageTest` additionally asserts every concrete command/query implements
 a marker, so an omission fails the build, not just production.
 
+### An operation is authorized as a whole
+
+A REST operation enforces the one permission its contract declares (`x-required-permissions`), and a
+caller holding only that permission is not refused anything else the operation does. Two scopes in
+`security/AuthorizedOperation.kt` make that hold without leaving the mediator:
+
+- **`authorizedOperation(tenant, permission) { … }`** wraps a REST write. It checks the permission
+  once, with the usual refusals; inside, a **query** of that tenant needs no permission of its own
+  (tenant access is still checked), so reading to do and answer the write does not ask an author for
+  `TEMPLATE_VIEW`. A **command** is checked as always.
+- **`partOfCurrentCommand(tenant) { … }`** is for a handler that builds on other commands, as opening
+  a draft from a release exports the release and imports it into the draft. The commands and queries
+  it dispatches in that tenant are part of the command being handled. It grants nothing unless the
+  mediator is handling an authorized command of that tenant on the same thread.
+
+`OperationPermissionContractIT` drives every REST operation that declares a permission twice: with
+every role but the ones granting it (expecting `403 forbidden` naming it) and with only those roles
+(expecting no refusal). An operation the contract adds fails it until it is listed there.
+
 REST controllers, MCP tools, and most UI handlers are thin and flow through the mediator, so they
 inherit this single check. A few UI handlers add an explicit `requirePermission(...)` when their
 backing query is only `RequiresAuthentication` and the page needs tighter gating. UI **visibility**
