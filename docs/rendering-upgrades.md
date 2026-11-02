@@ -29,17 +29,16 @@ font metrics, or internal rendering behavior — even patch releases.
 
 ### Procedure
 
-1. **Update the version** in `modules/generation/build.gradle.kts`:
+1. **Update the version** in `gradle/libs.versions.toml`:
 
-   ```kotlin
-   implementation("com.itextpdf:itext-core:X.Y.Z")
+   ```toml
+   itext = "X.Y.Z"
    ```
 
-2. **Update the version constant** in `RenderingDefaults.kt`:
-
-   ```kotlin
-   private const val ITEXT_VERSION = "X.Y.Z"
-   ```
+2. **Nothing else names the version.** The engine string in every PDF's metadata
+   (`epistola-gen-<n>+itext-<version>`) reads it from the iText jar on the classpath
+   (`ITextCoreProductData`), and `RenderingDefaultsTest` checks it against the jar's own Maven
+   metadata.
 
 3. **Run the regression tests** — they will likely fail:
 
@@ -142,7 +141,7 @@ Each version changes only what its flag names; everything else is copied from th
 Every generated PDF embeds an `EngineVersion` metadata field in the PDF info dictionary:
 
 ```
-epistola-gen-1+itext-9.5.0
+epistola-gen-8+itext-9.8.0
 ```
 
 This allows tracing which rendering engine produced a given PDF. The format is:

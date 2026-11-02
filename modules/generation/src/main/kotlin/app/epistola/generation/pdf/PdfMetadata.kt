@@ -16,7 +16,7 @@ data class PdfMetadata(
     /**
      * Engine version string embedded in PDF metadata for traceability.
      * Format: `"epistola-gen-<defaults-version>+itext-<itext-version>"`
-     * e.g., `"epistola-gen-1+itext-9.5.0"`
+     * e.g., `"epistola-gen-8+itext-9.8.0"`, the iText version read from the jar
      */
     val engineVersion: String? = null,
     /**

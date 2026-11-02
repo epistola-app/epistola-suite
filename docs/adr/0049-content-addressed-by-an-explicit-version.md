@@ -1,6 +1,6 @@
 # ADR 0049: Content addressed by an explicit version
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-02; delivered area by area, the default-version helper first, with [#1228](https://github.com/epistola-app/epistola-suite/issues/1228))
 - **Date:** 2026-11-02
 - **Deciders:** Epistola team
 - **Tags:** catalog, versions, database, mediator, sql
