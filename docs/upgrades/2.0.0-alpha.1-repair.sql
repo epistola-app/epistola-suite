@@ -9,18 +9,19 @@
 -- After alpha.1, step 9 of the 2.0 upgrade (V20261101000900) was corrected. 1.x let a stencil version
 -- a published template used be archived; a stencil left with no published version was not put in the
 -- "Published in 1.x" draft, which named it and so could not be released. The draft now holds it, as
--- its latest archived version. The conversion code the upgrade steps share changed with it, so the
--- checksum of each of them changed too.
+-- its latest archived version. The conversion code the upgrade steps share changed with it, and again
+-- when a stencil instance turned into plain content stopped losing its own styles (step 8), so the
+-- checksum of each of them changed too. Content alpha.1 already converted keeps what it lost.
 
 -- 1. Record the corrected steps, so a later version starts instead of refusing changed migrations.
 UPDATE flyway_schema_history h SET checksum = c.corrected
 FROM (VALUES
-    ('20261101000500', -953239124, -1119387196),
-    ('20261101000600', 344802958, 178654886),
-    ('20261101000700', -1369683661, -1535831733),
-    ('20261101000800', -361602266, -527750338),
-    ('20261101000900', 1306419192, -84019676),
-    ('20261101001000', -1475090478, -1641238550)
+    ('20261101000500', -953239124, -1431776976),
+    ('20261101000600', 344802958, -133734894),
+    ('20261101000700', -1369683661, -1848221513),
+    ('20261101000800', -361602266, -840140118),
+    ('20261101000900', 1306419192, -396409456),
+    ('20261101001000', -1475090478, -1953628330)
 ) AS c (version, alpha_1, corrected)
 WHERE h.version = c.version AND h.checksum = c.alpha_1;
 

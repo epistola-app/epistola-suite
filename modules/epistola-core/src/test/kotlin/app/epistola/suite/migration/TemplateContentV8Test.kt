@@ -49,6 +49,32 @@ class TemplateContentV8Test {
     }
 
     @Test
+    fun `an instance with styles of its own that becomes plain content keeps them on a container in its place`() {
+        // 1.x drew an instance as a box of its styles around its copy; a container draws the same box.
+        // A container also gets a block's default spacing, a stencil none: the margins it did not set are 0.
+        val styled = model["nodes"]["styled"]
+        assertThat(styled["type"].asString()).isEqualTo("container")
+        assertThat(styled.has("props")).isFalse()
+        assertThat(styled["styles"]["keepTogether"].asBoolean()).isTrue()
+        assertThat(styled["styles"]["marginTop"].asString()).isEqualTo("11pt")
+        assertThat(styled["styles"]["marginBottom"].asString()).isEqualTo("0pt")
+        assertThat(children(model, "root", "children")).contains("styled").doesNotContain("styled-logo")
+        assertThat(children(model, "styled", "children")).containsExactly("styled-logo", "styled-extra", "styled-default")
+        assertThat(report()).anyMatch { it.contains("instance styled") && it.contains("became plain content") && it.contains("container") }
+    }
+
+    @Test
+    fun `an instance with a style preset that becomes plain content keeps it on a container, and is reported`() {
+        // The preset's margins are not known here, so none are fixed; the report says spacing may differ.
+        val preset = model["nodes"]["preset"]
+        assertThat(preset["type"].asString()).isEqualTo("container")
+        assertThat(preset["stylePreset"].asString()).isEqualTo("boxed")
+        assertThat(preset.has("styles")).isFalse()
+        assertThat(children(model, "preset", "children")).containsExactly("preset-logo", "preset-extra", "preset-default")
+        assertThat(report()).anyMatch { it.contains("instance preset") && it.contains("style preset") && it.contains("spacing") }
+    }
+
+    @Test
     fun `an instance kept without a copy stays a reference to its stencil`() {
         assertThat(model["nodes"]["bare"]["props"]["stencilKey"].asString()).isEqualTo("letterhead")
         assertThat(children(model, "root", "children")).contains("bare")
@@ -164,17 +190,18 @@ class TemplateContentV8Test {
     }
 
     /**
-     * Five instances in one template: `current` (copy of v2, filled, fill reads params), `older` (copy
-     * of v1), `changed` (copy of v2 plus a node), `orphan` (names no stencil), and an image.
+     * Instances in one template: `current` (copy of v2, filled, fill reads params), `older` (copy of
+     * v1), `changed` (copy of v2 plus a node), `orphan` (names no stencil), `styled` and `preset` (as
+     * `changed`, the instance styled or given a style preset), `bare` (no copy), and an image.
      */
     private fun templateDoc(): String {
         val nodes = mutableListOf("\"root\":{\"id\":\"root\",\"type\":\"root\",\"slots\":[\"s-root\"]}")
         val slots = mutableListOf<String>()
         val rootChildren = mutableListOf<String>()
-        fun instance(id: String, stencil: String?, version: Int, logo: Boolean, extra: Boolean, fill: String?) {
+        fun instance(id: String, stencil: String?, version: Int, logo: Boolean, extra: Boolean, fill: String?, styling: String = "") {
             rootChildren += id
             val props = listOfNotNull(stencil?.let { "\"stencilId\":\"$it\"" }, "\"version\":$version").joinToString(",")
-            nodes += "\"$id\":{\"id\":\"$id\",\"type\":\"stencil\",\"slots\":[\"$id-c\"],\"props\":{$props}}"
+            nodes += "\"$id\":{\"id\":\"$id\",\"type\":\"stencil\",\"slots\":[\"$id-c\"],\"props\":{$props}$styling}"
             val copy = listOfNotNull(if (logo) "$id-logo" else null, if (extra) "$id-extra" else null, "$id-body")
             slots += "\"$id-c\":{\"id\":\"$id-c\",\"nodeId\":\"$id\",\"name\":\"children\",\"children\":[${copy.joinToString(",") { "\"$it\"" }}]}"
             if (logo) nodes += "\"$id-logo\":{\"id\":\"$id-logo\",\"type\":\"text\",\"props\":{\"content\":null}}"
@@ -191,6 +218,9 @@ class TemplateContentV8Test {
         instance("older", "letterhead", 1, logo = false, extra = false, fill = null)
         instance("changed", "letterhead", 2, logo = true, extra = true, fill = "customer.name")
         instance("orphan", null, 1, logo = false, extra = false, fill = null)
+        // Changed copies whose instance carries styles of its own, as a 1.x author set them on the instance.
+        instance("styled", "letterhead", 2, logo = true, extra = true, fill = null, styling = ",\"styles\":{\"keepTogether\":true,\"marginTop\":\"11pt\"}")
+        instance("preset", "letterhead", 2, logo = true, extra = true, fill = null, styling = ",\"stylePreset\":\"boxed\"")
         // 1.x also kept an instance as a bare reference, without a copy of the stencil, as the demo
         // catalog's Hello World does: it rendered the stencil itself.
         rootChildren += "bare"
