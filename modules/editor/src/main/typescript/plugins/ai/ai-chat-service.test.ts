@@ -163,7 +163,7 @@ describe('AiChatService', () => {
       const fn: SendMessageFn = async (request, _signal, onChunk) => {
         calls.push({
           conversationId: request.conversationId,
-          selectedNodeId: request.selectedNodeId as string | undefined,
+          selectedNodeId: request.selectedNodeId,
         });
         onChunk({ type: 'done' });
       };

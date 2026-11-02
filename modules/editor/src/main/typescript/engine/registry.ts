@@ -435,7 +435,7 @@ function withContractMetadata(def: ComponentDefinition): ComponentDefinition {
       (contract.parameters?.kind === 'static'
         ? (contract.parameters.schema as unknown as JsonSchema)
         : undefined),
-  } as ComponentDefinition;
+  };
 }
 
 // ---------------------------------------------------------------------------

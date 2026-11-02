@@ -107,8 +107,8 @@ export function collapse(document: TemplateDocument): TemplateDocument {
   walk(document.root);
   return {
     ...document,
-    nodes: nodes as TemplateDocument['nodes'],
-    slots: slots as TemplateDocument['slots'],
+    nodes: nodes,
+    slots: slots,
   };
 }
 
@@ -289,8 +289,8 @@ export function expand(
   return {
     document: {
       ...stored,
-      nodes: nodes as TemplateDocument['nodes'],
-      slots: slots as TemplateDocument['slots'],
+      nodes: nodes,
+      slots: slots,
     },
     findings,
   };
@@ -486,8 +486,8 @@ export function expandInstance(
   const doc: TemplateDocument = {
     modelVersion: 1,
     root: rootId as NodeId,
-    nodes: nodes as TemplateDocument['nodes'],
-    slots: slots as TemplateDocument['slots'],
+    nodes: nodes,
+    slots: slots,
     themeRef: { type: 'inherit' },
   };
   const result = expand(doc, contextCatalog, resolver, outerPath);

@@ -30,6 +30,7 @@ LINE_COMMENT_EXTENSIONS = {
     ".py": "#",
     ".sh": "#",
     ".sql": "--",
+    ".tsv": "#",
 }
 
 BLOCK_COMMENT_EXTENSIONS = {

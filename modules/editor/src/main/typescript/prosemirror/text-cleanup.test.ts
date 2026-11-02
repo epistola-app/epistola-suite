@@ -26,7 +26,7 @@ const RENDERER_TABLE = resolve(
 const mountedViews: EditorView[] = [];
 
 afterEach(() => {
-  for (const view of mountedViews) view.destroy();
+  for (const mounted of mountedViews) mounted.destroy();
   mountedViews.length = 0;
   document.body.replaceChildren();
 });

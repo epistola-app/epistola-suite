@@ -50,11 +50,7 @@ export function validateDataAgainstSchema(
     return { valid: true, errors: [] };
   }
 
-  const jsonSchema = resolveSchemaForValue(
-    schema as JsonSchemaProperty,
-    schema as JsonSchema,
-    data,
-  ) as JsonSchema;
+  const jsonSchema = resolveSchemaForValue(schema, schema, data) as JsonSchema;
   if (jsonSchema.type !== 'object') {
     return { valid: true, errors: [] };
   }

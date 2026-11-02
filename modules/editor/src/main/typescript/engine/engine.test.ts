@@ -1767,7 +1767,7 @@ describe('Immutability', () => {
     const engine = new EditorEngine(doc, registry);
 
     expect(() => {
-      (engine.doc as Record<string, unknown>).root = 'hacked' as NodeId;
+      (engine.doc as Record<string, unknown>).root = 'hacked';
     }).toThrow();
   });
 

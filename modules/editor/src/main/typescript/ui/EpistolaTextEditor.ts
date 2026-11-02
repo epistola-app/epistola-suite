@@ -469,7 +469,7 @@ export class EpistolaTextEditor extends LitElement {
   private _parseContent(content: unknown): ProsemirrorNode {
     if (content && typeof content === 'object' && 'type' in content) {
       try {
-        return ProsemirrorNode.fromJSON(epistolaSchema, content as Record<string, unknown>);
+        return ProsemirrorNode.fromJSON(epistolaSchema, content);
       } catch {
         // Fall through to default
       }

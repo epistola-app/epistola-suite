@@ -175,7 +175,7 @@ export function refreshInstance(
 
   const expanded = expandInstance(
     node,
-    { nodes: doc.nodes as Record<string, Node>, slots: doc.slots as Record<string, Slot> },
+    { nodes: doc.nodes, slots: doc.slots },
     scope.catalogKey,
     resolverOver(fetched),
     scopeRefs(scope),
@@ -289,8 +289,8 @@ export function extractStencilContent(doc: TemplateDocument, instanceId: NodeId)
   return collapse({
     modelVersion: 1,
     root: rootId,
-    nodes: outNodes as TemplateDocument['nodes'],
-    slots: outSlots as TemplateDocument['slots'],
+    nodes: outNodes,
+    slots: outSlots,
     themeRef: { type: 'inherit' },
   });
 }

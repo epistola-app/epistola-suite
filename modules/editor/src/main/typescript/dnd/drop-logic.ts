@@ -164,12 +164,7 @@ export function canDropHere(
   }
   if (dragData.source === 'block' && containsStencil(doc, dragData.nodeId)) {
     const scope = lexicalScopeAt(doc, targetSlotId, indexes);
-    const problem = checkStencilNesting(
-      doc.nodes as Record<string, Node>,
-      doc.slots as Record<string, Slot>,
-      dragData.nodeId,
-      scope,
-    );
+    const problem = checkStencilNesting(doc.nodes, doc.slots, dragData.nodeId, scope);
     if (problem) return false;
   }
 

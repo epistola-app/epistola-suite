@@ -574,7 +574,7 @@ function renderDefaultValueInput(
           aria-describedby=${describedBy}
           @change=${(e: Event) => {
             const val = (e.target as HTMLInputElement).value;
-            emitUpdate({ default: val === '' ? undefined : (val as JsonValue) });
+            emitUpdate({ default: val === '' ? undefined : val });
           }}
         />
       `;

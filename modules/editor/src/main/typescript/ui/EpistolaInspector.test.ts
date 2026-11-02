@@ -193,7 +193,7 @@ describe('EpistolaInspector generic presentation hook', () => {
     const html = templateToHtml(
       (
         inspector as unknown as { _renderStylePresetSection: (node: unknown) => unknown }
-      )._renderStylePresetSection(engine.getNode(textNodeId)!),
+      )._renderStylePresetSection(engine.getNode(textNodeId)),
     );
 
     expect(html).toContain('Muted text');
@@ -222,7 +222,7 @@ describe('EpistolaInspector generic presentation hook', () => {
           values: unknown[];
         };
       }
-    )._renderField(engine.getNode(textNodeId)!, unitField);
+    )._renderField(engine.getNode(textNodeId), unitField);
     const unitTemplate = fieldTemplate.values.at(-1) as { values: unknown[] };
     const selectTemplate = unitTemplate.values.find(
       (value): value is { values: unknown[] } =>

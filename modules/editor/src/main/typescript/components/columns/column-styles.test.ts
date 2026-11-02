@@ -50,10 +50,7 @@ describe('columns — column styles', () => {
   it('writes a column style at its index, padding earlier columns with {}', async () => {
     const engine = columnsEngine();
     const def = engine.registry.get('columns')!;
-    render(
-      def.renderInspector!({ node: engine.doc.nodes['c' as NodeId], engine }) as never,
-      container,
-    );
+    render(def.renderInspector!({ node: engine.doc.nodes['c' as NodeId], engine }), container);
     await Promise.resolve();
 
     const select = container.querySelector<HTMLSelectElement>(

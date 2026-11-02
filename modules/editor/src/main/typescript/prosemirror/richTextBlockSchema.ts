@@ -28,7 +28,7 @@ const baseNodes: Record<string, NodeSpec> = {
 
 const tempSchema = new Schema({ nodes: baseNodes, marks: {} });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let withListNodes = addListNodes(tempSchema.spec.nodes as any, 'paragraph block*', 'block');
+let withListNodes = addListNodes(tempSchema.spec.nodes, 'paragraph block*', 'block');
 
 const olSpec = withListNodes.get('ordered_list')!;
 withListNodes = withListNodes.update('ordered_list', {

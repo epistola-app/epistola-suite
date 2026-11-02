@@ -58,7 +58,7 @@ export function buildParameterScope(
     schemaBindings: [
       {
         alias,
-        source: { kind: 'schema-root', schema: schema as JsonSchemaNode },
+        source: { kind: 'schema-root', schema: schema },
         scopeKind: 'stencil-parameter',
         includeAlias: false,
       },
@@ -84,7 +84,7 @@ function resolveValue(
     // updated scope. While pending we fall through to defaults below.
     evaluateParamAsync(nodeId, alias, name, trimmed, outer);
   }
-  const def = (propSchema as (JsonSchemaProperty & { default?: unknown }) | undefined)?.default;
+  const def = propSchema?.default;
   if (def !== undefined) return def;
   // Synthetic placeholder so authors see something while editing a draft
   // (no bindings yet) and consumers see an obvious flag for unbound params.

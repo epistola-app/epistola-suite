@@ -57,7 +57,7 @@ export function cleanTextLines(text: string): string[] {
   const lines: string[] = [];
   let line = '';
   for (const char of text) {
-    const codePoint = char.codePointAt(0)!;
+    const codePoint = char.codePointAt(0) ?? 0;
     const action = TEXT_CLEANUP.get(codePoint);
     if (action?.kind === 'break') {
       lines.push(line);

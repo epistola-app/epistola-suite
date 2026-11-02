@@ -238,7 +238,7 @@ function renderPresetStyleInput(
     case 'border':
       return html`
         <epistola-border-input
-          .value=${value as BorderValue | undefined}
+          .value=${value}
           .units=${prop.units ?? ['pt', 'sp']}
           .baseUnit=${spacingUnit}
           ?readOnly=${readOnly}

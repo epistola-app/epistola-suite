@@ -59,7 +59,7 @@ export const richTextVariablePathDisabled: PathDisabledPredicate = (fp) => {
  * `FieldPath.type` for everything else.
  */
 export function formatFieldPathTypeLabel(fp: FieldPath): string {
-  return findRefType(fp.ref)?.label ?? fieldTypeLabel(fp.type as SchemaFieldType);
+  return findRefType(fp.ref)?.label ?? fieldTypeLabel(fp.type);
 }
 
 /**
