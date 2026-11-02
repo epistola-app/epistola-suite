@@ -75,6 +75,29 @@ Decided and closed:
 
 ## Touched
 
+### The integration-test job: tenant creation and coverage (2 November; branches `ci/test-job-coverage-scope` #1259, `perf/system-catalog-install-hashing`)
+
+The `Unit & Integration Tests` job took 15–23 min on `release/2.0` against 5–8 on `main`. CI test
+metrics: `CreateTenant` 193 ms on `main`, about 2 s on 2.0, and tenant creation about 85 % of
+epistola-core's test thread time. A profile of `ThemeQueriesTest` put 80 % of the system-catalog
+install in SHA-256: the fonts were unzipped, verified and hashed again for every tenant.
+
+| What                                                                                                                                   | Where                                                                       | Covered                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `modelTest` and `perfTest` no longer run under `koverXmlReport`; coverage is instrumented only when a Kover task is asked for (`main`) | `epistola-kover-conventions`, `build.yml`                                   | ➖ `--dry-run` before/after (16 → 0 tasks), `test.ic` written before, not after                                |
+| A bundled release archive is built once per JVM in production, and read once per context; the test-only archive cache is gone          | `BundledReleaseArchives`, `ManifestUrlReleaseSource`, `ImportArchiveReader` | ✅ `BundledReleaseArchiveReuseTest` (two failed before; an upload is still read anew); core + app suites green |
+
+Locally, full core suite back to back: `CreateTenant` 1,023 s → 643 s of thread time (738 → 462 ms
+each), `ImportCatalogZip` self 621 s → 115 s.
+
+Noticed, not touched:
+
+- **The rest of a tenant's cost**: `RecordInstalledRelease` (~110 ms, re-fingerprints the system
+  catalog for every tenant) and nine `ImportFont` commands (~110 ms together) where `main` seeded
+  the fonts in three statements.
+- **Test JVMs hash without the SHA intrinsics** (`-XX:TieredStopAtLevel=1`): C2 made a tenant 31 %
+  cheaper locally, but doubled context boots on CI in PR #896, so it stays.
+
 ### A catalog another catalog's draft uses is not deleted (2 November; branch `fix/catalog-removal-in-use`)
 
 `CatalogModelTest` failed on release/2.0 about every other run since it joined CI (59e4f1ad1,
