@@ -127,6 +127,11 @@ pre-selected — keys stay least-privilege unless deliberately escalated. The `C
 requires a non-empty scope; its Kotlin default of "all roles" exists only as a convenience for
 tests/fixtures (and the deterministic demo key), never for keys created through the UI.
 
+A key's scope never exceeds its creator's roles in that tenant: `CreateApiKey` refuses any role the
+creator does not hold (tenant and global roles together), and the create dialog offers only those.
+Without it, the administrator who may create keys could mint one that publishes, defeating the split
+between administering a tenant and publishing its content.
+
 ## Mapping IdP roles in
 
 The IdP wire vocabulary is kebab-case and maps 1:1 to the enum constants

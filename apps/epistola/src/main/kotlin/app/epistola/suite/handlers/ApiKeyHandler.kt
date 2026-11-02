@@ -9,6 +9,7 @@ import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
@@ -45,7 +46,7 @@ class ApiKeyHandler {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("api-keys/new", "dialog") {
                 "tenantId" to tenantId.key
-                "roleOptions" to ROLE_OPTIONS
+                "roleOptions" to grantableRoleOptions(tenantId.key)
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
@@ -53,7 +54,7 @@ class ApiKeyHandler {
                 page("api-keys/list") {
                     apiKeyPageModel(tenantId)
                     "openDialog" to true
-                    "roleOptions" to ROLE_OPTIONS
+                    "roleOptions" to grantableRoleOptions(tenantId.key)
                 }
             }
         }
@@ -78,6 +79,7 @@ class ApiKeyHandler {
         val errors = form.errors.toMutableMap()
         if (expiresAtError != null) errors["expiresAt"] = expiresAtError
         if (roles.isEmpty()) errors["roles"] = "Select at least one role"
+        if ((roles - grantableRoles(tenantId.key)).isNotEmpty()) errors["roles"] = "You can only grant roles you hold in this tenant"
 
         if (errors.isNotEmpty()) {
             val formData = FormData(form.formData, errors)
@@ -89,14 +91,14 @@ class ApiKeyHandler {
                     formData = formData,
                 ) {
                     "tenantId" to tenantId.key
-                    "roleOptions" to ROLE_OPTIONS
+                    "roleOptions" to grantableRoleOptions(tenantId.key)
                     "selectedRoles" to selectedRoleNames
                 }
                 onNonHtmx {
                     page(422, "api-keys/list") {
                         apiKeyPageModel(tenantId)
                         "openDialog" to true
-                        "roleOptions" to ROLE_OPTIONS
+                        "roleOptions" to grantableRoleOptions(tenantId.key)
                         "selectedRoles" to selectedRoleNames
                         "formData" to formData.formData
                         "errors" to errors
@@ -210,6 +212,14 @@ class ApiKeyHandler {
         } catch (_: DateTimeParseException) {
             ParsedExpiry.Err("Expires must be a valid date (YYYY-MM-DD)")
         }
+    }
+
+    /** The roles the current user holds in [tenantKey], and so may give a key (`CreateApiKey` enforces it). */
+    private fun grantableRoles(tenantKey: TenantKey): Set<TenantRole> = SecurityContext.current().rolesFor(tenantKey)
+
+    private fun grantableRoleOptions(tenantKey: TenantKey): List<RoleOption> {
+        val grantable = grantableRoles(tenantKey).map { it.name }.toSet()
+        return ROLE_OPTIONS.filter { it.value in grantable }
     }
 
     companion object {

@@ -10,6 +10,7 @@ import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -162,6 +163,71 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(keys).hasSize(1)
             assertThat(keys[0].name).isEqualTo("CI integration")
             assertThat(keys[0].enabled).isTrue()
+        }
+    }
+
+    @Test
+    fun `the create dialog offers only the roles the creator holds`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("API Key Grantable Roles")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set(TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR,CONTENT_VIEWER")
+            }
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/api-keys/new",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("value=\"TENANT_ADMINISTRATOR\"", "value=\"CONTENT_VIEWER\"")
+            assertThat(response.body).doesNotContain(
+                "value=\"CONTENT_PUBLISHER\"",
+                "value=\"CONTENT_AUTHOR\"",
+                "value=\"DOCUMENT_GENERATOR\"",
+            )
+        }
+    }
+
+    @Test
+    fun `POST create refuses a role the creator does not hold and stores no key`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("API Key Role Escalation")
+        }
+
+        whenever {
+            val form: MultiValueMap<String, String> = LinkedMultiValueMap()
+            form.add("name", "Publisher key")
+            form.add("roles", "CONTENT_PUBLISHER")
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_FORM_URLENCODED
+                set("HX-Request", "true")
+                set(TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR")
+            }
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/api-keys",
+                HttpEntity(form, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.body).doesNotContain("epk_")
+            assertThat(ListApiKeys(tenantId = testTenant.id).query()).isEmpty()
         }
     }
 
