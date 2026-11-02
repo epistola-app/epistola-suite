@@ -36,7 +36,12 @@ spring:
         # feature flags). Default-on; set epistola.mcp.enabled=false to
         # disable the /api/mcp endpoint and the Spring AI MCP server entirely.
         enabled: ${epistola.mcp.enabled:true}
-        protocol: STREAMABLE
+        # Stateless Streamable HTTP: every request stands alone, so any replica
+        # serves it without sticky routing. STREAMABLE kept sessions in the memory
+        # of the pod that served `initialize` (404 "Session not found" elsewhere,
+        # #1241). No tool uses a session-bound feature (notifications, sampling,
+        # elicitation); McpWriteToolsHttpIT holds the transport to that.
+        protocol: STATELESS
         type: SYNC
         name: epistola
         version: 1.0.0
