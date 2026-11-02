@@ -5,6 +5,9 @@
 package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.mcp.dto.AuthoringSchemasInfo
+import app.epistola.suite.mcp.support.McpPermission
+import app.epistola.suite.mcp.support.mcpOperation
+import app.epistola.suite.security.Permission
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Component
@@ -44,7 +47,10 @@ class AuthoringSchemaMcpTools(
             "supported and a document containing one is rejected.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun getAuthoringSchemas(): AuthoringSchemasInfo = schemas
+    @McpPermission()
+    fun getAuthoringSchemas(): AuthoringSchemasInfo = mcpOperation(this::getAuthoringSchemas) {
+        schemas
+    }
 
     private fun read(path: String): JsonNode = resourceLoader.getResource("classpath:META-INF/epistola-catalog/$path")
         .inputStream.use { objectMapper.readTree(it) }

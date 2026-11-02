@@ -16,12 +16,15 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.CatalogChangesInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.stencils.commands.MarkStencilReady
 import app.epistola.suite.templates.commands.MarkTemplateReady
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
@@ -48,12 +51,21 @@ class ReadyMcpTools {
             "`releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun getCatalogChanges(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpCatalog(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
+    ): CatalogChangesInfo = mcpOperation(this::getCatalogChanges) {
+        changes(catalogId, catalogVersion)
+    }
+
+    /**
+     * What is not released yet in the catalog's draft. The mark-ready tools answer with it, as part of
+     * their own operation: calling the `get_catalog_changes` tool would ask its permission of them.
+     */
+    private fun changes(catalogId: String, catalogVersion: String?): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpCatalog(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
 
     @McpTool(
         name = "mark_variant_ready",
@@ -63,6 +75,7 @@ class ReadyMcpTools {
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun markVariantReady(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -73,8 +86,10 @@ class ReadyMcpTools {
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogChangesInfo {
-        MarkVariantReady(VariantId(VariantKey.of(variantId), templateId(catalogId, templateId)), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
-        return getCatalogChanges(catalogId, catalogVersion)
+        mcpOperation(this::markVariantReady) {
+            MarkVariantReady(VariantId(VariantKey.of(variantId), templateId(catalogId, templateId)), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+            return changes(catalogId, catalogVersion)
+        }
     }
 
     @McpTool(
@@ -83,6 +98,7 @@ class ReadyMcpTools {
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun markTemplateReady(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -91,8 +107,10 @@ class ReadyMcpTools {
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogChangesInfo {
-        MarkTemplateReady(templateId(catalogId, templateId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
-        return getCatalogChanges(catalogId, catalogVersion)
+        mcpOperation(this::markTemplateReady) {
+            MarkTemplateReady(templateId(catalogId, templateId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+            return changes(catalogId, catalogVersion)
+        }
     }
 
     @McpTool(
@@ -102,6 +120,7 @@ class ReadyMcpTools {
             "Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.STENCIL_EDIT)
     fun markStencilReady(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -110,8 +129,10 @@ class ReadyMcpTools {
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogChangesInfo {
-        MarkStencilReady(StencilId(StencilKey.of(stencilId), mcpCatalog(catalogId)), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
-        return getCatalogChanges(catalogId, catalogVersion)
+        mcpOperation(this::markStencilReady) {
+            MarkStencilReady(StencilId(StencilKey.of(stencilId), mcpCatalog(catalogId)), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+            return changes(catalogId, catalogVersion)
+        }
     }
 
     @McpTool(
@@ -121,12 +142,15 @@ class ReadyMcpTools {
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun markCatalogReady(
         @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(MarkCatalogReady(mcpCatalog(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
+    ): CatalogChangesInfo = mcpOperation(this::markCatalogReady) {
+        CatalogChangesInfo.from(MarkCatalogReady(mcpCatalog(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
+    }
 
     private fun templateId(catalogId: String, templateId: String) = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
 }
