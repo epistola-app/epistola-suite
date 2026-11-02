@@ -20,7 +20,10 @@ import tools.jackson.databind.node.ObjectNode
  *   since it now renders the stencil as it is;
  * - it names no stencil, its stencil or pinned version is gone, or its copy differs from that
  *   version: its copy becomes plain content in its place (each placeholder replaced by its fill, else
- *   its default), and it is reported. Nothing that rendered is lost;
+ *   its default), and it is reported. An instance with styles or a style preset of its own was a box
+ *   around its copy: it becomes a container keeping them, each margin it did not set fixed at 0 (a
+ *   container gets a block's default spacing, a stencil none; with a preset, whose margins are not
+ *   known here, that is reported instead). Nothing that rendered is lost;
  * - a fill that reads the instance's parameters (its alias, `params` unless the instance set one)
  *   makes the stencil's placeholder of that name pass its parameters (`passParameters`), and an alias
  *   other than `params` is kept on the fill (`parametersAs`), so the fill sees what it saw.
@@ -41,7 +44,7 @@ import tools.jackson.databind.node.ObjectNode
 object TemplateContentV8 {
 
     /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-    const val CHECKSUM: Int = -1785816924
+    const val CHECKSUM: Int = -2098206704
 
     /** A stencil's working copy: its 1.x draft, else its latest published, else latest archived version. */
     class Stencil(val tenantKey: String, val resourceId: String, val catalogKey: String, val key: String, val content: ObjectNode, val parameterSchema: JsonNode?)
@@ -188,26 +191,26 @@ object TemplateContentV8 {
                 when {
                     key == null -> {
                         noteParametersLost(instance, props, nodes, slots, subject)
-                        inline(instance, nodes, slots)
-                        note(subject, "names no stencil; its content became plain content")
+                        val kept = inline(instance, nodes, slots)
+                        note(subject, "names no stencil; its content became plain content" + kept)
                     }
 
                     stencil == null -> {
                         noteParametersLost(instance, props, nodes, slots, subject)
-                        inline(instance, nodes, slots)
-                        note(subject, "stencil $catalog/$key does not exist; its content became plain content")
+                        val kept = inline(instance, nodes, slots)
+                        note(subject, "stencil $catalog/$key does not exist; its content became plain content" + kept)
                     }
 
                     pinnedContent == null && !bare -> {
                         noteParametersLost(instance, props, nodes, slots, subject)
-                        inline(instance, nodes, slots)
-                        note(subject, "stencil $catalog/$key has no version $pinned; its content became plain content")
+                        val kept = inline(instance, nodes, slots)
+                        note(subject, "stencil $catalog/$key has no version $pinned; its content became plain content" + kept)
                     }
 
                     !bare && shape(copyRoots(instance, slots), nodes, slots) != contentShape(pinnedContent!!) -> {
                         noteParametersLost(instance, props, nodes, slots, subject)
-                        inline(instance, nodes, slots)
-                        note(subject, "its content differs from stencil $catalog/$key version $pinned; it became plain content")
+                        val kept = inline(instance, nodes, slots)
+                        note(subject, "its content differs from stencil $catalog/$key version $pinned; it became plain content" + kept)
                     }
 
                     else -> {
@@ -298,8 +301,12 @@ object TemplateContentV8 {
             }
         }
 
-        /** The instance's copy in its place in the document: placeholders become their fill, else their default. */
-        private fun inline(instance: ObjectNode, nodes: ObjectNode, slots: ObjectNode) {
+        /**
+         * The instance's copy in its place in the document: placeholders become their fill, else their
+         * default. An instance with styles or a style preset of its own stays, as a container of the copy
+         * keeping them. Returns what the report adds about that, empty when it did not stay.
+         */
+        private fun inline(instance: ObjectNode, nodes: ObjectNode, slots: ObjectNode): String {
             val id = instance.text("id")!!
             fun resolve(nodeIds: List<String>): List<String> = nodeIds.flatMap { nodeId ->
                 val node = nodes[nodeId] as? ObjectNode ?: return@flatMap emptyList<String>()
@@ -324,6 +331,9 @@ object TemplateContentV8 {
             }
             val copy = resolve(copyRoots(instance, slots))
             resolveTree(copy)
+            val styles = (instance["styles"] as? ObjectNode)?.takeIf { !it.isEmpty }
+            val preset = instance.text("stylePreset")?.takeIf { it.isNotBlank() }
+            if (styles != null || preset != null) return boxed(instance, slots, copy, styles, preset)
             // The instance's place in its parent slot takes the copy.
             for (slotId in slots.propertyNames().toList()) {
                 val slot = slots[slotId] as? ObjectNode ?: continue
@@ -333,6 +343,28 @@ object TemplateContentV8 {
             }
             (instance["slots"] as? ArrayNode)?.forEach { slots.remove(it.asString()) }
             nodes.remove(id)
+            return ""
+        }
+
+        /**
+         * The instance as a container of [copy], keeping its [styles] and [preset]: 1.x drew it as that box
+         * (its renderer is the container's). A container gets a block's default spacing and a stencil none,
+         * so each margin the instance did not set is fixed at 0, unless a preset may set it.
+         */
+        private fun boxed(instance: ObjectNode, slots: ObjectNode, copy: List<String>, styles: ObjectNode?, preset: String?): String {
+            val id = instance.text("id")!!
+            val childrenSlot = slotsOf(instance, slots).firstOrNull { it.text("name") == "children" }
+                ?: mapper.createObjectNode().put("id", "$id:children").put("nodeId", id).put("name", "children").also { slots.set("$id:children", it) }
+            slotsOf(instance, slots).filter { it !== childrenSlot }.forEach { slots.remove(it.text("id")) }
+            childrenSlot.set("children", mapper.createArrayNode().also { array -> copy.forEach(array::add) })
+            instance.set("slots", mapper.createArrayNode().add(childrenSlot.text("id")))
+            instance.put("type", "container")
+            instance.remove("props")
+            if (preset != null) return "; a container keeps its styles and style preset $preset, which may give it a block's default spacing where the preset sets none"
+            val kept = styles!!.deepCopy()
+            if (!kept.has("margin")) listOf("marginTop", "marginBottom").filterNot(kept::has).forEach { kept.put(it, "0pt") }
+            instance.set("styles", kept)
+            return "; a container keeps its styles"
         }
 
         // ── Comparing a copy with a stencil version ─────────────────────────────

@@ -196,6 +196,9 @@ After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected.
 a stencil version that published templates used; a stencil left with no published version was not
 put in the "Published in 1.x" draft, which still named it, so the draft could not be released. The
 draft now holds such a stencil as its latest archived version, what those templates rendered.
+Step 8 (`V20261101000800`) was corrected too: a stencil instance whose copy became plain content lost
+the styles set on the instance itself, such as keep together or a margin; it now becomes a container
+keeping them. Content alpha.1 converted keeps what it lost: set those styles again where it matters.
 Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10 share), a later 2.0
 version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
 reports a checksum mismatch, and nothing is changed.

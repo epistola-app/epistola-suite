@@ -260,7 +260,9 @@ The 2.0 upgrade converts stored data without changing what renders, except where
     reference plus its fills; pinned to an older version, it now renders the current stencil, and is
     reported;
   - an instance with no `stencilId`, whose stencil or pinned version is gone, or whose copy diverged
-    from that version, becomes plain content in its place, and is reported;
+    from that version, becomes plain content in its place, and is reported; an instance with styles
+    or a style preset of its own becomes a container of that content keeping them, each margin it
+    did not set fixed at 0 so it gains no block spacing a stencil did not have;
   - a fill that read the instance's parameters makes the stencil's placeholder pass them
     (`passParameters`), keeping a non-default alias as the fill's `parametersAs`;
   - a stencil whose content reads anything but its parameters and `sys` gets `readsTemplateData`.

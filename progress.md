@@ -75,6 +75,25 @@ Decided and closed:
 
 ## Touched
 
+### A stencil instance turned into plain content keeps its own styles (2 November; branch `fix/upgrade-instance-styles`)
+
+Found by a local 1.5.0 → 2.0 upgrade of two customers' catalogs: a letter's closing block, an instance with `keepTogether` and `marginTop` whose copy differed from its stencil,
+split over the page break after the upgrade.
+
+| What                                                                                                                                                                                                                                                                                     | Where                                                                                                             | Covered                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An instance with styles or a style preset of its own that becomes plain content stays as a container keeping them, its unset margins fixed at 0 (a container gets a block's default spacing, a stencil none); with a preset that is reported instead. Step 8 drops nothing that rendered | `frozen/TemplateContentV8` (`inline`, `boxed`), checksums of steps 5–10, `docs/upgrades/2.0.0-alpha.1-repair.sql` | ✅ `TemplateContentV8Test` 2 new (both failed before); `CodeMigrationGuardTest`; `PublishedInOneXStencilsMigrationTest` (repair script, new checksums); core and app migration tests and `OneXUpgradeModelTest` green. End to end: a 1.5.0 database of the two catalogs upgraded by this branch renders that letter pixel-identical to 1.5.0; with V6 forced, that catalog 21/21 |
+
+Noticed, not touched:
+
+- **The editor's "Detach from Stencil" makes a container without fixing its margins.** A detached
+  instance gains a container's default bottom margin and the theme's block spacing, which the stencil
+  did not have; the upgrade now fixes them at 0, the editor does not.
+- **Content alpha.1 already converted keeps the styles it lost.** The repair script cannot restore
+  them: the 1.x rows are gone. The upgrades guide says so.
+- **A customer's theme sets `fontFamily: "Arial, sans-serif"`**, which every render ignores with
+  a warning (1.5.0 too, so not a regression); the letters render in the default font.
+
 ### MCP tools enforce the permission they declare (2 November; branch `fix/mcp-tool-permissions`, on `fix/rest-permissions-contract-alignment`)
 
 | What                                                                                                                                                                                                                  | Where                                                | Covered                                                                                                                                                                                                                                                                                                                      |
