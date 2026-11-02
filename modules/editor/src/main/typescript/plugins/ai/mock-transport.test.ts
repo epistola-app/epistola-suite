@@ -45,7 +45,9 @@ describe('createMockTransport', () => {
     expect(doneChunks).toHaveLength(1);
 
     // Reconstructed text should be non-empty
-    const fullText = textChunks.map((c) => c.content).join('');
+    const fullText = textChunks
+      .map((c) => (c as { type: 'text'; content: string }).content)
+      .join('');
     expect(fullText.trim().length).toBeGreaterThan(0);
   });
 
@@ -62,7 +64,7 @@ describe('createMockTransport', () => {
     const proposalChunks = chunks.filter((c) => c.type === 'proposal');
     expect(proposalChunks).toHaveLength(1);
 
-    const proposal = proposalChunks[0].proposal;
+    const proposal = (proposalChunks[0] as { type: 'proposal'; proposal: any }).proposal;
     expect(proposal.mode).toBe('commands');
     expect(proposal.commands).toHaveLength(1);
     expect(proposal.commands[0].type).toBe('InsertNode');
@@ -214,7 +216,7 @@ describe('createMockTransport', () => {
 
     const fullText = chunks
       .filter((c) => c.type === 'text')
-      .map((c) => c.content)
+      .map((c) => (c as { type: 'text'; content: string }).content)
       .join('');
 
     expect(fullText).toContain("I've reviewed your uploaded file(s): report.pdf.");
@@ -249,7 +251,7 @@ describe('createMockTransport', () => {
 
     const fullText = chunks
       .filter((c) => c.type === 'text')
-      .map((c) => c.content)
+      .map((c) => (c as { type: 'text'; content: string }).content)
       .join('');
 
     expect(fullText).toContain('report.pdf');

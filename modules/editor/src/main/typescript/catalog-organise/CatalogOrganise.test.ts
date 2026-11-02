@@ -57,7 +57,7 @@ async function settle(element: CatalogOrganise): Promise<void> {
 }
 
 async function mount(attributes: Record<string, string>, host: Element = document.body) {
-  const element = document.createElement('ep-catalog-organise');
+  const element = document.createElement('ep-catalog-organise') as CatalogOrganise;
   element.setAttribute('data-base-url', BASE);
   for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
   host.appendChild(element);

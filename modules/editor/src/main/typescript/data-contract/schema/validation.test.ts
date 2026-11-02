@@ -542,13 +542,19 @@ describe('rich-text block $ref shape check', () => {
   });
 
   it('rejects a plain string for a richTextBlock field', () => {
-    const result = validateDataAgainstSchema({ bio: 'just a string' }, schema);
+    const result = validateDataAgainstSchema(
+      { bio: 'just a string' as unknown as JsonObject },
+      schema,
+    );
     expect(result.valid).toBe(false);
     expect(result.errors[0].message).toMatch(/rich-text document/);
   });
 
   it('rejects an array for a richTextBlock field', () => {
-    const result = validateDataAgainstSchema({ bio: [{ type: 'doc' }] }, schema);
+    const result = validateDataAgainstSchema(
+      { bio: [{ type: 'doc' }] as unknown as JsonObject },
+      schema,
+    );
     expect(result.valid).toBe(false);
   });
 
@@ -595,7 +601,10 @@ describe('rich-text inline $ref shape check', () => {
   });
 
   it('rejects a plain string for a richTextInline field', () => {
-    const result = validateDataAgainstSchema({ greeting: 'just a string' }, schema);
+    const result = validateDataAgainstSchema(
+      { greeting: 'just a string' as unknown as JsonObject },
+      schema,
+    );
     expect(result.valid).toBe(false);
     expect(result.errors[0].message).toMatch(/inline rich-text document/);
   });

@@ -116,8 +116,8 @@ export function buildDocument(children: Spec[]): TemplateDocument {
   return {
     modelVersion: 1,
     root: 'root' as NodeId,
-    nodes: nodes,
-    slots: slots,
+    nodes: nodes as TemplateDocument['nodes'],
+    slots: slots as TemplateDocument['slots'],
     themeRef: { type: 'inherit' },
   };
 }

@@ -269,7 +269,7 @@ describe('checkStencilNesting (as the contract validator, lexically)', () => {
       'c:children',
     );
 
-    const problem = checkStencilNesting(doc.nodes, doc.slots, 'moving', scope);
+    const problem = checkStencilNesting(doc.nodes as never, doc.slots as never, 'moving', scope);
 
     expect(problem).toEqual(
       expect.objectContaining({ problem: 'RECURSION', instanceNodeId: 'moving' }),

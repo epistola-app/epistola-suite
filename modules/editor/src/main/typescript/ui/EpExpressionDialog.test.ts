@@ -1259,7 +1259,7 @@ describe('EpExpressionDialog preview panel', () => {
     vi.spyOn(resolveExpression, 'tryEvaluateExpression').mockResolvedValue({
       ok: true,
       value: 'Ada',
-    });
+    } as ExpressionResult);
 
     component.show();
     await component.updateComplete;
@@ -1292,7 +1292,7 @@ describe('EpExpressionDialog preview panel', () => {
     vi.spyOn(resolveExpression, 'tryEvaluateExpression').mockResolvedValue({
       ok: false,
       error: 'Path not found',
-    });
+    } as ExpressionResult);
 
     component.show();
     await component.updateComplete;
@@ -1322,7 +1322,7 @@ describe('EpExpressionDialog preview panel', () => {
     vi.spyOn(resolveExpression, 'tryEvaluateExpression').mockResolvedValue({
       ok: true,
       value: 'not-an-array',
-    });
+    } as ExpressionResult);
 
     component.show();
     await component.updateComplete;
@@ -1353,9 +1353,9 @@ describe('EpExpressionDialog preview panel', () => {
       if (callCount === 1) {
         // First call is slow
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return { ok: true, value: 'Slow' };
+        return { ok: true, value: 'Slow' } as ExpressionResult;
       }
-      return { ok: true, value: 'Fast' };
+      return { ok: true, value: 'Fast' } as ExpressionResult;
     });
 
     component.show();
@@ -1400,7 +1400,7 @@ describe('EpExpressionDialog preview panel', () => {
     vi.spyOn(resolveExpression, 'tryEvaluateExpression').mockResolvedValue({
       ok: true,
       value: 'Ada',
-    });
+    } as ExpressionResult);
 
     fresh.show();
     await fresh.updateComplete;

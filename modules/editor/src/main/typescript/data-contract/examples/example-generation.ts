@@ -30,7 +30,14 @@ export function completeExampleFromSchema(
   existing: JsonObject,
   semanticValues: ExampleValueProvider = NO_SEMANTIC_VALUES,
 ): JsonObject {
-  return completeObject(schema, schema as JsonObject, existing, semanticValues, 0, []);
+  return completeObject(
+    schema as SchemaNode,
+    schema as JsonObject,
+    existing,
+    semanticValues,
+    0,
+    [],
+  );
 }
 
 /**
@@ -50,7 +57,7 @@ export function applySchemaDefaults(
   options: { includeOptional?: boolean } = {},
 ): JsonObject {
   const result = structuredClone(data);
-  applyDefaultsInPlace(schema, result, options.includeOptional ?? false);
+  applyDefaultsInPlace(schema as SchemaNode, result, options.includeOptional ?? false);
   return result;
 }
 
@@ -92,7 +99,7 @@ function completeObject(
   for (const [name, propertySchema] of Object.entries(schema.properties ?? {})) {
     const present = Object.prototype.hasOwnProperty.call(existing, name);
     result[name] = completeValue(
-      propertySchema,
+      propertySchema as SchemaNode,
       rootSchema,
       existing[name],
       present,
@@ -126,7 +133,7 @@ function completeValue(
       present &&
       existing !== '' &&
       existing !== null &&
-      refType.shallowShapeCheck(existing) === null;
+      refType.shallowShapeCheck(existing as JsonValue) === null;
     return hasUsableRefValue ? structuredClone(existing as JsonValue) : refType.defaultValue();
   }
 
@@ -221,7 +228,7 @@ function completeArray(
   for (let index = 0; index < result.length; index += 1) {
     const itemField = arrayItemField(field, index);
     result[index] = completeValue(
-      schema.items,
+      schema.items as SchemaNode,
       rootSchema,
       result[index],
       true,
@@ -246,7 +253,7 @@ function completeArray(
     const itemField = arrayItemField(field, result.length);
     result.push(
       completeValue(
-        schema.items,
+        schema.items as SchemaNode,
         rootSchema,
         undefined,
         false,
@@ -372,13 +379,19 @@ function schemaAllowsNull(
     if (!schemaAllowsNull(target, rootSchema, nextRefs)) return false;
   }
 
-  if (schema.allOf?.some((member) => !schemaAllowsNull(member, rootSchema, resolvingRefs))) {
+  if (
+    schema.allOf?.some(
+      (member) => !schemaAllowsNull(member as SchemaNode, rootSchema, resolvingRefs),
+    )
+  ) {
     return false;
   }
 
   const alternatives = schema.oneOf ?? schema.anyOf;
   if (alternatives) {
-    return alternatives.some((member) => schemaAllowsNull(member, rootSchema, resolvingRefs));
+    return alternatives.some((member) =>
+      schemaAllowsNull(member as SchemaNode, rootSchema, resolvingRefs),
+    );
   }
 
   return true;
@@ -394,5 +407,5 @@ function resolveNullableLocalReference(
     const segment = encodedSegment.replace(/~1/g, '/').replace(/~0/g, '~');
     current = current[segment];
   }
-  return isJsonObject(current) ? current : null;
+  return isJsonObject(current) ? (current as SchemaNode) : null;
 }

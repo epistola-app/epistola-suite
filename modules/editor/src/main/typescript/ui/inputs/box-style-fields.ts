@@ -48,7 +48,9 @@ export function renderBoxStyleFields(
   return html`
     <div class="inspector-field">
       <label class="inspector-field-label">Background</label>
-      ${renderColorInput(styles.backgroundColor, (v) => set('backgroundColor', v || undefined))}
+      ${renderColorInput(styles.backgroundColor as string | undefined, (v) =>
+        set('backgroundColor', v || undefined),
+      )}
     </div>
     <div class="inspector-field">
       <label class="inspector-field-label" for=${`${idPrefix}-padding`}>Padding</label>
@@ -74,7 +76,7 @@ export function renderBoxStyleFields(
         >Vertical Align</label
       >
       ${renderSelectInput(
-        styles.verticalAlign,
+        styles.verticalAlign as string | undefined,
         VERTICAL_ALIGN_OPTIONS,
         (v) => set('verticalAlign', v || undefined),
         `${idPrefix}-vertical-align`,

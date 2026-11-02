@@ -123,7 +123,9 @@ export class EditorEngine {
     this._undoStack = new UndoStack(options?.undoDepth ?? 100);
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
-    this._dataSchemaRoot = options?.dataModel ? schemaRootCursor(options.dataModel) : undefined;
+    this._dataSchemaRoot = options?.dataModel
+      ? schemaRootCursor(options.dataModel as JsonSchemaNode)
+      : undefined;
     this._dataExamples = options?.dataExamples;
     this.features = Object.freeze({ ...options?.features });
     this.locale =
@@ -410,7 +412,11 @@ export class EditorEngine {
       this._inheritableKeys,
       presetStyles,
       node.styles,
-      blockDefaultStyles(node.type, def?.defaultStyles, this._theme?.defaultBlockStyles),
+      blockDefaultStyles(
+        node.type,
+        def?.defaultStyles,
+        this._theme?.defaultBlockStyles as Record<string, unknown> | null | undefined,
+      ),
     );
   }
 
@@ -423,8 +429,8 @@ export class EditorEngine {
 
   private _recomputeStyles(): void {
     this._resolvedDocStyles = resolveDocumentStyles(
-      this._theme?.documentStyles,
-      this._doc.documentStylesOverride,
+      this._theme?.documentStyles as Record<string, unknown> | undefined,
+      this._doc.documentStylesOverride as Record<string, unknown> | undefined,
     );
     this._resolvedPageSettings = resolvePageSettings(
       this._theme?.pageSettings as PageSettings | undefined,

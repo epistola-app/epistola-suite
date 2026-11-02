@@ -132,7 +132,7 @@ const baseNodes: Record<string, NodeSpec> = {
 // addListNodes expects an OrderedMap — we create a temp Schema to get one.
 const tempSchema = new Schema({ nodes: baseNodes, marks: {} });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let withListNodes = addListNodes(tempSchema.spec.nodes, 'paragraph block*', 'block');
+let withListNodes = addListNodes(tempSchema.spec.nodes as any, 'paragraph block*', 'block');
 
 // Extend ordered_list with a listType attribute for numbering format
 const olSpec = withListNodes.get('ordered_list')!;

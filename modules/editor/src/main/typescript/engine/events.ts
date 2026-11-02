@@ -43,7 +43,7 @@ export class EventEmitter<Events extends Record<string, unknown>> {
       set = new Set();
       this._listeners.set(event, set);
     }
-    set.add(listener);
+    set.add(listener as (data: never) => void);
     return () => {
       this.off(event, listener);
     };
@@ -53,7 +53,7 @@ export class EventEmitter<Events extends Record<string, unknown>> {
   off<K extends keyof Events>(event: K, listener: (data: Events[K]) => void): void {
     const set = this._listeners.get(event);
     if (set) {
-      set.delete(listener);
+      set.delete(listener as (data: never) => void);
     }
   }
 

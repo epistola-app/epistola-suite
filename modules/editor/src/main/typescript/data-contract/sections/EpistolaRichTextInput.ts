@@ -177,10 +177,10 @@ export class EpistolaRichTextInput extends LitElement {
   private get _emptyDoc(): JsonObject {
     return this.mode === 'inline'
       ? (EMPTY_RICH_TEXT_INLINE_DOC as unknown as JsonObject)
-      : {
+      : ({
           ...(EMPTY_RICH_TEXT_BLOCK_DOC as unknown as JsonObject),
           content: [{ type: 'paragraph' }],
-        };
+        } as JsonObject);
   }
 
   private _createView(): void {
@@ -240,9 +240,9 @@ export class EpistolaRichTextInput extends LitElement {
     const raw =
       value && typeof value === 'object' && !Array.isArray(value) ? value : this._emptyDoc;
     try {
-      return ProsemirrorNode.fromJSON(this._schema, raw);
+      return ProsemirrorNode.fromJSON(this._schema, raw as Record<string, unknown>);
     } catch {
-      return ProsemirrorNode.fromJSON(this._schema, this._emptyDoc);
+      return ProsemirrorNode.fromJSON(this._schema, this._emptyDoc as Record<string, unknown>);
     }
   }
 

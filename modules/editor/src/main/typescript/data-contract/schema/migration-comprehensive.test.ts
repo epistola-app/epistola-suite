@@ -55,14 +55,17 @@ function dump(m: MigrationSuggestion): string {
 describe('Edge cases for coverage', () => {
   it('schema with no properties returns compatible', () => {
     const schema: JsonSchema = { type: 'object' };
-    const examples = [ex('e1', { field: 'value' } as JsonObject)];
-    const { compatible } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { field: 'value' } as JsonObject) as unknown as DataExample];
+    const { compatible } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(true);
   });
 
   it('non-object root schema returns compatible (line 80)', () => {
     const schema = { type: 'array', items: { type: 'string' } } as unknown as JsonSchema;
-    const examples = [ex('e1', { field: 'value' } as JsonObject)];
+    const examples = [ex('e1', { field: 'value' } as JsonObject) as unknown as DataExample];
     const { compatible } = detectMigrations(schema, examples);
     expect(compatible).toBe(true);
   });
@@ -72,8 +75,11 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { items: { type: 'array', items: { type: 'string' } } },
     };
-    const examples = [ex('e1', { items: 'not-an-array' } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { items: 'not-an-array' } as JsonObject) as unknown as DataExample];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     // TYPE_MISMATCH: actual 'string' vs expected 'array' → tryConvertValue default
     expect(migrations).toHaveLength(1);
     expect(migrations[0].expectedType).toBe('array');
@@ -86,8 +92,13 @@ describe('Edge cases for coverage', () => {
       properties: { active: { type: 'boolean' } },
     };
     // 'true'/'yes'/'1' → true, 'false'/'no'/'0' → false
-    const examples = [ex('e1', { active: 'yes' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { active: 'yes' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].autoMigratable).toBe(true);
     expect(migrations[0].suggestedValue).toBe(true);
@@ -98,8 +109,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { name: { type: 'string' } },
     };
-    const examples = [ex('e1', { name: 42 as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { name: 42 as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].autoMigratable).toBe(true);
     expect(migrations[0].suggestedValue).toBe('42');
@@ -110,8 +126,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { name: { type: 'string' } },
     };
-    const examples = [ex('e1', { name: true as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { name: true as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].autoMigratable).toBe(true);
     expect(migrations[0].suggestedValue).toBe('true');
@@ -122,8 +143,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { count: { type: 'number' } },
     };
-    const examples = [ex('e1', { count: '42' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { count: '42' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].autoMigratable).toBe(true);
     expect(migrations[0].suggestedValue).toBe(42);
@@ -134,8 +160,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { count: { type: 'integer' } },
     };
-    const examples = [ex('e1', { count: '42' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { count: '42' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations[0].suggestedValue).toBe(42);
   });
 
@@ -155,9 +186,12 @@ describe('Edge cases for coverage', () => {
           inlineDoc, // valid
           'not-a-doc', // invalid — should be flagged
         ] as unknown as JsonObject,
-      } as JsonObject),
+      } as JsonObject) as unknown as DataExample,
     ];
-    const { migrations } = detectMigrations(schema, examples);
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log('array-$ref-items:', `${migrations.length} migration(s)`);
     for (const m of migrations) console.log('  ', dump(m));
     // The invalid item should produce a migration
@@ -171,8 +205,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { count: { type: 'number' } },
     };
-    const examples = [ex('e1', { count: 'abc' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { count: 'abc' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].autoMigratable).toBe(false);
     expect(migrations[0].suggestedValue).toBeNull();
@@ -183,8 +222,13 @@ describe('Edge cases for coverage', () => {
       type: 'object',
       properties: { name: { type: 'string' } },
     };
-    const examples = [ex('e1', { name: 3.14 as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { name: 3.14 as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations[0].suggestedValue).toBe('3.14');
   });
 });
@@ -199,10 +243,13 @@ describe('Non-$ref: no migration when field unchanged', () => {
     },
     required: ['name'],
   };
-  const examples = [ex('e1', { name: 'John', age: 30, active: true })];
+  const examples = [ex('e1', { name: 'John', age: 30, active: true }) as JsonObject as DataExample];
 
   it('detects zero migrations', () => {
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(true);
     if (migrations.length > 0) {
       for (const m of migrations) console.log('  UNEXPECTED', dump(m));
@@ -218,8 +265,11 @@ describe('Non-$ref: no migration on metadata-only changes', () => {
       properties: { name: { type: 'string' } },
       // not required
     };
-    const examples = [ex('e1', { name: 'John' })];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { name: 'John' }) as JsonObject as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(true);
     expect(migrations).toHaveLength(0);
   });
@@ -230,8 +280,11 @@ describe('Non-$ref: no migration on metadata-only changes', () => {
       properties: { name: { type: 'string' } },
       required: ['name'],
     };
-    const examples = [ex('e1', { name: 'John' })];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { name: 'John' }) as JsonObject as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(true);
     expect(migrations).toHaveLength(0);
   });
@@ -242,8 +295,11 @@ describe('Non-$ref: no migration on metadata-only changes', () => {
       properties: { name: { type: 'string' } },
       required: ['name'],
     };
-    const examples = [ex('e1', {})];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', {}) as JsonObject as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(false);
     expect(migrations).toHaveLength(1);
     expect(migrations[0].issue).toBe('MISSING_REQUIRED');
@@ -255,8 +311,11 @@ describe('Non-$ref: no migration on metadata-only changes', () => {
       type: 'object',
       properties: { age: { type: 'integer' } },
     };
-    const examples = [ex('e1', { age: 42 })];
-    const { compatible } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { age: 42 }) as JsonObject as DataExample];
+    const { compatible } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(true);
   });
 });
@@ -271,8 +330,13 @@ describe('Non-$ref: real type mismatches', () => {
       type: 'object',
       properties: { score: { type: 'number' } },
     };
-    const examples = [ex('e1', { score: 'hello' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { score: 'hello' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].issue).toBe('TYPE_MISMATCH');
     expect(migrations[0].currentValue).toBe('hello');
@@ -284,8 +348,13 @@ describe('Non-$ref: real type mismatches', () => {
       type: 'object',
       properties: { name: { type: 'string' } },
     };
-    const examples = [ex('e1', { name: 42 as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { name: 42 as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].issue).toBe('TYPE_MISMATCH');
     expect(migrations[0].currentValue).toBe(42);
@@ -297,8 +366,13 @@ describe('Non-$ref: real type mismatches', () => {
       type: 'object',
       properties: { active: { type: 'boolean' } },
     };
-    const examples = [ex('e1', { active: 'yes' as unknown as JsonObject } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [
+      ex('e1', { active: 'yes' as unknown as JsonObject } as JsonObject) as unknown as DataExample,
+    ];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].currentValue).toBe('yes');
     expect(migrations[0].expectedType).toBe('boolean');
@@ -312,9 +386,12 @@ describe('Non-$ref: real type mismatches', () => {
     const examples = [
       ex('e1', {
         address: { city: 'NYC' } as unknown as JsonObject,
-      } as JsonObject),
+      } as JsonObject) as unknown as DataExample,
     ];
-    const { migrations } = detectMigrations(schema, examples);
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].issue).toBe('TYPE_MISMATCH');
   });
@@ -331,8 +408,11 @@ describe('Rich-text inline: no migration on metadata-only changes', () => {
       properties: { greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
       required: ['greeting'],
     };
-    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'inline required→required:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -348,8 +428,11 @@ describe('Rich-text inline: no migration on metadata-only changes', () => {
       properties: { greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
       // not required
     };
-    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'inline optional→optional:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -365,8 +448,11 @@ describe('Rich-text inline: no migration on metadata-only changes', () => {
       type: 'object',
       properties: { greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
     };
-    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'inline required→optional:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -382,8 +468,11 @@ describe('Rich-text inline: no migration on metadata-only changes', () => {
       properties: { greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
       required: ['greeting'],
     };
-    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'inline optional→required:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -399,8 +488,11 @@ describe('Rich-text inline: no migration on metadata-only changes', () => {
       properties: { greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
       required: ['greeting'],
     };
-    const examples = [ex('e1', {})];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', {}) as JsonObject as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(compatible).toBe(false);
     if (migrations.length > 0) {
       expect(migrations[0].issue).toBe('MISSING_REQUIRED');
@@ -419,8 +511,11 @@ describe('Rich-text block: no migration on metadata-only changes', () => {
       type: 'object',
       properties: { bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF } },
     };
-    const examples = [ex('e1', { bio: blockDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { bio: blockDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'block optional→optional:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -435,8 +530,11 @@ describe('Rich-text block: no migration on metadata-only changes', () => {
       type: 'object',
       properties: { bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF } },
     };
-    const examples = [ex('e1', { bio: blockDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { bio: blockDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'block required→optional:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -457,8 +555,11 @@ describe('Rich-text→scalar: real type mismatches', () => {
       type: 'object',
       properties: { greeting: { type: 'string' } },
     };
-    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { greeting: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     // expectedType should NOT be "undefined" — should be a meaningful label
     expect(migrations[0].expectedType).not.toBe('undefined');
@@ -470,8 +571,11 @@ describe('Rich-text→scalar: real type mismatches', () => {
       type: 'object',
       properties: { bio: { type: 'integer' } },
     };
-    const examples = [ex('e1', { bio: blockDoc } as JsonObject)];
-    const { migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { bio: blockDoc } as JsonObject) as unknown as DataExample];
+    const { migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     expect(migrations).toHaveLength(1);
     expect(migrations[0].expectedType).toBe('integer');
   });
@@ -487,8 +591,11 @@ describe('Rich-text $ref changes (inline↔block)', () => {
       type: 'object',
       properties: { content: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF } },
     };
-    const examples = [ex('e1', { content: inlineDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { content: inlineDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'inline-doc→block-schema:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,
@@ -511,8 +618,11 @@ describe('Rich-text $ref changes (inline↔block)', () => {
       type: 'object',
       properties: { content: { $ref: RICH_TEXT_INLINE_SCHEMA_REF } },
     };
-    const examples = [ex('e1', { content: listDoc } as JsonObject)];
-    const { compatible, migrations } = detectMigrations(schema, examples);
+    const examples = [ex('e1', { content: listDoc } as JsonObject) as unknown as DataExample];
+    const { compatible, migrations } = detectMigrations(
+      schema as unknown as JsonSchema,
+      examples as unknown as DataExample[],
+    );
     console.log(
       'block-doc→inline-schema:',
       compatible ? 'compatible' : `${migrations.length} migration(s)`,

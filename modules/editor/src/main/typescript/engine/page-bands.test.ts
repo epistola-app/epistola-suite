@@ -54,7 +54,7 @@ function doc(...rootChildren: Spec[]): TemplateDocument {
     nodes,
     slots,
     themeRef: { type: 'inherit' },
-  };
+  } as TemplateDocument;
 }
 
 describe('describePageBands', () => {

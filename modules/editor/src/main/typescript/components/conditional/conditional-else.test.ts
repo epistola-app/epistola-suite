@@ -54,7 +54,10 @@ describe('conditional — add else branch', () => {
 
   function renderInspector(engine: EditorEngine) {
     const def = engine.registry.get('conditional')!;
-    render(def.renderInspector!({ node: engine.doc.nodes['cond' as NodeId], engine }), container);
+    render(
+      def.renderInspector!({ node: engine.doc.nodes['cond' as NodeId], engine }) as never,
+      container,
+    );
   }
 
   it('offers the action on a conditional without an else slot, and adds an empty one', () => {
@@ -71,7 +74,7 @@ describe('conditional — add else branch', () => {
 
   it('offers nothing once the conditional has an else slot', () => {
     const engine = engineWithOldConditional();
-    engine.dispatch({ type: 'AddConditionalElse', nodeId: 'cond' });
+    engine.dispatch({ type: 'AddConditionalElse', nodeId: 'cond' as NodeId });
     renderInspector(engine);
 
     expect(container.querySelector('#conditional-cond-add-else')).toBeNull();
@@ -79,7 +82,7 @@ describe('conditional — add else branch', () => {
 
   it('undo removes the added else slot again', () => {
     const engine = engineWithOldConditional();
-    engine.dispatch({ type: 'AddConditionalElse', nodeId: 'cond' });
+    engine.dispatch({ type: 'AddConditionalElse', nodeId: 'cond' as NodeId });
     engine.undo();
 
     expect(elseSlotOf(engine.doc, engine.doc.nodes['cond' as NodeId])).toBeUndefined();

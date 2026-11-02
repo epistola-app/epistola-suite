@@ -511,7 +511,7 @@ export class EpistolaInspector extends LitElement {
       case 'border':
         return html`
           <epistola-border-input
-            .value=${value}
+            .value=${value as BorderValue | undefined}
             .units=${prop.units ?? ['pt', 'sp']}
             .baseUnit=${spacingUnit}
             @change=${(e: CustomEvent) => onChange(e.detail)}

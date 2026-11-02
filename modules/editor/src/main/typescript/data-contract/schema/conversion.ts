@@ -477,7 +477,7 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
 
   return {
     ...baseField,
-    type: type,
+    type: type as PrimitiveFieldType,
     ...(format !== undefined ? { format } : {}),
     ...(minimum !== undefined ? { minimum } : {}),
     ...(maximum !== undefined ? { maximum } : {}),
