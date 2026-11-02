@@ -2987,11 +2987,12 @@ Noticed, not touched:
   fragment is under it.
 - Pasting a Word list yields paragraphs starting with a bullet character (U+00B7 from Word's HTML,
   U+F0B7 from its plain text), not a list. Converting `mso-list` paragraphs into a real list needs
-  clipboard samples captured from Word on Windows and Mac.
+  clipboard samples captured from Word on Windows and Mac (#1101, commented).
 - `RenderingDefaults.ITEXT_VERSION` says `9.5.0` while the build uses iText 9.8.0, so every PDF's
-  engine version string names the wrong iText.
+  engine version string names the wrong iText (#1245).
 - Text in the C1 range (U+0080–U+009F), what Windows-1252 text read as Latin-1 turns curly quotes
-  and dashes into, is dropped by iText without a word: content lost, not refused.
+  and dashes into, is dropped by iText without a word: content lost, not refused (#1246).
 - Characters a font lacks that are not Word's (✓ ☐ in most system fonts, Greek in Lora and
   Merriweather, emoji, CJK) still fail a PDF/A render, now with a clear message. Fallback fonts are
-  a separate decision (size, licensing, shaping needs pdfCalligraph).
+  a separate decision (size, licensing, shaping needs pdfCalligraph) (#1244). Marking them in the
+  editor is #1243.
