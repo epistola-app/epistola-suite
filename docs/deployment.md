@@ -635,6 +635,11 @@ manage CPU.
   schedules when it cannot; `hard` requires separate nodes (at least as many
   nodes as replicas); `none` turns the preset off. Setting `affinity` replaces
   the preset entirely.
+- **No sticky routing is needed.** UI sessions live in PostgreSQL, and the MCP
+  endpoint (`/api/mcp`) is stateless (see [`mcp.md`](mcp.md)), so any replica
+  serves any request. Remove a source-IP or `Mcp-Session-Id` affinity route
+  added for MCP on an earlier release; it only pins clients behind one NAT to
+  one pod.
 
 ### Pod shutdown
 
