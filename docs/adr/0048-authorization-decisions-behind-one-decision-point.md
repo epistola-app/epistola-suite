@@ -1,6 +1,6 @@
 # ADR 0048: Authorization decisions behind one decision point
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-02; step 2 implemented in 2.0, step 1 tracked in [#1253](https://github.com/epistola-app/epistola-suite/issues/1253), step 3 when a customer needs it; see [Delivery](#delivery))
 - **Date:** 2026-11-01
 - **Deciders:** Epistola team
 - **Tags:** security, authorization, mediator, roles, permissions, pbac, contract, audit
@@ -219,6 +219,10 @@ Changes to `epistola-contract`, on `feature/v2`:
 1. **Additive, no contract change:** the decision point with the role-based default, refusals
    audited, `RequiresTenantMembership` and the `SystemInternal` guard, the UI asking the decision
    point, the attribute and code-list forms corrected. Can land in a 1.x minor as well as 2.0.
+   **Not built yet:** tracked in [#1253](https://github.com/epistola-app/epistola-suite/issues/1253).
 2. **2.0:** the vocabulary of section 5, the contract changes of section 6, the alignment test.
+   **Implemented:** contract 2.0.0-alpha.6 (epistola-contract#117) and the suite in #1252
+   (`PermissionContractAlignmentTest`).
 3. **When a customer needs it:** resource attributes (environment first), scoped lists, and an
-   AuthZEN client as the first external implementation.
+   AuthZEN client as the first external implementation
+   ([#1196](https://github.com/epistola-app/epistola-suite/issues/1196)).
