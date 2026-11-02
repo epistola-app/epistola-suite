@@ -99,7 +99,13 @@ class ManifestUrlReleaseSource(
 
     override fun offered(catalog: Catalog): List<String> = listOf(fetch { manifest(catalog) }.release.version)
 
-    override fun archive(catalog: Catalog, version: String): ByteArray = released(catalog, version).let { (content, release) -> archiveBuilder.build(content, release) }
+    override fun archive(catalog: Catalog, version: String): ByteArray {
+        val url = catalog.sourceUrl
+        if (!BundledReleaseArchives.isBundledSource(url)) return build(catalog, version)
+        return BundledReleaseArchives.archive(requireNotNull(url), version) { build(catalog, version) }
+    }
+
+    private fun build(catalog: Catalog, version: String): ByteArray = released(catalog, version).let { (content, release) -> archiveBuilder.build(content, release) }
 
     /** Release [version] as its source describes it: its content, fetched, and its release record. */
     private fun released(catalog: Catalog, version: String): Pair<app.epistola.suite.catalog.CatalogContent, app.epistola.catalog.protocol.ReleaseInfo> = fetch {
