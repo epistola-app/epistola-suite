@@ -332,7 +332,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
      */
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("smoke-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Smoke Tenant").execute()
+        createTenant(tenantKey, "Smoke Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "smoke").execute()
         tenantKey to created.plaintextKey
     }

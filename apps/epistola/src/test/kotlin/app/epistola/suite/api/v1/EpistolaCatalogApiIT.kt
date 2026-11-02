@@ -510,7 +510,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ca-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Catalog API Tenant").execute()
+        createTenant(tenantKey, "Catalog API Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "ca-it").execute()
         tenantKey to created.plaintextKey
     }

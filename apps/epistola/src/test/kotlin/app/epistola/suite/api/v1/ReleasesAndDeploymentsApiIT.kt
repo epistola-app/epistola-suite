@@ -330,7 +330,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     /** The default catalog with releases 1.0.0 and 1.0.1 of a template `invoice`, and an environment `production`. */
     private fun tenantWithTwoReleases(): Pair<TenantKey, String> = withMediator {
         val tenant = TenantKey.of("rel-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenant, "Release Tenant").execute()
+        createTenant(tenant, "Release Tenant")
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         val variant = variant(tenant)
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()

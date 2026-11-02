@@ -152,7 +152,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("upd-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Update Semantics Tenant").execute()
+        createTenant(tenantKey, "Update Semantics Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "update-semantics-it").execute().plaintextKey
     }
 }

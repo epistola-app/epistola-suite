@@ -256,7 +256,7 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
 
     private fun seedKey(roles: Set<TenantRole>): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("mcpw-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "MCP Write Tenant").execute()
+        createTenant(tenantKey, "MCP Write Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "mcp-write-it", roles = roles).execute().plaintextKey
     }
 

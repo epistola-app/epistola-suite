@@ -220,7 +220,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("st-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Stencil API Tenant").execute()
+        createTenant(tenantKey, "Stencil API Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "st-it").execute()
         tenantKey to created.plaintextKey
     }

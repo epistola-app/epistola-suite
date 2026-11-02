@@ -53,6 +53,7 @@ covered too:
 | `UiRestApiSeparationTest`                            | UI templates and static JS never call REST API endpoints                                                                                                                                                           |
 | `UiTestHygieneTest`                                  | UI tests use the deterministic Playwright helpers (see [UI tests](#ui-tests-playwright))                                                                                                                           |
 | `BundledCatalogFingerprintTest` (in `epistola-core`) | Bundled demo/system catalog fingerprints match their content                                                                                                                                                       |
+| `SystemCatalogInstallUsageTest` (in `guards`)        | Only the tests' `SystemCatalogTemplate` creates a tenant without its system catalog (see [the template](#test-tenants-and-the-system-catalog-template))                                                            |
 
 Handler scanning is metadata-based and deliberately ignores `@Conditional` annotations:
 a handler gated on a property (e.g. `RefreshEntitlementsHandler` on
@@ -375,6 +376,55 @@ val tenant = createTenant("My Tenant")
 // slug: "tenantcommandstest-1" (derived from test class name)
 ```
 
+Its system catalog is **copied from a template tenant**, not installed. See the next section.
+
+### Test tenants and the system catalog template
+
+Every tenant gets the bundled system catalog, and the tests create a few thousand tenants. Installing
+it for each one (about 17 resources through the whole import path) was most of the integration
+tests' time on CI, so a test tenant gets a copy instead:
+
+1. The first time a test database needs it, `SystemCatalogTemplate` (`modules/testing`) creates the
+   tenant `system-catalog-template` with a plain `CreateTenant`, which installs the system catalog
+   for real, from the same bundled catalog every tenant gets.
+2. A test tenant is created with `CreateTenant(..., installSystemCatalog = false)` and then gets a
+   copy of the template's system-catalog rows (about 180, in nine tables) under its own tenant key,
+   with triggers off for the copy (`session_replication_role = replica`).
+
+`createTenant(name)`, `createTenant(id, name)`, `fixture { given { tenant(...) } }` and
+`scenario { given { tenant(...) } }` all copy by default. A test about installing the system catalog
+asks for the real install:
+
+```kotlin
+val tenant = createTenant("Sys1", SystemCatalogSetup.INSTALL)
+```
+
+A tenant created any other way (`TestNamespaces.createTenant(...).execute()`, `CreateTenant`
+directly, over HTTP, demo mode) installs it as production does.
+
+What holds it honest:
+
+- `SystemCatalogTemplateTest` — a copied tenant holds what an installed one holds, in **every**
+  tenant-scoped table (compared without tenant key, ids, timestamps and the release key drawn at
+  random per install). When installing the system catalog writes a new table or writes differently,
+  it fails; add the table to `SystemCatalogTemplate.TABLES` or fix the copy.
+- `SystemCatalogTemplateEventHandlersTest` — no `EventHandler` reacts to a command the copy skips.
+- `SystemCatalogInstallUsageTest` (guards) — only `SystemCatalogTemplate` passes
+  `installSystemCatalog = false`; production never creates a tenant without its system catalog.
+
+#### Known limits, and what to suspect when a test misbehaves
+
+If a test behaves differently from production around a tenant's system catalog, the first check is
+to create its tenant with `SystemCatalogSetup.INSTALL`. If the problem goes away, it is one of these:
+
+| Limit                                                                                                                              | What you would see                                                                                                                                              | Why                                                                                                                                                                                                      | What to do                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Ids are shared across copied tenants.** The copy keeps the template's catalog, version and resource ids under each tenant's key. | A query returns rows of another tenant, or `.one()` finds several rows, only in tests.                                                                          | Every key of these tables includes `tenant_key`, so the database allows it; production ids are unique per tenant, so a query that forgets `tenant_key` is wrong there too but never shows it.            | Fix the query to filter on `tenant_key`. It is a real bug the copy exposed, not a test artefact.                                                             |
+| **The install commands are not sent for a copied tenant.**                                                                         | Something that reacts to installing the system catalog (an audit entry, an event-log row, a metric, a cache warmed by the install) is missing for test tenants. | The copy writes the rows, it sends no commands. `SystemCatalogTemplateEventHandlersTest` covers `EventHandler`s; cross-cutting `CommandListener`s (audit), the event log and metrics see nothing either. | Use `SystemCatalogSetup.INSTALL` in that test. If the reaction belongs to every tenant, it belongs in the rows and `SystemCatalogTemplateTest` will show it. |
+| **Most tests no longer run the install path.**                                                                                     | A regression in installing the system catalog passes everywhere except the install tests.                                                                       | Only `INSTALL` tenants, the install, upgrade and model tests, and the template itself run it.                                                                                                            | Keep tests about installing on `INSTALL` (`InstallSystemCatalogTest`, `InstalledReleaseTest`, `SystemFontsIntegrationTest`).                                 |
+| **The copy switches triggers off.**                                                                                                | `permission denied to set parameter "session_replication_role"`.                                                                                                | `session_replication_role` needs a superuser; the test container's user is one.                                                                                                                          | If the tests move to a non-superuser role, copy with the triggers on, in their dependency order.                                                             |
+| **The template is a tenant in the test database.**                                                                                 | A query over all tenants finds `system-catalog-template`.                                                                                                       | It lives beside the test tenants, once per database.                                                                                                                                                     | Filter by the test's own tenants (they are named after the test class).                                                                                      |
+
 ### TestIdHelpers
 
 Generates unique sequential IDs to avoid collisions across parallel tests:
@@ -556,6 +606,12 @@ Start Docker Desktop or the Docker daemon.
 1. Check Docker has enough resources
 2. Look for zombie containers: `docker ps -a`
 3. Clean up: `docker system prune`
+
+### A test behaves differently from production around a tenant's catalogs
+
+Test tenants get the system catalog as a copy of a template tenant's, not installed. Create the
+test's tenant with `SystemCatalogSetup.INSTALL`; if the difference goes away, see
+[the template's known limits](#known-limits-and-what-to-suspect-when-a-test-misbehaves).
 
 ### Two @SpringBootApplication Conflict
 

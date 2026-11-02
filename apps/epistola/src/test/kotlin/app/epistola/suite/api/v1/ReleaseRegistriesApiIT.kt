@@ -215,7 +215,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("rreg-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Release Registries Tenant").execute()
+        createTenant(tenantKey, "Release Registries Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "release-registries-it").execute().plaintextKey
     }
 }

@@ -286,7 +286,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("im-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Image Tenant").execute()
+        createTenant(tenantKey, "Image Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "im-it").execute()
         tenantKey to created.plaintextKey
     }

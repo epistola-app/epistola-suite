@@ -172,7 +172,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ft-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Font Tenant").execute()
+        createTenant(tenantKey, "Font Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "ft-it").execute()
         tenantKey to created.plaintextKey
     }

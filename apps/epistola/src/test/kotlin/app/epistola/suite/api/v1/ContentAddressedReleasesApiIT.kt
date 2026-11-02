@@ -106,7 +106,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
 
     private fun seeded(): Seeded = withMediator {
         val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenant, "Content hash tenant").execute()
+        createTenant(tenant, "Content hash tenant")
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
@@ -180,7 +180,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val seeded = seeded()
         val receiver = withMediator {
             val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
-            TestNamespaces.createTenant(tenant, "Content hash receiver").execute()
+            createTenant(tenant, "Content hash receiver")
             // Receiving needs no grant.
             ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours").execute()

@@ -209,7 +209,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("imp-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Import Catalog Tenant").execute()
+        createTenant(tenantKey, "Import Catalog Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "import-catalog-it").execute().plaintextKey
     }
 }

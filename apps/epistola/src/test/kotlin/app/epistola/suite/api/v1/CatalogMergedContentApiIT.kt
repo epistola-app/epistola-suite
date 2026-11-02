@@ -232,7 +232,7 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("mc-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Merged Content Tenant").execute()
+        createTenant(tenantKey, "Merged Content Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "mc-it").execute()
         tenantKey to created.plaintextKey
     }

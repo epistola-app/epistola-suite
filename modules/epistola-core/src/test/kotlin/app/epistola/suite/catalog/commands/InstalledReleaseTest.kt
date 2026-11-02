@@ -29,6 +29,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.SystemCatalogSetup
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
@@ -56,7 +57,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
     @Test
     fun `installing the system catalog records its release, with the fonts seeded beside it`() {
-        val tenant = createTenant("Installed system release").id
+        val tenant = createTenant("Installed system release", SystemCatalogSetup.INSTALL).id
 
         val catalog = withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!! }
         val version = catalog.latestReleaseVersion!!
@@ -72,7 +73,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
     @Test
     fun `installing again records nothing new`() {
-        val tenant = createTenant("Installed system release again").id
+        val tenant = createTenant("Installed system release again", SystemCatalogSetup.INSTALL).id
 
         withMediator { InstallSystemCatalog(tenant).execute() }
 
@@ -81,7 +82,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
     @Test
     fun `an authored catalog using the system theme renders it from the installed system release`() {
-        val tenant = createTenant("Renders the system release").id
+        val tenant = createTenant("Renders the system release", SystemCatalogSetup.INSTALL).id
         val templateId = TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant)))
         val variant = VariantId(VariantKey.INITIAL, templateId)
         withMediator {

@@ -294,7 +294,7 @@ class TenantApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tenant-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Tenant API Test").execute()
+        createTenant(tenantKey, "Tenant API Test")
         val created = CreateApiKey(tenantId = tenantKey, name = "tenant-it").execute()
         tenantKey to created.plaintextKey
     }

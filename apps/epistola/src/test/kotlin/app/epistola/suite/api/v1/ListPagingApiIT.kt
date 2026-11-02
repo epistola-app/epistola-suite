@@ -164,7 +164,7 @@ class ListPagingApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("pg-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Paging Tenant").execute()
+        createTenant(tenantKey, "Paging Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "paging-it").execute().plaintextKey
     }
 

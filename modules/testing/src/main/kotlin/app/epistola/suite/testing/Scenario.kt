@@ -53,6 +53,7 @@ annotation class ScenarioDsl
 @Component
 class ScenarioFactory(
     private val mediator: Mediator,
+    private val systemCatalogTemplate: SystemCatalogTemplate,
 ) {
     /**
      * Test user for authenticated operations.
@@ -77,7 +78,7 @@ class ScenarioFactory(
         block: ScenarioBuilder.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
         TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
-            ScenarioBuilder(namespace).block()
+            ScenarioBuilder(namespace, systemCatalogTemplate).block()
         }
     }
 
@@ -95,7 +96,7 @@ class ScenarioFactory(
  * Builder for constructing test scenarios using Given-When-Then pattern.
  */
 @ScenarioDsl
-class ScenarioBuilder(private val namespace: String) {
+class ScenarioBuilder(private val namespace: String, private val systemCatalogTemplate: SystemCatalogTemplate) {
     private fun nextTenantSlug(): String = "$namespace-s${TestTenantCounter.next(namespace)}"
 
     /**
@@ -143,9 +144,12 @@ class ScenarioBuilder(private val namespace: String) {
          * Creates a tenant with a unique ID within the namespace.
          *
          * @param name the name of the tenant to create
+         * @param systemCatalog how it gets its system catalog: a copy of the template's, or installed for real
          * @return the created [Tenant]
          */
-        fun tenant(name: String): Tenant = capturedMediator.send(TestNamespaces.createTenant(TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name))
+        fun tenant(name: String, systemCatalog: SystemCatalogSetup = SystemCatalogSetup.FROM_TEMPLATE): Tenant = MediatorContext.runWithMediator(capturedMediator) {
+            this@ScenarioBuilder.systemCatalogTemplate.createTenant(TestNamespaces.createTenant(TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name), systemCatalog)
+        }
 
         /**
          * Creates a document template.

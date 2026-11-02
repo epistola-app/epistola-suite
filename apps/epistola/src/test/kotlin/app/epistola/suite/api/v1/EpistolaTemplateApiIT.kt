@@ -1688,7 +1688,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Template Tenant").execute()
+        createTenant(tenantKey, "Template Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "tmpl-it").execute()
         tenantKey to created.plaintextKey
     }
@@ -1696,7 +1696,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     /** Tenant + a viewer-only key (can read but not create/edit templates). */
     private fun seedTenantAndViewerKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Template Tenant").execute()
+        createTenant(tenantKey, "Template Tenant")
         val created = CreateApiKey(
             tenantId = tenantKey,
             name = "tmpl-it-viewer",

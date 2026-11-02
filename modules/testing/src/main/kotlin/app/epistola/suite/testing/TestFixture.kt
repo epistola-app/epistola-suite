@@ -32,6 +32,7 @@ annotation class TestFixtureDsl
 @Component
 class TestFixtureFactory(
     private val mediator: Mediator,
+    private val systemCatalogTemplate: SystemCatalogTemplate,
 ) {
     /**
      * Test user for authenticated operations.
@@ -52,7 +53,7 @@ class TestFixtureFactory(
         block: TestFixture.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
         TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
-            TestFixture(namespace).block()
+            TestFixture(namespace, systemCatalogTemplate).block()
         }
     }
 
@@ -76,7 +77,7 @@ class TestFixtureFactory(
 }
 
 @TestFixtureDsl
-class TestFixture(private val namespace: String) {
+class TestFixture(private val namespace: String, private val systemCatalogTemplate: SystemCatalogTemplate) {
     private var givenContext: GivenContext? = null
     private var result: Any? = null
 
@@ -105,7 +106,7 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class GivenContext {
-        fun tenant(name: String): Tenant = TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name).execute()
+        fun tenant(name: String, systemCatalog: SystemCatalogSetup = SystemCatalogSetup.FROM_TEMPLATE): Tenant = this@TestFixture.systemCatalogTemplate.createTenant(TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name), systemCatalog)
 
         fun noTenants() {
             this@TestFixture.deleteAllTenants()
@@ -137,7 +138,7 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class WhenContext {
-        fun createTenant(name: String): Tenant = TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name).execute()
+        fun createTenant(name: String, systemCatalog: SystemCatalogSetup = SystemCatalogSetup.FROM_TEMPLATE): Tenant = this@TestFixture.systemCatalogTemplate.createTenant(TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name), systemCatalog)
 
         fun deleteTenant(id: TenantKey): Boolean = DeleteTenant(id).execute()
 

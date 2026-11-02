@@ -43,7 +43,7 @@ class EnvironmentTryDocumentHtmxTest : BaseIntegrationTest() {
     fun `the environment page offers its deployed templates and makes a PDF of one`() {
         val tenantKey = TenantKey.of("try-doc-${System.nanoTime()}")
         val (templateKey, version) = withMediator {
-            TestNamespaces.createTenant(tenantKey, "Try Document").execute()
+            createTenant(tenantKey, "Try Document")
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)

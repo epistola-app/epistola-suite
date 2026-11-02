@@ -309,7 +309,7 @@ class OperationPermissionContractIT : IntegrationTestBase() {
     /** A tenant with one resource of each kind in its default catalog's draft, and a key with [roles]. */
     private fun seed(roles: Set<TenantRole>): Pair<Seeded, String> = withMediator {
         val tenantKey = TenantKey.of("perm-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Permission Tenant").execute()
+        createTenant(tenantKey, "Permission Tenant")
         val catalog = CatalogId.default(TenantId(tenantKey))
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
         CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header").execute()

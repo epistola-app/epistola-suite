@@ -121,7 +121,7 @@ class CreateLocationApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ol-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Locking API Tenant").execute()
+        createTenant(tenantKey, "Locking API Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "ol-it").execute().plaintextKey
     }
 }

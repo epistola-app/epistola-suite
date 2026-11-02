@@ -158,7 +158,17 @@ abstract class IntegrationTestBase {
 
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)
 
-    protected fun createTenant(name: String): Tenant = withMediator {
-        TestNamespaces.createTenant(TenantKey.of(nextTenantSlug()), name).execute()
+    @Autowired
+    protected lateinit var systemCatalogTemplate: SystemCatalogTemplate
+
+    /**
+     * Creates a tenant for this test. Its system catalog is a copy of the template tenant's
+     * ([SystemCatalogTemplate]) unless [systemCatalog] asks for it to be installed for real.
+     */
+    protected fun createTenant(name: String, systemCatalog: SystemCatalogSetup = SystemCatalogSetup.FROM_TEMPLATE): Tenant = createTenant(TenantKey.of(nextTenantSlug()), name, systemCatalog)
+
+    /** [createTenant] with a key of the test's choosing. */
+    protected fun createTenant(id: TenantKey, name: String, systemCatalog: SystemCatalogSetup = SystemCatalogSetup.FROM_TEMPLATE): Tenant = withMediator {
+        systemCatalogTemplate.createTenant(TestNamespaces.createTenant(id, name), systemCatalog)
     }
 }

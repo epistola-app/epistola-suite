@@ -112,7 +112,7 @@ class StencilInUseApiTest : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("siu-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Stencil In Use Tenant").execute()
+        createTenant(tenantKey, "Stencil In Use Tenant")
         val created = CreateApiKey(tenantId = tenantKey, name = "siu-it").execute()
         tenantKey to created.plaintextKey
     }

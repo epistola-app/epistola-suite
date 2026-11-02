@@ -194,7 +194,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("xreg-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Exchange Registry Tenant").execute()
+        createTenant(tenantKey, "Exchange Registry Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "exchange-registry-it").execute().plaintextKey
     }
 }

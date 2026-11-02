@@ -246,7 +246,7 @@ class McpToolPermissionIT : IntegrationTestBase() {
     /** A tenant with one resource of each kind, a release 1.0.0 and an environment; a key of [roles]. */
     private fun seed(roles: Set<TenantRole>): String = withMediator {
         val tenantKey = TenantKey.of("mcpp-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "MCP Permission Tenant").execute()
+        createTenant(tenantKey, "MCP Permission Tenant")
         val catalog = CatalogId.default(TenantId(tenantKey))
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
         CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header").execute()

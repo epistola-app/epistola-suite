@@ -95,7 +95,7 @@ class TemplateDescriptionApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tdesc-${UUID.randomUUID().toString().take(8)}")
-        TestNamespaces.createTenant(tenantKey, "Template Description Tenant").execute()
+        createTenant(tenantKey, "Template Description Tenant")
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "tdesc-it").execute().plaintextKey
     }
 
