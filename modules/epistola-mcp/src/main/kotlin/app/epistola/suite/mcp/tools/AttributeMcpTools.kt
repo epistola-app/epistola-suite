@@ -13,11 +13,14 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mcp.dto.AttributeInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.security.Permission
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -41,19 +44,22 @@ class AttributeMcpTools(
             "catalog origin, and `editable` / `readOnly`: whether its catalog can be changed here.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.REFERENCE_VIEW)
     fun listAttributes(
         @McpToolParam(description = "Catalog slug to filter by. Omit to list all.", required = false)
         catalogId: String?,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<AttributeInfo> {
-        val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
-        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
-            .let { definitions ->
-                val editability = catalogEditability()
-                definitions.map { AttributeInfo.from(it, editability.editable(it.catalogId)) }
-            }
+        mcpOperation(this::listAttributes) {
+            val tenantId = TenantId(mcpTenantKey())
+            val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
+            return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
+                .let { definitions ->
+                    val editability = catalogEditability()
+                    definitions.map { AttributeInfo.from(it, editability.editable(it.catalogId)) }
+                }
+        }
     }
 
     @McpTool(
@@ -62,6 +68,7 @@ class AttributeMcpTools(
             "Same shape as `list_attributes`. Returns null when the attribute does not exist.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.REFERENCE_VIEW)
     fun getAttribute(
         @McpToolParam(description = "Catalog the attribute lives in.")
         catalogId: String,
@@ -70,7 +77,9 @@ class AttributeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): AttributeInfo? {
-        val id = AttributeId(AttributeKey.of(attributeKey), mcpCatalog(catalogId))
-        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
+        mcpOperation(this::getAttribute) {
+            val id = AttributeId(AttributeKey.of(attributeKey), mcpCatalog(catalogId))
+            return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
+        }
     }
 }

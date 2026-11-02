@@ -19,16 +19,19 @@ import app.epistola.suite.mcp.dto.VariantInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -58,6 +61,7 @@ class TemplateMcpTools(
             "for metadata and `get_template_content` for the editable structure.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun listTemplates(
         @McpToolParam(
             description = "Catalog key to filter by. Omit to search across all catalogs in the tenant.",
@@ -71,14 +75,16 @@ class TemplateMcpTools(
         search: String?,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<TemplateSummaryInfo> = mediator.query(
-        ListTemplateSummaries(
-            tenantId = mcpTenantId(),
-            catalog = catalogFilter(catalogId),
-            searchTerm = search,
-            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
-        ),
-    ).items.map { TemplateSummaryInfo.from(it) }
+    ): List<TemplateSummaryInfo> = mcpOperation(this::listTemplates) {
+        mediator.query(
+            ListTemplateSummaries(
+                tenantId = mcpTenantId(),
+                catalog = catalogFilter(catalogId),
+                searchTerm = search,
+                catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
+            ),
+        ).items.map { TemplateSummaryInfo.from(it) }
+    }
 
     @McpTool(
         name = "get_template",
@@ -86,6 +92,7 @@ class TemplateMcpTools(
             "Does NOT include the editable template content — call `get_template_content` for that.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun getTemplate(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -94,8 +101,10 @@ class TemplateMcpTools(
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): TemplateInfo? {
-        val id = templateId(catalogId, templateId)
-        return mediator.query(GetDocumentTemplate(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { TemplateInfo.from(it) }
+        mcpOperation(this::getTemplate) {
+            val id = templateId(catalogId, templateId)
+            return mediator.query(GetDocumentTemplate(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { TemplateInfo.from(it) }
+        }
     }
 
     @McpTool(
@@ -105,6 +114,7 @@ class TemplateMcpTools(
             "versioned with its catalog, and one default variant is selected when no variant is specified at preview time.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun listVariants(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -112,14 +122,17 @@ class TemplateMcpTools(
         templateId: String,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<VariantInfo> = mediator.query(ListVariants(templateId(catalogId, templateId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
-        .map { VariantInfo.from(it) }
+    ): List<VariantInfo> = mcpOperation(this::listVariants) {
+        mediator.query(ListVariants(templateId(catalogId, templateId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
+            .map { VariantInfo.from(it) }
+    }
 
     @McpTool(
         name = "get_variant",
         description = "Fetch a single variant's metadata.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun getVariant(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -129,9 +142,11 @@ class TemplateMcpTools(
         variantId: String,
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): VariantInfo? = mediator
-        .query(GetVariant(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
-        ?.let { VariantInfo.from(it) }
+    ): VariantInfo? = mcpOperation(this::getVariant) {
+        mediator
+            .query(GetVariant(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
+            ?.let { VariantInfo.from(it) }
+    }
 
     @McpTool(
         name = "get_template_content",
@@ -141,6 +156,7 @@ class TemplateMcpTools(
             "Use this when the user asks about a template's structure or wants to inspect what a template renders.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun getTemplateContent(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -150,9 +166,11 @@ class TemplateMcpTools(
         variantId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): TemplateContentInfo? = mediator
-        .query(GetEditorContext(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
-        ?.let { TemplateContentInfo.from(it) }
+    ): TemplateContentInfo? = mcpOperation(this::getTemplateContent) {
+        mediator
+            .query(GetEditorContext(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+            ?.let { TemplateContentInfo.from(it) }
+    }
 
     @McpTool(
         name = "create_template",
@@ -164,6 +182,7 @@ class TemplateMcpTools(
             "`\$formatLocaleNumber` follow it. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun createTemplate(
         @McpToolParam(description = "Catalog key to create the template in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
@@ -186,30 +205,32 @@ class TemplateMcpTools(
         @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION, required = false)
         description: String? = null,
     ): TemplateInfo {
-        val id = templateId(catalogId, templateId)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        // Validated before anything is created, so bad attributes leave no half-made template behind.
-        val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
-            ?.also { validateAttributes(mcpTenantId(), it) }
-        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version, description = description).execute()
-        if (!themeId.isNullOrBlank()) {
-            template = UpdateDocumentTemplate(
-                id = id,
-                themeId = ThemeKey.of(themeId),
-                themeCatalog = mcpCatalog(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
-                catalogVersion = version,
-            ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
+        mcpOperation(this::createTemplate) {
+            val id = templateId(catalogId, templateId)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            // Validated before anything is created, so bad attributes leave no half-made template behind.
+            val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
+                ?.also { validateAttributes(mcpTenantId(), it) }
+            var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version, description = description).execute()
+            if (!themeId.isNullOrBlank()) {
+                template = UpdateDocumentTemplate(
+                    id = id,
+                    themeId = ThemeKey.of(themeId),
+                    themeCatalog = mcpCatalog(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+                    catalogVersion = version,
+                ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
+            }
+            if (!attributes.isNullOrEmpty()) {
+                val defaultVariant = ListVariants(id, catalogVersion = version).query().single { it.isDefault }
+                UpdateVariant(
+                    variantId = VariantId(defaultVariant.id, id),
+                    title = defaultVariant.title,
+                    attributes = attributes,
+                    catalogVersion = version,
+                ).execute()
+            }
+            return TemplateInfo.from(template)
         }
-        if (!attributes.isNullOrEmpty()) {
-            val defaultVariant = ListVariants(id, catalogVersion = version).query().single { it.isDefault }
-            UpdateVariant(
-                variantId = VariantId(defaultVariant.id, id),
-                title = defaultVariant.title,
-                attributes = attributes,
-                catalogVersion = version,
-            ).execute()
-        }
-        return TemplateInfo.from(template)
     }
 
     @McpTool(
@@ -219,6 +240,7 @@ class TemplateMcpTools(
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun updateTemplate(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -241,21 +263,23 @@ class TemplateMcpTools(
         @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION + " An empty string removes it.", required = false)
         description: String? = null,
     ): TemplateInfo {
-        if (clearTheme == true && !themeId.isNullOrBlank()) {
-            throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
+        mcpOperation(this::updateTemplate) {
+            if (clearTheme == true && !themeId.isNullOrBlank()) {
+                throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
+            }
+            val theme = themeId?.takeIf { it.isNotBlank() }
+            return UpdateDocumentTemplate(
+                id = templateId(catalogId, templateId),
+                name = name?.takeIf { it.isNotBlank() },
+                themeId = theme?.let { ThemeKey.of(it) },
+                themeCatalog = theme?.let { mcpCatalog(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+                clearThemeId = clearTheme == true,
+                pdfaEnabled = pdfaEnabled,
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+                expectedRevision = expectedRevision,
+                description = description,
+            ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
         }
-        val theme = themeId?.takeIf { it.isNotBlank() }
-        return UpdateDocumentTemplate(
-            id = templateId(catalogId, templateId),
-            name = name?.takeIf { it.isNotBlank() },
-            themeId = theme?.let { ThemeKey.of(it) },
-            themeCatalog = theme?.let { mcpCatalog(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
-            clearThemeId = clearTheme == true,
-            pdfaEnabled = pdfaEnabled,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-            expectedRevision = expectedRevision,
-            description = description,
-        ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
     @McpTool(
@@ -268,6 +292,7 @@ class TemplateMcpTools(
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun createVariant(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -286,13 +311,15 @@ class TemplateMcpTools(
         attributes: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): VariantInfo = CreateVariant(
-        id = variantId(catalogId, templateId, variantId),
-        title = title,
-        description = description?.takeIf { it.isNotBlank() },
-        attributes = parseAttributes(attributes) ?: emptyMap(),
-        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-    ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+    ): VariantInfo = mcpOperation(this::createVariant) {
+        CreateVariant(
+            id = variantId(catalogId, templateId, variantId),
+            title = title,
+            description = description?.takeIf { it.isNotBlank() },
+            attributes = parseAttributes(attributes) ?: emptyMap(),
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+        ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+    }
 
     @McpTool(
         name = "update_variant",
@@ -300,6 +327,7 @@ class TemplateMcpTools(
             "`attributes` object replaces the whole attribute set. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun updateVariant(
         @McpToolParam(description = "Catalog key the template belongs to.")
         catalogId: String,
@@ -319,16 +347,18 @@ class TemplateMcpTools(
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
     ): VariantInfo {
-        val id = variantId(catalogId, templateId, variantId)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        val current = GetVariant(id, catalogVersion = version).query() ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
-        return UpdateVariant(
-            variantId = id,
-            title = title?.takeIf { it.isNotBlank() } ?: current.title,
-            attributes = parseAttributes(attributes) ?: current.attributes,
-            catalogVersion = version,
-            expectedRevision = expectedRevision,
-        ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        mcpOperation(this::updateVariant) {
+            val id = variantId(catalogId, templateId, variantId)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            val current = GetVariant(id, catalogVersion = version).query() ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+            return UpdateVariant(
+                variantId = id,
+                title = title?.takeIf { it.isNotBlank() } ?: current.title,
+                attributes = parseAttributes(attributes) ?: current.attributes,
+                catalogVersion = version,
+                expectedRevision = expectedRevision,
+            ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        }
     }
 
     private fun parseAttributes(json: String?, field: String = "attributes"): Map<String, String>? = objectMapper

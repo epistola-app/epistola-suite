@@ -13,11 +13,14 @@ import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.mcp.dto.PreviewResult
 import app.epistola.suite.mcp.dto.TemplateDataAnalysisInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
@@ -44,6 +47,7 @@ class PreviewMcpTools(
             "then says which fields are missing or wrong.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.DOCUMENT_GENERATE)
     fun previewDocument(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -77,31 +81,33 @@ class PreviewMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): PreviewResult {
-        val parsedData = parseData(data)
-        val version = catalogVersionRef(catalogId, catalogVersion)
-        if (version != null && (releaseVersion != null || environmentId != null)) {
-            throw ValidationException("catalogVersion", "`catalogVersion` renders a draft; it cannot be combined with `releaseVersion` or `environmentId`")
+        mcpOperation(this::previewDocument) {
+            val parsedData = parseData(data)
+            val version = catalogVersionRef(catalogId, catalogVersion)
+            if (version != null && (releaseVersion != null || environmentId != null)) {
+                throw ValidationException("catalogVersion", "`catalogVersion` renders a draft; it cannot be combined with `releaseVersion` or `environmentId`")
+            }
+
+            val pdfBytes = mediator.query(
+                PreviewDocument(
+                    catalog = mcpCatalog(catalogId),
+                    templateId = TemplateKey.of(templateId),
+                    variantId = variantId?.let { VariantKey.of(it) },
+                    environmentId = environmentId?.let { EnvironmentKey.of(it) },
+                    releaseVersion = releaseVersion,
+                    data = parsedData,
+                    // A draft named renders that draft: its working copy.
+                    workingCopy = workingCopy == true || version != null,
+                    catalogVersion = version,
+                ),
+            )
+
+            return PreviewResult(
+                mediaType = "application/pdf",
+                data = Base64.getEncoder().encodeToString(pdfBytes),
+                byteCount = pdfBytes.size,
+            )
         }
-
-        val pdfBytes = mediator.query(
-            PreviewDocument(
-                catalog = mcpCatalog(catalogId),
-                templateId = TemplateKey.of(templateId),
-                variantId = variantId?.let { VariantKey.of(it) },
-                environmentId = environmentId?.let { EnvironmentKey.of(it) },
-                releaseVersion = releaseVersion,
-                data = parsedData,
-                // A draft named renders that draft: its working copy.
-                workingCopy = workingCopy == true || version != null,
-                catalogVersion = version,
-            ),
-        )
-
-        return PreviewResult(
-            mediaType = "application/pdf",
-            data = Base64.getEncoder().encodeToString(pdfBytes),
-            byteCount = pdfBytes.size,
-        )
     }
 
     @McpTool(
@@ -113,6 +119,7 @@ class PreviewMcpTools(
             "still needs. Takes the same arguments as `preview_document`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun analyzeTemplateData(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -139,15 +146,17 @@ class PreviewMcpTools(
         )
         data: String?,
     ): TemplateDataAnalysisInfo {
-        val analysis = AnalyzeTemplateData(
-            catalog = mcpCatalog(catalogId),
-            templateId = TemplateKey.of(templateId),
-            variantId = variantId?.let { VariantKey.of(it) },
-            releaseVersion = releaseVersion,
-            environmentId = environmentId?.let { EnvironmentKey.of(it) },
-            data = parseData(data),
-        ).query()
-        return TemplateDataAnalysisInfo.from(analysis)
+        mcpOperation(this::analyzeTemplateData) {
+            val analysis = AnalyzeTemplateData(
+                catalog = mcpCatalog(catalogId),
+                templateId = TemplateKey.of(templateId),
+                variantId = variantId?.let { VariantKey.of(it) },
+                releaseVersion = releaseVersion,
+                environmentId = environmentId?.let { EnvironmentKey.of(it) },
+                data = parseData(data),
+            ).query()
+            return TemplateDataAnalysisInfo.from(analysis)
+        }
     }
 
     private fun parseData(data: String?): ObjectNode = data?.takeIf { it.isNotBlank() }?.let {

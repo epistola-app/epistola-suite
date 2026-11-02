@@ -13,10 +13,13 @@ import app.epistola.suite.mcp.dto.RegistryInstallInfo
 import app.epistola.suite.mcp.dto.RegistryPublicationInfo
 import app.epistola.suite.mcp.dto.RegistryReleasesInfo
 import app.epistola.suite.mcp.dto.ReleaseRegistriesInfo
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -37,7 +40,10 @@ class CatalogRegistryMcpTools {
             "tenant is connected to it (`kind` `exchange`, named `exchange`). Names to use with the other registry tools.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun listReleaseRegistries(): ReleaseRegistriesInfo = ReleaseRegistriesInfo.from(ListReleaseRegistries(mcpTenantKey()).query())
+    @McpPermission(Permission.CATALOG_VIEW)
+    fun listReleaseRegistries(): ReleaseRegistriesInfo = mcpOperation(this::listReleaseRegistries) {
+        ReleaseRegistriesInfo.from(ListReleaseRegistries(mcpTenantKey()).query())
+    }
 
     @McpTool(
         name = "list_registry_releases",
@@ -47,6 +53,7 @@ class CatalogRegistryMcpTools {
             "by another catalog). The registries are those `list_release_registries` names; an unknown name is refused.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_VIEW)
     fun listRegistryReleases(
         @McpToolParam(description = "The release registry's name. From `list_release_registries`.")
         registry: String,
@@ -56,7 +63,9 @@ class CatalogRegistryMcpTools {
         catalogKey: String,
         @McpToolParam(description = "The authority of the catalog's name, e.g. `local` or `gemeente-x.nl`. Omit for the default registry.", required = false)
         authority: String? = null,
-    ): RegistryReleasesInfo = RegistryReleasesInfo.from(ListReleaseRegistryReleases(mcpTenantKey(), registry, namespace, catalogKey, authority?.takeIf { it.isNotBlank() }).query())
+    ): RegistryReleasesInfo = mcpOperation(this::listRegistryReleases) {
+        RegistryReleasesInfo.from(ListReleaseRegistryReleases(mcpTenantKey(), registry, namespace, catalogKey, authority?.takeIf { it.isNotBlank() }).query())
+    }
 
     @McpTool(
         name = "publish_release_to_registry",
@@ -68,6 +77,7 @@ class CatalogRegistryMcpTools {
             "publish only when the user asks to. Requires the CATALOG_PUBLISH permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_PUBLISH)
     fun publishReleaseToRegistry(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
@@ -76,11 +86,13 @@ class CatalogRegistryMcpTools {
         @McpToolParam(description = "The release registry's name, from `list_release_registries`. Optional when there is exactly one.", required = false)
         registry: String?,
     ): RegistryPublicationInfo {
-        val tenantKey = mcpTenantKey()
-        val name = registry?.trim()?.takeIf { it.isNotEmpty() }
-            ?: ListReleaseRegistries(tenantKey).query().registries.singleOrNull()?.name
-            ?: ""
-        return RegistryPublicationInfo.from(PublishReleaseToReleaseRegistry(mcpCatalog(catalogId), version.trim(), name).execute())
+        mcpOperation(this::publishReleaseToRegistry) {
+            val tenantKey = mcpTenantKey()
+            val name = registry?.trim()?.takeIf { it.isNotEmpty() }
+                ?: ListReleaseRegistries(tenantKey).query().registries.singleOrNull()?.name
+                ?: ""
+            return RegistryPublicationInfo.from(PublishReleaseToReleaseRegistry(mcpCatalog(catalogId), version.trim(), name).execute())
+        }
     }
 
     @McpTool(
@@ -93,6 +105,7 @@ class CatalogRegistryMcpTools {
             "permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.CATALOG_MANAGE)
     fun installReleaseFromRegistry(
         @McpToolParam(description = "The release registry's name. From `list_release_registries`.")
         registry: String,
@@ -104,5 +117,7 @@ class CatalogRegistryMcpTools {
         version: String,
         @McpToolParam(description = "The authority of the catalog's name, e.g. `local` or `gemeente-x.nl`. Omit for the default registry.", required = false)
         authority: String? = null,
-    ): RegistryInstallInfo = RegistryInstallInfo.from(InstallReleaseRegistryRelease(mcpTenantKey(), registry, namespace, catalogKey, version.trim(), authority?.takeIf { it.isNotBlank() }).execute(), version.trim())
+    ): RegistryInstallInfo = mcpOperation(this::installReleaseFromRegistry) {
+        RegistryInstallInfo.from(InstallReleaseRegistryRelease(mcpTenantKey(), registry, namespace, catalogKey, version.trim(), authority?.takeIf { it.isNotBlank() }).execute(), version.trim())
+    }
 }

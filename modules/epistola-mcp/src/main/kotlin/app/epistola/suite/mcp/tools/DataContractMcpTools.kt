@@ -12,14 +12,17 @@ import app.epistola.suite.mcp.dto.DataContractInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.Permission
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.contracts.commands.UpdateDataContractResult
 import app.epistola.suite.templates.contracts.queries.GetDataContract
@@ -45,6 +48,7 @@ class DataContractMcpTools(
             "the template expects, plus named sample datasets — as it is now.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_VIEW)
     fun getDataContract(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -53,8 +57,10 @@ class DataContractMcpTools(
         @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): DataContractInfo? {
-        val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
-        return mediator.query(GetDataContract(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
+        mcpOperation(this::getDataContract) {
+            val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
+            return mediator.query(GetDataContract(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
+        }
     }
 
     @McpTool(
@@ -66,6 +72,7 @@ class DataContractMcpTools(
             "`mark_template_ready` once reviewed. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.TEMPLATE_EDIT)
     fun updateDataContract(
         @McpToolParam(description = "Catalog key.")
         catalogId: String,
@@ -89,16 +96,18 @@ class DataContractMcpTools(
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
     ): DataContractInfo {
-        val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
-        val command = UpdateDataContract(
-            templateId = id,
-            dataModel = objectMapper.parseOptionalArgument("dataModel", dataModel, ObjectNode::class.java),
-            dataExamples = objectMapper.parseOptionalArgument("dataExamples", dataExamples, ArrayNode::class.java)
-                ?.let(::toExamples),
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-            expectedRevision = expectedRevision,
-        )
-        return DataContractInfo.from(templateId, catalogId, sendUpdate(command).contract)
+        mcpOperation(this::updateDataContract) {
+            val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
+            val command = UpdateDataContract(
+                templateId = id,
+                dataModel = objectMapper.parseOptionalArgument("dataModel", dataModel, ObjectNode::class.java),
+                dataExamples = objectMapper.parseOptionalArgument("dataExamples", dataExamples, ArrayNode::class.java)
+                    ?.let(::toExamples),
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+                expectedRevision = expectedRevision,
+            )
+            return DataContractInfo.from(templateId, catalogId, sendUpdate(command).contract)
+        }
     }
 
     /** Surfaces which example failed where; the exception's own message names neither. */

@@ -15,11 +15,14 @@ import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mcp.dto.EnvironmentInfo
 import app.epistola.suite.mcp.dto.EnvironmentsInfo
+import app.epistola.suite.mcp.support.McpPermission
 import app.epistola.suite.mcp.support.mcpCatalog
+import app.epistola.suite.mcp.support.mcpOperation
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -40,10 +43,13 @@ class EnvironmentMcpTools {
             "`production` environments serve releases only. To change what is deployed, use `deploy_release` and `undeploy_release`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun listEnvironments(): EnvironmentsInfo = EnvironmentsInfo.from(
-        ListEnvironments(mcpTenantId()).query(),
-        ListDeployments(mcpTenantKey()).query(),
-    )
+    @McpPermission(Permission.TEMPLATE_VIEW)
+    fun listEnvironments(): EnvironmentsInfo = mcpOperation(this::listEnvironments) {
+        EnvironmentsInfo.from(
+            ListEnvironments(mcpTenantId()).query(),
+            ListDeployments(mcpTenantKey()).query(),
+        )
+    }
 
     @McpTool(
         name = "deploy_release",
@@ -55,6 +61,7 @@ class EnvironmentMcpTools {
             "generated with, so deploy only when the user asks to. Requires the ENVIRONMENT_DEPLOY permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
+    @McpPermission(Permission.ENVIRONMENT_DEPLOY)
     fun deployRelease(
         @McpToolParam(description = "The environment's `id`, from `list_environments`.")
         environmentId: String,
@@ -67,9 +74,11 @@ class EnvironmentMcpTools {
         @McpToolParam(description = "Stop serving the catalog's other releases in this environment. Default false: served beside them.", required = false)
         replace: Boolean? = null,
     ): EnvironmentInfo {
-        val environment = environment(environmentId)
-        DeployCatalogRelease(environment, mcpCatalog(catalogId), version.trim(), includeDependencies == true, replace = replace == true).execute()
-        return describe(environment)
+        mcpOperation(this::deployRelease) {
+            val environment = environment(environmentId)
+            DeployCatalogRelease(environment, mcpCatalog(catalogId), version.trim(), includeDependencies == true, replace = replace == true).execute()
+            return describe(environment)
+        }
     }
 
     @McpTool(
@@ -80,6 +89,7 @@ class EnvironmentMcpTools {
             "`list_environments` shows it. Undeploy only when the user asks to. Requires the ENVIRONMENT_DEPLOY permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
     )
+    @McpPermission(Permission.ENVIRONMENT_DEPLOY)
     fun undeployRelease(
         @McpToolParam(description = "The environment's `id`, from `list_environments`.")
         environmentId: String,
@@ -88,12 +98,14 @@ class EnvironmentMcpTools {
         @McpToolParam(description = "The deployed release number, or the deployed draft's `versionId`, from `list_environments`.")
         version: String,
     ): EnvironmentInfo {
-        val environment = environment(environmentId)
-        val catalog = mcpCatalog(catalogId)
-        if (!UndeployCatalogRelease(environment, catalog, version.trim()).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.key, version.trim())
+        mcpOperation(this::undeployRelease) {
+            val environment = environment(environmentId)
+            val catalog = mcpCatalog(catalogId)
+            if (!UndeployCatalogRelease(environment, catalog, version.trim()).execute()) {
+                throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.key, version.trim())
+            }
+            return describe(environment)
         }
-        return describe(environment)
     }
 
     /** The environment [environmentId] names in this tenant; refused when there is none. */
