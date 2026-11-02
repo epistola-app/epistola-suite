@@ -7,7 +7,8 @@
 - **Related:** [ADR 0033](0033-reading-any-release.md) (one content shape), [ADR 0036](0036-one-table-for-every-catalog-version.md)
   (one table for every catalog version), [ADR 0039](0039-catalog-knows-no-content-type.md) (catalog knows no
   content type), [ADR 0010](0010-strict-script-src-csp.md) (strict CSP),
-  [ADR 0048](0048-authorization-decisions-behind-one-decision-point.md) (lists filtered in the database)
+  [ADR 0048](0048-authorization-decisions-behind-one-decision-point.md) (lists filtered in the database),
+  [ADR 0049](0049-content-addressed-by-an-explicit-version.md) (content addressed by an explicit version)
 
 ## Context
 
@@ -27,8 +28,9 @@ What the storage already gives (ADR 0033, ADR 0036):
   one row per resource of any type: type, key, name, description, `content_hash`, `updated_at`,
   `updated_by`, and for a variant its template (`parent_id`). A search on names needs no new storage and
   no knowledge of resource types.
-- **The version a page shows by default** is `catalog_current_versions`: a catalog's next version, which
-  for a catalog that cannot be changed here is the release it runs.
+- **The version a page shows by default** is a catalog's next version (`catalogs.next_version_id`), which
+  for a catalog that cannot be changed here is the release it runs. The view `catalog_current_versions`
+  answers it only when the transaction targets no other version (ADR 0049).
 - **Content is stored once per hash.** `resource_contents` is keyed by `(tenant_key, content_hash)`, and
   `ResourceContentStore.write` extracts `resource_references` from a content in the same transaction
   that stores it, collected with it by foreign key. A content never changes once stored.
@@ -58,8 +60,14 @@ proposes it as `searchTenant` (alpha, epistola-contract#115), with the same filt
 permissions.
 
 The query runs as **one SQL statement**: catalogs, and the `release_resources` rows of each catalog's
-`catalog_current_versions` version, scoped to the tenant, matched, filtered, grouped, ranked and limited
-in the database. Nothing is sorted or limited in application code.
+default version, scoped to the tenant, matched, filtered, grouped, ranked and limited in the database.
+Nothing is sorted or limited in application code.
+
+**It names the default version explicitly**, through the default-version helper of ADR 0049
+(`catalogs.next_version_id`), and never reads `catalog_current_versions` or the views built on it.
+Those answer the version a transaction targets, so a search dispatched inside a message that targets
+a draft would read that draft for its catalog. Read explicitly, the same search finds the same hits
+wherever it is dispatched from, and `SearchTenant` does not implement `CatalogReleaseScoped`.
 
 ### What it searches
 
@@ -67,7 +75,7 @@ in the database. Nothing is sorted or limited in application code.
 - **Catalogs**, by name, key and description.
 - **Resources**, by name and key (description weighs less): every type in `release_resources`, so a
   new resource type is searchable without a change here. A variant is found as "Template › Variant".
-- **Each catalog's default version only** (`catalog_current_versions`): not older releases, not
+- **Each catalog's default version only** (`catalogs.next_version_id`): not older releases, not
   parallel drafts.
 - **Supplied catalogs too** (System, the demo catalog), ranked below the tenant's own and marked
   read-only in the result.
@@ -163,7 +171,7 @@ small per-user, bounded store of its own, not derived from the audit log.
   a static script as delegated listeners (ADR 0010). "See all" opens a search page on the same route with
   the filters beside the results and pagination in the database.
 - **MCP.** A `search` tool on `SearchTenant`, so an agent finds a template by name.
-- **REST.** Later, with a contract change.
+- **REST.** Later. The contract defines it as `searchTenant` (alpha, epistola-contract#115).
 
 The palette ships behind a feature toggle at **beta**, so its shape may still change without a major
 release.
@@ -249,6 +257,8 @@ decided when content search is built and can be measured.
 
 Stacked pull requests off `release/2.0`, after this ADR is accepted:
 
-1. `SearchTenant` with filters, grouping and sorting, and its tests, both trigram paths.
+1. `SearchTenant` with filters, grouping and sorting, and its tests, both trigram paths; the
+   default-version helper it reads through (ADR 0049, delivery step 1), and a test that a search
+   dispatched inside a message targeting a draft still reads every catalog's default version.
 2. The palette and the search page, behind the beta toggle.
 3. The MCP `search` tool.
