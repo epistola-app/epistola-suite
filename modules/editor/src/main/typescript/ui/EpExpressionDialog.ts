@@ -883,6 +883,7 @@ export class EpExpressionDialog extends LitElement {
             </select>
           </div>
         </div>
+        ${this._renderNoDataFields()}
       </div>
     `;
   }

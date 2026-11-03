@@ -1771,6 +1771,23 @@ describe('EpExpressionDialog with no data fields', () => {
     expect(dialog.querySelector('[data-testid="expression-dialog-no-data-fields"]')).not.toBeNull();
   });
 
+  it('says so in builder mode too, under its empty field picker', async () => {
+    // A {{ in text opens the dialog in builder mode, whose field picker was then an empty select.
+    const dialog = new EpExpressionDialog();
+    dialog.enableBuilderMode = true;
+    dialog.fieldPaths = [];
+    dialog.dataContractHref = '/contract';
+    document.body.appendChild(dialog);
+    await dialog.updateComplete;
+
+    const builder = dialog.querySelector('[data-mode-panel="builder"]');
+    expect(
+      builder
+        ?.querySelector('[data-testid="expression-dialog-no-data-fields"] a')
+        ?.getAttribute('href'),
+    ).toBe('/contract');
+  });
+
   it('says nothing when the contract has fields', async () => {
     const dialog = new EpExpressionDialog();
     dialog.fieldPaths = [{ path: 'customer.name', type: 'string' } as FieldPath];
