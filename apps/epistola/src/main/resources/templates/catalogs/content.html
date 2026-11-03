@@ -169,9 +169,8 @@
                            is fine — browsers scale percentage colgroups to fit. */-->
                     <colgroup>
                         <col style="width: 12%" /><!-- Type -->
-                        <col style="width: 20%" /><!-- Name -->
+                        <col style="width: 43%" /><!-- Name, with the description under it -->
                         <col style="width: 16%" /><!-- Slug -->
-                        <col style="width: 23%" /><!-- Description -->
                         <col style="width: 8%" /><!-- Used by -->
                         <col th:if="${catalog.hasSource}" style="width: 11%" /><!-- Status -->
                     </colgroup>
@@ -180,7 +179,6 @@
                             <th>Type</th>
                             <th>Name</th>
                             <th>Slug</th>
-                            <th>Description</th>
                             <th>Used by</th>
                             <th th:if="${catalog.hasSource}">Status</th>
                         </tr>
@@ -234,12 +232,11 @@
                                        th:title="'View ' + ${resource.name} + ' on Epistola Exchange'"></a>
                                     <span th:if="${exchangeCatalogUrl == null}" th:text="${resource.name}"></span>
                                 </th:block>
+                                <div th:if="${resource.description}" class="text-muted text-xs"
+                                     data-testid="catalog-resource-description" th:title="${resource.description}" th:text="${resource.description}"
+                                     style="overflow: hidden; text-overflow: ellipsis;"></div>
                             </td>
                             <td th:title="${resource.slug}"><code th:text="${resource.slug}"></code></td>
-                            <td th:title="${resource.description}">
-                                <span th:if="${resource.description}" th:text="${resource.description}"></span>
-                                <span th:unless="${resource.description}" class="text-muted">-</span>
-                            </td>
                             <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
                                 <button th:if="${count > 0}"
                                         type="button" class="badge badge-default"

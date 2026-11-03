@@ -54,9 +54,8 @@
              data-testid="fixed-table-scroll">
         <table class="ep-table ep-table-fixed">
             <colgroup>
-                <col style="width: 26%" /><!-- Name: room for the "Catalog default" badge beside it -->
+                <col style="width: 46%" /><!-- Name, with the description under it -->
                 <col style="width: 14%" /><!-- Catalog -->
-                <col style="width: 20%" /><!-- Description -->
                 <col style="width: 15%" /><!-- Last modified -->
                 <col style="width: 25%" /><!-- Actions: labelled (Make default, Make house theme, Delete) -->
             </colgroup>
@@ -64,7 +63,6 @@
                 <tr>
                     <th>Name</th>
                     <th>Catalog</th>
-                    <th>Description</th>
                     <th>Last modified</th>
                     <th></th>
                 </tr>
@@ -75,7 +73,7 @@
                            inside it: the empty state outside is never re-rendered, and the reader would
                            otherwise be left looking at an empty table that says nothing. */-->
                     <tr th:if="${#lists.isEmpty(themes) and !#strings.isEmpty(searchTerm)}">
-                        <td colspan="5" class="text-muted" style="text-align: center; padding: var(--ep-space-6);"
+                        <td colspan="4" class="text-muted" style="text-align: center; padding: var(--ep-space-6);"
                             th:text="'No themes match your search.'"></td>
                     </tr>
                     <tr th:each="theme : ${themes}"
@@ -90,12 +88,11 @@
                                   title="The house theme: new catalogs start with it as their default theme">House theme</span>
                             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
+                            <div th:if="${theme.description != null}" class="text-muted text-xs"
+                                 data-testid="theme-description" th:title="${theme.description}" th:text="${theme.description}"
+                                 style="overflow: hidden; text-overflow: ellipsis;"></div>
                         </td>
                         <td th:title="${theme.catalogKey}"><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
-                        <td th:title="${theme.description}">
-                            <span th:if="${theme.description != null}" th:text="${theme.description}"></span>
-                            <span th:unless="${theme.description != null}" class="text-muted">-</span>
-                        </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <th:block th:replace="~{fragments/refactoring :: row-action('theme', ${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address}, ${theme.id})}" />
