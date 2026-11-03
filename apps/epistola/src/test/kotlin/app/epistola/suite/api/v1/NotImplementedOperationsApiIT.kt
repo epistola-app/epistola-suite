@@ -34,7 +34,7 @@ import java.util.UUID
  * Operations contract 2.0.0-alpha.6 added that the suite does not support yet answer
  * `501 operation-not-implemented`, as the contract asks, rather than 404 (an unmapped route) or a
  * request accepted with part of it dropped: tenant search (ADR 0043), quality profiles (ADR 0046),
- * and a `quality` binding in a template request.
+ * a `quality` binding in a template request, and the consumers API.
  */
 @Import(
     TestcontainersConfiguration::class,
@@ -86,6 +86,21 @@ class NotImplementedOperationsApiIT : IntegrationTestBase() {
         assertNotImplemented(response, "createTemplate with a quality binding")
         val get = restTemplate.exchange("$draft/templates/bound", HttpMethod.GET, HttpEntity<Void>(headers(key)), String::class.java)
         assertThat(get.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `the consumers API answers 501`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val consumers = "/api/tenants/${tenantKey.value}/consumers"
+
+        for ((method, path, operation) in listOf(
+            Triple(HttpMethod.GET, consumers, "listConsumers"),
+            Triple(HttpMethod.GET, "$consumers/partner-app", "getConsumer"),
+            Triple(HttpMethod.DELETE, "$consumers/partner-app", "deleteConsumer"),
+        )) {
+            val response = restTemplate.exchange(path, method, HttpEntity<Void>(headers(key)), String::class.java)
+            assertNotImplemented(response, operation)
+        }
     }
 
     private fun assertNotImplemented(response: ResponseEntity<String>, operation: String) {
