@@ -112,7 +112,7 @@ go ahead regardless, once you have read why, skip a check by id:
 `EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
 `config.env`). A catalog a skipped check would have reported cannot be released until it is fixed.
 
-**Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
+**Documents can look different after the upgrade.** Three 1.x choices are not carried over, so check
 the documents of each environment before deploying to it:
 
 - **An environment that ran an older version** gets what was last published once the release of
@@ -127,6 +127,14 @@ the documents of each environment before deploying to it:
   (for example because an API update dropped the stencil's parameters) would render empty, so the
   upgrade declares it again on the stencil, optional, and reports it. Remove it once no template
   binds it.
+- **A published version's rendering defaults** are not kept. 1.x rendered a version with the
+  defaults it recorded when it was published, or with 1.x's own (V6) when it recorded none, as a
+  version received in a catalog archive does. A release cut in 2.0 renders with 2.0's, V8: block
+  spacing comes from the theme (V7), and a container's margins collapse with its first and last
+  block's, as on the web (V8). Text does not change, but spacing can: upgrading two municipalities'
+  catalogs moved the text on page 2 of 5 of their 28 templates by about a line. A release cannot be
+  cut with older defaults, so where a document must keep its layout, adjust the theme's block
+  spacing or the template before deploying.
 
 **Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
 that outage, and tell the teams whose applications request documents.
