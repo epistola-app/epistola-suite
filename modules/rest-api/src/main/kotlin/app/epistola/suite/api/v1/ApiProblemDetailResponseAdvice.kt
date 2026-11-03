@@ -10,8 +10,12 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.converter.HttpMessageConverter
 import org.springframework.http.server.ServerHttpRequest
 import org.springframework.http.server.ServerHttpResponse
+import org.springframework.http.server.ServletServerHttpRequest
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.HandlerMethod
+import org.springframework.web.servlet.HandlerMapping
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice
+import app.epistola.api.error.ProblemDetails as ContractProblemDetails
 
 @RestControllerAdvice(basePackages = ["app.epistola.suite.api.v1"])
 class ApiProblemDetailResponseAdvice : ResponseBodyAdvice<Any> {
@@ -29,8 +33,24 @@ class ApiProblemDetailResponseAdvice : ResponseBodyAdvice<Any> {
         // extensions are part of the top-level wire object. Keep MVC handlers
         // ProblemDetail-native while preserving the API contract shape.
         response.headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
-        body.toProblemMap()
+        withHelp(body, request).toProblemMap()
     } else {
         body
+    }
+
+    /**
+     * The problem with its `help` link: its type's page with the operation that answered, so the
+     * page can give the hints for it (`https://epistola.app/errors/not-found?operation=getTemplate`).
+     * The operation is the controller method's name, which is the contract's operationId: the
+     * controllers implement the generated interfaces. A problem raised before a controller ran
+     * (authentication, the firewall) names no operation and gets no link.
+     */
+    private fun withHelp(problem: ProblemDetail, request: ServerHttpRequest): ProblemDetail {
+        val handler = (request as? ServletServerHttpRequest)?.servletRequest?.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE) as? HandlerMethod
+        val slug = ContractProblemDetails.slugFor(problem.type)
+        if (handler != null && slug != null && problem.properties?.containsKey(ContractProblemDetails.HELP_PROPERTY) != true) {
+            problem.setProperty(ContractProblemDetails.HELP_PROPERTY, ContractProblemDetails.helpFor(slug, handler.method.name))
+        }
+        return problem
     }
 }

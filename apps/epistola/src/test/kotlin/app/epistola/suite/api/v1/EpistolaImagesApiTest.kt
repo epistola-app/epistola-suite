@@ -175,8 +175,8 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
             String::class.java,
         )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-        assertThat(response.body).contains("is not an image")
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        assertThat(response.body).contains("https://epistola.app/errors/unsupported-media-type").contains("is not an image")
     }
 
     /** An SVG that reaches outside itself is refused before it is stored, not when it renders. */

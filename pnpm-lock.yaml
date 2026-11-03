@@ -237,8 +237,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       '@epistola.app/epistola-catalog':
-        specifier: 2.0.0-beta.1
-        version: 2.0.0-beta.1
+        specifier: 2.0.0-beta.2
+        version: 2.0.0-beta.2
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -571,8 +571,8 @@ packages:
     engines: {node: '>=24'}
     hasBin: true
 
-  '@epistola.app/epistola-catalog@2.0.0-beta.1':
-    resolution: {integrity: sha512-SPc1NiJsw7BAsIRYBndZ40JT0kUjtNAeucPuGeCo5u99Ou9Ce7qOnTNYJ1PVO4MsDBYQME5UARNn2/nGTItPXQ==}
+  '@epistola.app/epistola-catalog@2.0.0-beta.2':
+    resolution: {integrity: sha512-rQpmuREzcfBiMs9BJ9kprYtSdDioQZhSKqlYV9om0bpDBtZ3cyndzHrH/ppBEdXB93E0GFy4abaF+VY3GMskaA==}
 
   '@faker-js/faker@10.6.0':
     resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
@@ -4241,7 +4241,7 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
 
-  '@epistola.app/epistola-catalog@2.0.0-beta.1': {}
+  '@epistola.app/epistola-catalog@2.0.0-beta.2': {}
 
   '@faker-js/faker@10.6.0': {}
 
