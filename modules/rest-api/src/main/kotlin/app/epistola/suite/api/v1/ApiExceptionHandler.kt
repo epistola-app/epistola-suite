@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.model.ValidationError
+import app.epistola.suite.api.security.sanitizeForLog
 import app.epistola.suite.api.v1.shared.UnsupportedSortDirectionException
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.assets.AssetInUseException
@@ -89,6 +90,7 @@ import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.themes.ThemeInUseException
 import app.epistola.suite.themes.ThemeNotFoundException
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
@@ -96,6 +98,7 @@ import jakarta.validation.ConstraintViolation
 import jakarta.validation.ConstraintViolationException
 import jakarta.validation.ElementKind
 import jakarta.validation.Path
+import org.apache.tomcat.util.http.InvalidParameterException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.TypeMismatchException
 import org.springframework.http.HttpHeaders
@@ -105,7 +108,9 @@ import org.springframework.http.MediaType
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.security.web.firewall.RequestRejectedException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestParam
@@ -215,6 +220,26 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         )
     }
 
+    /**
+     * A required query parameter that is absent: a validation problem naming it, as a parameter
+     * that breaks its constraints is ([handleConstraintViolation]).
+     */
+    override fun handleMissingServletRequestParameter(
+        ex: MissingServletRequestParameterException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        log.warn("Required parameter '{}' is missing", ex.parameterName)
+        return problemEntity(
+            request,
+            headers,
+            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            "Required parameter '${ex.parameterName}' is missing",
+            mapOf("errors" to listOf(ValidationError(field = ex.parameterName, message = "is required", rejectedValue = null))),
+        )
+    }
+
     override fun handleTypeMismatch(
         ex: TypeMismatchException,
         headers: HttpHeaders,
@@ -253,9 +278,19 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         (request as? ServletWebRequest)?.request?.let { servletRequest ->
             problemBody.instance = servletRequest.problemInstance()
         }
-        headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
 
-        return super.handleExceptionInternal(ex, problemBody, headers, statusCode, request)
+        return super.handleExceptionInternal(ex, problemBody, problemHeaders(headers), statusCode, request)
+    }
+
+    /**
+     * A writable copy of [headers] that answers `application/problem+json`. The headers Spring
+     * hands the [ResponseEntityExceptionHandler] overrides are the exception's own
+     * ([org.springframework.web.ErrorResponse.getHeaders]), read-only for most of them:
+     * setting the content type on them throws, the handler fails, and the request falls
+     * through to Spring Boot's default error body instead of a problem.
+     */
+    private fun problemHeaders(headers: HttpHeaders): HttpHeaders = HttpHeaders.copyOf(headers).apply {
+        contentType = MediaType.APPLICATION_PROBLEM_JSON
     }
 
     private fun problemEntity(
@@ -267,8 +302,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     ): ResponseEntity<Any> {
         val servletRequest = (request as? ServletWebRequest)?.request
             ?: return ResponseEntity.status(type.status).headers(headers).body(null)
-        headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
-        return ResponseEntity(problemDetail(servletRequest, type, detail, extensions), headers, type.status)
+        return ResponseEntity(problemDetail(servletRequest, type, detail, extensions), problemHeaders(headers), type.status)
     }
 
     /**
@@ -386,6 +420,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         ResourceModifiedException::class,
         CatalogReleaseBehindException::class,
         CatalogReleaseHeldException::class,
+        DuplicateIdException::class,
     )
     fun handleMappedApiException(
         ex: Throwable,
@@ -545,6 +580,32 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     // Generic / framework / catch-all
     // ------------------------------------------------------------------
 
+    /**
+     * A query string or form body the container cannot parse into parameters (`?=x`, a parameter
+     * with no name): 400 `bad-request`, or the generic 413 when it had too many parameters. Tomcat
+     * raises it lazily, when MVC first reads a parameter, so it surfaces here rather than as a
+     * container error.
+     */
+    @ExceptionHandler(InvalidParameterException::class)
+    fun handleInvalidParameter(ex: InvalidParameterException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        log.warn("Unparseable request parameters: {}", sanitizeForLog(ex.message.orEmpty()))
+        if (ex.errorCode == HttpStatus.CONTENT_TOO_LARGE.value()) {
+            return problemResponse(request, ApiProblemTypes.PAYLOAD_TOO_LARGE, "The request has too many parameters")
+        }
+        return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "The request's parameters are malformed")
+    }
+
+    /**
+     * Spring Security's firewall refusing what the request carries: a header name or value, or a
+     * parameter, it does not accept (`"If-Match "` with a trailing space, a control character). It
+     * checks headers when they are read, so the rejection arrives in the controller, not the filter.
+     */
+    @ExceptionHandler(RequestRejectedException::class)
+    fun handleRequestRejected(ex: RequestRejectedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        log.warn("Request rejected by the firewall: {}", sanitizeForLog(ex.message.orEmpty()))
+        return problemResponse(request, ApiProblemTypes.BAD_REQUEST, REQUEST_REJECTED_DETAIL)
+    }
+
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(ex: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Bad request: {}", ex.message)
@@ -560,21 +621,32 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         // UiExceptionFilter) and for import/background writes surfaced here. 22001 carries no
         // column identity, so the message stays form-level rather than a field error, and the
         // raw driver text is never echoed to the caller.
-        findStringTruncation(ex)?.let { truncation ->
+        findSqlState(ex, "22001")?.let { truncation ->
             log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
             return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "A value in the request is too long.")
+        }
+        // A NUL character (`\u0000`) in a string: PostgreSQL stores no NUL in text (SQLSTATE 22021,
+        // "invalid byte sequence"). The input is wrong, not the server.
+        findSqlState(ex, "22021")?.let { encoding ->
+            log.warn("Input the database cannot store rejected (SQLSTATE 22021): {}", encoding.message)
+            return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "A value in the request contains a character that cannot be stored, such as a NUL.")
         }
         log.error("Unexpected error in API controller", ex)
         return problemResponse(request, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred")
     }
 
-    /** Walks the full cause chain for a PostgreSQL string-truncation (SQLSTATE 22001). */
-    private fun findStringTruncation(ex: Throwable): SQLException? {
+    /** Walks the full cause chain for a PostgreSQL error with [sqlState]. */
+    private fun findSqlState(ex: Throwable, sqlState: String): SQLException? {
         var c: Throwable? = ex
         while (c != null) {
-            if (c is SQLException && c.sqlState == "22001") return c
+            if (c is SQLException && c.sqlState == sqlState) return c
             c = c.cause
         }
         return null
+    }
+
+    companion object {
+        /** The detail of a request the firewall refused; the refused name is logged, never echoed. */
+        const val REQUEST_REJECTED_DETAIL = "The request carries a header, parameter or path this server does not accept"
     }
 }

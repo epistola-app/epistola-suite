@@ -262,11 +262,22 @@ fun ProblemDetail.toProblemMap(): Map<String, Any?> {
         "detail" to (detail ?: ""),
         "instance" to (instance?.toString() ?: ""),
     )
-    properties?.forEach { (k, v) -> body[k] = v }
+    // A mapping may set an optional member to null for an occurrence that lacks it (a template
+    // missing from a release names no variant). ProblemDetail declares its property values non-null,
+    // so read them as nullable — Kotlin would otherwise null-check each one and throw — and omit a
+    // null member rather than write it.
+    val members: Map<String, Any?> = properties.orEmpty()
+    members.forEach { (k, v) -> if (v != null) body[k] = v }
     return body
 }
 
-fun HttpServletRequest.problemInstance(): URI = URI.create(requestUriWithQuery())
+/**
+ * The request's path and query as the problem's `instance`. A request the firewall or the container
+ * refused can carry characters a URI may not hold; those are quoted rather than fail the problem.
+ */
+fun HttpServletRequest.problemInstance(): URI = runCatching { URI.create(requestUriWithQuery()) }
+    .recoverCatching { URI(null, null, requestURI, queryString, null) }
+    .getOrElse { URI.create("") }
 
 fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = when (statusCode.value()) {
     400 -> BAD_REQUEST

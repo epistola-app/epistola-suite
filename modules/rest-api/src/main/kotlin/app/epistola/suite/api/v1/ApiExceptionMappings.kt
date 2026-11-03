@@ -80,6 +80,7 @@ import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.themes.ThemeInUseException
 import app.epistola.suite.themes.ThemeNotFoundException
+import app.epistola.suite.validation.DuplicateIdException
 
 /**
  * Immutable mapping data for a single exception type.
@@ -802,6 +803,13 @@ object ApiExceptionMappings {
             defaultDetail = "The draft alone holds resources something outside it still uses",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
             logMessage = { "Discarding a draft refused: ${it.message}" },
+        )
+
+        // Creating a resource under a key that is taken (contract: 409 on every create).
+        builder.register<DuplicateIdException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "A resource with this key already exists",
+            logMessage = { "Create refused, key taken: ${it.message}" },
         )
 
         registry = builder.build()
