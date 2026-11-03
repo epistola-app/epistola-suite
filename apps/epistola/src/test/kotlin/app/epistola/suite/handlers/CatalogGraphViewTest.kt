@@ -32,6 +32,16 @@ class CatalogGraphViewTest {
     private fun Map<String, Int>.at(key: String) = getValue("n/$key")
 
     @Test
+    fun `a node's name and address sit inside its box, so a long one ellipsises rather than spilling over`() {
+        view().nodes.forEach { box ->
+            assertThat(box.textX).`as`(box.key).isGreaterThan(box.x)
+            assertThat(box.textY).`as`(box.key).isGreaterThan(box.y)
+            assertThat(box.textX + box.textWidth).`as`(box.key).isLessThan(box.x + box.width)
+            assertThat(box.textY + box.textHeight).`as`(box.key).isLessThan(box.y + box.height)
+        }
+    }
+
+    @Test
     fun `a catalog stands one column right of the furthest catalog it uses`() {
         val x = view().nodes.associate { it.key to it.x }
         assertThat(x.at("base")).isEqualTo(x.at("unrelated"))
