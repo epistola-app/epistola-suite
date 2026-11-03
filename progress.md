@@ -75,6 +75,44 @@ Decided and closed:
 
 ## Touched
 
+### Usability quick wins (3 November; branch `fix/usability-quick-wins`)
+
+A walk through the demo as a new author (create a template, edit, publish, deploy, make a document),
+plus every catalog page as admin, and the landing and nav as a one-tenant user. The fixes below are the small ones; each
+test failed on the unfixed code first.
+
+| What                                                                                                                                  | Where                                                                                             | Covered                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| The editor's bar said "Everything is published" after a saved change, until a reload                                                  | `editor-boot.js` (refresh after save, trailing 600 ms), `editor.html`                             | ✅ `EditorBarStatusUiTest` (failed before: stayed "Everything is published")                                              |
+| A read-only catalog's editor opened as editable; every autosave failed with a Retry that could not succeed                            | `DocumentTemplateHandler.editor` (`editorCanSave`), `editor-boot.js` (no `onSave`), `editor.html` | ✅ `TemplateEditorCanSaveHtmxTest`, `EditorBarStatusUiTest` (both failed before)                                          |
+| A supplied template could only be previewed: "View in editor"                                                                         | `templates/detail/variants.html`                                                                  | ✅ `TemplateEditorCanSaveHtmxTest` (failed before)                                                                        |
+| A new template landed on its variants page; it opens in the editor. Open editor is the primary action, not Mark ready                 | `DocumentTemplateHandler.create` (HX-Redirect), `variants.html`                                   | ✅ `TemplateHandlerHtmxTest`, `DocumentTemplateRoutesTest`, `VariantReadyHandlerHtmxTest` (failed before)                 |
+| The embed bridge reported a create only when its redirect named the resource's own page                                               | `embed-bridge.js`, `docs/embedding.md`                                                            | ✅ `EmbeddingBridgeUiTest` (failed with the line reverted); its stand-in host now keeps messages across a full navigation |
+| Getting started's "Create a template" opened the list, not the dialog                                                                 | `tenants/home.html`                                                                               | ✅ `TenantHomeOverviewTest` (failed before)                                                                               |
+| A one-tenant user landed on a tenants list with one row                                                                               | `TenantHandler.list`                                                                              | ✅ `TenantRoutesTest` (failed before), via a new `X-Test-Tenant-Memberships` test header                                  |
+| "unreleased", "Draft", "live", "released as" on screens that otherwise say "Not published yet", "In progress", following, "published" | `catalogs/list.html`, `catalogs/overview.html`, `EnvironmentHandler.historyText`                  | ✅ `EnvironmentOverridesPageTest` (failed before)                                                                         |
+| The variants filter offered all 65 locales                                                                                            | `filterToUsedDescriptors`                                                                         | ✅ `VariantAttributeFilterTest` (failed before)                                                                           |
+| The editor's bar named the variant by its key                                                                                         | `GetEditorContext.variantTitle`, `editor.html`                                                    | ✅ `GetEditorContextVariantTitleTest` (did not compile before), `TemplateEditorCanSaveHtmxTest`                           |
+| The quality report named templates by key                                                                                             | `QualityHandler.templateNames`, `quality/list.html`                                               | ✅ `QualityHandlerHtmxTest` (failed before)                                                                               |
+| An empty Text block said nothing; Text and Rich Text Block were told apart by nothing                                                 | `EpistolaTextEditor` (`data-empty`), `prosemirror.css`, `ComponentDefinition.paletteHint`         | ✅ `EpistolaTextEditor.test.ts`, `EpistolaPalette.test.ts` (failed before)                                                |
+
+Noticed, not done:
+
+- **Starting from an example.** A supplied template can be viewed in the editor now, but not copied
+  into a catalog of one's own; a new template starts blank. Needs a copy command (UI, REST, MCP).
+- **Mark ready has no consequence on screen.** An empty, never-marked template publishes without a
+  word, and publishing marks it ready anyway. Either the publish dialog lists what is unreviewed or
+  empty, or the button waits until review is a workflow. A product decision.
+- **Deploy controls** (a select, a replace checkbox, a separate Undeploy) are still hard to read;
+  #1271's cards helped. With nothing published, Deploy makes an environment follow the draft.
+- **The UI is English only**: no message bundles, about 480 literal strings in templates.
+- **A stencil instance's header shows the stencil's key.** Instances arrive expanded and carry only
+  the key; showing the name needs it on the node or a lookup, i.e. a contract question.
+- **The support badge** ("Support cannot be verified") shows to every author. Left alone: `SupportBadge`
+  says by design it is always shown and no setting hides it.
+- **The inspector shows a block's internal ID**, and Clean's tooltip says "Hide block chrome".
+- **`DocumentTemplateHandler.create`** sets `draftSegment` twice in its 422 page model.
+
 ### The integration-test job: tenant creation and coverage (2 November; branches `ci/test-job-coverage-scope` #1259, `perf/system-catalog-install-hashing`)
 
 The `Unit & Integration Tests` job took 15–23 min on `release/2.0` against 5–8 on `main`. CI test
