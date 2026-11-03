@@ -72,7 +72,9 @@ class EditorBarStatusUiTest : BasePlaywrightTest() {
 
         gotoAndReady("/tenants/$tenantKey/catalogs/epistola-demo/templates/hello-world/variants/default/editor")
         page.waitForSelector("epistola-editor")
-        assertThat(page.getByTestId("editor-read-only")).hasText("Supplied by Epistola · not saved")
+        assertThat(page.getByTestId("editor-read-only")).hasText("Supplied by Epistola · read-only")
+        assertThat(page.getByTestId("editor-read-only-banner")).isVisible()
+        assertThat(page.getByTestId("editor-read-only-banner")).containsText("Read-only.")
         // An editor that saves keeps a save state in its toolbar ("Saved" from the start); this one has none.
         assertThat(page.locator("epistola-toolbar").getByTitle("All changes saved")).hasCount(0)
         // Shown, not changed: nothing to add, text that does not take typing, no delete, settings disabled.

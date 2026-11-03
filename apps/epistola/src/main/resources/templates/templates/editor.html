@@ -90,12 +90,17 @@
         <div class="ws-bar-right editor-nav-right">
             <!--/* An editor that saves nothing says so, and why, before anything is changed. */-->
             <span th:if="${readOnlyNote != null}" class="ws-status-text" data-testid="editor-read-only"
-                  th:title="${readOnlyNote}" th:text="${scope.readOnlyLabel != null} ? ${scope.readOnlyLabel} + ' · not saved' : 'Not saved'">Supplied by Epistola · not saved</span>
+                  th:title="${readOnlyNote}" th:text="${scope.readOnlyLabel != null} ? ${scope.readOnlyLabel} + ' · read-only' : 'Read-only'">Supplied by Epistola · read-only</span>
             <!--/* Refreshed after each save (editor-boot.js), so a first change shows up as unpublished. */-->
             <div th:if="${scope.statusHref != null and editorCanSave}" class="ws-status" data-testid="ws-status"
                  th:hx-get="@{${scope.statusHref}}" hx-trigger="load, ws-status-refresh from:body" hx-swap="innerHTML"></div>
         </div>
     </nav>
+    <!--/* A read-only editor says so plainly, full width under the bar, before anyone tries to change something. */-->
+    <div th:if="${readOnlyNote != null}" class="alert alert-info" role="status" data-testid="editor-read-only-banner"
+         style="margin: 0; border-radius: 0; border-left: 0; border-right: 0; flex-shrink: 0;">
+        <span><strong>Read-only.</strong> <span th:text="${readOnlyNote}">You can see how this template is built, but not change it here.</span></span>
+    </div>
     <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
     <!-- data-leader-timing is a test-only seam (issue #418): present only when
          the ?leaderTiming= query param is supplied; omitted in production. -->

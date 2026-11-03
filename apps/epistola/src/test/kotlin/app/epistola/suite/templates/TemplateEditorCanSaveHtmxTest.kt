@@ -48,10 +48,13 @@ class TemplateEditorCanSaveHtmxTest : BaseIntegrationTest() {
         then {
             val (supplied, own) = result<List<String>>()
             assertThat(supplied).contains("\"canSave\": false")
-                .contains("data-testid=\"editor-read-only\"").contains("Supplied by Epistola · not saved")
-                .contains("Nothing you change here is saved.")
+                .contains("data-testid=\"editor-read-only\"").contains("Supplied by Epistola · read-only")
+                // Said plainly, under the bar, before anyone tries: a small label alone went unnoticed.
+                .contains("data-testid=\"editor-read-only-banner\"")
+                .contains("You can see how this template is built, but not change it here.")
                 .`as`("no publish status for a catalog that is not changed here").doesNotContain("data-testid=\"ws-status\"")
             assertThat(own).contains("\"canSave\": true").doesNotContain("data-testid=\"editor-read-only\"")
+                .doesNotContain("data-testid=\"editor-read-only-banner\"")
                 .contains("data-testid=\"ws-status\"")
             // The bar names the variant by its title, as the template page does; its key is for the API.
             assertThat(own.substringAfter("data-testid=\"editor-crumb-variant\"").substringBefore("</span>"))

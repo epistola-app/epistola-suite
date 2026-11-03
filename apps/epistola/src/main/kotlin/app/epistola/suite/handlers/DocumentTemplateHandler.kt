@@ -464,15 +464,19 @@ class DocumentTemplateHandler(
         // raced against a wall clock. Absent in production → attribute omitted.
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
-        // Whether this editor saves: the catalog can be changed here and the viewer may change
-        // templates. When it cannot, the editor still opens, to show how the template is built,
-        // but saves nothing and says why, instead of failing every autosave with a retry that
-        // cannot succeed.
+        // Whether this editor may change the template: the catalog can be changed here and the
+        // viewer may change templates. When not, the editor still opens, to show how the template
+        // is built, read-only (the page passes `canSave: false`, the editor refuses every change),
+        // and a banner says so and why before anyone tries.
         val editorCanSave = draftBar.editable && auth.has(Permission.TEMPLATE_EDIT)
         val readOnlyNote = when {
             editorCanSave -> null
-            !draftBar.editable -> "Nothing you change here is saved. " + (draftBar.readOnlyExplanation ?: "This catalog cannot be changed here.")
-            else -> "Nothing you change here is saved: changing templates needs the author role."
+
+            !draftBar.editable ->
+                "You can see how this template is built, but not change it here. " +
+                    (draftBar.readOnlyExplanation ?: "This catalog cannot be changed here.")
+
+            else -> "You can see how this template is built, but changing templates needs the author role."
         }
 
         return ServerResponse.ok().render(
