@@ -4,6 +4,7 @@
 
 package app.epistola.suite.api.v1
 
+import app.epistola.api.error.KnownValidationCodes
 import app.epistola.api.model.ValidationError
 import app.epistola.suite.api.v1.shared.UnsupportedSortDirectionException
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
@@ -413,8 +414,9 @@ object ApiExceptionMappings {
             logMessage = { "Asset too large: ${it.message}" },
         )
 
+        // The content's format is refused: 415, the generic type the contract registers for it.
         builder.register<UnsupportedAssetTypeException>(
-            problemType = ApiProblemTypes.BAD_REQUEST,
+            problemType = ApiProblemTypes.UNSUPPORTED_MEDIA_TYPE,
             defaultDetail = "Unsupported asset media type",
             extensions = { emptyMap() },
             logMessage = { "Unsupported asset type: ${it.message}" },
@@ -837,7 +839,7 @@ object ApiExceptionMappings {
 
     /** A query parameter's [value] the endpoint does not take: `errors[]` names [parameter], and the members list what it takes. */
     private fun parameterRejected(parameter: String, value: String, supportedValues: List<String>): Map<String, Any?> = mapOf(
-        "errors" to listOf(ValidationError(field = parameter, message = "must be one of ${supportedValues.joinToString(", ")}", rejectedValue = value)),
+        "errors" to listOf(ValidationError(field = parameter, message = "must be one of ${supportedValues.joinToString(", ")}", rejectedValue = value, code = KnownValidationCodes.ENUM)),
         "value" to value,
         "supportedValues" to supportedValues,
     )

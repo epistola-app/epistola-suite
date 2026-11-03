@@ -67,6 +67,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
 
         assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
         assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("name")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).containsExactly("min-length")
     }
 
     @Test
@@ -78,6 +79,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
 
         assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
         assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("version")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).containsExactly("required")
     }
 
     @Test
@@ -89,6 +91,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
             val response = call(HttpMethod.GET, path, key)
             assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
             assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).`as`(path).containsExactly("size")
+            assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).`as`(path).containsExactly("maximum")
         }
     }
 
@@ -105,6 +108,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
 
         assertProblem(response, HttpStatus.NOT_FOUND, "not-found")
         assertThat(JsonPath.read<String>(response.body!!, "$.templateId")).isEqualTo("absent")
+        assertThat(JsonPath.read<String>(response.body!!, "$.help")).isEqualTo("https://epistola.app/errors/not-found?operation=validateTemplateData")
     }
 
     @Test
@@ -163,6 +167,15 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
         val response = call(HttpMethod.POST, "/api/tenants/${tenantKey.value}/environments", key, body)
 
         assertProblem(response, HttpStatus.CONFLICT, "conflict")
+        assertThat(JsonPath.read<String>(response.body!!, "$.help")).isEqualTo("https://epistola.app/errors/conflict?operation=createEnvironment")
+    }
+
+    @Test
+    fun `a problem no operation answered carries no help link`() {
+        val response = restTemplate.exchange("/api/tenants/acme-unknown/environments", HttpMethod.GET, HttpEntity<String>(headers("epk_not_a_key")), String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        assertThat(response.body.orEmpty()).doesNotContain("\"help\"")
     }
 
     private fun assertProblem(response: ResponseEntity<String>, status: HttpStatus, slug: String) {

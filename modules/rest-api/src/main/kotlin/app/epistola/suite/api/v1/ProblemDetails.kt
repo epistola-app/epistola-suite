@@ -252,7 +252,10 @@ fun problemBody(
  */
 fun ValidationException.toUiValidationProblemBody(request: HttpServletRequest): Map<String, Any?> = toValidationProblemDetail(request, UiProblemTypes.validation(code)).toProblemMap()
 
-/** The API's problem for a [ValidationException]: `validation-error`, whatever its code. */
+/**
+ * The API's problem for a [ValidationException]: `validation-error`, whatever its code. The entry
+ * carries the code when the contract registers it ([ApiValidationCodes.of]), and none otherwise.
+ */
 fun ValidationException.toValidationProblemDetail(
     request: HttpServletRequest,
     type: ApiProblemType = ApiProblemTypes.VALIDATION_ERROR,
@@ -266,6 +269,7 @@ fun ValidationException.toValidationProblemDetail(
                 field = field,
                 message = message,
                 rejectedValue = null,
+                code = ApiValidationCodes.of(code),
             ),
         ),
     ),

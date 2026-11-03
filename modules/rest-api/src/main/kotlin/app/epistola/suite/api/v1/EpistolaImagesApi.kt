@@ -24,6 +24,7 @@ import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTypeCatalog
 import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.SvgContentPolicy
+import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAsset
@@ -115,10 +116,9 @@ class EpistolaImagesApi(
         // Images only, unlike the asset upload it succeeds. A font face binary means something
         // only as part of a family, and families are managed through the UI and catalog exchange.
         if (resolvedMediaType.category != AssetMediaCategory.IMAGE) {
-            throw ValidationException(
-                field = "mediaType",
-                message = "'${resolvedMediaType.mimeType}' is not an image. Font binaries are managed through the fonts API.",
-                code = ValidationCode.IMAGE_MEDIA_TYPE_UNSUPPORTED,
+            throw UnsupportedAssetTypeException(
+                resolvedMediaType.mimeType,
+                reason = "'${resolvedMediaType.mimeType}' is not an image. Font binaries are managed through the fonts API.",
             )
         }
         val dimensions = if (resolvedMediaType.mimeType != "image/svg+xml") imageDimensions(content) else null

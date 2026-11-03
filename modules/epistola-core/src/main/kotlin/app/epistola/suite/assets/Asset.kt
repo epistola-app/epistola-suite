@@ -102,10 +102,13 @@ class AssetNotFoundException(tenantId: TenantKey, assetId: AssetKey) : RuntimeEx
 
 class AssetTooLargeException(sizeBytes: Long) : RuntimeException("Asset size $sizeBytes bytes exceeds maximum of $MAX_ASSET_SIZE_BYTES bytes (5MB)")
 
-class UnsupportedAssetTypeException(mimeType: String, supported: Collection<String> = emptyList()) :
+/** An upload whose media type is not one that is accepted there; [reason] says why, when known. */
+class UnsupportedAssetTypeException(mimeType: String, supported: Collection<String> = emptyList(), reason: String? = null) :
     RuntimeException(
-        "Unsupported asset media type: $mimeType" +
-            if (supported.isEmpty()) "" else ". Supported: ${supported.sorted()}",
+        reason ?: (
+            "Unsupported asset media type: $mimeType" +
+                if (supported.isEmpty()) "" else ". Supported: ${supported.sorted()}"
+            ),
     )
 
 /**

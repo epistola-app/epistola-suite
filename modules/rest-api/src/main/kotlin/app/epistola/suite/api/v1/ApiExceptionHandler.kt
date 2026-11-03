@@ -4,6 +4,7 @@
 
 package app.epistola.suite.api.v1
 
+import app.epistola.api.error.KnownValidationCodes
 import app.epistola.api.model.ValidationError
 import app.epistola.suite.api.security.sanitizeForLog
 import app.epistola.suite.api.v1.shared.UnsupportedSortDirectionException
@@ -109,6 +110,7 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.web.firewall.RequestRejectedException
+import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -181,6 +183,15 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     }
 
     /**
+     * The constraint code of a field a bound body failed: from the Bean Validation violation behind
+     * the field error, else from the constraint's name Spring records as the error's code.
+     */
+    private fun constraintCode(error: FieldError): String? = runCatching { error.unwrap(ConstraintViolation::class.java) }
+        .getOrNull()
+        ?.let { ApiValidationCodes.of(it) }
+        ?: ApiValidationCodes.ofConstraint(error.code, error.rejectedValue)
+
+    /**
      * The JSON property a binding failure is anchored to, or null when the body failed as a
      * whole (malformed JSON, wrong root type) and no single field is to blame.
      */
@@ -202,6 +213,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
                 field = it.field,
                 message = it.defaultMessage ?: "Invalid value",
                 rejectedValue = it.rejectedValue?.toString(),
+                code = constraintCode(it),
             )
         }
         val globalErrors = ex.bindingResult.globalErrors.map {
@@ -236,7 +248,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             headers,
             ApiProblemTypes.VALIDATION_ERROR,
             "Required parameter '${ex.parameterName}' is missing",
-            mapOf("errors" to listOf(ValidationError(field = ex.parameterName, message = "is required", rejectedValue = null))),
+            mapOf("errors" to listOf(ValidationError(field = ex.parameterName, message = "is required", rejectedValue = null, code = KnownValidationCodes.REQUIRED))),
         )
     }
 
@@ -262,6 +274,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
                         field = typeMismatch.name,
                         message = expected?.let { "must be a value of type $it" } ?: "has the wrong type",
                         rejectedValue = typeMismatch.value?.toString(),
+                        code = KnownValidationCodes.TYPE,
                     ),
                 ),
                 "parameterName" to typeMismatch.name,
@@ -489,7 +502,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleConstraintViolation(ex: ConstraintViolationException, request: WebRequest): ResponseEntity<Any> {
         log.warn("Parameter validation failed: {}", ex.message)
         val errors = ex.constraintViolations.sortedBy { it.propertyPath.toString() }.map {
-            ValidationError(field = parameterName(it), message = it.message ?: "Invalid value", rejectedValue = it.invalidValue?.toString())
+            ValidationError(field = parameterName(it), message = it.message ?: "Invalid value", rejectedValue = it.invalidValue?.toString(), code = ApiValidationCodes.of(it))
         }
         return problemEntity(
             request,
