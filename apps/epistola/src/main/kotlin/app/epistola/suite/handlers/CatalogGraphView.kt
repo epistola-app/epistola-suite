@@ -31,7 +31,17 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
     ) {
         val width: Int get() = BOX_WIDTH
         val height: Int get() = BOX_HEIGHT
-        val labelX: Int get() = x + 12
+
+        /** Where the name and address sit: the box less its padding, so long text ellipsises inside it. */
+        val textX: Int get() = x + TEXT_PADDING_X
+        val textY: Int get() = y + TEXT_PADDING_Y
+        val textWidth: Int get() = width - 2 * TEXT_PADDING_X
+        val textHeight: Int get() = height - 2 * TEXT_PADDING_Y
+
+        private companion object {
+            const val TEXT_PADDING_X = 12
+            const val TEXT_PADDING_Y = 4
+        }
     }
 
     /** One dependency: a curve from the dependent's left edge to the dependency's right edge. */

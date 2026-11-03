@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.deploymentCard
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
@@ -126,6 +127,10 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         fun box(key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("catalog-box\"")
         assertThat(box("production")).`as`("not \"Production Production\"").doesNotContain("catalog-environment-production")
         assertThat(box("live")).contains("catalog-environment-production")
+
+        val deployments = get(tenant, "/catalogs/${tenant.id}/letters/deployments").body!!
+        assertThat(deploymentCard(deployments, "production")).`as`("the Deployments card, likewise").doesNotContain("catalog-environment-production")
+        assertThat(deploymentCard(deployments, "live")).`as`("the Deployments card").contains("catalog-environment-production")
     }
 
     @Test

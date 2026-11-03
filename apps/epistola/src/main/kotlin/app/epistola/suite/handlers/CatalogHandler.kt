@@ -186,6 +186,13 @@ class CatalogHandler {
     ) {
         val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
 
+        /**
+         * Whether the row carries a "Production" mark: a production environment whose name does not say
+         * so already, so a reader never sees "Production Production". The overview and the Deployments
+         * cards both gate on this one name.
+         */
+        val showsProductionMark: Boolean get() = production && !environmentName.equals("Production", ignoreCase = true)
+
         /** The version an application gets there unless it asks for another: the highest it serves. */
         val inUse: String? get() = served.firstOrNull()?.version
 

@@ -70,6 +70,7 @@ const ICONS = [
   'monitor',
   'palette',
   'pencil',
+  'pencil-off',
   'play',
   'plus',
   'puzzle',

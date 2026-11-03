@@ -198,85 +198,95 @@
                     <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
                         Deploying a release needs the permission to deploy.
                     </p>
-                    <div class="ep-table-scroll" role="region" aria-label="Deployments table" tabindex="0">
-                    <table class="ep-table">
-                        <thead>
-                            <tr>
-                                <th>Environment</th>
-                                <th>Deployed release</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="row : ${deployments}" th:attr="data-environment=${row.environmentKey}">
-                                <td>
-                                    <a th:href="@{/tenants/{tenantId}/environments/{environmentId}(tenantId=${tenantId},environmentId=${row.environmentKey})}"
-                                       th:text="${row.environmentName}">Production</a>
-                                </td>
-                                <td>
-                                    <div th:each="served : ${row.served}" th:attr="data-version=${served.version}"
-                                         style="display: flex; gap: var(--ep-space-2); align-items: center;">
-                                        <span th:text="'v' + ${served.version}">v1.0.0</span>
-                                        <span class="text-muted" style="font-size: var(--ep-text-xs);">since
-                                            <span th:text="${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${served.deployedAt}"></span>
-                                            · <span th:text="${served.usage}"></span></span>
-                                        <form th:if="${canDeploy}"
-                                              method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},environmentId=${row.environmentKey})}">
-                                            <input type="hidden" name="version" th:value="${served.version}">
-                                            <button type="button"
-                                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
-                                                    data-confirm-submit
-                                                    data-confirm-submit-title="Undeploy this version"
-                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed release of it, or fail when there is none.'"
-                                                    data-confirm-submit-label="Undeploy"
-                                                    data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
-                                        </form>
-                                    </div>
-                                    <!--/* Following a draft (or pinned to a version): what the environment really uses. */-->
-                                    <div th:if="${row.uses != null}" data-testid="catalog-deployment-follows"
-                                         style="display: flex; gap: var(--ep-space-2); align-items: center;">
-                                        <span class="badge badge-warning" th:text="'Uses ' + ${row.uses}">Uses Redesign</span>
-                                        <span class="text-muted" style="font-size: var(--ep-text-xs);">instead of what is deployed, as it is edited</span>
-                                        <form th:if="${canDeploy}" method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/unfollow(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},environmentId=${row.environmentKey})}">
-                                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-deployment-unfollow">Stop following</button>
-                                        </form>
-                                    </div>
-                                    <span th:if="${row.served.isEmpty() and row.implicit.isEmpty() and row.uses == null}" class="text-muted">not deployed</span>
-                                    <!--/* Used there without being deployed: a deployed catalog depends on it. */-->
-                                    <div th:each="used : ${row.implicit}" class="text-muted text-sm" data-testid="catalog-deployment-implicit"
-                                         th:text="'v' + ${used.version} + ', comes along with ' + ${#strings.listJoin(used.neededBy, ', ')}">v1.0.0, comes along with Letters</div>
-                                </td>
-                                <td class="actions">
-                                    <form th:if="${canDeploy and (!deployableVersions.isEmpty() or (!row.production and !followableDrafts.isEmpty()))}"
-                                          method="post" style="display: inline-flex; gap: var(--ep-space-2);"
-                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address})}">
-                                        <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
-                                        <select name="version" class="ep-select ep-select-sm" required data-testid="catalog-deploy-version"
-                                                th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
-                                            <optgroup th:if="${!deployableVersions.isEmpty()}" label="Published releases">
-                                                <option th:each="version : ${deployableVersions}"
-                                                        th:value="${version}"
-                                                        th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
-                                            </optgroup>
-                                            <!--/* Not for production: a draft changes as it is edited. */-->
-                                            <optgroup th:if="${!row.production and !followableDrafts.isEmpty()}" label="Follow a draft">
-                                                <option th:each="draft : ${followableDrafts}"
-                                                        th:value="'draft:' + ${draft.versionId}"
-                                                        th:text="${draft.label} + ' (follows its changes)'">Next release (follows its changes)</option>
-                                            </optgroup>
-                                        </select>
-                                        <label th:unless="${row.served.isEmpty()}" class="text-sm" style="display: flex; gap: var(--ep-space-1); align-items: center;">
-                                            <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace">
-                                            <span>instead of the others</span>
-                                        </label>
-                                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
+                    <div class="ep-auto-grid catalog-boxes catalog-deployment-grid" data-testid="catalog-deployment-cards">
+                        <div th:each="row : ${deployments}" class="ep-panel catalog-box catalog-environment-card"
+                             th:attr="data-environment=${row.environmentKey}">
+                            <div class="catalog-box-title">
+                                <a th:href="@{/tenants/{tenantId}/environments/{environmentId}(tenantId=${tenantId},environmentId=${row.environmentKey})}"
+                                   th:text="${row.environmentName}">Production</a>
+                                <span th:if="${row.showsProductionMark}" class="badge badge-muted"
+                                      data-testid="catalog-environment-production">Production</span>
+                            </div>
+
+                            <!--/* What it serves: each release on its own line, with its own Undeploy. */-->
+                            <div th:each="served : ${row.served}" class="catalog-deployment-release"
+                                 th:attr="data-version=${served.version}">
+                                <div class="catalog-deployment-release-head">
+                                    <span class="catalog-box-value" th:text="'v' + ${served.version}">v1.0.0</span>
+                                    <form th:if="${canDeploy}" method="post"
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},environmentId=${row.environmentKey})}">
+                                        <input type="hidden" name="version" th:value="${served.version}">
+                                        <button type="button"
+                                                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
+                                                data-confirm-submit
+                                                data-confirm-submit-title="Undeploy this version"
+                                                th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed release of it, or fail when there is none.'"
+                                                data-confirm-submit-label="Undeploy"
+                                                data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                     </form>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                                <div class="catalog-deployment-caption">since
+                                    <span th:text="${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}"
+                                          th:data-local-time="${served.deployedAt}"></span>
+                                    · <span th:text="${served.usage}"></span></div>
+                            </div>
+
+                            <!--/* Following a draft (or pinned to a version): what the environment really uses. */-->
+                            <div th:if="${row.uses != null}" class="catalog-deployment-follows"
+                                 data-testid="catalog-deployment-follows">
+                                <div class="catalog-deployment-release-head">
+                                    <span class="badge badge-warning" th:text="'Uses ' + ${row.uses}">Uses Redesign</span>
+                                    <form th:if="${canDeploy}" method="post"
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/unfollow(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},environmentId=${row.environmentKey})}">
+                                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm"
+                                                data-testid="catalog-deployment-unfollow">Stop following</button>
+                                    </form>
+                                </div>
+                                <div class="catalog-deployment-caption">instead of what is deployed, as it is edited</div>
+                            </div>
+
+                            <div th:if="${row.served.isEmpty() and row.implicit.isEmpty() and row.uses == null}"
+                                 class="catalog-deployment-empty">
+                                <span class="text-muted">not deployed</span>
+                            </div>
+
+                            <!--/* Used there without being deployed: a deployed catalog depends on it. */-->
+                            <div th:each="used : ${row.implicit}" class="catalog-deployment-caption"
+                                 data-testid="catalog-deployment-implicit"
+                                 th:text="'v' + ${used.version} + ', comes along with ' + ${#strings.listJoin(used.neededBy, ', ')}">v1.0.0, comes along with Letters</div>
+
+                            <form th:if="${canDeploy and (!deployableVersions.isEmpty() or (!row.production and !followableDrafts.isEmpty()))}"
+                                  method="post" class="catalog-box-actions catalog-deploy-form"
+                                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address})}">
+                                <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
+                                <div class="catalog-deploy-title">Deploy a release</div>
+                                <select name="version" class="ep-select ep-select-sm" required
+                                        data-testid="catalog-deploy-version"
+                                        th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
+                                    <optgroup th:if="${!deployableVersions.isEmpty()}" label="Published releases">
+                                        <option th:each="version : ${deployableVersions}"
+                                                th:value="${version}"
+                                                th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
+                                    </optgroup>
+                                    <!--/* Not for production: a draft changes as it is edited. */-->
+                                    <optgroup th:if="${!row.production and !followableDrafts.isEmpty()}" label="Follow a draft">
+                                        <option th:each="draft : ${followableDrafts}"
+                                                th:value="'draft:' + ${draft.versionId}"
+                                                th:text="${draft.label} + ' (follows its changes)'">Next release (follows its changes)</option>
+                                    </optgroup>
+                                </select>
+                                <th:block th:unless="${row.served.isEmpty()}">
+                                    <label class="text-sm catalog-deploy-replace">
+                                        <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace"
+                                               th:attr="aria-describedby='catalog-deploy-replace-hint-' + ${row.environmentKey}">
+                                        <span>instead of the others</span>
+                                    </label>
+                                    <div class="catalog-deployment-caption" data-testid="catalog-deploy-replace-hint"
+                                         th:id="'catalog-deploy-replace-hint-' + ${row.environmentKey}">Normally a release is deployed next to the ones already here, so applications asking for an older version keep working. Tick this to serve only this release: anything still asking for an older version stops getting documents.</div>
+                                </th:block>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm catalog-deploy-submit">Deploy</button>
+                            </form>
+                        </div>
                     </div>
                 </th:block>
             </div>

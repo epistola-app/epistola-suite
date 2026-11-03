@@ -45,14 +45,24 @@
                 <a th:if="${box.href != null}" th:attr="href=${box.href}" data-testid="catalog-graph-node" th:data-catalog="${box.key}">
                     <rect th:attr="x=${box.x},y=${box.y},width=${box.width},height=${box.height}" rx="8"
                           th:style="'fill: ' + (${box.focus} ? 'var(--ep-accent)' : 'var(--ep-card)') + '; stroke: ' + (${box.focus} ? 'var(--ep-primary)' : 'var(--ep-border-color)') + '; stroke-width: ' + (${box.focus} ? '2' : '1') + ';'"/>
-                    <text th:attr="x=${box.labelX},y=${box.y + 22}" style="font-size: 14px; font-weight: 600; fill: var(--ep-card-foreground);" th:text="${box.label}">Letters</text>
-                    <text th:attr="x=${box.labelX},y=${box.y + 40}" style="font-size: 12px; fill: var(--ep-muted-foreground);" th:text="${box.detail}">letters</text>
+                    <!--/* HTML in the box, so a long catalog name or address ellipsises inside it
+                           instead of spilling over the edge; the full text stays in the tooltip. */-->
+                    <foreignObject th:attr="x=${box.textX},y=${box.textY},width=${box.textWidth},height=${box.textHeight}">
+                        <div xmlns="http://www.w3.org/1999/xhtml" class="catalog-graph-box">
+                            <div class="catalog-graph-box-name" th:title="${box.label}" th:text="${box.label}">Letters</div>
+                            <div class="catalog-graph-box-detail" th:title="${box.detail}" th:text="${box.detail}">letters</div>
+                        </div>
+                    </foreignObject>
                 </a>
                 <g th:if="${box.href == null}" data-testid="catalog-graph-node" th:data-catalog="${box.key}">
                     <rect th:attr="x=${box.x},y=${box.y},width=${box.width},height=${box.height}" rx="8"
                           style="fill: none; stroke: var(--ep-border-color); stroke-dasharray: 5 4;"/>
-                    <text th:attr="x=${box.labelX},y=${box.y + 22}" style="font-size: 14px; font-weight: 600; fill: var(--ep-muted-foreground);" th:text="${box.label}">shared</text>
-                    <text th:attr="x=${box.labelX},y=${box.y + 40}" style="font-size: 11px; fill: var(--ep-muted-foreground);" th:text="${box.detail}">Not in this tenant</text>
+                    <foreignObject th:attr="x=${box.textX},y=${box.textY},width=${box.textWidth},height=${box.textHeight}">
+                        <div xmlns="http://www.w3.org/1999/xhtml" class="catalog-graph-box catalog-graph-box-missing">
+                            <div class="catalog-graph-box-name" th:title="${box.label}" th:text="${box.label}">shared</div>
+                            <div class="catalog-graph-box-detail" th:title="${box.detail}" th:text="${box.detail}">Not in this tenant</div>
+                        </div>
+                    </foreignObject>
                 </g>
             </th:block>
         </svg>

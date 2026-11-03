@@ -122,7 +122,7 @@
                      th:attr="data-environment=${row.environmentKey}">
                     <div class="catalog-box-title">
                         <a th:href="@{/tenants/{t}/environments/{e}(t=${tenantId},e=${row.environmentKey})}" th:text="${row.environmentName}">Production</a>
-                        <span th:if="${row.production and !#strings.equalsIgnoreCase(row.environmentName, 'Production')}" class="badge badge-muted" data-testid="catalog-environment-production">Production</span>
+                        <span th:if="${row.showsProductionMark}" class="badge badge-muted" data-testid="catalog-environment-production">Production</span>
                     </div>
                     <th:block th:if="${row.uses != null}">
                         <div class="catalog-box-value" th:text="${row.uses}">Redesign</div>

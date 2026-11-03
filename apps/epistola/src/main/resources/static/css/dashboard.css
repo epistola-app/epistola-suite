@@ -173,3 +173,135 @@ a.stat-card:hover {
 .catalog-box-actions:empty {
   display: none;
 }
+
+/* ── Catalog dependency drawing (catalogs/graph.html) ─────────────────── */
+
+/* A node's text is HTML inside the SVG (a foreignObject), so a long catalog name or address
+   truncates with an ellipsis within the box instead of spilling over its edge; the full text
+   stays in the tooltip. Sizes are in pixels, like the SVG box around it: rem text grows with the
+   browser's font setting and would be cut off in a box that does not. */
+.catalog-graph-box {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+  line-height: 1.35;
+}
+
+.catalog-graph-box-name {
+  overflow: hidden;
+  color: var(--ep-card-foreground);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-graph-box-detail {
+  overflow: hidden;
+  color: var(--ep-muted-foreground);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A catalog that is not in this tenant is drawn muted, over its dashed box. */
+.catalog-graph-box-missing .catalog-graph-box-name {
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Catalog deployments: one card per environment ───────────────────── */
+
+/* Tile width for .ep-auto-grid; the cards stack to one column on phones. */
+.catalog-deployment-grid {
+  --ep-grid-min: 20rem;
+}
+
+.catalog-environment-card {
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-6);
+}
+
+.catalog-environment-card .catalog-box-title {
+  font-size: var(--ep-text-base);
+}
+
+.catalog-environment-card .catalog-box-value {
+  font-size: var(--ep-text-lg);
+}
+
+/* Each release the environment serves: version and Undeploy, its "since … · usage" caption. */
+.catalog-deployment-release,
+.catalog-deployment-follows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+}
+
+.catalog-deployment-release {
+  gap: var(--ep-space-2);
+}
+
+/* A divider between releases, never after the last: a follows or "comes along" line may come next. */
+.catalog-deployment-release + .catalog-deployment-release {
+  padding-top: var(--ep-space-3);
+  border-top: 1px solid var(--ep-border-color);
+}
+
+.catalog-deployment-release-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-2);
+}
+
+.catalog-deployment-caption {
+  font-size: var(--ep-text-xs);
+  line-height: 1.5;
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-deployment-empty {
+  display: flex;
+  align-items: baseline;
+}
+
+/* The deploy form sits at the card's foot: release, the replace option and its hint, the action. */
+.catalog-deploy-form {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ep-space-3);
+  border-top: 1px solid var(--ep-border-color);
+  padding-top: var(--ep-space-4);
+}
+
+.catalog-deploy-form .ep-select {
+  width: 100%;
+}
+
+.catalog-deploy-form .ep-btn {
+  justify-content: center;
+}
+
+.catalog-deploy-title {
+  font-size: var(--ep-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ep-muted-foreground);
+}
+
+/* Only as wide as its text: the form stretches its children, and a label spanning the card would tick
+   "instead of the others" on a click anywhere along that row. */
+.catalog-deploy-replace {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--ep-space-1);
+}
+
+.catalog-deploy-submit {
+  align-self: flex-end;
+}

@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.deploymentCard
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.GetEnvironment
@@ -147,17 +148,16 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         val tenant = setup("deploy-follow")
         val work: String = withMediator { CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId }
         val deployments = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/deployments"
-        fun envRow(page: String, key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("</tr>")
 
         val before = get(deployments).body!!
-        assertThat(envRow(before, "test")).contains("value=\"draft:$work\"").contains("Redesign (follows its changes)")
-        assertThat(envRow(before, "production")).`as`("production uses only published versions").doesNotContain("draft:")
+        assertThat(deploymentCard(before, "test")).contains("value=\"draft:$work\"").contains("Redesign (follows its changes)")
+        assertThat(deploymentCard(before, "production")).`as`("production uses only published versions").doesNotContain("draft:")
 
         post(deployments, "environmentId" to "test", "version" to "draft:$work")
-        assertThat(envRow(get(deployments).body!!, "test")).contains("data-testid=\"catalog-deployment-follows\"").contains("Uses Redesign")
+        assertThat(deploymentCard(get(deployments).body!!, "test")).contains("data-testid=\"catalog-deployment-follows\"").contains("Uses Redesign")
 
         post("$deployments/test/unfollow")
-        assertThat(envRow(get(deployments).body!!, "test")).doesNotContain("catalog-deployment-follows")
+        assertThat(deploymentCard(get(deployments).body!!, "test")).doesNotContain("catalog-deployment-follows")
     }
 
     @Test

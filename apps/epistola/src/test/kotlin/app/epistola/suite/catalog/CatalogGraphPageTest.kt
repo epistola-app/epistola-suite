@@ -63,6 +63,8 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
         listOf("shared", "letters", "unrelated").forEach { assertThat(graph).contains("data-catalog=\"${tenant.id.value}/$it\"") }
         assertThat(graph).contains("data-testid=\"catalog-graph-edge\"").contains(">v1.0.0<")
         assertThat(graph).`as`("each catalog opens its own Dependencies page").contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/dependencies\"")
+        // That the text then stays inside its box is a browser's call: CatalogPagesLayoutUiTest.
+        assertThat(graph).`as`("a node's name and address are HTML in its box").contains("catalog-graph-box-name")
 
         assertThat(page("/tenants/${tenant.id.value}/catalogs")).contains("href=\"/tenants/${tenant.id.value}/catalogs/graph\"")
     }
