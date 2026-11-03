@@ -159,16 +159,15 @@ class TenantHandler(
                 required()
                 maxLength(100)
             }
-            // The namespace its catalogs are named in, granted when it is created (ADR 0034, section 3):
-            // chosen here, never derived from the tenant's key.
+            // Optional: the namespace its catalogs are named in, granted when it is created (ADR 0034,
+            // section 3), with the domain that grants it. It matters only once catalogs leave this
+            // installation; without one they are named under `local`, and one can be granted later.
             field("namespace") {
-                required()
                 pattern(CatalogNamespaces.PATTERN)
                 minLength(CatalogNamespaces.MIN_LENGTH)
                 maxLength(CatalogNamespaces.MAX_LENGTH)
             }
             field("authority") {
-                required()
                 maxLength(CatalogNamespaces.REGISTRY_MAX_LENGTH)
             }
         }
@@ -194,9 +193,19 @@ class TenantHandler(
         if (tenantId == null) return refused(FormData(form.formData, mapOf("slug" to "Invalid tenant ID format")))
 
         val name = form["name"]
+        val namespace = form["namespace"].trim()
+        val authority = form["authority"].trim()
+        // A namespace is granted under a domain, and a domain grants a namespace: one without the other is half an answer.
+        if (namespace.isNotEmpty() && authority.isEmpty()) {
+            return refused(FormData(form.formData, mapOf("authority" to "Name the domain that grants this namespace, such as your organisation's.")))
+        }
+        if (namespace.isEmpty() && authority.isNotEmpty()) {
+            return refused(FormData(form.formData, mapOf("namespace" to "Name the namespace this domain grants, or leave both empty.")))
+        }
 
         val result = form.executeOrFormError {
-            CreateTenant(id = tenantId, name = name, namespaces = listOf(NamespaceName(form["authority"].trim(), form["namespace"].trim()))).execute()
+            val namespaces = if (namespace.isEmpty()) emptyList() else listOf(NamespaceName(authority, namespace))
+            CreateTenant(id = tenantId, name = name, namespaces = namespaces).execute()
         }
 
         if (result.hasErrors()) return refused(result)

@@ -46,6 +46,8 @@ export class EpistolaCanvas extends LitElement {
   private _unsubComponentState?: () => void;
   private _subscribedEngine?: EditorEngine;
   private _textPointerDown: { nodeId: NodeId; x: number; y: number } | null = null;
+  /** The block whose own header the pointer went down on: selected on click, its text not focused. */
+  private _headerPointerDown: NodeId | null = null;
 
   private get _spacingUnit(): number {
     return this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
@@ -58,6 +60,12 @@ export class EpistolaCanvas extends LitElement {
     if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
+    // The header is the block's handle (select, delete, drag): it does not start typing.
+    if (this._headerPointerDown === nodeId) {
+      this._headerPointerDown = null;
+      this._textPointerDown = null;
+      return;
+    }
     const mouseEvent = e as MouseEvent;
     const pointerDown = this._textPointerDown;
     const wasTextDrag =
@@ -70,6 +78,14 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleTextPointerDown(e: MouseEvent, nodeId: NodeId): void {
     this._textPointerDown = null;
+    // Pressed on this block's own header (not a nested block's)? Then focus and click select it
+    // without focusing its text. Set before focus, which follows mousedown.
+    const header = (e.target as Element | null)?.closest?.('.canvas-block-header');
+    if (header && header.closest('.canvas-block')?.getAttribute('data-node-id') === nodeId) {
+      this._headerPointerDown = nodeId;
+    } else if (this._headerPointerDown === nodeId) {
+      this._headerPointerDown = null;
+    }
     if (e.button !== 0 || this._isInLockedSlot(nodeId)) return;
     if (this.doc?.nodes[nodeId]?.type !== 'text') return;
     this._textPointerDown = { nodeId, x: e.clientX, y: e.clientY };
@@ -94,6 +110,8 @@ export class EpistolaCanvas extends LitElement {
   private _handleFocus(nodeId: NodeId) {
     if (this._isInLockedSlot(nodeId)) return;
     this.engine?.selectNode(nodeId);
+    // Focused by a press on its header: selected, but its text is not where typing starts.
+    if (this._headerPointerDown === nodeId) return;
     this._maybeFocusTextEditor(nodeId);
   }
 
