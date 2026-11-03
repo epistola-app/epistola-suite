@@ -64,11 +64,14 @@ class ExchangeCatalogReleaseSource(
     }
 }
 
-/** Exchange's failures, as the contract names them: unreachable 503, a bad answer 502. */
+/**
+ * Exchange's failures, as the contract names them: unreachable 503, a bad answer 502, and a
+ * refusal as the release-registry refusal it means ([exchangeRefusal]).
+ */
 internal fun <T> translate(block: () -> T): T = try {
     block()
 } catch (e: ValidationException) {
-    throw e
+    throw exchangeRefusal(e)
 } catch (e: ResourceAccessException) {
     throw CatalogSourceUnavailableException("Epistola Exchange could not be reached: ${e.message}", cause = e)
 } catch (e: RestClientResponseException) {
