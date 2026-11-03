@@ -129,9 +129,9 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id)))
         val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            CreateVariant(id = VariantId(VariantKey.of("english"), templateId), title = "English", description = null).execute()
-            CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(id = VariantId(VariantKey.of("english"), templateId), title = "English", description = null, catalogVersion = null).execute()
+            CreateAttributeDefinition(id = attributeId, displayName = "Brand", catalogVersion = null).execute()
         }
         // The catalog's canonical address: a short one redirects to it first.
         val catalog = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/default"
