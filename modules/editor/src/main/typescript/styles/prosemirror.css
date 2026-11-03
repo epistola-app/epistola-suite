@@ -33,7 +33,8 @@
   /* An empty Text block: what it takes, until something is typed (EpistolaTextEditor). */
   .prosemirror-container .ProseMirror[data-empty='true']::before {
     content: attr(data-placeholder);
-    color: var(--ep-muted-foreground);
+    /* Lighter than the muted text inputs use: on the canvas a hint must not pass for content. */
+    color: var(--ep-stone-500);
     pointer-events: none;
     position: absolute;
   }

@@ -53,11 +53,11 @@ class TenantHandler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
-        // Someone who belongs to one tenant and manages none has nothing to choose here: a list
+        // Someone who can reach one tenant and manages none has nothing to choose here: a list
         // with one row to click through was all they had on signing in. Take them straight in.
+        // Global roles do not count as managing: they reach every tenant, which may be just one.
         val principal = SecurityContext.current()
-        val managesTenants = principal.globalRoles.isNotEmpty() ||
-            principal.hasPlatformRole(PlatformRole.TENANT_MANAGER) ||
+        val managesTenants = principal.hasPlatformRole(PlatformRole.TENANT_MANAGER) ||
             principal.hasPlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
         if (!managesTenants) {
             ListTenants().query().singleOrNull()?.let { return ServerResponse.seeOther(URI.create("/tenants/${it.id.value}")).build() }
