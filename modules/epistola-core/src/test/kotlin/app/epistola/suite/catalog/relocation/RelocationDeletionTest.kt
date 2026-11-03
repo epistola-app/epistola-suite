@@ -29,7 +29,7 @@ class RelocationDeletionTest : RelocationTestSupport() {
         move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
         publishTemplate(tenant, letters, singleNodeModel(Node(id = "title", type = "text", styles = fontStyle("acme", shared.value))))
 
-        assertThatThrownBy { withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared))).execute() } }
+        assertThatThrownBy { withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared)), catalogVersion = null).execute() } }
             .isInstanceOf(FontInUseException::class.java)
     }
 
@@ -39,6 +39,6 @@ class RelocationDeletionTest : RelocationTestSupport() {
         importFont(tenant, letters, "acme")
         move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
-        assertThat(withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared))).execute() }).isTrue()
+        assertThat(withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared)), catalogVersion = null).execute() }).isTrue()
     }
 }

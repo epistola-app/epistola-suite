@@ -53,15 +53,17 @@ class TemplateSettingsThemeRenderHtmxTest : BaseIntegrationTest() {
                 CreateTheme(
                     id = ThemeId(ThemeKey.of("brand-theme"), CatalogId.default(tenantId)),
                     name = "Brand Theme",
+                    catalogVersion = null,
                 ).execute()
 
                 val tplKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(tplKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+                CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = ThemeKey.of("brand-theme"),
                     themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
+                    catalogVersion = null,
                 ).execute()
 
                 tenant.id.value to tplKey.value

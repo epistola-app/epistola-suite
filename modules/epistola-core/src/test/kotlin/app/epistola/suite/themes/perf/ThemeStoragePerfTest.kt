@@ -73,10 +73,10 @@ class ThemeStoragePerfTest : IntegrationTestBase() {
         var flip = 0
         var draft = 0
         fun phase(name: String) = listOf(
-            measure("$name,list a catalog's themes") { ListThemes(TenantId(tenant), catalog = catalog).query() },
-            measure("$name,list a tenant's themes") { ListThemes(TenantId(tenant)).query() },
-            measure("$name,read one theme") { GetTheme(one).query() },
-            measure("$name,save a theme") { UpdateTheme(one, name = "Theme ${flip++}").execute() },
+            measure("$name,list a catalog's themes") { ListThemes(TenantId(tenant), catalog = catalog, catalogVersion = null).query() },
+            measure("$name,list a tenant's themes") { ListThemes(TenantId(tenant), catalogVersion = null).query() },
+            measure("$name,read one theme") { GetTheme(one, catalogVersion = null).query() },
+            measure("$name,save a theme") { UpdateTheme(one, name = "Theme ${flip++}", catalogVersion = null).execute() },
             measure("$name,start a draft", runs = 40, warmup = 5) {
                 // Each on a catalog of its own, so no catalog collects drafts as the runs go on.
                 val on = testCatalog(tenant, CatalogKey.of("cat-${draft++ % CATALOGS}"))
@@ -105,7 +105,7 @@ class ThemeStoragePerfTest : IntegrationTestBase() {
 
     private fun seed(index: Int): TenantKey = withMediator {
         val tenant = createTenant("Theme perf $index").id
-        val styles: List<Theme> = ListThemes(TenantId(tenant), catalog = systemCatalog(tenant)).query()
+        val styles: List<Theme> = ListThemes(TenantId(tenant), catalog = systemCatalog(tenant), catalogVersion = null).query()
         for (c in 0 until CATALOGS) {
             val key = CatalogKey.of("cat-$c")
             CreateCatalog(tenantKey = tenant, id = key, name = "Catalog $c").execute()
@@ -121,6 +121,7 @@ class ThemeStoragePerfTest : IntegrationTestBase() {
                     pageSettings = like.pageSettings,
                     blockStylePresets = like.blockStylePresets,
                     spacingUnit = like.spacingUnit,
+                    catalogVersion = null,
                 ).execute()
             }
             createNanos += System.nanoTime() - created

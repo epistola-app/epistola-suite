@@ -7,8 +7,8 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -38,8 +38,8 @@ data class UpdateDataExample(
     val name: String? = null,
     val data: ObjectNode? = null,
     val forceUpdate: Boolean = false,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -68,9 +68,10 @@ class UpdateDataExampleHandler(
 
         return jdbi.inTransaction<UpdateDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
-            val draftContract = readDataContract(handle, objectMapper, command.templateId, forUpdate = true) ?: return@inTransaction null
+            val at = handle.versionOf(command.templateId.catalogId, command)
+            val draftContract = readDataContract(handle, objectMapper, at, command.templateId, forUpdate = true) ?: return@inTransaction null
             // The row is locked now, so its revision holds until this transaction ends.
-            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, command.templateId))
+            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, at, command.templateId))
 
             val existingExample = draftContract.dataExamples.find { it.id == command.exampleId }
                 ?: return@inTransaction null
@@ -102,7 +103,7 @@ class UpdateDataExampleHandler(
                 if (example.id == command.exampleId) updatedExample else example
             }
 
-            val revision = writeContract(handle, templates, objectMapper, command.templateId, schema, updatedExamples)
+            val revision = writeContract(handle, templates, objectMapper, at, command.templateId, schema, updatedExamples)
 
             UpdateDataExampleResult(example = updatedExample, warnings = warnings, revision = revision)
         }

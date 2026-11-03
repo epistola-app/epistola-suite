@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -29,7 +30,7 @@ import org.springframework.stereotype.Component
 data class UpgradeCatalogDependencies(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
@@ -49,14 +50,15 @@ class UpgradeCatalogDependenciesHandler(
     override fun handle(command: UpgradeCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
         handle.findCatalog(command.catalog) ?: throw CatalogNotFoundException(command.catalogKey)
         requireCatalogEditable(command.catalog)
-        val resolved = store.declarations(handle, command.catalog).map { declaration ->
+        val at = handle.versionOf(command.catalog, command)
+        val resolved = store.declarations(handle, at).map { declaration ->
             // A declaration naming a draft builds on that draft, live; there is no pin to move.
             if (declaration.namesDraft) return@map declaration
             store.highest(handle, command.tenantKey, declaration)
                 ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
                 ?: declaration
         }
-        store.replace(handle, command.catalog, resolved)
+        store.replace(handle, at, resolved)
         resolved
     }
 }

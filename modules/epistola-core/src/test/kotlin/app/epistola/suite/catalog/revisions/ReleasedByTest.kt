@@ -66,9 +66,9 @@ class ReleasedByTest : IntegrationTestBase() {
         val here = installation.get().id
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Released By").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
 
             assertThat(releasedBy(a, catalog, "1.0.0")).isEqualTo(TestPrincipalUser.ID.value to here)
             val detail = GetCatalogReleaseDetail(testCatalog(a, catalog), "1.0.0").query()!!
@@ -89,9 +89,9 @@ class ReleasedByTest : IntegrationTestBase() {
         val elsewhere = UUID.fromString("7d0c5a1e-3f2b-4c8d-9e6f-0a1b2c3d4e5f")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Released By").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
             // As another installation would have released it.
             val all = archives.entries(ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes)
             val manifest = objectMapper.readTree(all["catalog.json"]!!) as ObjectNode

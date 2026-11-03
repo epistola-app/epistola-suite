@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
  * Only the storage code names `release_resources` in SQL (ADR 0033). The table holds more than a
  * release's entries: a template's variants are rows of their own (storage type `variant`), which are
  * no wire resource. A reader that lists, counts or fingerprints entries straight from the table would
- * count them too; it reads `release_wire_resources` (wire resources only), a type's view
- * (`current_templates`, `current_template_variants`, …) or `catalog_version_resources(type)`.
+ * count them too; it reads `release_wire_resources` (wire resources only) or a type's view
+ * (`version_templates`, `version_template_variants`, …), filtered by the version it means.
  *
  * Code migrations are history, and the test-infrastructure conversions check what a migration wrote,
  * so they are left out; tests may inspect the table.
@@ -34,7 +34,7 @@ class ReleaseResourceSqlTest {
         assertTrue(
             violations.isEmpty(),
             "These statements name release_resources outside the storage code. Read release_wire_resources (wire resources " +
-                "only), a type's view or catalog_version_resources(type), and write through DraftResources or VariantRows:\n" +
+                "only) or a type's view (version_*), and write through DraftResources or VariantRows:\n" +
                 violations.joinToString("\n"),
         )
     }

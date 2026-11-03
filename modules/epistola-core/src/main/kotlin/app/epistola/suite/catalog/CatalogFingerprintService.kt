@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -33,7 +34,6 @@ class CatalogFingerprintService(
 ) {
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
-    /** Fingerprint of the live working copy of a catalog. */
     // Per-resource fingerprints of a classpath source are a pure function of bundle content, which
     // cannot change while this JVM runs, yet every tenant that installs the bundled catalog
     // canonicalised and hashed all of its resources again (most of what RegisterCatalog costs per
@@ -43,13 +43,14 @@ class CatalogFingerprintService(
         .maximumSize(MAX_CACHED_CLASSPATH_CATALOGS)
         .build<String, Map<String, String>>()
 
-    fun fingerprint(catalog: CatalogId): String = canonicalizer.fingerprint(contentBuilder.build(catalog))
+    /** The fingerprint of version [at] of its catalog, as a release of it would carry. */
+    fun fingerprint(at: ContentVersion): String = canonicalizer.fingerprint(contentBuilder.build(at))
 
     fun evaluate(
-        catalog: CatalogId,
+        at: ContentVersion,
         expected: String?,
     ): CatalogFingerprintEvaluation {
-        val content = contentBuilder.build(catalog)
+        val content = contentBuilder.build(at)
         return CatalogFingerprintEvaluation(
             current = canonicalizer.fingerprint(content),
             matchesExpected = expected != null && canonicalizer.matchesFingerprint(content, expected),

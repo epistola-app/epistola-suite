@@ -8,12 +8,13 @@ import app.epistola.suite.attributes.ATTRIBUTE_COLUMNS
 import app.epistola.suite.attributes.AttributeRows
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.Paging
 import app.epistola.suite.common.ResultPage
@@ -33,8 +34,8 @@ import org.springframework.stereotype.Component
 data class ListAttributeDefinitions(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<VariantAttributeDefinition>>,
     RequiresPermission {
@@ -51,8 +52,8 @@ data class ListAttributeDefinitions(
 data class ListAttributeDefinitionPage(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val page: PageRequest,
 ) : ReleaseReadable,
     Query<ResultPage<VariantAttributeDefinition>>,
@@ -70,7 +71,7 @@ class ListAttributeDefinitionsHandler(
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<ListAttributeDefinitions, List<VariantAttributeDefinition>> {
     override fun handle(query: ListAttributeDefinitions): List<VariantAttributeDefinition> = jdbi.withHandle<List<VariantAttributeDefinition>, Exception> { handle ->
-        AttributeList.query(handle, query.tenantId, query.catalog, paged = false)
+        AttributeList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = false)
             .map(AttributeRows.of(handle, objectMapper, query.tenantId.key))
             .list()
     }
@@ -83,26 +84,27 @@ class ListAttributeDefinitionPageHandler(
 ) : QueryHandler<ListAttributeDefinitionPage, ResultPage<VariantAttributeDefinition>> {
     override fun handle(query: ListAttributeDefinitionPage): ResultPage<VariantAttributeDefinition> = jdbi.withHandle<ResultPage<VariantAttributeDefinition>, Exception> { handle ->
         Paging.read(query.page, AttributeRows.of(handle, objectMapper, query.tenantId.key)) {
-            AttributeList.query(handle, query.tenantId, query.catalog, paged = true)
+            AttributeList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = true)
         }
     }
 }
 
 /**
  * The attributes of a tenant, or of one of its catalogs, by name; [paged] selects one page of them.
- * A draft or a release, read the same way (ADR 0033).
+ * A draft or a release, read the same way (ADR 0033): of [version] for its catalog, else of each
+ * catalog's next version.
  */
 private object AttributeList {
-    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, paged: Boolean): org.jdbi.v3.core.statement.Query {
+    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, version: java.util.UUID?, paged: Boolean): org.jdbi.v3.core.statement.Query {
         val sql = buildString {
             append("SELECT $ATTRIBUTE_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_attributes t WHERE t.tenant_key = :t")
+            append(" FROM version_attributes t WHERE t.tenant_key = :t AND ${inVersionOrNext("t", "version")}")
             if (catalog != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
             append(" ORDER BY t.display_name ASC, t.catalog_id, t.id")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
-        val q = handle.createQuery(sql).bind("t", tenantId.key)
+        val q = handle.createQuery(sql).bind("t", tenantId.key).bindVersion("version", version)
         if (catalog != null) q.bindCatalog("c", catalog)
         return q
     }

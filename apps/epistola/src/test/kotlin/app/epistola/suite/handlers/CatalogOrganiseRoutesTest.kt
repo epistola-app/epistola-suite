@@ -44,7 +44,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), letters)), "Header").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), letters)), "Header", catalogVersion = null).execute()
         }
         return tenant.id.value
     }

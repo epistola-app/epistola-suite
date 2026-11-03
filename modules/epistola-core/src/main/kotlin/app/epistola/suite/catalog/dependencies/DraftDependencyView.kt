@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.CatalogReferences
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -81,7 +82,7 @@ class DraftDependencyView internal constructor(
 
     companion object {
         /** A view that reads every other catalog live: for a render outside any draft's declarations. */
-        fun live(ownCatalog: CatalogId, references: CatalogReferences? = null): DraftDependencyView = DraftDependencyView(ownCatalog, emptyMap(), emptyMap(), null, references?.let { r -> { from: CatalogId, alias: String -> r.resolve(from, alias) ?: r.uniqueByKey(from, alias) } })
+        fun live(ownCatalog: CatalogId, references: CatalogReferences? = null): DraftDependencyView = DraftDependencyView(ownCatalog, emptyMap(), emptyMap(), null, references?.let { r -> { from: CatalogId, alias: String -> r.resolveInNext(from, alias) ?: r.uniqueByKey(from, alias) } })
     }
 }
 
@@ -94,14 +95,15 @@ class DraftDependencyViews(
     private val references: CatalogReferences,
 ) {
     /**
-     * The view of [catalog]'s current version: the draft the running message targets, else its next
-     * version. A subscribed catalog has no draft, so it reads every other catalog live.
+     * The view of version [at] of its catalog, by its declarations. A subscribed catalog's installed
+     * release declares nothing of its own here, so it reads every other catalog live.
      */
-    fun of(catalog: CatalogId): DraftDependencyView = jdbi.withHandle<DraftDependencyView, Exception> { handle ->
+    fun of(at: ContentVersion): DraftDependencyView = jdbi.withHandle<DraftDependencyView, Exception> { handle ->
+        val catalog = at.catalog
         val sources = LinkedHashMap<CatalogId, DraftDependencyView.Source>()
         val aliases = LinkedHashMap<CatalogId, Map<String, CatalogId>>()
         val releases = ArrayDeque<DraftDependencyView.Source.Release>()
-        val own = store.declarations(handle, catalog)
+        val own = store.declarations(handle, at)
         aliases[catalog] = own.associate { it.alias to it.catalogIn(catalog.tenantKey) }
         for (declaration in own) {
             val other = declaration.catalogIn(catalog.tenantKey)
@@ -132,6 +134,9 @@ class DraftDependencyViews(
                 if (visited.add(release)) releases.addLast(release)
             }
         }
-        DraftDependencyView(catalog, sources, aliases, assembler) { from, alias -> references.resolve(from, alias) ?: references.uniqueByKey(from, alias) }
+        DraftDependencyView(catalog, sources, aliases, assembler) { from, alias ->
+            // A catalog the version neither is nor pins: as this version declares it, else as its own next version does.
+            (if (from == catalog) references.resolve(at, alias) else references.resolveInNext(from, alias)) ?: references.uniqueByKey(from, alias)
+        }
     }
 }

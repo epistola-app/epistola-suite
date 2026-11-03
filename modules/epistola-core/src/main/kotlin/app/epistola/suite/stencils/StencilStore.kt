@@ -5,8 +5,8 @@
 package app.epistola.suite.stencils
 
 import app.epistola.catalog.protocol.StencilResource
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -40,7 +40,7 @@ fun Stencil.fields(): StencilFields = StencilFields(name, description, tags, con
 /**
  * Writes the stencils of a draft (ADR 0033, step 4): `{ "resource": <StencilResource> }` in
  * `resource_contents`, with the references its document holds indexed when stored, and the draft's
- * row naming it ([DraftResources]). Read back through `current_stencils` ([STENCIL_COLUMNS]).
+ * row naming it ([DraftResources]). Read back through `version_stencils` ([STENCIL_COLUMNS]).
  */
 @Component
 class StencilStore(
@@ -74,31 +74,33 @@ class StencilStore(
         ),
     )
 
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: StencilFields): String = contents.store(handle, catalog.tenantKey, STENCIL, ResourceMetadata.carried(handle, catalog, STENCIL, key, payload(key, catalog.key.value, fields), fields.metadata, objectMapper))
+    /** Stores [fields] as stencil [key] of version [at] and returns its content hash; its references relative to its catalog. */
+    fun store(handle: Handle, at: ContentVersion, key: String, fields: StencilFields): String = contents.store(handle, at.tenantKey, STENCIL, ResourceMetadata.carried(handle, at, STENCIL, key, payload(key, at.catalog.key.value, fields), fields.metadata, objectMapper))
 
-    /** Adds stencil [id] to the targeted draft; one already there is a unique violation. */
-    fun create(handle: Handle, id: StencilId, fields: StencilFields, actor: UUID?): Stencil {
-        DraftResources.insert(handle, id.catalogId, STENCIL, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, fields.description, actor)
-        return checkNotNull(get(handle, id)) { "Stencil ${id.key.value} was just written" }
+    /** Adds stencil [id] to draft [at]; one already there is a unique violation. */
+    fun create(handle: Handle, at: ContentVersion, id: StencilId, fields: StencilFields, actor: UUID?): Stencil {
+        DraftResources.insert(handle, at, STENCIL, id.key.value, store(handle, at, id.key.value, fields), fields.name, fields.description, actor)
+        return checkNotNull(get(handle, at, id)) { "Stencil ${id.key.value} was just written" }
     }
 
-    /** Saves [fields] as stencil [id] of the targeted draft; false when it holds none, or it moved on. */
-    fun write(handle: Handle, id: StencilId, fields: StencilFields, actor: UUID?, expectedRevision: Long? = null): Boolean = DraftResources.update(handle, id.catalogId, STENCIL, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, fields.description, actor, expectedRevision) != null
+    /** Saves [fields] as stencil [id] of draft [at]; false when it holds none, or it moved on. */
+    fun write(handle: Handle, at: ContentVersion, id: StencilId, fields: StencilFields, actor: UUID?, expectedRevision: Long? = null): Boolean = DraftResources.update(handle, at, STENCIL, id.key.value, store(handle, at, id.key.value, fields), fields.name, fields.description, actor, expectedRevision) != null
 
-    /** Creates or replaces stencil [id] in the targeted draft; true when it was there already. */
-    fun put(handle: Handle, id: StencilId, fields: StencilFields, actor: UUID?): Boolean {
-        if (write(handle, id, fields, actor)) return true
-        DraftResources.insert(handle, id.catalogId, STENCIL, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, fields.description, actor)
+    /** Creates or replaces stencil [id] in draft [at]; true when it was there already. */
+    fun put(handle: Handle, at: ContentVersion, id: StencilId, fields: StencilFields, actor: UUID?): Boolean {
+        if (write(handle, at, id, fields, actor)) return true
+        DraftResources.insert(handle, at, STENCIL, id.key.value, store(handle, at, id.key.value, fields), fields.name, fields.description, actor)
         return false
     }
 
-    fun delete(handle: Handle, id: StencilId): Boolean = DraftResources.delete(handle, id.catalogId, STENCIL, id.key.value)
+    /** Removes stencil [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: StencilId): Boolean = DraftResources.delete(handle, at, STENCIL, id.key.value)
 
-    /** Stencil [id] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, id: StencilId): Stencil? = handle
-        .createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")} AND s.id = :k")
+    /** Stencil [id] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, id: StencilId): Stencil? = handle
+        .createQuery("SELECT $STENCIL_COLUMNS FROM version_stencils s WHERE s.tenant_key = :t AND s.version_id = :v AND s.id = :k")
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("k", id.key.value)
         .mapTo<Stencil>()
         .map { it.asRead(objectMapper) }

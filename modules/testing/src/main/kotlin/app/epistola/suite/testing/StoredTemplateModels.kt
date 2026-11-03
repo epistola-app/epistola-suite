@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.TemplateStore
 import org.jdbi.v3.core.Jdbi
@@ -17,10 +18,12 @@ import tools.jackson.databind.node.ObjectNode
  */
 fun TemplateStore.rewriteStoredModel(jdbi: Jdbi, objectMapper: ObjectMapper, variant: VariantId, change: (ObjectNode) -> Unit) {
     jdbi.useTransaction<Exception> { handle ->
-        val loaded = checkNotNull(get(handle, variant.templateId)) { "No template ${variant.templateKey.value}" }
+        // As the catalog's next version holds it.
+        val at = ContentVersion.next(handle, variant.catalogId)
+        val loaded = checkNotNull(get(handle, at, variant.templateId)) { "No template ${variant.templateKey.value}" }
         val stored = checkNotNull(loaded.template.variant(variant.key.value)) { "No variant ${variant.key.value}" }
         val model = objectMapper.valueToTree<ObjectNode>(checkNotNull(model(handle, variant.tenantKey, stored)))
         change(model)
-        checkNotNull(save(handle, variant.catalogId, loaded, loaded.template.withVariant(variant.key.value) { it.copy(model = model) }, null))
+        checkNotNull(save(handle, at, loaded, loaded.template.withVariant(variant.key.value) { it.copy(model = model) }, null))
     }
 }

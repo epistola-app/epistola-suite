@@ -40,12 +40,12 @@ class ListCatalogDependentsTest : IntegrationTestBase() {
             CreateCatalog(tenant, shared, "Shared").execute()
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateCatalog(tenant, forms, "Forms").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared)).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
             declareDependency(tenant, letters, on = shared)
             tenant
         }

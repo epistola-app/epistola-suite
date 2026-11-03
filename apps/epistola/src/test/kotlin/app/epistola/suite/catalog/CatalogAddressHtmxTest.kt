@@ -52,8 +52,8 @@ class CatalogAddressHtmxTest : BaseIntegrationTest() {
             TestNamespaces.grant(tenant, "bureau").execute()
             CreateCatalog(tenant, letters, "Acme letters", namespace = "acme").execute()
             CreateCatalog(tenant, letters, "Bureau letters", namespace = "bureau").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("acme", letters, TenantId(tenant))), "Acme invoice").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau invoice").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("acme", letters, TenantId(tenant))), "Acme invoice", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau invoice", catalogVersion = null).execute()
         }
 
         val list = get("/tenants/${tenant.value}/catalogs").body!!

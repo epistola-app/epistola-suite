@@ -5,9 +5,12 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -17,7 +20,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.STENCIL_COLUMNS
-import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.asRead
 import app.epistola.suite.validation.validate
@@ -32,8 +34,8 @@ data class ListStencils(
     val tag: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<Stencil>>,
     RequiresPermission {
@@ -53,7 +55,7 @@ class ListStencilsHandler(
 ) : QueryHandler<ListStencils, List<Stencil>> {
     override fun handle(query: ListStencils): List<Stencil> = jdbi.withHandle<List<Stencil>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId")
+            append("SELECT $STENCIL_COLUMNS FROM version_stencils s WHERE s.tenant_key = :tenantId AND ${inVersionOrNext("s", "version")}")
             if (query.catalogKey != null) {
                 append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
@@ -70,6 +72,7 @@ class ListStencilsHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+            .bindVersion("version", handle.addressedVersion(query))
         if (query.catalogKey != null) {
             jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }

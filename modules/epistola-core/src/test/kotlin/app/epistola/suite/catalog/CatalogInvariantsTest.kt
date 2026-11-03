@@ -73,12 +73,12 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         val letters = testCatalog(TenantId(tenant), CatalogKey.of("letters"))
         withMediator {
             // letters stops using shared, so only its release 1.0.0 pins shared; then shared uses letters.
-            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), letters), clearThemeId = true).execute()
-            UpdateCatalogDependencies(letters, emptyList()).execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House").execute()
+            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), letters), clearThemeId = true, catalogVersion = null).execute()
+            UpdateCatalogDependencies(letters, emptyList(), catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House", catalogVersion = null).execute()
             val memo = TemplateId(TemplateKey.of("memo"), shared)
-            CreateDocumentTemplate(memo, "Memo").execute()
-            UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = letters).execute()
+            CreateDocumentTemplate(memo, "Memo", catalogVersion = null).execute()
+            UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = letters, catalogVersion = null).execute()
         }
 
         assertThat(violations(tenant)).isEmpty()
@@ -193,19 +193,19 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         val letters = catalogIn(tenant, "letters")
         val invoice = TemplateId(TemplateKey.of("invoice"), letters)
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("plain"), base), "Plain").execute()
+            CreateTheme(ThemeId(ThemeKey.of("plain"), base), "Plain", catalogVersion = null).execute()
             mediator.releaseNext(base)
             declareDependency(tenant, shared.key, on = base.key)
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters.key, on = shared.key)
-            CreateStencil(StencilId(StencilKey.of("seal"), letters), "Seal").execute()
-            CreateStencil(StencilId(StencilKey.of("frame"), letters), "Frame").execute()
-            UpdateStencil(StencilId(StencilKey.of("frame"), letters), content = nesting("seal")).execute()
-            UploadAsset(letters, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1).execute()
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = shared).execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateStencil(StencilId(StencilKey.of("seal"), letters), "Seal", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("frame"), letters), "Frame", catalogVersion = null).execute()
+            UpdateStencil(StencilId(StencilKey.of("frame"), letters), content = nesting("seal"), catalogVersion = null).execute()
+            UploadAsset(letters, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1, catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = shared, catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, invoice))
         }
         return tenant

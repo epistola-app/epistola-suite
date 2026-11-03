@@ -119,6 +119,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("my-theme"), CatalogId.default(tenantId)),
                 name = "My Theme",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -158,6 +159,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             CreateDocumentTemplate(
                 id = TemplateId(TemplateKey.of("my-template"), CatalogId.default(tenantId)),
                 name = "My Template",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -197,6 +199,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             CreateStencil(
                 id = StencilId(StencilKey.of("my-stencil"), CatalogId.default(tenantId)),
                 name = "My Stencil",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -239,6 +242,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
+                catalogVersion = null,
             ).execute()
         }
 
@@ -280,6 +284,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
         }
 

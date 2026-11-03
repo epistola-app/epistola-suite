@@ -65,16 +65,16 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                     CreateCatalog(tenant.id, shared, "Shared").execute()
                     CreateCatalog(tenant.id, letters, "Letters").execute()
                     val sharedId = testCatalog(TenantId(tenant.id), shared)
-                    CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer").execute()
-                    CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand").execute()
-                    MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
-                    ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0").execute()
+                    CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", catalogVersion = null).execute()
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand", catalogVersion = null).execute()
+                    MarkCatalogReady(testCatalog(tenant.id, shared), catalogVersion = null).execute()
+                    ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0", catalogVersion = null).execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))
-                    CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-                    UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared)).execute()
+                    CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+                    UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
                     // Using Shared named its next version; Letters pins Shared's release instead.
                     val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!
-                    UpdateCatalogDependencies(testCatalog(tenant.id, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, shared.value, releaseVersion = "1.0.0"))).execute()
+                    UpdateCatalogDependencies(testCatalog(tenant.id, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, shared.value, releaseVersion = "1.0.0")), catalogVersion = null).execute()
                 }
             }
         }
@@ -221,9 +221,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         val tenant = seed("Workspace Newer Fits")
         withMediator {
             // Shared 1.1.0 only adds something: everything Letters uses still fits.
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), testCatalog(TenantId(tenant.id), shared)), "Seasonal").execute()
-            MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.1.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), testCatalog(TenantId(tenant.id), shared)), "Seasonal", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.1.0", catalogVersion = null).execute()
         }
 
         val page = get(tenant, "/catalogs/${tenant.id}/letters/dependencies")

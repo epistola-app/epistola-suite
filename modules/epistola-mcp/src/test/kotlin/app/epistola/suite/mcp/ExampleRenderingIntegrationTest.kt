@@ -93,7 +93,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
         val variantId = VariantKey.INITIAL
 
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "Examples Test Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Examples Test Template", catalogVersion = null).execute()
         }
 
         val data = sampleData()
@@ -110,6 +110,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
                         variantId = variantId,
                         data = data,
                         templateModel = templateModel,
+                        catalogVersion = null,
                     ).query()
                 }
                 if (pdfBytes.isEmpty()) {

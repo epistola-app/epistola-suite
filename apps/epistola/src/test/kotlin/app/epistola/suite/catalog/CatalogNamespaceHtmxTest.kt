@@ -101,12 +101,12 @@ class CatalogNamespaceHtmxTest : BaseIntegrationTest() {
         val letters = CatalogKey.of("letters")
         withMediator {
             CreateCatalog(author, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author), letters)), "Brand").execute()
-            MarkCatalogReady(testCatalog(author, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(author, letters), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author), letters)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(author, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(author, letters), version = "1.0.0", catalogVersion = null).execute()
             ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver), letters)), "Ours").execute()
-            MarkCatalogReady(testCatalog(receiver, letters)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver), letters)), "Ours", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(receiver, letters), catalogVersion = null).execute()
         }
         val sentence = TestNamespaces.of(author).let { "This tenant does not hold the namespace ${it.namespace} (${it.authority}); an administrator can grant it." }
 

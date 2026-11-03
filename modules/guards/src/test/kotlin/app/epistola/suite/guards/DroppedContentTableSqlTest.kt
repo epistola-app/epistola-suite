@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * No SQL names a content table that moved to JSON storage (ADR 0033): its rows are draft rows of
  * `release_resources` now, written through `DraftResources` and read through the type's view
- * (`current_themes`). The table is dropped, so a statement on it fails at run time; this fails it at
+ * (`version_themes`). The table is dropped, so a statement on it fails at run time; this fails it at
  * build time, with where to go instead.
  *
  * Code migrations and the migration tests that run them at an older schema are history, and the
@@ -33,7 +33,7 @@ class DroppedContentTableSqlTest {
         assertTrue(
             violations.isEmpty(),
             "These statements name a table that moved to JSON storage (ADR 0033). Read the type's view " +
-                "(current_themes, current_code_lists, current_attributes, current_stencils, current_fonts, current_images, current_templates, current_template_variants) and write through its store (DraftResources):\n" + violations.joinToString("\n"),
+                "(version_themes, version_code_lists, version_attributes, version_stencils, version_fonts, version_images, version_templates, version_template_variants), filtered by the version it means, and write through its store (DraftResources):\n" + violations.joinToString("\n"),
         )
     }
 

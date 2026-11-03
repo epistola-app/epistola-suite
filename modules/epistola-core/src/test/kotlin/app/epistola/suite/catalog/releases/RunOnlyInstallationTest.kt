@@ -50,10 +50,10 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
                 assertThat(all.of(testCatalog(tenant, CatalogKey.DEFAULT))?.reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
                 assertThat(all.of(testCatalog(tenant, SYSTEM_CATALOG_KEY))?.reason).`as`("supplied wins: it is not changed even where editing is on").isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
             }
-            assertThatThrownBy { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand").execute() }
+            assertThatThrownBy { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand", catalogVersion = null).execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
                 .hasMessageContaining("only receives and runs releases")
-            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(tenant, CatalogKey.DEFAULT)).execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(tenant, CatalogKey.DEFAULT), catalogVersion = null).execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
             assertThatThrownBy { CreateCatalogDraft(testCatalog(tenant, CatalogKey.DEFAULT), "Work", null).execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)

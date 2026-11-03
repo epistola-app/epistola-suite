@@ -62,9 +62,9 @@ class PromotionTest : IntegrationTestBase() {
     private fun withWork(name: String, from: String? = null): Pair<TenantKey, String> = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(brand(tenant), "Brand").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters)).execute()
+        CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters), catalogVersion = null).execute()
         mediator.releaseNext(catalogId(tenant))
         tenant to CreateCatalogDraft(testCatalog(tenant, letters), "Redesign 2027", from).execute().versionId
     }
@@ -89,16 +89,16 @@ class PromotionTest : IntegrationTestBase() {
         assertThat(drafts(tenant).map { it.label to it.versionId }).`as`("the draft became the release").containsExactly("Next release" to next.versionId)
         val byId = withMediator { GetCatalogRelease(testCatalog(tenant, letters), work).query()!! }
         assertThat(byId.version to byId.status).isEqualTo("1.0.1" to CatalogReleaseStatus.RELEASED)
-        assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).`as`("the next version is untouched").isEqualTo("Brand")
+        assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = null).query()!! }.name).`as`("the next version is untouched").isEqualTo("Brand")
     }
 
     @Test
     fun `a fix to an older line is an ordinary release, numbered from its base and behind nothing above it`() {
         val (tenant, _) = withWork("older-line")
         withMediator {
-            UpdateTheme(brand(tenant), name = "Brand 2").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, letters), "2.0.0").execute()
+            UpdateTheme(brand(tenant), name = "Brand 2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "2.0.0", catalogVersion = null).execute()
         }
         val fix = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "Fixes 1.0", from = "1.0.0").execute().versionId }
         withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = at(tenant, fix)).execute() }
@@ -114,7 +114,7 @@ class PromotionTest : IntegrationTestBase() {
         withMediator { UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, redesign)).execute() }
         // A fix released from the next version after the redesign started.
         withMediator {
-            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute()
+            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant))
         }
 
@@ -133,7 +133,7 @@ class PromotionTest : IntegrationTestBase() {
         val (tenant, work) = withWork("continue-discard")
         withMediator {
             UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute()
-            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute() // in the next version, never published
+            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = null).execute() // in the next version, never published
         }
 
         val released = releaseForEverydayWork(tenant, work)
@@ -143,15 +143,15 @@ class PromotionTest : IntegrationTestBase() {
         assertThat(next.isNext).isTrue()
         assertThat(next.versionId).`as`("it continues under a new id").isNotEqualTo(work)
         assertThat(next.base).`as`("measured against the release").isEqualTo(released.version)
-        assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).isEqualTo("Brand redesigned")
-        assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query()!! }.name)
+        assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = null).query()!! }.name).isEqualTo("Brand redesigned")
+        assertThat(withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query()!! }.name)
             .`as`("the old next version was discarded, not merged").isEqualTo("Invoice")
     }
 
     @Test
     fun `the old next version can be kept as parallel work under a name, and a name in use refuses the release`() {
         val (tenant, work) = withWork("continue-keep")
-        withMediator { UpdateTheme(brand(tenant), name = "Brand, small fix").execute() }
+        withMediator { UpdateTheme(brand(tenant), name = "Brand, small fix", catalogVersion = null).execute() }
 
         assertThatThrownBy { releaseForEverydayWork(tenant, work, keepPreviousAs = "redesign 2027") }
             .`as`("a name another draft has").isInstanceOf(CatalogDraftNameInUseException::class.java)

@@ -63,8 +63,8 @@ class TemplateReadsPerfTest : IntegrationTestBase() {
                 CreateCatalog(tenantKey = tenant, id = catalog.key, name = "Catalog $c").execute()
                 repeat(TEMPLATES) { t ->
                     val template = TemplateId(TemplateKey.of("tpl-$c-$t"), catalog)
-                    CreateDocumentTemplate(id = template, name = "Template $c/$t").execute()
-                    repeat(VARIANTS - 1) { v -> CreateVariant(VariantId(VariantKey.of("v-$v"), template), "Variant $v", null, mapOf()).execute() }
+                    CreateDocumentTemplate(id = template, name = "Template $c/$t", catalogVersion = null).execute()
+                    repeat(VARIANTS - 1) { v -> CreateVariant(VariantId(VariantKey.of("v-$v"), template), "Variant $v", null, mapOf(), catalogVersion = null).execute() }
                 }
                 mediator.releaseNext(catalog)
             }
@@ -72,17 +72,17 @@ class TemplateReadsPerfTest : IntegrationTestBase() {
         val catalog = testCatalog(tenant, CatalogKey.of("cat-${CATALOGS / 2}"))
         val template = TemplateId(TemplateKey.of("tpl-${CATALOGS / 2}-0"), catalog)
         val variant = VariantId(VariantKey.of("v-0"), template)
-        val model = withMediator { GetVariantContent(variant).query()!! }
+        val model = withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }
         val results = listOf(
-            measure("list a catalog's templates (page of 50)") { ListDocumentTemplates(TenantId(tenant), catalog = catalog, limit = 50).query() },
-            measure("count a catalog's templates") { CountDocumentTemplates(TenantId(tenant), catalog = catalog).query() },
-            measure("list a tenant's template summaries (page of 50)") { ListTemplateSummaries(TenantId(tenant), limit = 50).query() },
-            measure("read one template") { GetDocumentTemplate(template).query() },
-            measure("list a template's variants") { ListVariants(template).query() },
-            measure("read a variant's model") { GetVariantContent(variant).query() },
-            measure("read a template's data contract") { GetDataContract(template).query() },
-            measure("open the editor") { GetEditorContext(variant).query() },
-            measure("save a variant's model", runs = 100, warmup = 10) { UpdateVariantContent(variant, model).execute() },
+            measure("list a catalog's templates (page of 50)") { ListDocumentTemplates(TenantId(tenant), catalog = catalog, limit = 50, catalogVersion = null).query() },
+            measure("count a catalog's templates") { CountDocumentTemplates(TenantId(tenant), catalog = catalog, catalogVersion = null).query() },
+            measure("list a tenant's template summaries (page of 50)") { ListTemplateSummaries(TenantId(tenant), limit = 50, catalogVersion = null).query() },
+            measure("read one template") { GetDocumentTemplate(template, catalogVersion = null).query() },
+            measure("list a template's variants") { ListVariants(template, catalogVersion = null).query() },
+            measure("read a variant's model") { GetVariantContent(variant, catalogVersion = null).query() },
+            measure("read a template's data contract") { GetDataContract(template, catalogVersion = null).query() },
+            measure("open the editor") { GetEditorContext(variant, catalogVersion = null).query() },
+            measure("save a variant's model", runs = 100, warmup = 10) { UpdateVariantContent(variant, model, catalogVersion = null).execute() },
         )
 
         // Autosave churn (ADR 0033, step 7b): what one editing session of 20 distinct saves leaves
@@ -92,7 +92,7 @@ class TemplateReadsPerfTest : IntegrationTestBase() {
         withMediator {
             repeat(20) { i ->
                 val edited = model.copy(documentStylesOverride = mapOf("color" to "#0000%02x".format(i)))
-                UpdateVariantContent(variant, edited).execute()
+                UpdateVariantContent(variant, edited, catalogVersion = null).execute()
             }
         }
         val churn = contents() - before

@@ -6,9 +6,9 @@ package app.epistola.suite.stencils
 
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.CatalogReferences
-import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -35,51 +35,54 @@ class StencilResolvers(
     private val references: CatalogReferences,
 ) {
     /**
-     * [document], owned by [catalog], with its stencil instances expanded from the working copies,
-     * for rendering outside a release. An instance that does not fit renders as the expansion leaves
-     * it, so a preview stays usable while the author fixes it; publishing refuses it.
+     * [document], of version [at] of its catalog, with its stencil instances expanded from the working
+     * copies, for rendering outside a release. An instance that does not fit renders as the expansion
+     * leaves it, so a preview stays usable while the author fixes it; publishing refuses it.
      */
-    fun expandWithWorkingCopies(catalog: CatalogId, document: TemplateDocument, dependencies: DraftDependencyView? = null): TemplateDocument = StencilInstances.expand(document, catalog.address, workingCopies(dependencies ?: DraftDependencyView.live(catalog, references))).document
+    fun expandWithWorkingCopies(at: ContentVersion, document: TemplateDocument, dependencies: DraftDependencyView? = null): TemplateDocument = StencilInstances.expand(document, at.catalog.address, workingCopies(at, dependencies ?: DraftDependencyView.live(at.catalog, references))).document
 
     /**
-     * Stencils as [dependencies] says a draft reads them: its own catalog's in the draft, another
-     * catalog's from the release it pins or the draft it names, each reference resolved from the
-     * catalog of the content it is in ([DraftDependencyView.resolve]). Catalogs are named by address.
+     * Stencils as [dependencies] says version [at] reads them: its own catalog's in [at], another
+     * catalog's from the release it pins or the draft it names, else from that catalog's next version,
+     * each reference resolved from the catalog of the content it is in ([DraftDependencyView.resolve]).
+     * Catalogs are named by address.
      */
-    fun workingCopies(dependencies: DraftDependencyView): StencilInstances.Resolver {
+    fun workingCopies(at: ContentVersion, dependencies: DraftDependencyView): StencilInstances.Resolver {
         val cache = mutableMapOf<Pair<String, CatalogId>, StencilInstances.Content?>()
         val tenantId = dependencies.ownCatalog.tenantId
         return StencilInstances.Resolver { stencilKey, alias, from ->
             val catalog = dependencies.resolve(CatalogId.of(from, tenantId), alias) ?: return@Resolver null
-            cache.getOrPut(stencilKey to catalog) { load(catalog, stencilKey, dependencies) }
+            cache.getOrPut(stencilKey to catalog) { load(at, catalog, stencilKey, dependencies) }
         }
     }
 
-    private fun load(catalog: CatalogId, stencilKey: String, dependencies: DraftDependencyView): StencilInstances.Content? {
+    private fun load(at: ContentVersion, catalog: CatalogId, stencilKey: String, dependencies: DraftDependencyView): StencilInstances.Content? {
         dependencies.releaseOf(catalog)?.let {
             return (dependencies.released(catalog, "stencil", stencilKey) as? StencilResource)
                 // Released with its own-catalog references relative: qualified, so they keep meaning its catalog when inlined.
                 ?.let { stencil -> StencilInstances.Content(stencil.content.qualifiedIn(catalog.key.value, objectMapper), stencil.parameterSchema, stencil.readsTemplateData, catalog.address) }
         }
         val draft = dependencies.draftOf(catalog)
-        return jdbi.withHandle<StencilInstances.Content?, Exception> { handle -> load(handle, catalog, stencilKey, draft?.versionId) }
+        return jdbi.withHandle<StencilInstances.Content?, Exception> { handle ->
+            // The draft it names, else [at] for its own catalog, else that catalog's next version.
+            val version = when {
+                draft != null -> ContentVersion(catalog, draft.versionId)
+                catalog == at.catalog -> at
+                else -> ContentVersion.next(handle, catalog)
+            }
+            read(handle, version, stencilKey)
+        }
     }
 
-    // A draft other than the current one is read through the views as that draft (ADR 0033).
-    private fun load(handle: Handle, catalog: CatalogId, stencilKey: String, versionId: UUID?): StencilInstances.Content? = app.epistola.suite.catalog.releases.VersionReads.at(
-        handle,
-        versionId?.let { app.epistola.suite.catalog.releases.VersionSelection.Draft(it) },
-    ) { at -> read(at, catalog, stencilKey) }
-
-    private fun read(handle: Handle, catalog: CatalogId, stencilKey: String): StencilInstances.Content? = handle.createQuery(
+    private fun read(handle: Handle, at: ContentVersion, stencilKey: String): StencilInstances.Content? = handle.createQuery(
         """
             SELECT s.content::text, s.parameter_schema::text, s.reads_template_data
-            FROM current_stencils s
-            WHERE s.tenant_key = :tenantKey AND s.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey) AND s.id = :stencilKey
+            FROM version_stencils s
+            WHERE s.tenant_key = :tenantKey AND s.version_id = :v AND s.id = :stencilKey
             """,
     )
-        .bind("tenantKey", catalog.tenantKey)
-        .bindCatalog("catalogKey", catalog)
+        .bind("tenantKey", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("stencilKey", stencilKey)
         .map { rs, _ ->
             @Suppress("UNCHECKED_CAST")
@@ -87,11 +90,11 @@ class StencilResolvers(
                 // Stored in its released form; a draft renders with its own-catalog references
                 // qualified, as it always has.
                 document = objectMapper.readTree(rs.getString(1))
-                    .also { app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(it, catalog.key.value) }
+                    .also { app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(it, at.catalog.key.value) }
                     .let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
                 parameterSchema = rs.getString(2)?.let { objectMapper.readValue(it, Map::class.java) as Map<String, Any?> },
                 readsTemplateData = rs.getBoolean(3),
-                catalog = catalog.address,
+                catalog = at.catalog.address,
             )
         }
         .findOne()

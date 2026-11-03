@@ -60,6 +60,7 @@ object DraftDeploymentStore {
             DraftRef.Next -> isNext("v")
             is DraftRef.Id -> "v.version_key = :id"
             is DraftRef.Released -> return null
+            is DraftRef.At -> "v.version_id = :at"
         }
         return handle.createQuery(
             """
@@ -69,6 +70,7 @@ object DraftDeploymentStore {
         )
             .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .also { q -> (ref as? DraftRef.Id)?.let { q.bind("id", it.key) } }
+            .also { q -> (ref as? DraftRef.At)?.let { q.bind("at", it.versionId) } }
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("label") }
             .findOne()
             .orElse(null)

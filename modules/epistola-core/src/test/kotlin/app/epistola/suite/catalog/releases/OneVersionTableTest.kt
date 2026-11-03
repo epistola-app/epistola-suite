@@ -75,7 +75,7 @@ class OneVersionTableTest : IntegrationTestBase() {
     private fun withTheme(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(brand(tenant), "Brand").execute()
+        CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
         tenant
     }
 
@@ -136,7 +136,7 @@ class OneVersionTableTest : IntegrationTestBase() {
         val first = next(tenant)
         withMediator { mediator.releaseNext(testCatalog(tenant, letters)) }
         withMediator {
-            UpdateTheme(brand(tenant), name = "Brand, fixed").execute()
+            UpdateTheme(brand(tenant), name = "Brand, fixed", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(tenant, letters))
         }
 
@@ -163,7 +163,7 @@ class OneVersionTableTest : IntegrationTestBase() {
         val tenant = withMediator {
             val tenant = createTenant("one-version-declared").id
             CreateCatalog(tenant, CatalogKey.of("parts"), "Parts").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), "parts")), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), "parts")), "Brand", catalogVersion = null).execute()
             CreateCatalog(tenant, letters, "Letters").execute()
             tenant
         }
@@ -174,7 +174,7 @@ class OneVersionTableTest : IntegrationTestBase() {
         }
         withMediator {
             val target = GetCatalog(parts).query()!!
-            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "parts", versionId = partsDraft.versionId))).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "parts", versionId = partsDraft.versionId)), catalogVersion = null).execute()
         }
 
         val version = withMediator { mediator.releaseNext(parts) }

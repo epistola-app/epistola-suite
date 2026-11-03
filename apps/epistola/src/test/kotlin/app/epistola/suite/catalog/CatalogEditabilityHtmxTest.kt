@@ -48,9 +48,9 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
                 tenant = tenant(name)
                 withMediator {
                     CreateCatalog(tenantKey = author.id, id = received, name = "Received").execute()
-                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author.id), received)), name = "Brand").execute()
-                    MarkCatalogReady(testCatalog(author.id, received)).execute()
-                    ReleaseCatalogDraft(catalog = testCatalog(author.id, received), version = "1.0.0").execute()
+                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author.id), received)), name = "Brand", catalogVersion = null).execute()
+                    MarkCatalogReady(testCatalog(author.id, received), catalogVersion = null).execute()
+                    ReleaseCatalogDraft(catalog = testCatalog(author.id, received), version = "1.0.0", catalogVersion = null).execute()
                     val archive = ExportCatalogZip(testCatalog(author.id, received), "1.0.0").execute().zipBytes
                     ImportCatalogZip(tenant.id, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
                 }

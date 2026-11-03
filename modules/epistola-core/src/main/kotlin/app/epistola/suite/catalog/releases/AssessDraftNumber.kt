@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -107,7 +108,7 @@ class AssessDraftNumberHandler(
             return DraftNumberAssessment(null, null, emptyList(), first.toString(), DraftNumberAssessment.nextFree(first, ChangeKind.BREAKING, taken).toString(), taken)
         }
         val baseVersion = SemVer.parse(base)
-        val changes = changeKinds.against(query.catalog, base)
+        val changes = changeKinds.against(ContentVersion(query.catalog, draft.versionId), base)
         val kind = changes?.kind ?: ChangeKind.NONE
         val needed = when (kind) {
             ChangeKind.BREAKING -> baseVersion.bumpMajor()

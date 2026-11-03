@@ -92,7 +92,7 @@ class LoadTestHandler(
                     page("loadtest/new") {
                         "pageTitle" to "Start load test - Epistola"
                         "tenantId" to tenantKey
-                        "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                        "templates" to ListDocumentTemplates(tenantId = tenantId, catalogVersion = null).query()
                         "environments" to ListEnvironments(tenantId = tenantId).query()
                     }
                 }
@@ -103,8 +103,8 @@ class LoadTestHandler(
         val templateId = TemplateId(templateKey, catalog ?: return ServerResponse.badRequest().build())
 
         // Template selected - prepare cascade data
-        val variants = ListVariants(templateId = templateId).query()
-        val dataContract = GetDataContract(templateId = templateId).query()
+        val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
+        val dataContract = GetDataContract(templateId = templateId, catalogVersion = null).query()
         val dataExamples = dataContract?.dataExamples ?: DataExamples.EMPTY
         val environments = ListEnvironments(tenantId = tenantId).query()
 
@@ -140,7 +140,7 @@ class LoadTestHandler(
                 page("loadtest/new") {
                     "pageTitle" to "Start load test - Epistola"
                     "tenantId" to tenantKey
-                    "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                    "templates" to ListDocumentTemplates(tenantId = tenantId, catalogVersion = null).query()
                     "environments" to ListEnvironments(tenantId = tenantId).query()
                 }
             }
@@ -180,7 +180,7 @@ class LoadTestHandler(
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
                 onFullPage {
-                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val templates = ListDocumentTemplates(tenantId = tenantId, catalogVersion = null).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
                         "pageTitle" to "Start load test - Epistola"
@@ -239,7 +239,7 @@ class LoadTestHandler(
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
                 onFullPage {
-                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val templates = ListDocumentTemplates(tenantId = tenantId, catalogVersion = null).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
                         "pageTitle" to "Start load test - Epistola"
@@ -265,7 +265,7 @@ class LoadTestHandler(
 
         // Fetch template name for display
         val templateId = TemplateId(run.templateKey, run.catalogId)
-        val template = GetDocumentTemplate(id = templateId).query()
+        val template = GetDocumentTemplate(id = templateId, catalogVersion = null).query()
 
         return ServerResponse.ok().page("loadtest/detail") {
             "pageTitle" to "Load test details - Epistola"

@@ -118,6 +118,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray)),
+                catalogVersion = null,
             ).execute()
         }
 

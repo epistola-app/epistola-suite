@@ -131,6 +131,9 @@ class VariantRouteHandler {
                 "presentQualifiedKeys" to presentQualifiedKeys
                 "presentRawKeys" to presentRawKeys
             }
+            // The form is a dialog of the template page, never a page of its own: a direct
+            // navigation (a bookmark, a reload) opens the template it belongs to.
+            onFullPage { redirect("/tenants/${tenantId.key.value}/catalogs/${request.catalogSegment().value}/templates/${templateId.key}") }
         }
     }
 

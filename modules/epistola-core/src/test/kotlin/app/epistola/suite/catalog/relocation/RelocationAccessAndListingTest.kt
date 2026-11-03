@@ -30,10 +30,10 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
         val header = create(tenant, MovableResource.STENCIL, letters, "header")
         val viewer = memberWith(tenant, TenantRole.CONTENT_VIEWER)
 
-        val plan = runAs(viewer) { PreviewCatalogResourceMove(tenant, listOf(header.movedTo(shared))).query() }
+        val plan = runAs(viewer) { PreviewCatalogResourceMove(tenant, listOf(header.movedTo(shared)), catalogVersion = null).query() }
         assertThat(plan.executable).isTrue()
 
-        assertThatThrownBy { runAs(viewer) { MoveCatalogResources(tenant, listOf(header.movedTo(shared)), plan.planFingerprint).execute() } }
+        assertThatThrownBy { runAs(viewer) { MoveCatalogResources(tenant, listOf(header.movedTo(shared)), plan.planFingerprint, catalogVersion = null).execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
         assertThat(identityAt(tenant, header)).isNotNull()
     }
@@ -44,7 +44,7 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
         val header = create(tenant, MovableResource.STENCIL, letters, "header")
         val generator = memberWith(tenant, TenantRole.DOCUMENT_GENERATOR)
 
-        assertThatThrownBy { runAs(generator) { PreviewCatalogResourceMove(tenant, listOf(header.movedTo(shared))).query() } }
+        assertThatThrownBy { runAs(generator) { PreviewCatalogResourceMove(tenant, listOf(header.movedTo(shared)), catalogVersion = null).query() } }
             .isInstanceOf(PermissionDeniedException::class.java)
     }
 
@@ -85,8 +85,8 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
         val tenant = tenantWith("Listing released")
         create(tenant, MovableResource.STENCIL, letters, "header")
         create(tenant, MovableResource.STENCIL, shared, "footer")
-        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
-        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute() }
 
         val listed = withMediator { ListRelocatableResources(tenant).query() }.associateBy { it.address.key }
 

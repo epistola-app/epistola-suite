@@ -45,13 +45,13 @@ class ExportReleaseTest : IntegrationTestBase() {
         val catalog = authoredCatalog("exp-release")
 
         val released = withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         withMediator {
-            UpdateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Edited since").execute()
+            UpdateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Edited since", catalogVersion = null).execute()
         }
 
         val release = withMediator {
@@ -76,9 +76,9 @@ class ExportReleaseTest : IntegrationTestBase() {
         val catalog = authoredCatalog("exp-unknown")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         assertThatThrownBy {
@@ -90,9 +90,9 @@ class ExportReleaseTest : IntegrationTestBase() {
     fun `a subscribed catalog exports the release it installed, as its publisher released it`() {
         val publisher = authoredCatalog("exp-subscribed")
         val archive = withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), publisher), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(publisher.tenantKey, publisher.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(publisher.tenantKey, publisher.key), version = "1.2.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), publisher), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(publisher.tenantKey, publisher.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher.tenantKey, publisher.key), version = "1.2.0", catalogVersion = null).execute()
             ExportCatalogZip(testCatalog(publisher.tenantKey, publisher.key)).execute()
         }
         val subscriber = createTenant("exp-subscriber").id

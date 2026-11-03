@@ -311,9 +311,10 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
+                catalogVersion = null,
             ).execute()
-            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
-            ReleaseCatalogDraft(testCatalog(publisher, catalogKey), version = version).execute()
+            MarkCatalogReady(testCatalog(publisher, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(publisher, catalogKey), version = version, catalogVersion = null).execute()
             ExportCatalogZip(catalog = testCatalog(publisher, catalogKey)).execute().zipBytes
         }
     }

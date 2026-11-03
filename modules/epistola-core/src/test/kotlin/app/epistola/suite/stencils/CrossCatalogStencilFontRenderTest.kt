@@ -85,17 +85,19 @@ class CrossCatalogStencilFontRenderTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, parts.key, "Parts").execute()
-            ImportFont(parts, slug = "acme-sans", name = "Acme Sans", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", bytes))).execute()
+            ImportFont(parts, slug = "acme-sans", name = "Acme Sans", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", bytes)), catalogVersion = null).execute()
             CreateStencil(
                 StencilId(StencilKey.of("header"), parts),
                 "Header",
                 content = document(text("line", "PARTS HEADER", styles = mapOf("fontFamily" to mapOf("key" to "acme-sans", "catalogKey" to "parts")))),
+                catalogVersion = null,
             ).execute()
             mediator.releaseNext(parts)
-            CreateDocumentTemplate(template, "Invoice").execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
             UpdateVariantContent(
                 variant,
                 document(Node(id = "header", type = "stencil", slots = listOf("header-slot"), props = mapOf("stencilKey" to "header", "catalogKey" to "parts"))),
+                catalogVersion = null,
             ).execute()
             mediator.publishAndRelease(variant)
         }
@@ -103,7 +105,7 @@ class CrossCatalogStencilFontRenderTest : IntegrationTestBase() {
         val expected = FontProgramFactory.createFont(bytes, false).fontNames.fontName
         for (workingCopy in listOf(false, true)) {
             val pdf = withMediator {
-                PreviewDocument(catalog = letters, templateId = template.key, data = objectMapper.createObjectNode(), variantId = variant.key, workingCopy = workingCopy).query()
+                PreviewDocument(catalog = letters, templateId = template.key, data = objectMapper.createObjectNode(), variantId = variant.key, workingCopy = workingCopy, catalogVersion = null).query()
             }
             assertThat(fontsOf(pdf, "PARTS HEADER")).`as`(if (workingCopy) "the draft" else "the release").containsExactly(expected)
         }

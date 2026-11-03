@@ -60,6 +60,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -128,13 +129,13 @@ class DraftDeploymentTest : IntegrationTestBase() {
     /** A letter released as 1.0.0 and 1.0.1 (both requiring `name`), served by `test` and `production`. */
     private fun setup(name: String): Setup = withMediator {
         val tenant = createTenant(name).id
-        val templateId = TemplateId(app.epistola.suite.templates.commands.CreateDocumentTemplate(TemplateId(app.epistola.suite.common.ids.TemplateKey.of("letter"), testCatalog(TenantId(tenant), default)), "Letter").execute().id, testCatalog(TenantId(tenant), default))
+        val templateId = TemplateId(app.epistola.suite.templates.commands.CreateDocumentTemplate(TemplateId(app.epistola.suite.common.ids.TemplateKey.of("letter"), testCatalog(TenantId(tenant), default)), "Letter", catalogVersion = null).execute().id, testCatalog(TenantId(tenant), default))
         val variant = VariantId(app.epistola.suite.common.ids.VariantKey.of("standard"), templateId)
-        CreateVariant(id = variant, title = "Standard", description = null, attributes = emptyMap()).execute()
-        UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", data("name")))).execute()
-        app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
+        CreateVariant(id = variant, title = "Standard", description = null, attributes = emptyMap(), catalogVersion = null).execute()
+        UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", data("name"))), catalogVersion = null).execute()
+        app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
-        app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter 2")).execute()
+        app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter 2"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
         for (key in listOf(test, production)) {
             CreateEnvironment(EnvironmentId(key, TenantId(tenant)), key.value, production = key == production).execute()
@@ -202,7 +203,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val setup = setup("override-draft")
         deployDraft(setup, test)
         // The draft now asks for another field than every release: only a render of the draft wants it.
-        withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true).execute() }
+        withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true, catalogVersion = null).execute() }
 
         val accepted = generate(setup, test, field = "reference")
         assertThat(accepted.releaseVersion).isNull()
@@ -224,7 +225,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat(withMediator { GetGenerationJob(setup.tenant, stale.id).query()!! }.request.errorMessage).contains("reference")
 
         val preview = withMediator {
-            PreviewDocument(testCatalog(setup.tenant, default), setup.variant.templateId.key, data("reference"), variantId = setup.variant.key, environmentId = test).query()
+            PreviewDocument(testCatalog(setup.tenant, default), setup.variant.templateId.key, data("reference"), variantId = setup.variant.key, environmentId = test, catalogVersion = null).query()
         }
         assertThat(String(preview, 0, 5)).`as`("previewing through the environment renders the draft").isEqualTo("%PDF-")
     }
@@ -313,7 +314,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
     fun `analysing data through an environment serving a draft checks the draft's contract`() {
         val setup = setup("override-analyze")
         deployDraft(setup, test)
-        withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true).execute() }
+        withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true, catalogVersion = null).execute() }
         fun analyze(environment: EnvironmentKey) = withMediator {
             AnalyzeTemplateData(testCatalog(setup.tenant, default), setup.variant.templateId.key, data("name"), variantId = setup.variant.key, environmentId = environment).query()
         }
@@ -349,8 +350,8 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val setup = setup("override-draft-tx")
         withMediator {
             val theme = ThemeId(ThemeKey.of("house"), testCatalog(TenantId(setup.tenant), default))
-            CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
-            UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalog = testCatalog(setup.variant.templateId.tenantKey, default)).execute()
+            CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value)), catalogVersion = null).execute()
+            UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalog = testCatalog(setup.variant.templateId.tenantKey, default), catalogVersion = null).execute()
         }
         // Using the system font pinned the system release, whose font the draft reads from that
         // release. Undeclared, the system catalog is read live, through the font query this watches.

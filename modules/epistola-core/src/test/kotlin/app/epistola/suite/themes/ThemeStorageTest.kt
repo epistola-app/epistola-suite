@@ -64,7 +64,7 @@ class ThemeStorageTest : IntegrationTestBase() {
         val tenant = TenantId(createTenant("Theme storage").id)
         val brand = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenant))
 
-        val created = withMediator { CreateTheme(brand, "Brand", description = "House style", spacingUnit = 4f).execute() }
+        val created = withMediator { CreateTheme(brand, "Brand", description = "House style", spacingUnit = 4f, catalogVersion = null).execute() }
 
         val stored = requireNotNull(row(tenant, "brand")) { "the draft holds a row of the theme" }
         val sameContent = jdbi.withHandle<Boolean, Exception> { h ->
@@ -81,32 +81,32 @@ class ThemeStorageTest : IntegrationTestBase() {
     fun `an update stores new content and raises the revision only when the theme changed`() {
         val tenant = TenantId(createTenant("Theme storage update").id)
         val brand = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenant))
-        withMediator { CreateTheme(brand, "Brand").execute() }
+        withMediator { CreateTheme(brand, "Brand", catalogVersion = null).execute() }
         val before = requireNotNull(row(tenant, "brand"))
 
-        withMediator { UpdateTheme(brand, name = "Brand").execute() }
+        withMediator { UpdateTheme(brand, name = "Brand", catalogVersion = null).execute() }
         assertThat(row(tenant, "brand")).`as`("the same content").isEqualTo(before)
 
-        val renamed = withMediator { UpdateTheme(brand, name = "Brand, renamed", spacingUnit = 1.333f).execute() }
+        val renamed = withMediator { UpdateTheme(brand, name = "Brand, renamed", spacingUnit = 1.333f, catalogVersion = null).execute() }
         val after = requireNotNull(row(tenant, "brand"))
         assertThat(after.contentHash).isNotEqualTo(before.contentHash)
         assertThat(after.revision).isEqualTo(2)
         assertThat(after.resourceId).isEqualTo(before.resourceId)
         assertThat(renamed?.spacingUnit).`as`("two decimals, as the column kept it").isEqualTo(1.33f)
         val styled = withMediator {
-            UpdateTheme(brand, documentStyles = mapOf("fontSize" to "11pt", "lineHeight" to 1.5, "margin" to 4), blockStylePresets = BlockStylePresets.of("callout" to app.epistola.template.model.BlockStylePreset(label = "Callout", styles = mapOf("padding" to "4sp")))).execute()
+            UpdateTheme(brand, documentStyles = mapOf("fontSize" to "11pt", "lineHeight" to 1.5, "margin" to 4), blockStylePresets = BlockStylePresets.of("callout" to app.epistola.template.model.BlockStylePreset(label = "Callout", styles = mapOf("padding" to "4sp"))), catalogVersion = null).execute()
         }
-        assertThat(styled).`as`("what a save returns is what a read gives").isEqualTo(withMediator { app.epistola.suite.themes.queries.GetTheme(brand).query() })
+        assertThat(styled).`as`("what a save returns is what a read gives").isEqualTo(withMediator { app.epistola.suite.themes.queries.GetTheme(brand, catalogVersion = null).query() })
     }
 
     @Test
     fun `a deleted theme takes its row and, held nowhere else, its identity`() {
         val tenant = TenantId(createTenant("Theme storage delete").id)
         val brand = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenant))
-        withMediator { CreateTheme(brand, "Brand").execute() }
+        withMediator { CreateTheme(brand, "Brand", catalogVersion = null).execute() }
         val identity = requireNotNull(row(tenant, "brand")).resourceId
 
-        assertThat(withMediator { DeleteTheme(brand).execute() }).isTrue()
+        assertThat(withMediator { DeleteTheme(brand, catalogVersion = null).execute() }).isTrue()
 
         assertThat(row(tenant, "brand")).isNull()
         assertThat(identityExists(tenant, identity)).isFalse()
@@ -116,7 +116,7 @@ class ThemeStorageTest : IntegrationTestBase() {
     fun `the migration converts every bundled theme as the suite stores it, both ways`() {
         val tenant = createTenant("Theme storage conversion").id
         val catalog = systemCatalog(tenant)
-        val bundled = withMediator { ListThemes(catalog.tenantId, catalog = catalog).query() }
+        val bundled = withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }
         assertThat(bundled).isNotEmpty()
         ThemeStorageConversion.verify(jdbi, objectMapper, catalog, bundled)
     }
@@ -134,6 +134,7 @@ class ThemeStorageTest : IntegrationTestBase() {
                 pageSettings = app.epistola.template.model.PageSettings(format = app.epistola.template.model.PageFormat.A4, orientation = app.epistola.template.model.Orientation.portrait, margins = app.epistola.template.model.Margins(top = 10, right = 12, bottom = 10, left = 12)),
                 blockStylePresets = BlockStylePresets.of("callout" to app.epistola.template.model.BlockStylePreset(label = "Callout", styles = mapOf("padding" to "4sp"))),
                 spacingUnit = 4.5f,
+                catalogVersion = null,
             ).execute()
         }
         ThemeStorageConversion.verify(jdbi, objectMapper, brand.catalogId, listOf(theme))

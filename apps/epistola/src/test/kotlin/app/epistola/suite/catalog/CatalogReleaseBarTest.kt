@@ -69,15 +69,16 @@ class CatalogReleaseBarTest : BaseIntegrationTest() {
                 withMediator {
                     val catalog = testCatalog(TenantId(tenant.id), catalogKey)
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Bar cat").execute()
-                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
+                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null)
                         .execute().withRequiredDataExample()
-                    CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address").execute()
-                    CreateTheme(id = ThemeId(ThemeKey.of("house"), catalog), name = "House").execute()
+                    CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address", catalogVersion = null).execute()
+                    CreateTheme(id = ThemeId(ThemeKey.of("house"), catalog), name = "House", catalogVersion = null).execute()
                     CreateCodeList(
                         id = CodeListId(CodeListKey.of("locales"), catalog),
                         displayName = "Locales",
                         sourceType = CodeListSource.INLINE,
                         entries = listOf(CodeListEntry("en", "English")),
+                        catalogVersion = null,
                     ).execute()
                     mediator.releaseNext(catalog) // 1.0.0; the draft is now 1.0.1
                 }
@@ -89,7 +90,7 @@ class CatalogReleaseBarTest : BaseIntegrationTest() {
     @Test
     fun `every content page names its catalog and the next version, and loads what is not published yet with Publish`() {
         val tenant = seed("Version Bar Pages")
-        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("extra"), testCatalog(TenantId(tenant.id), catalogKey)), name = "Extra").execute() }
+        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("extra"), testCatalog(TenantId(tenant.id), catalogKey)), name = "Extra", catalogVersion = null).execute() }
 
         listOf(
             "/catalogs/bar-cat/templates/invoice",
@@ -149,7 +150,7 @@ class CatalogReleaseBarTest : BaseIntegrationTest() {
     fun `the system catalog's page shows the release it is on and that Epistola supplies it, with nothing to publish`() {
         val tenant = seed("Version Bar Supplied")
         val installed: String = withMediator { GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()!!.latestReleaseVersion!! }
-        val theme: String = withMediator { ListThemes(TenantId(tenant.id)).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
+        val theme: String = withMediator { ListThemes(TenantId(tenant.id), catalogVersion = null).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
 
         val body = get(tenant, "/catalogs/system/themes/$theme")
         assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">v$installed<")

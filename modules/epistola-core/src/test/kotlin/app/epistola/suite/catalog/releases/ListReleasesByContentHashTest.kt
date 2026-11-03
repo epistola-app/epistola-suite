@@ -44,20 +44,20 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
 
     private fun released(tenant: TenantKey, key: CatalogKey, version: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = key.value).execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version, catalogVersion = null).execute()
     }
 
     /** The tenant described above; the content hash of 1.0.0. */
     private fun seeded(tenant: TenantKey): String = withMediator {
         released(tenant, letters, "1.0.0")
         // The same content again, under two more numbers: only the notes are new.
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Notes only").execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.2", notes = "Notes again").execute()
-        UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, changed").execute()
-        MarkCatalogReady(testCatalog(tenant, letters)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0").execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Notes only", catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.2", notes = "Notes again", catalogVersion = null).execute()
+        UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, changed", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", catalogVersion = null).execute()
         released(tenant, forms, "1.0.0")
         GetCatalogRelease(testCatalog(tenant, letters), "1.0.0").query()!!.contentHash!!
     }

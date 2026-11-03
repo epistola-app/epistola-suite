@@ -5,9 +5,10 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -21,29 +22,30 @@ class CatalogImportRows(
     private val references: app.epistola.suite.catalog.CatalogReferences,
 ) {
     /**
-     * The archive's theme settings (contract ADR 0007) on the version it was imported into: its
+     * The archive's theme settings (contract ADR 0007) on version [at], which it was imported into: its
      * default theme, found among the themes the import put in place (or in the catalog it names), and
      * the presets it declares. A default theme that is not there is left unset rather than failing the
      * import; the validator already checked it resolves.
      */
-    fun updateThemeSettings(catalog: CatalogId, info: app.epistola.catalog.protocol.CatalogInfo, objectMapper: tools.jackson.databind.ObjectMapper) {
-        // The catalog its alias names, by what the catalog declares (stored before this, ADR 0034, section 9).
-        val themeCatalog = info.defaultTheme?.let { references.resolveReceived(catalog, it.catalogKey, null) }
+    fun updateThemeSettings(at: ContentVersion, info: app.epistola.catalog.protocol.CatalogInfo, objectMapper: tools.jackson.databind.ObjectMapper) {
+        // The catalog its alias names, by what the version declares (stored before this, ADR 0034, section 9).
+        val themeCatalog = info.defaultTheme?.let { references.resolveReceived(at, it.catalogKey, null) }
         val presets = objectMapper.writeValueAsString(info.presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) })
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalog_versions SET
                     default_theme_resource_id = (
-                        SELECT resource_id FROM current_themes
-                        WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = CAST(:theme AS TEXT)
+                        SELECT th.resource_id FROM version_themes th
+                        WHERE th.tenant_key = :t AND th.catalog_id = ${catalogAt("t", "themeCatalog")} AND th.id = CAST(:theme AS TEXT)
+                          AND ${inVersionOrNext("th", "v")}
                     ),
                     presets = CAST(:presets AS JSONB)
-                WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+                WHERE tenant_key = :t AND version_id = :v
                 """,
             )
-                .bind("t", catalog.tenantKey)
-                .bindCatalog("c", catalog)
+                .bind("t", at.tenantKey)
+                .bindVersion("v", at.versionId)
                 .bindCatalog("themeCatalog", themeCatalog)
                 .bind("theme", info.defaultTheme?.key)
                 .bind("presets", presets)
@@ -160,7 +162,7 @@ class CatalogImportRows(
             // Catalog-scoped: themes
             val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
             if (themeDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, th.id FROM current_themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, th.id FROM version_themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id AND rc.next_version_id = th.version_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", themeDeps.map { it.key })
                     .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -171,7 +173,7 @@ class CatalogImportRows(
             // Catalog-scoped: stencils
             val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
             if (stencilDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, st.id FROM current_stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, st.id FROM version_stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id AND rc.next_version_id = st.version_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", stencilDeps.map { it.key })
                     .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -186,7 +188,7 @@ class CatalogImportRows(
             val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
             if (imageDeps.isNotEmpty()) {
                 handle.createQuery(
-                    "SELECT rc.catalog_key, a.id::text AS id FROM current_images a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
+                    "SELECT rc.catalog_key, a.id::text AS id FROM version_images a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id AND rc.next_version_id = a.version_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
                 )
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", imageDeps.map { it.key })
@@ -199,7 +201,7 @@ class CatalogImportRows(
             // shape as themes/stencils so the look-up cost is one PK probe.
             val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
             if (codeListDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, cl.id AS slug FROM current_code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND cl.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, cl.id AS slug FROM version_code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id AND rc.next_version_id = cl.version_id WHERE cl.tenant_key = :tenantKey AND cl.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", codeListDeps.map { it.key })
                     .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
@@ -211,7 +213,7 @@ class CatalogImportRows(
             // as themes/stencils/code lists.
             val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
             if (fontDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM current_fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM version_fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id AND rc.next_version_id = fo.version_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", fontDeps.map { it.key })
                     .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }

@@ -51,13 +51,14 @@ class CodeListCommandsTest : IntegrationTestBase() {
                     CodeListEntry("retail", "Retail Customers", sortOrder = 1),
                     CodeListEntry("smb", "Small & Medium Business", sortOrder = 2),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(created.slug.value).isEqualTo("audience-segments")
             assertThat(created.displayName).isEqualTo("Audience Segments")
             assertThat(created.sourceType).isEqualTo(CodeListSource.INLINE)
 
-            val entries = ListCodeListEntries(id).query()
+            val entries = ListCodeListEntries(id, catalogVersion = null).query()
             assertThat(entries).hasSize(2)
             assertThat(entries.map { it.code }).containsExactly("retail", "smb")
         }
@@ -75,6 +76,7 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Empty",
                 sourceType = CodeListSource.INLINE,
                 entries = emptyList(),
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("at least one entry")
@@ -92,6 +94,7 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Dup",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("a", "A"), CodeListEntry("a", "Aa")),
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("unique")
@@ -109,11 +112,12 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Regions",
                 sourceType = CodeListSource.URL,
                 sourceUrl = "https://example.com/regions.json",
+                catalogVersion = null,
             ).execute()
 
             assertThat(created.sourceType).isEqualTo(CodeListSource.URL)
             assertThat(created.sourceUrl).isEqualTo("https://example.com/regions.json")
-            assertThat(ListCodeListEntries(id).query()).isEmpty()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).isEmpty()
         }
     }
 
@@ -129,6 +133,7 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "No URL",
                 sourceType = CodeListSource.URL,
                 sourceUrl = null,
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("Source URL is required")
@@ -146,6 +151,7 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Colors",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue")),
+                catalogVersion = null,
             ).execute()
 
             UpdateCodeList(
@@ -155,9 +161,10 @@ class CodeListCommandsTest : IntegrationTestBase() {
                     CodeListEntry("red", "Red"),
                     CodeListEntry("green", "Green"),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            val entries = ListCodeListEntries(id).query()
+            val entries = ListCodeListEntries(id, catalogVersion = null).query()
             assertThat(entries.map { it.code }).containsExactlyInAnyOrder("red", "green")
         }
     }
@@ -174,11 +181,12 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Transient",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("x", "X")),
+                catalogVersion = null,
             ).execute()
 
-            assertThat(DeleteCodeList(id).execute()).isTrue()
-            assertThat(GetCodeList(id).query()).isNull()
-            assertThat(ListCodeListEntries(id).query()).isEmpty()
+            assertThat(DeleteCodeList(id, catalogVersion = null).execute()).isTrue()
+            assertThat(GetCodeList(id, catalogVersion = null).query()).isNull()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).isEmpty()
         }
     }
 
@@ -195,15 +203,17 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale"), catalogId),
                 displayName = "Locale",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
-            assertThatThrownBy { DeleteCodeList(codeListId).execute() }
+            assertThatThrownBy { DeleteCodeList(codeListId, catalogVersion = null).execute() }
                 .isInstanceOf(CodeListInUseException::class.java)
                 .hasMessageContaining("locale")
         }
@@ -222,19 +232,21 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 displayName = "A",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("x", "X")),
+                catalogVersion = null,
             ).execute()
             CreateCodeList(
                 id = idB,
                 displayName = "B",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("y", "Y")),
+                catalogVersion = null,
             ).execute()
 
             // Scope to the tenant's default catalog — the bundled `system`
             // catalog also contributes code lists (bcp-47, iso-639-1,
             // iso-3166-1-alpha2) that we don't want to assert on here.
-            val resultA = ListCodeLists(TenantId(a.id), catalog = testCatalog(TenantId(a.id), CatalogKey.of("default"))).query()
-            val resultB = ListCodeLists(TenantId(b.id), catalog = testCatalog(TenantId(b.id), CatalogKey.of("default"))).query()
+            val resultA = ListCodeLists(TenantId(a.id), catalog = testCatalog(TenantId(a.id), CatalogKey.of("default")), catalogVersion = null).query()
+            val resultB = ListCodeLists(TenantId(b.id), catalog = testCatalog(TenantId(b.id), CatalogKey.of("default")), catalogVersion = null).query()
             assertThat(resultA).extracting<String> { it.slug.value }.containsExactly("list-a")
             assertThat(resultB).extracting<String> { it.slug.value }.containsExactly("list-b")
         }
@@ -256,26 +268,27 @@ class CodeListCommandsTest : IntegrationTestBase() {
                     CodeListEntry("active", "Active"),
                     CodeListEntry("legacy", "Legacy"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // Hide the legacy entry.
-            UpdateCodeListEntryHidden(id, "legacy", hidden = true).execute()
+            UpdateCodeListEntryHidden(id, "legacy", hidden = true, catalogVersion = null).execute()
 
-            val visible = ListCodeListEntries(id, includeHidden = false).query()
+            val visible = ListCodeListEntries(id, includeHidden = false, catalogVersion = null).query()
             assertThat(visible.map { it.code }).containsExactly("active")
 
-            val all = ListCodeListEntries(id, includeHidden = true).query()
+            val all = ListCodeListEntries(id, includeHidden = true, catalogVersion = null).query()
             assertThat(all.map { it.code }).containsExactlyInAnyOrder("active", "legacy")
 
             // Validation accepts both visible and hidden codes.
             assertThat(
-                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "active").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "active", catalogVersion = null).query(),
             ).isTrue()
             assertThat(
-                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "legacy").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "legacy", catalogVersion = null).query(),
             ).isTrue()
             assertThat(
-                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "unknown").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "unknown", catalogVersion = null).query(),
             ).isFalse()
         }
     }
@@ -295,13 +308,13 @@ class CodeListCommandsTest : IntegrationTestBase() {
             val id = CodeListId(CodeListKey.of("refused-$i"), CatalogId.default(tenantId))
             withMediator {
                 assertThatThrownBy {
-                    CreateCodeList(id = id, displayName = "Refused", sourceType = CodeListSource.URL, sourceUrl = url).execute()
+                    CreateCodeList(id = id, displayName = "Refused", sourceType = CodeListSource.URL, sourceUrl = url, catalogVersion = null).execute()
                 }.describedAs(url)
                     .isInstanceOfSatisfying(ValidationException::class.java) {
                         assertThat(it.field).isEqualTo("sourceUrl")
                         assertThat(it.code).isEqualTo(ValidationCode.SOURCE_URL_NOT_ALLOWED)
                     }
-                assertThat(GetCodeList(id).query()).isNull()
+                assertThat(GetCodeList(id, catalogVersion = null).query()).isNull()
             }
         }
     }
@@ -313,14 +326,14 @@ class CodeListCommandsTest : IntegrationTestBase() {
         val id = CodeListId(CodeListKey.of("regions-update"), CatalogId.default(tenantId))
 
         withMediator {
-            CreateCodeList(id = id, displayName = "Regions", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/regions.json").execute()
+            CreateCodeList(id = id, displayName = "Regions", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/regions.json", catalogVersion = null).execute()
 
             assertThatThrownBy {
-                UpdateCodeList(id = id, displayName = "Regions", sourceUrl = "file:///etc/passwd.json").execute()
+                UpdateCodeList(id = id, displayName = "Regions", sourceUrl = "file:///etc/passwd.json", catalogVersion = null).execute()
             }.isInstanceOf(ValidationException::class.java)
-            assertThat(GetCodeList(id).query()!!.sourceUrl).isEqualTo("https://example.com/regions.json")
+            assertThat(GetCodeList(id, catalogVersion = null).query()!!.sourceUrl).isEqualTo("https://example.com/regions.json")
 
-            val renamed = UpdateCodeList(id = id, displayName = "Renamed", sourceUrl = "https://example.com/regions.json").execute()
+            val renamed = UpdateCodeList(id = id, displayName = "Renamed", sourceUrl = "https://example.com/regions.json", catalogVersion = null).execute()
             assertThat(renamed!!.displayName).isEqualTo("Renamed")
         }
     }

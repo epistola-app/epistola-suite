@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.ContentReference
 import app.epistola.suite.catalog.revisions.TemplateContents
 import app.epistola.suite.catalog.revisions.VariantRows
@@ -49,16 +50,16 @@ class TemplateResourceType(
         override fun assemble(parent: JsonNode, parts: Map<String, JsonNode>): JsonNode = TemplateContents.assemble(parent, parts, objectMapper)
     }
 
-    override fun receive(catalog: CatalogId, resource: TemplateResource, arrival: Arrival): InstallStatus {
-        val result = ImportTemplates(catalog = catalog, templates = listOf(importInput(resource, arrival))).execute().first()
+    override fun receive(at: ContentVersion, resource: TemplateResource, arrival: Arrival): InstallStatus {
+        val result = ImportTemplates(catalog = at.catalog, catalogVersion = at.ref, templates = listOf(importInput(resource, arrival))).execute().first()
         if (result.status == ImportStatus.FAILED) {
             throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
         }
         return if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
     }
 
-    override fun markReady(catalog: CatalogId, key: String): Boolean {
-        MarkTemplateReady(TemplateId(TemplateKey.of(key), catalog)).execute()
+    override fun markReady(at: ContentVersion, key: String): Boolean {
+        MarkTemplateReady(TemplateId(TemplateKey.of(key), at.catalog), catalogVersion = at.ref).execute()
         return true
     }
 

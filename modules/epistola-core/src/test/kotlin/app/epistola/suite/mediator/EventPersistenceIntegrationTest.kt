@@ -110,6 +110,7 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
                 name = "Probe Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", face)),
+                catalogVersion = null,
             ).execute()
 
             val payload = jdbi.withHandle<String, Exception> { handle ->

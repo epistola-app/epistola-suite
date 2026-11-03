@@ -10,9 +10,9 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.requireWritableVersion
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.writable
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -30,7 +30,7 @@ import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 /**
- * The columns a code list read selects from `current_code_lists` aliased `t`, named as [CodeList]
+ * The columns a code list read selects from `version_code_lists` aliased `t`, named as [CodeList]
  * maps them. The catalog's name, the credential and the last refresh are looked up by key, row by
  * row, rather than joined: a join's order is the planner's (ThemePlanStabilityTest).
  */
@@ -43,9 +43,6 @@ internal const val CODE_LIST_COLUMNS: String =
         "(SELECT f.last_refreshed_at FROM code_list_refreshes f WHERE f.tenant_key = t.tenant_key AND f.version_id = t.version_id AND f.resource_id = t.resource_id) AS last_refreshed_at, " +
         "(SELECT f.last_refresh_error FROM code_list_refreshes f WHERE f.tenant_key = t.tenant_key AND f.version_id = t.version_id AND f.resource_id = t.resource_id) AS last_refresh_error, " +
         "t.created_at, t.updated_at, t.revision"
-
-/** Code list [key] of [catalog] in `current_code_lists t`; binds `t`, `c` and `key`. */
-internal fun codeListAt(catalogParam: String = "c", keyParam: String = "key"): String = "t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", catalogParam)} AND t.id = :$keyParam"
 
 /** Where a code list's entries come from, beside its content (ADR 0033): `source` in its JSON. */
 data class CodeListSourceSettings(
@@ -107,83 +104,82 @@ class CodeListStore(
         return id
     }
 
-    /** Stores [fields] as code list [key] of [catalog]'s tenant and returns its content hash. */
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: CodeListFields): String = contents.store(handle, catalog.tenantKey, CODE_LIST, ResourceMetadata.carried(handle, catalog, CODE_LIST, key, payload(key, fields), fields.metadata, objectMapper))
+    /** Stores [fields] as code list [key] of version [at] and returns its content hash. */
+    fun store(handle: Handle, at: ContentVersion, key: String, fields: CodeListFields): String = contents.store(handle, at.tenantKey, CODE_LIST, ResourceMetadata.carried(handle, at, CODE_LIST, key, payload(key, fields), fields.metadata, objectMapper))
 
-    /** Adds code list [id] to the targeted draft; one already there is a unique violation. */
-    fun create(handle: Handle, id: CodeListId, fields: CodeListFields, actor: UUID?): CodeList {
-        DraftResources.insert(handle, id.catalogId, CODE_LIST, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, fields.description, actor)
-        return checkNotNull(get(handle, id)) { "Code list ${id.key.value} was just written" }
+    /** Adds code list [id] to draft [at]; one already there is a unique violation. */
+    fun create(handle: Handle, at: ContentVersion, id: CodeListId, fields: CodeListFields, actor: UUID?): CodeList {
+        DraftResources.insert(handle, at, CODE_LIST, id.key.value, store(handle, at, id.key.value, fields), fields.name, fields.description, actor)
+        return checkNotNull(get(handle, at, id)) { "Code list ${id.key.value} was just written" }
     }
 
     /**
-     * Saves [fields] as code list [id] of the targeted draft, when its revision is still
-     * [expectedRevision] (null: whatever it is); null when the draft holds no such list, or it moved
-     * on. Content that hashes the same writes nothing new and keeps the revision.
+     * Saves [fields] as code list [id] of draft [at], when its revision is still [expectedRevision]
+     * (null: whatever it is); null when the draft holds no such list, or it moved on. Content that
+     * hashes the same writes nothing new and keeps the revision.
      */
-    fun save(handle: Handle, id: CodeListId, fields: CodeListFields, actor: UUID?, expectedRevision: Long? = null): CodeList? {
-        if (!write(handle, id, fields, actor, expectedRevision)) return null
-        return get(handle, id)
+    fun save(handle: Handle, at: ContentVersion, id: CodeListId, fields: CodeListFields, actor: UUID?, expectedRevision: Long? = null): CodeList? {
+        if (!write(handle, at, id, fields, actor, expectedRevision)) return null
+        return get(handle, at, id)
     }
 
     /** As [save], without reading the list back; false when the draft holds no such list, or it moved on. */
-    fun write(handle: Handle, id: CodeListId, fields: CodeListFields, actor: UUID?, expectedRevision: Long? = null): Boolean {
-        val hash = store(handle, id.catalogId, id.key.value, fields)
-        return DraftResources.update(handle, id.catalogId, CODE_LIST, id.key.value, hash, fields.name, fields.description, actor, expectedRevision) != null
+    fun write(handle: Handle, at: ContentVersion, id: CodeListId, fields: CodeListFields, actor: UUID?, expectedRevision: Long? = null): Boolean {
+        val hash = store(handle, at, id.key.value, fields)
+        return DraftResources.update(handle, at, CODE_LIST, id.key.value, hash, fields.name, fields.description, actor, expectedRevision) != null
     }
 
     /**
-     * Creates or replaces code list [id] in the targeted draft, keeping the source a list already
-     * there has (a received catalog brings none); true when it was there already.
+     * Creates or replaces code list [id] in draft [at], keeping the source a list already there has
+     * (a received catalog brings none); true when it was there already.
      */
-    fun put(handle: Handle, id: CodeListId, name: String, description: String?, entries: List<CodeListEntry>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): Boolean {
-        val existing = fields(handle, id)
+    fun put(handle: Handle, at: ContentVersion, id: CodeListId, name: String, description: String?, entries: List<CodeListEntry>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): Boolean {
+        val existing = fields(handle, at, id)
         val fields = CodeListFields(name, description, entries, existing?.source, metadata)
-        val hash = store(handle, id.catalogId, id.key.value, fields)
-        if (DraftResources.update(handle, id.catalogId, CODE_LIST, id.key.value, hash, name, description, actor) != null) return true
-        DraftResources.insert(handle, id.catalogId, CODE_LIST, id.key.value, hash, name, description, actor)
+        val hash = store(handle, at, id.key.value, fields)
+        if (DraftResources.update(handle, at, CODE_LIST, id.key.value, hash, name, description, actor) != null) return true
+        DraftResources.insert(handle, at, CODE_LIST, id.key.value, hash, name, description, actor)
         return false
     }
 
-    /** Removes code list [id] from the targeted draft; false when it held none. */
-    fun delete(handle: Handle, id: CodeListId): Boolean = DraftResources.delete(handle, id.catalogId, CODE_LIST, id.key.value)
+    /** Removes code list [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: CodeListId): Boolean = DraftResources.delete(handle, at, CODE_LIST, id.key.value)
 
-    /** Code list [id] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, id: CodeListId): CodeList? = handle
-        .createQuery("SELECT $CODE_LIST_COLUMNS FROM current_code_lists t WHERE ${codeListAt()}")
+    /** Code list [id] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, id: CodeListId): CodeList? = handle
+        .createQuery("SELECT $CODE_LIST_COLUMNS FROM version_code_lists t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :key")
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("key", id.key.value)
         .mapTo<CodeList>()
         .findOne()
         .orElse(null)
 
-    /** What code list [id] says, read from its content; null when the version holds none. */
-    fun fields(handle: Handle, id: CodeListId): CodeListFields? = handle
-        .createQuery("SELECT t.payload::text FROM current_code_lists t WHERE ${codeListAt()}")
+    /** What code list [id] says in version [at], read from its content; null when the version holds none. */
+    fun fields(handle: Handle, at: ContentVersion, id: CodeListId): CodeListFields? = handle
+        .createQuery("SELECT t.payload::text FROM version_code_lists t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :key")
         .bind("t", id.tenantKey)
-        .bindCatalog("c", id.catalogId)
+        .bindVersion("v", at.versionId)
         .bind("key", id.key.value)
         .mapTo(String::class.java)
         .findOne()
         .orElse(null)
         ?.let { fieldsOf(objectMapper.readTree(it)) }
 
-    /** Records a refresh of code list [id] in the targeted draft: when it succeeded (null: it did not), and its error. */
-    fun recordRefresh(handle: Handle, id: CodeListId, succeeded: Boolean, error: String?) {
-        handle.requireWritableVersion(id.catalogId)
-        handle.createUpdate(
+    /** Records a refresh of code list [id] in draft [at]: when it succeeded (null: it did not), and its error. */
+    fun recordRefresh(handle: Handle, at: ContentVersion, id: CodeListId, succeeded: Boolean, error: String?) {
+        handle.writable(at).createUpdate(
             """
             INSERT INTO code_list_refreshes (tenant_key, version_id, resource_id, last_refreshed_at, last_refresh_error)
             SELECT t.tenant_key, t.version_id, t.resource_id, CASE WHEN :succeeded THEN NOW() END, :error
-            FROM current_code_lists t WHERE ${codeListAt()} AND t.version_id IS NOT NULL
+            FROM version_code_lists t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :key
             ON CONFLICT (tenant_key, version_id, resource_id) DO UPDATE
             SET last_refreshed_at = CASE WHEN :succeeded THEN NOW() ELSE code_list_refreshes.last_refreshed_at END,
                 last_refresh_error = :error
             """,
         )
             .bind("t", id.tenantKey)
-            .bindCatalog("c", id.catalogId)
+            .bindVersion("v", at.versionId)
             .bind("key", id.key.value)
             .bind("succeeded", succeeded)
             .bind("error", error)

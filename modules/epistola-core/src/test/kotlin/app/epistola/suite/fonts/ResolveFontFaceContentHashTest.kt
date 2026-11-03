@@ -39,7 +39,7 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
     fun `a bundled system face carries the hash of its bytes`() {
         val tenant = createTenant("Font hash system")
 
-        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of("lora"), 700, italic = true).query() }
+        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of("lora"), 700, italic = true, catalogVersion = null).query() }
 
         assertThat(face).isNotNull()
         assertThat(face!!.contentHash).isEqualTo(FontProgramCache.contentHash(face.content))
@@ -59,10 +59,11 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
                 name = "House Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(700, false, "font/ttf", upload)),
+                catalogVersion = null,
             ).execute()
         }
 
-        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, letters), FontKey.of("house-sans"), 700, italic = false).query() }
+        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, letters), FontKey.of("house-sans"), 700, italic = false, catalogVersion = null).query() }
 
         assertThat(face).isNotNull()
         assertThat(face!!.content).isEqualTo(upload)

@@ -70,12 +70,13 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         withMediator {
             val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(TenantKey.of(tenantKey))))
             // A contract needs an example; a test that gives none gets an empty one.
-            val current = GetDataContract(templateId).query()?.dataExamples.orEmpty()
+            val current = GetDataContract(templateId, catalogVersion = null).query()?.dataExamples.orEmpty()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = dataModel?.let { objectMapper.readValue(it, tools.jackson.databind.node.ObjectNode::class.java) },
                 dataExamples = examples.ifEmpty { current.ifEmpty { listOf(DataExample("example-1", "Example 1", objectMapper.createObjectNode())) } },
                 forceUpdate = true,
+                catalogVersion = null,
             ).execute()
         }
     }
@@ -92,6 +93,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     data = objectMapper.createObjectNode(),
                 ),
             ),
+            catalogVersion = null,
         ).execute()
     }
 
@@ -519,6 +521,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 UpdateDocumentTemplate(
                     id = TemplateId(newest.id, testCatalog(TenantId(testTenant.id), CatalogKey.of("default"))),
                     name = "RecentlyTouched",
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -550,6 +553,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     CreateDocumentTemplate(
                         id = TemplateId(TemplateKey.of("mkt-%02d".format(i)), testCatalog(tenantId, CatalogKey.of("marketing"))),
                         name = "Marketing %02d".format(i),
+                        catalogVersion = null,
                     ).execute()
                 }
             }
@@ -597,7 +601,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("New Template")
 
             val templates = listDocumentTemplatesHandler.handle(
-                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "New Template"),
+                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "New Template", catalogVersion = null),
             )
             assertThat(templates).hasSize(1)
         }
@@ -629,7 +633,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("HTMX Template")
 
             val templates = listDocumentTemplatesHandler.handle(
-                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "HTMX Template"),
+                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "HTMX Template", catalogVersion = null),
             )
             assertThat(templates).hasSize(1)
         }
@@ -665,7 +669,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Name is required")
             assertThat(response.body).contains("form-error")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id), catalogVersion = null))
             assertThat(templates).isEmpty()
         }
     }
@@ -696,7 +700,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name is required")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id), catalogVersion = null))
             assertThat(templates).isEmpty()
         }
     }
@@ -727,7 +731,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#create-template-form")
             assertThat(response.body).contains("Name must be 100 characters or less")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id), catalogVersion = null))
             assertThat(templates).isEmpty()
         }
     }
@@ -1016,7 +1020,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Updated John")
 
                 // Verify the other example is unchanged via contract version
-                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))), catalogVersion = null))
                 assertThat(contract).isNotNull
                 assertThat(contract!!.dataExamples).hasSize(2)
                 assertThat(contract.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
@@ -1262,7 +1266,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))), catalogVersion = null))
                 assertThat(contract).isNotNull
                 assertThat(contract!!.dataExamples).hasSize(1)
                 assertThat(contract.dataExamples[0].id).isEqualTo("example-2")
@@ -1312,6 +1316,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val contract = mediator.query(
                     GetDataContract(
                         templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
+                        catalogVersion = null,
                     ),
                 )
                 assertThat(contract!!.dataExamples).hasSize(1)
@@ -1466,7 +1471,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("\"success\":true")
-                val contract = mediator.query(GetDataContract(TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))!!
+                val contract = mediator.query(GetDataContract(TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))), catalogVersion = null))!!
                 assertThat(contract.dataModel?.get("properties")?.has("name")).isTrue()
                 // Stored by its key, derived from its name (ADR 0033): its id from now on.
                 assertThat(contract.dataExamples.map { it.id }).containsExactly("example")
@@ -1593,11 +1598,13 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         name = "Editor Theme",
                         documentStyles = mapOf("fontSize" to "10pt"),
                         spacingUnit = 6f,
+                        catalogVersion = null,
                     ).execute()
                     UpdateDocumentTemplate(
                         id = TemplateId(template.id, catalogId),
                         themeId = themeId.key,
                         themeCatalog = testCatalog(TemplateId(template.id, catalogId).tenantKey, themeId.catalogKey),
+                        catalogVersion = null,
                     ).execute()
                 }
             }
@@ -2166,7 +2173,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val url = "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/${template.id}/variants/$variantId/content"
                 val opened = withMediator {
-                    GetVariant(VariantId(variantId!!, TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))))).query()!!.revision
+                    GetVariant(VariantId(variantId!!, TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))), catalogVersion = null).query()!!.revision
                 }
                 fun save(text: String, revision: Long?) = restTemplate.exchange(
                     url,

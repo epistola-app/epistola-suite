@@ -37,10 +37,10 @@ class ReleasedCodeListPageHtmxTest : BaseIntegrationTest() {
         val catalog = CatalogId.default(TenantId(tenant.id))
         val id = CodeListId(CodeListKey.of("regions"), catalog)
         withMediator {
-            CreateCodeList(id, "Regions as released", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
-            MarkCatalogReady(catalog).execute()
-            ReleaseCatalogDraft(catalog, "1.0.0").execute()
-            UpdateCodeList(id, "Regions as drafted", entries = listOf(CodeListEntry("us", "United States"))).execute()
+            CreateCodeList(id, "Regions as released", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe")), catalogVersion = null).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog, "1.0.0", catalogVersion = null).execute()
+            UpdateCodeList(id, "Regions as drafted", entries = listOf(CodeListEntry("us", "United States")), catalogVersion = null).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${catalog.address}@1.0.0/code-lists/regions", String::class.java)

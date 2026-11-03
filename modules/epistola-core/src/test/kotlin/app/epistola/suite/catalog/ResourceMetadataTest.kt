@@ -69,13 +69,13 @@ class ResourceMetadataTest : IntegrationTestBase() {
     private fun publish(a: TenantKey): ByteArray = withMediator {
         val id = testCatalog(a, catalog)
         CreateCatalog(tenantKey = a, id = catalog, name = "Described").execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), id), name = "Brand").execute()
-        CreateStencil(StencilId(StencilKey.of("header"), id), "Header").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("languages"), id), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
-        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), id), "Tone", allowedValues = listOf("formal", "plain")).execute()
-        UploadAsset(id, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1).execute()
-        MarkCatalogReady(id).execute()
-        ReleaseCatalogDraft(catalog = id, version = "1.0.0").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), id), name = "Brand", catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("header"), id), "Header", catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("languages"), id), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), id), "Tone", allowedValues = listOf("formal", "plain"), catalogVersion = null).execute()
+        UploadAsset(id, "logo", AssetMediaType.PNG, AssetIntegrationTest.createMinimalPng(), 1, 1, catalogVersion = null).execute()
+        MarkCatalogReady(id, catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = id, version = "1.0.0", catalogVersion = null).execute()
         ExportCatalogZip(id, "1.0.0").execute().zipBytes
     }
 
@@ -110,7 +110,7 @@ class ResourceMetadataTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = described, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            val installed = contentBuilder.build(testCatalog(b, catalog))
+            val installed = contentBuilder.buildNext(testCatalog(b, catalog))
             val keys = installed.resourceDetails.keys.toList()
             assertThat(keys.map { it.substringBefore('/') }).`as`("one of each type").containsExactlyInAnyOrder("theme", "stencil", "codeList", "attribute", "image")
             keys.forEach { key ->
@@ -120,9 +120,9 @@ class ResourceMetadataTest : IntegrationTestBase() {
                 .containsAllEntriesOf(CatalogArchiveReader.read(ByteArrayInputStream(described)).archive!!.use { fingerprints.resourceFingerprints(it) })
 
             // An author's edits keep what the producer said.
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(b, catalog)), name = "B's brand").execute()
-            UpdateStencil(StencilId(StencilKey.of("header"), testCatalog(b, catalog)), name = "B's header").execute()
-            val edited = contentBuilder.build(testCatalog(b, catalog))
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(b, catalog)), name = "B's brand", catalogVersion = null).execute()
+            UpdateStencil(StencilId(StencilKey.of("header"), testCatalog(b, catalog)), name = "B's header", catalogVersion = null).execute()
+            val edited = contentBuilder.buildNext(testCatalog(b, catalog))
             assertThat(edited.resourceDetails.getValue("theme/brand").resource.metadata).`as`("an edited theme").isEqualTo(metadata)
             assertThat(edited.resourceDetails.getValue("stencil/header").resource.metadata).`as`("an edited stencil").isEqualTo(metadata)
         }

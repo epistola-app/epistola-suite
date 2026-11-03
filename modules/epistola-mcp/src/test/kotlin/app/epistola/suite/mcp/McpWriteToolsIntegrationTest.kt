@@ -109,7 +109,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
             contentTools.updateVariantContent("default", "welcome-letter", variant.id, documentJson("Hello {{name}}"), null)
         }
         val stored = runAsApiKey(tenantId) {
-            GetEditorContext(variantId("default", tenantId, "welcome-letter", variant.id)).query()
+            GetEditorContext(variantId("default", tenantId, "welcome-letter", variant.id), catalogVersion = null).query()
         }!!
         assertThat(stored.templateModel.nodes["text1"]!!.props.toString()).contains("Hello {{name}}")
     }
@@ -512,7 +512,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         }.hasMessageContaining("Face 2")
 
         val fontAssets = runAsApiKey(tenantId) {
-            ListAssets(tenantId = tenantId.key, catalog = testCatalog(tenantId.key, CatalogKey.DEFAULT)).query()
+            ListAssets(tenantId = tenantId.key, catalog = testCatalog(tenantId.key, CatalogKey.DEFAULT), catalogVersion = null).query()
         }.filter { it.mediaType.category != AssetMediaCategory.IMAGE }
         assertThat(fontAssets).isEmpty()
         assertThat(runAsApiKey(tenantId) { fontTools.listFonts("default") }).isEmpty()

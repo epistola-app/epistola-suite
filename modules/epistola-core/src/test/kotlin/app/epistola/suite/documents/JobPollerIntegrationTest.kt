@@ -118,6 +118,7 @@ class JobPollerIntegrationTest {
             CreateDocumentTemplate(
                 id = templateId,
                 name = "Test Template",
+                catalogVersion = null,
             ),
         )
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
@@ -127,6 +128,7 @@ class JobPollerIntegrationTest {
                 title = "Default",
                 description = null,
                 attributes = emptyMap(),
+                catalogVersion = null,
             ),
         )!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -134,6 +136,7 @@ class JobPollerIntegrationTest {
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
+                catalogVersion = null,
             ),
         )
         val version = mediator.publishAndRelease(variantId)

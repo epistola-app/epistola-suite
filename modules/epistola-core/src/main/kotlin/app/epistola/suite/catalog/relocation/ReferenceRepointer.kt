@@ -4,8 +4,12 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.catalog.revisions.ContentReference
 import app.epistola.suite.catalog.revisions.ContentReferences
 import app.epistola.suite.catalog.revisions.DraftResources
@@ -73,12 +77,14 @@ class ReferenceRepointer(
     private val contents: ResourceContentStore,
 ) {
     /**
-     * The rows [relocations] change, in the drafts each catalog's statements mean, with [aliases]
-     * (`catalog address` and alias to the catalog it names) resolving a reference into another catalog.
+     * The rows [relocations] change, in the draft [ref] names for its catalog and every other
+     * catalog's next version, with [aliases] (`catalog address` and alias to the catalog it names)
+     * resolving a reference into another catalog.
      */
-    fun plan(handle: Handle, tenantKey: TenantKey, relocations: List<ResourceRelocation>, aliases: Map<Pair<String, String>, String>): RepointPlan {
+    fun plan(handle: Handle, tenantKey: TenantKey, relocations: List<ResourceRelocation>, aliases: Map<Pair<String, String>, String>, ref: CatalogReleaseRef?): RepointPlan {
         val moves = relocations.associate { it.source to it.target }
-        val uniqueAttributeKeys = uniqueAttributeKeys(handle, tenantKey, relocations)
+        val addressed = ref?.let { handle.versionIn(it.catalog, it).versionId }
+        val uniqueAttributeKeys = uniqueAttributeKeys(handle, tenantKey, relocations, addressed)
         fun rewrite(row: DraftResources.Row, holderCatalog: String, finalCatalog: String, newKey: String?): RowRewrite? {
             val payload = objectMapper.readTree(row.payload) as ObjectNode
             val resource = payload.get("resource") as? ObjectNode ?: payload
@@ -98,11 +104,11 @@ class ReferenceRepointer(
         }
 
         val moving = relocations.associateBy { it.source }
-        val rewrites = DraftResources.referencing(handle, tenantKey, moves.keys.map { it.type.wireName to it.key })
+        val rewrites = DraftResources.referencing(handle, tenantKey, addressed, moves.keys.map { it.type.wireName to it.key })
             .filter { row -> ownerOf(row) !in moving.keys }
             .mapNotNull { row -> rewrite(row, row.catalogAddress, row.catalogAddress, newKey = null) }
         val rowMoves = relocations.mapNotNull { relocation ->
-            val rows = DraftResources.rowsOf(handle, relocation.source.catalogIn(tenantKey), relocation.source.type.wireName, relocation.source.key)
+            val rows = DraftResources.rowsOf(handle, handle.versionIn(relocation.source.catalogIn(tenantKey), ref), relocation.source.type.wireName, relocation.source.key)
             val head = rows.firstOrNull { it.parentKey == null } ?: return@mapNotNull null
             val source = relocation.source.catalogAddress
             val target = relocation.target.catalogAddress
@@ -120,11 +126,14 @@ class ReferenceRepointer(
         return RepointPlan(rewrites, rowMoves)
     }
 
-    /** Stores what [rewrite] is to name and points its row at it; false when the row changed since it was read. */
-    fun apply(handle: Handle, tenantKey: TenantKey, rewrite: RowRewrite, catalog: CatalogId = rewrite.catalogIn(tenantKey)): Boolean {
+    /**
+     * Stores what [rewrite] is to name and points its row at it, in the draft [ref] names for
+     * [catalog], else in its next version; false when the row changed since it was read.
+     */
+    fun apply(handle: Handle, tenantKey: TenantKey, rewrite: RowRewrite, ref: CatalogReleaseRef?, catalog: CatalogId = rewrite.catalogIn(tenantKey)): Boolean {
         if (rewrite.contentHash == rewrite.row.contentHash) return true
         contents.store(handle, tenantKey, rewrite.row.kind, rewrite.payload)
-        return DraftResources.repoint(handle, catalog, rewrite.row, rewrite.contentHash)
+        return DraftResources.repoint(handle, handle.versionIn(catalog, ref), rewrite.row, rewrite.contentHash)
     }
 
     /** Stores [rewrite]'s content and returns its hash, for a row moved rather than re-pointed in place. */
@@ -170,12 +179,13 @@ class ReferenceRepointer(
         return ContentReference(relocation.target.catalogKey, reference.type, relocation.target.key) to relocation.source
     }
 
-    /** The keys of the attributes [relocations] rename that exactly one attribute of the tenant answers to. */
-    private fun uniqueAttributeKeys(handle: Handle, tenantKey: TenantKey, relocations: List<ResourceRelocation>): Set<String> {
+    /** The keys of the attributes [relocations] rename that exactly one attribute of the tenant answers to, in [version] for its catalog and every other catalog's next version. */
+    private fun uniqueAttributeKeys(handle: Handle, tenantKey: TenantKey, relocations: List<ResourceRelocation>, version: java.util.UUID?): Set<String> {
         val renamed = relocations.filter { it.source.type == CatalogResourceType.ATTRIBUTE && it.source.key != it.target.key }.map { it.source.key }
         if (renamed.isEmpty()) return emptySet()
-        return handle.createQuery("SELECT id FROM current_attributes WHERE tenant_key = :t AND id IN (<keys>) GROUP BY id HAVING COUNT(*) = 1")
+        return handle.createQuery("SELECT a.id FROM version_attributes a WHERE a.tenant_key = :t AND a.id IN (<keys>) AND ${inVersionOrNext("a", "version")} GROUP BY a.id HAVING COUNT(*) = 1")
             .bind("t", tenantKey)
+            .bindVersion("version", version)
             .bindList("keys", renamed)
             .mapTo(String::class.java)
             .set()

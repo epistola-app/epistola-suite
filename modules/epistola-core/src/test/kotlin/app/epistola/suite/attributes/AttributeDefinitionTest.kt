@@ -36,6 +36,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "german"),
+                catalogVersion = null,
             ).execute()
 
             assertThat(attr.id.value).isEqualTo("language")
@@ -56,6 +57,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             val attr = CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("custom-field"), CatalogId.default(tenantId)),
                 displayName = "Custom Field",
+                catalogVersion = null,
             ).execute()
 
             assertThat(attr.allowedValues).isEmpty()
@@ -71,6 +73,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "",
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("Display name is required")
@@ -86,6 +89,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "dutch"),
+                catalogVersion = null,
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("unique")
@@ -101,12 +105,14 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId)),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+                catalogVersion = null,
             ).execute()
 
             // Scope to the tenant's default catalog — the bundled `system`
@@ -115,6 +121,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             val attributes = ListAttributeDefinitions(
                 tenantId = tenantId,
                 catalog = testCatalog(tenantId, CatalogKey.of("default")),
+                catalogVersion = null,
             ).query()
 
             assertThat(attributes).hasSize(2)
@@ -135,20 +142,24 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId1)),
                 displayName = "Language",
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId2)),
                 displayName = "Brand",
+                catalogVersion = null,
             ).execute()
 
             val tenant1Attrs = ListAttributeDefinitions(
                 tenantId = tenantId1,
                 catalog = testCatalog(tenantId1, CatalogKey.of("default")),
+                catalogVersion = null,
             ).query()
             val tenant2Attrs = ListAttributeDefinitions(
                 tenantId = tenantId2,
                 catalog = testCatalog(tenantId2, CatalogKey.of("default")),
+                catalogVersion = null,
             ).query()
 
             assertThat(tenant1Attrs).hasSize(1)
@@ -169,10 +180,12 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
+                catalogVersion = null,
             ).execute()
 
             val attr = GetAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
+                catalogVersion = null,
             ).query()
 
             assertThat(attr).isNotNull
@@ -189,6 +202,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
         withMediator {
             val attr = GetAttributeDefinition(
                 id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
+                catalogVersion = null,
             ).query()
 
             assertThat(attr).isNull()
@@ -205,12 +219,14 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
+                catalogVersion = null,
             ).execute()
 
             val updated = UpdateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language (updated)",
                 allowedValues = listOf("dutch", "english", "german"),
+                catalogVersion = null,
             ).execute()
 
             assertThat(updated).isNotNull
@@ -228,6 +244,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             val updated = UpdateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
                 displayName = "Nope",
+                catalogVersion = null,
             ).execute()
 
             assertThat(updated).isNull()
@@ -243,16 +260,19 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
+                catalogVersion = null,
             ).execute()
 
             val deleted = DeleteAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
+                catalogVersion = null,
             ).execute()
 
             assertThat(deleted).isTrue()
 
             val attr = GetAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
+                catalogVersion = null,
             ).query()
             assertThat(attr).isNull()
         }
@@ -266,6 +286,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
         withMediator {
             val deleted = DeleteAttributeDefinition(
                 id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
+                catalogVersion = null,
             ).execute()
 
             assertThat(deleted).isFalse()
@@ -284,12 +305,14 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId1)),
                 displayName = "Language for T1",
                 allowedValues = listOf("dutch"),
+                catalogVersion = null,
             ).execute()
 
             val attr2 = CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId2)),
                 displayName = "Language for T2",
                 allowedValues = listOf("english"),
+                catalogVersion = null,
             ).execute()
 
             assertThat(attr1.id).isEqualTo(attr2.id)

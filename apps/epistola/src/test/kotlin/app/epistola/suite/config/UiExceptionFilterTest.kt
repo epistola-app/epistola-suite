@@ -116,6 +116,20 @@ class UiExceptionFilterTest {
     }
 
     @Test
+    fun `a NUL character (SQLSTATE 22021) maps to a 400, not the opaque 500`() {
+        val nul = RuntimeException(
+            "Unable to execute statement",
+            SQLException("ERROR: invalid byte sequence for encoding \"UTF8\": 0x00", "22021"),
+        )
+        val response = runWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE, isHtmx = false, nul)
+
+        assertThat(response.status).isEqualTo(400)
+        val parsed = objectMapper.readTree(response.contentAsString)
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(parsed.get("detail").asString()).contains("cannot be stored")
+    }
+
+    @Test
     fun `wantsProblemDetail is true for JSON or HTMX, false for HTML navigations`() {
         fun req(accept: String?, htmx: Boolean = false) = MockHttpServletRequest().apply {
             if (accept != null) addHeader("Accept", accept)

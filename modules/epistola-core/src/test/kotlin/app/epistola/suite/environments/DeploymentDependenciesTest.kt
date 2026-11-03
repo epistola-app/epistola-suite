@@ -182,10 +182,10 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
             CreateEnvironment(production, "Production").execute()
             listOf(base, shared, letters).forEachIndexed { index, catalog ->
                 CreateCatalog(tenantKey = tenant, id = catalog, name = catalog.value).execute()
-                CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand").execute()
+                CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand", catalogVersion = null).execute()
                 if (index > 0) declareDependency(tenant, catalog, on = listOf(base, shared)[index - 1])
-                MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0").execute()
+                MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", catalogVersion = null).execute()
             }
         }
         return tenant to production

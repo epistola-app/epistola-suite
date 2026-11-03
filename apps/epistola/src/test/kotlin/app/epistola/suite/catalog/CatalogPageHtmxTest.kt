@@ -62,7 +62,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     private fun invoice(catalog: CatalogId) {
-        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
     }
 
     @Test
@@ -138,7 +138,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         val tenant = catalog("Page Contents") { _, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalog), "Reminder").execute().withRequiredDataExample()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalog), "Reminder", catalogVersion = null).execute().withRequiredDataExample()
         }
 
         val page = get(tenant, "/catalogs/${tenant.id}/letters/browse").body!!
@@ -245,6 +245,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             app.epistola.suite.catalog.releases.SetCatalogPresets(
                 testCatalog(t.id, letters),
                 listOf(app.epistola.suite.catalog.releases.CatalogPreset("heading-accent", "Heading accent")),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -259,6 +260,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             app.epistola.suite.themes.commands.CreateTheme(
                 app.epistola.suite.common.ids.ThemeId(app.epistola.suite.common.ids.ThemeKey.of("brand"), c),
                 "Brand",
+                catalogVersion = null,
             ).execute()
         }
         // The section loads on the catalog's Themes page, next to the themes, and no longer on Details.
@@ -293,7 +295,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         ).body!!
 
         assertThat(saved).contains("data-testid=\"catalog-theme-settings-saved\"")
-        val settings = withMediator { app.epistola.suite.catalog.releases.GetCatalogThemeSettings(testCatalog(tenant.id, letters)).query() }
+        val settings = withMediator { app.epistola.suite.catalog.releases.GetCatalogThemeSettings(testCatalog(tenant.id, letters), catalogVersion = null).query() }
         assertThat(settings.defaultTheme?.themeKey?.value).isEqualTo("brand")
         assertThat(settings.presets.map { it.key }).containsExactly("heading-accent")
     }

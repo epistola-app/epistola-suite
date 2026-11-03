@@ -112,7 +112,7 @@ go ahead regardless, once you have read why, skip a check by id:
 `EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
 `config.env`). A catalog a skipped check would have reported cannot be released until it is fixed.
 
-**Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
+**Documents can look different after the upgrade.** Three 1.x choices are not carried over, so check
 the documents of each environment before deploying to it:
 
 - **An environment that ran an older version** gets what was last published once the release of
@@ -127,6 +127,14 @@ the documents of each environment before deploying to it:
   (for example because an API update dropped the stencil's parameters) would render empty, so the
   upgrade declares it again on the stencil, optional, and reports it. Remove it once no template
   binds it.
+- **A published version's rendering defaults** are not kept. 1.x rendered a version with the
+  defaults it recorded when it was published, or with 1.x's own (V6) when it recorded none, as a
+  version received in a catalog archive does. A release cut in 2.0 renders with 2.0's, V8: block
+  spacing comes from the theme (V7), and a container's margins collapse with its first and last
+  block's, as on the web (V8). Text does not change, but spacing can: upgrading two municipalities'
+  catalogs moved the text on page 2 of 5 of their 28 templates by about a line. A release cannot be
+  cut with older defaults, so where a document must keep its layout, adjust the theme's block
+  spacing or the template before deploying.
 
 **Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
 that outage, and tell the teams whose applications request documents.
@@ -199,9 +207,11 @@ draft now holds such a stencil as its latest archived version, what those templa
 Step 8 (`V20261101000800`) was corrected too: a stencil instance whose copy became plain content lost
 the styles set on the instance itself, such as keep together or a margin; it now becomes a container
 keeping them. Content alpha.1 converted keeps what it lost: set those styles again where it matters.
-Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10 share), a later 2.0
-version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
-reports a checksum mismatch, and nothing is changed.
+The read model (`V20261101001500`) was rewritten as well: it holds every catalog version's content
+and chooses none, where alpha.1's views read the version a statement means from session settings
+(ADR 0049). Because the upgrade steps changed (step 9, the conversion code steps 5 to 10 share, and
+step 15), a later 2.0 version refuses to start on any database alpha.1 migrated, whether it came from
+1.x or not: Flyway reports a checksum mismatch, and nothing is changed.
 
 Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
 in one transaction, before starting the later version:
@@ -210,7 +220,8 @@ in one transaction, before starting the later version:
 psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
 ```
 
-It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
+It records the corrected steps, puts the read model's views in place of alpha.1's, and gives each
+"Published in 1.x" draft the stencils it is missing,
 as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
 draft after its version was archived comes with that draft's content, not marked ready. Releasing
 refuses until it is ("not ready: stencil '…'"): check it, mark it ready, then release. A

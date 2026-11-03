@@ -63,6 +63,6 @@ class RelocationThemeFontTest : RelocationTestSupport() {
     }
 
     private fun createTheme(tenant: TenantKey, catalog: CatalogKey, fontCatalog: String?) = withMediator {
-        CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, catalog)), "Brand", documentStyles = fontStyle("acme", fontCatalog)).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, catalog)), "Brand", documentStyles = fontStyle("acme", fontCatalog), catalogVersion = null).execute()
     }
 }

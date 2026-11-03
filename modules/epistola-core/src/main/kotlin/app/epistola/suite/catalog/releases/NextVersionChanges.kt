@@ -40,7 +40,6 @@ class NextVersionChanges(
     private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprints: CatalogFingerprintService,
-    private val targeting: CatalogReleaseTargeting,
 ) {
 
     fun hasChanges(catalog: CatalogId): Boolean = changed(catalog).isNotEmpty()
@@ -94,5 +93,5 @@ class NextVersionChanges(
         jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, catalog.tenantKey, next.versionId, json) }
     }
 
-    private fun current(catalog: CatalogId, next: CatalogDraft): Map<String, String> = targeting.within(next.versionId) { fingerprints.entryFingerprints(catalog.key, contentBuilder.build(catalog)) }
+    private fun current(catalog: CatalogId, next: CatalogDraft): Map<String, String> = fingerprints.entryFingerprints(catalog.key, contentBuilder.build(ContentVersion(catalog, next.versionId)))
 }

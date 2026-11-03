@@ -81,15 +81,15 @@ class MergedContentMcpToolsIntegrationTest : IntegrationTestBase() {
         fun variant(key: String) = VariantId(VariantKey.of(key), invoice)
         withMediator {
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateDocumentTemplate(id = invoice, name = "Invoice").execute()
-            CreateVariant(variant("english"), title = "English", description = null).execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            CreateDocumentTemplate(id = invoice, name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(variant("english"), title = "English", description = null, catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0", catalogVersion = null).execute()
             val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             UpdateVariant(variant("english"), "English (fixed)", emptyMap(), catalogVersion = fixRef).execute()
             MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = fixRef).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", catalogVersion = fixRef).execute()
-            UpdateVariant(variant("initial"), "Standard", emptyMap()).execute()
+            UpdateVariant(variant("initial"), "Standard", emptyMap(), catalogVersion = null).execute()
         }
         return TenantId(tenant)
     }

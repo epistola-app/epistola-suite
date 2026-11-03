@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.UiProblemTypes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -18,7 +19,7 @@ class ProblemDocsRoutes(private val objectMapper: ObjectMapper) {
     fun problemDocsRouteEndpoints(): RouterFunction<ServerResponse> = router {
         GET("/errors/{slug}") { request ->
             val slug = request.pathVariable("slug")
-            val problemType = ApiProblemTypes.bySlug[slug]
+            val problemType = ApiProblemTypes.bySlug[slug] ?: UiProblemTypes.bySlug[slug]
                 ?: return@GET ServerResponse.notFound().build()
 
             val example = mapOf(
@@ -35,7 +36,7 @@ class ProblemDocsRoutes(private val objectMapper: ObjectMapper) {
                 "errors/problem-type",
                 mapOf(
                     "problemType" to problemType,
-                    "problemTypes" to ApiProblemTypes.all.sortedBy { it.slug },
+                    "problemTypes" to (ApiProblemTypes.all + UiProblemTypes.all).sortedBy { it.slug },
                     "exampleJson" to exampleJson,
                 ),
             )

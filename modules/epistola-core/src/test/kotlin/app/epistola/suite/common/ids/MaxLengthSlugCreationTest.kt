@@ -55,23 +55,25 @@ class MaxLengthSlugCreationTest : IntegrationTestBase() {
                 CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("c".repeat(50)), name = "Max Catalog").execute()
 
                 // Theme — ThemeKey max 20
-                CreateTheme(id = ThemeId(ThemeKey.of("h".repeat(20)), catalogId), name = "Max Theme").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("h".repeat(20)), catalogId), name = "Max Theme", catalogVersion = null).execute()
 
                 // Template — TemplateKey max 50 (also creates its "initial" default variant)
                 val templateId = TemplateId(TemplateKey.of("p".repeat(50)), catalogId)
-                CreateDocumentTemplate(id = templateId, name = "Max Template").execute()
+                CreateDocumentTemplate(id = templateId, name = "Max Template", catalogVersion = null).execute()
 
                 // Variant — VariantKey max 50
                 CreateVariant(
                     id = VariantId(VariantKey.of("v".repeat(50)), templateId),
                     title = "Max Variant",
                     description = null,
+                    catalogVersion = null,
                 ).execute()
 
                 // Attribute — AttributeKey max 50
                 CreateAttributeDefinition(
                     id = AttributeId(AttributeKey.of("a".repeat(50)), catalogId),
                     displayName = "Max Attribute",
+                    catalogVersion = null,
                 ).execute()
 
                 // Code list — CodeListKey max 64
@@ -80,10 +82,11 @@ class MaxLengthSlugCreationTest : IntegrationTestBase() {
                     displayName = "Max Code List",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("en", "English")),
+                    catalogVersion = null,
                 ).execute()
 
                 // Stencil — StencilKey max 50
-                CreateStencil(id = StencilId(StencilKey.of("s".repeat(50)), catalogId), name = "Max Stencil").execute()
+                CreateStencil(id = StencilId(StencilKey.of("s".repeat(50)), catalogId), name = "Max Stencil", catalogVersion = null).execute()
 
                 // Environment — EnvironmentKey max 30
                 CreateEnvironment(
@@ -97,6 +100,7 @@ class MaxLengthSlugCreationTest : IntegrationTestBase() {
                     slug = "f".repeat(64),
                     name = "Max Font",
                     kind = FontKind.SANS.wire,
+                    catalogVersion = null,
                 ).execute()
             }
         }.doesNotThrowAnyException()

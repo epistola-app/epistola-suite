@@ -33,13 +33,14 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Release Cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1", catalogVersion = null).execute()
 
-            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
             val result = ReleaseCatalogDraft(
                 catalog = testCatalog(tenantKey, catalogKey),
                 version = "1.0.0",
                 notes = "first",
+                catalogVersion = null,
             ).execute()
 
             assertThat(result.version).isEqualTo("1.0.0")
@@ -67,22 +68,22 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Mono Cat").execute()
-            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0").execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0", catalogVersion = null).execute()
 
             assertThatThrownBy {
-                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.9.0").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.9.0", catalogVersion = null).execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
-                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0", catalogVersion = null).execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
-                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "not-semver").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "not-semver", catalogVersion = null).execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
         }
     }
@@ -114,13 +115,13 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Drift Cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("base"), catalogId), name = "Base").execute()
-            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("base"), catalogId), name = "Base", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0", catalogVersion = null).execute()
 
             assertThat(GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query().hasUnreleasedChanges).isFalse()
 
-            CreateTheme(id = ThemeId(ThemeKey.of("extra"), catalogId), name = "Extra").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("extra"), catalogId), name = "Extra", catalogVersion = null).execute()
 
             assertThat(GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query().hasUnreleasedChanges).isTrue()
         }

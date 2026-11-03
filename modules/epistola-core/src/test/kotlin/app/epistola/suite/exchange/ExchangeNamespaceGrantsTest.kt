@@ -68,9 +68,9 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
             // A new catalog may be named in the granted namespace, and a release there is the tenant's to issue.
             val catalog = CatalogKey.of("services")
             CreateCatalog(tenant, catalog, "Services", namespace = "public-services").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
 
             // Reauthorizing grants nothing twice.
             enroll(tenant)
@@ -88,11 +88,11 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
             // Named under local before the connection granted the same token.
             CreateCatalog(tenant, catalog, "Local letters", registry = LocalAuthority.NAME, namespace = "public-services").execute()
             enroll(tenant)
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
 
             // Releasing does not queue it for the Exchange, though publishing is asked for.
-            val released = ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            val released = ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             assertThat(released.publicationId).isNull()
             assertThat(GetCatalogPublicationState(testCatalog(tenant, catalog)).query()?.publications.orEmpty()).isEmpty()
 

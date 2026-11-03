@@ -51,7 +51,7 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
             ).execute()
             CreateCatalog(tenant.id, catalogKey, "Retry exhaustion").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
 
             worker.run()
 

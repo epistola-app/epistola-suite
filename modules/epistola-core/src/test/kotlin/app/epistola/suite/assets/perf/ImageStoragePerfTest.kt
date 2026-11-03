@@ -52,7 +52,7 @@ class ImageStoragePerfTest : IntegrationTestBase() {
                 val catalog = testCatalog(tenant, CatalogKey.of("cat-$c"))
                 CreateCatalog(tenantKey = tenant, id = catalog.key, name = "Catalog $c").execute()
                 repeat(IMAGES) { i ->
-                    UploadAsset(catalog, "Image $c/$i", AssetMediaType.SVG, png(c * 1000 + i), 16, 16, id = AssetKey.of("img-$c-$i")).execute()
+                    UploadAsset(catalog, "Image $c/$i", AssetMediaType.SVG, png(c * 1000 + i), 16, 16, id = AssetKey.of("img-$c-$i"), catalogVersion = null).execute()
                 }
                 mediator.releaseNext(catalog)
             }
@@ -61,11 +61,11 @@ class ImageStoragePerfTest : IntegrationTestBase() {
         val one = AssetKey.of("img-${CATALOGS / 2}-0")
         var n = 0
         val results = listOf(
-            measure("list a catalog's images (page of 50)") { ListImagePage(catalog, limit = 50, offset = 0).query() },
-            measure("list a tenant's images") { ListAssets(tenant).query() },
-            measure("read one image") { GetAsset(tenant, one).query() },
-            measure("read one image's bytes") { GetAssetContent(tenant, one).query() },
-            measure("upload an image", runs = 100, warmup = 10) { UploadAsset(catalog, "New ${n++}", AssetMediaType.SVG, png(900_000 + n), 16, 16).execute() },
+            measure("list a catalog's images (page of 50)") { ListImagePage(catalog, limit = 50, offset = 0, catalogVersion = null).query() },
+            measure("list a tenant's images") { ListAssets(tenant, catalogVersion = null).query() },
+            measure("read one image") { GetAsset(tenant, one, catalogVersion = null).query() },
+            measure("read one image's bytes") { GetAssetContent(tenant, one, catalogVersion = null).query() },
+            measure("upload an image", runs = 100, warmup = 10) { UploadAsset(catalog, "New ${n++}", AssetMediaType.SVG, png(900_000 + n), 16, 16, catalogVersion = null).execute() },
         )
         val report = buildString {
             appendLine("operation,cold_ms,median_ms,p95_ms")

@@ -62,14 +62,14 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, shared, "Shared").execute()
-            CreateStencil(stencilId, "Header").execute()
+            CreateStencil(stencilId, "Header", catalogVersion = null).execute()
         }
 
         val before = withMediator { GetTenantResourceGraph(tenant.id).query() }
             .nodes.single { it.address == address }
 
-        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(shared))).query() }
-        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(shared)), preview.planFingerprint).execute() }
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(shared)), catalogVersion = null).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(shared)), preview.planFingerprint, catalogVersion = null).execute() }
 
         // The address changed; the identity did not. That is what lets a caller follow a resource
         // across a move rather than guessing where it landed.
@@ -96,6 +96,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("corporate"), testCatalog(tenantId, brandCatalog)),
                 name = "Corporate",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
+                catalogVersion = null,
             ).execute()
             UploadAsset(
                 catalog = testCatalog(tenant.id, brandCatalog),
@@ -105,22 +106,24 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
                 width = 1,
                 height = 1,
                 id = assetKey,
+                catalogVersion = null,
             ).execute()
             ImportAttribute(
                 catalog = testCatalog(tenantId, brandCatalog),
                 slug = "audience",
                 displayName = "Audience",
                 allowedValues = listOf("customer"),
+                catalogVersion = null,
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of("welcome"), testCatalog(tenantId, lettersCatalog))
-            CreateDocumentTemplate(templateId, "Welcome").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("corporate"), themeCatalog = testCatalog(templateId.tenantKey, brandCatalog)).execute()
+            CreateDocumentTemplate(templateId, "Welcome", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("corporate"), themeCatalog = testCatalog(templateId.tenantKey, brandCatalog), catalogVersion = null).execute()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateVariant(variantId, "Default", mapOf("brand.audience" to "customer")).execute()
-            UpdateVariantContent(variantId, templateWithAsset(assetKey, brandCatalog)).execute()
-            UploadAsset(catalog = testCatalog(tenant.id, brandCatalog), name = "Gone", mediaType = AssetMediaType.PNG, content = byteArrayOf(2), width = 1, height = 1, id = missingAssetKey).execute()
-            UpdateVariantContent(variantId, templateWithAsset(missingAssetKey, brandCatalog)).execute()
+            UpdateVariant(variantId, "Default", mapOf("brand.audience" to "customer"), catalogVersion = null).execute()
+            UpdateVariantContent(variantId, templateWithAsset(assetKey, brandCatalog), catalogVersion = null).execute()
+            UploadAsset(catalog = testCatalog(tenant.id, brandCatalog), name = "Gone", mediaType = AssetMediaType.PNG, content = byteArrayOf(2), width = 1, height = 1, id = missingAssetKey, catalogVersion = null).execute()
+            UpdateVariantContent(variantId, templateWithAsset(missingAssetKey, brandCatalog), catalogVersion = null).execute()
         }
         // Saving content naming an image nobody has is refused; only the 1.x upgrade leaves one.
         jdbi.useHandle<Exception> { handle ->

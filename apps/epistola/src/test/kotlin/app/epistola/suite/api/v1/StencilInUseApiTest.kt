@@ -69,10 +69,10 @@ class StencilInUseApiTest : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalog = testCatalog(tenantKey, CatalogKey.DEFAULT)
         withMediator {
-            CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header", catalogVersion = null).execute()
             val template = TemplateId(TemplateKey.of("letter"), catalog)
-            CreateDocumentTemplate(id = template, name = "Letter").execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), using("header")).execute()
+            CreateDocumentTemplate(id = template, name = "Letter", catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), using("header"), catalogVersion = null).execute()
         }
 
         val response = delete("${versionPath(tenantKey)}/stencils/header", apiKey)

@@ -75,7 +75,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
     @Test
     fun `clearDefaultTheme removes the draft's default theme, and beside a defaultTheme is refused`() {
         val (tenant, key) = seedTenantAndKey()
-        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand").execute() }
+        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand", catalogVersion = null).execute() }
         val draft = withMediator { CatalogApiPaths.version(tenant, CatalogKey.DEFAULT.value, "next") }
 
         val set = call(HttpMethod.PATCH, draft, key, """{"defaultTheme": {"key": "brand"}}""")
@@ -100,8 +100,8 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
         val (tenant, key) = seedTenantAndKey()
         val catalog = testCatalog(TenantId(tenant), CatalogKey.DEFAULT)
         withMediator {
-            CreateStencil(id = StencilId(StencilKey.of("header"), catalog), name = "Header", description = "The letterhead").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", description = "House style").execute()
+            CreateStencil(id = StencilId(StencilKey.of("header"), catalog), name = "Header", description = "The letterhead", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", description = "House style", catalogVersion = null).execute()
         }
         val draft = withMediator { CatalogApiPaths.version(tenant, CatalogKey.DEFAULT.value, "next") }
 
@@ -122,8 +122,8 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant), CatalogKey.DEFAULT)
         withMediator {
             val colors = CodeListId(CodeListKey.of("colors"), catalog)
-            CreateCodeList(colors, "Colors", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-            CreateAttributeDefinition(id = AttributeId(AttributeKey.of("color"), catalog), displayName = "Color", codeListId = colors).execute()
+            CreateCodeList(colors, "Colors", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+            CreateAttributeDefinition(id = AttributeId(AttributeKey.of("color"), catalog), displayName = "Color", codeListId = colors, catalogVersion = null).execute()
         }
         val attribute = "${withMediator { CatalogApiPaths.version(tenant, CatalogKey.DEFAULT.value, "next") }}/attributes/color"
 

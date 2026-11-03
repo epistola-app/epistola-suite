@@ -83,12 +83,12 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
 
         withMediator {
             val first = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
-            val deleted = CatalogImportContext.runAsImport { DeleteDocumentTemplate(templateId).execute() }
+            val deleted = CatalogImportContext.runAsImport { DeleteDocumentTemplate(templateId, catalogVersion = null).execute() }
             assertThat(deleted).isTrue()
 
             val result = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()
             assertThat(result.status).isEqualTo(EnsureCatalogStatus.ALREADY_CURRENT)
-            assertThat(ListDocumentTemplates(tenantId).query().map { it.id.value }).doesNotContain("advanced-data-contract")
+            assertThat(ListDocumentTemplates(tenantId, catalogVersion = null).query().map { it.id.value }).doesNotContain("advanced-data-contract")
             assertThat(GetCatalogReleaseDetail(testCatalog(tenantId, catalogKey), first.newVersion).query()!!.resources.map { it.resourceKey })
                 .contains("advanced-data-contract")
         }

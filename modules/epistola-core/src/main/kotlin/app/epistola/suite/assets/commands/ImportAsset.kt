@@ -11,6 +11,9 @@ import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -33,6 +36,8 @@ import org.springframework.stereotype.Component
  */
 data class ImportAsset(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val id: AssetKey,
     val name: String,
     val mediaType: AssetMediaType,
@@ -41,7 +46,8 @@ data class ImportAsset(
     val height: Int? = null,
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
-) : Command<InstallStatus>,
+) : CatalogReleaseScoped,
+    Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -72,7 +78,7 @@ class ImportAssetHandler(
 ) : CommandHandler<ImportAsset, InstallStatus> {
 
     override fun handle(command: ImportAsset): InstallStatus {
-        val exists = jdbi.withHandle<Boolean, Exception> { images.get(it, command.catalog, command.id.value) != null }
+        val exists = jdbi.withHandle<Boolean, Exception> { images.get(it, it.versionOf(command.catalog, command), command.id.value) != null }
         if (!exists) {
             // Upload with the original key, so the image nodes naming it keep resolving.
             UploadAsset(
@@ -83,6 +89,7 @@ class ImportAssetHandler(
                 width = command.width,
                 height = command.height,
                 id = command.id,
+                catalogVersion = command.catalogVersion,
             ).execute()
             // An upload says nothing of a producer's metadata; what the catalog gave goes on it.
             if (!command.metadata.isNullOrEmpty()) write(command)
@@ -96,7 +103,7 @@ class ImportAssetHandler(
     private fun write(command: ImportAsset) {
         val contentHash = images.storeBytes(command.content, command.mediaType)
         jdbi.inTransaction<Unit, Exception> { handle ->
-            images.put(handle, command.catalog, command.id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash, command.metadata), currentUserIdOrNull()?.value)
+            images.put(handle, handle.versionOf(command.catalog, command), command.id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash, command.metadata), currentUserIdOrNull()?.value)
         }
     }
 }

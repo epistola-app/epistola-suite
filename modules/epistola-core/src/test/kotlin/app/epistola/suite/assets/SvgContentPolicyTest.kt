@@ -113,6 +113,7 @@ class SvgContentPolicyTest {
                 content = refused.getValue("image href http").toByteArray(),
                 width = null,
                 height = null,
+                catalogVersion = null,
             )
         }
         assertEquals("file", error.field)
@@ -127,6 +128,7 @@ class SvgContentPolicyTest {
                 name = "logo.svg",
                 mediaType = AssetMediaType.SVG,
                 content = refused.getValue("script").toByteArray(),
+                catalogVersion = null,
             )
         }
     }

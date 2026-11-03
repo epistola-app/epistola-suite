@@ -128,7 +128,7 @@ class ThemeHandler(
         "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
         "houseThemeApplied" to request.param("houseThemeApplied").orElse(null)
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = it.tenantId, catalog = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/themes/${t.id.value}", n) }
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/themes/${t.id.value}", n) }
         "themes" to ListThemes(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
     }
 

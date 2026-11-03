@@ -6,6 +6,7 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.fonts.FontStore
 import db.migration.core.frozen.CanonicalJson
@@ -27,9 +28,9 @@ object FontStorageConversion {
         jdbi.useHandle<Exception> { handle ->
             val stored = handle.createQuery(
                 """
-                SELECT f.slug, f.name, f.kind, f.variants::text AS variants, r.content_hash FROM current_fonts f
+                SELECT f.slug, f.name, f.kind, f.variants::text AS variants, r.content_hash FROM version_fonts f
                 JOIN release_resources r ON r.tenant_key = f.tenant_key AND r.version_id = f.version_id AND r.resource_type = 'font' AND r.resource_key = f.slug
-                WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")}
+                WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND ${inNextVersion("f")}
                 """,
             ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .map { rs, _ -> listOf(rs.getString("slug"), rs.getString("name"), rs.getString("kind"), rs.getString("variants"), rs.getString("content_hash").trim()) }

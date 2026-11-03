@@ -19,11 +19,11 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.revisions.ResourceContentStore
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -183,7 +183,7 @@ class RecordInstalledReleaseHandler(
         // The installed version carries the archive's theme settings (contract ADR 0007), so its
         // release, rebuilt or not, renders with its default theme. Before the baseline: they are the
         // release's, not changes of the next version's own.
-        if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(command.catalog, it.catalog, objectMapper) }
+        if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(jdbi.withHandle<ContentVersion, Exception> { h -> ContentVersion.next(h, command.catalog) }, it.catalog, objectMapper) }
         // The installed release is in place in the next version: what it holds now is the baseline
         // its own changes are measured from (ADR 0032), not what the one it replaces put in place.
         if (command.release == null) {
@@ -200,7 +200,8 @@ class RecordInstalledReleaseHandler(
         // What the release keeps, and so what everything recorded of it is computed over: each entry's
         // fingerprint, and a fingerprint or content hash computed here. A font's faces are its own,
         // bundled ones included (ADR 0033).
-        val content = command.published ?: contentBuilder.build(command.catalog)
+        // Else what the install put in place: the catalog's next version.
+        val content = command.published ?: contentBuilder.build(jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, command.catalog) })
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent

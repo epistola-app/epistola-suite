@@ -34,8 +34,9 @@ class DraftMergePlanner(
     private val moves: MergeMoves,
 ) {
 
-    fun plan(catalog: CatalogId, release: String, draftName: String): MergePlan {
-        val unmoved = inputs.read(catalog, release, draftName)
+    /** Merging [release] into the draft of [catalog] that [ref] names, else its next version. */
+    fun plan(catalog: CatalogId, release: String, draftName: String, ref: app.epistola.suite.catalog.releases.CatalogReleaseRef?): MergePlan {
+        val unmoved = inputs.read(catalog, release, draftName, ref)
         // What the draft moved rather than removed, and the base and release naming it where it went.
         val moved = moves.of(catalog, unmoved)
         val read = moves.rebase(catalog, unmoved, moved)

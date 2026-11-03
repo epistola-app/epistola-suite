@@ -5,6 +5,7 @@
 package app.epistola.suite.quality
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TemplateId
@@ -21,6 +22,7 @@ import app.epistola.suite.templates.templateIn
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -44,9 +46,9 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
@@ -65,7 +67,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
         val key = QualityFindingKey.generate()
         // The check the row belongs to, through the command: an empty answer of the remote checker,
         // given once, since a second answer would replace the rows inserted under the first.
-        val read = withMediator { GetFindingsForSubject(subject.catalogId, subject.templateKey, subject.variantKey!!).query() }
+        val read = withMediator { GetFindingsForSubject(subject.catalogId, subject.templateKey, subject.variantKey!!, catalogVersion = null).query() }
         if (read.checks.isEmpty()) withMediator { SubmitQualityFindings(QualitySourceId("remote-checker"), subject, emptyList()).execute() }
         val inputKey = read.currentInputKey
         jdbi.useHandle<Exception> { handle ->
@@ -77,7 +79,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                     message, fingerprint, input_key, context, status, first_seen_at, last_seen_at
                 ) VALUES (
                     :tenantKey, :id, 'remote-checker', 'remote.rule', :severity, :subjectUrn, :subjectType,
-                    :ignoreScopeUrn, ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, '{}',
+                    :ignoreScopeUrn, ${templateIn("tenantKey", "catalogKey", "templateKey", "v")}, :variantKey, '{}',
                     'A remote checker used its own vocabulary', :fingerprint, :inputKey, '{}'::jsonb, 'OPEN', NOW(), NOW()
                 )
                 """,
@@ -91,6 +93,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                 .bind("subjectType", subject.type.name)
                 .bind("ignoreScopeUrn", subject.ignoreScopeUrn)
                 .bindCatalog("catalogKey", testCatalog(subject.tenantKey, subject.catalogKey))
+                .bindVersion("v", nextVersion(testCatalog(subject.tenantKey, subject.catalogKey)).versionId)
                 .bind("templateKey", subject.templateKey)
                 .bind("variantKey", subject.variantKey)
                 .execute()
@@ -129,7 +132,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
         insertFindingWithSeverity(subject, "CRITICAL")
         insertFindingWithSeverity(subject, "HINT")
 
-        val page = withMediator { ListQualityFindings(subject.tenantKey).query() }
+        val page = withMediator { ListQualityFindings(subject.tenantKey, catalogVersion = null).query() }
 
         assertThat(page.total).isEqualTo(2)
         assertThat(page.items).hasSize(2)

@@ -5,8 +5,8 @@
 package app.epistola.suite.assets
 
 import app.epistola.catalog.protocol.ImageResource
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -26,8 +26,8 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * The columns [IMAGE_ROWS] maps, for a query over `current_images a`: the images of the version a
- * caller means (ADR 0033). The catalog's key and namespace are looked up by key, row by row, rather
+ * The columns [IMAGE_ROWS] maps, for a query over `version_images a` filtered by the version it
+ * reads (ADR 0033, 0049). The catalog's key and namespace are looked up by key, row by row, rather
  * than joined (ThemePlanStabilityTest).
  */
 internal const val IMAGE_COLUMNS: String =
@@ -101,28 +101,29 @@ class ImageStore(
         return hash
     }
 
-    private fun store(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields): String = contents.store(handle, catalog.tenantKey, IMAGE, ResourceMetadata.carried(handle, catalog, IMAGE, key, payload(key, fields), fields.metadata, objectMapper))
+    private fun store(handle: Handle, at: ContentVersion, key: String, fields: ImageFields): String = contents.store(handle, at.tenantKey, IMAGE, ResourceMetadata.carried(handle, at, IMAGE, key, payload(key, fields), fields.metadata, objectMapper))
 
-    /** Adds image [key] to the targeted draft of [catalog]; one already there is a unique violation. */
-    fun create(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields, actor: UUID?): Asset {
-        DraftResources.insert(handle, catalog, IMAGE, key, store(handle, catalog, key, fields), fields.name, null, actor)
-        return checkNotNull(get(handle, catalog, key)) { "Image $key was just written" }
+    /** Adds image [key] to draft [at]; one already there is a unique violation. */
+    fun create(handle: Handle, at: ContentVersion, key: String, fields: ImageFields, actor: UUID?): Asset {
+        DraftResources.insert(handle, at, IMAGE, key, store(handle, at, key, fields), fields.name, null, actor)
+        return checkNotNull(get(handle, at, key)) { "Image $key was just written" }
     }
 
-    /** Creates or replaces image [key] of the targeted draft; true when it was there already. */
-    fun put(handle: Handle, catalog: CatalogId, key: String, fields: ImageFields, actor: UUID?): Boolean {
-        val digest = store(handle, catalog, key, fields)
-        if (DraftResources.update(handle, catalog, IMAGE, key, digest, fields.name, null, actor) != null) return true
-        DraftResources.insert(handle, catalog, IMAGE, key, digest, fields.name, null, actor)
+    /** Creates or replaces image [key] of draft [at]; true when it was there already. */
+    fun put(handle: Handle, at: ContentVersion, key: String, fields: ImageFields, actor: UUID?): Boolean {
+        val digest = store(handle, at, key, fields)
+        if (DraftResources.update(handle, at, IMAGE, key, digest, fields.name, null, actor) != null) return true
+        DraftResources.insert(handle, at, IMAGE, key, digest, fields.name, null, actor)
         return false
     }
 
-    fun delete(handle: Handle, catalog: CatalogId, key: String): Boolean = DraftResources.delete(handle, catalog, IMAGE, key)
+    /** Removes image [key] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, key: String): Boolean = DraftResources.delete(handle, at, IMAGE, key)
 
-    /** Image [key] of [catalog] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, catalog: CatalogId, key: String): Asset? = handle
-        .createQuery("SELECT $IMAGE_COLUMNS FROM current_images a WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND a.id = :k")
-        .bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("k", key)
+    /** Image [key] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, key: String): Asset? = handle
+        .createQuery("SELECT $IMAGE_COLUMNS FROM version_images a WHERE a.tenant_key = :t AND a.version_id = :v AND a.id = :k")
+        .bind("t", at.tenantKey).bindVersion("v", at.versionId).bind("k", key)
         .map(IMAGE_ROWS).findOne().orElse(null)
 
     companion object {

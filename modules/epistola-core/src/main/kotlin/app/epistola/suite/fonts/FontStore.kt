@@ -6,9 +6,9 @@ package app.epistola.suite.fonts
 
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -29,8 +29,8 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /**
- * The columns [Font] maps from, for a query over `current_fonts f`: the fonts of the version a
- * caller means (ADR 0033). The catalog's key and namespace are looked up by key, row by row, rather
+ * The columns [Font] maps from, for a query over `version_fonts f` filtered by the version it reads
+ * (ADR 0033, 0049). The catalog's key and namespace are looked up by key, row by row, rather
  * than joined (ThemePlanStabilityTest).
  */
 internal const val FONT_COLUMNS: String =
@@ -77,29 +77,29 @@ class FontStore(
         val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
     )
 
-    /** Creates or replaces font [slug] of the targeted draft of [catalog]: INSTALLED when it is new, else UPDATED. */
-    fun put(handle: Handle, catalog: CatalogId, slug: String, name: String, kind: String, variants: List<ImportFontVariant>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): InstallStatus = putAll(handle, catalog, listOf(FontSpec(slug, name, kind, variants, metadata)), actor).getValue(slug)
+    /** Creates or replaces font [slug] of draft [at]: INSTALLED when it is new, else UPDATED. */
+    fun put(handle: Handle, at: ContentVersion, slug: String, name: String, kind: String, variants: List<ImportFontVariant>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): InstallStatus = putAll(handle, at, listOf(FontSpec(slug, name, kind, variants, metadata)), actor).getValue(slug)
 
     /**
-     * Writes several families of [catalog]'s targeted draft. A family whose content is the one its
+     * Writes several families of draft [at]. A family whose content is the one its
      * row names already is left alone, so installing a catalog again writes nothing. Its faces are
      * still linked to their bytes, which a family stored before its files were (the 2.0 upgrade's
      * conversion of 1.x's bundled fonts) does not have yet.
      */
-    fun putAll(handle: Handle, catalog: CatalogId, fonts: List<FontSpec>, actor: UUID?): Map<String, InstallStatus> {
+    fun putAll(handle: Handle, at: ContentVersion, fonts: List<FontSpec>, actor: UUID?): Map<String, InstallStatus> {
         if (fonts.isEmpty()) return emptyMap()
         storeBytes(fonts.flatMap { it.variants })
-        linkStoredFaces(handle, catalog.tenantKey, fonts.flatMap { it.variants }.map { it.contentHash })
-        val current = currentHashes(handle, catalog)
+        linkStoredFaces(handle, at.tenantKey, fonts.flatMap { it.variants }.map { it.contentHash })
+        val current = currentHashes(handle, at)
         return fonts.associate { font ->
-            val payload = ResourceMetadata.carried(handle, catalog, FONT, font.slug, payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face)), font.metadata, objectMapper)
+            val payload = ResourceMetadata.carried(handle, at, FONT, font.slug, payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face)), font.metadata, objectMapper)
             val existing = current[font.slug]
             if (existing != null && existing == contents.hashOf(payload)) return@associate font.slug to InstallStatus.SKIPPED
-            val digest = contents.store(handle, catalog.tenantKey, FONT, payload)
-            if (existing != null && DraftResources.update(handle, catalog, FONT, font.slug, digest, font.name, null, actor) != null) {
+            val digest = contents.store(handle, at.tenantKey, FONT, payload)
+            if (existing != null && DraftResources.update(handle, at, FONT, font.slug, digest, font.name, null, actor) != null) {
                 font.slug to InstallStatus.UPDATED
             } else {
-                DraftResources.insert(handle, catalog, FONT, font.slug, digest, font.name, null, actor)
+                DraftResources.insert(handle, at, FONT, font.slug, digest, font.name, null, actor)
                 font.slug to InstallStatus.INSTALLED
             }
         }
@@ -115,13 +115,12 @@ class FontStore(
         }
     }
 
-    private fun currentHashes(handle: Handle, catalog: CatalogId): Map<String, String> = handle.createQuery(
+    private fun currentHashes(handle: Handle, at: ContentVersion): Map<String, String> = handle.createQuery(
         """
         SELECT r.resource_key, r.content_hash FROM release_wire_resources r
-        WHERE r.tenant_key = :t AND r.resource_type = 'font'
-          AND r.version_id = (SELECT v.version_id FROM catalog_current_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")})
+        WHERE r.tenant_key = :t AND r.resource_type = 'font' AND r.version_id = :v
         """,
-    ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
+    ).bind("t", at.tenantKey).bindVersion("v", at.versionId)
         .map { rs, _ -> rs.getString("resource_key") to rs.getString("content_hash").trim() }
         .list().toMap()
 
@@ -144,18 +143,19 @@ class FontStore(
         ).bind("t", tenant).bindList("hashes", hashes.distinct()).execute()
     }
 
-    fun delete(handle: Handle, id: FontId): Boolean = DraftResources.delete(handle, id.catalogId, FONT, id.key.value)
+    /** Removes font [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: FontId): Boolean = DraftResources.delete(handle, at, FONT, id.key.value)
 
-    /** Font [id] as the version the handle means holds it, or null. */
-    fun get(handle: Handle, id: FontId): Font? = handle
-        .createQuery("SELECT $FONT_COLUMNS FROM current_fonts f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
-        .bind("t", id.tenantKey).bindCatalog("c", id.catalogId).bind("k", id.key.value)
+    /** Font [id] as version [at] holds it, or null. */
+    fun get(handle: Handle, at: ContentVersion, id: FontId): Font? = handle
+        .createQuery("SELECT $FONT_COLUMNS FROM version_fonts f WHERE f.tenant_key = :t AND f.version_id = :v AND f.slug = :k")
+        .bind("t", id.tenantKey).bindVersion("v", at.versionId).bind("k", id.key.value)
         .mapTo(Font::class.java).findOne().orElse(null)
 
-    /** The faces of font [id], by italic, then weight. */
-    fun faces(handle: Handle, id: FontId): List<FontFace> = handle
-        .createQuery("SELECT f.variants::text FROM current_fonts f WHERE f.tenant_key = :t AND f.catalog_id = ${catalogAt("t", "c")} AND f.slug = :k")
-        .bind("t", id.tenantKey).bindCatalog("c", id.catalogId).bind("k", id.key.value)
+    /** The faces of font [id] in version [at], by italic, then weight. */
+    fun faces(handle: Handle, at: ContentVersion, id: FontId): List<FontFace> = handle
+        .createQuery("SELECT f.variants::text FROM version_fonts f WHERE f.tenant_key = :t AND f.version_id = :v AND f.slug = :k")
+        .bind("t", id.tenantKey).bindVersion("v", at.versionId).bind("k", id.key.value)
         .mapTo(String::class.java).findOne().orElse(null)
         ?.let(::facesOf).orEmpty()
 

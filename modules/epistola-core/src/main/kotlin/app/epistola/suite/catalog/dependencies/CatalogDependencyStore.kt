@@ -7,11 +7,12 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
-import app.epistola.suite.catalog.requireWritableVersion
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.writable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -84,21 +85,8 @@ data class CatalogDependencyRelease(val version: String, val fingerprint: String
 @Component
 class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity) {
 
-    fun declarations(handle: Handle, catalog: CatalogId): List<CatalogDependencyDeclaration> = handle
-        .createQuery(
-            """
-            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
-                   dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
-            FROM catalog_version_dependencies d
-            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.target_version_id AND dv.state = 'draft'
-            WHERE d.tenant_key = :t AND d.version_id = ${versionAt("t", "c")}
-            ORDER BY d.position
-            """,
-        )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .map { rs, _ -> declarationOf(rs) }
-        .list()
+    /** The declarations of version [at], in their order. */
+    fun declarations(handle: Handle, at: ContentVersion): List<CatalogDependencyDeclaration> = at.versionId?.let { declarationsOf(handle, at.tenantKey, it) }.orEmpty()
 
     private fun declarationOf(rs: java.sql.ResultSet) = CatalogDependencyDeclaration(
         rs.getString("registry"),
@@ -111,7 +99,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         rs.getString("alias"),
     )
 
-    /** The declarations of draft [versionId], by its internal id, whatever the running message targets. */
+    /** The declarations of version [versionId], by its internal id. */
     fun declarationsOf(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
@@ -129,35 +117,37 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         .list()
 
     /**
-     * Replaces the declarations of [catalogKey] with [declarations], in that order.
+     * Replaces the declarations of draft [at] with [declarations], in that order.
      *
      * @throws ValidationException when a declaration it adds names a catalog that already uses
      *   [catalogKey]: catalogs never use each other. Every write that starts using another catalog
      *   declares it here, in its own transaction, so the write is refused with it.
      */
-    fun replace(handle: Handle, catalog: CatalogId, declarations: List<CatalogDependencyDeclaration>) {
-        handle.requireWritableVersion(catalog)
+    fun replace(handle: Handle, at: ContentVersion, declarations: List<CatalogDependencyDeclaration>) {
+        val catalog = at.catalog
+        handle.writable(at)
         // Only a change counts: the same declarations again leave the version's revision as it is.
         fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, alias, releaseVersion, releaseFingerprint, draftId)
-        val current = declarations(handle, catalog)
+        val current = declarations(handle, at)
         if (current.map { it.what() } == declarations.map { it.what() }) return
-        requireNoCycle(handle, catalog, declarations.filter { new -> current.none { it.identity == new.identity } })
-        handle.createUpdate("DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
+        requireNoCycle(handle, at, declarations.filter { new -> current.none { it.identity == new.identity } })
+        handle.createUpdate("DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND version_id = :v")
             .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
+            .bindVersion("v", at.versionId)
             .execute()
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
             """
             INSERT INTO catalog_version_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position,
                                                       release_version, release_fingerprint, target_version_id)
-            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
+            VALUES (:t, ${catalogAt("t", "c")}, :v, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
                     $TARGET)
             """,
         )
         declarations.forEachIndexed { position, declaration ->
             batch.bind("t", catalog.tenantKey)
                 .bindCatalog("c", catalog)
+                .bindVersion("v", at.versionId)
                 .bind("registry", declaration.registry)
                 .bind("namespace", declaration.namespace)
                 .bind("key", declaration.catalogKey)
@@ -178,7 +168,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      * what they use. Judged by what every other version declares (each draft of each catalog, and each
      * subscribed catalog's installed version), so a parallel draft cannot close the loop either.
      */
-    private fun requireNoCycle(handle: Handle, catalog: CatalogId, added: List<CatalogDependencyDeclaration>) {
+    private fun requireNoCycle(handle: Handle, at: ContentVersion, added: List<CatalogDependencyDeclaration>) {
+        val catalog = at.catalog
         val targets = added.map { it.catalogKey }.filter { it != catalog.key.value }.toSet()
         if (targets.isEmpty()) return
         val uses = handle.createQuery(
@@ -189,11 +180,11 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
             JOIN catalogs dc ON dc.tenant_key = d.tenant_key AND dc.registry = d.registry AND dc.namespace = d.namespace
                             AND dc.catalog_key = d.dependency_key
-            WHERE d.tenant_key = :t AND d.version_id <> ${versionAt("t", "c")}
+            WHERE d.tenant_key = :t AND d.version_id <> :v
             """,
         )
             .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
+            .bindVersion("v", at.versionId)
             .map { rs, _ -> rs.getString("user_key") to rs.getString("used_key") }
             .list()
             .groupBy({ it.first }, { it.second })

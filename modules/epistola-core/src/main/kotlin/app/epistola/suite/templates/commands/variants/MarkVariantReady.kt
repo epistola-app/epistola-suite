@@ -5,12 +5,13 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TemplateVariantNotFoundException
@@ -37,8 +38,8 @@ import java.util.UUID
  */
 data class MarkVariantReady(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Unit>,
     RequiresPermission {
@@ -58,19 +59,21 @@ class MarkVariantReadyHandler(
         val variant = command.variantId
         requireCatalogEditable(variant.catalogId)
         jdbi.useTransaction<Exception> { handle ->
+            val at = handle.versionOf(variant.catalogId, command)
             // Locked, so what is marked is what was checked.
-            app.epistola.suite.catalog.revisions.DraftResources.lockRevision(handle, variant.catalogId, TemplateStore.TEMPLATE, variant.templateKey.value)
+            app.epistola.suite.catalog.revisions.DraftResources.lockRevision(handle, at, TemplateStore.TEMPLATE, variant.templateKey.value)
                 ?: throw TemplateVariantNotFoundException(variant.tenantKey, variant.templateKey, variant.key)
             val row = handle.createQuery(
                 """
                 SELECT tv.template_resource_id, tv.template_model::text AS template_model, dt.data_model::text AS data_model
-                FROM current_template_variants tv
-                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
-                WHERE tv.tenant_key = :t AND tv.id = :v AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = ${templateIn("t", "c", "k")}
+                FROM version_template_variants tv
+                JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :t AND tv.id = :v AND tv.version_id = :version AND tv.template_resource_id = ${templateIn("t", "c", "k", "version")}
                 """,
             )
                 .bind("t", variant.tenantKey)
                 .bindCatalog("c", variant.catalogId)
+                .bindVersion("version", at.versionId)
                 .bind("k", variant.templateKey)
                 .bind("v", variant.key)
                 .map { rs, _ -> Triple(rs.getObject("template_resource_id", UUID::class.java), rs.getString("template_model"), rs.getString("data_model")) }
@@ -79,8 +82,8 @@ class MarkVariantReadyHandler(
             val model = TemplateModels.read(row.second, variant.catalogKey.value, objectMapper)
             validator.validateTemplatePublishable(model)
             val dataModel = row.third?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
-            stencilFit.requireInstancesFit(variant.catalogId, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)
-            readyMarks.mark(handle, variant.tenantKey, row.first, variant.key.value)
+            stencilFit.requireInstancesFit(at, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)
+            readyMarks.mark(handle, at, row.first, variant.key.value)
         }
     }
 }

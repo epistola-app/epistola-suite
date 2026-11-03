@@ -69,7 +69,7 @@ class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsRe
     override fun handle(command: PublishCatalogs): PublishCatalogsResult {
         val selection = command.catalogs.distinct()
         val dependsOn = selection.associateWith { catalog ->
-            val declared = ListCatalogDependencies(catalog).query()
+            val declared = ListCatalogDependencies(catalog, catalogVersion = null).query()
             selection.filter { other -> other != catalog && declared.any { it.catalogIn(command.tenantKey) == other } }.toSet()
         }
         val outcomes = mutableListOf<CatalogPublishOutcome>()
@@ -83,7 +83,7 @@ class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsRe
             }
             outcomes += try {
                 if (command.markReady) markReady(catalog)
-                val result = ReleaseCatalogDraft(catalog, releaseDependencies = true, requireChange = true).execute()
+                val result = ReleaseCatalogDraft(catalog, releaseDependencies = true, requireChange = true, catalogVersion = null).execute()
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.PUBLISHED, version = result.version, alongWith = result.releasedDependencies.map { "${it.catalogKey} ${it.releaseVersion}" })
             } catch (_: CatalogDraftUnchangedException) {
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.UNCHANGED)
@@ -96,10 +96,10 @@ class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsRe
         return PublishCatalogsResult(outcomes)
     }
 
-    /** [catalog]'s changes, and those of the drafts publishing it publishes first, marked ready. */
+    /** The changes of [catalog]'s next version, and those of the drafts publishing it publishes first, marked ready. */
     private fun markReady(catalog: CatalogId) {
-        MarkCatalogReady(catalog).execute()
-        GetCatalogBorrowing(catalog).query().publishedAlong.forEach { other ->
+        MarkCatalogReady(catalog, catalogVersion = null).execute()
+        GetCatalogBorrowing(catalog, catalogVersion = null).query().publishedAlong.forEach { other ->
             val id = CatalogId(other.namespace, app.epistola.suite.common.ids.CatalogKey.of(other.catalogKey), app.epistola.suite.common.ids.TenantId(catalog.tenantKey))
             MarkCatalogReady(id, catalogVersion = CatalogReleaseRef(id, DraftRef.Id(requireNotNull(other.draftId)))).execute()
         }

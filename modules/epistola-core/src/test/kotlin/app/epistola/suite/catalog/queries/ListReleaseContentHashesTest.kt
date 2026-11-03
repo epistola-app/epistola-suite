@@ -40,9 +40,9 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
     private fun released(tenant: TenantKey, key: CatalogKey, vararg versions: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = key.value).execute()
         versions.forEachIndexed { index, version ->
-            CreateTheme(ThemeId(ThemeKey.of("theme-$index"), testCatalog(TenantId(tenant), key)), "Theme $index").execute()
-            MarkCatalogReady(testCatalog(tenant, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version).execute()
+            CreateTheme(ThemeId(ThemeKey.of("theme-$index"), testCatalog(TenantId(tenant), key)), "Theme $index", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version, catalogVersion = null).execute()
         }
     }
 

@@ -95,6 +95,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
                     width = null,
                     height = null,
                     id = AssetKey.of("municipality-mark"),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -153,7 +154,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(response.body).contains("SVG not accepted")
-            val stored = withMediator { ListAssets(tenantId = testTenant.id, catalog = testCatalog(testTenant.id, CatalogKey.DEFAULT)).query() }
+            val stored = withMediator { ListAssets(tenantId = testTenant.id, catalog = testCatalog(testTenant.id, CatalogKey.DEFAULT), catalogVersion = null).query() }
             assertThat(stored).isEmpty()
         }
     }

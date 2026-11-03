@@ -37,9 +37,9 @@ class ConfirmSubmitUiTest : BasePlaywrightTest() {
         val (subject, key) = withMediator {
             SaveFeatureToggle(TenantKey.of(tenant.id.value), KnownFeatures.QUALITY, enabled = true).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             val subject = QualitySubject.of(variantId)
             subject to RecordManualFinding(subject, "Wrong tone").execute()
         }

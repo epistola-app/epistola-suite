@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.types
 
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -30,18 +31,18 @@ interface ResourceType<R : CatalogResource> {
     val layout: ContentLayout get() = ContentLayout.Single
 
     /**
-     * Puts [resource], as a release brings it, into the version [catalog]'s messages target: created,
-     * or updated in place when the version holds it. Checked and normalised as the type requires, and
-     * authorised as changing one of these is. Throws when it cannot be put there.
+     * Puts [resource], as a release brings it, into draft [at]: created, or updated in place when the
+     * draft holds it. Checked and normalised as the type requires, and authorised as changing one of
+     * these is. Throws when it cannot be put there.
      */
-    fun receive(catalog: CatalogId, resource: R, arrival: Arrival): InstallStatus
+    fun receive(at: ContentVersion, resource: R, arrival: Arrival): InstallStatus
 
     /**
      * Marks [key] of the version [catalog]'s messages target ready through this type's own checks
      * (a template's or a stencil's command), and returns true; false for a type with no checks of its
      * own, whose ready mark the catalog sets itself.
      */
-    fun markReady(catalog: CatalogId, key: String): Boolean = false
+    fun markReady(at: ContentVersion, key: String): Boolean = false
 
     /**
      * What changing [old] into [new] means for a version number, each reason with its kind (contract
@@ -126,7 +127,7 @@ class ResourceTypes(types: List<ResourceType<*>>) {
         ?: throw IllegalArgumentException("No resource type for ${resource::class.simpleName}")
 
     /** [type]'s [ResourceType.receive] of [resource], which is of that type. */
-    fun <R : CatalogResource> receive(type: ResourceType<R>, catalog: CatalogId, resource: CatalogResource, arrival: Arrival): InstallStatus = type.receive(catalog, type.wireClass.cast(resource), arrival)
+    fun <R : CatalogResource> receive(type: ResourceType<R>, at: ContentVersion, resource: CatalogResource, arrival: Arrival): InstallStatus = type.receive(at, type.wireClass.cast(resource), arrival)
 
     /** What changing [old] into [new] means, as their type says; empty when they are of different types. */
     fun changes(old: CatalogResource, new: CatalogResource): List<ResourceChange> {

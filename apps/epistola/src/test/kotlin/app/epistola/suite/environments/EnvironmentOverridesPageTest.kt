@@ -59,12 +59,12 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
             val brand = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), letters))
-            CreateTheme(brand, "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.0").execute()
-            UpdateTheme(brand, name = "Brand, corrected").execute()
-            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.1").execute()
+            CreateTheme(brand, "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(brand, name = "Brand, corrected", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.1", catalogVersion = null).execute()
             for ((key, production) in listOf("test" to false, "production" to true)) {
                 val id = env(tenant, key)
                 CreateEnvironment(id, key.replaceFirstChar { it.uppercase() }, production = production).execute()

@@ -51,7 +51,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw queued").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
 
             CancelCatalogPublication(tenant.id, publication(tenant.id, catalogKey).id).execute()
 
@@ -79,7 +79,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw submitted").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             worker.run()
             assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
 
@@ -104,7 +104,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Recreate me", namespace = TestNamespaces.of(tenant.id).namespace).execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
 

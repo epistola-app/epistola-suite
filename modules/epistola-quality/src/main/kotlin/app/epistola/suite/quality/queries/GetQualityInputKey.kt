@@ -5,9 +5,11 @@
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
@@ -34,7 +36,7 @@ data class QualityInputKey(
  */
 data class GetQualityInputKey(
     val variantId: VariantId,
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Query<QualityInputKey>,
     ReleaseReadable,
     RequiresPermission {
@@ -49,13 +51,14 @@ class GetQualityInputKeyHandler(
     override fun handle(query: GetQualityInputKey): QualityInputKey = jdbi.withHandle<QualityInputKey, Exception> { handle ->
         val key = handle.createQuery(
             """
-            SELECT q.input_key FROM quality_current_variants q
-            WHERE q.tenant_key = :tenantKey AND q.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
-              AND q.template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND q.variant_key = :variantKey
+            SELECT q.input_key FROM quality_version_variants q
+            WHERE q.tenant_key = :tenantKey AND q.version_id = :v
+              AND q.template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey", "v")} AND q.variant_key = :variantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
             .bindCatalog("catalogKey", query.variantId.catalogId)
+            .bindVersion("v", handle.versionOf(query.variantId.catalogId, query).versionId)
             .bind("templateKey", query.variantId.templateKey)
             .bind("variantKey", query.variantId.key.value)
             .mapTo(String::class.java)

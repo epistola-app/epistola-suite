@@ -51,16 +51,16 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
     /** The demo's lines; with [mergeFixIntoNext], 1.0.1 is merged into the next release before it is released as 1.2.0. */
     private fun demoLines(tenant: TenantKey, catalog: CatalogKey, mergeFixIntoNext: Boolean) = withMediator {
         CreateCatalog(tenantKey = tenant, id = catalog, name = "Lines").execute()
-        CreateTheme(id = theme(tenant, catalog, "main"), name = "main 1.0.0").execute()
-        CreateTheme(id = theme(tenant, catalog, "fixa"), name = "fix a").execute()
-        CreateTheme(id = theme(tenant, catalog, "fixb"), name = "fix b").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+        CreateTheme(id = theme(tenant, catalog, "main"), name = "main 1.0.0", catalogVersion = null).execute()
+        CreateTheme(id = theme(tenant, catalog, "fixa"), name = "fix a", catalogVersion = null).execute()
+        CreateTheme(id = theme(tenant, catalog, "fixb"), name = "fix b", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
         val fixA = ref(tenant, catalog, CreateCatalogDraft(testCatalog(tenant, catalog), "Fix A", "1.0.0").execute().versionId)
 
-        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.1.0").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0").execute()
+        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.1.0", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0", catalogVersion = null).execute()
         val fixB = ref(tenant, catalog, CreateCatalogDraft(testCatalog(tenant, catalog), "Fix B", "1.1.0").execute().versionId)
 
         UpdateTheme(theme(tenant, catalog, "fixa"), name = "fix a, fixed", catalogVersion = fixA).execute()
@@ -71,14 +71,14 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
         // A fix to 1.1 does not contain the fix to 1.0: it is released behind it.
         ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.1", catalogVersion = fixB, acknowledgedBehind = setOf("1.0.1")).execute()
 
-        if (mergeFixIntoNext) MergeReleaseIntoDraft(testCatalog(tenant, catalog), "1.0.1").execute()
-        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.0").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
+        if (mergeFixIntoNext) MergeReleaseIntoDraft(testCatalog(tenant, catalog), "1.0.1", catalogVersion = null).execute()
+        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.0", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
         val acknowledged = if (mergeFixIntoNext) setOf("1.1.1") else setOf("1.0.1", "1.1.1")
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.2.0", acknowledgedBehind = acknowledged).execute()
-        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.1").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.2.1", acknowledgedBehind = acknowledged).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.2.0", acknowledgedBehind = acknowledged, catalogVersion = null).execute()
+        UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.1", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.2.1", acknowledgedBehind = acknowledged, catalogVersion = null).execute()
     }
 
     private fun merged(tenant: TenantKey, catalog: CatalogKey, version: String): List<ReleaseParent> = jdbi.withHandle<List<ReleaseParent>, Exception> {
@@ -96,9 +96,9 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(nextBehind(tenant, catalog)).containsExactly("1.0.1", "1.1.1")
-            UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.2").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            assertThat(runCatching { ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog)).execute() }.exceptionOrNull())
+            UpdateTheme(theme(tenant, catalog, "main"), name = "main 1.2.2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            assertThat(runCatching { ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), catalogVersion = null).execute() }.exceptionOrNull())
                 .`as`("releasing asks for both")
                 .isInstanceOfSatisfying(CatalogReleaseBehindException::class.java) { assertThat(it.behind).containsExactly("1.0.1", "1.1.1") }
         }
@@ -149,7 +149,7 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(nextBehind(tenant, catalog)).`as`("1.2.0 contains 1.0.1, so 1.2.1 and the next release do too").containsExactly("1.1.1")
-            assertThat(PreviewDraftMerge(testCatalog(tenant, catalog), "1.0.1").query().alreadyMerged).isTrue()
+            assertThat(PreviewDraftMerge(testCatalog(tenant, catalog), "1.0.1", catalogVersion = null).query().alreadyMerged).isTrue()
             assertThat(merged(tenant, catalog, "1.2.0").map { it.version }).containsExactly("1.0.1")
         }
     }
@@ -173,7 +173,7 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
             }
 
             assertThat(merged(receiver, catalog, "1.2.0").map { it.version }).containsExactly("1.0.1")
-            assertThat(PreviewDraftMerge(testCatalog(receiver, catalog), "1.0.1").query().alreadyMerged).`as`("the received 1.2.0 contains it").isTrue()
+            assertThat(PreviewDraftMerge(testCatalog(receiver, catalog), "1.0.1", catalogVersion = null).query().alreadyMerged).`as`("the received 1.2.0 contains it").isTrue()
             assertThat(nextBehind(receiver, catalog)).isEmpty()
         }
     }

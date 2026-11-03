@@ -190,7 +190,7 @@ class DemoLoader(
             // `epistola.quality.language-tool.url`) is switched on, so the showcase shows its findings.
             val configured = mediator.query(ListQualityProviders(tenantKey)).providers.filter { it.canSwitch }.map { it.id }.toSet()
             mediator.send(SaveQualityProviderSettings(tenantKey, enabled = configured))
-            mediator.send(RunQualityChecks(variantId))
+            mediator.send(RunQualityChecks(variantId, catalogVersion = null))
 
             val subject = QualitySubject.of(variantId)
             seedManualFindingIfAbsent(tenantKey, subject)
@@ -208,7 +208,7 @@ class DemoLoader(
         subject: QualitySubject,
     ) {
         val existing = mediator.query(
-            ListQualityFindings(tenantKey = tenantKey, sourceId = QualitySourceId.MANUAL, status = null),
+            ListQualityFindings(tenantKey = tenantKey, sourceId = QualitySourceId.MANUAL, status = null, catalogVersion = null),
         )
         if (existing.total > 0) return
 
@@ -237,7 +237,7 @@ class DemoLoader(
      */
     private fun seedIgnoreIfPresent(tenantKey: TenantKey) {
         val longText = mediator.query(
-            ListQualityFindings(tenantKey = tenantKey, ruleId = LONG_TEXT_RULE_ID, status = null),
+            ListQualityFindings(tenantKey = tenantKey, ruleId = LONG_TEXT_RULE_ID, status = null, catalogVersion = null),
         ).items.firstOrNull() ?: return
 
         if (longText.effectiveStatus == EffectiveQualityStatus.IGNORED) return

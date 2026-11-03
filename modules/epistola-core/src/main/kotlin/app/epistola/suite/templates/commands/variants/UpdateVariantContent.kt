@@ -6,13 +6,15 @@ package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.PresetUse
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
@@ -46,8 +48,8 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateVariantContent(
     val variantId: VariantId,
     val templateModel: TemplateDocument,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The variant's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -66,21 +68,22 @@ class UpdateVariantContentHandler(
     private val templates: TemplateStore,
 ) : CommandHandler<UpdateVariantContent, SavedVariantContent> {
     override fun handle(command: UpdateVariantContent): SavedVariantContent {
-        val saved = save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.variantId.catalogId, command) }
+        val saved = save(command, at)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(command.variantId.catalogId, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
+        usedCatalogs.declare(at, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
         return saved
     }
 
-    private fun save(command: UpdateVariantContent): SavedVariantContent {
+    private fun save(command: UpdateVariantContent, at: ContentVersion): SavedVariantContent {
         requireCatalogEditable(command.variantId.catalogId)
-        PresetUse.requireAvailable(command.variantId.catalogId, command.templateModel)
+        PresetUse.requireAvailable(command.variantId.catalogId, command.templateModel, catalogVersion = command.catalogVersion)
         val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.catalogKey)
         val key = command.variantId.key.value
         val revision = jdbi.inTransaction<Long?, Exception> { handle ->
             // Its own content and revision (a row of its own, ADR 0033): the template and
             // its other variants are not written.
-            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'", headChange = false) { template ->
+            templates.modifyVariant(handle, at, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'", headChange = false) { template ->
                 template.variant(key) ?: return@modifyVariant null
                 template.withVariant(key) { it.copy(model = templates.storedModel(prepared.templateModelJson)) }
             }?.second
@@ -92,15 +95,16 @@ class UpdateVariantContentHandler(
 /** A variant's working model as it reads after the write, and the variant's revision. */
 data class SavedVariantContent(val templateModel: TemplateDocument, val revision: Long)
 
-/** The revision of [variantId] in the version the caller means: its own row's; null when there is no such variant. */
-internal fun variantRevision(handle: Handle, variantId: VariantId): Long? = handle.createQuery(
+/** The revision of [variantId] in version [at]: its own row's; null when there is no such variant. */
+internal fun variantRevision(handle: Handle, at: ContentVersion, variantId: VariantId): Long? = handle.createQuery(
     """
-    SELECT revision FROM current_template_variants
-    WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
+    SELECT revision FROM version_template_variants
+    WHERE tenant_key = :t AND id = :v AND version_id = :version AND template_resource_id = ${templateIn("t", "c", "k", "version")}
     """,
 )
     .bind("t", variantId.tenantKey)
     .bindCatalog("c", variantId.catalogId)
+    .bindVersion("version", at.versionId)
     .bind("k", variantId.templateKey)
     .bind("v", variantId.key)
     .mapTo(Long::class.java)

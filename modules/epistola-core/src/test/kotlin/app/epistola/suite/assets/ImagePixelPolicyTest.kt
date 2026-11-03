@@ -36,7 +36,7 @@ class ImagePixelPolicyTest {
 
     private fun realPng(width: Int, height: Int) = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
 
-    private fun upload(content: ByteArray) = UploadAsset(testCatalog(TenantKey("testtenant"), CatalogKey.DEFAULT), "image.png", AssetMediaType.fromMimeType("image/png"), content, null, null)
+    private fun upload(content: ByteArray) = UploadAsset(testCatalog(TenantKey("testtenant"), CatalogKey.DEFAULT), "image.png", AssetMediaType.fromMimeType("image/png"), content, null, null, catalogVersion = null)
 
     @Test
     fun `the size is read from the header without decoding the pixels`() {

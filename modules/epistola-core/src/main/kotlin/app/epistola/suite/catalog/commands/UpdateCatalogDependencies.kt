@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -53,7 +54,7 @@ data class UpdateCatalogDependencies(
     val catalog: CatalogId,
     val dependencies: List<DeclaredCatalogDependency>,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
     /** The revision of the version the caller read ([CatalogRelease.revision]); null: no check. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -109,7 +110,8 @@ class UpdateCatalogDependenciesHandler(
         val catalog = handle.findCatalog(command.catalog)
             ?: throw CatalogNotFoundException(command.catalogKey)
         requireCatalogEditable(command.catalog)
-        drafts.draft(handle, command.catalog)?.let { draft ->
+        val at = handle.versionOf(command.catalog, command)
+        drafts.draft(handle, at)?.let { draft ->
             drafts.requireRevision(handle, command.tenantKey, draft.versionId, command.expectedRevision, "Catalog version '${draft.label}' of '${command.catalogKey.value}'")
         }
 
@@ -145,7 +147,7 @@ class UpdateCatalogDependenciesHandler(
                     ValidationCode.CATALOG_DEPENDENCY_INVALID,
                 )
             }
-        store.replace(handle, command.catalog, declarations)
+        store.replace(handle, at, declarations)
         declarations
     }
 }

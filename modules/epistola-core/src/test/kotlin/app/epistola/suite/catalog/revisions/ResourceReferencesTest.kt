@@ -58,17 +58,17 @@ class ResourceReferencesTest : IntegrationTestBase() {
             testCatalog(tenant, letters)
         }
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            CreateStencil(StencilId(StencilKey.of("letterhead"), catalog), "Letterhead").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("letterhead"), catalog), "Letterhead", catalogVersion = null).execute()
             val codeList = CodeListId(CodeListKey.of("regions"), catalog)
-            CreateCodeList(id = codeList, displayName = "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
-            CreateAttributeDefinition(id = AttributeId(AttributeKey.of("region"), catalog), displayName = "Region", codeListId = codeList).execute()
+            CreateCodeList(id = codeList, displayName = "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe")), catalogVersion = null).execute()
+            CreateAttributeDefinition(id = AttributeId(AttributeKey.of("region"), catalog), displayName = "Region", codeListId = codeList, catalogVersion = null).execute()
             val template = TemplateId(TemplateKey.of("invoice"), catalog)
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = catalog).execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), embedding("letterhead")).execute()
-            MarkCatalogReady(catalog).execute()
-            ReleaseCatalogDraft(catalog, "1.0.0").execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = catalog, catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), embedding("letterhead"), catalogVersion = null).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog, "1.0.0", catalogVersion = null).execute()
         }
 
         val references = jdbi.withHandle<List<String>, Exception> { handle ->

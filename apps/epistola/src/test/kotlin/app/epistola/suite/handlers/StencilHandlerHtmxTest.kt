@@ -99,7 +99,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val stored = withMediator { GetStencil(seeded.stencilId).query() }!!
+            val stored = withMediator { GetStencil(seeded.stencilId, catalogVersion = null).query() }!!
             assertThat(stored.content.nodes).containsKey("ph-main")
         }
     }
@@ -122,7 +122,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 HttpEntity(mapOf("content" to stencilV1(), "parameterSchema" to schema), headers),
                 String::class.java,
             )
-            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNotNull()
+            assertThat(withMediator { GetStencil(seeded.stencilId, catalogVersion = null).query() }!!.parameterSchema).isNotNull()
         }
 
         whenever {
@@ -137,7 +137,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNull()
+            assertThat(withMediator { GetStencil(seeded.stencilId, catalogVersion = null).query() }!!.parameterSchema).isNull()
         }
     }
 
@@ -221,7 +221,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.readsTemplateData).isTrue()
+            assertThat(withMediator { GetStencil(seeded.stencilId, catalogVersion = null).query() }!!.readsTemplateData).isTrue()
             assertThat(response.body).contains("data-testid=\"stencil-reads-template-data\"")
         }
     }
@@ -233,7 +233,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         given {
             seeded = seedStencilUsedByTemplate("Usage Fits")
             // The stencil drops the placeholder the template fills, so the template no longer fits.
-            withMediator { UpdateStencil(id = seeded.stencilId, content = stencilV2()).execute() }
+            withMediator { UpdateStencil(id = seeded.stencilId, content = stencilV2(), catalogVersion = null).execute() }
         }
 
         whenever {
@@ -278,8 +278,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = tenant.id, id = catalogB, name = "JSON B").execute()
                 val stencilA = StencilId(StencilKey.of("json-a"), testCatalog(tenantId, catalogA))
                 val stencilB = StencilId(StencilKey.of("json-b"), testCatalog(tenantId, catalogB))
-                CreateStencil(id = stencilA, name = "Stencil in A").execute()
-                CreateStencil(id = stencilB, name = "Stencil in B").execute()
+                CreateStencil(id = stencilA, name = "Stencil in A", catalogVersion = null).execute()
+                CreateStencil(id = stencilB, name = "Stencil in B", catalogVersion = null).execute()
                 Seed(tenantId, catalogA.value, catalogB.value, stencilA.key.value, stencilB.key.value)
             }
         }
@@ -549,7 +549,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val tenant: Tenant = createTenant(name)
         val tenantId = TenantId(tenant.id)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name, content = content).execute()
+        CreateStencil(id = stencilId, name = name, content = content, catalogVersion = null).execute()
         Seeded(tenantId, stencilId)
     }
 
@@ -558,15 +558,16 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         val tenant: Tenant = createTenant(name)
         val tenantId = TenantId(tenant.id)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
+        CreateStencil(id = stencilId, name = name, content = stencilV1(), catalogVersion = null).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter $name", catalogVersion = null).execute()
         val variantKey = VariantKey.INITIAL
         UpdateVariantContent(
             variantId = VariantId(variantKey, templateId),
             templateModel = templateEmbedding(stencilId.key.value),
+            catalogVersion = null,
         ).execute()
 
         SeededUsage(tenantId = tenantId, stencilId = stencilId, templateKey = templateKey.value, variantKey = variantKey.value)

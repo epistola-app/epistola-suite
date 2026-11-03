@@ -13,6 +13,7 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
@@ -47,12 +48,15 @@ class DocumentPreviewRenderer(
     /**
      * Render a preview PDF and return the raw bytes.
      *
+     * @param at The version of its catalog the template is read in: its stencils, images, fonts and
+     *   themes come from that version, other catalogs' from where its declarations say
      * @param templateModel The resolved template document to render
      * @param template The document template metadata (for theme, name)
      * @param tenant The tenant (for fallback theme, author name)
      * @param data The data context as JSON
      */
     fun render(
+        at: ContentVersion,
         templateModel: TemplateDocument,
         template: DocumentTemplate,
         tenant: Tenant,
@@ -62,9 +66,9 @@ class DocumentPreviewRenderer(
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
         // The draft's declarations say where other catalogs come from, as its release would render.
-        val catalog = template.catalogId
-        val dependencies = dependencyViews.of(catalog)
-        val expandedModel = stencilResolvers.expandWithWorkingCopies(catalog, templateModel, dependencies)
+        val catalog = at.catalog
+        val dependencies = dependencyViews.of(at)
+        val expandedModel = stencilResolvers.expandWithWorkingCopies(at, templateModel, dependencies)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(data, Map::class.java) as Map<String, Any?>
@@ -72,16 +76,16 @@ class DocumentPreviewRenderer(
             title = template.name,
             author = tenant.name,
         )
-        val assetResolver = draftAssetResolver(catalog, null, dependencies)
+        val assetResolver = draftAssetResolver(catalog, at.ref, dependencies)
         // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
-        val catalogTheme = GetCatalogThemeSettings(catalog).query().defaultTheme
+        val catalogTheme = GetCatalogThemeSettings(catalog, catalogVersion = at.ref).query().defaultTheme
         // Owning catalog for unqualified font refs: same cascade the theme
         // resolution + asset binding use (template theme catalog → the
         // catalog's default theme's catalog → the template's own catalog).
         val owning = template.themeCatalogId ?: catalogTheme?.catalog ?: catalog
-        val fontResolver = fontFamilyResolver(owning, dependencies = dependencies)
+        val fontResolver = fontFamilyResolver(owning, catalogVersion = at.ref, dependencies = dependencies)
         val theme = resolvedThemeOverride ?: generationService.resolveTheme(
-            catalog,
+            at,
             expandedModel,
             template.themeKey,
             catalogTheme?.themeKey,

@@ -34,13 +34,13 @@ class HouseThemeTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = brand, name = "Brand").execute()
-            CreateTheme(ThemeId(houseKey, testCatalog(TenantId(tenant.id), brand)), "House").execute()
+            CreateTheme(ThemeId(houseKey, testCatalog(TenantId(tenant.id), brand)), "House", catalogVersion = null).execute()
             SetTenantDefaultTheme(tenant.id, themeId = houseKey, catalog = testCatalog(tenant.id, brand)).execute()
 
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
 
-            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters)).query().defaultTheme).isEqualTo(house(tenant.id))
-            assertThat(ListCatalogDependencies(testCatalog(tenant.id, letters)).query().map { it.catalogKey }).contains(brand.value)
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters), catalogVersion = null).query().defaultTheme).isEqualTo(house(tenant.id))
+            assertThat(ListCatalogDependencies(testCatalog(tenant.id, letters), catalogVersion = null).query().map { it.catalogKey }).contains(brand.value)
         }
     }
 
@@ -51,17 +51,17 @@ class HouseThemeTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = brand, name = "Brand").execute()
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-            CreateTheme(ThemeId(houseKey, testCatalog(TenantId(tenant.id), brand)), "House").execute()
+            CreateTheme(ThemeId(houseKey, testCatalog(TenantId(tenant.id), brand)), "House", catalogVersion = null).execute()
 
             assertThat(ApplyHouseTheme(tenant.id).execute().applied).`as`("no house theme yet").isEmpty()
-            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters)).query().defaultTheme).isNull()
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters), catalogVersion = null).query().defaultTheme).isNull()
 
             SetTenantDefaultTheme(tenant.id, themeId = houseKey, catalog = testCatalog(tenant.id, brand)).execute()
             val result = ApplyHouseTheme(tenant.id).execute()
 
             assertThat(result.applied.map { it.key }).contains(letters, brand)
-            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters)).query().defaultTheme).isEqualTo(house(tenant.id))
-            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, brand)).query().defaultTheme).isEqualTo(house(tenant.id))
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, letters), catalogVersion = null).query().defaultTheme).isEqualTo(house(tenant.id))
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant.id, brand), catalogVersion = null).query().defaultTheme).isEqualTo(house(tenant.id))
         }
     }
 }

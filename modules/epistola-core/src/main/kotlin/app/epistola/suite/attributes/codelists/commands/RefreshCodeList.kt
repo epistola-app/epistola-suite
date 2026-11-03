@@ -4,7 +4,6 @@
 
 package app.epistola.suite.attributes.codelists.commands
 
-import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -13,10 +12,9 @@ import app.epistola.suite.attributes.codelists.service.CodeListFetchException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -41,8 +39,8 @@ import org.springframework.stereotype.Component
  */
 data class RefreshCodeList(
     val id: CodeListId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<CodeList?>,
     RequiresPermission,
@@ -62,7 +60,6 @@ const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its 
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
-    private val targeting: CatalogReleaseTargeting,
     private val codeLists: CodeListStore,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -70,8 +67,8 @@ class RefreshCodeListHandler(
     override fun handle(command: RefreshCodeList): CodeList? {
         requireCatalogEditable(command.id.catalogId)
 
-        // Self-managed: each of its transactions takes the catalog version the command targets.
-        val current = load(command.id) ?: return null
+        // Self-managed: each of its transactions resolves the catalog version the command addresses.
+        val current = load(command) ?: return null
 
         if (current.sourceType == CodeListSource.INLINE) {
             throw CodeListNotRefreshableException(
@@ -90,41 +87,39 @@ class RefreshCodeListHandler(
             // code list, and a fetch error can carry whatever the source answered, or reveal what a
             // URL reached — so the stored text says only that the fetch failed.
             logger.warn("Refreshing code list {} from {} failed: {}", command.id, sourceUrl, e.message, e)
-            recordRefresh(command.id, succeeded = false, error = REFRESH_FAILED_MESSAGE)
-            return load(command.id)
+            recordRefresh(command, succeeded = false, error = REFRESH_FAILED_MESSAGE)
+            return load(command)
         }
 
         try {
             validateCodeListEntries(fetched)
         } catch (e: ValidationException) {
-            recordRefresh(command.id, succeeded = false, error = e.message)
-            return load(command.id)
+            recordRefresh(command, succeeded = false, error = e.message)
+            return load(command)
         }
 
         return jdbi.inTransaction<CodeList?, Exception> { handle ->
-            targeting.apply(handle)
-            DraftResources.lockRevision(handle, command.id.catalogId, CodeListStore.CODE_LIST, command.id.key.value) ?: return@inTransaction null
-            val stored = checkNotNull(codeLists.fields(handle, command.id)) { "Code list ${command.id.key.value} is locked, so it is there" }
+            val at = handle.versionOf(command.id.catalogId, command)
+            DraftResources.lockRevision(handle, at, CodeListStore.CODE_LIST, command.id.key.value) ?: return@inTransaction null
+            val stored = checkNotNull(codeLists.fields(handle, at, command.id)) { "Code list ${command.id.key.value} is locked, so it is there" }
             val refreshed = stored.copy(entries = fetched)
             // The same entries are the same content: only the refresh is recorded, so the revision and
             // a ready mark stay as they were (ADR 0033).
             if (codeLists.payload(command.id.key.value, refreshed) != codeLists.payload(command.id.key.value, stored)) {
-                codeLists.save(handle, command.id, refreshed, currentUserIdOrNull()?.value)
+                codeLists.save(handle, at, command.id, refreshed, currentUserIdOrNull()?.value)
             }
-            codeLists.recordRefresh(handle, command.id, succeeded = true, error = null)
-            codeLists.get(handle, command.id)
+            codeLists.recordRefresh(handle, at, command.id, succeeded = true, error = null)
+            codeLists.get(handle, at, command.id)
         }
     }
 
-    private fun recordRefresh(id: CodeListId, succeeded: Boolean, error: String?) {
+    private fun recordRefresh(command: RefreshCodeList, succeeded: Boolean, error: String?) {
         jdbi.useTransaction<Exception> { handle ->
-            targeting.apply(handle)
-            codeLists.recordRefresh(handle, id, succeeded, error)
+            codeLists.recordRefresh(handle, handle.versionOf(command.id.catalogId, command), command.id, succeeded, error)
         }
     }
 
-    private fun load(id: CodeListId): CodeList? = jdbi.inTransaction<CodeList?, Exception> { handle ->
-        targeting.apply(handle)
-        codeLists.get(handle, id)
+    private fun load(command: RefreshCodeList): CodeList? = jdbi.inTransaction<CodeList?, Exception> { handle ->
+        codeLists.get(handle, handle.versionOf(command.id.catalogId, command), command.id)
     }
 }

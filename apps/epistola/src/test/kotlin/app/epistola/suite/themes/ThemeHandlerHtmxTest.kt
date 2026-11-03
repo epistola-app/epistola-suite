@@ -195,13 +195,14 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             withMediator {
                 val tenantId = TenantId(testTenant.id)
                 val themeId = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
-                CreateTheme(themeId, "Brand Theme").execute()
+                CreateTheme(themeId, "Brand Theme", catalogVersion = null).execute()
                 templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-                CreateDocumentTemplate(templateId, "Invoice").execute()
+                CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeId.key,
                     themeCatalog = testCatalog(templateId.tenantKey, themeId.catalogKey),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -236,13 +237,14 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             withMediator {
                 val tenantId = TenantId(testTenant.id)
                 val themeId = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
-                CreateTheme(themeId, "Brand Theme").execute()
+                CreateTheme(themeId, "Brand Theme", catalogVersion = null).execute()
                 templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-                CreateDocumentTemplate(templateId, "Invoice").execute()
+                CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeId.key,
                     themeCatalog = testCatalog(templateId.tenantKey, themeId.catalogKey),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -278,6 +280,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
                 CreateTheme(
                     ThemeId(ThemeKey.of("unused"), CatalogId.default(tenantId)),
                     "Unused Theme",
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -311,7 +314,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
     fun `the themes list makes a theme the catalog's default and applies the house theme to all catalogs`() {
         val tenant = createTenant("Theme Defaults")
         val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("default"))
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute() }
 
         val headers = htmxHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
         val form: MultiValueMap<String, String> = LinkedMultiValueMap<String, String>().apply {

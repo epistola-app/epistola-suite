@@ -16,8 +16,10 @@ import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogDraft
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.revisions.ReleaseResource
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
@@ -48,7 +50,7 @@ import org.springframework.stereotype.Component
 data class GetCatalogResourceChanges(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<CatalogResourceChanges>,
     RequiresPermission {
@@ -145,17 +147,18 @@ class GetCatalogResourceChangesHandler(
         val editability = GetCatalogEditability(query.catalog).query()
         if (!editability.editable) throw CatalogReadOnlyException(query.catalogKey, editability.reason)
 
-        val content = contentBuilder.build(query.catalog)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(query.catalog, query) }
+        val content = contentBuilder.build(at)
         val working = fingerprintService.resourceFingerprints(content)
-        val release = loadBaseRelease(query.catalog)
+        val release = loadBaseRelease(at)
         val released = release?.let { entriesOf(query.catalog, it.version) }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
         val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
-        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.catalog) }
-        val mergedForReview = jdbi.withHandle<Set<String>, Exception> { readyMarks.mergedAwaitingReview(it, query.catalog) }
+        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, at) }
+        val mergedForReview = jdbi.withHandle<Set<String>, Exception> { readyMarks.mergedAwaitingReview(it, at) }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
@@ -167,7 +170,7 @@ class GetCatalogResourceChangesHandler(
         )
 
         // The draft's own declarations, which may name a draft of another catalog; the wire form cannot.
-        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, query.catalog) }
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, at) }
         // A declaration naming a draft pins that draft's base when it has nothing to publish.
         val namedDraftBases = declarations.mapNotNull { declaration ->
             val draftId = declaration.draftId ?: return@mapNotNull null
@@ -192,7 +195,7 @@ class GetCatalogResourceChangesHandler(
             )
         }
 
-        val baseline = baseline(query.catalog, release.version)
+        val baseline = baseline(at, release.version)
 
         val resources = (working.keys + baseline.keys).sorted().map { key ->
             val state = when {
@@ -247,20 +250,22 @@ class GetCatalogResourceChangesHandler(
      * (the draft's `base_fingerprints`), else its retained content, fingerprinted now. Never the
      * digests `release_resources` stored, which another function computed.
      */
-    private fun baseline(catalog: CatalogId, version: String): Map<String, String> {
+    private fun baseline(at: ContentVersion, version: String): Map<String, String> {
+        val catalog = at.catalog
         val held = jdbi.withHandle<String?, Exception> { handle ->
-            drafts.draft(handle, catalog)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, catalog.tenantKey, it.versionId) }
+            drafts.draft(handle, at)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, catalog.tenantKey, it.versionId) }
         }
         fingerprintService.readBaseline(held)?.let { recorded -> return recorded.filterKeys { !app.epistola.suite.catalog.merge.CatalogSetting.isSettingKey(it) } }
         return assembler.assemble(catalog, version)?.let { fingerprintService.resourceFingerprints(it.content) }.orEmpty()
     }
 
     /**
-     * What the draft the caller means is compared against (contract ADR 0002): its base, the release it
+     * What draft [at] is compared against (contract ADR 0002): its base, the release it
      * started from, or, when it records none that the catalog still has, the highest release below its
      * number. Without a draft, the latest release.
      */
-    private fun loadBaseRelease(catalog: CatalogId): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
+    private fun loadBaseRelease(at: ContentVersion): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
+        val catalog = at.catalog
         val releases = handle.createQuery(
             """
             SELECT version, fingerprint, rendering_defaults_version
@@ -273,7 +278,7 @@ class GetCatalogResourceChangesHandler(
             .bindCatalog("c", catalog)
             .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint"), renderingDefaults = rs.getObject("rendering_defaults_version") as Int?) }
             .list()
-        val draft = drafts.draft(handle, catalog) ?: return@withHandle releases.firstOrNull()
+        val draft = drafts.draft(handle, at) ?: return@withHandle releases.firstOrNull()
         // A draft that recorded no base (opened before drafts did) is measured against the latest release.
         val base = draft.base?.takeIf { base -> releases.any { it.version == base } }
             ?: CatalogDrafts.latest(releases.map { it.version })

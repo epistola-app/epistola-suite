@@ -7,12 +7,13 @@ package app.epistola.suite.attributes.codelists.queries
 import app.epistola.suite.attributes.codelists.CODE_LIST_COLUMNS
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.Paging
 import app.epistola.suite.common.ResultPage
@@ -39,8 +40,8 @@ import org.springframework.stereotype.Component
 data class ListCodeLists(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<CodeList>>,
     RequiresPermission {
@@ -57,8 +58,8 @@ data class ListCodeLists(
 data class ListCodeListPage(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val page: PageRequest,
 ) : ReleaseReadable,
     Query<ResultPage<CodeList>>,
@@ -75,7 +76,7 @@ class ListCodeListsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListCodeLists, List<CodeList>> {
     override fun handle(query: ListCodeLists): List<CodeList> = jdbi.withHandle<List<CodeList>, Exception> { handle ->
-        CodeListList.query(handle, query.tenantId, query.catalog, paged = false).mapTo<CodeList>().list()
+        CodeListList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = false).mapTo<CodeList>().list()
     }
 }
 
@@ -84,25 +85,26 @@ class ListCodeListPageHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListCodeListPage, ResultPage<CodeList>> {
     override fun handle(query: ListCodeListPage): ResultPage<CodeList> = jdbi.withHandle<ResultPage<CodeList>, Exception> { handle ->
-        Paging.read(query.page, CodeList::class.java) { CodeListList.query(handle, query.tenantId, query.catalog, paged = true) }
+        Paging.read(query.page, CodeList::class.java) { CodeListList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = true) }
     }
 }
 
 /**
  * The code lists of a tenant, or of one of its catalogs, by name; [paged] selects one page of them.
- * A draft or a release, read the same way (ADR 0033).
+ * A draft or a release, read the same way (ADR 0033): of [version] for its catalog, else of each
+ * catalog's next version.
  */
 private object CodeListList {
-    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, paged: Boolean): org.jdbi.v3.core.statement.Query {
+    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, version: java.util.UUID?, paged: Boolean): org.jdbi.v3.core.statement.Query {
         val sql = buildString {
             append("SELECT $CODE_LIST_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_code_lists t WHERE t.tenant_key = :t")
+            append(" FROM version_code_lists t WHERE t.tenant_key = :t AND ${inVersionOrNext("t", "version")}")
             if (catalog != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
             append(" ORDER BY t.display_name ASC, t.catalog_id, t.id")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
-        val q = handle.createQuery(sql).bind("t", tenantId.key)
+        val q = handle.createQuery(sql).bind("t", tenantId.key).bindVersion("version", version)
         if (catalog != null) q.bindCatalog("c", catalog)
         return q
     }

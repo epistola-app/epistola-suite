@@ -57,6 +57,7 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
                 content = byteArrayOf(1, 2, 3),
                 width = 320,
                 height = 80,
+                catalogVersion = null,
             ).execute()
             UploadAsset(
                 catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
@@ -65,6 +66,7 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
                 content = byteArrayOf(4, 5, 6),
                 width = null,
                 height = null,
+                catalogVersion = null,
             ).execute()
             uploaded
         }

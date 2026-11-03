@@ -28,6 +28,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.invariants.SkipCatalogInvariants
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -97,13 +98,13 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val stencils = listOf(acme, brandB).map { catalog ->
             CreateCatalog(tenantKey = tenantId.key, id = catalog, name = catalog.value).execute()
             val id = StencilId(letterhead, testCatalog(tenantId, catalog))
-            CreateStencil(id = id, name = "${catalog.value} letterhead", content = content("${catalog.value} v1")).execute()
+            CreateStencil(id = id, name = "${catalog.value} letterhead", content = content("${catalog.value} v1"), catalogVersion = null).execute()
             id
         }
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateVariantContent(variantId = variantId, templateModel = templateEmbedding(*instances)).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = templateEmbedding(*instances), catalogVersion = null).execute()
         Fixture(tenantId, stencils[0], stencils[1], variantId)
     }
 
@@ -112,9 +113,9 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val f = setUp("acme-instance" to acme.value, "brand-b-instance" to brandB.value)
 
         withMediator {
-            UpdateStencil(f.acmeLetterhead, content = content("acme v2")).execute()
+            UpdateStencil(f.acmeLetterhead, content = content("acme v2"), catalogVersion = null).execute()
 
-            val expanded = stencilResolvers.expandWithWorkingCopies(testCatalog(f.tenantId.key, CatalogKey.DEFAULT), GetVariantContent(f.variantId).query()!!)
+            val expanded = stencilResolvers.expandWithWorkingCopies(nextVersion(testCatalog(f.tenantId.key, CatalogKey.DEFAULT)), GetVariantContent(f.variantId, catalogVersion = null).query()!!)
             assertThat(expanded.texts()).containsExactlyInAnyOrder("acme v2", "brand-b v1")
         }
     }
@@ -124,11 +125,11 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val f = setUp("brand-b-instance" to brandB.value)
 
         withMediator {
-            assertThat(FindStencilUsages(f.acmeLetterhead).query()).isEmpty()
-            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().total).isZero()
+            assertThat(FindStencilUsages(f.acmeLetterhead, catalogVersion = null).query()).isEmpty()
+            assertThat(GetStencilUsagePage(f.acmeLetterhead, catalogVersion = null).query().total).isZero()
 
-            assertThat(FindStencilUsages(f.brandBLetterhead).query()).containsExactly("Letter")
-            assertThat(GetStencilUsagePage(f.brandBLetterhead).query().total).isEqualTo(1)
+            assertThat(FindStencilUsages(f.brandBLetterhead, catalogVersion = null).query()).containsExactly("Letter")
+            assertThat(GetStencilUsagePage(f.brandBLetterhead, catalogVersion = null).query().total).isEqualTo(1)
         }
     }
 
@@ -146,8 +147,8 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         }
 
         withMediator {
-            assertThat(FindStencilUsages(f.acmeLetterhead).query()).containsExactly("Letter")
-            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().total).isEqualTo(1)
+            assertThat(FindStencilUsages(f.acmeLetterhead, catalogVersion = null).query()).containsExactly("Letter")
+            assertThat(GetStencilUsagePage(f.acmeLetterhead, catalogVersion = null).query().total).isEqualTo(1)
         }
     }
 
@@ -155,7 +156,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
     fun `a stencil is not held in use by a same-named stencil from another catalog`() {
         val f = setUp("brand-b-instance" to brandB.value)
 
-        assertThat(withMediator { DeleteStencil(f.acmeLetterhead).execute() }).isTrue()
+        assertThat(withMediator { DeleteStencil(f.acmeLetterhead, catalogVersion = null).execute() }).isTrue()
     }
 
     @Test
@@ -163,8 +164,8 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val f = setUp()
 
         withMediator {
-            assertThat(GetStencil(f.acmeLetterhead).query()!!.name).isEqualTo("acme letterhead")
-            assertThat(GetStencil(f.brandBLetterhead).query()!!.name).isEqualTo("brand-b letterhead")
+            assertThat(GetStencil(f.acmeLetterhead, catalogVersion = null).query()!!.name).isEqualTo("acme letterhead")
+            assertThat(GetStencil(f.brandBLetterhead, catalogVersion = null).query()!!.name).isEqualTo("brand-b letterhead")
         }
     }
 
@@ -174,18 +175,18 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         withMediator {
             repeat(2) {
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(f.tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Letter $it").execute()
-                UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), templateEmbedding("instance-$it" to brandB.value)).execute()
+                CreateDocumentTemplate(id = templateId, name = "Letter $it", catalogVersion = null).execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), templateEmbedding("instance-$it" to brandB.value), catalogVersion = null).execute()
             }
 
-            val all = GetStencilUsagePage(f.brandBLetterhead).query()
+            val all = GetStencilUsagePage(f.brandBLetterhead, catalogVersion = null).query()
             assertThat(all.total).isEqualTo(3)
             assertThat(all.items).hasSize(3)
 
-            val second = GetStencilUsagePage(f.brandBLetterhead, page = 2, pageSize = 2).query()
+            val second = GetStencilUsagePage(f.brandBLetterhead, page = 2, pageSize = 2, catalogVersion = null).query()
             assertThat(second.totalPages).isEqualTo(2)
             assertThat(second.items.map { it.templateName }).containsExactly(all.items[2].templateName)
-            assertThat(GetStencilUsagePage(f.brandBLetterhead, page = 9, pageSize = 2).query().page).isEqualTo(2)
+            assertThat(GetStencilUsagePage(f.brandBLetterhead, page = 9, pageSize = 2, catalogVersion = null).query().page).isEqualTo(2)
         }
     }
 }

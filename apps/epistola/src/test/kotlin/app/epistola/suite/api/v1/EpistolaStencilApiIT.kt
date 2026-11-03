@@ -132,15 +132,16 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
     private fun seedStencilUsedByPublishedTemplate(tenantKey: TenantKey): SeededUsage = withMediator {
         val tenantId = TenantId(tenantKey)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = "REST Upgrade Stencil", content = stencilV1()).execute()
+        CreateStencil(id = stencilId, name = "REST Upgrade Stencil", content = stencilV1(), catalogVersion = null).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "REST Upgrade Template").execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = templateId, name = "REST Upgrade Template", catalogVersion = null).execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
         UpdateVariantContent(
             variantId = VariantId(variantKey, templateId),
             templateModel = templateEmbedding(stencilId.key.value),
+            catalogVersion = null,
         ).execute()
         mediator.publishAndRelease(VariantId(variantKey, templateId))
 

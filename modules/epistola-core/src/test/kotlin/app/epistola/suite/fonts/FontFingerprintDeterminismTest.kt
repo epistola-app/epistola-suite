@@ -81,6 +81,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             name = "Brand Sans",
             kind = FontKind.SANS.wire,
             variants = listOf(ImportFontVariant(400, false, "font/ttf", asset)),
+            catalogVersion = null,
         ).execute()
     }
 
@@ -165,19 +166,21 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "brand-sans", "catalogKey" to "default"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // 2. Template pinned to that theme + a richtext contract.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "fp-determinism-template").execute().withRequiredDataExample()
+            CreateDocumentTemplate(id = templateId, name = "fp-determinism-template", catalogVersion = null).execute().withRequiredDataExample()
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = ThemeKey.of("brand-theme"),
                 themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
+                catalogVersion = null,
             ).execute()
 
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateVariantContent(variantId = variantId, templateModel = templateModel()).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = templateModel(), catalogVersion = null).execute()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readValue(
@@ -191,10 +194,11 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                     """.trimIndent(),
                     ObjectNode::class.java,
                 ),
+                catalogVersion = null,
             ).execute()
 
             // 3. Mark the variant ready for release.
-            MarkVariantReady(variantId).execute()
+            MarkVariantReady(variantId, catalogVersion = null).execute()
 
             // 4. Released, and the release renders.
             mediator.releaseNext(catalogId)
@@ -202,6 +206,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = templateId.key,
                 data = previewData(),
+                catalogVersion = null,
             ).query()
             assertThat(String(ok.copyOfRange(0, 4))).isEqualTo("%PDF")
             val regular = javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")!!.readBytes()
@@ -217,6 +222,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = templateId.key,
                 data = previewData(),
+                catalogVersion = null,
             ).query()
             assertThat(String(stillOk.copyOfRange(0, 4))).isEqualTo("%PDF")
             assertThat(releaseFace(tenant.id, "1.0.0")).isEqualTo(regular)

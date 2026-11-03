@@ -139,10 +139,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "moved-${randomSuffix()}"
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved", catalogVersion = null).execute()
             val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
-            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint, catalogVersion = null).execute()
         }
 
         // A move leaves nothing behind: an integration configured against the old address has to be
@@ -164,10 +164,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "moved-${randomSuffix()}"
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved", catalogVersion = null).execute()
             val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
-            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint, catalogVersion = null).execute()
         }
 
         val response = restTemplate.exchange(
@@ -341,7 +341,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         assertThat(JsonPath.read<String>(response.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/data-example-required")
+            .isEqualTo("https://epistola.app/errors/validation-error")
         assertThat(JsonPath.read<String>(response.body!!, "$.detail"))
             .isEqualTo("At least one data example is required")
     }
@@ -584,10 +584,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(getResp.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(getResp.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = getResp.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
-        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Template Not Found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Not Found")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(problem, "$.instance"))
@@ -607,8 +607,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 
@@ -625,8 +625,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 
@@ -901,7 +901,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/template-expression-invalid")
+            .isEqualTo("https://epistola.app/errors/validation-error")
         assertThat(rejected.body!!).contains("JavaScript expressions are no longer supported")
     }
 
@@ -1064,7 +1064,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/template-graph-invalid")
+            .isEqualTo("https://epistola.app/errors/validation-error")
 
         val getDraft = restTemplate.exchange(
             draftUrl,
@@ -1137,7 +1137,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/template-graph-invalid")
+            .isEqualTo("https://epistola.app/errors/validation-error")
 
         val getDraft = restTemplate.exchange(
             draftUrl,
@@ -1194,7 +1194,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/template-node-type-unsupported")
+            .isEqualTo("https://epistola.app/errors/validation-error")
     }
 
     @Test
@@ -1264,7 +1264,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Concurrent edits and marks leave the variant with one readable working model.
         val model = withMediator {
-            GetVariantContent(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))))).query()
+            GetVariantContent(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey)))), catalogVersion = null).query()
         }
         assertThat(model).isNotNull()
     }
@@ -1521,8 +1521,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         val problem = resp.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort-direction")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(problem, "$.errors[0].field")).isEqualTo("direction")
         assertThat(JsonPath.read<String>(problem, "$.value")).isEqualTo("sideways")
         assertThat(JsonPath.read<List<String>>(problem, "$.supportedValues"))
             .containsExactly("asc", "desc")
@@ -1671,8 +1672,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(resp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         val problem = resp.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-sort")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(problem, "$.errors[0].field")).isEqualTo("sort")
         assertThat(JsonPath.read<String>(problem, "$.value")).isEqualTo("title")
         assertThat(JsonPath.read<List<String>>(problem, "$.supportedValues"))
             .containsExactly("name", "createdAt", "lastModified")

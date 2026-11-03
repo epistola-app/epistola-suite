@@ -5,10 +5,11 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -27,8 +28,8 @@ import org.springframework.stereotype.Component
 /** Marks every variant of the template ready, with its data contract, in one action (contract `markTemplateReady`). */
 data class MarkTemplateReady(
     val templateId: TemplateId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Unit>,
     RequiresPermission {
@@ -44,15 +45,16 @@ class MarkTemplateReadyHandler(
         val template = command.templateId
         val variants = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id FROM current_template_variants WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")} ORDER BY id",
+                "SELECT id FROM version_template_variants WHERE tenant_key = :t AND version_id = :v AND template_resource_id = ${templateIn("t", "c", "k", "v")} ORDER BY id",
             )
                 .bind("t", template.tenantKey)
                 .bindCatalog("c", template.catalogId)
+                .bindVersion("v", handle.versionOf(template.catalogId, command).versionId)
                 .bind("k", template.key)
                 .mapTo(String::class.java)
                 .list()
         }
         if (variants.isEmpty()) throw TemplateNotFoundException(template.tenantKey, template.key)
-        variants.forEach { MarkVariantReady(VariantId(VariantKey.of(it), template)).execute() }
+        variants.forEach { MarkVariantReady(VariantId(VariantKey.of(it), template), catalogVersion = command.catalogVersion).execute() }
     }
 }

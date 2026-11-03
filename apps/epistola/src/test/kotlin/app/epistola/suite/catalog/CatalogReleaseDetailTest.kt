@@ -53,9 +53,9 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                         attributes = emptyList<AttributeAssignment>(),
                         keywords = setOf("frozen-keyword"),
                     ).execute()
-                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
-                    MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-                    ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), version = "1.0.0", notes = "the first").execute()
+                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme", catalogVersion = null).execute()
+                    MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+                    ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), version = "1.0.0", notes = "the first", catalogVersion = null).execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(

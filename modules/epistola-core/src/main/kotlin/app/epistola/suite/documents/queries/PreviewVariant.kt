@@ -7,6 +7,8 @@ package app.epistola.suite.documents.queries
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -23,6 +25,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
@@ -48,8 +51,8 @@ data class PreviewVariant(
     val data: ObjectNode,
     val templateModel: TemplateDocument? = null,
     val resolvedTheme: ResolvedTheme? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
@@ -73,23 +76,24 @@ class PreviewVariantHandler(
         val catalogId = query.catalog
         val templateId = TemplateId(query.templateId, catalogId)
         val variantId = app.epistola.suite.common.ids.VariantId(query.variantId, templateId)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(catalogId, query) }
 
         // 1. The live model from the editor, else the variant's working model
         val templateModel = query.templateModel
-            ?: mediator.query(GetVariantContent(variantId))
+            ?: mediator.query(GetVariantContent(variantId, catalogVersion = query.catalogVersion))
             ?: throw IllegalStateException("Variant ${query.variantId} not found")
         if (query.templateModel != null) {
             templateDocumentValidator.validateTemplate(templateModel)
         }
 
         // 2. Fetch template and tenant for theme resolution
-        val template = mediator.query(GetDocumentTemplate(templateId))
+        val template = mediator.query(GetDocumentTemplate(templateId, catalogVersion = query.catalogVersion))
             ?: throw IllegalStateException("Template ${query.templateId} not found")
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
         // 3. Validate data against the template's data contract as it is now
-        val dataModel: ObjectNode? = mediator.query(GetDataContract(templateId))?.dataModel
+        val dataModel: ObjectNode? = mediator.query(GetDataContract(templateId, catalogVersion = query.catalogVersion))?.dataModel
         // A field the caller omitted falls back to its schema `default`, applied
         // before validation and rendering so a preview matches actual generation.
         val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, query.data) else query.data
@@ -102,10 +106,12 @@ class PreviewVariantHandler(
         }
 
         // 4. Resolve the effective formatting culture via variant attribute → tenant default → app default
-        val culture = localeResolver.resolveCulture(tenant, variantId)
+        val attributes = mediator.query(GetVariant(variantId, catalogVersion = query.catalogVersion))?.attributes ?: emptyMap()
+        val culture = localeResolver.resolveCulture(tenant, attributes)
 
         // 5. Render — always live theme cascade for drafts (no snapshot)
         return renderer.render(
+            at = at,
             templateModel = templateModel,
             template = template,
             tenant = tenant,

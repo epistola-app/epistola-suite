@@ -7,8 +7,8 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component
 
 data class DeleteDocumentTemplate(
     val id: TemplateId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -37,6 +37,6 @@ class DeleteDocumentTemplateHandler(
 ) : CommandHandler<DeleteDocumentTemplate, Boolean> {
     override fun handle(command: DeleteDocumentTemplate): Boolean {
         requireCatalogEditable(command.id.catalogId)
-        return jdbi.withHandle<Boolean, Exception> { handle -> templates.delete(handle, command.id) }
+        return jdbi.withHandle<Boolean, Exception> { handle -> templates.delete(handle, handle.versionOf(command.id.catalogId, command), command.id) }
     }
 }

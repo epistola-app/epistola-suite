@@ -186,9 +186,9 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val preview = withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = renumbered, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             // Changes of its own, so 1.1.0 is recorded beside and the next release is behind it.
-            CreateTheme(ThemeId(ThemeKey.of("local"), testCatalog(TenantId(b), lines)), "Local").execute()
+            CreateTheme(ThemeId(ThemeKey.of("local"), testCatalog(TenantId(b), lines)), "Local", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.v110, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            PreviewDraftMerge(testCatalog(b, lines), "1.1.0").query()
+            PreviewDraftMerge(testCatalog(b, lines), "1.1.0", catalogVersion = null).query()
         }
 
         assertThat(preview.missingBase).isNull()
@@ -206,17 +206,17 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         val (sharedZip, version) = withMediator {
             CreateCatalog(tenantKey = a, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), shared)), "Brand").execute()
-            MarkCatalogReady(testCatalog(a, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(a, shared), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), shared)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(a, shared), "1.0.0", catalogVersion = null).execute()
 
             CreateCatalog(tenantKey = a, id = letters, name = "Letters").execute()
             declareDependency(a, letters, on = shared)
             val template = TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), letters))
-            CreateDocumentTemplate(template, "Letter").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(template.tenantKey, shared)).execute()
-            MarkCatalogReady(testCatalog(a, letters)).execute()
-            ExportCatalogZip(testCatalog(a, shared), "1.0.0").execute().zipBytes to ReleaseCatalogDraft(testCatalog(a, letters), "1.0.0").execute().version
+            CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(template.tenantKey, shared), catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, letters), catalogVersion = null).execute()
+            ExportCatalogZip(testCatalog(a, shared), "1.0.0").execute().zipBytes to ReleaseCatalogDraft(testCatalog(a, letters), "1.0.0", catalogVersion = null).execute().version
         }
         val v5 = v5Of(sharedZip)
         // letters 1.0.0 pinned shared 1.0.0 as a release cut before V6 would have: by its V5.

@@ -54,9 +54,9 @@ class QualityContentImportTest : IntegrationTestBase() {
     private fun publish(a: TenantKey): ByteArray = withMediator {
         val id = testCatalog(a, catalog)
         CreateCatalog(tenantKey = a, id = catalog, name = "Checked").execute()
-        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("letter"), id), name = "Letter").execute()
-        MarkCatalogReady(id).execute()
-        ReleaseCatalogDraft(catalog = id, version = "1.0.0").execute()
+        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("letter"), id), name = "Letter", catalogVersion = null).execute()
+        MarkCatalogReady(id, catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = id, version = "1.0.0", catalogVersion = null).execute()
         ExportCatalogZip(id, "1.0.0").execute().zipBytes
     }
 

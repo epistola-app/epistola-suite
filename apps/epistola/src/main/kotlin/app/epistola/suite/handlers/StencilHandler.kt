@@ -138,7 +138,7 @@ class StencilHandler(
         val stencils = ListStencils(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = it.tenantId, catalog = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.address}/stencils/${s.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.address}/stencils/${s.id.value}", n) }
         "pageTitle" to "Stencils - Epistola"
         "tenantId" to tenantId.key
         "catalogs" to catalogs

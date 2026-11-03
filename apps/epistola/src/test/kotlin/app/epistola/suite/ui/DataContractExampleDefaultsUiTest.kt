@@ -29,7 +29,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val tenant = TestNamespaces.createTenant(TenantKey.of("example-defaults-ui-${System.nanoTime()}"), "Example Defaults UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            val template = CreateDocumentTemplate(id = templateId, name = "Example Defaults UI Template").execute()
+            val template = CreateDocumentTemplate(id = templateId, name = "Example Defaults UI Template", catalogVersion = null).execute()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readValue(
@@ -44,6 +44,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
                 dataExamples = listOf(
                     DataExample(id = "defaults-example", name = "Example", data = JsonNodeFactory.instance.objectNode()),
                 ),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }

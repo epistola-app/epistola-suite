@@ -82,3 +82,13 @@ object TestCatalogLookup {
             .singleOrNull()
     }
 }
+
+/** [catalog]'s next version (ADR 0049), for a test that reads or writes a catalog's default version. */
+fun nextVersion(catalog: CatalogId): app.epistola.suite.catalog.releases.ContentVersion = checkNotNull(TestCatalogLookup.jdbi) { "No Jdbi: run inside an integration test" }
+    .withHandle<app.epistola.suite.catalog.releases.ContentVersion, Exception> { app.epistola.suite.catalog.releases.ContentVersion.next(it, catalog) }
+
+/**
+ * The rows of read-model view [view] (`version_themes`, …) of each catalog's next version, as a
+ * derived table for a test's own SQL: `FROM ${atNext("version_themes")} t`.
+ */
+fun atNext(view: String): String = "(SELECT * FROM $view WHERE version_id IN (SELECT next_version_id FROM catalogs))"

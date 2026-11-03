@@ -49,7 +49,7 @@ class CatalogOrganiseSurfaceTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute()
-            repeat(stencils) { CreateStencil(StencilId(StencilKey.of("header-$it"), testCatalog(TenantId(tenant), letters)), "Header $it").execute() }
+            repeat(stencils) { CreateStencil(StencilId(StencilKey.of("header-$it"), testCatalog(TenantId(tenant), letters)), "Header $it", catalogVersion = null).execute() }
         }
         return tenant
     }

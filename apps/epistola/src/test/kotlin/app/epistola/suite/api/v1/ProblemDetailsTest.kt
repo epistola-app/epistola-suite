@@ -36,7 +36,7 @@ class ProblemDetailsTest {
     fun `instance omits query string when absent`() {
         val body = problemBody(
             request = request("/api/tenants/acme/templates"),
-            type = ApiProblemTypes.TENANT_NOT_FOUND,
+            type = ApiProblemTypes.NOT_FOUND,
             detail = "Tenant not found.",
         )
 
@@ -49,10 +49,10 @@ class ProblemDetailsTest {
             code = ValidationCode.PARAMETER_NAME_INVALID,
             field = "id",
             message = "Template ID must be kebab-case",
-        ).toValidationProblemBody(request("/api/tenants/acme/catalogs/default/templates"))
+        ).toValidationProblemDetail(request("/api/tenants/acme/catalogs/default/templates")).toProblemMap()
 
-        assertThat(body).containsEntry("type", "https://epistola.app/errors/parameter-name-invalid")
-        assertThat(body).containsEntry("title", "Parameter Name Invalid")
+        assertThat(body).`as`("the contract's type, whatever the code").containsEntry("type", "https://epistola.app/errors/validation-error")
+        assertThat(body).containsEntry("title", "Validation Error")
         assertThat(body).containsEntry("status", 400)
         assertThat(body).doesNotContainKey("details")
 
@@ -65,8 +65,20 @@ class ProblemDetailsTest {
     }
 
     @Test
+    fun `on a UI route a validation problem is typed by its code`() {
+        val body = ValidationException(
+            code = ValidationCode.PARAMETER_NAME_INVALID,
+            field = "id",
+            message = "Template ID must be kebab-case",
+        ).toUiValidationProblemBody(request("/tenants/acme/catalogs/default/templates"))
+
+        assertThat(body).containsEntry("type", "https://epistola.app/errors/parameter-name-invalid")
+        assertThat(body).containsEntry("title", "Parameter Name Invalid")
+    }
+
+    @Test
     fun `problem registry has unique codes slugs and type urls`() {
-        val all = ApiProblemTypes.all
+        val all = ApiProblemTypes.all + UiProblemTypes.all
 
         assertThat(all.map { it.code }).doesNotHaveDuplicates()
         assertThat(all.map { it.slug }).doesNotHaveDuplicates()

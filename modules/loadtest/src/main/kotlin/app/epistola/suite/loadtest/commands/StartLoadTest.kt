@@ -5,8 +5,9 @@
 package app.epistola.suite.loadtest.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ContentVersions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -85,19 +86,22 @@ class StartLoadTestHandler(
         )
 
         val loadTestRun = jdbi.inTransaction<LoadTestRun, Exception> { handle ->
+            // A load test generates from the template as its catalog's next version holds it.
+            val next = ContentVersions.next(handle, command.catalog)
             // 1. Verify template/variant exists and belongs to tenant
             val templateExists = handle.createQuery(
                 """
                 SELECT EXISTS (
                     SELECT 1
-                    FROM current_template_variants
-                    WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :variantId
-                      AND template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+                    FROM version_template_variants
+                    WHERE tenant_key = :tenantId AND version_id = :v AND id = :variantId
+                      AND template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId", "v")}
                 )
                 """,
             )
                 .bind("templateId", command.templateId)
                 .bindCatalog("catalogKey", command.catalog)
+                .bindVersion("v", next)
                 .bind("variantId", command.variantId)
                 .bind("tenantId", command.tenantId)
                 .mapTo<Boolean>()
@@ -124,7 +128,7 @@ class StartLoadTestHandler(
                     id, tenant_key, template_resource_id, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
-                VALUES (:id, :tenantId, ${templateIn("tenantId", "catalogKey", "templateId")}, :variantId, NULL, :environmentId,
+                VALUES (:id, :tenantId, ${templateIn("tenantId", "catalogKey", "templateId", "v")}, :variantId, NULL, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
                 RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:catalogKey_ns AS TEXT) AS namespace,
                           CAST(:templateId AS TEXT) AS template_key,
@@ -139,6 +143,7 @@ class StartLoadTestHandler(
                 .bind("id", runId)
                 .bind("tenantId", command.tenantId)
                 .bindCatalog("catalogKey", command.catalog)
+                .bindVersion("v", next)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)
                 .bind("environmentId", command.environmentId)

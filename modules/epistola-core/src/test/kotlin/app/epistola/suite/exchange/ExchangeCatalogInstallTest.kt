@@ -251,7 +251,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
 
             assertThat(result.aborted).isFalse()
-            val image = ListAssets(consumer, catalog = testCatalog(consumer, CatalogKey.of("broken"))).query().single()
+            val image = ListAssets(consumer, catalog = testCatalog(consumer, CatalogKey.of("broken")), catalogVersion = null).query().single()
             assertThat(image.id.value).isEqualTo("municipality-mark")
             assertThat(image.mediaType.mimeType).isEqualTo("image/svg+xml")
         }
@@ -387,9 +387,10 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
+                catalogVersion = null,
             ).execute()
-            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version).execute()
+            MarkCatalogReady(testCatalog(publisher, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version, catalogVersion = null).execute()
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(publisher), catalogKey)).zipBytes
         }
     }
@@ -449,7 +450,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val result = ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             assertThat(result.aborted).isTrue()
             assertThat(result.results.single().errorMessage).contains("SVG not accepted")
-            assertThat(ListAssets(tenant, catalog = testCatalog(tenant, CatalogKey.of("broken"))).query()).isEmpty()
+            assertThat(ListAssets(tenant, catalog = testCatalog(tenant, CatalogKey.of("broken")), catalogVersion = null).query()).isEmpty()
             assertThat(GetCatalog(testCatalog(tenant, CatalogKey.of("broken"))).query()).isNull()
         }
     }

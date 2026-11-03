@@ -56,6 +56,8 @@ class SetTenantDefaultLocaleHandler(
                 catalog = app.epistola.suite.catalog.system.systemCatalog(command.tenantId),
                 codeListSlug = CodeListKey.of("bcp-47"),
                 code = command.locale,
+                // The system catalog as its next version holds it.
+                catalogVersion = null,
             ).query()
             if (!exists) {
                 throw InvalidLocaleException(command.locale)

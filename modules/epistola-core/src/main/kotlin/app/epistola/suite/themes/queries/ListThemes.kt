@@ -5,9 +5,12 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.Paging
 import app.epistola.suite.common.ResultPage
@@ -18,7 +21,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.themes.THEMES_WITH_CATALOG
 import app.epistola.suite.themes.THEME_COLUMNS
 import app.epistola.suite.themes.Theme
 import app.epistola.suite.themes.ThemeRows
@@ -33,7 +35,7 @@ data class ListThemes(
     val catalog: CatalogId? = null,
     val searchTerm: String? = null,
     /** The catalog version this addresses: a draft or a release (ADR 0033); null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<Theme>>,
     RequiresPermission {
@@ -52,7 +54,7 @@ data class ListThemePage(
     val catalog: CatalogId? = null,
     val searchTerm: String? = null,
     /** The catalog version this addresses: a draft or a release (ADR 0033); null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
     val page: PageRequest,
 ) : ReleaseReadable,
     Query<ResultPage<Theme>>,
@@ -70,7 +72,7 @@ class ListThemesHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
-        ThemeList.query(handle, query.tenantId, query.catalog, query.searchTerm, paged = false)
+        ThemeList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), query.searchTerm, paged = false)
             .map(ThemeList.rows(handle, objectMapper, query.tenantId, query.catalog))
             .list()
     }
@@ -83,24 +85,27 @@ class ListThemePageHandler(
 ) : QueryHandler<ListThemePage, ResultPage<Theme>> {
     override fun handle(query: ListThemePage): ResultPage<Theme> = jdbi.withHandle<ResultPage<Theme>, Exception> { handle ->
         Paging.read(query.page, ThemeList.rows(handle, objectMapper, query.tenantId, query.catalog)) {
-            ThemeList.query(handle, query.tenantId, query.catalog, query.searchTerm, paged = true)
+            ThemeList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), query.searchTerm, paged = true)
         }
     }
 }
 
-/** The themes of a tenant, or of one of its catalogs, last changed first; [paged] selects one page of them. */
+/**
+ * The themes of a tenant, or of one of its catalogs, last changed first; [paged] selects one page of
+ * them. Of [version] for its catalog, else of each catalog's next version.
+ */
 private object ThemeList {
-    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, searchTerm: String?, paged: Boolean): org.jdbi.v3.core.statement.Query {
+    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, version: java.util.UUID?, searchTerm: String?, paged: Boolean): org.jdbi.v3.core.statement.Query {
         val sql = buildString {
             append("SELECT $THEME_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM $THEMES_WITH_CATALOG WHERE t.tenant_key = :tenantId")
+            append(" FROM version_themes t WHERE t.tenant_key = :tenantId AND ${inVersionOrNext("t", "version")}")
             if (catalog != null) append(" AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             if (!searchTerm.isNullOrBlank()) append(" AND t.name ILIKE :searchTerm")
             append(" ORDER BY t.updated_at DESC, t.catalog_id, t.id")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
-        val q = handle.createQuery(sql).bind("tenantId", tenantId.key)
+        val q = handle.createQuery(sql).bind("tenantId", tenantId.key).bindVersion("version", version)
         if (catalog != null) q.bindCatalog("catalogKey", catalog)
         if (!searchTerm.isNullOrBlank()) q.bind("searchTerm", "%$searchTerm%")
         return q

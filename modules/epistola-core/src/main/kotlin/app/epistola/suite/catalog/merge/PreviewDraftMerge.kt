@@ -29,7 +29,7 @@ data class PreviewDraftMerge(
     val catalog: CatalogId,
     val release: String,
     /** The draft to merge into; null for the catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<DraftMergePreview>,
     RequiresPermission {
@@ -79,7 +79,7 @@ class PreviewDraftMergeHandler(
 
     override fun handle(query: PreviewDraftMerge): DraftMergePreview {
         // The draft the query targets: the mediator scopes it, so building the content reads it too.
-        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next")
+        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next", query.catalogVersion)
         return plan.toPreview(query.catalogKey)
     }
 }

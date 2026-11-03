@@ -9,8 +9,9 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -44,7 +45,7 @@ data class CreateTheme(
     /** The baseline margins of every flow block (`marginTop`/`marginBottom`); null for the renderer's fallback. */
     val defaultBlockStyles: Map<String, Any?>? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Theme>,
     RequiresPermission {
@@ -66,19 +67,21 @@ class CreateThemeHandler(
     private val themes: ThemeStore,
 ) : CommandHandler<CreateTheme, Theme> {
     override fun handle(command: CreateTheme): Theme {
-        val saved = save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        val saved = save(command, at)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(command.id.catalogId, saved.crossCatalogRefs(objectMapper))
+        usedCatalogs.declare(at, saved.crossCatalogRefs(objectMapper))
         return saved
     }
 
-    private fun save(command: CreateTheme): Theme {
+    private fun save(command: CreateTheme, at: ContentVersion): Theme {
         requireCatalogEditable(command.id.catalogId)
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
                 themes.create(
                     handle,
+                    at,
                     command.id,
                     ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit, command.defaultBlockStyles),
                     auditUser,

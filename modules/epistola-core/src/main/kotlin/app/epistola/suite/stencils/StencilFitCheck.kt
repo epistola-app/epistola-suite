@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils
 
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -29,11 +30,12 @@ class StencilFitCheck(
     /**
      * @param dataModel the template's data contract, which types its bindings; null for a stencil's
      *   own content, whose bindings read its parameters.
+     * @param at the version of its catalog [document] is in, whose stencils it is checked against.
      * @throws ValidationException naming every instance of [document] that does not fit.
      */
-    fun requireInstancesFit(catalog: CatalogId, document: TemplateDocument, what: String, dataModel: Map<String, Any?>? = null) {
-        val resolver = stencilResolvers.workingCopies(dependencyViews.of(catalog))
-        val problems = StencilInstances.expand(document, catalog.address, resolver, dataModel).findings.filter { it.blocking }
+    fun requireInstancesFit(at: ContentVersion, document: TemplateDocument, what: String, dataModel: Map<String, Any?>? = null) {
+        val resolver = stencilResolvers.workingCopies(at, dependencyViews.of(at))
+        val problems = StencilInstances.expand(document, at.catalog.address, resolver, dataModel).findings.filter { it.blocking }
         if (problems.isEmpty()) return
         throw ValidationException(
             field = "templateModel",

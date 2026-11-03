@@ -315,11 +315,11 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         withMediator {
             CreateCatalog(tenantKey = tenantId.key, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(tenantId, shared)), "Base").execute()
-            MarkCatalogReady(testCatalog(tenantId.key, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenantId.key, shared), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(tenantId, shared)), "Base", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenantId.key, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, shared), "1.0.0", catalogVersion = null).execute()
             val catalog = GetCatalog(testCatalog(tenantId.key, shared)).query()!!
-            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", releaseVersion = "1.0.0"))).execute()
+            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", releaseVersion = "1.0.0")), catalogVersion = null).execute()
         }
         val fix = work(tenantId, "Fix")
         runAsApiKey(tenantId) {

@@ -31,7 +31,7 @@ class GetCatalogDependencyGraphTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared.key, name = "Shared").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters, on = shared.key)
         }

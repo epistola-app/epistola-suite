@@ -47,18 +47,19 @@ class ImportCodeListTest : IntegrationTestBase() {
                     CodeListEntry("red", "Red", sortOrder = 1),
                     CodeListEntry("blue", "Blue", sortOrder = 2),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(status).isEqualTo(InstallStatus.INSTALLED)
 
-            val stored = GetCodeList(codeListId).query()
+            val stored = GetCodeList(codeListId, catalogVersion = null).query()
             assertThat(stored).isNotNull()
             assertThat(stored!!.displayName).isEqualTo("Colors")
             assertThat(stored.description).isEqualTo("Brand palette")
             assertThat(stored.sourceType).isEqualTo(CodeListSource.INLINE)
             assertThat(stored.sourceUrl).isNull()
 
-            val entries = ListCodeListEntries(codeListId).query()
+            val entries = ListCodeListEntries(codeListId, catalogVersion = null).query()
             assertThat(entries).extracting("code").containsExactly("red", "blue")
         }
     }
@@ -79,6 +80,7 @@ class ImportCodeListTest : IntegrationTestBase() {
                     CodeListEntry("spring", "Spring"),
                     CodeListEntry("summer", "Summer"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             val secondStatus = ImportCodeList(
@@ -89,14 +91,15 @@ class ImportCodeListTest : IntegrationTestBase() {
                     CodeListEntry("autumn", "Autumn"),
                     CodeListEntry("winter", "Winter"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(secondStatus).isEqualTo(InstallStatus.UPDATED)
 
-            val stored = GetCodeList(codeListId).query()
+            val stored = GetCodeList(codeListId, catalogVersion = null).query()
             assertThat(stored!!.displayName).isEqualTo("Seasons (v2)")
 
-            val entries = ListCodeListEntries(codeListId).query()
+            val entries = ListCodeListEntries(codeListId, catalogVersion = null).query()
             assertThat(entries).extracting("code").containsExactlyInAnyOrder("autumn", "winter")
         }
     }
@@ -117,9 +120,10 @@ class ImportCodeListTest : IntegrationTestBase() {
                     CodeListEntry("active", "Active", sortOrder = 1),
                     CodeListEntry("legacy", "Legacy", sortOrder = 99, hidden = true),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            val entries = ListCodeListEntries(codeListId, includeHidden = true).query()
+            val entries = ListCodeListEntries(codeListId, includeHidden = true, catalogVersion = null).query()
             val legacy = entries.single { it.code == "legacy" }
             assertThat(legacy.hidden).isTrue()
             assertThat(legacy.sortOrder).isEqualTo(99)
@@ -139,6 +143,7 @@ class ImportCodeListTest : IntegrationTestBase() {
                 slug = "countries",
                 displayName = "Countries",
                 entries = listOf(CodeListEntry("nl", "Netherlands")),
+                catalogVersion = null,
             ).execute()
 
             assertThatThrownBy {
@@ -147,10 +152,11 @@ class ImportCodeListTest : IntegrationTestBase() {
                     slug = "countries",
                     displayName = "Countries",
                     entries = listOf(CodeListEntry("x".repeat(65), "Too long")),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(ValidationException::class.java)
 
-            assertThat(ListCodeListEntries(codeListId).query())
+            assertThat(ListCodeListEntries(codeListId, catalogVersion = null).query())
                 .extracting<String> { it.code }
                 .containsExactly("nl")
         }

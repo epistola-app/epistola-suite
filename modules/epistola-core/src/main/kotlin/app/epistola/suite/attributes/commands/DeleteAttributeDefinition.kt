@@ -6,12 +6,14 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.currentTemplateViewJoin
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.addressedVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.templateViewJoin
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -33,8 +35,8 @@ class AttributeInUseException(
 
 data class DeleteAttributeDefinition(
     val id: AttributeId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -50,18 +52,22 @@ class DeleteAttributeDefinitionHandler(
     override fun handle(command: DeleteAttributeDefinition): Boolean {
         requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
-            // Any variant, in any catalog, that still names this attribute (qualified or bare)
+            val at = handle.versionOf(command.id.catalogId, command)
+            // Any variant, in any catalog, that still names this attribute (qualified or bare):
+            // of this version for its catalog, else of each one's next version.
             val variantCount = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM current_template_variants variants
-                ${currentTemplateViewJoin("variants")}
+                SELECT COUNT(*) FROM version_template_variants variants
+                ${templateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantId
+                  AND ${inVersionOrNext("variants", "version")}
                   AND ${AttributeReferences.uses("variants")}
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(command.id))
                 .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(command.id))
+                .bindVersion("version", handle.addressedVersion(command))
                 .mapTo(Long::class.java)
                 .one()
 
@@ -69,7 +75,7 @@ class DeleteAttributeDefinitionHandler(
                 throw AttributeInUseException(command.id, variantCount)
             }
 
-            attributes.delete(handle, command.id)
+            attributes.delete(handle, at, command.id)
         }
     }
 }

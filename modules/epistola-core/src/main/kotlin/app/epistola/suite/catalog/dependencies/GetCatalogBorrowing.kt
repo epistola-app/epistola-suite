@@ -17,8 +17,10 @@ import app.epistola.suite.catalog.releases.AssessDraftNumber
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,7 +44,7 @@ import org.springframework.stereotype.Component
 data class GetCatalogBorrowing(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<CatalogBorrowing>,
     RequiresPermission {
@@ -165,12 +167,13 @@ class GetCatalogBorrowingHandler(
 ) : QueryHandler<GetCatalogBorrowing, CatalogBorrowing> {
 
     override fun handle(query: GetCatalogBorrowing): CatalogBorrowing {
-        val content = contentBuilder.build(query.catalog)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(query.catalog, query) }
+        val content = contentBuilder.build(at)
         val own = query.catalogKey.value
         // As publishing reads them: one declared by name, of a catalog with nothing released yet, names
         // its next version, which publishing here publishes first.
         val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
-            store.declarations(handle, query.catalog).map { store.asPublished(handle, query.tenantKey, it) }
+            store.declarations(handle, at).map { store.asPublished(handle, query.tenantKey, it) }
         }
         val references = (content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)).filter { it.first != own }
         val catalogs = ListCatalogs(query.tenantKey).query().filter { it.catalogId != query.catalog }
@@ -191,7 +194,7 @@ class GetCatalogBorrowingHandler(
                 .sortedWith(compareBy({ BORROWABLE.indexOf(it.type) }, { it.name?.lowercase() ?: it.key }))
             // Named from the release it renders from; failing that (nothing published, or not in it),
             // from the catalog as it is now, which is where the editor picked it.
-            val current by lazy { BrowseCatalog(catalog.catalogId).query().resources }
+            val current by lazy { BrowseCatalog(catalog.catalogId, catalogVersion = null).query().resources }
             val uses = references.filter { it.first == alias }.map { it.second }.distinct().map { used ->
                 val name = offers.firstOrNull { it.type == used.type && it.key == used.key }?.name
                     ?: current.firstOrNull { it.type == used.type && it.slug == used.key }?.name

@@ -7,7 +7,10 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -50,8 +53,11 @@ import tools.jackson.databind.node.ObjectNode
 
 data class ImportTemplates(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val templates: List<ImportTemplateInput>,
-) : Command<List<ImportTemplateResult>>,
+) : CatalogReleaseScoped,
+    Command<List<ImportTemplateResult>>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -145,7 +151,7 @@ class ImportTemplatesHandler(
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
             validateTemplateModels(input)
-            importSingleTemplate(command.catalog, input)
+            importSingleTemplate(command, input)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
             ImportTemplateResult(
@@ -162,7 +168,9 @@ class ImportTemplatesHandler(
         input.variants.mapNotNull { it.templateModel }.forEach(templateDocumentValidator::validateTemplate)
     }
 
-    private fun importSingleTemplate(catalog: CatalogId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+    private fun importSingleTemplate(command: ImportTemplates, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+        val catalog = command.catalog
+        val at = handle.versionOf(catalog, command)
         val templateId = TemplateId(TemplateKey.of(input.slug), catalog)
         val auditUser = currentUserIdOrNull()?.value
 
@@ -180,7 +188,7 @@ class ImportTemplatesHandler(
         require(input.variants.isNotEmpty()) { "Template '${input.slug}': at least one variant is required" }
         require(defaultCount == 1) { "Template '${input.slug}': exactly one variant must have isDefault=true, found $defaultCount" }
 
-        val loaded = templates.get(handle, templateId)
+        val loaded = templates.get(handle, at, templateId)
         val existing = loaded?.template
         // Import supersedes local edits; a variant's description, which the wire form does not carry
         // yet, stays with the variant that keeps its key.
@@ -211,15 +219,15 @@ class ImportTemplatesHandler(
             },
         )
         val status = if (existing == null) {
-            templates.create(handle, catalog, template, auditUser)
+            templates.create(handle, at, template, auditUser)
             ImportStatus.CREATED
         } else {
-            checkNotNull(templates.save(handle, catalog, checkNotNull(loaded), template, auditUser)) { "Template ${input.slug} went while it was imported" }
+            checkNotNull(templates.save(handle, at, checkNotNull(loaded), template, auditUser)) { "Template ${input.slug} went while it was imported" }
             ImportStatus.UPDATED
         }
 
         // What a catalog brings is released content: imported, it is ready as it is.
-        readyMarks.mark(handle, catalog.tenantId.key, checkNotNull(templates.get(handle, templateId)).resourceId)
+        readyMarks.mark(handle, at, checkNotNull(templates.get(handle, at, templateId)).resourceId)
 
         ImportTemplateResult(
             slug = input.slug,

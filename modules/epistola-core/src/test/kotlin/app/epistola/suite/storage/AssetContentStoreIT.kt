@@ -15,6 +15,7 @@ import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -58,8 +59,8 @@ class AssetContentStoreIT : IntegrationTestBase() {
 
         // One global blob, both assets resolve to it.
         assertThat(assetContentStore.exists(sha256Hex(content))).isTrue()
-        assertThat(GetAssetContent(tenant.id, a1).query()!!.content).isEqualTo(content)
-        assertThat(GetAssetContent(tenant.id, a2).query()!!.content).isEqualTo(content)
+        assertThat(GetAssetContent(tenant.id, a1, catalogVersion = null).query()!!.content).isEqualTo(content)
+        assertThat(GetAssetContent(tenant.id, a2, catalogVersion = null).query()!!.content).isEqualTo(content)
     }
 
     @Test
@@ -76,8 +77,8 @@ class AssetContentStoreIT : IntegrationTestBase() {
 
         // Both tenants share ONE blob.
         assertThat(assetContentStore.exists(sha256Hex(content))).isTrue()
-        assertThat(GetAssetContent(a.id, assetA).query()!!.content).isEqualTo(content)
-        assertThat(GetAssetContent(b.id, assetB).query()!!.content).isEqualTo(content)
+        assertThat(GetAssetContent(a.id, assetA, catalogVersion = null).query()!!.content).isEqualTo(content)
+        assertThat(GetAssetContent(b.id, assetB, catalogVersion = null).query()!!.content).isEqualTo(content)
     }
 
     @Test
@@ -91,12 +92,12 @@ class AssetContentStoreIT : IntegrationTestBase() {
         val a1 = upload(tenant.id, cat, "a.png", content = content)
         val a2 = upload(tenant.id, cat, "b.png", content = content)
 
-        DeleteAsset(tenant.id, a1).execute()
+        DeleteAsset(tenant.id, a1, catalogVersion = null).execute()
         // a2 still references the blob → present and served.
         assertThat(assetContentStore.exists(hash)).isTrue()
-        assertThat(GetAssetContent(tenant.id, a2).query()!!.content).isEqualTo(content)
+        assertThat(GetAssetContent(tenant.id, a2, catalogVersion = null).query()!!.content).isEqualTo(content)
 
-        DeleteAsset(tenant.id, a2).execute()
+        DeleteAsset(tenant.id, a2, catalogVersion = null).execute()
         // Now unreferenced but within the grace period → still present.
         assertThat(assetContentStore.exists(hash)).isTrue()
         // An image's content holds its bytes (ADR 0033): the content collector takes the deleted
@@ -156,7 +157,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
      * `content_hash`, so this reads it directly (the "no other way" exception).
      */
     private fun systemAssetHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT content_hash FROM current_images WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system') AND content_hash IS NOT NULL")
+        handle.createQuery("SELECT content_hash FROM ${atNext("version_images")} current_images WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system') AND content_hash IS NOT NULL")
             .bind("t", tenant)
             .mapTo(String::class.java)
             .list()
@@ -180,6 +181,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
         content = content,
         width = 1,
         height = 1,
+        catalogVersion = null,
     ).execute().id
 
     private fun orphanGauge(): Double = meterRegistry.get("epistola.storage.orphaned_blobs").tag("namespace", "asset").gauge().value()

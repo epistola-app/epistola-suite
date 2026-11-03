@@ -46,8 +46,8 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
         keys.forEach { key ->
             val catalog = CatalogKey.of(key)
             CreateCatalog(tenant, catalog, key).execute()
-            CreateTheme(ThemeId(ThemeKey.of("theme"), testCatalog(TenantId(tenant), catalog)), "Theme of $key").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), catalog)), "Letter").execute().withRequiredDataExample()
+            CreateTheme(ThemeId(ThemeKey.of("theme"), testCatalog(TenantId(tenant), catalog)), "Theme of $key", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), catalog)), "Letter", catalogVersion = null).execute().withRequiredDataExample()
         }
         tenant
     }
@@ -63,10 +63,10 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
     }
 
     private fun themeOfLetter(tenant: TenantKey, catalog: String) = withMediator {
-        GetDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), CatalogKey.of(catalog)))).query()?.themeCatalogKey?.value
+        GetDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), CatalogKey.of(catalog))), catalogVersion = null).query()?.themeCatalogKey?.value
     }
 
-    private fun declared(tenant: TenantKey, catalog: String) = withMediator { ListCatalogDependencies(testCatalog(tenant, CatalogKey.of(catalog))).query().map { it.catalogKey } }
+    private fun declared(tenant: TenantKey, catalog: String) = withMediator { ListCatalogDependencies(testCatalog(tenant, CatalogKey.of(catalog)), catalogVersion = null).query().map { it.catalogKey } }
 
     @Test
     fun `using a catalog that already uses this one is refused, and nothing of the write remains`() {
@@ -101,8 +101,8 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
     fun `a parallel draft cannot close the loop either`() {
         val tenant = catalogs("Cycle Parallel", "letters", "shared")
         withMediator {
-            MarkCatalogReady(testCatalog(tenant, CatalogKey.of("shared"))).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("shared")), "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, CatalogKey.of("shared")), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("shared")), "1.0.0", catalogVersion = null).execute()
         }
         val redesign = withMediator { requireNotNull(CreateCatalogDraft(testCatalog(tenant, CatalogKey.of("shared")), "Redesign").execute().versionId) }
         // shared's parallel draft starts using letters...

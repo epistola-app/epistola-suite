@@ -68,9 +68,9 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("mcp-registry")
         val fingerprint = withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "MCP registry").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute().fingerprint
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute().fingerprint
         }
         val namespace = withMediator { GetCatalog(testCatalog(a, catalog)).query()!!.namespace }
 
@@ -93,7 +93,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         val a = createTenant("MCP Registry Perm").id
         withMediator {
             CreateCatalog(tenantKey = a, id = CatalogKey.of("mcp-registry-perm"), name = "Perm").execute()
-            MarkCatalogReady(testCatalog(a, CatalogKey.of("mcp-registry-perm"))).execute()
+            MarkCatalogReady(testCatalog(a, CatalogKey.of("mcp-registry-perm")), catalogVersion = null).execute()
         }
 
         assertThatThrownBy { asMember(a, setOf(TenantRole.CONTENT_VIEWER)) { tools.publishReleaseToRegistry("mcp-registry-perm", "1.0.0", "local") } }

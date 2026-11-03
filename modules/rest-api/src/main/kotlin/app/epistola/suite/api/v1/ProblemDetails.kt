@@ -19,6 +19,7 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
+import app.epistola.api.error.ProblemDetails as ContractProblemDetails
 
 const val PROBLEM_TYPE_BASE_URL = "https://epistola.app/errors"
 
@@ -34,18 +35,22 @@ data class ApiProblemType(
 }
 
 /**
- * Central registry for all REST API problem types.
+ * The problem types the REST API answers with.
  *
- * Validation problem types are generated dynamically from [ValidationCode] entries
- * (see [validationProblemType]) rather than being declared as static constants.
- * This keeps the error taxonomy in one place — the [ValidationCode] enum — and
- * avoids duplication between static and generated types.
+ * The contract registers them (`x-problem-types`; the server stubs generate the slugs as
+ * `app.epistola.api.error.KnownProblemSlugs`) and asks a server to answer with those only: a type
+ * names a problem a caller acts on differently, and anything else is the generic type of its
+ * status, so a missing theme is `not-found` like any missing resource and a theme in use `conflict`.
+ * What tells such problems apart is the `detail` and the extension members, which say what was
+ * missing or in the way. `ProblemTypeRegistryTest` fails on a type the contract does not register.
+ *
+ * The UI keeps finer types of its own, which never reach `/api`: [UiProblemTypes].
  */
 object ApiProblemTypes {
-    val BATCH_VALIDATION_ERROR = problem("BATCH_VALIDATION_ERROR", "Batch Validation Error", HttpStatus.BAD_REQUEST, "The batch request contains duplicate or inconsistent item-level values.", listOf("errors"))
+    val VALIDATION_ERROR = problem("VALIDATION_ERROR", "Validation Error", HttpStatus.BAD_REQUEST, "The request body or parameters failed validation; `errors[]` carries each failure, its `field` the property or parameter.", listOf("errors"))
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_CONTENT, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
     val TEMPLATE_DATA_INVALID = problem("TEMPLATE_DATA_INVALID", "Template Data Invalid", HttpStatus.BAD_REQUEST, "The preview data does not satisfy the template's data contract. `errors` lists each field; `missingFields` and `invalidFields` describe what to supply or correct.", listOf("errors", "missingFields", "invalidFields"))
-    val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
+    val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is malformed or not applicable to the resource's current state, but not a field-level validation failure.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
     val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
 
@@ -57,190 +62,123 @@ object ApiProblemTypes {
      * `x-required-permissions` names them (`TEMPLATE_EDIT`).
      */
     val FORBIDDEN = problem("FORBIDDEN", "Forbidden", HttpStatus.FORBIDDEN, "The authenticated caller is refused. `requiredPermission` with `tenantKey` names a permission lacking in a tenant, `tenantKey` alone no access to the tenant, `requiredPlatformRole` a platform role, and `reason` a policy refusal.", listOf("requiredPermission", "tenantKey", "requiredPlatformRole", "reason"))
+    val NOT_FOUND = problem("NOT_FOUND", "Not Found", HttpStatus.NOT_FOUND, "The addressed endpoint or resource does not exist; the members name what was looked for.", emptyList())
+    val CONFLICT = problem("CONFLICT", "Conflict", HttpStatus.CONFLICT, "The request conflicts with the current state of the resource; the members name what is in the way.", emptyList())
     val OPERATION_NOT_IMPLEMENTED = problem("OPERATION_NOT_IMPLEMENTED", "Operation Not Implemented", HttpStatus.NOT_IMPLEMENTED, "The requested API operation is part of the contract but has not been implemented by this server yet.", listOf("operation"))
-    val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
-    val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
-    val UNSUPPORTED_MEDIA_TYPE = problem("UNSUPPORTED_MEDIA_TYPE", "Unsupported Media Type", HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The request body media type is not supported.", listOf("contentType", "supportedTypes"))
-    val PAYLOAD_TOO_LARGE = problem("PAYLOAD_TOO_LARGE", "Payload Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded content exceeds the maximum allowed size.", listOf("maxBytes"))
-    val NOT_ACCEPTABLE = problem("NOT_ACCEPTABLE", "Not Acceptable", HttpStatus.NOT_ACCEPTABLE, "The requested response representation is not available.", listOf("acceptHeader", "supportedTypes"))
-    val NOT_FOUND = problem("NOT_FOUND", "Not Found", HttpStatus.NOT_FOUND, "The requested endpoint or resource does not exist.", listOf("path"))
-    val MISSING_PARAMETER = problem("MISSING_PARAMETER", "Missing Parameter", HttpStatus.BAD_REQUEST, "A required query or form parameter is missing.", listOf("parameterName", "parameterType"))
-    val MISSING_PATH_VARIABLE = problem("MISSING_PATH_VARIABLE", "Missing Path Variable", HttpStatus.BAD_REQUEST, "A required path variable is missing.", listOf("variableName"))
-    val TYPE_MISMATCH = problem("TYPE_MISMATCH", "Type Mismatch", HttpStatus.BAD_REQUEST, "A path, query, or form parameter could not be converted to the expected type.", listOf("parameterName", "expectedType", "actualValue"))
-    val UNSUPPORTED_SORT = problem("UNSUPPORTED_SORT", "Unsupported Sort", HttpStatus.BAD_REQUEST, "The requested sort key is not supported by this endpoint.", listOf("value", "supportedValues"))
-    val UNSUPPORTED_SORT_DIRECTION = problem("UNSUPPORTED_SORT_DIRECTION", "Unsupported Sort Direction", HttpStatus.BAD_REQUEST, "The requested sort direction is not supported; use one of the supported values.", listOf("value", "supportedValues"))
 
-    val THEME_NOT_FOUND = problem("THEME_NOT_FOUND", "Theme Not Found", HttpStatus.NOT_FOUND, "The requested theme does not exist or is not visible to the caller.", listOf("themeId"))
-    val THEME_IN_USE = problem("THEME_IN_USE", "Theme In Use", HttpStatus.CONFLICT, "The theme cannot be deleted because other resources still reference it.", listOf("themeId"))
-    val DEFAULT_VARIANT_DELETION = problem("DEFAULT_VARIANT_DELETION", "Default Variant Deletion", HttpStatus.CONFLICT, "The default variant cannot be deleted.", listOf("variantId"))
+    // The generic types of the statuses the contract registers no type for yet (contract
+    // fix/error-responses); ProblemTypeRegistryTest lists them as pending.
+    val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
+    val NOT_ACCEPTABLE = problem("NOT_ACCEPTABLE", "Not Acceptable", HttpStatus.NOT_ACCEPTABLE, "The requested response representation is not available.", listOf("acceptHeader", "supportedTypes"))
+    val CONTENT_TOO_LARGE = problem("CONTENT_TOO_LARGE", "Content Too Large", HttpStatus.CONTENT_TOO_LARGE, "The request or the content it uploads exceeds the maximum allowed size.", listOf("maxBytes"))
+    val UNSUPPORTED_MEDIA_TYPE = problem("UNSUPPORTED_MEDIA_TYPE", "Unsupported Media Type", HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The request body media type is not supported.", listOf("contentType", "supportedTypes"))
+    val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
+
     val NO_MATCHING_VARIANT = problem("NO_MATCHING_VARIANT", "No Matching Variant", HttpStatus.NOT_FOUND, "No template variant matches the requested criteria.", listOf("templateId", "requiredAttributes"))
     val AMBIGUOUS_VARIANT = problem("AMBIGUOUS_VARIANT", "Ambiguous Variant", HttpStatus.CONFLICT, "Multiple variants match equally well and the API cannot choose one deterministically.", listOf("templateId", "tiedVariants"))
-    val ATTRIBUTE_IN_USE = problem("ATTRIBUTE_IN_USE", "Attribute In Use", HttpStatus.CONFLICT, "The attribute cannot be deleted because variants still reference it.", listOf("attributeId", "variantCount"))
-    val ALLOWED_VALUES_IN_USE = problem("ALLOWED_VALUES_IN_USE", "Allowed Values In Use", HttpStatus.CONFLICT, "Allowed values cannot be removed while existing variants use them.", listOf("attributeId", "valuesInUse"))
-    val TEMPLATE_VARIANT_NOT_FOUND = problem("TEMPLATE_VARIANT_NOT_FOUND", "Template Variant Not Found", HttpStatus.NOT_FOUND, "The requested template variant does not exist or is not visible to the caller.", listOf("tenantId", "templateId", "variantId"))
-    val VERSION_NOT_FOUND = problem("VERSION_NOT_FOUND", "Version Not Found", HttpStatus.NOT_FOUND, "The requested version does not exist or is not visible to the caller.", listOf("templateId", "variantId", "versionId"))
-    val ENVIRONMENT_NOT_FOUND = problem("ENVIRONMENT_NOT_FOUND", "Environment Not Found", HttpStatus.NOT_FOUND, "The requested environment does not exist or is not visible to the caller.", listOf("tenantId", "environmentId"))
-    val NO_PUBLISHED_VERSION = problem("NO_PUBLISHED_VERSION", "No Published Version", HttpStatus.NOT_FOUND, "No published version is available for the requested template and variant.", listOf("tenantId", "templateId", "variantId"))
-    val RELEASE_NOT_FOUND = problem("RELEASE_NOT_FOUND", "Release Not Found", HttpStatus.NOT_FOUND, "The catalog has no such release.", listOf("catalogId", "releaseVersion"))
-    val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
-    val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist.", listOf("catalogId", "releaseVersion"))
     val RELEASE_DEPENDENCIES_MISSING = problem("RELEASE_DEPENDENCIES_MISSING", "Release Dependencies Missing", HttpStatus.CONFLICT, "A release cannot be deployed or imported because releases of other catalogs it pins cannot be had; `missingDependencies` lists each one and why.", listOf("missingDependencies"))
     val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment, or another catalog's release renders with it.", listOf("catalogId", "releaseVersion", "environments", "pinnedBy"))
-    val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
-    val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
-    val DEFAULT_VARIANT_NOT_FOUND = problem("DEFAULT_VARIANT_NOT_FOUND", "Default Variant Not Found", HttpStatus.NOT_FOUND, "The requested template has no default variant.", listOf("tenantId", "templateId"))
-    val ASSET_NOT_FOUND = problem("ASSET_NOT_FOUND", "Asset Not Found", HttpStatus.NOT_FOUND, "The requested asset does not exist or is not visible to the caller.", emptyList())
-    val ASSET_TOO_LARGE = problem("ASSET_TOO_LARGE", "Asset Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded asset exceeds the maximum allowed size.", emptyList())
-    val UNSUPPORTED_ASSET_TYPE = problem("UNSUPPORTED_ASSET_TYPE", "Unsupported Asset Type", HttpStatus.BAD_REQUEST, "The asset media type is not supported.", emptyList())
-    val ASSET_IN_USE = problem("ASSET_IN_USE", "Asset In Use", HttpStatus.CONFLICT, "The asset cannot be deleted because template versions still reference it.", listOf("assetId", "usages"))
-    val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog cannot be changed in this installation: the installation only receives and runs releases, or Epistola supplies the catalog.", listOf("catalogKey", "readOnlyReason"))
     val MERGE_CONFLICTS_UNRESOLVED = problem("MERGE_CONFLICTS_UNRESOLVED", "Merge Conflicts Unresolved", HttpStatus.CONFLICT, "A resource changed in both the draft and the release has no resolution; `unresolvedConflicts` lists them.", listOf("unresolvedConflicts"))
     val MERGE_REFUSED = problem("MERGE_REFUSED", "Merge Refused", HttpStatus.CONFLICT, "The release removes something the draft still uses.", emptyList())
     val MERGE_BASE_MISSING = problem("MERGE_BASE_MISSING", "Merge Base Missing", HttpStatus.CONFLICT, "This installation does not have the merge base, the release both the draft and the release come from; `version` and `fingerprint` name it, to get first.", listOf("version", "fingerprint"))
     val MERGE_PREVIEW_OUTDATED = problem("MERGE_PREVIEW_OUTDATED", "Merge Preview Outdated", HttpStatus.CONFLICT, "The draft or the release changed since the preview whose token the request sent as expectedToken; preview again.", emptyList())
     val MERGE_NOT_APPLICABLE = problem("MERGE_NOT_APPLICABLE", "Merge Not Applicable", HttpStatus.UNPROCESSABLE_CONTENT, "The draft already contains the release, or a resolution names something that is not a conflict.", emptyList())
-    val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
-    val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
-    val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
     val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
     val RESOURCE_MODIFIED = problem("RESOURCE_MODIFIED", "Resource Modified", HttpStatus.PRECONDITION_FAILED, "The resource changed since the ETag sent in If-Match was read. Read it again and reapply your change.", listOf("expectedRevision", "currentRevision"))
     val ENVIRONMENT_DEPLOYMENT_REFUSED = problem("ENVIRONMENT_DEPLOYMENT_REFUSED", "Environment Deployment Refused", HttpStatus.CONFLICT, "The environment cannot serve that: a production environment serves only releases, never a draft.", emptyList())
     val CATALOG_SOURCE_UNAVAILABLE = problem("CATALOG_SOURCE_UNAVAILABLE", "Catalog Source Unavailable", HttpStatus.SERVICE_UNAVAILABLE, "The catalog's source could not be reached or did not answer in time (503), or answered badly (502).", emptyList())
-    val CONFLICT = problem("CONFLICT", "Conflict", HttpStatus.CONFLICT, "The request conflicts with the current state of the resource.", emptyList())
     val RELEASE_REGISTRY_NOT_FOUND = problem("RELEASE_REGISTRY_NOT_FOUND", "Release Registry Not Found", HttpStatus.NOT_FOUND, "This installation has no release registry of that name: none configured, and not connected to an Exchange of that name.", emptyList())
     val RELEASE_NUMBER_TAKEN = problem("RELEASE_NUMBER_TAKEN", "Release Number Taken", HttpStatus.CONFLICT, "The release registry, or the tenant importing it, holds this version with other content, or this release id as another release; one number and one id name one release. Release the changes under a new version.", emptyList())
     val NAMESPACE_NOT_GRANTED = problem("NAMESPACE_NOT_GRANTED", "Namespace Not Granted", HttpStatus.CONFLICT, "The release registry (the Exchange) does not grant this installation the catalog's namespace.", emptyList())
     val RELEASE_DEPENDENCIES_UNRELEASED = problem("RELEASE_DEPENDENCIES_UNRELEASED", "Release Dependencies Unreleased", HttpStatus.CONFLICT, "The draft's dependency declarations name drafts of other catalogs and the request does not release them along (`releaseDependencies`); `unreleasedDependencies` lists each.", listOf("unreleasedDependencies"))
-    val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
     val CATALOG_VERSION_BEHIND = problem("CATALOG_VERSION_BEHIND", "Catalog Version Behind", HttpStatus.CONFLICT, "The draft is behind releases it does not contain; name every one in acknowledgedBehind to release it.", listOf("catalogKey", "version", "behind"))
-    val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
-    val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
-    val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
     val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
     val CATALOG_RENDERING_DEFAULTS_TOO_NEW = problem("CATALOG_RENDERING_DEFAULTS_TOO_NEW", "Catalog Rendering Defaults Too New", HttpStatus.BAD_REQUEST, "The release renders with rendering defaults this instance does not have; upgrade this instance to receive it.", listOf("renderingDefaultsVersion", "supportedVersion"))
     val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
     val CATALOG_SCHEMA_UNKNOWN = problem("CATALOG_SCHEMA_UNKNOWN", "Catalog Wire Schema Unrecognised", HttpStatus.BAD_REQUEST, "The uploaded payload is not a recognised catalog wire format (not valid JSON, or a missing or non-integer schemaVersion).", emptyList())
-    val CODE_LIST_IN_USE = problem("CODE_LIST_IN_USE", "Code List In Use", HttpStatus.CONFLICT, "The code list cannot be deleted because an attribute still references it.", emptyList())
-    val CODE_LIST_NOT_REFRESHABLE = problem("CODE_LIST_NOT_REFRESHABLE", "Code List Not Refreshable", HttpStatus.BAD_REQUEST, "The code list is not URL-sourced and cannot be refreshed.", emptyList())
-    val TENANT_NOT_FOUND = problem("TENANT_NOT_FOUND", "Tenant Not Found", HttpStatus.NOT_FOUND, "The requested tenant does not exist or is not visible to the caller.", listOf("tenantId"))
-    val ATTRIBUTE_NOT_FOUND = problem("ATTRIBUTE_NOT_FOUND", "Attribute Not Found", HttpStatus.NOT_FOUND, "The requested attribute does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "attributeId"))
-    val CODE_LIST_NOT_FOUND = problem("CODE_LIST_NOT_FOUND", "Code List Not Found", HttpStatus.NOT_FOUND, "The requested code list does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "codeListId"))
-    val TEMPLATE_NOT_FOUND = problem("TEMPLATE_NOT_FOUND", "Template Not Found", HttpStatus.NOT_FOUND, "The requested template does not exist or is not visible to the caller.", listOf("tenantId", "templateId"))
-    val STENCIL_NOT_FOUND = problem("STENCIL_NOT_FOUND", "Stencil Not Found", HttpStatus.NOT_FOUND, "The requested stencil does not exist or is not visible to the caller.", listOf("tenantId", "stencilId"))
-    val STENCIL_VERSION_NOT_FOUND = problem("STENCIL_VERSION_NOT_FOUND", "Stencil Version Not Found", HttpStatus.NOT_FOUND, "The requested stencil version does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "stencilId", "versionId"))
-    val FONT_NOT_FOUND = problem("FONT_NOT_FOUND", "Font Not Found", HttpStatus.NOT_FOUND, "The requested font does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "fontId"))
-    val GENERATION_JOB_NOT_FOUND = problem("GENERATION_JOB_NOT_FOUND", "Generation Job Not Found", HttpStatus.NOT_FOUND, "The requested generation job does not exist or is not visible to the caller.", listOf("tenantId", "requestId"))
     val GENERATION_JOB_NOT_CANCELLABLE = problem("GENERATION_JOB_NOT_CANCELLABLE", "Generation Job Not Cancellable", HttpStatus.CONFLICT, "The generation job cannot be cancelled because it is already completed, failed, or cancelled.", listOf("tenantId", "requestId"))
-    val DOCUMENT_NOT_FOUND = problem("DOCUMENT_NOT_FOUND", "Document Not Found", HttpStatus.NOT_FOUND, "The requested document does not exist or is not visible to the caller.", listOf("tenantId", "documentId"))
 
     val all: List<ApiProblemType> = listOf(
-        BATCH_VALIDATION_ERROR,
+        VALIDATION_ERROR,
         DATA_MODEL_VALIDATION_ERROR,
         TEMPLATE_DATA_INVALID,
         BAD_REQUEST,
         UNAUTHORIZED,
         API_KEY_AUTH_DISABLED,
         FORBIDDEN,
-        OPERATION_NOT_IMPLEMENTED,
-        INTERNAL_ERROR,
-        METHOD_NOT_ALLOWED,
-        UNSUPPORTED_MEDIA_TYPE,
-        PAYLOAD_TOO_LARGE,
-        NOT_ACCEPTABLE,
         NOT_FOUND,
-        MISSING_PARAMETER,
-        MISSING_PATH_VARIABLE,
-        TYPE_MISMATCH,
-        UNSUPPORTED_SORT,
-        UNSUPPORTED_SORT_DIRECTION,
-        THEME_NOT_FOUND,
-        THEME_IN_USE,
-        DEFAULT_VARIANT_DELETION,
+        CONFLICT,
+        OPERATION_NOT_IMPLEMENTED,
+        METHOD_NOT_ALLOWED,
+        NOT_ACCEPTABLE,
+        CONTENT_TOO_LARGE,
+        UNSUPPORTED_MEDIA_TYPE,
+        INTERNAL_ERROR,
         NO_MATCHING_VARIANT,
         AMBIGUOUS_VARIANT,
-        ATTRIBUTE_IN_USE,
-        ALLOWED_VALUES_IN_USE,
-        TEMPLATE_VARIANT_NOT_FOUND,
-        VERSION_NOT_FOUND,
-        ENVIRONMENT_NOT_FOUND,
-        NO_PUBLISHED_VERSION,
-        CATALOG_NOT_RELEASED,
-        NO_RELEASE_DEPLOYED,
-        RELEASE_NOT_FOUND,
-        RELEASE_NOT_DEPLOYABLE,
         RELEASE_DEPENDENCIES_MISSING,
         RELEASE_IN_USE,
-        TEMPLATE_NOT_IN_RELEASE,
-        DEFAULT_VARIANT_NOT_FOUND,
-        ASSET_NOT_FOUND,
-        ASSET_TOO_LARGE,
-        UNSUPPORTED_ASSET_TYPE,
-        ASSET_IN_USE,
-        ENVIRONMENT_IN_USE,
         CATALOG_READ_ONLY,
         MERGE_CONFLICTS_UNRESOLVED,
         MERGE_REFUSED,
-        MERGE_PREVIEW_OUTDATED,
         MERGE_BASE_MISSING,
+        MERGE_PREVIEW_OUTDATED,
         MERGE_NOT_APPLICABLE,
-        CATALOG_NOT_FOUND,
-        CATALOG_VERSION_NOT_FOUND,
-        CATALOG_VERSION_RELEASED,
         CATALOG_DRAFT_NAME_IN_USE,
-        CONFLICT,
-        RELEASE_DEPENDENCIES_UNRELEASED,
+        RESOURCE_MODIFIED,
         ENVIRONMENT_DEPLOYMENT_REFUSED,
         CATALOG_SOURCE_UNAVAILABLE,
-        RESOURCE_MODIFIED,
+        RELEASE_REGISTRY_NOT_FOUND,
+        RELEASE_NUMBER_TAKEN,
+        NAMESPACE_NOT_GRANTED,
+        RELEASE_DEPENDENCIES_UNRELEASED,
         CATALOG_VERSION_BEHIND,
-        CATALOG_VERSION_HELD,
-        CATALOG_NOT_UPGRADEABLE,
-        CATALOG_RELEASE_VERSION_INVALID,
-        CATALOG_UPGRADE_CONFLICT,
         CATALOG_SCHEMA_TOO_NEW,
         CATALOG_RENDERING_DEFAULTS_TOO_NEW,
         CATALOG_SCHEMA_TOO_OLD,
         CATALOG_SCHEMA_UNKNOWN,
-        CODE_LIST_IN_USE,
-        CODE_LIST_NOT_REFRESHABLE,
-        TENANT_NOT_FOUND,
-        ATTRIBUTE_NOT_FOUND,
-        CODE_LIST_NOT_FOUND,
-        TEMPLATE_NOT_FOUND,
-        STENCIL_NOT_FOUND,
-        STENCIL_VERSION_NOT_FOUND,
-        FONT_NOT_FOUND,
-        GENERATION_JOB_NOT_FOUND,
         GENERATION_JOB_NOT_CANCELLABLE,
-        DOCUMENT_NOT_FOUND,
-    ) + ValidationCode.entries.map { validationProblemType(it) }
-
-    val bySlug: Map<String, ApiProblemType> = all.associateBy { it.slug }
-
-    /**
-     * Generates a problem type for a [ValidationCode].
-     *
-     * This is the single source of truth for validation problem types.
-     * There is no static `VALIDATION_ERROR` constant; callers should always
-     * use this function, e.g. `validationProblemType(ValidationCode.GENERIC)`.
-     */
-    fun validationProblemType(code: ValidationCode): ApiProblemType = problem(
-        code.wire,
-        if (code == ValidationCode.GENERIC) "Validation Error" else code.wire.toProblemTitle(),
-        HttpStatus.BAD_REQUEST,
-        "The request failed validation with machine-readable code ${code.wire}.",
-        listOf("errors"),
     )
 
-    private fun problem(
-        code: String,
-        title: String,
-        status: HttpStatus,
-        description: String,
-        extensionFields: List<String> = emptyList(),
-    ): ApiProblemType = ApiProblemType(code, title, status, description, extensionFields)
+    val bySlug: Map<String, ApiProblemType> = all.associateBy { it.slug }
 }
+
+/**
+ * Problem types the web UI answers with on its own routes, finer than the API's: the editor
+ * tells a save into a released version (`catalog-version-released`) and a binding's validation
+ * code (`node-parameter-binding-syntax-invalid`) apart by them. They are never put on `/api`,
+ * where the contract allows only [ApiProblemTypes]; the same failure there is the generic type of
+ * its status.
+ */
+object UiProblemTypes {
+    val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
+    val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
+    val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
+
+    /**
+     * The type of a [ValidationException] with [code] on a UI route: its code as the slug, which the
+     * editor matches on. [ValidationCode.GENERIC] is the API's [ApiProblemTypes.VALIDATION_ERROR].
+     */
+    fun validation(code: ValidationCode): ApiProblemType = if (code == ValidationCode.GENERIC) {
+        ApiProblemTypes.VALIDATION_ERROR
+    } else {
+        problem(code.wire, code.wire.toProblemTitle(), HttpStatus.BAD_REQUEST, "The request failed validation with machine-readable code ${code.wire}.", listOf("errors"))
+    }
+
+    val all: List<ApiProblemType> = listOf(CATALOG_VERSION_NOT_FOUND, CATALOG_VERSION_RELEASED, CATALOG_VERSION_HELD) +
+        ValidationCode.entries.filter { it != ValidationCode.GENERIC }.map { validation(it) }
+
+    val bySlug: Map<String, ApiProblemType> = all.associateBy { it.slug }
+}
+
+private fun problem(
+    code: String,
+    title: String,
+    status: HttpStatus,
+    description: String,
+    extensionFields: List<String> = emptyList(),
+): ApiProblemType = ApiProblemType(code, title, status, description, extensionFields)
 
 fun problemDetail(
     request: HttpServletRequest,
@@ -262,24 +200,31 @@ fun ProblemDetail.toProblemMap(): Map<String, Any?> {
         "detail" to (detail ?: ""),
         "instance" to (instance?.toString() ?: ""),
     )
-    properties?.forEach { (k, v) -> body[k] = v }
+    // A mapping may set an optional member to null for an occurrence that lacks it (a template
+    // missing from a release names no variant). ProblemDetail declares its property values non-null,
+    // so read them as nullable — Kotlin would otherwise null-check each one and throw — and omit a
+    // null member rather than write it.
+    val members: Map<String, Any?> = properties.orEmpty()
+    members.forEach { (k, v) -> if (v != null) body[k] = v }
     return body
 }
 
-fun HttpServletRequest.problemInstance(): URI = URI.create(requestUriWithQuery())
+/**
+ * The request's path and query as the problem's `instance`. A request the firewall or the container
+ * refused can carry characters a URI may not hold; those are quoted rather than fail the problem.
+ */
+fun HttpServletRequest.problemInstance(): URI = runCatching { URI.create(requestUriWithQuery()) }
+    .recoverCatching { URI(null, null, requestURI, queryString, null) }
+    .getOrElse { URI.create("") }
 
-fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = when (statusCode.value()) {
-    400 -> BAD_REQUEST
-    401 -> UNAUTHORIZED
-    403 -> FORBIDDEN
-    404 -> NOT_FOUND
-    405 -> METHOD_NOT_ALLOWED
-    406 -> NOT_ACCEPTABLE
-    415 -> UNSUPPORTED_MEDIA_TYPE
-    500 -> INTERNAL_ERROR
-    501 -> OPERATION_NOT_IMPLEMENTED
-    else -> INTERNAL_ERROR
-}
+/**
+ * The generic type of [statusCode], for a framework error with no type of its own. A client error
+ * the contract has no generic type for (412, 422, 429) is `bad-request`, a server error
+ * `internal-error`; the status stays the one the framework chose.
+ */
+fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = ContractProblemDetails.genericSlugFor(statusCode.value())
+    ?.let { slug -> all.firstOrNull { it.slug == slug } }
+    ?: if (statusCode.is4xxClientError) BAD_REQUEST else INTERNAL_ERROR
 
 fun problemResponse(
     request: HttpServletRequest,
@@ -300,25 +245,31 @@ fun problemBody(
     extensions: Map<String, Any?> = emptyMap(),
 ): Map<String, Any?> = problemDetail(request, type, detail, extensions).toProblemMap()
 
-fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Map<String, Any?> = toValidationProblemDetail(request).toProblemMap()
+/**
+ * The problem a UI route answers a [ValidationException] with: typed by its code
+ * ([UiProblemTypes.validation]), which the editor matches on. Never for `/api`, which answers
+ * [toValidationProblemDetail].
+ */
+fun ValidationException.toUiValidationProblemBody(request: HttpServletRequest): Map<String, Any?> = toValidationProblemDetail(request, UiProblemTypes.validation(code)).toProblemMap()
 
-fun ValidationException.toValidationProblemDetail(request: HttpServletRequest): ProblemDetail {
-    val type = ApiProblemTypes.validationProblemType(code)
-    return problemDetail(
-        request = request,
-        type = type,
-        detail = message,
-        extensions = mapOf(
-            "errors" to listOf(
-                ValidationError(
-                    field = field,
-                    message = message,
-                    rejectedValue = null,
-                ),
+/** The API's problem for a [ValidationException]: `validation-error`, whatever its code. */
+fun ValidationException.toValidationProblemDetail(
+    request: HttpServletRequest,
+    type: ApiProblemType = ApiProblemTypes.VALIDATION_ERROR,
+): ProblemDetail = problemDetail(
+    request = request,
+    type = type,
+    detail = message,
+    extensions = mapOf(
+        "errors" to listOf(
+            ValidationError(
+                field = field,
+                message = message,
+                rejectedValue = null,
             ),
         ),
-    )
-}
+    ),
+)
 
 fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = toProblemDetail(request).toProblemMap()
 
@@ -332,7 +283,7 @@ fun BatchValidationException.toProblemDetail(request: HttpServletRequest): Probl
     }
     return problemDetail(
         request = request,
-        type = ApiProblemTypes.BATCH_VALIDATION_ERROR,
+        type = ApiProblemTypes.VALIDATION_ERROR,
         detail = message ?: "Batch validation failed",
         extensions = mapOf("errors" to errors),
     )

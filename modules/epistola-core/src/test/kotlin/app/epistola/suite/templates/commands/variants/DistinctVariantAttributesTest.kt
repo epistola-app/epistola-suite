@@ -37,6 +37,7 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
+                catalogVersion = null,
             ),
         )
         mediator.send(
@@ -44,10 +45,11 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId)),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+                catalogVersion = null,
             ),
         )
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
+        mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null))
         templateId
     }
 
@@ -58,6 +60,7 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
                 title = title,
                 description = null,
                 attributes = attributes,
+                catalogVersion = null,
             ),
         )!!
     }
@@ -83,7 +86,7 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
 
         val thrown = assertThrows<ValidationException> {
             withMediator {
-                mediator.send(UpdateVariant(VariantId(english.id, templateId), title = "English", attributes = mapOf("lang" to "dutch")))
+                mediator.send(UpdateVariant(VariantId(english.id, templateId), title = "English", attributes = mapOf("lang" to "dutch"), catalogVersion = null))
             }
         }
 
@@ -96,7 +99,7 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
         val dutch = createVariant(templateId, "Dutch", mapOf("lang" to "dutch"))
 
         val updated = withMediator {
-            mediator.send(UpdateVariant(VariantId(dutch.id, templateId), title = "Nederlands", attributes = mapOf("lang" to "dutch")))
+            mediator.send(UpdateVariant(VariantId(dutch.id, templateId), title = "Nederlands", attributes = mapOf("lang" to "dutch"), catalogVersion = null))
         }
 
         assertThat(updated!!.title).isEqualTo("Nederlands")
@@ -128,7 +131,7 @@ class DistinctVariantAttributesTest : IntegrationTestBase() {
         val templateId = templateWithLanguages()
         createVariant(templateId, "Dutch", mapOf("lang" to "dutch"))
         val otherTemplate = TemplateId(TestIdHelpers.nextTemplateId(), templateId.catalogId)
-        withMediator { mediator.send(CreateDocumentTemplate(id = otherTemplate, name = "Reminder")) }
+        withMediator { mediator.send(CreateDocumentTemplate(id = otherTemplate, name = "Reminder", catalogVersion = null)) }
 
         val otherDutch = createVariant(otherTemplate, "Dutch", mapOf("lang" to "dutch"))
 

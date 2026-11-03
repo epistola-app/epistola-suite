@@ -70,9 +70,9 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
     private fun draftUsing(tenantId: TenantId, model: TemplateDocument): VariantId {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateVariantContent(variantId = variantId, templateModel = model).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = model, catalogVersion = null).execute()
         return variantId
     }
 
@@ -82,6 +82,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
             templateId = variantId.templateId.key,
             variantId = variantId.key,
             data = ObjectMapper().createObjectNode(),
+            catalogVersion = null,
         ).query()
         return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { document ->
             (1..document.numberOfPages).joinToString("\n") { PdfTextExtractor.getTextFromPage(document.getPage(it)) }
@@ -99,21 +100,22 @@ class StencilIntegrationTest : IntegrationTestBase() {
             name = "Corporate Header",
             description = "Standard header",
             tags = listOf("header", "corporate"),
+            catalogVersion = null,
         ).execute()
 
         assertThat(stencil.name).isEqualTo("Corporate Header")
         assertThat(stencil.description).isEqualTo("Standard header")
         assertThat(stencil.tags).containsExactly("header", "corporate")
-        assertThat(GetStencil(id = id).query()!!.name).isEqualTo("Corporate Header")
+        assertThat(GetStencil(id = id, catalogVersion = null).query()!!.name).isEqualTo("Corporate Header")
     }
 
     @Test
     fun `create stencil with initial content stores it as the working copy`() = test {
         val id = stencilId(TenantId(createTenant("Test Tenant").id))
 
-        CreateStencil(id = id, name = "With Content", content = letterhead()).execute()
+        CreateStencil(id = id, name = "With Content", content = letterhead(), catalogVersion = null).execute()
 
-        val stored = GetStencil(id = id).query()!!
+        val stored = GetStencil(id = id, catalogVersion = null).query()!!
         assertThat(stored.content.texts()).containsExactly("ACME LOGO")
         assertThat(stored.parameterSchema).isNull()
         assertThat(stored.readsTemplateData).isFalse()
@@ -123,20 +125,20 @@ class StencilIntegrationTest : IntegrationTestBase() {
     fun `list stencils with search`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
 
-        CreateStencil(id = stencilId(tenantId), name = "Corporate Header").execute()
-        CreateStencil(id = stencilId(tenantId), name = "Invoice Footer").execute()
+        CreateStencil(id = stencilId(tenantId), name = "Corporate Header", catalogVersion = null).execute()
+        CreateStencil(id = stencilId(tenantId), name = "Invoice Footer", catalogVersion = null).execute()
 
-        assertThat(ListStencils(tenantId = tenantId).query()).hasSize(2)
-        val searched = ListStencils(tenantId = tenantId, searchTerm = "Header").query()
+        assertThat(ListStencils(tenantId = tenantId, catalogVersion = null).query()).hasSize(2)
+        val searched = ListStencils(tenantId = tenantId, searchTerm = "Header", catalogVersion = null).query()
         assertThat(searched.map { it.name }).containsExactly("Corporate Header")
     }
 
     @Test
     fun `update stencil metadata`() = test {
         val id = stencilId(TenantId(createTenant("Test Tenant").id))
-        CreateStencil(id = id, name = "Old Name").execute()
+        CreateStencil(id = id, name = "Old Name", catalogVersion = null).execute()
 
-        val updated = UpdateStencil(id = id, name = "New Name", tags = listOf("updated")).execute()
+        val updated = UpdateStencil(id = id, name = "New Name", tags = listOf("updated"), catalogVersion = null).execute()
 
         assertThat(updated!!.name).isEqualTo("New Name")
         assertThat(updated.tags).containsExactly("updated")
@@ -145,52 +147,52 @@ class StencilIntegrationTest : IntegrationTestBase() {
     @Test
     fun `update replaces the content, the parameter schema and whether it reads the template's data`() = test {
         val id = stencilId(TenantId(createTenant("Test Tenant").id))
-        CreateStencil(id = id, name = "Header", content = letterhead()).execute()
+        CreateStencil(id = id, name = "Header", content = letterhead(), catalogVersion = null).execute()
         val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""")
 
-        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO"), parameterSchema = schema, readsTemplateData = true).execute()
+        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO"), parameterSchema = schema, readsTemplateData = true, catalogVersion = null).execute()
 
-        val stored = GetStencil(id = id).query()!!
+        val stored = GetStencil(id = id, catalogVersion = null).query()!!
         assertThat(stored.content.texts()).containsExactly("NEW LOGO")
         assertThat(stored.parameterSchema).isEqualTo(schema)
         assertThat(stored.readsTemplateData).isTrue()
 
-        UpdateStencil(id = id, clearParameterSchema = true).execute()
-        assertThat(GetStencil(id = id).query()!!.parameterSchema).isNull()
+        UpdateStencil(id = id, clearParameterSchema = true, catalogVersion = null).execute()
+        assertThat(GetStencil(id = id, catalogVersion = null).query()!!.parameterSchema).isNull()
     }
 
     @Test
     fun `an empty parameter schema is stored as none`() = test {
         val id = stencilId(TenantId(createTenant("Test Tenant").id))
         val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""")
-        CreateStencil(id = id, name = "Header", content = letterhead(), parameterSchema = ObjectMapper().readTree("{}")).execute()
-        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("created with an empty schema").isNull()
+        CreateStencil(id = id, name = "Header", content = letterhead(), parameterSchema = ObjectMapper().readTree("{}"), catalogVersion = null).execute()
+        assertThat(GetStencil(id = id, catalogVersion = null).query()!!.parameterSchema).`as`("created with an empty schema").isNull()
 
-        UpdateStencil(id = id, parameterSchema = schema).execute()
-        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO")).execute()
-        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("an update leaving it out keeps it").isEqualTo(schema)
+        UpdateStencil(id = id, parameterSchema = schema, catalogVersion = null).execute()
+        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO"), catalogVersion = null).execute()
+        assertThat(GetStencil(id = id, catalogVersion = null).query()!!.parameterSchema).`as`("an update leaving it out keeps it").isEqualTo(schema)
 
-        UpdateStencil(id = id, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{}}""")).execute()
-        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("a schema without properties clears it").isNull()
+        UpdateStencil(id = id, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{}}"""), catalogVersion = null).execute()
+        assertThat(GetStencil(id = id, catalogVersion = null).query()!!.parameterSchema).`as`("a schema without properties clears it").isNull()
     }
 
     @Test
     fun `a stencil may contain another stencil`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
         val inner = stencilId(tenantId)
-        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
+        CreateStencil(id = inner, name = "Inner", content = letterhead(), catalogVersion = null).execute()
         val outer = stencilId(tenantId)
 
-        CreateStencil(id = outer, name = "Outer", content = templateFilling(inner)).execute()
+        CreateStencil(id = outer, name = "Outer", content = templateFilling(inner), catalogVersion = null).execute()
 
-        assertThat(GetStencil(id = outer).query()!!.content.nodes.values.map { it.type }).contains("stencil")
+        assertThat(GetStencil(id = outer, catalogVersion = null).query()!!.content.nodes.values.map { it.type }).contains("stencil")
     }
 
     @Test
     fun `a stencil nesting one saved without a children slot renders it`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
         val inner = stencilId(tenantId)
-        CreateStencil(id = inner, name = "Inner", content = letterhead(logo = "INNER LOGO")).execute()
+        CreateStencil(id = inner, name = "Inner", content = letterhead(logo = "INNER LOGO"), catalogVersion = null).execute()
         // As a REST or MCP client may write an instance: no children slot, which the editor always adds.
         val bare = TemplateDocument(
             modelVersion = 1,
@@ -203,7 +205,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
         val outer = stencilId(tenantId)
-        CreateStencil(id = outer, name = "Outer", content = bare).execute()
+        CreateStencil(id = outer, name = "Outer", content = bare, catalogVersion = null).execute()
 
         val variant = draftUsing(tenantId, stencilDocument { stencil("inst", outer.key.value).let { build("inst") } })
 
@@ -213,36 +215,36 @@ class StencilIntegrationTest : IntegrationTestBase() {
     @Test
     fun `delete stencil`() = test {
         val id = stencilId(TenantId(createTenant("Test Tenant").id))
-        CreateStencil(id = id, name = "To Delete", content = letterhead()).execute()
+        CreateStencil(id = id, name = "To Delete", content = letterhead(), catalogVersion = null).execute()
 
-        assertThat(DeleteStencil(id = id).execute()).isTrue()
+        assertThat(DeleteStencil(id = id, catalogVersion = null).execute()).isTrue()
 
-        assertThat(GetStencil(id = id).query()).isNull()
+        assertThat(GetStencil(id = id, catalogVersion = null).query()).isNull()
     }
 
     @Test
     fun `a stencil another stencil contains is not deleted`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
         val inner = stencilId(tenantId)
-        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
-        CreateStencil(id = stencilId(tenantId), name = "Outer", content = templateFilling(inner)).execute()
+        CreateStencil(id = inner, name = "Inner", content = letterhead(), catalogVersion = null).execute()
+        CreateStencil(id = stencilId(tenantId), name = "Outer", content = templateFilling(inner), catalogVersion = null).execute()
 
-        assertThatThrownBy { DeleteStencil(id = inner).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
-        assertThat(GetStencil(id = inner).query()).isNotNull()
+        assertThatThrownBy { DeleteStencil(id = inner, catalogVersion = null).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
+        assertThat(GetStencil(id = inner, catalogVersion = null).query()).isNotNull()
     }
 
     @Test
     fun `a stencil a stencil of another catalog contains is not deleted`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
         val inner = stencilId(tenantId)
-        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
+        CreateStencil(id = inner, name = "Inner", content = letterhead(), catalogVersion = null).execute()
         CreateCatalog(tenantKey = tenantId.key, id = CatalogKey.of("brand"), name = "Brand").execute()
         val outer = StencilId(TestIdHelpers.nextStencilId(), testCatalog(tenantId, CatalogKey.of("brand")))
         val content = stencilDocument { stencil("inst", inner.key.value, catalogKey = inner.catalogKey.value).let { build("inst") } }
-        CreateStencil(id = outer, name = "Outer", content = content).execute()
+        CreateStencil(id = outer, name = "Outer", content = content, catalogVersion = null).execute()
 
-        assertThatThrownBy { DeleteStencil(id = inner).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
-        assertThat(GetStencil(id = inner).query()).isNotNull()
+        assertThatThrownBy { DeleteStencil(id = inner, catalogVersion = null).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")
+        assertThat(GetStencil(id = inner, catalogVersion = null).query()).isNotNull()
     }
 
     @Test
@@ -250,11 +252,11 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val tenantId1 = TenantId(createTenant("Tenant 1").id)
         val tenantId2 = TenantId(createTenant("Tenant 2").id)
 
-        CreateStencil(id = stencilId(tenantId1), name = "T1 Stencil").execute()
-        CreateStencil(id = stencilId(tenantId2), name = "T2 Stencil").execute()
+        CreateStencil(id = stencilId(tenantId1), name = "T1 Stencil", catalogVersion = null).execute()
+        CreateStencil(id = stencilId(tenantId2), name = "T2 Stencil", catalogVersion = null).execute()
 
-        assertThat(ListStencils(tenantId = tenantId1).query().map { it.name }).containsExactly("T1 Stencil")
-        assertThat(ListStencils(tenantId = tenantId2).query().map { it.name }).containsExactly("T2 Stencil")
+        assertThat(ListStencils(tenantId = tenantId1, catalogVersion = null).query().map { it.name }).containsExactly("T1 Stencil")
+        assertThat(ListStencils(tenantId = tenantId2, catalogVersion = null).query().map { it.name }).containsExactly("T2 Stencil")
     }
 
     // ── By reference ──
@@ -263,12 +265,12 @@ class StencilIntegrationTest : IntegrationTestBase() {
     fun `a template renders the stencil as it is now`() = test {
         val tenantId = TenantId(createTenant("Render By Reference").id)
         val stencil = stencilId(tenantId)
-        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "OLD LOGO")).execute()
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "OLD LOGO"), catalogVersion = null).execute()
         val variant = draftUsing(tenantId, templateFilling(stencil))
 
         assertThat(previewText(variant)).contains("OLD LOGO", "Dear customer")
 
-        UpdateStencil(id = stencil, content = letterhead(logo = "NEW LOGO")).execute()
+        UpdateStencil(id = stencil, content = letterhead(logo = "NEW LOGO"), catalogVersion = null).execute()
 
         assertThat(previewText(variant)).contains("NEW LOGO", "Dear customer").doesNotContain("OLD LOGO")
     }
@@ -277,12 +279,12 @@ class StencilIntegrationTest : IntegrationTestBase() {
     fun `the editor and quality checks see the stencil inlined, with its parameter schema`() = test {
         val tenantId = TenantId(createTenant("Editor Context").id)
         val stencil = stencilId(tenantId)
-        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "EDITOR LOGO")).execute()
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "EDITOR LOGO"), catalogVersion = null).execute()
         val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
-        UpdateStencil(id = stencil, parameterSchema = schema).execute()
+        UpdateStencil(id = stencil, parameterSchema = schema, catalogVersion = null).execute()
         val variant = draftUsing(tenantId, templateFilling(stencil))
 
-        val context = GetEditorContext(variant).query()!!
+        val context = GetEditorContext(variant, catalogVersion = null).query()!!
 
         assertThat(context.templateModel.texts()).containsExactlyInAnyOrder("EDITOR LOGO", "Dear customer")
         // Quality sources read the instance's schema snapshot, which only the expanded form carries.
@@ -295,13 +297,13 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(createTenant("Null Schema").id)
         val stencil = stencilId(tenantId)
         // What made 1.x store jsonb 'null': a schema passed on as a NullNode rather than left out.
-        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "NULL SCHEMA LOGO"), parameterSchema = NullNode.instance).execute()
-        UpdateStencil(id = stencil, content = letterhead(logo = "UPDATED LOGO"), parameterSchema = NullNode.instance).execute()
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "NULL SCHEMA LOGO"), parameterSchema = NullNode.instance, catalogVersion = null).execute()
+        UpdateStencil(id = stencil, content = letterhead(logo = "UPDATED LOGO"), parameterSchema = NullNode.instance, catalogVersion = null).execute()
         val variant = draftUsing(tenantId, templateFilling(stencil))
 
-        assertThat(GetStencil(id = stencil).query()!!.parameterSchema).isNull()
+        assertThat(GetStencil(id = stencil, catalogVersion = null).query()!!.parameterSchema).isNull()
         assertThat(previewText(variant)).contains("UPDATED LOGO", "Dear customer")
-        assertThat(GetEditorContext(variant).query()!!.templateModel.nodes.getValue("inst").props.orEmpty())
+        assertThat(GetEditorContext(variant, catalogVersion = null).query()!!.templateModel.nodes.getValue("inst").props.orEmpty())
             .doesNotContainKey(StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT)
     }
 
@@ -309,19 +311,19 @@ class StencilIntegrationTest : IntegrationTestBase() {
     fun `the usage page lists the templates using the stencil and whether each still fits`() = test {
         val tenantId = TenantId(createTenant("Usage").id)
         val stencil = stencilId(tenantId)
-        CreateStencil(id = stencil, name = "Letterhead", content = letterhead()).execute()
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(), catalogVersion = null).execute()
         draftUsing(tenantId, templateFilling(stencil))
         draftUsing(tenantId, stencilDocument { build() })
 
-        val before = GetStencilUsagePage(stencil).query()
+        val before = GetStencilUsagePage(stencil, catalogVersion = null).query()
         assertThat(before.total).isEqualTo(1)
         assertThat(before.items.single().instanceCount).isEqualTo(1)
         assertThat(before.items.single().fits).isTrue()
 
         // The stencil renames its placeholder: the template's fill no longer has a place.
-        UpdateStencil(id = stencil, content = letterhead(placeholderName = "content")).execute()
+        UpdateStencil(id = stencil, content = letterhead(placeholderName = "content"), catalogVersion = null).execute()
 
-        val after = GetStencilUsagePage(stencil).query().items.single()
+        val after = GetStencilUsagePage(stencil, catalogVersion = null).query().items.single()
         assertThat(after.fits).isFalse()
         assertThat(after.problems.single()).contains("'body'")
     }

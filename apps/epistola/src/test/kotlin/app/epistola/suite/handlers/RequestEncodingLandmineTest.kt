@@ -86,7 +86,7 @@ class RequestEncodingLandmineTest : BaseIntegrationTest() {
         }
 
         then {
-            val stored = withMediator { GetDocumentTemplate(id = seed.templateId).query() }
+            val stored = withMediator { GetDocumentTemplate(id = seed.templateId, catalogVersion = null).query() }
             assertThat(stored).isNotNull
             assertThat(stored!!.name).isEqualTo(diacritics)
         }

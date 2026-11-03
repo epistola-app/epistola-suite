@@ -135,6 +135,7 @@ class TenantCommandsTest : IntegrationTestBase() {
             val theme = CreateTheme(
                 id = ThemeId(ThemeKey.of("custom"), catalogId),
                 name = "Custom",
+                catalogVersion = null,
             ).execute()
             themeId = ThemeId(theme.id, catalogId)
             SetTenantDefaultTheme(
@@ -148,7 +149,7 @@ class TenantCommandsTest : IntegrationTestBase() {
         }
 
         whenever {
-            DeleteTheme(id = themeId!!).execute()
+            DeleteTheme(id = themeId!!, catalogVersion = null).execute()
         }
 
         then {

@@ -5,11 +5,12 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.writable
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.writable
 import app.epistola.suite.common.Revisions
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import java.time.OffsetDateTime
@@ -19,9 +20,9 @@ import java.util.UUID
  * The rows a draft holds of the resource types stored as JSON (ADR 0033): one `release_resources`
  * row per resource, keyed by the draft (`version_id`) where a release's row is keyed by its number,
  * naming its content in `resource_contents`. The one writer of draft rows; reads go through
- * the function `catalog_version_resources` and the per-type views on it.
+ * `release_wire_resources` and the per-type views of every version (`version_*`).
  *
- * Every write here names the version its message targets (`versionAt`), and a wire resource's row
+ * Every function here takes the version it reads or writes ([ContentVersion], ADR 0049), and a wire resource's row
  * (`parent_id IS NULL`): a template's variant rows are written by [VariantRows]. The database keeps the
  * rest, as it does for the relational content tables: the identity at the address
  * (`sync_draft_resource_identity`), the revision (`bump_content_revision`), `updated_at`, and the
@@ -30,21 +31,21 @@ import java.util.UUID
 object DraftResources {
 
     /**
-     * The producer metadata (`resource.metadata`, as text) the targeted draft's row of [type] [key] of
-     * [catalog] holds; null when it holds none or there is no such row ([ResourceMetadata]).
+     * The producer metadata (`resource.metadata`, as text) the row of [type] [key] of version [at]
+     * holds; null when it holds none or there is no such row ([ResourceMetadata]).
      */
-    fun metadataOf(handle: Handle, catalog: CatalogId, type: String, key: String): String? = handle
+    fun metadataOf(handle: Handle, at: ContentVersion, type: String, key: String): String? = handle
         .createQuery(
             """
             SELECT (c.payload -> 'resource' -> 'metadata')::text
             FROM release_resources r
             JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+            WHERE r.tenant_key = :t AND r.version_id = :v
               AND r.resource_type = :type AND r.resource_key = :key
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .map { rs, _ -> rs.getString(1) }
@@ -52,20 +53,21 @@ object DraftResources {
         .firstOrNull()
 
     /**
-     * Adds [type] [key] to the targeted draft of [catalog], holding [contentHash], and returns its
+     * Adds [type] [key] to draft [at], holding [contentHash], and returns its
      * identity: the one registered at that address, or a new one. A row already there is a
      * unique violation, as an insert into a content table was.
      */
-    fun insert(handle: Handle, catalog: CatalogId, type: String, key: String, contentHash: String, name: String, description: String?, actor: UUID?): UUID = handle.writable(catalog)
+    fun insert(handle: Handle, at: ContentVersion, type: String, key: String, contentHash: String, name: String, description: String?, actor: UUID?): UUID = handle.writable(at)
         .createQuery(
             """
             INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, content_hash, name, description, created_by, updated_by)
-            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :type, :key, CAST(NULL AS UUID), :hash, :name, :description, :actor, :actor)
+            VALUES (:t, ${catalogAt("t", "c")}, :v, :type, :key, CAST(NULL AS UUID), :hash, :name, :description, :actor, :actor)
             RETURNING resource_id
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindCatalog("c", at.catalog)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .bind("hash", contentHash)
@@ -76,13 +78,13 @@ object DraftResources {
         .one()
 
     /**
-     * Points the targeted draft's row of [type] [key] at [contentHash], when its revision is still
+     * Points draft [at]'s row of [type] [key] at [contentHash], when its revision is still
      * [expectedRevision] (null: whatever it is). Null when there is no such row, or it moved on;
      * else the row's revision and `updated_at` after the change.
      */
     fun update(
         handle: Handle,
-        catalog: CatalogId,
+        at: ContentVersion,
         type: String,
         key: String,
         contentHash: String,
@@ -90,18 +92,18 @@ object DraftResources {
         description: String?,
         actor: UUID?,
         expectedRevision: Long? = null,
-    ): Updated? = handle.writable(catalog)
+    ): Updated? = handle.writable(at)
         .createQuery(
             """
             UPDATE release_resources
             SET content_hash = :hash, name = :name, description = :description, updated_by = :actor
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
+            WHERE tenant_key = :t AND version_id = :v AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
               AND ${Revisions.MATCHES}
             RETURNING revision, updated_at
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .bind("hash", contentHash)
@@ -116,31 +118,31 @@ object DraftResources {
     /** A draft row after an [update]: its revision and when it changed. */
     data class Updated(val revision: Long, val updatedAt: OffsetDateTime)
 
-    /** Removes [type] [key] from the targeted draft of [catalog]; false when it held none. */
-    fun delete(handle: Handle, catalog: CatalogId, type: String, key: String): Boolean = handle.writable(catalog)
+    /** Removes [type] [key] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, type: String, key: String): Boolean = handle.writable(at)
         .createUpdate(
-            "DELETE FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL",
+            "DELETE FROM release_resources WHERE tenant_key = :t AND version_id = :v AND resource_type = :type AND resource_key = :key AND parent_id IS NULL",
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .execute() > 0
 
     /**
-     * The revision of [type] [key] in the targeted draft of [catalog], locking its row until the
-     * transaction ends, so a read-modify-write of its content is not raced; null when it has none.
+     * The revision of [type] [key] in version [at], locking its row until the transaction ends, so a
+     * read-modify-write of its content is not raced; null when it has none.
      */
-    fun lockRevision(handle: Handle, catalog: CatalogId, type: String, key: String): Long? = handle
+    fun lockRevision(handle: Handle, at: ContentVersion, type: String, key: String): Long? = handle
         .createQuery(
             """
             SELECT revision FROM release_resources
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
+            WHERE tenant_key = :t AND version_id = :v AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
             FOR UPDATE
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .mapTo(Long::class.java)
@@ -148,16 +150,16 @@ object DraftResources {
         .orElse(null)
 
     /**
-     * Moves the targeted draft's row of [type] [key] of [source] to [targetKey] in [target]'s current
-     * version, holding [contentHash] (a payload names its key). The identity follows
+     * Moves draft [source]'s row of [type] [key] to [targetKey] in draft [target], holding
+     * [contentHash] (a payload names its key). The identity follows
      * (`sync_draft_resource_identity`). False when the source has no such row.
      */
     fun move(
         handle: Handle,
-        source: CatalogId,
+        source: ContentVersion,
         type: String,
         key: String,
-        target: CatalogId,
+        target: ContentVersion,
         targetKey: String,
         contentHash: String,
         /** The content the row must still hold (a relocation's guard against a concurrent edit); null for any. */
@@ -166,14 +168,15 @@ object DraftResources {
         .createUpdate(
             """
             UPDATE release_resources
-            SET catalog_id = ${catalogAt("t", "target")}, version_id = ${versionAt("t", "target")}, resource_key = :targetKey, content_hash = :hash
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
+            SET catalog_id = ${catalogAt("t", "target")}, version_id = :targetVersion, resource_key = :targetKey, content_hash = :hash
+            WHERE tenant_key = :t AND version_id = :sourceVersion AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
               AND (CAST(:expected AS TEXT) IS NULL OR content_hash = :expected)
             """,
         )
         .bind("t", source.tenantKey)
-        .bindCatalog("source", source)
-        .bindCatalog("target", target)
+        .bindVersion("sourceVersion", source.versionId)
+        .bindCatalog("target", target.catalog)
+        .bindVersion("targetVersion", target.versionId)
         .bind("type", type)
         .bind("key", key)
         .bind("targetKey", targetKey)
@@ -223,19 +226,18 @@ object DraftResources {
     )
 
     /**
-     * The rows of the version each catalog of [tenantKey] means (the targeted draft, else the next),
-     * when it is a draft, whose content refers to one of [references] (`type` to `key`) by any
-     * catalog: what a relocation re-points (ADR 0042), read from `resource_references`.
+     * The rows of each catalog of [tenantKey] in [version] for its catalog, else in the catalog's next
+     * version, when that is a draft, whose content refers to one of [references] (`type` to `key`) by
+     * any catalog: what a relocation re-points (ADR 0042), read from `resource_references`.
      */
-    fun referencing(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, references: Collection<Pair<String, String>>): List<Row> {
+    fun referencing(handle: Handle, tenantKey: TenantKey, version: UUID?, references: Collection<Pair<String, String>>): List<Row> {
         if (references.isEmpty()) return emptyList()
         return handle.createQuery(
             """
             SELECT $ROW_COLUMNS
             $ROW_FROM
-            JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
             JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id AND v.state = 'draft'
-            WHERE r.tenant_key = :t
+            WHERE r.tenant_key = :t AND ${inVersionOrNext("r", "version")}
               AND EXISTS (
                   SELECT 1 FROM resource_references rr
                   WHERE rr.tenant_key = r.tenant_key AND rr.content_hash = r.content_hash
@@ -245,39 +247,40 @@ object DraftResources {
             """,
         )
             .bind("t", tenantKey)
+            .bindVersion("version", version)
             .bindList("references", references.map { (type, key) -> "$type/$key" }.distinct())
             .map { rs, _ -> rowOf(rs) }
             .list()
     }
 
-    /** The row of [type] [key] in the targeted draft of [catalog] and, for a template, its variants' rows. */
-    fun rowsOf(handle: Handle, catalog: CatalogId, type: String, key: String): List<Row> = handle.createQuery(
+    /** The row of [type] [key] in version [at] and, for a template, its variants' rows. */
+    fun rowsOf(handle: Handle, at: ContentVersion, type: String, key: String): List<Row> = handle.createQuery(
         """
         SELECT $ROW_COLUMNS
         $ROW_FROM
-        WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+        WHERE r.tenant_key = :t AND r.version_id = :v
           AND ((r.parent_id IS NULL AND r.resource_type = :type AND r.resource_key = :key)
                OR (r.parent_id IS NOT NULL AND parent.resource_type = :type AND parent.resource_key = :key))
         ORDER BY r.parent_id NULLS FIRST, r.resource_key
         """,
     )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", type)
         .bind("key", key)
         .map { rs, _ -> rowOf(rs) }
         .list()
 
     /**
-     * Points the targeted draft's [row] of [catalog] at [contentHash], when it still holds the content
+     * Points draft [at]'s [row] at [contentHash], when it still holds the content
      * it was read with: a relocation re-pointing what a row names (ADR 0042). It is not an author's
      * edit, so who edited it last stays. False when the row changed or is gone.
      */
-    fun repoint(handle: Handle, catalog: CatalogId, row: Row, contentHash: String): Boolean = handle.writable(catalog)
+    fun repoint(handle: Handle, at: ContentVersion, row: Row, contentHash: String): Boolean = handle.writable(at)
         .createUpdate(
             """
             UPDATE release_resources r SET content_hash = :hash
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
+            WHERE r.tenant_key = :t AND r.version_id = :v
               AND r.resource_type = :type AND r.resource_key = :key AND r.content_hash = :expected
               AND (CAST(:parentKey AS TEXT) IS NULL AND r.parent_id IS NULL
                    OR r.parent_id = (SELECT p.resource_id FROM release_resources p
@@ -285,8 +288,8 @@ object DraftResources {
                                        AND p.resource_type = 'template' AND p.resource_key = :parentKey))
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("type", row.type)
         .bind("key", row.key)
         .bind("parentKey", row.parentKey)
@@ -303,8 +306,8 @@ object DraftResources {
      * The references of [versionId]'s content that resolve to nothing: as the version renders them
      * ([app.epistola.suite.catalog.dependencies.DraftDependencyView]), its own catalog without an alias,
      * else the version its declaration names, the release it pins, or (pinning nothing, or undeclared)
-     * the catalog's next version; an image or attribute named without a catalog anywhere in the
-     * tenant's current versions (`ResourceReferenceSites`). A variant's references are its template's.
+     * the catalog's next version; an image or attribute named without a catalog in this version or
+     * any other catalog's next version (`ResourceReferenceSites`). A variant's references are its template's.
      *
      * The save guard reads this twice per writing transaction, so it is set-based: aliases and the
      * things used are resolved once each, not per reference (`DraftReferenceGuardPerfTest`).
@@ -360,8 +363,7 @@ object DraftResources {
                         AND h.resource_type = n.ref_type AND h.resource_key = n.ref_key)
                   AND NOT (n.ref_type IN ('image', 'attribute') AND n.alias IS NULL AND EXISTS (
                       SELECT 1 FROM release_resources h
-                      JOIN catalog_current_versions cv ON cv.tenant_key = h.tenant_key AND cv.version_id = h.version_id
-                      WHERE h.tenant_key = :t AND h.resource_type = n.ref_type AND h.resource_key = n.ref_key))
+                      WHERE h.tenant_key = :t AND h.resource_type = n.ref_type AND h.resource_key = n.ref_key AND ${inVersionOrNext("h", "v")}))
             )
             SELECT DISTINCT x.type, x.key, x.alias, x.ref_type, x.ref_key
             FROM refs x

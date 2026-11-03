@@ -90,14 +90,14 @@ class ListPagingApiIT : IntegrationTestBase() {
             val catalog = testCatalog(TenantId(tenantKey), CATALOG)
             CreateCatalog(tenantKey = tenantKey, id = CATALOG, name = "Paged").execute()
             listOf("a", "b", "c").forEach {
-                ImportFont(catalog = catalog, slug = "font-$it", name = "Font $it", kind = "sans").execute()
-                CreateCodeList(CodeListId(CodeListKey.of("list-$it"), catalog), "List $it", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("k", "v"))).execute()
-                CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$it"), catalog), "Attr $it").execute()
-                CreateTheme(ThemeId(ThemeKey.of("theme-$it"), catalog), "Theme $it").execute()
+                ImportFont(catalog = catalog, slug = "font-$it", name = "Font $it", kind = "sans", catalogVersion = null).execute()
+                CreateCodeList(CodeListId(CodeListKey.of("list-$it"), catalog), "List $it", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("k", "v")), catalogVersion = null).execute()
+                CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$it"), catalog), "Attr $it", catalogVersion = null).execute()
+                CreateTheme(ThemeId(ThemeKey.of("theme-$it"), catalog), "Theme $it", catalogVersion = null).execute()
             }
             val template = TemplateId(TemplateKey.of("letter"), catalog)
-            CreateDocumentTemplate(template, "Letter").execute()
-            listOf("a", "b").forEach { CreateVariant(VariantId(VariantKey.of("variant-$it"), template), "Variant $it", description = null).execute() }
+            CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+            listOf("a", "b").forEach { CreateVariant(VariantId(VariantKey.of("variant-$it"), template), "Variant $it", description = null, catalogVersion = null).execute() }
             CatalogApiPaths.version(tenantKey, CATALOG.value)
         }
         listOf("fonts", "code-lists", "attributes", "themes", "templates/letter/variants").forEach { list ->
@@ -111,10 +111,10 @@ class ListPagingApiIT : IntegrationTestBase() {
         val catalogPath = withMediator {
             val catalog = testCatalog(TenantId(tenantKey), CATALOG)
             CreateCatalog(tenantKey = tenantKey, id = CATALOG, name = "Paged").execute()
-            CreateTheme(ThemeId(ThemeKey.of("th1"), catalog), "T1").execute()
+            CreateTheme(ThemeId(ThemeKey.of("th1"), catalog), "T1", catalogVersion = null).execute()
             listOf("1.0.0", "1.1.0").forEach {
-                MarkCatalogReady(catalog).execute()
-                ReleaseCatalogDraft(catalog = catalog, version = it).execute()
+                MarkCatalogReady(catalog, catalogVersion = null).execute()
+                ReleaseCatalogDraft(catalog = catalog, version = it, catalogVersion = null).execute()
             }
             CatalogApiPaths.catalog(tenantKey, CATALOG.value)
         }

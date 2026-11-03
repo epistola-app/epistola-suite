@@ -46,10 +46,10 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         val catalog = testCatalog(TenantId(tenant.id), letters)
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(catalog)
             CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal", catalogVersion = null).execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), testCatalog(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)).tenantKey, letters), "1.0.0", includeDependencies = true).execute()
         }

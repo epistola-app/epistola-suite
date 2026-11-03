@@ -102,7 +102,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
             val tenantId = TenantId(testTenant.id)
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT), catalogVersion = null).query() }
             val acme = fonts.single { it.slug.value == "acme-sans" }
             assertThat(acme.name).isEqualTo("Acme Sans")
             assertThat(acme.kind.wire).isEqualTo("sans")
@@ -148,6 +148,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             val faces = withMediator {
                 app.epistola.suite.fonts.queries.GetFontVariants(
                     app.epistola.suite.common.ids.FontId(app.epistola.suite.common.ids.FontKey.of("corporate-sans"), testCatalog(testTenant.id, app.epistola.suite.catalog.CatalogKey.DEFAULT)),
+                    catalogVersion = null,
                 ).query()
             }
             assertThat(faces.single().mediaType).isEqualTo("font/ttf")
@@ -181,7 +182,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(response.body).contains("Use a .ttf or .otf file")
             assertThat(response.body).doesNotContain("Supported:")
-            assertThat(withMediator { ListAssets(tenantId = testTenant.id).query() })
+            assertThat(withMediator { ListAssets(tenantId = testTenant.id, catalogVersion = null).query() })
                 .noneMatch { it.name == "not-a-font.pdf" }
         }
     }
@@ -213,7 +214,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             val tenantId = TenantId(testTenant.id)
             val fonts = withMediator {
-                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.of("system"))).query()
+                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.of("system")), catalogVersion = null).query()
             }
             assertThat(fonts.map { it.slug.value }).doesNotContain("rogue-sans")
         }
@@ -307,10 +308,10 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
             val tenantId = TenantId(testTenant.id)
             // No font family created …
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT), catalogVersion = null).query() }
             assertThat(fonts).isEmpty()
             // … and — the fix — the first (valid) face's asset was NOT persisted.
-            val assetNames = withMediator { ListAssets(tenantId = testTenant.id).query() }.map { it.name }
+            val assetNames = withMediator { ListAssets(tenantId = testTenant.id, catalogVersion = null).query() }.map { it.name }
             assertThat(assetNames).doesNotContain("acme-regular.ttf")
         }
     }
@@ -344,11 +345,11 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
         then {
             val tenantId = TenantId(testTenant.id)
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT), catalogVersion = null).query() }
             assertThat(fonts.map { it.slug.value }).doesNotContain("temp-sans")
             // FontId is unused-import-safe: assert it stays gone via query.
             val gone = withMediator {
-                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query()
+                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT), catalogVersion = null).query()
                     .none { it.slug == FontKey.of("temp-sans") }
             }
             assertThat(gone).isTrue()

@@ -1,6 +1,6 @@
 # ADR 0049: Content addressed by an explicit version
 
-- **Status:** Accepted (2026-11-02; delivered area by area, the default-version helper first, with [#1228](https://github.com/epistola-app/epistola-suite/issues/1228))
+- **Status:** Accepted (2026-11-02; revised 2026-11-02: at once, before 2.0 GA, rather than area by area)
 - **Date:** 2026-11-02
 - **Deciders:** Epistola team
 - **Tags:** catalog, versions, database, mediator, sql
@@ -13,10 +13,11 @@
 ## Context
 
 Content belongs to a catalog version: tenant, catalog, version, type and key together address a
-resource (ADR 0036; the contract's `…/catalogs/{…}/releases/{release}/templates/{key}`). Until
-`e8a7b5fbf` ("several drafts of a catalog at once", 2026-10-17) a catalog had one draft, so the version
-went without saying, and every query, SQL helper, view and handler was written for "the" version of a
-catalog.
+resource (ADR 0036; the contract's `…/catalogs/{…}/releases/{release}/templates/{key}`). Every version
+of a catalog lives in the same tables, so a statement on content has to say which version's rows it
+means. Until `e8a7b5fbf` ("several drafts of a catalog at once", 2026-10-17) a catalog had one draft,
+so the version went without saying, and every query, SQL helper, view and handler was written for
+"the" version of a catalog.
 
 That commit made the version **ambient** rather than adding it everywhere. A message that addresses one
 version implements `CatalogReleaseScoped`; `SpringMediator` resolves it, and `CatalogReleaseTargeting`
@@ -25,87 +26,89 @@ for SQL (`epistola.content_version` for a draft, `epistola.release_catalog` with
 `epistola.release_version` for a release). The view `catalog_current_versions` reads them, and answers
 `catalogs.next_version_id` when none is set. Two functions (`catalog_version_resources`,
 `catalog_version_references`) and eight views (`current_themes`, `current_templates`, …) build on it,
-all in `V20261101001500__core_2_0_read_model.sql`. Tenant and catalog are bind parameters
-(`versionAt(tenantParam, catalogParam)`); the version is not.
+in `V20261101001500__core_2_0_read_model.sql`, and the quality module's two (`V20261101002000`) on
+those.
 
-It was the right way to add drafts to code built for one: about 80 message types and 119 SQL uses of
-the helpers and views kept working unchanged. It is a compatibility layer, though, and it costs:
+It was the quickest way to add drafts to code built for one, and it costs:
 
 - **A statement's rows depend on state it does not show.** The same SQL reads a different version
-  depending on the transaction it runs in. `ContentVersionSqlTest` accepts a statement that joins
-  `catalog_current_versions` as naming its version, and no longer scans `release_resources`, which is
-  read through the views: it checks that a version is resolved, not which one.
-- **The default is decided in the view, not by the caller.** "Which version does this request mean" is
-  known where the request enters: a page means the default, a REST call the release in its path, a
-  generation the deployed release. Today the answer is a fallback deep in SQL, so a query that means
-  "every catalog's default" (search, ADR 0043) is right only as long as no caller has set a target.
-- **One target per catalog per transaction.** Work that needs two versions of a catalog switches the
-  ambient target back and forth: nine `targeting.within(…)` calls in five handlers
-  (`ReleaseCatalogDraft`, `MergeReleaseIntoDraft`, `MergeReferenceCheck`, `CatalogDraftCommands`,
-  `NextVersionChanges`).
-- **Two carriers to keep in step.** A handler that opens its own transactions
-  (`SelfManagedTransaction`) must call `targeting.apply(handle)` in each, or it silently reads the
-  default.
-- **Releases use a second pair of settings** with their own branch in the view, although a release is
-  a `catalog_versions` row like a draft (ADR 0036).
-
-None of this is visible outside the suite: no client, archive or API sees the settings. Changing it is
-not tied to the 2.0 alpha, and costs the same before or after 2.0.
+  depending on the transaction it runs in.
+- **The default is decided in the view, not by the caller.** A query that means "every catalog's
+  default" (search, ADR 0043) is right only as long as no caller has set a target.
+- **One target per catalog per transaction.** Work that needs two versions switches the target back
+  and forth (`targeting.within`, `VersionReads.at`).
+- **Two carriers to keep in step.** A handler that opens its own transactions must reapply the target,
+  or it silently reads the default.
+- **Releases have their own branch in SQL**, matched by catalog and number, although a release is a
+  `catalog_versions` row like a draft (ADR 0036).
+- **It is in the migrations.** After 2.0.0 is GA a migration is never edited again, so a read model
+  whose meaning depends on session state would stay in the schema for good.
 
 ## Considered options
 
-1. **Keep the ambient target and harden it.** A marker for messages that always read the default
-   versions, for which the mediator clears the target, and a helper that opens a self-managed
-   transaction with the target applied. Cheap, and it closes the two known holes, but the SQL stays
-   implicit and new code keeps building on it. Worth doing only as a stopgap; rejected as the end state.
-2. **Explicit versions everywhere, at once.** Correct, but one rewrite of about 80 message types, 119
-   SQL uses and every nested dispatch, landing together. Rejected for its size and risk.
-3. **Row-level security on the setting.** Makes the target enforced rather than advisory, but it is
-   still ambient, and a tenant-wide read would have to switch it off. Rejected.
-4. **Chosen: explicit versions, introduced beside the ambient target and moved to area by area.** New
-   code is explicit from the start; existing code moves when it is touched or when an area is
-   converted; the ambient target is removed when nothing reads it.
+1. **Keep the ambient target and harden it.** Rejected: the SQL stays implicit.
+2. **Keep the schema's notion of "the version a caller means", as functions of arguments.** The views
+   become functions of the target, and Kotlin binds it to every statement. Rejected (it was #1265):
+   it cleans the session state out of the migrations but freezes the old view's choice, release
+   branch included, in them, and the target stays ambient in Kotlin.
+3. **Explicit versions area by area, behind a guard, after GA.** The original decision of this ADR.
+   Rejected once it was clear the schema must be settled before GA: the end state is the same, and
+   doing it in steps keeps two ways of reading content side by side for months.
+4. **Chosen: explicit versions everywhere, at once, before 2.0 GA**, as if there had never been an
+   ambient target.
 
 ## Decision
 
-### 1. A version is part of a content address
+### 1. The schema knows versions, not "the version a caller means"
 
-A message that reads or writes one version's content carries the **resolved** version, a
-`catalog_versions.version_id`, typed, the way it carries its tenant key. It is a required field, so
-forgetting to pass it on in a nested dispatch is a compile error, not a silent read of the default.
-`CatalogReleaseRef` (`next`, a draft's id, a release number) stays the address a caller writes; it is
-resolved once, where the request enters, by the `ResolveCatalogRelease` query the REST API already uses.
+The read model is a set of views of **every** version's content, each row with its `version_id`
+(`version_themes`, `version_code_lists`, `version_attributes`, `version_fonts`, `version_images`,
+`version_stencils`, `version_templates`, `version_template_variants` and `version_references`, beside
+`release_wire_resources` for the plain rows; the quality module's `quality_version_variants` and
+`quality_version_checks`). A view only turns stored content into columns. It never chooses a version
+and reads nothing from the session, so it means the same in every transaction. A statement filters it
+by the version it means: `WHERE t.version_id = :v`.
 
-### 2. The caller chooses the default, by name
+`catalog_current_versions`, `catalog_version_resources`, `catalog_version_references` and the
+`current_*` views are gone. This is done in `V20261101001500` itself, which `v2.0.0-alpha.1` shipped;
+the 2.0.0-alpha.1 repair script puts the new views in place of alpha.1's. `VersionTargetNotInSessionTest`
+keeps the settings out of every migration and statement.
 
-"The default version" is asked for explicitly: `catalogs.next_version_id`, through a `CatalogSql.kt`
-helper (for example `defaultVersionAt(t, c)`, and a join for tenant-wide reads). It never reads the
-settings, so a targeted transaction cannot change what it answers. It answers what
-`catalog_current_versions` answers today when nothing is targeted, so moving to it changes no result.
+### 2. A message carries the version it addresses, as it carries its tenant
 
-### 3. SQL takes the version as a parameter
+A message that reads or writes one catalog's content says which version: `catalogVersion`, a
+`CatalogReleaseRef` (the catalog, and `next`, a draft's id or a release number), the address a caller
+writes. Its handler resolves it through `ContentVersions`, the one place an address becomes a
+`version_id` and where "no such draft" and "no such release" are raised, and binds the result.
 
-Statements bind `:versionId` (or join the default helper). Functions taking the version sit beside
-today's: `version_resources(tenant, version_id, type)` and `version_references(…)`, with the per-type
-reads as functions of the version rather than views of the ambient one. A released version is read the
-same way as a draft, by its `version_id`, so the release settings go with the draft one.
+It carries the address rather than a resolved id for the reason it carries a tenant key rather than a
+tenant row: callers write addresses, and resolving them, with the errors that go with it, belongs in
+one place rather than at every REST, UI and MCP entry point.
+
+### 3. The caller chooses the default, by name
+
+"The default version" is `catalogs.next_version_id`, asked for explicitly: a message whose
+`catalogVersion` is null means its catalog's next version, and a tenant-wide read joins each catalog's
+next version (`inNextVersion`). Nothing a caller set elsewhere changes what it answers.
 
 ### 4. Nested work passes the version on
 
 A handler that dispatches gives the inner message the version, as it gives the tenant. A handler that
-needs two versions names both; it does not switch.
+needs two versions names both; it does not switch. Nothing is inherited: a message dispatched without
+a version reads the default, whatever its caller read.
 
-### 5. The guard checks which version, not whether one
+### 5. A read of another catalog names its version too
 
-`ContentVersionSqlTest` scans `release_resources` again, and accepts a statement that binds a version
-or joins the default helper. Joining `catalog_current_versions`, or reading a view built on it, is
-allowed only in a list of files not yet moved, which shrinks with each step and must not grow.
+Where content of one catalog is read for another's (a template's theme, a stencil, a code list from a
+dependency), the reader names the version it reads: the one the dependency declaration pins or names,
+as the theme and stencil resolvers already do, or that catalog's next version. The conversion keeps
+each such read's result; it only makes the choice visible.
 
-### 6. The ambient target is removed last
+### 6. Writes name their version too
 
-When that list is empty, one migration replaces `catalog_current_versions` and what builds on it, and
-`CatalogReleaseTargeting`, its `ScopedValue`, the three settings and `SelfManagedTransaction`'s
-`apply` go.
+A writer resolves its version like a reader and refuses a released one
+(`CatalogReleaseIsReleasedException`, 409: open the next draft) before it writes: the freeze of ADR
+0036, on the version it was given rather than the one a transaction targets.
 
 ## Consequences
 
@@ -113,36 +116,18 @@ When that list is empty, one migration replaces `catalog_current_versions` and w
   longer means knowing the transaction it will run in.
 - **Work across versions is ordinary code.** Merging and releasing name the versions they read instead
   of switching a target, and search is correct by construction.
-- **Messages that address content gain a field**, and their constructors change. Callers that dispatch
-  them pass the version on.
-- **Two ways coexist until the end.** The guard's list keeps the old way from spreading and shows what
-  is left.
-- **Each step is a forward migration or none.** New functions are added beside the old; nothing is
-  rewritten in place (`v2.0.0-alpha.1` has shipped). Only the last step changes an existing view.
+- **`CatalogReleaseTargeting`'s target, `VersionReads` and the three settings are gone**, and with them
+  `targeting.apply` in self-managed transactions.
+- **The schema is settled before GA.** `V20261101001500` is rewritten once: databases alpha.1 migrated
+  run the repair script (`docs/upgrades.md`, "From 2.0.0-alpha.1"), and a later version refuses to
+  start on one that has not, changing nothing.
 - **Nothing outside the suite changes**: no contract, archive or API change.
-
-## Delivery
-
-Each step is its own pull request, in 2.0 or later:
-
-1. **New code is explicit.** The default-version helper in `CatalogSql.kt` (no migration), and
-   `SearchTenant` (ADR 0043) reading through it as its first user. The guard's list of files not yet
-   moved, with today's files in it.
-2. **Functions of the version** (`version_resources`, `version_references`, the per-type reads), in one
-   forward migration, beside the views.
-3. **Work across versions first**: release, merge, import and next-version changes, which switch the
-   target today and gain the most.
-4. **Then each area**, resource type by resource type, with the REST, UI and MCP entry points resolving
-   the version they pass down.
-5. **Removal**: the migration and the code of §6, once the guard's list is empty.
 
 ## References
 
-- `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/CatalogReleaseScoped.kt`
-  (`CatalogReleaseTargeting`)
-- `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt` (`versionAt`,
-  `inCurrentVersion`)
+- `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/ContentVersions.kt`
+- `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt`
 - `modules/epistola-core/src/main/resources/db/migration/core/V20261101001500__core_2_0_read_model.sql`
-  (`catalog_current_versions` and what builds on it)
-- `modules/guards/src/test/kotlin/app/epistola/suite/guards/ContentVersionSqlTest.kt`
+- `modules/guards/src/test/kotlin/app/epistola/suite/guards/ContentVersionSqlTest.kt`,
+  `VersionTargetNotInSessionTest.kt`
 - [`docs/catalog-versioning.md`](../catalog-versioning.md), "Which version a statement means"

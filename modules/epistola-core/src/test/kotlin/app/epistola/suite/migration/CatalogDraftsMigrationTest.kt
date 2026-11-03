@@ -80,22 +80,11 @@ class CatalogDraftsMigrationTest {
             // The working copy's content is in the next draft, and that is what a caller naming none means.
             val next = connection.rows("SELECT next_version_id FROM catalogs WHERE catalog_key = 'released'").single().single()
             assertThat(connection.rows("SELECT version_id FROM release_resources WHERE resource_type = 'theme' AND resource_key = 'brand'")).containsExactly(listOf(next))
-            fun current(catalog: String) = connection.rows(
-                "SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.catalog_id = cv.catalog_id WHERE c.catalog_key = '$catalog'",
-            ).single().single()
-            assertThat(current("released")).isEqualTo(next)
-
-            // Parallel work is reached only by targeting it.
+            // Parallel work is a row of its own; the catalog's next version, its default, stays.
             connection.exec(
                 "INSERT INTO catalog_versions (tenant_key, catalog_id, state, base_version, name) SELECT tenant_key, catalog_id, 'draft', '1.0.0', 'Redesign' FROM catalogs WHERE catalog_key = 'released'",
             )
-            val parallel = connection.rows("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'").single().single()
-            assertThat(current("released")).isEqualTo(next)
-            connection.autoCommit = false
-            connection.exec("SELECT set_config('epistola.content_version', '$parallel', TRUE)")
-            assertThat(current("released")).`as`("unless the transaction targets another").isEqualTo(parallel)
-            connection.commit()
-            connection.autoCommit = true
+            assertThat(connection.rows("SELECT next_version_id FROM catalogs WHERE catalog_key = 'released'").single().single()).isEqualTo(next)
 
             // A draft has no number.
             assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, state, version, name) SELECT tenant_key, catalog_id, 'draft', '4.0.0', 'Four' FROM catalogs WHERE catalog_key = 'released'") }

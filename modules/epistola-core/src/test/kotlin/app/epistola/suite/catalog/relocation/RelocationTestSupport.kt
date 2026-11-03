@@ -105,7 +105,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     protected fun preview(tenant: TenantKey, vararg relocations: ResourceRelocation): CatalogResourceMovePreview = preview(tenant, relocations.toList())
 
-    protected fun preview(tenant: TenantKey, relocations: List<ResourceRelocation>): CatalogResourceMovePreview = withMediator { PreviewCatalogResourceMove(tenant, relocations).query() }
+    protected fun preview(tenant: TenantKey, relocations: List<ResourceRelocation>): CatalogResourceMovePreview = withMediator { PreviewCatalogResourceMove(tenant, relocations, catalogVersion = null).query() }
 
     /** Previews [relocations], requires the plan to be executable, and applies it. */
     protected fun move(tenant: TenantKey, vararg relocations: ResourceRelocation): CatalogResourceMovePreview = move(tenant, relocations.toList())
@@ -113,7 +113,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun move(tenant: TenantKey, relocations: List<ResourceRelocation>): CatalogResourceMovePreview {
         val plan = preview(tenant, relocations)
         assertThat(plan.blockers).describedAs("blockers for %s", relocations.map { it.source.id }).isEmpty()
-        return withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute() }
+        return withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint, catalogVersion = null).execute() }
     }
 
     /**
@@ -144,11 +144,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun create(tenant: TenantKey, movable: MovableResource, catalog: CatalogKey, key: String): ResourceAddress = withMediator {
         val catalogId = catalogId(tenant, catalog)
         when (movable) {
-            MovableResource.STENCIL -> CreateStencil(StencilId(StencilKey.of(key), catalogId), "Stencil $key").execute()
+            MovableResource.STENCIL -> CreateStencil(StencilId(StencilKey.of(key), catalogId), "Stencil $key", catalogVersion = null).execute()
 
-            MovableResource.ATTRIBUTE -> CreateAttributeDefinition(AttributeId(AttributeKey.of(key), catalogId), "Attribute $key").execute()
+            MovableResource.ATTRIBUTE -> CreateAttributeDefinition(AttributeId(AttributeKey.of(key), catalogId), "Attribute $key", catalogVersion = null).execute()
 
-            MovableResource.TEMPLATE -> CreateDocumentTemplate(TemplateId(TemplateKey.of(key), catalogId), "Template $key").execute()
+            MovableResource.TEMPLATE -> CreateDocumentTemplate(TemplateId(TemplateKey.of(key), catalogId), "Template $key", catalogVersion = null).execute()
 
             MovableResource.CODE_LIST -> CreateCodeList(
                 CodeListId(CodeListKey.of(key), catalogId),
@@ -156,13 +156,14 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                 sourceType = CodeListSource.INLINE,
                 // An inline code list must have at least one entry.
                 entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
 
             MovableResource.ASSET -> uploadPng(tenant, catalog, key)
 
             MovableResource.FONT -> importFont(tenant, catalog, key)
 
-            MovableResource.THEME -> CreateTheme(ThemeId(ThemeKey.of(key), catalogId), "Theme $key").execute()
+            MovableResource.THEME -> CreateTheme(ThemeId(ThemeKey.of(key), catalogId), "Theme $key", catalogVersion = null).execute()
         }
         testAddress(tenant, movable.type, catalog.value, key)
     }
@@ -176,6 +177,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
             width = 1,
             height = 1,
             id = key?.let(AssetKey::of),
+            catalogVersion = null,
         ).execute().id
     }
 
@@ -187,6 +189,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
             name = "Font $slug",
             kind = FontKind.SANS.wire,
             variants = listOf(ImportFontVariant(400, false, "font/ttf", ttfBytes())),
+            catalogVersion = null,
         ).execute()
     }
 
@@ -230,10 +233,10 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     ) {
         val variant = templateVariant(tenant, catalog, key)
         withMediator {
-            CreateDocumentTemplate(variant.templateId, "Template $key").execute().withRequiredDataExample()
+            CreateDocumentTemplate(variant.templateId, "Template $key", catalogVersion = null).execute().withRequiredDataExample()
             setup(variant.templateId)
-            UpdateVariantContent(variant, model).execute()
-            MarkVariantReady(variant).execute()
+            UpdateVariantContent(variant, model, catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
         }
     }
 
@@ -249,6 +252,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                 templateId = TemplateKey.of(key),
                 data = objectMapper.createObjectNode(),
                 variantId = VariantKey.INITIAL,
+                catalogVersion = null,
             ).query()
         }
         assertThat(pdf.take(4).toByteArray()).describedAs("a PDF").isEqualTo("%PDF".toByteArray())
@@ -260,7 +264,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
      * the catalogs its content uses, as its author would.
      */
     protected fun releaseAll(tenant: TenantKey, catalogs: List<CatalogKey>) {
-        withMediator { dependencyDeclarer.declareMissingInTenant(tenant) }
+        withMediator { dependencyDeclarer.declareMissingInTenant(tenant, ref = null) }
         val pending = catalogs.toMutableList()
         while (pending.isNotEmpty()) {
             val released = pending.filter { catalog ->

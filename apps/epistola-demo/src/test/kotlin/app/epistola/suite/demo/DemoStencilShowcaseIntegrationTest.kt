@@ -36,9 +36,9 @@ class DemoStencilShowcaseIntegrationTest : IntegrationTestBase() {
     private fun previewText(): String {
         val tenant = createTenant("Demo stencil showcase").id
         withMediator { EnsureSubscribedCatalog(tenantKey = tenant, sourceUrl = demoUrl).execute() }
-        val data = withMediator { GetDataContract(TemplateId(showcase, testCatalog(TenantId(tenant), demoCatalog))).query() }!!
+        val data = withMediator { GetDataContract(TemplateId(showcase, testCatalog(TenantId(tenant), demoCatalog)), catalogVersion = null).query() }!!
             .dataExamples.single { it.name == "Default" }.data
-        val pdf = withMediator { PreviewDocument(catalog = testCatalog(tenant, demoCatalog), templateId = showcase, data = data).query() }
+        val pdf = withMediator { PreviewDocument(catalog = testCatalog(tenant, demoCatalog), templateId = showcase, data = data, catalogVersion = null).query() }
         return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { doc ->
             (1..doc.numberOfPages).joinToString("\n") { PdfTextExtractor.getTextFromPage(doc.getPage(it)) }
         }.replace(Regex("\\s+"), " ") // lines wrap where the layout puts them

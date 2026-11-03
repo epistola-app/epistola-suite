@@ -166,7 +166,7 @@ class CatalogModelTest : IntegrationTestBase() {
         }
 
         /** What [key] declares, as a declaration of it is written. */
-        fun declarations(key: String): List<DeclaredCatalogDependency> = ListCatalogDependencies(catalog(key)).query()
+        fun declarations(key: String): List<DeclaredCatalogDependency> = ListCatalogDependencies(catalog(key), catalogVersion = null).query()
             .map { DeclaredCatalogDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion, it.draftId) }
     }
 
@@ -198,9 +198,9 @@ class CatalogModelTest : IntegrationTestBase() {
             val catalog = world.catalogs().pick(pick) { CATALOGS[pick % CATALOGS.size] }
             val at = world.catalog(catalog)
             when (type) {
-                STENCIL -> CreateStencil(StencilId(StencilKey.of(name), at), name).execute()
-                THEME -> CreateTheme(ThemeId(ThemeKey.of(name), at), name).execute()
-                else -> CreateDocumentTemplate(TemplateId(TemplateKey.of(name), at), name).execute().withRequiredDataExample()
+                STENCIL -> CreateStencil(StencilId(StencilKey.of(name), at), name, catalogVersion = null).execute()
+                THEME -> CreateTheme(ThemeId(ThemeKey.of(name), at), name, catalogVersion = null).execute()
+                else -> CreateDocumentTemplate(TemplateId(TemplateKey.of(name), at), name, catalogVersion = null).execute().withRequiredDataExample()
             }
             return "add $type $catalog/$name"
         }
@@ -211,8 +211,8 @@ class CatalogModelTest : IntegrationTestBase() {
             val (catalog, key) = world.existing(type).pick(pick) { CATALOGS[pick % CATALOGS.size] to "missing-$type" }
             val at = world.catalog(catalog)
             when (type) {
-                STENCIL -> DeleteStencil(StencilId(StencilKey.of(key), at)).execute()
-                else -> DeleteTheme(ThemeId(ThemeKey.of(key), at)).execute()
+                STENCIL -> DeleteStencil(StencilId(StencilKey.of(key), at), catalogVersion = null).execute()
+                else -> DeleteTheme(ThemeId(ThemeKey.of(key), at), catalogVersion = null).execute()
             }
             return "remove $type $catalog/$key"
         }
@@ -226,7 +226,7 @@ class CatalogModelTest : IntegrationTestBase() {
             val uses = stencils.map { available.pick(it) { CATALOGS[it % CATALOGS.size] to "missing-stencil" } }
                 .map { (from, stencil) -> stencil to from.takeIf { it != catalog } }
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of(template), world.catalog(catalog)))
-            UpdateVariantContent(variant, model(uses)).execute()
+            UpdateVariantContent(variant, model(uses), catalogVersion = null).execute()
             return "use in $catalog/$template: ${uses.joinToString { (stencil, from) -> "${from ?: catalog}/$stencil" }}"
         }
     }
@@ -238,7 +238,7 @@ class CatalogModelTest : IntegrationTestBase() {
             val (catalog, stencil) = available.nth(pick) ?: return null
             val uses = stencils.map { available.pick(it) { CATALOGS[it % CATALOGS.size] to "missing-stencil" } }
                 .map { (from, used) -> used to from.takeIf { it != catalog } }
-            UpdateStencil(StencilId(StencilKey.of(stencil), world.catalog(catalog)), content = model(uses)).execute()
+            UpdateStencil(StencilId(StencilKey.of(stencil), world.catalog(catalog)), content = model(uses), catalogVersion = null).execute()
             return "nest in stencil $catalog/$stencil: ${uses.joinToString { (used, from) -> "${from ?: catalog}/$used" }}"
         }
     }
@@ -247,7 +247,7 @@ class CatalogModelTest : IntegrationTestBase() {
         override fun apply(world: World): String? {
             val (catalog, template) = world.existing(TEMPLATE).nth(pick) ?: return null
             val (themeCatalog, key) = world.existing(THEME).pick(theme) { CATALOGS[theme % CATALOGS.size] to "missing-theme" }
-            UpdateDocumentTemplate(TemplateId(TemplateKey.of(template), world.catalog(catalog)), themeId = ThemeKey.of(key), themeCatalog = world.catalog(themeCatalog)).execute()
+            UpdateDocumentTemplate(TemplateId(TemplateKey.of(template), world.catalog(catalog)), themeId = ThemeKey.of(key), themeCatalog = world.catalog(themeCatalog), catalogVersion = null).execute()
             return "theme of $catalog/$template: $themeCatalog/$key"
         }
     }
@@ -255,8 +255,8 @@ class CatalogModelTest : IntegrationTestBase() {
     private data class Release(val pick: Int, val withDependencies: Boolean) : Step {
         override fun apply(world: World): String? {
             val catalog = world.catalogs().nth(pick) ?: return null
-            MarkCatalogReady(world.catalog(catalog)).execute()
-            val released = ReleaseCatalogDraft(world.catalog(catalog), releaseDependencies = withDependencies).execute()
+            MarkCatalogReady(world.catalog(catalog), catalogVersion = null).execute()
+            val released = ReleaseCatalogDraft(world.catalog(catalog), releaseDependencies = withDependencies, catalogVersion = null).execute()
             world.releases.getOrPut(catalog) { mutableListOf() } += released.version
             return "release $catalog ${released.version}${if (withDependencies) " with its dependencies" else ""}"
         }
@@ -290,7 +290,7 @@ class CatalogModelTest : IntegrationTestBase() {
             } else {
                 DeclaredCatalogDependency(target.registry, target.namespace, on, versionId = world.nextVersionKey(on))
             }
-            UpdateCatalogDependencies(world.catalog(catalog), world.declarations(catalog).filter { it.catalogKey != on } + declared).execute()
+            UpdateCatalogDependencies(world.catalog(catalog), world.declarations(catalog).filter { it.catalogKey != on } + declared, catalogVersion = null).execute()
             return "declare for $catalog: $on ${declared.releaseVersion ?: "next version"}"
         }
     }
@@ -300,7 +300,7 @@ class CatalogModelTest : IntegrationTestBase() {
             val catalog = world.catalogs().nth(pick) ?: return null
             val declared = world.declarations(catalog)
             val dropped = declared.nth(dependency) ?: return null
-            UpdateCatalogDependencies(world.catalog(catalog), declared - dropped).execute()
+            UpdateCatalogDependencies(world.catalog(catalog), declared - dropped, catalogVersion = null).execute()
             return "undeclare for $catalog: ${dropped.catalogKey}"
         }
     }
@@ -311,8 +311,8 @@ class CatalogModelTest : IntegrationTestBase() {
             val into = world.catalogs().filter { it != from }.nth(to) ?: return null
             val resourceType = if (type == STENCIL) CatalogResourceType.STENCIL else CatalogResourceType.THEME
             val relocations = listOf(testAddress(world.tenant, resourceType, from, key).movedTo(CatalogKey.of(into)))
-            val preview = PreviewCatalogResourceMove(world.tenant, relocations).query()
-            MoveCatalogResources(world.tenant, relocations, preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(world.tenant, relocations, catalogVersion = null).query()
+            MoveCatalogResources(world.tenant, relocations, preview.planFingerprint, catalogVersion = null).execute()
             return "move $type $from/$key to $into"
         }
     }

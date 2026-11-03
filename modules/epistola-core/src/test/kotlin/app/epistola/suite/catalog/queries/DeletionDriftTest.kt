@@ -60,15 +60,15 @@ class DeletionDriftTest : IntegrationTestBase() {
     @Test
     fun `deleting a theme is an unreleased change`() = assertDeletionDrifts(
         slug = "drift-theme",
-        seed = { catalog -> CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute() },
-        delete = { catalog -> DeleteTheme(ThemeId(ThemeKey.of("brand"), catalog)).execute() },
+        seed = { catalog -> CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute() },
+        delete = { catalog -> DeleteTheme(ThemeId(ThemeKey.of("brand"), catalog), catalogVersion = null).execute() },
     )
 
     @Test
     fun `deleting a stencil is an unreleased change`() = assertDeletionDrifts(
         slug = "drift-stencil",
-        seed = { catalog -> CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address").execute() },
-        delete = { catalog -> DeleteStencil(StencilId(StencilKey.of("address"), catalog)).execute() },
+        seed = { catalog -> CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address", catalogVersion = null).execute() },
+        delete = { catalog -> DeleteStencil(StencilId(StencilKey.of("address"), catalog), catalogVersion = null).execute() },
     )
 
     @Test
@@ -80,19 +80,20 @@ class DeletionDriftTest : IntegrationTestBase() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
         },
-        delete = { catalog -> DeleteCodeList(CodeListId(CodeListKey.of("locales"), catalog)).execute() },
+        delete = { catalog -> DeleteCodeList(CodeListId(CodeListKey.of("locales"), catalog), catalogVersion = null).execute() },
     )
 
     @Test
     fun `deleting a template is an unreleased change`() = assertDeletionDrifts(
         slug = "drift-template",
         seed = { catalog ->
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null)
                 .execute().withRequiredDataExample()
         },
-        delete = { catalog -> DeleteDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog)).execute() },
+        delete = { catalog -> DeleteDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), catalogVersion = null).execute() },
     )
 
     /**
@@ -139,8 +140,8 @@ class DeletionDriftTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = slug).execute()
             seed(catalog)
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         assertThat(pendingChanges(tenant.id, key))

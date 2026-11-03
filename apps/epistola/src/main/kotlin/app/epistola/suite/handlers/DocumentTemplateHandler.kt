@@ -4,7 +4,7 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.api.v1.toUiValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
@@ -179,7 +179,7 @@ class DocumentTemplateHandler(
         val model = templateListModel(request, tenantId, segment)
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/templates" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = it.tenantId, catalog = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/templates/${t.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = it.tenantId, catalog = it, limit = 200, catalogVersion = null).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/templates/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Templates - Epistola"
             "catalogs" to catalogs
@@ -692,7 +692,7 @@ class DocumentTemplateHandler(
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(request.servletRequest()))
+                .body(e.toUiValidationProblemBody(request.servletRequest()))
         }
 
         // Load available themes for the fragment
@@ -819,7 +819,7 @@ class DocumentTemplateHandler(
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(request.servletRequest()))
+                .body(e.toUiValidationProblemBody(request.servletRequest()))
         }
 
         return if (result.deleted) {

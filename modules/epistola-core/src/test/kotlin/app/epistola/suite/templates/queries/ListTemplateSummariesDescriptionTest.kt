@@ -26,9 +26,9 @@ class ListTemplateSummariesDescriptionTest : IntegrationTestBase() {
         val catalog = CatalogId.default(tenant)
 
         val summaries = withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("described"), catalog), "Described", description = "For residents").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("plain"), catalog), "Plain").execute()
-            ListTemplateSummaries(tenant, catalog = testCatalog(tenant, catalog.key)).query().items
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("described"), catalog), "Described", description = "For residents", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("plain"), catalog), "Plain", catalogVersion = null).execute()
+            ListTemplateSummaries(tenant, catalog = testCatalog(tenant, catalog.key), catalogVersion = null).query().items
         }
 
         assertThat(summaries.associate { it.id.value to it.description })

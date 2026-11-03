@@ -5,10 +5,14 @@
 package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.inCurrentVersion
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -33,6 +37,8 @@ import tools.jackson.databind.ObjectMapper
 
 data class ImportTheme(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -44,7 +50,8 @@ data class ImportTheme(
     val defaultBlockStyles: Map<String, Any?>? = null,
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
-) : Command<InstallStatus>,
+) : CatalogReleaseScoped,
+    Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -68,10 +75,12 @@ class ImportThemeHandler(
         val themeKey = ThemeKey.of(command.slug)
         val auditUser = currentUserIdOrNull()?.value
 
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.catalog, command) }
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM current_themes WHERE id = :id AND tenant_key = :tenantKey")
+            handle.createQuery("SELECT COUNT(*) > 0 FROM version_themes th WHERE th.id = :id AND th.tenant_key = :tenantKey AND ${inVersionOrNext("th", "v")}")
                 .bind("id", themeKey.value)
                 .bind("tenantKey", command.tenantKey)
+                .bindVersion("v", at.versionId)
                 .mapTo(Boolean::class.java)
                 .one()
         }
@@ -79,6 +88,7 @@ class ImportThemeHandler(
         jdbi.useHandle<Exception> { handle ->
             themes.put(
                 handle,
+                at,
                 ThemeId(themeKey, command.catalog),
                 ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit, command.defaultBlockStyles, command.metadata),
                 auditUser,
