@@ -380,6 +380,9 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val editorHref = "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogId.address}/templates" +
             "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
         assertThat(response.body!!).contains(editorHref)
+        // Named as every other list names a template, not by its key.
+        assertThat(response.body!!.substringAfter("data-testid=\"quality-finding-template\"").substringBefore("</a>"))
+            .endsWith(">Invoice")
     }
 
     @Test

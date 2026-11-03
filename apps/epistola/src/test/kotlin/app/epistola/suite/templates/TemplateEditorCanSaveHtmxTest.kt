@@ -53,6 +53,9 @@ class TemplateEditorCanSaveHtmxTest : BaseIntegrationTest() {
                 .`as`("no publish status for a catalog that is not changed here").doesNotContain("data-testid=\"ws-status\"")
             assertThat(own).contains("\"canSave\": true").doesNotContain("data-testid=\"editor-read-only\"")
                 .contains("data-testid=\"ws-status\"")
+            // The bar names the variant by its title, as the template page does; its key is for the API.
+            assertThat(own.substringAfter("data-testid=\"editor-crumb-variant\"").substringBefore("</span>"))
+                .endsWith(">Default").contains("title=\"Variant initial\"")
         }
     }
 

@@ -199,3 +199,23 @@ describe('EpistolaTextEditor when its block moves', () => {
     expect(editor.querySelector('.ProseMirror')?.textContent).toBe('still here');
   });
 });
+
+describe('EpistolaTextEditor empty state', () => {
+  // A new Text block was an empty box with nothing to say it takes typing, or how a data field goes in.
+  it('marks an empty text block so it shows a hint, and drops the mark once there is text', async () => {
+    const engine = new EditorEngine(initialDocument(), createDefaultRegistry());
+    const editor = new EpistolaTextEditor();
+    editor.engine = engine;
+    editor.nodeId = 'initial-text' as NodeId;
+    editor.content = null;
+    document.body.appendChild(editor);
+    await editor.updateComplete;
+
+    const view = (editor as unknown as { _pmView: EditorView })._pmView;
+    expect(view.dom.getAttribute('data-empty')).toBe('true');
+    expect(view.dom.getAttribute('data-placeholder')).toBe('Type text, or {{ for a data field');
+
+    view.dispatch(view.state.tr.insertText('Dear customer', 1));
+    expect(view.dom.hasAttribute('data-empty')).toBe(false);
+  });
+});

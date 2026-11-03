@@ -85,7 +85,7 @@
             <span class="ws-crumb-sep" aria-hidden="true">/</span>
             <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
                th:text="${templateName}">Template name</a>
-            <span class="editor-nav-variant" th:text="${variantId}"></span>
+            <span class="editor-nav-variant" data-testid="editor-crumb-variant" th:text="${variantTitle}" th:title="'Variant ' + ${variantId}"></span>
         </div>
         <div class="ws-bar-right editor-nav-right">
             <!--/* An editor that saves nothing says so, and why, before anything is changed. */-->

@@ -128,16 +128,24 @@ fun decorateVariants(
 }
 
 /**
- * Restrict descriptors to attributes actually used by at least one variant
- * — what the filter bar should show. Filtering by a key no variant
- * uses produces an always-empty result; offering it is pure clutter.
+ * Restrict descriptors to attributes actually used by at least one variant, each with only the
+ * values variants use — what the filter bar should show. Filtering by a key or a value no variant
+ * uses produces an always-empty result; offering it is pure clutter (a locale filter listed all 65
+ * locales for a template with two variants). Values keep the attribute's order and labels; a value
+ * the attribute no longer allows is still offered, so the variant using it can be found.
  */
 fun filterToUsedDescriptors(
     descriptors: List<AttributeDescriptor>,
     decorated: List<VariantWithEntries>,
 ): List<AttributeDescriptor> {
-    val usedQualified = decorated
-        .flatMap { v -> v.entries.mapNotNull { it.descriptor?.qualifiedKey } }
-        .toSet()
-    return descriptors.filter { it.qualifiedKey in usedQualified }
+    val usedValues: Map<String, Set<String>> = decorated
+        .flatMap { v -> v.entries.mapNotNull { e -> e.descriptor?.let { it.qualifiedKey to e.value } } }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, values) -> values.toCollection(LinkedHashSet()) }
+    return descriptors.mapNotNull { d ->
+        val values = usedValues[d.qualifiedKey] ?: return@mapNotNull null
+        val allowed = d.options.filter { it.code in values }
+        val other = values.filter { v -> d.options.none { it.code == v } }.map { AttributeOption(it, it) }
+        d.copy(options = allowed + other)
+    }
 }

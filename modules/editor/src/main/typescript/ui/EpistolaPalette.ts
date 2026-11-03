@@ -176,7 +176,7 @@ export class EpistolaPalette extends LitElement {
                     data-editor-anchor=${`palette-item-${def.type}`}
                     data-block-type=${def.type}
                     @click=${() => this._handleInsert(def.type)}
-                    title="Click to insert ${def.label}"
+                    title=${def.paletteHint ?? `Click to insert ${def.label}`}
                   >
                     <span class="palette-item-icon">${this._renderIcon(def)}</span>
                     <span>${def.label}</span>

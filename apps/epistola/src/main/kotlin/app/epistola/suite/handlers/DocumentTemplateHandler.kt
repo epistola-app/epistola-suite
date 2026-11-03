@@ -490,6 +490,8 @@ class DocumentTemplateHandler(
                 "editorScope" to WorkspaceBuilder.scope(draftBar, null, request.path(), { auth.has(it) }),
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
+                // The editor's bar names the variant as the template page does, by its title.
+                "variantTitle" to (context.variantTitle ?: variantId.key.value),
                 "templateName" to context.templateName,
                 "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
