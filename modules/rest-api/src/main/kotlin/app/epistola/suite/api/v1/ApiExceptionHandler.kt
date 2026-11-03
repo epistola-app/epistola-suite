@@ -161,7 +161,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             return problemEntity(
                 request,
                 headers,
-                ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+                ApiProblemTypes.VALIDATION_ERROR,
                 "Request body validation failed",
                 mapOf(
                     "errors" to listOf(
@@ -214,7 +214,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return problemEntity(
             request,
             headers,
-            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            ApiProblemTypes.VALIDATION_ERROR,
             "Request body validation failed",
             mapOf("errors" to fieldErrors + globalErrors),
         )
@@ -234,7 +234,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return problemEntity(
             request,
             headers,
-            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            ApiProblemTypes.VALIDATION_ERROR,
             "Required parameter '${ex.parameterName}' is missing",
             mapOf("errors" to listOf(ValidationError(field = ex.parameterName, message = "is required", rejectedValue = null))),
         )
@@ -250,12 +250,20 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             ?: return super.handleTypeMismatch(ex, headers, status, request)!!
         log.warn("Type mismatch for parameter '{}': expected {}, got {}", typeMismatch.name, typeMismatch.requiredType?.simpleName, typeMismatch.value)
 
+        val expected = typeMismatch.requiredType?.simpleName
         return problemEntity(
             request,
             headers,
-            ApiProblemTypes.TYPE_MISMATCH,
+            ApiProblemTypes.VALIDATION_ERROR,
             "Parameter '${typeMismatch.name}' could not be converted to the expected type",
             mapOf(
+                "errors" to listOf(
+                    ValidationError(
+                        field = typeMismatch.name,
+                        message = expected?.let { "must be a value of type $it" } ?: "has the wrong type",
+                        rejectedValue = typeMismatch.value?.toString(),
+                    ),
+                ),
                 "parameterName" to typeMismatch.name,
                 "expectedType" to (typeMismatch.requiredType?.simpleName ?: ""),
                 "actualValue" to (typeMismatch.value?.toString() ?: ""),
@@ -486,7 +494,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return problemEntity(
             request,
             HttpHeaders(),
-            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            ApiProblemTypes.VALIDATION_ERROR,
             "Request parameter validation failed",
             mapOf("errors" to errors),
         )
@@ -590,7 +598,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleInvalidParameter(ex: InvalidParameterException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Unparseable request parameters: {}", sanitizeForLog(ex.message.orEmpty()))
         if (ex.errorCode == HttpStatus.CONTENT_TOO_LARGE.value()) {
-            return problemResponse(request, ApiProblemTypes.PAYLOAD_TOO_LARGE, "The request has too many parameters")
+            return problemResponse(request, ApiProblemTypes.CONTENT_TOO_LARGE, "The request has too many parameters")
         }
         return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "The request's parameters are malformed")
     }

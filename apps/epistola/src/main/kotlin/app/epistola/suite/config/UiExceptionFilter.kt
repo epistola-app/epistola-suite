@@ -6,6 +6,7 @@ package app.epistola.suite.config
 
 import app.epistola.suite.api.v1.ApiProblemType
 import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.UiProblemTypes
 import app.epistola.suite.api.v1.problemInstance
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -120,17 +121,17 @@ class UiExceptionFilter(
 
             "CatalogReleaseNotFoundException" -> {
                 log.warn("Catalog version not found: {}", cause.message)
-                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
+                UiError(404, UiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
             }
 
             "CatalogReleaseIsReleasedException" -> {
                 log.warn("Write to a released catalog version: {}", cause.message)
-                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
+                UiError(409, UiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
             }
 
             "CatalogReleaseHeldException" -> {
                 log.warn("Discarding a draft refused: {}", cause.message)
-                UiError(409, ApiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
+                UiError(409, UiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
             }
 
             "CatalogReadOnlyException" -> {

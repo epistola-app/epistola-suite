@@ -4,7 +4,7 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.api.v1.toUiValidationProblemBody
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
@@ -85,7 +85,7 @@ class DataContractTabHandler(
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(request.servletRequest()))
+                .body(e.toUiValidationProblemBody(request.servletRequest()))
         } catch (e: DataModelValidationException) {
             val detail = e.validationErrors.entries.joinToString("; ") { (exampleName, errors) ->
                 errors.joinToString("; ") { error ->

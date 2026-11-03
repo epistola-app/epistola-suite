@@ -103,7 +103,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
 
         val response = call(HttpMethod.POST, "$catalog/templates/absent/validate", key, """{"data": {}}""")
 
-        assertThat(response.statusCode).`as`(response.body).isEqualTo(HttpStatus.NOT_FOUND)
+        assertProblem(response, HttpStatus.NOT_FOUND, "not-found")
         assertThat(JsonPath.read<String>(response.body!!, "$.templateId")).isEqualTo("absent")
     }
 

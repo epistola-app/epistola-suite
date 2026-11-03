@@ -127,7 +127,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-not-found")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo("missing-catalog")
     }
 
@@ -153,7 +153,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
         assertThat(JsonPath.read<String>(body, "$.version")).isEqualTo("1.0.0")
     }
 
@@ -307,7 +307,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val refused = restTemplate.exchange("$versions/next", HttpMethod.DELETE, HttpEntity(null, baseHeaders(apiKey)), String::class.java)
 
         assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-held")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
         assertThat(JsonPath.read<List<String>>(refused.body!!, "$.heldBy")).containsExactly("the tenant's default theme (theme $catalogSlug/seasonal)")
     }
 

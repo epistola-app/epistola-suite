@@ -228,7 +228,7 @@ class TenantApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `invalid uuid path variable returns type mismatch problem details`() {
+    fun `invalid uuid path variable returns a validation problem naming it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
 
         val response = restTemplate.exchange(
@@ -241,9 +241,10 @@ class TenantApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/type-mismatch")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/type-mismatch")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/validation-error")
+        assertThat(JsonPath.read<String>(body, "$.errors[0].field")).isEqualTo("requestId")
         assertThat(JsonPath.read<String>(body, "$.parameterName")).isEqualTo("requestId")
         assertThat(JsonPath.read<String>(body, "$.actualValue")).isEqualTo("not-a-uuid")
     }

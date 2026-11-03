@@ -126,7 +126,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         val response = preview(tenantKey, apiKey, "{}")
 
         assertThat(response.statusCode.value()).isEqualTo(404)
-        assertThat(response.body).contains("errors/catalog-not-released").contains("\"catalogId\":\"default\"")
+        assertThat(response.body).contains("errors/not-found").contains("\"catalogId\":\"default\"")
     }
 
     private fun preview(tenantKey: TenantKey, apiKey: String, data: String) = restTemplate.exchange(

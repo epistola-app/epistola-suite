@@ -4,6 +4,7 @@
 
 package app.epistola.suite.api.v1
 
+import app.epistola.api.model.ValidationError
 import app.epistola.suite.api.v1.shared.UnsupportedSortDirectionException
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.assets.AssetInUseException
@@ -108,36 +109,38 @@ object ApiExceptionMappings {
     init {
         val builder = ApiExceptionMappingBuilder()
 
+        // A parameter value the endpoint does not take: a validation problem naming the parameter,
+        // with the values it does take.
         builder.register<UnsupportedSortException>(
-            problemType = ApiProblemTypes.UNSUPPORTED_SORT,
+            problemType = ApiProblemTypes.VALIDATION_ERROR,
             defaultDetail = "The requested sort key is not supported by this endpoint",
-            extensions = { mapOf("value" to it.value, "supportedValues" to it.supportedValues) },
+            extensions = { parameterRejected("sort", it.value, it.supportedValues) },
             logMessage = { "Unsupported sort '${it.value}'; supported: ${it.supportedValues.joinToString(", ")}" },
         )
 
         builder.register<UnsupportedSortDirectionException>(
-            problemType = ApiProblemTypes.UNSUPPORTED_SORT_DIRECTION,
+            problemType = ApiProblemTypes.VALIDATION_ERROR,
             defaultDetail = "The requested sort direction is not supported",
-            extensions = { mapOf("value" to it.value, "supportedValues" to it.supportedValues) },
+            extensions = { parameterRejected("direction", it.value, it.supportedValues) },
             logMessage = { "Unsupported sort direction '${it.value}'; supported: ${it.supportedValues.joinToString(", ")}" },
         )
 
         builder.register<ThemeNotFoundException>(
-            problemType = ApiProblemTypes.THEME_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Theme not found",
             extensions = { mapOf("themeId" to it.themeId.value) },
             logMessage = { "Theme not found: ${it.themeId}" },
         )
 
         builder.register<TenantNotFoundException>(
-            problemType = ApiProblemTypes.TENANT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Tenant not found",
             extensions = { mapOf("tenantId" to it.tenantId.value) },
             logMessage = { "Tenant not found: ${it.tenantId}" },
         )
 
         builder.register<AttributeNotFoundException>(
-            problemType = ApiProblemTypes.ATTRIBUTE_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Attribute not found",
             extensions = {
                 mapOf(
@@ -150,7 +153,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<CodeListNotFoundException>(
-            problemType = ApiProblemTypes.CODE_LIST_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Code list not found",
             extensions = {
                 mapOf(
@@ -163,7 +166,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<TemplateNotFoundException>(
-            problemType = ApiProblemTypes.TEMPLATE_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Template not found",
             extensions = {
                 mapOf(
@@ -175,7 +178,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<StencilNotFoundException>(
-            problemType = ApiProblemTypes.STENCIL_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Stencil not found",
             extensions = {
                 mapOf(
@@ -187,7 +190,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<StencilVersionNotFoundException>(
-            problemType = ApiProblemTypes.STENCIL_VERSION_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Stencil version not found",
             extensions = {
                 mapOf(
@@ -201,7 +204,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<FontNotFoundException>(
-            problemType = ApiProblemTypes.FONT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Font not found",
             extensions = {
                 mapOf(
@@ -214,7 +217,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<GenerationJobNotFoundException>(
-            problemType = ApiProblemTypes.GENERATION_JOB_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Generation job not found",
             extensions = {
                 mapOf(
@@ -238,7 +241,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<DocumentNotFoundException>(
-            problemType = ApiProblemTypes.DOCUMENT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Document not found",
             extensions = {
                 mapOf(
@@ -250,14 +253,14 @@ object ApiExceptionMappings {
         )
 
         builder.register<ThemeInUseException>(
-            problemType = ApiProblemTypes.THEME_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Theme is in use and cannot be deleted",
             extensions = { mapOf("themeId" to it.themeId.value) },
             logMessage = { "Theme in use, cannot delete: ${it.themeId}" },
         )
 
         builder.register<DefaultVariantDeletionException>(
-            problemType = ApiProblemTypes.DEFAULT_VARIANT_DELETION,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Cannot delete the default variant",
             extensions = { mapOf("variantId" to it.variantId.value) },
             logMessage = { "Cannot delete default variant: ${it.variantId}" },
@@ -288,7 +291,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<AttributeInUseException>(
-            problemType = ApiProblemTypes.ATTRIBUTE_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Attribute is in use and cannot be deleted",
             extensions = {
                 mapOf(
@@ -300,7 +303,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<AllowedValuesInUseException>(
-            problemType = ApiProblemTypes.ALLOWED_VALUES_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Cannot remove allowed values that are in use by existing variants",
             extensions = {
                 mapOf(
@@ -312,7 +315,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<TemplateVariantNotFoundException>(
-            problemType = ApiProblemTypes.TEMPLATE_VARIANT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Template variant not found",
             extensions = {
                 mapOf(
@@ -325,7 +328,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<VersionNotFoundException>(
-            problemType = ApiProblemTypes.VERSION_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Version not found",
             extensions = {
                 mapOf(
@@ -338,7 +341,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<EnvironmentNotFoundException>(
-            problemType = ApiProblemTypes.ENVIRONMENT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Environment not found",
             extensions = {
                 mapOf(
@@ -350,14 +353,14 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogNotReleasedException>(
-            problemType = ApiProblemTypes.CATALOG_NOT_RELEASED,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The catalog has no release to generate from",
             extensions = { mapOf("tenantId" to it.tenantKey.value, "catalogId" to it.catalogKey.value) },
             logMessage = { "Catalog not released: ${it.message}" },
         )
 
         builder.register<TemplateNotInReleaseException>(
-            problemType = ApiProblemTypes.TEMPLATE_NOT_IN_RELEASE,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The release does not contain the requested template or variant",
             extensions = {
                 mapOf(
@@ -372,7 +375,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<NoPublishedVersionException>(
-            problemType = ApiProblemTypes.NO_PUBLISHED_VERSION,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "No published version found",
             extensions = {
                 mapOf(
@@ -385,7 +388,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<DefaultVariantNotFoundException>(
-            problemType = ApiProblemTypes.DEFAULT_VARIANT_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "No default variant found",
             extensions = {
                 mapOf(
@@ -397,28 +400,28 @@ object ApiExceptionMappings {
         )
 
         builder.register<AssetNotFoundException>(
-            problemType = ApiProblemTypes.ASSET_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Asset not found",
             extensions = { emptyMap() },
             logMessage = { "Asset not found: ${it.message}" },
         )
 
         builder.register<AssetTooLargeException>(
-            problemType = ApiProblemTypes.ASSET_TOO_LARGE,
+            problemType = ApiProblemTypes.CONTENT_TOO_LARGE,
             defaultDetail = "Asset exceeds maximum size",
             extensions = { emptyMap() },
             logMessage = { "Asset too large: ${it.message}" },
         )
 
         builder.register<UnsupportedAssetTypeException>(
-            problemType = ApiProblemTypes.UNSUPPORTED_ASSET_TYPE,
+            problemType = ApiProblemTypes.BAD_REQUEST,
             defaultDetail = "Unsupported asset media type",
             extensions = { emptyMap() },
             logMessage = { "Unsupported asset type: ${it.message}" },
         )
 
         builder.register<AssetInUseException>(
-            problemType = ApiProblemTypes.ASSET_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Asset is in use and cannot be deleted",
             extensions = {
                 mapOf(
@@ -435,7 +438,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<EnvironmentInUseException>(
-            problemType = ApiProblemTypes.ENVIRONMENT_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Environment is in use and cannot be deleted",
             extensions = {
                 mapOf(
@@ -447,21 +450,21 @@ object ApiExceptionMappings {
         )
 
         builder.register<NoReleaseDeployedException>(
-            problemType = ApiProblemTypes.NO_RELEASE_DEPLOYED,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "No release of the catalog is deployed to the environment",
             extensions = { mapOf("environmentId" to it.environmentKey.value, "catalogId" to it.catalogKey.value) },
             logMessage = { "No release deployed: ${it.message}" },
         )
 
         builder.register<ReleaseNotFoundException>(
-            problemType = ApiProblemTypes.RELEASE_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The catalog has no such release that can be rendered",
             extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.releaseVersion) },
             logMessage = { "Release not found: ${it.message}" },
         )
 
         builder.register<ReleaseNotDeployableException>(
-            problemType = ApiProblemTypes.RELEASE_NOT_DEPLOYABLE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The release cannot be deployed",
             extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.version) },
             logMessage = { "Release not deployable: ${it.message}" },
@@ -633,28 +636,28 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogNotFoundException>(
-            problemType = ApiProblemTypes.CATALOG_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Catalog not found",
             extensions = { mapOf("catalogId" to it.catalogKey.value) },
             logMessage = { "Catalog not found: ${it.catalogKey}" },
         )
 
         builder.register<CatalogNotUpgradeableException>(
-            problemType = ApiProblemTypes.CATALOG_NOT_UPGRADEABLE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Catalog cannot be upgraded",
             extensions = { mapOf("catalogId" to it.catalogKey.value) },
             logMessage = { "Catalog not upgradeable: ${it.message}" },
         )
 
         builder.register<CatalogReleaseVersionException>(
-            problemType = ApiProblemTypes.CATALOG_RELEASE_VERSION_INVALID,
+            problemType = ApiProblemTypes.BAD_REQUEST,
             defaultDetail = "Catalog release version is invalid",
             extensions = { emptyMap() },
             logMessage = { "Catalog release version rejected: ${it.message}" },
         )
 
         builder.register<CatalogUpgradeConflictException>(
-            problemType = ApiProblemTypes.CATALOG_UPGRADE_CONFLICT,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Catalog upgrade is blocked by resources that are still in use",
             extensions = { mapOf("conflicts" to it.conflicts) },
             logMessage = { "Catalog upgrade blocked by ${it.conflicts.size} conflict(s)" },
@@ -681,14 +684,14 @@ object ApiExceptionMappings {
         )
 
         builder.register<CodeListInUseException>(
-            problemType = ApiProblemTypes.CODE_LIST_IN_USE,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Code list is in use and cannot be deleted",
             extensions = { emptyMap() },
             logMessage = { "Cannot delete code list: still bound by an attribute. ${it.message}" },
         )
 
         builder.register<CodeListNotRefreshableException>(
-            problemType = ApiProblemTypes.CODE_LIST_NOT_REFRESHABLE,
+            problemType = ApiProblemTypes.BAD_REQUEST,
             defaultDetail = "Code list is not URL-sourced and cannot be refreshed",
             extensions = { emptyMap() },
             logMessage = { "Code list refresh rejected: ${it.message}" },
@@ -702,14 +705,14 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogReleaseNotFoundException>(
-            problemType = ApiProblemTypes.CATALOG_VERSION_NOT_FOUND,
+            problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Catalog version not found",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
             logMessage = { "Catalog version not found: catalog=${it.catalogKey} version=${it.version}" },
         )
 
         builder.register<CatalogReleaseIsReleasedException>(
-            problemType = ApiProblemTypes.CATALOG_VERSION_RELEASED,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The catalog version is released and cannot change",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
             logMessage = { "Write to a released catalog version refused: catalog=${it.catalogKey} version=${it.version}" },
@@ -799,7 +802,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogReleaseHeldException>(
-            problemType = ApiProblemTypes.CATALOG_VERSION_HELD,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The draft alone holds resources something outside it still uses",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
             logMessage = { "Discarding a draft refused: ${it.message}" },
@@ -828,6 +831,16 @@ object ApiExceptionMappings {
      * [ApiExceptionHandler.handleMappedApiException] annotation.
      */
     fun registeredClasses(): Set<Class<out Throwable>> = registry.keys.toSet()
+
+    /** Every problem type a registered exception answers with; `ProblemTypeRegistryTest` holds them to the contract. */
+    fun registeredProblemTypes(): Set<ApiProblemType> = registry.values.mapTo(mutableSetOf()) { it.problemType }
+
+    /** A query parameter's [value] the endpoint does not take: `errors[]` names [parameter], and the members list what it takes. */
+    private fun parameterRejected(parameter: String, value: String, supportedValues: List<String>): Map<String, Any?> = mapOf(
+        "errors" to listOf(ValidationError(field = parameter, message = "must be one of ${supportedValues.joinToString(", ")}", rejectedValue = value)),
+        "value" to value,
+        "supportedValues" to supportedValues,
+    )
 }
 
 private class ApiExceptionMappingBuilder {

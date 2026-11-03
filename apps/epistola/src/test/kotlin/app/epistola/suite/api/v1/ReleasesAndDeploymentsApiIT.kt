@@ -109,7 +109,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val missing = exchange(HttpMethod.GET, "$catalog/releases/9.9.9", key)
         assertThat(missing.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(missing.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-not-found")
+        assertThat(JsonPath.read<String>(missing.body!!, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
     }
 
     @Test
@@ -171,7 +171,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val none = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("^2.0.0"))
         assertThat(none.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(none.body!!, "$.type")).isEqualTo("https://epistola.app/errors/no-release-deployed")
+        assertThat(JsonPath.read<String>(none.body!!, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         // Says what to do, in the words the application uses, and where.
         assertThat(JsonPath.read<String>(none.body!!, "$.detail"))
             .isEqualTo(
@@ -224,7 +224,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val unknown = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("9.9.9"))
         assertThat(unknown.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(unknown.body!!, "$.type")).isEqualTo("https://epistola.app/errors/release-not-found")
+        assertThat(JsonPath.read<String>(unknown.body!!, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
     }
 
     @Test

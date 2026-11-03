@@ -4,7 +4,7 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.api.v1.toUiValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
@@ -692,7 +692,7 @@ class DocumentTemplateHandler(
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(request.servletRequest()))
+                .body(e.toUiValidationProblemBody(request.servletRequest()))
         }
 
         // Load available themes for the fragment
@@ -819,7 +819,7 @@ class DocumentTemplateHandler(
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(request.servletRequest()))
+                .body(e.toUiValidationProblemBody(request.servletRequest()))
         }
 
         return if (result.deleted) {
