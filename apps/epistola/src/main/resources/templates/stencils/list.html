@@ -65,7 +65,7 @@
                         <td th:title="${stencil.name}">
                             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogId) ?: stencil.catalogId.address},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
-                            <div th:if="${stencil.description != null}" class="text-muted text-xs"
+                            <div th:if="${!#strings.isEmpty(stencil.description)}" class="text-muted text-xs"
                                  data-testid="stencil-description" th:title="${stencil.description}" th:text="${stencil.description}"
                                  style="overflow: hidden; text-overflow: ellipsis;"></div>
                         </td>

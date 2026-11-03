@@ -232,7 +232,7 @@
                                        th:title="'View ' + ${resource.name} + ' on Epistola Exchange'"></a>
                                     <span th:if="${exchangeCatalogUrl == null}" th:text="${resource.name}"></span>
                                 </th:block>
-                                <div th:if="${resource.description}" class="text-muted text-xs"
+                                <div th:if="${!#strings.isEmpty(resource.description)}" class="text-muted text-xs"
                                      data-testid="catalog-resource-description" th:title="${resource.description}" th:text="${resource.description}"
                                      style="overflow: hidden; text-overflow: ellipsis;"></div>
                             </td>

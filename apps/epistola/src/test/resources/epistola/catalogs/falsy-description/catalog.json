@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 8,
+  "catalog": {
+    "key": "falsy-description",
+    "registry": "exchange.epistola.app",
+    "namespace": "epistola",
+    "name": "Falsy Description",
+    "description": "A test catalog whose one theme is described as \"No\".",
+    "attributes": [
+      {
+        "catalogKey": "system",
+        "key": "locale",
+        "value": "nl-NL"
+      }
+    ],
+    "keywords": ["brieven", "getting-started", "nederlands"],
+    "license": {
+      "name": "Creative Commons Attribution 4.0 International",
+      "spdxExpression": "CC-BY-4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "copyrightText": "Copyright Epistola Nederland B.V."
+    }
+  },
+  "publisher": {
+    "name": "Epistola",
+    "url": "https://github.com/epistola-app"
+  },
+  "release": {
+    "version": "1.0.0",
+    "releasedAt": "2026-11-03T00:00:00Z"
+  },
+  "catalogDependencies": [
+    {
+      "alias": "system",
+      "registry": "exchange.epistola.app",
+      "namespace": "epistola",
+      "catalogKey": "system",
+      "releaseVersion": "2.1.1",
+      "releaseFingerprint": "v6:97377990b50e1a973a6ceb9cd8811f3e6afa9761c5314350c3ecb05464b818f2"
+    }
+  ],
+  "resources": [
+    {
+      "type": "theme",
+      "key": "plain",
+      "name": "Plain Theme",
+      "description": "No",
+      "updatedAt": "2026-11-03T00:00:00Z",
+      "detailUrl": "./resources/themes/plain.json"
+    }
+  ]
+}

@@ -74,8 +74,41 @@ class ListDescriptionsHtmxTest : BaseIntegrationTest() {
 
         val browse = page(tenant, "epistola-demo", "browse")
         assertThat(browse).doesNotContain("<th>Description</th>")
-        assertThat(browse).contains("data-testid=\"catalog-resource-description\"")
-            .contains("A clean corporate theme with professional styling.")
+        val row = row(browse, "A clean corporate theme with professional styling.")
+        val description = row.indexOf("data-testid=\"catalog-resource-description\"")
+        assertThat(description).`as`("the description is in the resource's own row").isPositive()
+        assertThat(row.indexOf("Corporate Theme")).`as`("under the name it describes").isBetween(0, description)
+        assertThat(description).`as`("in the name's cell, before the slug's").isLessThan(row.indexOf("<code>"))
+    }
+
+    @Test
+    fun `a description reading No or Off is shown, not taken for false`() {
+        lateinit var tenant: Tenant
+        fixture {
+            given {
+                tenant = tenant("Falsy Descriptions")
+                withMediator {
+                    CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("letters"), name = "Letters").execute()
+                    val letters = testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", description = "No").execute()
+                    CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "Off").execute()
+                    // The resources table is drawn only for a catalog with a source: this one has one theme, described as "No".
+                    RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/falsy-description/catalog.json", authType = AuthType.NONE).execute()
+                }
+            }
+        }
+
+        assertThat(row(page(tenant, "letters", "themes"), ">Brand</a>")).contains("data-testid=\"theme-description\"").contains(">No<")
+        assertThat(row(page(tenant, "letters", "stencils"), ">Footer</a>")).contains("data-testid=\"stencil-description\"").contains(">Off<")
+        assertThat(row(page(tenant, "falsy-description", "browse"), "Plain Theme")).`as`("the resources table")
+            .contains("data-testid=\"catalog-resource-description\"").contains(">No<")
+    }
+
+    /** The table row holding [text]. */
+    private fun row(page: String, text: String): String {
+        val at = page.indexOf(text)
+        assertThat(at).`as`("'%s' is on the page", text).isNotNegative()
+        return page.substring(page.lastIndexOf("<tr", at), page.indexOf("</tr>", at))
     }
 
     private fun page(tenant: Tenant, catalog: String, path: String): String = restTemplate

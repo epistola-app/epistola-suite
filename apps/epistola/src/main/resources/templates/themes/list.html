@@ -88,7 +88,7 @@
                                   title="The house theme: new catalogs start with it as their default theme">House theme</span>
                             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogId) ?: theme.catalogId.address},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
-                            <div th:if="${theme.description != null}" class="text-muted text-xs"
+                            <div th:if="${!#strings.isEmpty(theme.description)}" class="text-muted text-xs"
                                  data-testid="theme-description" th:title="${theme.description}" th:text="${theme.description}"
                                  style="overflow: hidden; text-overflow: ellipsis;"></div>
                         </td>
