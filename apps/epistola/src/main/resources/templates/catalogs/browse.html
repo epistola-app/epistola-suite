@@ -217,7 +217,7 @@
                                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},environmentId=${row.environmentKey})}">
                                         <input type="hidden" name="version" th:value="${served.version}">
                                         <button type="button"
-                                                class="ep-btn ep-btn-destructive ep-btn-sm"
+                                                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
                                                 data-confirm-submit
                                                 data-confirm-submit-title="Undeploy this version"
                                                 th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed release of it, or fail when there is none.'"
@@ -275,23 +275,16 @@
                                                 th:text="${draft.label} + ' (follows its changes)'">Next release (follows its changes)</option>
                                     </optgroup>
                                 </select>
-                                <div class="catalog-deploy-row">
-                                    <div class="catalog-deploy-replace-group">
-                                        <label th:unless="${row.served.isEmpty()}" class="text-sm catalog-deploy-replace">
-                                            <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace">
-                                            <span>instead of the others</span>
-                                        </label>
-                                        <details th:if="${!row.served.isEmpty()}" class="catalog-deploy-help" data-help
-                                                 data-testid="catalog-deploy-replace-help">
-                                            <summary aria-label="What does 'instead of the others' mean?"
-                                                     title="What does 'instead of the others' mean?">
-                                                <th:block th:replace="~{epistola-web/icon :: icon(name='circle-help', class='ep-icon ep-icon-sm')}" />
-                                            </summary>
-                                            <p class="catalog-deploy-help-text">Normally a release is deployed next to the ones already here, so applications asking for an older version keep working. Tick this to serve only this release instead — anything still asking for an older version stops getting documents.</p>
-                                        </details>
-                                    </div>
-                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm catalog-deploy-submit">Deploy</button>
-                                </div>
+                                <th:block th:unless="${row.served.isEmpty()}">
+                                    <label class="text-sm catalog-deploy-replace">
+                                        <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace"
+                                               th:attr="aria-describedby='catalog-deploy-replace-hint-' + ${row.environmentKey}">
+                                        <span>instead of the others</span>
+                                    </label>
+                                    <div class="catalog-deployment-caption" data-testid="catalog-deploy-replace-hint"
+                                         th:id="'catalog-deploy-replace-hint-' + ${row.environmentKey}">Normally a release is deployed next to the ones already here, so applications asking for an older version keep working. Tick this to serve only this release: anything still asking for an older version stops getting documents.</div>
+                                </th:block>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm catalog-deploy-submit">Deploy</button>
                             </form>
                         </div>
                     </div>

@@ -121,6 +121,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.0").execute()
         }
 
+        val card = deploymentCard(live(tenant, "dep-replace"), "production")
+        assertThat(card).`as`("the replace option says what it does, and is described by that line")
+            .contains("data-testid=\"catalog-deploy-replace\"")
+            .contains("aria-describedby=\"catalog-deploy-replace-hint-production\"")
+            .contains("id=\"catalog-deploy-replace-hint-production\"")
+            .contains("Tick this to serve only this release")
+
         restTemplate.postForEntity(
             "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-replace/deployments",
             form("environmentId" to "production", "version" to "1.1.0"),

@@ -42,7 +42,6 @@ const ICONS = [
   'chevron-right',
   'chevron-up',
   'circle-arrow-up',
-  'circle-help',
   'clock',
   'columns-2',
   'copy',

@@ -387,23 +387,3 @@ function localizeTimes(root) {
 document.addEventListener('htmx:load', function (event) {
   localizeTimes(event.target);
 });
-
-// ── Help popovers ──────────────────────────────────────────────────────────
-// Usage: <details data-help><summary aria-label="…">?</summary><p>…</p></details>
-// A native disclosure for a short explanation. Native details closes only on a
-// second click on the summary; an open popover should also close when the
-// reader clicks anywhere else or presses Escape.
-document.addEventListener('click', function (event) {
-  for (const details of document.querySelectorAll('details[data-help][open]')) {
-    if (!details.contains(event.target)) details.open = false;
-  }
-});
-
-document.addEventListener('keydown', function (event) {
-  if (event.key !== 'Escape') return;
-  for (const details of document.querySelectorAll('details[data-help][open]')) {
-    details.open = false;
-    const summary = details.querySelector('summary');
-    if (summary) summary.focus();
-  }
-});
