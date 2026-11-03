@@ -99,23 +99,30 @@ class ExchangeReleaseRegistries(
         private fun <T> refusals(block: () -> T): T = try {
             block()
         } catch (e: ValidationException) {
-            throw when (e.code) {
-                ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE -> NamespaceNotGrantedException(e.message)
-
-                ValidationCode.EXCHANGE_RELEASE_UNAVAILABLE, ValidationCode.PUBLICATION_NO_RELEASE -> RegistryReleaseNotFoundException(e.message)
-
-                ValidationCode.EXCHANGE_ARCHIVE_REJECTED -> RegistryArchiveRejectedException(e.message)
-
-                ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN,
-                ValidationCode.EXCHANGE_INSTALL_UNAVAILABLE,
-                ValidationCode.PUBLICATION_UNAVAILABLE,
-                ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
-                ValidationCode.PUBLICATION_REJECTED,
-                ValidationCode.PUBLICATION_ARCHIVE_MISSING,
-                -> ReleaseRegistryConflictException(e.message)
-
-                else -> e
-            }
+            throw exchangeRefusal(e)
         }
     }
+}
+
+/**
+ * An Exchange refusal as the release-registry refusal it means, for every path that talks to the
+ * Exchange: installing through the registry (`installRegistryRelease`) and through a subscribed
+ * catalog's source (`installCatalogRelease`) answer it alike. Any other passes as it is.
+ */
+internal fun exchangeRefusal(e: ValidationException): RuntimeException = when (e.code) {
+    ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE -> NamespaceNotGrantedException(e.message)
+
+    ValidationCode.EXCHANGE_RELEASE_UNAVAILABLE, ValidationCode.PUBLICATION_NO_RELEASE -> RegistryReleaseNotFoundException(e.message)
+
+    ValidationCode.EXCHANGE_ARCHIVE_REJECTED -> RegistryArchiveRejectedException(e.message)
+
+    ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN,
+    ValidationCode.EXCHANGE_INSTALL_UNAVAILABLE,
+    ValidationCode.PUBLICATION_UNAVAILABLE,
+    ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
+    ValidationCode.PUBLICATION_REJECTED,
+    ValidationCode.PUBLICATION_ARCHIVE_MISSING,
+    -> ReleaseRegistryConflictException(e.message)
+
+    else -> e
 }

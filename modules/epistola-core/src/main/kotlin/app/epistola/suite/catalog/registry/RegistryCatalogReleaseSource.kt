@@ -53,7 +53,13 @@ class RegistryCatalogReleaseSource(
         } catch (e: ValidationException) {
             throw CatalogSourceUnavailableException("This installation has no registry called '${source.registry}' any more. ${e.message}", cause = e)
         }
-        return call(registries.client(registry), registries.repository(registry, catalog.registry, source.namespace, source.catalogKey))
+        // A refusal the pull raises (an archive over the size limit) answers as it does through
+        // the release registry, not as a validation error of the request.
+        return try {
+            call(registries.client(registry), registries.repository(registry, catalog.registry, source.namespace, source.catalogKey))
+        } catch (e: ValidationException) {
+            throw registryRefusal(e, source.registry)
+        }
     }
 }
 

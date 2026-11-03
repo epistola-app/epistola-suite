@@ -62,13 +62,20 @@ private class ContainerReleaseRegistry(override val summary: ReleaseRegistrySumm
     private fun <T> refusals(block: () -> T): T = try {
         block()
     } catch (e: ValidationException) {
-        throw when (e.code) {
-            ValidationCode.REGISTRY_UNKNOWN -> ReleaseRegistryNotFoundException(name, listOf(name))
-            ValidationCode.REGISTRY_TAG_TAKEN -> ReleaseNumberTakenException(e.message)
-            ValidationCode.REGISTRY_RELEASE_UNAVAILABLE -> RegistryReleaseNotFoundException(e.message)
-            ValidationCode.REGISTRY_ARCHIVE_REJECTED -> RegistryArchiveRejectedException(e.message)
-            ValidationCode.REGISTRY_CATALOG_KEY_TAKEN -> ReleaseRegistryConflictException(e.message)
-            else -> e
-        }
+        throw registryRefusal(e, name)
     }
+}
+
+/**
+ * A container registry refusal as the release-registry refusal it means, for every path that
+ * pulls from a registry: installing through it (`installRegistryRelease`) and through a subscribed
+ * catalog's source (`installCatalogRelease`) answer it alike. Any other passes as it is.
+ */
+internal fun registryRefusal(e: ValidationException, registry: String): RuntimeException = when (e.code) {
+    ValidationCode.REGISTRY_UNKNOWN -> ReleaseRegistryNotFoundException(registry, listOf(registry))
+    ValidationCode.REGISTRY_TAG_TAKEN -> ReleaseNumberTakenException(e.message)
+    ValidationCode.REGISTRY_RELEASE_UNAVAILABLE -> RegistryReleaseNotFoundException(e.message)
+    ValidationCode.REGISTRY_ARCHIVE_REJECTED -> RegistryArchiveRejectedException(e.message)
+    ValidationCode.REGISTRY_CATALOG_KEY_TAKEN -> ReleaseRegistryConflictException(e.message)
+    else -> e
 }
