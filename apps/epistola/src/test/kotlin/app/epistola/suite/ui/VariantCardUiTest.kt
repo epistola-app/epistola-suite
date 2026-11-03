@@ -111,11 +111,12 @@ class VariantCardUiTest : BasePlaywrightTest() {
         // qualified.
         val langSelect = filterBar.locator("select[data-filter-key='default.lang']")
         assertThat(langSelect).isVisible()
-        assertThat(langSelect.locator("option")).hasCount(3) // All + en + nl
+        // Only the values variants use: a value no variant has can only filter everything away.
+        assertThat(langSelect.locator("option")).hasCount(2) // All + en (nl is allowed, unused)
 
         val brandSelect = filterBar.locator("select[data-filter-key='default.brand']")
         assertThat(brandSelect).isVisible()
-        assertThat(brandSelect.locator("option")).hasCount(3) // All + acme + globex
+        assertThat(brandSelect.locator("option")).hasCount(2) // All + acme (globex is allowed, unused)
     }
 
     @Test
