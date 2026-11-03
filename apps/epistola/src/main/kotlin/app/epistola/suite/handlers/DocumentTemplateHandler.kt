@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -399,16 +400,15 @@ class DocumentTemplateHandler(
             }
         }
 
-        // Success: soft-navigate to the newly created template's page via a
-        // boosted body-swap (HX-Location) — the same navigation an in-app link
-        // click performs, so no full-page reload. The dialog goes with the
-        // swapped-out body; the list is not refreshed.
+        // Success: a new template is made to be designed, so open its one variant in the editor.
+        // The editor is a page of its own outside the shell (its own head, no boosting), so this
+        // is a full navigation (HX-Redirect), not a boosted body swap.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
         val catalogId = request.catalogSegment()
-        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey/variants/${VariantKey.INITIAL.value}/editor"
         return request.htmx {
-            dialogLocation(destination)
+            dialogRedirect(destination)
             onFullPage { redirect(destination) }
         }
     }
@@ -465,6 +465,16 @@ class DocumentTemplateHandler(
         // raced against a wall clock. Absent in production → attribute omitted.
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
+        // Whether this editor saves: the catalog can be changed here and the viewer may change
+        // templates. When it cannot, the editor still opens, to show how the template is built,
+        // but saves nothing and says why, instead of failing every autosave with a retry that
+        // cannot succeed.
+        val editorCanSave = draftBar.editable && auth.has(Permission.TEMPLATE_EDIT)
+        val readOnlyNote = when {
+            editorCanSave -> null
+            !draftBar.editable -> "Nothing you change here is saved. " + (draftBar.readOnlyExplanation ?: "This catalog cannot be changed here.")
+            else -> "Nothing you change here is saved: changing templates needs the author role."
+        }
 
         return ServerResponse.ok().render(
             "templates/editor",
@@ -493,6 +503,8 @@ class DocumentTemplateHandler(
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
                 "editorFeatures" to editorFeatures(featureToggles),
+                "editorCanSave" to editorCanSave,
+                "readOnlyNote" to readOnlyNote,
             ),
         )
     }

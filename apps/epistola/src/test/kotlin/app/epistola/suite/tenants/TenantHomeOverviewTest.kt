@@ -109,6 +109,8 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(body).`as`("no one-button Quick Actions block; environments are in the nav").doesNotContain("Quick Actions")
         // The steps point at a catalog the tenant has, never at one assumed to exist.
         assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/default/templates")
+        // "Create a template" opens the new-template dialog, not the list it would then be found on.
+        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/default/templates/new\">Create a template<")
     }
 
     @Test

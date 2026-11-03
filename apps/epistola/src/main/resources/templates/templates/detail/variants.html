@@ -141,16 +141,23 @@
                         <!--/* Not boosted: the editor is a full page with its own layout and scripts, outside the shell. */-->
                         <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                            th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
-                           class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false" data-testid="variant-open-editor">
+                           class="ep-btn ep-btn-primary ep-btn-sm" hx-boost="false" data-testid="variant-open-editor">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                             <span>Open editor</span>
+                        </a>
+                        <!--/* Where it cannot be changed here, the editor still shows how it is built; it saves nothing. */-->
+                        <a th:unless="${auth.has('TEMPLATE_EDIT') and editable}"
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
+                           class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false" data-testid="variant-view-in-editor">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            <span>View in editor</span>
                         </a>
                         <form th:if="${variant.offerMarkReady}"
                               th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section"
                               hx-swap="outerHTML"
                               style="display: inline;">
-                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="variant-mark-ready">
+                            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="variant-mark-ready">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
                             <span>Mark ready</span>
                             </button>

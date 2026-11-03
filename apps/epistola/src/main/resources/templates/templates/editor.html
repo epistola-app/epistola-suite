@@ -88,8 +88,12 @@
             <span class="editor-nav-variant" th:text="${variantId}"></span>
         </div>
         <div class="ws-bar-right editor-nav-right">
-            <div th:if="${scope.statusHref != null}" class="ws-status" data-testid="ws-status"
-                 th:hx-get="@{${scope.statusHref}}" hx-trigger="load" hx-swap="innerHTML"></div>
+            <!--/* An editor that saves nothing says so, and why, before anything is changed. */-->
+            <span th:if="${readOnlyNote != null}" class="ws-status-text" data-testid="editor-read-only"
+                  th:title="${readOnlyNote}" th:text="${scope.readOnlyLabel != null} ? ${scope.readOnlyLabel} + ' · not saved' : 'Not saved'">Supplied by Epistola · not saved</span>
+            <!--/* Refreshed after each save (editor-boot.js), so a first change shows up as unpublished. */-->
+            <div th:if="${scope.statusHref != null and editorCanSave}" class="ws-status" data-testid="ws-status"
+                 th:hx-get="@{${scope.statusHref}}" hx-trigger="load, ws-status-refresh from:body" hx-swap="innerHTML"></div>
         </div>
     </nav>
     <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
@@ -120,6 +124,7 @@
         "dataModel": [[${dataModel}]],
         "locale": [[${resolvedLocale}]],
         "features": [[${editorFeatures}]],
+        "canSave": [[${editorCanSave}]],
         "plugins": [
             {
                 "id": "ai",

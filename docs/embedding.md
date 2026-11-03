@@ -201,7 +201,9 @@ request (and, for create, the response) alone:
    Identity comes from the response's `HX-Location`/`HX-Redirect` header — the
    same header `dialogLocation`/`dialogRedirect` (`HtmxDsl.kt`) already set for
    unrelated, pre-existing navigation reasons, read via
-   `xhr.getResponseHeader(...)` inside the `htmx:afterRequest` handler.
+   `xhr.getResponseHeader(...)` inside the `htmx:afterRequest` handler. The header may name a
+   page under the new resource: a new template opens in its editor
+   (`…/templates/{key}/variants/initial/editor`), so the key is the segment after the type.
 
 Any current or future handler that follows this URL shape is covered
 automatically — nothing to wire, nothing to keep in sync. Two mutations aren't

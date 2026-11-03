@@ -68,6 +68,9 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("data-testid=\"template-mark-ready\"")
             // The card's two main actions say what they do, not only through an icon.
             assertThat(body).contains("data-testid=\"variant-open-editor\"").contains(">Open editor<")
+            // Designing it is the next step, so the editor is the primary action, not the ready mark.
+            assertThat(body.tagWithTestId("variant-open-editor")).contains("ep-btn-primary")
+            assertThat(body.tagWithTestId("variant-mark-ready")).contains("ep-btn-outline").doesNotContain("ep-btn-primary")
             assertThat(body).contains("data-testid=\"variant-preview\"").contains(">Preview<")
             // No versions any more: no history, no publish, no discard.
             assertThat(body).doesNotContain("Version history")
@@ -173,4 +176,11 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         val headers = HttpHeaders().apply { set("HX-Request", "true") }
         return restTemplate.postForEntity(url, HttpEntity<Void>(headers), String::class.java)
     }
+}
+
+/** The opening tag of the element carrying `data-testid="[testId]"`. */
+private fun String.tagWithTestId(testId: String): String {
+    val at = indexOf("data-testid=\"$testId\"")
+    require(at >= 0) { "no element with data-testid=$testId" }
+    return substring(lastIndexOf('<', at), indexOf('>', at) + 1)
 }

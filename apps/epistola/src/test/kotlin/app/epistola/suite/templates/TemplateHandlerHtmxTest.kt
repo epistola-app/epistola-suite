@@ -26,10 +26,10 @@ import org.springframework.util.MultiValueMap
  * Server-side contract for the document-template create form converted onto the
  * dialog groundwork, mirroring EnvironmentHandlerHtmxTest. Asserts the
  * URL-addressable dialog convention (docs/dialog-forms.md) with the template
- * form's twist: success is a client-side soft navigation to the new template's
- * page (HX-Location, a boosted body-swap), not an in-place list refresh. Branches
+ * form's twist: success opens the new template in the editor (HX-Redirect, a full
+ * navigation, since the editor is a page outside the shell), not an in-place list refresh. Branches
  * covered: HTMX GET → dialog fragment (catalog <select> from AUTHORED catalogs);
- * HTMX POST invalid → retarget the form + 422; HTMX POST valid → HX-Location;
+ * HTMX POST invalid → retarget the form + 422; HTMX POST valid → HX-Redirect;
  * plain list route → mount stays empty (guards the th:if/th:replace precedence
  * trap).
  */
@@ -119,7 +119,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST valid returns HX-Location to the new template page`() = fixture {
+    fun `HTMX POST valid opens the new template in the editor`() = fixture {
         lateinit var testTenant: Tenant
 
         given { testTenant = tenant("Tpl Create Valid") }
@@ -138,13 +138,13 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Success soft-navigates the page to the created template via a boosted
-            // body-swap (HX-Location); the dialog goes with the swapped-out body —
-            // asserted via the header, not a body. No HX-Redirect (full reload).
+            // A new template is made to be designed, so success opens its one variant in the
+            // editor. The editor is a page of its own outside the shell, so this is a full
+            // navigation (HX-Redirect), not a boosted body swap (HX-Location).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/monthly-invoice")
-            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+            assertThat(response.headers.getFirst("HX-Redirect"))
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/monthly-invoice/variants/initial/editor")
+            assertThat(response.headers.getFirst("HX-Location")).isNull()
         }
     }
 

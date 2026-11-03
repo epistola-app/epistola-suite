@@ -608,7 +608,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `POST templates redirects to detail page on success`() = fixture {
+    fun `POST templates redirects to the new template's editor on success`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -628,9 +628,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // TestRestTemplate follows the 303 redirect to the detail page
+            // TestRestTemplate follows the 303 redirect to the editor of the template's one variant
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("HTMX Template")
+            assertThat(response.body).contains("HTMX Template").contains("data-testid=\"editor-container\"")
 
             val templates = listDocumentTemplatesHandler.handle(
                 ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "HTMX Template", catalogVersion = null),

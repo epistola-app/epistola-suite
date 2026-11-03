@@ -60,7 +60,10 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
             (() => {
                 if (window.__epistolaMessagesInstalled) return;
                 window.__epistolaMessagesInstalled = true;
-                window.__epistolaMessages = [];
+                // A real host outlives the frame's page loads, so what it was told survives a full
+                // navigation (a new template opens its editor with one): kept in sessionStorage.
+                const KEY = '__epistolaMessages';
+                window.__epistolaMessages = JSON.parse(sessionStorage.getItem(KEY) || '[]');
                 // Made on first use: an init script runs before there is a document to put the
                 // frame in. A detached frame's window still takes a patched postMessage, and is a
                 // real window for a MessageEvent's source.
@@ -74,6 +77,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
                             host = frame.contentWindow;
                             host.postMessage = function (message, targetOrigin) {
                                 window.__epistolaMessages.push({ message: message, targetOrigin: targetOrigin });
+                                sessionStorage.setItem(KEY, JSON.stringify(window.__epistolaMessages));
                             };
                             frame.remove();
                         }
@@ -232,7 +236,9 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Embed Bridge Template", "embed-bridge-template")
-        assertThat(page.locator("#page-title-text")).containsText("Embed Bridge Template")
+        // A new template opens in its editor, a page under the template's own path.
+        assertThat(page.getByTestId("editor-container")).isVisible()
+        assertThat(page.locator(".editor-nav")).containsText("Embed Bridge Template")
 
         val changed = latestMessageOfType("resource-changed")
         checkNotNull(changed) { "expected a 'resource-changed' message, got: ${capturedMessages()}" }
