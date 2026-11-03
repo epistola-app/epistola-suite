@@ -178,13 +178,14 @@ a.stat-card:hover {
 
 /* A node's text is HTML inside the SVG (a foreignObject), so a long catalog name or address
    truncates with an ellipsis within the box instead of spilling over its edge; the full text
-   stays in the tooltip. */
+   stays in the tooltip. Sizes are in pixels, like the SVG box around it: rem text grows with the
+   browser's font setting and would be cut off in a box that does not. */
 .catalog-graph-box {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--ep-space-1);
+  gap: 4px;
   height: 100%;
   line-height: 1.35;
 }
@@ -192,7 +193,7 @@ a.stat-card:hover {
 .catalog-graph-box-name {
   overflow: hidden;
   color: var(--ep-card-foreground);
-  font-size: var(--ep-text-sm);
+  font-size: 14px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -201,7 +202,7 @@ a.stat-card:hover {
 .catalog-graph-box-detail {
   overflow: hidden;
   color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -241,13 +242,12 @@ a.stat-card:hover {
 
 .catalog-deployment-release {
   gap: var(--ep-space-2);
-  padding-bottom: var(--ep-space-3);
-  border-bottom: 1px solid var(--ep-border-color);
 }
 
-.catalog-deployment-release:last-of-type {
-  border-bottom: 0;
-  padding-bottom: 0;
+/* A divider between releases, never after the last: a follows or "comes along" line may come next. */
+.catalog-deployment-release + .catalog-deployment-release {
+  padding-top: var(--ep-space-3);
+  border-top: 1px solid var(--ep-border-color);
 }
 
 .catalog-deployment-release-head {
