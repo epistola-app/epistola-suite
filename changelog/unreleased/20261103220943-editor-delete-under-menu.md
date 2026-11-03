@@ -5,5 +5,7 @@ audience: user
 title: A text block can be deleted while it is being typed in.
 ---
 
-The formatting menu floats above the caret whenever a text block has focus; on the block's first line
-it covered the block's delete button. It now moves above the block's header instead.
+Clicking a text block's header selects the block without putting the cursor in its text, so the
+formatting menu no longer comes up over the header's buttons; clicking the text starts typing. And
+while typing on a block's first line, the menu moves above the block's header rather than covering its
+delete button.

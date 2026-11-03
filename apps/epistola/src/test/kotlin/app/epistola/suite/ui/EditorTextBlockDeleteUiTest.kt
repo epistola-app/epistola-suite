@@ -18,6 +18,7 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
+ * A text block's header is its handle: clicking it selects the block, it does not start typing.
  * A text block is deleted with the trash button in its header. While the text had focus, the
  * formatting menu floated just above the caret, which on the first line is right over that header,
  * so the button could not be clicked. The menu now keeps clear of the block's own header.
@@ -46,5 +47,30 @@ class EditorTextBlockDeleteUiTest : BasePlaywrightTest() {
         page.locator(".canvas-block.selected .canvas-block-delete").click()
 
         assertThat(page.getByTestId("canvas-block")).hasCount(0)
+    }
+
+    @Test
+    fun `clicking a text block's header selects it without starting to type`() {
+        val tenantKey = TenantKey.of("test-editor-text-header-${System.nanoTime()}")
+        val template = withMediator {
+            TestNamespaces.createTenant(tenantKey, "Text Header Tenant").execute()
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
+            CreateDocumentTemplate(id = templateId, name = "Text Header", catalogVersion = null).execute().withRequiredDataExample()
+        }
+        gotoAndReady("/tenants/$tenantKey/catalogs/default/templates/${template.id}/variants/initial/editor")
+        page.waitForSelector("epistola-editor")
+        page.getByTestId("palette-item-text").click()
+
+        // The header is the block's handle: it selects the block, and the text does not take focus,
+        // so no formatting menu comes up over the header's own buttons.
+        page.getByTestId("canvas-block").first().locator(".canvas-block-header").click()
+        assertThat(page.locator(".canvas-block.selected")).hasCount(1)
+        assertThat(page.locator(".ProseMirror:focus")).hasCount(0)
+        assertThat(page.locator(".pm-bubble-menu")).isHidden()
+
+        // The text itself is where typing starts.
+        page.locator(".ProseMirror").first().click()
+        assertThat(page.locator(".ProseMirror:focus")).hasCount(1)
+        assertThat(page.locator(".pm-bubble-menu")).isVisible()
     }
 }
