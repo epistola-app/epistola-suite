@@ -32,6 +32,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.AttributeStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
@@ -41,7 +42,6 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import app.epistola.suite.testing.atNext
 
 /**
  * A draft's variant attributes are stored as JSON (ADR 0033, step 3): `{ "resource":

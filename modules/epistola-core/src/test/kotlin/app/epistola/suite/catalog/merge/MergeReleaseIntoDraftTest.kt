@@ -33,6 +33,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -42,7 +43,6 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import app.epistola.suite.testing.atNext
 
 /**
  * Merging a release into a draft (ADR 0032). Two tenants play two installations: A releases 1.0.0,

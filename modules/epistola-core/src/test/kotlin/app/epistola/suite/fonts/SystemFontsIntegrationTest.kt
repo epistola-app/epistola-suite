@@ -24,6 +24,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SystemCatalogSetup
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -37,7 +38,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.sql.SQLException
-import app.epistola.suite.testing.atNext
 
 /**
  * End-to-end coverage for the bundled system fonts: every tenant gets the

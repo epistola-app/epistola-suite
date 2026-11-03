@@ -5,6 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.atNext
 import db.migration.core.frozen.CanonicalJson
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Test
 import java.security.MessageDigest
 import java.sql.Connection
 import java.sql.DriverManager
-import app.epistola.suite.testing.atNext
 
 /**
  * The 2.0 upgrade's legacy blobs (step 5, #742): an installation that upgrades before the 1.x content

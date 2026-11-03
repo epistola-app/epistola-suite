@@ -38,6 +38,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -56,7 +57,6 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
-import app.epistola.suite.testing.atNext
 
 /**
  * Versioning semantics of catalog **ZIP exchange** (contract `importCatalog`): an import installs

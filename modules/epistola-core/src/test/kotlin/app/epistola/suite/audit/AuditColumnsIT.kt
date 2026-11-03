@@ -15,6 +15,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -25,7 +26,6 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
-import app.epistola.suite.testing.atNext
 
 /**
  * Verifies the audit columns (`created_by` / `updated_by`) added by the

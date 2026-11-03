@@ -218,6 +218,7 @@ class ContentVersionSqlTest {
             """\b(FROM|JOIN|INTO|UPDATE)\s+(${CONTENT_TABLES.joinToString("|")})\b""",
             RegexOption.IGNORE_CASE,
         )
+
         // A release named by its number (`version = :version`) names its version as much as a `version_id` does.
         private val NAMES_VERSION = Regex("""version_id|\bversion\s*=|inNextVersion\(|inVersionOrNext\(|templateViewJoin\(|templateJoin\(""")
         private val WHITESPACE = Regex("""\s+""")

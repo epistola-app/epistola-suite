@@ -35,6 +35,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -43,7 +44,6 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import app.epistola.suite.testing.atNext
 
 /**
  * A catalog received from elsewhere (ADR 0032): it has a next version on the release it installed,

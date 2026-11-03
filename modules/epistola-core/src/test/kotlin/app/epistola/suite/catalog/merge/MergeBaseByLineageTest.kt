@@ -23,6 +23,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -39,7 +40,6 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
-import app.epistola.suite.testing.atNext
 
 /**
  * The merge base is found by the lineage releases record, never guessed from their numbers (contract

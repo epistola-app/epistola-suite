@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.Node
@@ -24,7 +25,6 @@ import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import app.epistola.suite.testing.atNext
 
 /**
  * A moved template keeps what its models mean, and stores them in its new catalog's form (ADR 0033):

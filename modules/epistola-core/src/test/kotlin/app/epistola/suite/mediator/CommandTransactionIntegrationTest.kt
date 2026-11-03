@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -19,7 +20,6 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
-import app.epistola.suite.testing.atNext
 
 /**
  * Verifies the mediator's per-command transaction contract:

@@ -14,8 +14,7 @@ import app.epistola.suite.catalog.inVersionOrNext
  * version ([inVersionOrNext], bound with `bindVersion`); with no [versionParam], in its catalog's next
  * version ([inNextVersion]).
  */
-fun templateJoin(alias: String, versionParam: String? = null): String =
-    "JOIN version_templates template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id AND ${if (versionParam == null) inNextVersion("template") else inVersionOrNext("template", versionParam)}"
+fun templateJoin(alias: String, versionParam: String? = null): String = "JOIN version_templates template ON template.tenant_key = $alias.tenant_key AND template.resource_id = $alias.template_resource_id AND ${if (versionParam == null) inNextVersion("template") else inVersionOrNext("template", versionParam)}"
 
 /** The address columns a caller reading through [templateJoin] still expects to select. */
 const val TEMPLATE_ADDRESS_COLUMNS: String =

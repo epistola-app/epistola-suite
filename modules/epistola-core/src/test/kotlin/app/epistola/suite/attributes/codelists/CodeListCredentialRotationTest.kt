@@ -19,13 +19,13 @@ import app.epistola.suite.encryption.ReencryptCredentials
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
-import app.epistola.suite.testing.atNext
 
 /** Two keys of 32 bytes (`openssl rand -base64 32`), fixed for the test: the retired one and the primary. */
 private const val OLD_KEY = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="

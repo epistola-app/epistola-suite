@@ -60,6 +60,7 @@ import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -76,7 +77,6 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipInputStream
-import app.epistola.suite.testing.atNext
 
 class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     @Autowired

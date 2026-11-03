@@ -26,6 +26,7 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.Node
@@ -36,7 +37,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import app.epistola.suite.testing.atNext
 
 class ImportTemplatesTest : IntegrationTestBase() {
 

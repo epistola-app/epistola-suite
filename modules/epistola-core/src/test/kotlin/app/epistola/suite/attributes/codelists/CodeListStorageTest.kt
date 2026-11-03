@@ -23,13 +23,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.CodeListStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import app.epistola.suite.testing.atNext
 
 /**
  * A draft's code lists are stored as JSON (ADR 0033, step 2): one content per version,

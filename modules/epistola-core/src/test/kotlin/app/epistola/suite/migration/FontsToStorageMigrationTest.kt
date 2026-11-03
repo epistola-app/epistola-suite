@@ -5,6 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.atNext
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
 import java.sql.Connection
 import java.sql.DriverManager
-import app.epistola.suite.testing.atNext
 
 /**
  * The 2.0 upgrade's fonts (step 6, ADR 0033): a font's faces become binaries of its content, linked to

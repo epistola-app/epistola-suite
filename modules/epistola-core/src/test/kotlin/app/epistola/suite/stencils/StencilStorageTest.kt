@@ -22,6 +22,7 @@ import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.StencilStorageConversion
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -34,7 +35,6 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import app.epistola.suite.testing.atNext
 
 /**
  * A draft's stencils are stored as JSON (ADR 0033, step 4): `{ "resource": <StencilResource> }`
