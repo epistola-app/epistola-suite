@@ -19,7 +19,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -400,15 +399,15 @@ class DocumentTemplateHandler(
             }
         }
 
-        // Success: a new template is made to be designed, so open its one variant in the editor.
-        // The editor is a page of its own outside the shell (its own head, no boosting), so this
-        // is a full navigation (HX-Redirect), not a boosted body swap.
+        // Success: a new template starts with its data, since the editor offers the fields its
+        // contract describes. Soft-navigate (HX-Location, a boosted body swap) to the template's
+        // Data contract tab, which leads on to describing the data or to the editor.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
         val catalogId = request.catalogSegment()
-        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey/variants/${VariantKey.INITIAL.value}/editor"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey/data-contract"
         return request.htmx {
-            dialogRedirect(destination)
+            dialogLocation(destination)
             onFullPage { redirect(destination) }
         }
     }

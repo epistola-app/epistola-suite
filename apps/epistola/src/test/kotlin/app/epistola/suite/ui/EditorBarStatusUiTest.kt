@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test
 /**
  * The editor's bar says what is not published yet. It was loaded once with the page, so the first
  * change after a publish left it saying "Everything is published", with no Publish, until a reload.
- * An editor on a catalog that cannot be changed here saves nothing, and does not try.
+ * An editor on a catalog that cannot be changed here shows the template without letting it change.
  */
 class EditorBarStatusUiTest : BasePlaywrightTest() {
 
@@ -60,7 +60,7 @@ class EditorBarStatusUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `the editor on a supplied catalog says nothing is saved and sends no save`() {
+    fun `the editor on a supplied catalog shows the template and lets nothing change`() {
         val tenantKey = TenantKey.of("test-editor-readonly-${System.nanoTime()}")
         withMediator {
             TestNamespaces.createTenant(tenantKey, "Editor Read-only Tenant").execute()
@@ -75,12 +75,14 @@ class EditorBarStatusUiTest : BasePlaywrightTest() {
         assertThat(page.getByTestId("editor-read-only")).hasText("Supplied by Epistola · not saved")
         // An editor that saves keeps a save state in its toolbar ("Saved" from the start); this one has none.
         assertThat(page.locator("epistola-toolbar").getByTitle("All changes saved")).hasCount(0)
-
-        val blocks = page.getByTestId("canvas-block").count()
-        page.getByTestId("palette-item-container").click()
-        // The block lands on the canvas, so the editor took the change; it just keeps it to itself.
-        assertThat(page.getByTestId("canvas-block")).hasCount(blocks + 1)
-        assertThat(page.locator("epistola-toolbar").getByText("Retry save")).hasCount(0)
+        // Shown, not changed: nothing to add, text that does not take typing, no delete, settings disabled.
+        assertThat(page.getByTestId("palette-item-container")).hasCount(0)
+        assertThat(page.locator(".ProseMirror[contenteditable='false']").first()).isVisible()
+        assertThat(page.locator(".ProseMirror[contenteditable='true']")).hasCount(0)
+        page.getByTestId("canvas-block").first().click()
+        assertThat(page.locator(".canvas-block-delete")).hasCount(0)
+        // The inspector's fields sit in a disabled fieldset, so each control is disabled.
+        assertThat(page.getByTestId("inspector-read-only").locator("select, input").first()).isDisabled()
         Assertions.assertThat(writes).isEmpty()
     }
 }

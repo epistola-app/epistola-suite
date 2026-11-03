@@ -102,6 +102,8 @@ export class EpExpressionDialog extends LitElement {
 
   @property({ type: String }) public initialValue = '';
   @property({ attribute: false }) public fieldPaths: FieldPath[] = [];
+  /** The template's data contract page: where data fields come from, linked when there are none. */
+  @property({ type: String }) public dataContractHref?: string;
   @property({ attribute: false }) public getExampleData?: () => Record<string, unknown> | undefined;
   @property({ type: String }) public label = 'Expression';
   @property({ type: String }) public placeholder = 'e.g. customer.name';
@@ -1053,11 +1055,28 @@ export class EpExpressionDialog extends LitElement {
     `;
   }
 
+  /** With no data fields, where they come from: an empty contract leaves the list empty. */
+  private _renderNoDataFields(): typeof nothing | TemplateResult {
+    if (this._dataFields.length > 0 || !this.dataContractHref) return nothing;
+    return html`<div
+      class="expression-dialog-paths-empty"
+      data-testid="expression-dialog-no-data-fields"
+    >
+      No data fields yet. They come from the template's
+      <a href=${this.dataContractHref}>data contract</a>, where you describe what your application
+      sends.
+    </div>`;
+  }
+
   private _renderFieldPaths(): TemplateResult {
     if (this.fieldPaths.length === 0) {
       return html`
         <div class="expression-dialog-paths">
-          <div class="expression-dialog-paths-empty">No fields available</div>
+          ${
+            this.dataContractHref
+              ? this._renderNoDataFields()
+              : html`<div class="expression-dialog-paths-empty">No fields available</div>`
+          }
         </div>
       `;
     }
@@ -1085,6 +1104,7 @@ export class EpExpressionDialog extends LitElement {
             </span>
           </div>
         </div>
+        ${this._renderNoDataFields()}
         <ul class="expression-dialog-paths-list">
           ${this._renderFieldPathsSection('Template variables', dataFields)}
           ${this._renderFieldPathsSection('Iteration variables', iterationFields)}

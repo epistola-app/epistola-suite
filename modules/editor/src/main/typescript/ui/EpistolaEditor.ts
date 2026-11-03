@@ -215,6 +215,7 @@ export class EpistolaEditor extends LitElement {
       theme?: EditorTheme;
       features?: EditorFeatures;
       locale?: string;
+      readOnly?: boolean;
     },
   ): void {
     // Clean up previous engine and save service
@@ -231,6 +232,7 @@ export class EpistolaEditor extends LitElement {
       theme: options?.theme,
       features: options?.features,
       locale: options?.locale,
+      readOnly: options?.readOnly,
     });
     this._doc = this._engine.doc;
     this._unsubParameterCache = wireParameterCache(this._engine);

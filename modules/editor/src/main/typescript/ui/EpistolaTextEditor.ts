@@ -268,9 +268,11 @@ export class EpistolaTextEditor extends LitElement {
 
     this._pmView = new EditorView(this._pmContainer, {
       state: editorState,
+      // A read-only template's text is read, not typed into.
+      editable: () => this.engine?.readOnly !== true,
       // An empty block says it takes typing, and how a data field goes in (prosemirror.css shows it).
       attributes: (state) =>
-        isEmptyTextDoc(state.doc)
+        isEmptyTextDoc(state.doc) && this.engine?.readOnly !== true
           ? { 'data-empty': 'true', 'data-placeholder': EMPTY_TEXT_PLACEHOLDER }
           : ({} as Record<string, string>),
       nodeViews: {

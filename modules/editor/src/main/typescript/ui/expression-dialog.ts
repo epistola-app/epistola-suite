@@ -75,6 +75,14 @@ export interface ExpressionDialogResult {
   value: string | null;
 }
 
+/** The open template's data contract page, set once by the host (mountEditor). */
+let dataContractHref: string | undefined;
+
+/** Where the template's data fields are described; the dialog links there when it has none. */
+export function setDataContractHref(href: string | undefined): void {
+  dataContractHref = href;
+}
+
 /**
  * Open a modal dialog for editing a JSONata expression.
  * Returns a promise that resolves when the dialog closes.
@@ -85,6 +93,7 @@ export async function openExpressionDialog(
   const dialog = document.createElement('ep-expression-dialog');
   dialog.initialValue = options.initialValue;
   dialog.fieldPaths = options.fieldPaths;
+  dialog.dataContractHref = dataContractHref;
   dialog.getExampleData = options.getExampleData;
   dialog.label = options.label ?? 'Expression';
   dialog.placeholder = options.placeholder ?? 'e.g. customer.name';

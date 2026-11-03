@@ -162,12 +162,18 @@ export class EpistolaSidebar extends LitElement {
   }
 
   private get _builtinTabs(): TabDefinition[] {
+    // A read-only template offers nothing to add, and shows its settings without letting them change.
+    const readOnly = this.engine?.readOnly === true;
     return [
-      {
-        id: 'blocks',
-        label: 'Blocks',
-        render: () => html` <epistola-palette .engine=${this.engine}></epistola-palette> `,
-      },
+      ...(readOnly
+        ? []
+        : [
+            {
+              id: 'blocks',
+              label: 'Blocks',
+              render: () => html` <epistola-palette .engine=${this.engine}></epistola-palette> `,
+            },
+          ]),
       {
         id: 'structure',
         label: 'Structure',
@@ -182,13 +188,20 @@ export class EpistolaSidebar extends LitElement {
       {
         id: 'inspector',
         label: () => this._inspectorLabel,
-        render: () => html`
-          <epistola-inspector
-            .engine=${this.engine}
-            .doc=${this.doc}
-            .selectedNodeId=${this.selectedNodeId}
-          ></epistola-inspector>
-        `,
+        render: () => {
+          const inspector = html`
+            <epistola-inspector
+              .engine=${this.engine}
+              .doc=${this.doc}
+              .selectedNodeId=${this.selectedNodeId}
+            ></epistola-inspector>
+          `;
+          return readOnly
+            ? html`<fieldset class="inspector-read-only" data-testid="inspector-read-only" disabled>
+                ${inspector}
+              </fieldset>`
+            : inspector;
+        },
       },
     ];
   }

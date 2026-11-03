@@ -11,6 +11,7 @@
  *   mountEditor(options)  → EditorInstance
  */
 
+import { setDataContractHref } from './ui/expression-dialog.js';
 import './editor.css';
 import './ui/EpistolaEditor.js';
 import './ui/quality-plugin.js';
@@ -93,6 +94,10 @@ export interface EditorOptions {
   theme?: EditorTheme;
   /** Callback when the template is saved */
   onSave?: (template: TemplateDocument) => Promise<void>;
+  /** Show the template without letting it be changed: no blocks to add, nothing editable. */
+  readOnly?: boolean;
+  /** The template's data contract page, linked from the field picker when there are no data fields. */
+  dataContractHref?: string;
   /** JSON Schema describing the data model (for expression autocomplete) */
   dataModel?: object;
   /** Example data objects for previewing expressions */
@@ -270,6 +275,8 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     }),
   );
 
+  setDataContractHref(options.dataContractHref);
+
   // Initialize the engine with data model context
   editorEl.initEngine(doc, registry, {
     dataModel,
@@ -277,6 +284,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     theme: options.theme,
     features: options.features,
     locale: options.locale,
+    readOnly: options.readOnly,
   });
 
   // Mount into the container

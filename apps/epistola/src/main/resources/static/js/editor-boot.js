@@ -67,6 +67,17 @@ async function mount(container) {
   mountEditor({
     container: container,
     template: config.templateModel,
+    // Shown, not changed: nothing to add, nothing editable (the bar says why).
+    readOnly: config.canSave === false,
+    // Where data fields come from: the field picker links here when the contract has none.
+    dataContractHref:
+      '/tenants/' +
+      tenantId +
+      '/catalogs/' +
+      catalogPath(catalogSegment) +
+      '/templates/' +
+      encodeURIComponent(templateId) +
+      '/data-contract',
     // The catalog's available presets (ADR 0007) travel with the theme the inspector reads.
     theme:
       config.availablePresets && config.availablePresets.length > 0

@@ -62,6 +62,12 @@ export class EditorEngine {
   private _undoStack: UndoStack;
   private _selectedNodeId: NodeId | null = null;
   readonly registry: ComponentRegistry;
+  /**
+   * Nothing changes the document: every command is refused. For a template that is shown but
+   * cannot be changed here (a catalog supplied by Epistola, or a viewer without the author role);
+   * the UI follows it, so it does not look editable.
+   */
+  readonly readOnly: boolean;
   readonly styleRegistry: StyleRegistry;
   private _theme: EditorTheme | undefined;
   private _resolvedDocStyles!: Record<string, unknown>;
@@ -113,9 +119,11 @@ export class EditorEngine {
       dataExamples?: object[];
       features?: EditorFeatures;
       locale?: string;
+      readOnly?: boolean;
     },
   ) {
     this.registry = registry;
+    this.readOnly = options?.readOnly === true;
     this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry;
     this._theme = options?.theme;
     this._doc = deepFreeze(structuredClone(doc));
@@ -508,6 +516,7 @@ export class EditorEngine {
     command: AnyCommand,
     options?: { skipUndo?: boolean; bypassLock?: boolean },
   ): CommandResult {
+    if (this.readOnly) return { ok: false, error: 'This template cannot be changed here' };
     const result = applyCommand(this._doc, this._indexes, command, this.registry, {
       bypassLock: options?.bypassLock,
     });

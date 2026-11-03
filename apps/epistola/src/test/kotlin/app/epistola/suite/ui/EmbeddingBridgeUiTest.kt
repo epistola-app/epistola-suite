@@ -236,9 +236,9 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Embed Bridge Template", "embed-bridge-template")
-        // A new template opens in its editor, a page under the template's own path.
-        assertThat(page.getByTestId("editor-container")).isVisible()
-        assertThat(page.locator(".editor-nav")).containsText("Embed Bridge Template")
+        // A new template opens on its data contract, a page under the template's own path.
+        assertThat(page.getByTestId("contract-start")).isVisible()
+        assertThat(page.locator("#page-title-text")).containsText("Embed Bridge Template")
 
         val changed = latestMessageOfType("resource-changed")
         checkNotNull(changed) { "expected a 'resource-changed' message, got: ${capturedMessages()}" }
