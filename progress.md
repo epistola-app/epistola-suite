@@ -113,6 +113,9 @@ Noticed, not done:
   says by design it is always shown and no setting hides it.
 - **The inspector shows a block's internal ID**, and Clean's tooltip says "Hide block chrome".
 - **`DocumentTemplateHandler.create`** sets `draftSegment` twice in its 422 page model.
+- **An empty `{{ }}` field reopens its picker every time the editor loads**, over the walkthrough
+  popover: typing `{{` and leaving saves an empty expression chip, which opens its dialog as if
+  just inserted.
 
 ### The integration-test job: tenant creation and coverage (2 November; branches `ci/test-job-coverage-scope` #1259, `perf/system-catalog-install-hashing`)
 
