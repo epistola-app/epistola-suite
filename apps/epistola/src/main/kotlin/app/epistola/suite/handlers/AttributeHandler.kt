@@ -200,6 +200,8 @@ class AttributeHandler {
                 "codeLists" to codeLists
                 "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
             }
+            // A dialog of the attribute list, not a page: a direct navigation opens the list.
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
         }
     }
 
