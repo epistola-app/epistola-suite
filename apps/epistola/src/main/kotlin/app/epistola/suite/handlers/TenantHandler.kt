@@ -41,6 +41,7 @@ import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.net.URI
 
 @Component
 class TenantHandler(
@@ -51,7 +52,18 @@ class TenantHandler(
     private val identity: CatalogIdentityProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("tenants/list") { listModel() }
+    fun list(request: ServerRequest): ServerResponse {
+        // Someone who belongs to one tenant and manages none has nothing to choose here: a list
+        // with one row to click through was all they had on signing in. Take them straight in.
+        val principal = SecurityContext.current()
+        val managesTenants = principal.globalRoles.isNotEmpty() ||
+            principal.hasPlatformRole(PlatformRole.TENANT_MANAGER) ||
+            principal.hasPlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        if (!managesTenants) {
+            ListTenants().query().singleOrNull()?.let { return ServerResponse.seeOther(URI.create("/tenants/${it.id.value}")).build() }
+        }
+        return ServerResponse.ok().page("tenants/list") { listModel() }
+    }
 
     /** The tenants page: the list, and what its create dialog needs. */
     private fun ModelBuilder.listModel() {

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
@@ -23,6 +24,13 @@ import org.springframework.web.filter.OncePerRequestFilter
  * (comma-separated). Lets an HTTP-level test exercise a permission-denied path.
  */
 const val TEST_TENANT_ROLES_HEADER = "X-Test-Tenant-Roles"
+
+/**
+ * Request header that makes this request's principal a member of the named tenants only
+ * (comma-separated keys), with every tenant role there and no global or platform role: an
+ * ordinary user, as a local or OIDC sign-in makes one. Lets a test see what such a user sees.
+ */
+const val TEST_TENANT_MEMBERSHIPS_HEADER = "X-Test-Tenant-Memberships"
 
 /**
  * Test configuration that provides a fully-privileged test principal for every HTTP request.
@@ -67,6 +75,15 @@ class TestSecurityContextConfiguration {
         // endpoint as a user who lacks the permission it requires. An unknown
         // role name throws rather than silently granting nothing.
         private fun principalFor(request: HttpServletRequest): EpistolaPrincipal {
+            request.getHeader(TEST_TENANT_MEMBERSHIPS_HEADER)?.let { header ->
+                val tenants = header.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { TenantKey.of(it) }
+                return testPrincipal.copy(
+                    tenantMemberships = tenants.associateWith { TenantRole.entries.toSet() },
+                    globalRoles = emptySet(),
+                    platformRoles = emptySet(),
+                    currentTenantId = tenants.firstOrNull(),
+                )
+            }
             val header = request.getHeader(TEST_TENANT_ROLES_HEADER) ?: return testPrincipal
             val roles = header.split(',')
                 .map { it.trim() }

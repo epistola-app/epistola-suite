@@ -1236,7 +1236,7 @@ To regenerate after an intentional change: run the test, paste the reported
 
 | Surface  | Exposure                                                                                                                                                                                |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next release, publish any with `acknowledgedBehind`)                                                     |
+| Web UI   | Version column (`v<version>` / "Not published yet"); drafts (start, discard, make the next release, publish any with `acknowledgedBehind`)                                              |
 | REST     | Catalog releases: list (drafts with `?status=draft`), create a draft, rename, discard, preview a draft's release number, release a draft (`…/releases/{next, release id or number}/…`)  |
 | MCP      | `list_catalog_releases`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft` (with `continueEverydayWork`); `catalogVersion` on the content tools |
 | Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                            |

@@ -8,6 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogDraft
@@ -172,8 +173,35 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
 
         post("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/deployments", "environmentId" to "test", "version" to "draft:$work")
         val after = get(overview).body!!
-        assertThat(after.substringAfter("data-environment=\"test\"")).contains(">Redesign<").contains("Follows this draft")
+        assertThat(after.substringAfter("data-environment=\"test\"")).contains(">Redesign<").contains("Follows its changes as they are made.")
         assertThat(box(after, "data-draft=\"$work\"")).contains("Used by Test")
+    }
+
+    @Test
+    fun `the words for following and publishing a draft are the ones every other page uses`() {
+        val tenant = setup("wording")
+        val work: String = withMediator { CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId }
+        post("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/deployments", "environmentId" to "test", "version" to "draft:$work")
+
+        // "Live" is not a word the screens use (docs/workspace-shell.md), and releasing is called publishing.
+        val history = page(tenant, "test").substringAfter("<h2>History</h2>")
+        assertThat(history).contains("Deployed Redesign of Letters, following its changes").doesNotContain(", live")
+
+        val releases = get("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/releases").body!!
+        assertThat(releases).`as`("an unpublished version is in progress, as on the catalog page")
+            .contains(">In progress<").doesNotContain(">Draft<")
+
+        val catalogs = get("/tenants/${tenant.id.value}/catalogs").body!!
+        assertThat(catalogs).`as`("a catalog with nothing published says so as the bar does")
+            .contains(">Not published yet<").doesNotContain(">unreleased<")
+
+        withMediator {
+            val redesign = CatalogReleaseRef(testCatalog(tenant.id, letters), DraftRef.Id(work))
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = redesign).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0", catalogVersion = redesign).execute()
+        }
+        assertThat(page(tenant, "test").substringAfter("<h2>History</h2>"))
+            .contains("Redesign of Letters was published as v2.0.0, which it serves now").doesNotContain("was released as")
     }
 
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(url, HttpMethod.GET, HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }), String::class.java)

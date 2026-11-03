@@ -73,7 +73,7 @@
                                       class="text-muted"
                                       th:title="'Working copy changed since the last release — Export will download v' + ${highest} + '-dev'">· pending changes</span>
                             </th:block>
-                            <span th:unless="${highest}" class="text-muted">unreleased</span>
+                            <span th:unless="${highest}" class="text-muted">Not published yet</span>
                         </th:block>
                         <!--/* With a source: what it is on, and whether the source offers something newer. */-->
                         <th:block th:if="${catalog.hasSource}"
