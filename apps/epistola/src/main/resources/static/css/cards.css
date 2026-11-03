@@ -72,6 +72,16 @@
   font-weight: 600;
 }
 
+/* shell.css's page-level heading rule loads after this file and is just as specific, so it
+   would otherwise give a card header a 20px title with a 16px bottom margin. The extra class
+   keeps the card's own header style here, without touching the page-level rule. */
+.main-content .detail-section-header h2,
+.main-content .detail-section-header h3 {
+  margin: 0;
+  font-size: var(--ep-text-base);
+  font-weight: 600;
+}
+
 .detail-section-body {
   padding: var(--ep-space-6);
 }
