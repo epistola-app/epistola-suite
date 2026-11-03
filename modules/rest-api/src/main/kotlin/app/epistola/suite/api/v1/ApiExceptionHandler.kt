@@ -605,8 +605,9 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     /**
      * Spring Security's firewall refusing what the request carries: a header name or value, or a
-     * parameter, it does not accept (`"If-Match "` with a trailing space, a control character). It
-     * checks headers when they are read, so the rejection arrives in the controller, not the filter.
+     * parameter, it does not accept (a control character in a value). It checks headers when they
+     * are read, so the rejection arrives in the controller, not the filter. A header name Tomcat
+     * itself refuses (`"If-Match "`) never gets this far.
      */
     @ExceptionHandler(RequestRejectedException::class)
     fun handleRequestRejected(ex: RequestRejectedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
