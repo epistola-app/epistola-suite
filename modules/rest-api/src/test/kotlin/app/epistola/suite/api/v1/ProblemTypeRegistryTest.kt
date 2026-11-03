@@ -9,6 +9,7 @@ import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import java.lang.reflect.Modifier
 
@@ -33,7 +34,7 @@ class ProblemTypeRegistryTest {
 
     @Test
     fun `every API problem type is registered by the contract`() {
-        assertThat(ApiProblemTypes.all.map { it.slug } - registered - PENDING_CONTRACT)
+        assertThat(ApiProblemTypes.all.map { it.slug } - registered)
             .`as`("problem types the contract does not register; use the generic type of their status")
             .isEmpty()
     }
@@ -52,23 +53,17 @@ class ProblemTypeRegistryTest {
     }
 
     @Test
-    fun `the UI's finer types are not the API's`() {
-        assertThat(UiProblemTypes.all.map { it.slug }.toSet() intersect ApiProblemTypes.all.map { it.slug }.toSet()).isEmpty()
+    fun `a problem the framework makes gets the contract's generic type of its status`() {
+        assertThat(ApiProblemTypes.forStatus(HttpStatus.METHOD_NOT_ALLOWED).slug).isEqualTo("method-not-allowed")
+        assertThat(ApiProblemTypes.forStatus(HttpStatus.PRECONDITION_FAILED).slug).isEqualTo("resource-modified")
+        assertThat(ApiProblemTypes.forStatus(HttpStatus.CONTENT_TOO_LARGE).slug).isEqualTo("content-too-large")
+        assertThat(ApiProblemTypes.forStatus(HttpStatus.INTERNAL_SERVER_ERROR).slug).isEqualTo("internal-error")
+        // The registry has no generic type for 422: the generic type of its class.
+        assertThat(ApiProblemTypes.forStatus(HttpStatus.UNPROCESSABLE_CONTENT).slug).isEqualTo("bad-request")
     }
 
     @Test
-    fun `the pending types are not registered yet`() {
-        assertThat(PENDING_CONTRACT intersect registered)
-            .`as`("registered by the contract now: drop them from PENDING_CONTRACT")
-            .isEmpty()
-    }
-
-    companion object {
-        /**
-         * The generic types of the statuses contract 2.0.0-alpha.6 registers none for, which the
-         * contract's `fix/error-responses` registers. Drop this set when the contract dependency
-         * includes them; `the pending types are not registered yet` fails as soon as it does.
-         */
-        val PENDING_CONTRACT = setOf("method-not-allowed", "not-acceptable", "content-too-large", "unsupported-media-type", "internal-error")
+    fun `the UI's finer types are not the API's`() {
+        assertThat(UiProblemTypes.all.map { it.slug }.toSet() intersect ApiProblemTypes.all.map { it.slug }.toSet()).isEmpty()
     }
 }

@@ -39,8 +39,7 @@ Three files move together, to the exact same released version:
 
 `./gradlew checkContractVersionAlignment` fails on drift and CI runs it, so a half-finished bump
 does not merge. Renovate keeps the Maven and npm packages in one group. The `contract-bump` skill
-has the full walkthrough. When the new contract registers a type `ProblemTypeRegistryTest` lists
-as pending, drop it from `PENDING_CONTRACT`: the test fails until you do.
+has the full walkthrough.
 
 ## Verify
 
