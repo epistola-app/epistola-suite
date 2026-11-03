@@ -6,14 +6,19 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toUiValidationProblemBody
 import app.epistola.suite.common.ResourceModifiedException
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.RefTypeRegistry
 import app.epistola.suite.validation.ValidationException
@@ -43,6 +48,19 @@ class DataContractTabHandler(
         // For view mode: extract schema fields as a simple list for rendering
         val schemaFields = contract?.dataModel?.let { extractSchemaFields(it) } ?: emptyList()
 
+        // A template starts with its data: the editor offers the fields the contract describes, and
+        // with none it can offer nothing. An empty contract someone may change says so and leads on,
+        // to describing the data or, skipping it, to the editor (its default variant).
+        val auth = AuthContext.from(SecurityContext.current(), TenantKey.of(ctx.tenantId))
+        val startWithData = !editMode && ctx.editable && auth.has(Permission.TEMPLATE_EDIT) && schemaFields.isEmpty()
+        val editorHref = if (startWithData) {
+            GetVariantSummaries(ctx.templateId, ctx.catalogVersion).query()
+                .let { variants -> variants.firstOrNull { it.isDefault } ?: variants.firstOrNull() }
+                ?.let { "/tenants/${ctx.tenantId}/catalogs/${ctx.catalogSegment}/templates/${ctx.template.id.value}/variants/${it.id.value}/editor" }
+        } else {
+            null
+        }
+
         return detailHelper.renderDetailPage(
             ctx,
             "data-contract",
@@ -52,6 +70,8 @@ class DataContractTabHandler(
                 "contractDataExamples" to contract?.dataExamples,
                 "contractRevision" to contract?.revision,
                 "schemaFields" to schemaFields,
+                "startWithData" to startWithData,
+                "editorHref" to editorHref,
             ),
         )
     }

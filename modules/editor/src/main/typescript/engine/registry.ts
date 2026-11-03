@@ -243,6 +243,11 @@ export interface ComponentDefinition {
    */
   getHint?: (node: Node, engine: unknown) => BlockHint | undefined;
   icon?: string;
+  /**
+   * What the block is for, in a sentence, as the palette's tooltip; editor-only, not part of the
+   * contract's registry. Without one the palette says "Click to insert <label>".
+   */
+  paletteHint?: string;
   category: ComponentCategory;
   /** Hide from the block palette (e.g. child-only components like datatable-column). */
   hidden?: boolean;
@@ -718,6 +723,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: 'text',
     label: 'Text',
+    paletteHint: 'Text you type. Type {{ to put a data field in it.',
     icon: 'type',
     category: 'content',
     slots: [],

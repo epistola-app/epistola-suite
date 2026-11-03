@@ -7,6 +7,7 @@ package app.epistola.suite.tenants
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.testing.TEST_TENANT_MEMBERSHIPS_HEADER
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
@@ -46,6 +47,31 @@ class TenantRoutesTest : BaseIntegrationTest() {
                 .contains("data-testid=\"tenant-create-open\"").doesNotContain("id=\"create-tenant-form\"")
             assertThat(response.body).`as`("row actions say what they do")
                 .containsPattern("</svg>\\s*Namespaces\\s*</a>").containsPattern("</svg>\\s*Delete\\s*</button>")
+        }
+    }
+
+    @Test
+    fun `GET homepage takes someone in one tenant, who manages none, straight to it`() = fixture {
+        lateinit var one: Tenant
+        lateinit var two: Tenant
+        given {
+            one = tenant("Only Tenant")
+            two = tenant("Second Tenant")
+        }
+        whenever {
+            fun asMemberOf(vararg tenants: Tenant) = restTemplate.exchange(
+                "/",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { set(TEST_TENANT_MEMBERSHIPS_HEADER, tenants.joinToString(",") { it.id.value }) }),
+                String::class.java,
+            ).body!!
+            listOf(asMemberOf(one), asMemberOf(one, two))
+        }
+        then {
+            val (member, memberOfTwo) = result<List<String>>()
+            // A list with one row to click through was all a one-tenant user had on signing in.
+            assertThat(member).contains("<title>Only Tenant - Epistola</title>").doesNotContain("<title>Tenants - Epistola</title>")
+            assertThat(memberOfTwo).`as`("two tenants: still a choice").contains("<title>Tenants - Epistola</title>")
         }
     }
 

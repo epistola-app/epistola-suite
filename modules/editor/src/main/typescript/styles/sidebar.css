@@ -113,6 +113,14 @@
     padding: 0.125rem 0.25rem;
   }
 
+  /* A read-only template's inspector: its fields disabled as one (EpistolaSidebar), with no frame of its own. */
+  .inspector-read-only {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
   .sidebar-content {
     flex: 1;
     overflow-y: auto;

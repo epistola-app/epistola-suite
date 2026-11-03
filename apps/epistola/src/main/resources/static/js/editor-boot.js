@@ -49,6 +49,15 @@ async function mount(container) {
   // is refused (`resource-modified`) instead of silently replacing their work.
   let variantRevision = config.variantRevision ?? null;
 
+  // The bar's status ("1 change not published", Publish) is loaded once with the page; after a
+  // save it may have changed, so ask again. Trailing and coalesced, since autosave runs often
+  // and working the status out builds the catalog.
+  let statusRefresh = null;
+  const refreshBarStatus = () => {
+    clearTimeout(statusRefresh);
+    statusRefresh = setTimeout(() => window.htmx?.trigger(document.body, 'ws-status-refresh'), 600);
+  };
+
   const plugins = await loadEditorPlugins(config.plugins, {
     features,
     bundledModule: editorModule,
@@ -58,6 +67,17 @@ async function mount(container) {
   mountEditor({
     container: container,
     template: config.templateModel,
+    // Shown, not changed: nothing to add, nothing editable (the bar says why).
+    readOnly: config.canSave === false,
+    // Where data fields come from: the field picker links here when the contract has none.
+    dataContractHref:
+      '/tenants/' +
+      tenantId +
+      '/catalogs/' +
+      catalogPath(catalogSegment) +
+      '/templates/' +
+      encodeURIComponent(templateId) +
+      '/data-contract',
     // The catalog's available presets (ADR 0007) travel with the theme the inspector reads.
     theme:
       config.availablePresets && config.availablePresets.length > 0
@@ -226,6 +246,7 @@ async function mount(container) {
           const saved = await resp.json().catch(() => null);
           if (saved && typeof saved.revision === 'number')
             stencilRevisions.set(url, saved.revision);
+          refreshBarStatus();
         },
         markStencilReady: async (ref) => {
           const resp = await fetch(stencilUrl(ref) + '/ready', {
@@ -238,75 +259,83 @@ async function mount(container) {
         },
       };
     })(),
-    onSave: async function save(template, overwrite = false) {
-      const response = await fetch(
-        '/tenants/' +
-          tenantId +
-          '/catalogs/' +
-          catalogPath(catalogSegment) +
-          '/templates/' +
-          templateId +
-          '/variants/' +
-          variantId +
-          '/content',
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/problem+json',
-            'X-XSRF-TOKEN': window.getCsrfToken(),
+    // An editor on a catalog that cannot be changed here, or for a viewer who may not change
+    // templates, saves nothing (`canSave` false): it shows how the template is built, and the bar
+    // says nothing is saved. Without onSave the editor keeps no save state at all.
+    onSave:
+      config.canSave === false
+        ? undefined
+        : async function save(template, overwrite = false) {
+            const response = await fetch(
+              '/tenants/' +
+                tenantId +
+                '/catalogs/' +
+                catalogPath(catalogSegment) +
+                '/templates/' +
+                templateId +
+                '/variants/' +
+                variantId +
+                '/content',
+              {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/problem+json',
+                  'X-XSRF-TOKEN': window.getCsrfToken(),
+                },
+                body: JSON.stringify({
+                  templateModel: template,
+                  expectedRevision: overwrite ? null : variantRevision,
+                }),
+              },
+            );
+
+            if (response.status === 412) {
+              // Someone else saved this variant since it was opened here. Ask rather than guess: keeping
+              // their version means reloading (and losing what was changed here); keeping this one
+              // overwrites theirs.
+              const overwriteTheirs = window.confirm(
+                'Someone else saved this variant after you opened it.\n\n' +
+                  'OK: replace their version with yours.\n' +
+                  'Cancel: reload to see their version (your changes here are lost).',
+              );
+              if (overwriteTheirs) return save(template, true);
+              window.location.reload();
+              return;
+            }
+
+            if (!response.ok) {
+              let message = response.statusText || 'Failed to save';
+              let type = null;
+              let field = null;
+              const text = await response.text().catch(() => '');
+              if (text) {
+                try {
+                  const body = JSON.parse(text);
+                  // `detail` = problem+json (unexpected errors); `message` =
+                  // the validation envelope; `error` = legacy UI envelope.
+                  message = body.detail || body.message || body.error || message;
+                  type = body.type || null;
+                  field = (body.errors && body.errors[0] && body.errors[0].field) || null;
+                } catch (_) {
+                  message = text;
+                }
+              }
+              // This version was released while it was open here (ADR 0036): it cannot change any more,
+              // and work goes on in the catalog's next draft, which the same page without a version opens.
+              if (isReleasedVersionProblem(response.status, type) && offerNextDraft(message))
+                return;
+              // Carry the structured problem `type`/`field` on the Error so
+              // the editor can render it inline without parsing the message.
+              const err = new Error(message);
+              err.type = type;
+              err.field = field;
+              throw err;
+            }
+            const saved = await response.json().catch(() => null);
+            if (saved && typeof saved.revision === 'number') variantRevision = saved.revision;
+            refreshBarStatus();
           },
-          body: JSON.stringify({
-            templateModel: template,
-            expectedRevision: overwrite ? null : variantRevision,
-          }),
-        },
-      );
-
-      if (response.status === 412) {
-        // Someone else saved this variant since it was opened here. Ask rather than guess: keeping
-        // their version means reloading (and losing what was changed here); keeping this one
-        // overwrites theirs.
-        const overwriteTheirs = window.confirm(
-          'Someone else saved this variant after you opened it.\n\n' +
-            'OK: replace their version with yours.\n' +
-            'Cancel: reload to see their version (your changes here are lost).',
-        );
-        if (overwriteTheirs) return save(template, true);
-        window.location.reload();
-        return;
-      }
-
-      if (!response.ok) {
-        let message = response.statusText || 'Failed to save';
-        let type = null;
-        let field = null;
-        const text = await response.text().catch(() => '');
-        if (text) {
-          try {
-            const body = JSON.parse(text);
-            // `detail` = problem+json (unexpected errors); `message` =
-            // the validation envelope; `error` = legacy UI envelope.
-            message = body.detail || body.message || body.error || message;
-            type = body.type || null;
-            field = (body.errors && body.errors[0] && body.errors[0].field) || null;
-          } catch (_) {
-            message = text;
-          }
-        }
-        // This version was released while it was open here (ADR 0036): it cannot change any more,
-        // and work goes on in the catalog's next draft, which the same page without a version opens.
-        if (isReleasedVersionProblem(response.status, type) && offerNextDraft(message)) return;
-        // Carry the structured problem `type`/`field` on the Error so
-        // the editor can render it inline without parsing the message.
-        const err = new Error(message);
-        err.type = type;
-        err.field = field;
-        throw err;
-      }
-      const saved = await response.json().catch(() => null);
-      if (saved && typeof saved.revision === 'number') variantRevision = saved.revision;
-    },
     onFetchPreview: async (doc, data, signal) => {
       const response = await fetch(
         '/tenants/' +

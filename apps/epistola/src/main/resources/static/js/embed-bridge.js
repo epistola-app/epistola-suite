@@ -296,7 +296,9 @@
         xhr.getResponseHeader('HX-Location') || xhr.getResponseHeader('HX-Redirect');
       if (!createdUrl) return;
       const createdParsed = parseResourcePath(createdUrl.split('?')[0]);
-      if (createdParsed && createdParsed.rest.length === 2) {
+      // The created resource's page, or a page under it: a new template opens in its editor
+      // (`…/templates/<key>/variants/initial/editor`), so the key is the one after the catalog.
+      if (createdParsed && createdParsed.rest.length >= 2) {
         notifyResourceChanged(resourceOf(createdParsed, createdParsed.rest[1]), 'create');
       }
     }

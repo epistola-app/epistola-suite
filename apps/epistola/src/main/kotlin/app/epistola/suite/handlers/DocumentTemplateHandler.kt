@@ -399,14 +399,13 @@ class DocumentTemplateHandler(
             }
         }
 
-        // Success: soft-navigate to the newly created template's page via a
-        // boosted body-swap (HX-Location) — the same navigation an in-app link
-        // click performs, so no full-page reload. The dialog goes with the
-        // swapped-out body; the list is not refreshed.
+        // Success: a new template starts with its data, since the editor offers the fields its
+        // contract describes. Soft-navigate (HX-Location, a boosted body swap) to the template's
+        // Data contract tab, which leads on to describing the data or to the editor.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
         val catalogId = request.catalogSegment()
-        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey/data-contract"
         return request.htmx {
             dialogLocation(destination)
             onFullPage { redirect(destination) }
@@ -465,6 +464,20 @@ class DocumentTemplateHandler(
         // raced against a wall clock. Absent in production → attribute omitted.
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
+        // Whether this editor may change the template: the catalog can be changed here and the
+        // viewer may change templates. When not, the editor still opens, to show how the template
+        // is built, read-only (the page passes `canSave: false`, the editor refuses every change),
+        // and a banner says so and why before anyone tries.
+        val editorCanSave = draftBar.editable && auth.has(Permission.TEMPLATE_EDIT)
+        val readOnlyNote = when {
+            editorCanSave -> null
+
+            !draftBar.editable ->
+                "You can see how this template is built, but not change it here. " +
+                    (draftBar.readOnlyExplanation ?: "This catalog cannot be changed here.")
+
+            else -> "You can see how this template is built, but changing templates needs the author role."
+        }
 
         return ServerResponse.ok().render(
             "templates/editor",
@@ -480,6 +493,8 @@ class DocumentTemplateHandler(
                 "editorScope" to WorkspaceBuilder.scope(draftBar, null, request.path(), { auth.has(it) }),
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
+                // The editor's bar names the variant as the template page does, by its title.
+                "variantTitle" to (context.variantTitle ?: variantId.key.value),
                 "templateName" to context.templateName,
                 "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
@@ -493,6 +508,8 @@ class DocumentTemplateHandler(
                 "leaderTiming" to leaderTiming,
                 "resolvedLocale" to resolvedLocale,
                 "editorFeatures" to editorFeatures(featureToggles),
+                "editorCanSave" to editorCanSave,
+                "readOnlyNote" to readOnlyNote,
             ),
         )
     }

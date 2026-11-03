@@ -126,7 +126,7 @@
                     </div>
                     <th:block th:if="${row.uses != null}">
                         <div class="catalog-box-value" th:text="${row.uses}">Redesign</div>
-                        <div class="text-muted text-sm">Follows this draft as it is edited.</div>
+                        <div class="text-muted text-sm">Follows its changes as they are made.</div>
                     </th:block>
                     <th:block th:if="${row.uses == null and row.inUse != null}">
                         <div class="catalog-box-value" th:text="'v' + ${row.inUse}">v2.0.0</div>
@@ -191,7 +191,7 @@
                             </td>
                             <td>
                                 <th:block th:if="${row.draft}">
-                                    <span class="badge badge-outline">Draft</span>
+                                    <span class="badge badge-outline">In progress</span>
                                 </th:block>
                                 <th:block th:unless="${row.draft}">
                                     <span th:text="'Published ' + ${#temporals.format(row.publishedAt, 'yyyy-MM-dd')}">Published 2026-10-01</span>

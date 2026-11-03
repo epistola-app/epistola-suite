@@ -488,6 +488,20 @@ class QualityHandler(
     }
 
     /**
+     * Each finding's template by its name, as every other list names templates, keyed by the
+     * finding's key: the rows showed the template's key. One read per catalog on the page; a
+     * template no longer there keeps its key.
+     */
+    private fun templateNames(tenantId: TenantId, findings: List<QualityFinding>): Map<String, String> {
+        val byCatalog = findings.groupBy { CatalogId(it.catalogNamespace, it.catalogKey, tenantId) }
+        return byCatalog.flatMap { (catalog, inCatalog) ->
+            val names = ListDocumentTemplates(tenantId, catalog = catalog, limit = TEMPLATE_FILTER_LIMIT, catalogVersion = null).query()
+                .associate { it.id to it.name }
+            inCatalog.map { f -> f.key.value.toString() to (names[f.templateKey] ?: f.templateKey.value) }
+        }.toMap()
+    }
+
+    /**
      * The model the list page and its HTMX fragment share, so a filter added in one cannot go
      * missing from the other.
      *
@@ -506,6 +520,7 @@ class QualityHandler(
 
         "tenantId" to tenantId.key
         "findings" to page.items
+        "templateNames" to templateNames(tenantId, page.items)
         "total" to page.total
         "page" to filters.page
         "totalPages" to totalPages

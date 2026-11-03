@@ -608,7 +608,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `POST templates redirects to detail page on success`() = fixture {
+    fun `POST templates redirects to the new template's data contract on success`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -628,9 +628,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // TestRestTemplate follows the 303 redirect to the detail page
+            // TestRestTemplate follows the 303 redirect to the template's Data contract tab
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("HTMX Template")
+            assertThat(response.body).contains("HTMX Template").contains("data-testid=\"contract-start\"")
 
             val templates = listDocumentTemplatesHandler.handle(
                 ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "HTMX Template", catalogVersion = null),
@@ -1438,7 +1438,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains(">Edit")
+                // The status bar's Edit opens the contract editor.
+                assertThat(response.body).contains("/templates/${template.id}/data-contract?edit=true")
                 assertThat(response.body).doesNotContain("contract/publish")
                 assertThat(response.body).doesNotContain("History")
                 assertThat(response.body).doesNotContain("id=\"contract-save-controls\"")

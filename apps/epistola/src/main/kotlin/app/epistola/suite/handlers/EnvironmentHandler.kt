@@ -376,9 +376,9 @@ class EnvironmentHandler(
     }
 
     private fun historyText(entry: DeploymentLogEntry, catalogName: String): String = when (entry.action) {
-        DeploymentAction.DEPLOYED -> entry.version?.let { "Deployed $catalogName v$it" } ?: "Deployed ${entry.draftLabel} of $catalogName, live"
+        DeploymentAction.DEPLOYED -> entry.version?.let { "Deployed $catalogName v$it" } ?: "Deployed ${entry.draftLabel} of $catalogName, following its changes"
         DeploymentAction.UNDEPLOYED -> entry.version?.let { "Undeployed $catalogName v$it" } ?: "Undeployed ${entry.draftLabel} of $catalogName"
-        DeploymentAction.RELEASED -> "${entry.draftLabel} of $catalogName was released as v${entry.version}, which it serves now"
+        DeploymentAction.RELEASED -> "${entry.draftLabel} of $catalogName was published as v${entry.version}, which it serves now"
     }
 
     /** Stops the environment serving one release of a catalog, given as the `version` field. */

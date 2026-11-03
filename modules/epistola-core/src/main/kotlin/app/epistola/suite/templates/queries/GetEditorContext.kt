@@ -48,6 +48,8 @@ data class EditorContext(
     val dataModel: ObjectNode?,
     /** The variant's revision as read with [templateModel]: what saving the model names, so a save over someone else's is refused. */
     val variantRevision: Long = 1,
+    /** The variant's title, which the editor names it by (its key is for the API). */
+    val variantTitle: String? = null,
 )
 
 /**
@@ -85,7 +87,8 @@ class GetEditorContextHandler(
                 dt.data_examples,
                 tv.attributes as variant_attributes,
                 tv.template_model as draft_template_model,
-                tv.revision AS variant_revision
+                tv.revision AS variant_revision,
+                tv.title AS variant_title
             FROM version_template_variants tv
             JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
             WHERE tv.tenant_key = :tenantId AND tv.version_id = :v
@@ -151,6 +154,7 @@ class GetEditorContextHandler(
             },
             variantAttributes = variantAttributes,
             variantRevision = (row["variant_revision"] as Number).toLong(),
+            variantTitle = row["variant_title"] as String?,
             templateModel = stencilResolvers.expandWithWorkingCopies(at, templateModel, dependencyViews.of(at)),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->

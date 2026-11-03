@@ -17,6 +17,8 @@ export function createRichTextVariableDefinition(): ComponentDefinition {
   return {
     type: 'richTextVariable',
     label: 'Rich Text Block',
+    paletteHint:
+      'Formatted text that comes from a data field, such as a letter body your application sends.',
     getLabel: (node, _eng) => {
       const binding = (node.props?.binding as string | undefined) ?? '';
       return binding ? `Rich Text Block — ${binding}` : 'Rich Text Block';

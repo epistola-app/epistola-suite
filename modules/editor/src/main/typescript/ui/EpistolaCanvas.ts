@@ -145,7 +145,8 @@ export class EpistolaCanvas extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _setupDnD(): (() => void) | null {
-    if (!this.engine || !this.doc) return null;
+    // A read-only template's blocks are not dragged anywhere, nor dropped onto.
+    if (!this.engine || !this.doc || this.engine.readOnly) return null;
 
     const cleanups: (() => void)[] = [];
 
@@ -488,7 +489,7 @@ export class EpistolaCanvas extends LitElement {
               : nothing
           }
           ${
-            isSelected
+            isSelected && !this.engine?.readOnly
               ? html`
                   <button
                     class="canvas-block-delete"

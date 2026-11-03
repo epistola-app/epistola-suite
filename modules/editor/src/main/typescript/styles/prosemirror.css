@@ -30,6 +30,15 @@
     line-height: var(--ep-line-height, 1.6);
   }
 
+  /* An empty Text block: what it takes, until something is typed (EpistolaTextEditor). */
+  .prosemirror-container .ProseMirror[data-empty='true']::before {
+    content: attr(data-placeholder);
+    /* Lighter than the muted text inputs use: on the canvas a hint must not pass for content. */
+    color: var(--ep-stone-500);
+    pointer-events: none;
+    position: absolute;
+  }
+
   .prosemirror-container .ProseMirror p {
     margin: 0 0 0.5em;
   }

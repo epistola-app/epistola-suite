@@ -12,7 +12,28 @@
         <!-- VIEW MODE (default) -->
         <!-- ================================================================ -->
         <th:block th:if="${!editMode}">
-            <div class="ep-panel detail-section">
+            <!--/* A new template starts here: the editor offers the fields this contract describes. */-->
+            <section th:if="${startWithData}" class="ep-panel detail-section" data-testid="contract-start">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">Start with the data</div>
+                    <div class="empty-state-description">
+                        Describe what your application sends, such as a name, an address or the lines of an
+                        invoice. The editor then offers those fields as you write, and the preview fills them in
+                        from your examples.
+                    </div>
+                    <div class="ep-row" style="justify-content: center; margin-top: var(--ep-space-4);">
+                        <!--/* Not boosted: the contract editor and the template editor are entered by a full page load. */-->
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},edit=true)}"
+                           class="ep-btn ep-btn-primary" hx-boost="false" data-testid="contract-start-describe">Describe the data</a>
+                        <a th:if="${editorHref != null}" th:href="@{${editorHref}}"
+                           class="ep-btn ep-btn-outline" hx-boost="false" data-testid="contract-start-editor">Open editor</a>
+                    </div>
+                </div>
+            </section>
+            <div th:unless="${startWithData}" class="ep-panel detail-section">
                 <div class="detail-section-header">
                     <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
                 </div>

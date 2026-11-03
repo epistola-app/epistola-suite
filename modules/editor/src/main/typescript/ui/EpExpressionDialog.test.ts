@@ -1737,3 +1737,64 @@ describe('EpExpressionDialog locale awareness', () => {
     expect(preview?.textContent).toContain('1.234,50');
   });
 });
+
+describe('EpExpressionDialog with no data fields', () => {
+  // With an empty data contract the field list said only "No fields available" (or listed the
+  // system fields alone), with nothing to say where data fields come from.
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it('says data fields come from the data contract and links to it', async () => {
+    const dialog = new EpExpressionDialog();
+    dialog.fieldPaths = [];
+    dialog.dataContractHref = '/tenants/t/catalogs/c/templates/letter/data-contract';
+    document.body.appendChild(dialog);
+    await dialog.updateComplete;
+
+    const hint = dialog.querySelector<HTMLElement>(
+      '[data-testid="expression-dialog-no-data-fields"]',
+    );
+    expect(hint?.textContent).toContain('No data fields yet');
+    expect(hint?.querySelector('a')?.getAttribute('href')).toBe(
+      '/tenants/t/catalogs/c/templates/letter/data-contract',
+    );
+  });
+
+  it('keeps saying so when only system fields are listed', async () => {
+    const dialog = new EpExpressionDialog();
+    dialog.fieldPaths = [{ path: 'sys.renderedAt', type: 'string', system: true } as FieldPath];
+    dialog.dataContractHref = '/contract';
+    document.body.appendChild(dialog);
+    await dialog.updateComplete;
+
+    expect(dialog.querySelector('[data-testid="expression-dialog-no-data-fields"]')).not.toBeNull();
+  });
+
+  it('says so in builder mode too, under its empty field picker', async () => {
+    // A {{ in text opens the dialog in builder mode, whose field picker was then an empty select.
+    const dialog = new EpExpressionDialog();
+    dialog.enableBuilderMode = true;
+    dialog.fieldPaths = [];
+    dialog.dataContractHref = '/contract';
+    document.body.appendChild(dialog);
+    await dialog.updateComplete;
+
+    const builder = dialog.querySelector('[data-mode-panel="builder"]');
+    expect(
+      builder
+        ?.querySelector('[data-testid="expression-dialog-no-data-fields"] a')
+        ?.getAttribute('href'),
+    ).toBe('/contract');
+  });
+
+  it('says nothing when the contract has fields', async () => {
+    const dialog = new EpExpressionDialog();
+    dialog.fieldPaths = [{ path: 'customer.name', type: 'string' } as FieldPath];
+    dialog.dataContractHref = '/contract';
+    document.body.appendChild(dialog);
+    await dialog.updateComplete;
+
+    expect(dialog.querySelector('[data-testid="expression-dialog-no-data-fields"]')).toBeNull();
+  });
+});

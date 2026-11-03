@@ -268,6 +268,13 @@ export class EpistolaTextEditor extends LitElement {
 
     this._pmView = new EditorView(this._pmContainer, {
       state: editorState,
+      // A read-only template's text is read, not typed into.
+      editable: () => this.engine?.readOnly !== true,
+      // An empty block says it takes typing, and how a data field goes in (prosemirror.css shows it).
+      attributes: (state) =>
+        isEmptyTextDoc(state.doc) && this.engine?.readOnly !== true
+          ? { 'data-empty': 'true', 'data-placeholder': EMPTY_TEXT_PLACEHOLDER }
+          : ({} as Record<string, string>),
       nodeViews: {
         expression: (node, view, getPos) =>
           new ExpressionNodeView(node, view, getPos, { getFieldPaths, getExampleData, getLocale }),
@@ -491,4 +498,13 @@ declare global {
   interface HTMLElementTagNameMap {
     'epistola-text-editor': EpistolaTextEditor;
   }
+}
+
+const EMPTY_TEXT_PLACEHOLDER = 'Type text, or {{ for a data field';
+
+/** One empty paragraph, as a new Text block starts: nothing typed yet. */
+function isEmptyTextDoc(doc: ProsemirrorNode): boolean {
+  if (doc.childCount !== 1) return false;
+  const only = doc.firstChild!;
+  return only.isTextblock && only.content.size === 0;
 }
