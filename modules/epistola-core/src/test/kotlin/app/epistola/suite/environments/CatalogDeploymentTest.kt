@@ -140,13 +140,13 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         val shared = catalogIn(tenant, "shared")
         val letters = catalogIn(tenant, "letters")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters.key, on = shared.key)
             val templateId = TemplateId(TemplateKey.of("invoice"), letters)
-            CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared.key)).execute()
-            UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared.key), catalogVersion = null).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, templateId))
         }
 
@@ -163,7 +163,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
 
         // Once that draft reads a later release, nothing reads shared@1.0.0.
         withMediator {
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#111111")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#111111"), catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters.key, on = shared.key)
             DeleteCatalogRelease(testCatalog(tenant, shared.key), "1.0.0").execute()
@@ -255,8 +255,8 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             CreateEnvironment(production, "Production").execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), letters))
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
             mediator.releaseNext(letters)
         }

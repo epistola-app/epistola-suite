@@ -61,8 +61,8 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
             catalogTools.createCatalog("shared", "Shared", null)
         }
         withMediator {
-            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.0.0").execute()
-            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.1.0").execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.0.0", catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.1.0", catalogVersion = null).execute()
         }
         return tenantId
     }

@@ -52,6 +52,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
                 testCatalog(tenant.id, catalogKey),
                 "1.0.0",
                 publication = ReleasePublication.PUBLISH,
+                catalogVersion = null,
             ).execute()
 
             // The local release is unaffected — that is the point of the outbox being separate.
@@ -70,7 +71,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Publish current").execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
 
             assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
@@ -89,7 +90,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Drifted release").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
 
             // Unchanged, so it can still be sent.
             assertThat(state(tenant.id, catalogKey).canPublishCurrentRelease).isTrue()
@@ -122,14 +123,14 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Older release").execute()
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
             UpdateCatalogMetadata(
                 catalog = testCatalog(tenant.id, catalogKey),
                 name = "Older release",
                 description = "Changed before the second release",
                 attributes = emptyList(),
             ).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
 
             // 1.0.0 is no longer the catalog's current release, and until releases kept their own
             // content it could never have been sent: the archive came from the working copy, which
@@ -158,6 +159,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
                 testCatalog(tenant.id, catalogKey),
                 "1.0.0",
                 publication = ReleasePublication.PUBLISH,
+                catalogVersion = null,
             ).execute()
 
             assertThat(release.publicationId).isNull()
@@ -180,10 +182,10 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
 
             // Nothing is bound, so even an inheriting catalog with the tenant default on queues nothing.
-            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0").execute().publicationId).isNull()
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", catalogVersion = null).execute().publicationId).isNull()
 
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = false).execute()
-            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0").execute().publicationId).isNull()
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0", catalogVersion = null).execute().publicationId).isNull()
             assertThat(publications(tenant.id, catalogKey)).isEmpty()
         }
     }
@@ -197,7 +199,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Feature off").execute()
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
 
-            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0").execute().publicationId).isNull()
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", catalogVersion = null).execute().publicationId).isNull()
             assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_UNAVAILABLE)

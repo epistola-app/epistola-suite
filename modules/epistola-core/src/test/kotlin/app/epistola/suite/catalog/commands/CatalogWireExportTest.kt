@@ -89,6 +89,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 content = PNG,
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
 
             // Font faces: two weights, each its own binary in the assets table.
@@ -101,12 +102,14 @@ class CatalogWireExportTest : IntegrationTestBase() {
                     ImportFontVariant(400, false, "font/ttf", TTF),
                     ImportFontVariant(700, false, "font/ttf", TTF_BOLD),
                 ),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), catalogId),
                 displayName = "Language",
                 allowedValues = listOf("nl", "en"),
+                catalogVersion = null,
             ).execute()
 
             CreateCodeList(
@@ -114,6 +117,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 displayName = "Regions",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("eu", "Europe"), CodeListEntry("us", "United States")),
+                catalogVersion = null,
             ).execute()
 
             CreateTheme(
@@ -121,14 +125,15 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 name = "House Style",
                 description = "The town hall's look",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to catalogKey.value)),
+                catalogVersion = null,
             ).execute()
 
             val stencilId = StencilId(StencilKey.of("letterhead"), catalogId)
-            CreateStencil(id = stencilId, name = "Letterhead", content = doc("letterhead-root")).execute()
+            CreateStencil(id = stencilId, name = "Letterhead", content = doc("letterhead-root"), catalogVersion = null).execute()
 
             val templateId = TemplateId(TemplateKey.of("decision-letter"), catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Decision Letter").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalog = testCatalog(templateId.tenantKey, catalogKey)).execute()
+            CreateDocumentTemplate(id = templateId, name = "Decision Letter", catalogVersion = null).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalog = testCatalog(templateId.tenantKey, catalogKey), catalogVersion = null).execute()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = JsonMapper().readValue(
@@ -136,8 +141,9 @@ class CatalogWireExportTest : IntegrationTestBase() {
                     ObjectNode::class.java,
                 ),
                 dataExamples = listOf(DataExample("nl", "Dutch", JsonMapper().createObjectNode().put("recipient", "Ada"))),
+                catalogVersion = null,
             ).execute()
-            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId), catalogVersion = null).execute()
 
             val zip = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), catalogKey))
             val entries = ZipInputStream(ByteArrayInputStream(zip.zipBytes)).use { z ->

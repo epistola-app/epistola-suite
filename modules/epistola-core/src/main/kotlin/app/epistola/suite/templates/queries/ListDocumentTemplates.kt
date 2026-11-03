@@ -5,12 +5,13 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -75,8 +76,8 @@ data class ListDocumentTemplates(
     val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<DocumentTemplate>>,
     RequiresPermission {
@@ -95,8 +96,8 @@ class ListDocumentTemplatesHandler(
 ) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            // The view holds each catalog's version a caller means, a draft's or a release's.
-            append("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId")
+            // Each catalog in the version the query addresses, a draft's or a release's, else in its next version.
+            append("SELECT $TEMPLATE_COLUMNS FROM version_templates dt WHERE dt.tenant_key = :tenantId AND ${inVersionOrNext("dt", "version")}")
             if (query.catalogKey != null) {
                 append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
@@ -114,6 +115,7 @@ class ListDocumentTemplatesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+            .bindVersion("version", handle.addressedVersion(query))
         if (query.catalogKey != null) {
             jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }

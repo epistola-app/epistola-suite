@@ -60,8 +60,8 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
     private fun authored(tenant: TenantKey, namespace: String, title: String) = withMediator {
         CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
         val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, letters(tenant, namespace)))
-        CreateDocumentTemplate(variant.templateId, title).execute().withRequiredDataExample()
-        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = title)).execute()
+        CreateDocumentTemplate(variant.templateId, title, catalogVersion = null).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = title), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
     }
 
@@ -76,9 +76,9 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
             for ((namespace, title) in listOf("acme" to "Acme invoice", "bureau" to "Bureau invoice")) {
                 val catalog = letters(tenant, namespace)
                 assertThat(GetCatalog(catalog).query()!!.namespace).isEqualTo(namespace)
-                assertThat(GetDocumentTemplate(TemplateId(invoice, catalog)).query()!!.name).isEqualTo(title)
+                assertThat(GetDocumentTemplate(TemplateId(invoice, catalog), catalogVersion = null).query()!!.name).isEqualTo(title)
                 assertThat(ListCatalogReleaseSummaries(catalog).query().map { it.version }).containsExactly("1.0.0")
-                val pdf = PreviewDocument(catalog, invoice, JsonNodeFactory.instance.objectNode(), releaseVersion = "1.0.0").query()
+                val pdf = PreviewDocument(catalog, invoice, JsonNodeFactory.instance.objectNode(), releaseVersion = "1.0.0", catalogVersion = null).query()
                 assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
             }
         }
@@ -115,8 +115,8 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
             ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             assertThat(ListCatalogs(receiver).query().filter { it.id == letters }.map { it.namespace }).containsExactlyInAnyOrder("acme", "bureau")
-            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "acme"))).query()!!.name).isEqualTo("Acme invoice")
-            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "bureau"))).query()!!.name).isEqualTo("Bureau invoice")
+            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "acme")), catalogVersion = null).query()!!.name).isEqualTo("Acme invoice")
+            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "bureau")), catalogVersion = null).query()!!.name).isEqualTo("Bureau invoice")
         }
     }
 }

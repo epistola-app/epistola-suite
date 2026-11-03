@@ -224,7 +224,6 @@ class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) :
  */
 @Component
 class CatalogReleaseCopier(
-    private val targeting: CatalogReleaseTargeting,
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
     private val contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder,
@@ -241,17 +240,15 @@ class CatalogReleaseCopier(
     private fun copyAsPartOfCommand(catalog: CatalogId, release: CatalogRelease, into: UUID) {
         val version = requireNotNull(release.version)
         val archive = ExportCatalogZip(catalog, version).execute()
-        val imported = targeting.within(into) {
-            ImportCatalogZip(
-                tenantKey = catalog.tenantKey,
-                zipBytes = archive.zipBytes,
-                validateCrossCatalogDeps = false,
-                confirmMigration = true,
-                intoDraft = true,
-                // A release copied into a draft: nothing arrives.
-                provenance = null,
-            ).execute()
-        }
+        val imported = ImportCatalogZip(
+            tenantKey = catalog.tenantKey,
+            zipBytes = archive.zipBytes,
+            validateCrossCatalogDeps = false,
+            confirmMigration = true,
+            intoDraft = into,
+            // A release copied into a draft: nothing arrives.
+            provenance = null,
+        ).execute()
         val failed = imported.results.filter { it.status == InstallStatus.FAILED }
         check(failed.isEmpty()) {
             "Copying release $version of '${catalog.key.value}' into a draft failed for " +
@@ -260,7 +257,7 @@ class CatalogReleaseCopier(
         // What the draft holds of its base, as this suite holds content: a merge compares the draft
         // with this rather than with the release's own fingerprints, which for a release received
         // from elsewhere need not match what this suite computes for the same content.
-        val held = targeting.within(into) { fingerprints.entryFingerprints(catalog.key, contentBuilder.build(catalog)) }
+        val held = fingerprints.entryFingerprints(catalog.key, contentBuilder.build(ContentVersion(catalog, into)))
         jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, catalog.tenantKey, into, fingerprints.storeBaseline(held)) }
     }
 }

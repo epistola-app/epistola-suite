@@ -210,7 +210,7 @@ class TemplateMcpTools(
             val version = catalogVersionRef(catalogId, catalogVersion)
             // Validated before anything is created, so bad attributes leave no half-made template behind.
             val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
-                ?.also { validateAttributes(mcpTenantId(), it) }
+                ?.also { validateAttributes(mcpTenantId(), it, version) }
             var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version, description = description).execute()
             if (!themeId.isNullOrBlank()) {
                 template = UpdateDocumentTemplate(

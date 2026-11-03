@@ -186,11 +186,11 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val version = withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
             val target = GetCatalog(testCatalog(tenant, shared)).query()!!
-            UpdateCatalogDependencies(testCatalog(tenant, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
         }
 
@@ -231,7 +231,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     fun `the draft's changes show an edit as modified, and marking the draft ready makes it ready`() {
         val (tenant, key) = tenantWithTwoReleases()
         withMediator {
-            UpdateVariantContent(variant(tenant), TestTemplateBuilder.buildMinimal(name = "Invoice edited")).execute()
+            UpdateVariantContent(variant(tenant), TestTemplateBuilder.buildMinimal(name = "Invoice edited"), catalogVersion = null).execute()
         }
         val draft = withMediator { CatalogApiPaths.version(tenant) }
 
@@ -333,8 +333,8 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         createTenant(tenant, "Release Tenant")
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         val variant = variant(tenant)
-        CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+        CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
         mediator.releaseNext(variant.templateId.catalogId)
         tenant to CreateApiKey(tenantId = tenant, name = "rel-it").execute().plaintextKey

@@ -55,30 +55,30 @@ class CodeListStoragePerfTest : IntegrationTestBase() {
             for (c in 0 until CATALOGS) {
                 val catalog = testCatalog(tenant, CatalogKey.of("cat-$c"))
                 CreateCatalog(tenantKey = tenant, id = catalog.key, name = "Catalog $c").execute()
-                repeat(LISTS) { l -> CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = entries(20)).execute() }
+                repeat(LISTS) { l -> CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = entries(20), catalogVersion = null).execute() }
                 mediator.releaseNext(catalog)
             }
         }
         val big = testCatalog(tenant, CatalogKey.of("big"))
         withMediator {
             CreateCatalog(tenantKey = tenant, id = big.key, name = "Big").execute()
-            for (n in SIZES) CreateCodeList(CodeListId(CodeListKey.of("list-$n"), big), "List of $n", sourceType = CodeListSource.INLINE, entries = entries(n)).execute()
+            for (n in SIZES) CreateCodeList(CodeListId(CodeListKey.of("list-$n"), big), "List of $n", sourceType = CodeListSource.INLINE, entries = entries(n), catalogVersion = null).execute()
         }
 
         val results = mutableListOf<Result>()
-        results += measure("list a tenant's code lists") { ListCodeLists(TenantId(tenant)).query() }
+        results += measure("list a tenant's code lists") { ListCodeLists(TenantId(tenant), catalogVersion = null).query() }
         for (n in SIZES) {
             val id = CodeListId(CodeListKey.of("list-$n"), big)
             val middle = "C%05d".format(n / 2)
             var flip = false
-            results += measure("$n: read the code list") { GetCodeList(id).query() }
-            results += measure("$n: list visible entries") { ListCodeListEntries(id).query() }
-            results += measure("$n: list all entries") { ListCodeListEntries(id, includeHidden = true).query() }
-            results += measure("$n: entry exists") { CodeListEntryExists(big, id.key, middle).query() }
-            results += measure("$n: entry does not exist") { CodeListEntryExists(big, id.key, "nope").query() }
+            results += measure("$n: read the code list") { GetCodeList(id, catalogVersion = null).query() }
+            results += measure("$n: list visible entries") { ListCodeListEntries(id, catalogVersion = null).query() }
+            results += measure("$n: list all entries") { ListCodeListEntries(id, includeHidden = true, catalogVersion = null).query() }
+            results += measure("$n: entry exists") { CodeListEntryExists(big, id.key, middle, catalogVersion = null).query() }
+            results += measure("$n: entry does not exist") { CodeListEntryExists(big, id.key, "nope", catalogVersion = null).query() }
             results += measure("$n: hide or show an entry", runs = 100) {
                 flip = !flip
-                UpdateCodeListEntryHidden(id, middle, flip).execute()
+                UpdateCodeListEntryHidden(id, middle, flip, catalogVersion = null).execute()
             }
         }
 

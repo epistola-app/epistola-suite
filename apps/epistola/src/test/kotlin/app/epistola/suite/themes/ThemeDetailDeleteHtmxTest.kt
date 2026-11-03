@@ -51,7 +51,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant("Theme Delete")
         val theme = ThemeId(ThemeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
         withMediator {
-            CreateTheme(theme, "Brand").execute()
+            CreateTheme(theme, "Brand", catalogVersion = null).execute()
             if (default) SetTenantDefaultTheme(tenantId = tenant.id, themeId = theme.key, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
         }
         return tenant.id.value to theme
@@ -65,7 +65,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode.value()).isEqualTo(422)
         assertThat(response.body).contains("id=\"delete-theme-error\"").contains("default theme")
-        assertThat(withMediator { GetTheme(theme).query() }).isNotNull()
+        assertThat(withMediator { GetTheme(theme, catalogVersion = null).query() }).isNotNull()
     }
 
     @Test
@@ -75,6 +75,6 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
         val response = deleteFromDetail(tenant)
 
         assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/$tenant/catalogs/$tenant/default/themes")
-        assertThat(withMediator { GetTheme(theme).query() }).isNull()
+        assertThat(withMediator { GetTheme(theme, catalogVersion = null).query() }).isNull()
     }
 }

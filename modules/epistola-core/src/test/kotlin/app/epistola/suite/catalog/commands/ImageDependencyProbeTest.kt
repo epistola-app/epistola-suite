@@ -51,6 +51,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 width = 1,
                 height = 1,
                 id = AssetKey.of("logo"),
+                catalogVersion = null,
             ).execute()
             // A wire-v8 archive pins a release of every catalog it declares: brand's is cut first.
             val brandVersion = mediator.releaseNext(testCatalog(tenant.id, BRAND))
@@ -82,6 +83,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 width = 1,
                 height = 1,
                 id = AssetKey.of("logo"),
+                catalogVersion = null,
             ).execute()
 
             assertThatThrownBy {

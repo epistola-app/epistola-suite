@@ -5,11 +5,12 @@
 package app.epistola.suite.templates.queries.variants
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
@@ -29,8 +30,8 @@ import tools.jackson.databind.ObjectMapper
  */
 data class GetVariantContent(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<TemplateDocument?>,
     RequiresPermission {
@@ -46,12 +47,13 @@ class GetVariantContentHandler(
     override fun handle(query: GetVariantContent): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT template_model::text FROM current_template_variants
-            WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
+            SELECT template_model::text FROM version_template_variants
+            WHERE tenant_key = :t AND id = :v AND version_id = :version AND template_resource_id = ${templateIn("t", "c", "k", "version")}
             """,
         )
             .bind("t", query.variantId.tenantKey)
             .bindCatalog("c", query.variantId.catalogId)
+            .bindVersion("version", handle.versionOf(query.variantId.catalogId, query).versionId)
             .bind("k", query.variantId.templateKey)
             .bind("v", query.variantId.key)
             .mapTo(String::class.java)
@@ -70,8 +72,8 @@ data class VariantContentAtRevision(val templateModel: TemplateDocument, val rev
  */
 data class GetVariantContentAtRevision(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<VariantContentAtRevision?>,
     RequiresPermission {
@@ -87,12 +89,13 @@ class GetVariantContentAtRevisionHandler(
     override fun handle(query: GetVariantContentAtRevision): VariantContentAtRevision? = jdbi.withHandle<VariantContentAtRevision?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT template_model::text AS template_model, revision FROM current_template_variants
-            WHERE tenant_key = :t AND id = :v AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")}
+            SELECT template_model::text AS template_model, revision FROM version_template_variants
+            WHERE tenant_key = :t AND id = :v AND version_id = :version AND template_resource_id = ${templateIn("t", "c", "k", "version")}
             """,
         )
             .bind("t", query.variantId.tenantKey)
             .bindCatalog("c", query.variantId.catalogId)
+            .bindVersion("version", handle.versionOf(query.variantId.catalogId, query).versionId)
             .bind("k", query.variantId.templateKey)
             .bind("v", query.variantId.key)
             .map { rs, _ -> VariantContentAtRevision(TemplateModels.read(rs.getString("template_model"), query.variantId.catalogKey.value, objectMapper), rs.getLong("revision")) }

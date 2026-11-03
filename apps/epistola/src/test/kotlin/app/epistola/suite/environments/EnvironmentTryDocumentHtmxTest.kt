@@ -45,10 +45,10 @@ class EnvironmentTryDocumentHtmxTest : BaseIntegrationTest() {
         val (templateKey, version) = withMediator {
             createTenant(tenantKey, "Try Document")
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()
-            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(variantId)
             val staging = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenantKey))
             CreateEnvironment(staging, "Staging").execute()

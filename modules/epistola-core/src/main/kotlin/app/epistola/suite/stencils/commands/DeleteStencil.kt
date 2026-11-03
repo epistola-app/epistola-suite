@@ -7,8 +7,8 @@ package app.epistola.suite.stencils.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -29,8 +29,8 @@ import org.springframework.stereotype.Component
  */
 data class DeleteStencil(
     val id: StencilId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -46,11 +46,11 @@ class DeleteStencilHandler(
     override fun handle(command: DeleteStencil): Boolean {
         requireCatalogEditable(command.id.catalogId)
 
-        val usages = FindStencilUsages(command.id).query()
+        val usages = FindStencilUsages(command.id, command.catalogVersion).query()
         if (usages.isNotEmpty()) {
             throw StencilInUseException(command.id.key, usages)
         }
 
-        return jdbi.withHandle<Boolean, Exception> { handle -> stencils.delete(handle, command.id) }
+        return jdbi.withHandle<Boolean, Exception> { handle -> stencils.delete(handle, handle.versionOf(command.id.catalogId, command), command.id) }
     }
 }

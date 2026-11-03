@@ -38,9 +38,9 @@ class ListReleasesWithSameContentTest : IntegrationTestBase() {
     /** Catalog [key] named [name] in [tenant], with one theme `brand`, released as 1.0.0. */
     private fun releasedWithBrand(tenant: TenantKey, key: CatalogKey, name: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = name).execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0", catalogVersion = null).execute()
     }
 
     @Test
@@ -48,10 +48,10 @@ class ListReleasesWithSameContentTest : IntegrationTestBase() {
         val tenant = createTenant("Same content notes").id
         releasedWithBrand(tenant, letters, "Letters")
         withMediator {
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Only the notes are new").execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, changed").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.2").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Only the notes are new", catalogVersion = null).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, changed", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.2", catalogVersion = null).execute()
 
             val first = ListReleasesWithSameContent(testCatalog(tenant, letters), "1.0.0").query()!!
             val reReleased = ListReleasesWithSameContent(testCatalog(tenant, letters), "1.0.1").query()!!
@@ -76,7 +76,7 @@ class ListReleasesWithSameContentTest : IntegrationTestBase() {
         releasedWithBrand(tenant, letters, "Letters")
         releasedWithBrand(tenant, CatalogKey.of("forms"), "Forms")
         releasedWithBrand(elsewhere, letters, "Letters")
-        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", notes = "The same again").execute() }
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", notes = "The same again", catalogVersion = null).execute() }
 
         val same = withMediator { ListReleasesWithSameContent(testCatalog(tenant, letters), "1.0.0").query()!! }
 

@@ -42,7 +42,7 @@ class MergeAfterRelocationTest : RelocationTestSupport() {
     fun `a fix released from a draft left alone merges into the draft that moved what it names`() {
         val tenant = movedWhileHotfixChangedIt("merge-after-move")
 
-        val preview = withMediator { PreviewDraftMerge(catalogId(tenant, letters), "1.0.1").query() }
+        val preview = withMediator { PreviewDraftMerge(catalogId(tenant, letters), "1.0.1", catalogVersion = null).query() }
         val outcomes = preview.resources.associateBy { it.contentKey }
         // The fix to the template names the theme where it was: it follows the move, not a conflict.
         assertThat(outcomes.getValue("template/invoice").outcome).isEqualTo(MergeOutcome.THEIRS)
@@ -51,9 +51,9 @@ class MergeAfterRelocationTest : RelocationTestSupport() {
         assertThat(house.outcome).isEqualTo(MergeOutcome.CONFLICT)
         assertThat(house.movedTo).isEqualTo(MergeMovedTo(catalogKey = "shared", key = "house"))
 
-        withMediator { MergeReleaseIntoDraft(catalogId(tenant, letters), "1.0.1", mapOf("theme/house" to MergeResolution.Ours), expectedToken = preview.token).execute() }
+        withMediator { MergeReleaseIntoDraft(catalogId(tenant, letters), "1.0.1", mapOf("theme/house" to MergeResolution.Ours), expectedToken = preview.token, catalogVersion = null).execute() }
 
-        val invoice = withMediator { GetDocumentTemplate(invoice(tenant)).query()!! }
+        val invoice = withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query()!! }
         assertThat(invoice.name).isEqualTo("Invoice fixed")
         assertThat(invoice.themeKey?.value to invoice.themeCatalogKey?.value).isEqualTo("house" to "shared")
     }
@@ -66,11 +66,11 @@ class MergeAfterRelocationTest : RelocationTestSupport() {
     private fun movedWhileHotfixChangedIt(name: String): TenantKey {
         val tenant = tenantWith(name)
         val hotfix = withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
-            CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
-            MarkCatalogReady(catalogId(tenant, letters)).execute()
-            ReleaseCatalogDraft(catalog = catalogId(tenant, letters), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters), catalogVersion = null).execute()
+            MarkCatalogReady(catalogId(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = catalogId(tenant, letters), version = "1.0.0", catalogVersion = null).execute()
             CatalogReleaseRef(catalogId(tenant, letters), DraftRef.Id(CreateCatalogDraft(catalogId(tenant, letters), "Hotfix", "1.0.0").execute().versionId))
         }
 

@@ -14,6 +14,7 @@ import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
@@ -49,8 +50,8 @@ data class UploadAsset(
     val width: Int?,
     val height: Int?,
     val id: AssetKey? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Asset>,
     RequiresPermission {
@@ -105,7 +106,7 @@ class UploadAssetHandler(
         // it), a content naming bytes that are not there is not.
         val contentHash = images.storeBytes(command.content, command.mediaType)
         return jdbi.inTransaction<Asset, Exception> { handle ->
-            images.create(handle, command.catalog, id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash), currentUserIdOrNull()?.value)
+            images.create(handle, handle.versionOf(command.catalog, command), id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash), currentUserIdOrNull()?.value)
         }
     }
 }

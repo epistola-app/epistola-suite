@@ -94,11 +94,10 @@ still in the table, defaulted and unused, and goes in a later major release.
   in `resource_contents`: `{ "resource": <the theme's wire form> }`, the shape every type's content has (ADR 0033), the same row a release of it shares. Writes go
   through `ThemeStore` and `DraftResources`; the database keeps identity, revision, `updated_at`
   and the catalog's `content_updated_at` on those rows as it does for a content table. Every read
-  goes through one place: the SQL function `catalog_version_resources(type)`, the rows of the version a caller
-  means (the draft its message targets, or the release a `ReleaseReadable` query names, settings
-  `epistola.release_catalog` and `epistola.release_version`), and per type a view on it
-  (`current_themes`) mapped by one mapper (`ThemeContent`). A read of another version than the
-  message's (a dependency's release, another draft) selects it with `VersionReads.at`. The function fixes the plan's
+  goes through one place: per type a view of every version's content (`version_themes`), filtered by
+  the version the statement means (ADR 0049: the draft or release its message addresses, resolved by
+  `ContentVersions`), and mapped by one mapper (`ThemeContent`). A read of another version than the
+  message's (a dependency's release, another draft) names that version the same way. The view fixes the plan's
   shape (current versions first, then each one's rows by the draft key), so reads plan the same
   before the planner has statistics, as on a fresh installation (`ThemePlanStabilityTest`). So
   `GetTheme`/`ListThemes`, the REST and MCP theme reads and the theme page read a release as they
@@ -245,7 +244,7 @@ live side by side, with no switch to turn on.
   (`tenant/acme/letters/invoice`). Every address names one catalog. An address is built from the
   catalog's name wherever the code reads one: a URL segment, a row, a dependency row.
 - **SQL takes the address or the id**: `epistola_catalog_id(tenant, namespace, key)`
-  (`V20261101000100`), bound with `bindCatalog` (`CatalogSql.catalogAt`, `versionAt`, `findCatalog`).
+  (`V20261101000100`), bound with `bindCatalog` (`CatalogSql.catalogAt`, `findCatalog`).
   There is no lookup by key alone and no ambient names scope.
 - **Stored references point at `catalog_id`**, never at a name: pins, deployments, release rows,
   upstream checks, publication rows, resource identities. A rename (a new namespace) changes the
@@ -470,30 +469,27 @@ until it is released**; only releases are numbered.
 
 ### Which version a statement means
 
-Every statement on content names its version through the helpers in
-[`CatalogSql.kt`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt):
-`versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`;
-`ContentVersionSqlTest` fails a statement that names none. The view answers, per catalog, the version
-the caller means:
+Every statement on content names the version it reads by its `version_id`
+([ADR 0049](adr/0049-content-addressed-by-an-explicit-version.md)). The read model holds every
+version's content (`version_themes`, `version_templates`, …, `version_references`) and chooses none;
+nothing about the version is in the session. `ContentVersionSqlTest` fails a statement on content
+that names no version, and `VersionTargetNotInSessionTest` keeps the session out of it.
 
-1. the version the transaction **targets**, when it is a version of that catalog;
-2. else the catalog's **next release**. Another draft is reached only by targeting it.
-
-A command or query that addresses one draft implements
+A command or query that addresses one version implements
 [`CatalogReleaseScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/CatalogReleaseScoped.kt)
-and carries a `CatalogReleaseRef` (tenant, catalog, `DraftRef`: `Next` or `Id`). `SpringMediator`
-resolves it before the handler runs (an unknown draft is `CatalogReleaseNotFoundException`), runs a
-query that names one in a read-only transaction, and `CatalogReleaseTargeting` sets the PostgreSQL
-setting `epistola.content_version` to the draft's `version_id`, transaction-locally. Handlers written
-for "the" version of a catalog then work on that draft unchanged, and every message they dispatch
-inherits it; the caller's target is restored when the message ends. A message that names no version
-works on the next release. A self-managed command (`RefreshCodeList`) applies the target in each
-transaction it opens.
+and carries a `CatalogReleaseRef` (catalog, `DraftRef`: `Next`, a draft's `Id`, a `Released` number,
+or `At`, a version internal work already resolved), as it carries its tenant. Its handler resolves it
+through [`ContentVersions`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/ContentVersions.kt)
+(`handle.versionOf(catalog, message)`, `writableVersionOf` for a write, which refuses a released
+version) into a `ContentVersion` and passes that to the stores, which bind it (`bindVersion`). An
+unknown draft or release is `CatalogReleaseNotFoundException`. A message that names no version means
+its catalog's **next version**, by name (`catalogs.next_version_id`).
 
-[ADR 0049](adr/0049-content-addressed-by-an-explicit-version.md) (proposed) replaces this ambient
-target with an explicit version, area by area: a message carries the resolved `version_id`, SQL binds
-it, and a read that means the default version asks for `catalogs.next_version_id` by name. New code,
-starting with search (ADR 0043), is written that way.
+Nothing is inherited. `catalogVersion` is a required constructor parameter, so a handler that
+dispatches another message decides what it addresses: the version it was given, another one, or
+`null` for the next. A read across catalogs made for one version reads that version for its catalog
+and every other catalog's next version (`inVersionOrNext`); one made for none, every catalog's next
+version (`inNextVersion`). A read of a dependency names the version its declaration pins or names.
 
 The REST API's `…/releases/{release}/…` paths take `next`, a draft's release id or a release number
 (`ResolveCatalogRelease`), pass the draft they name to every message they dispatch

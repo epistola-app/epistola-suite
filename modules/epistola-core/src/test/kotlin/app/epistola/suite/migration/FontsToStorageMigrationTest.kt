@@ -5,6 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.atNext
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
@@ -86,7 +87,7 @@ class FontsToStorageMigrationTest {
         flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            val payload = mapper.readTree(connection.rows("SELECT payload::text FROM current_fonts WHERE slug = 'house-sans'").single().single())
+            val payload = mapper.readTree(connection.rows("SELECT payload::text FROM ${atNext("version_fonts")} current_fonts WHERE slug = 'house-sans'").single().single())
             assertThat(payload.path("resource").path("variants").toList().map { "${it.path("weight").asInt()}/${it.path("italic").asBoolean()}/${it.path("mediaType").asString()}" })
                 .`as`("every face, by italic then weight, with what its file is")
                 .containsExactly("400/false/font/ttf", "700/false/font/ttf", "400/true/image/png", "700/true/font/ttf")
@@ -100,7 +101,7 @@ class FontsToStorageMigrationTest {
                 ).map { it.single() },
             ).`as`("each face links to its bytes, the tenant-isolated one too (one store since step 6)")
                 .containsExactly("a", "b", "c", "d")
-            assertThat(connection.rows("SELECT id FROM current_images ORDER BY id").map { it.single() })
+            assertThat(connection.rows("SELECT id FROM ${atNext("version_images")} current_images ORDER BY id").map { it.single() })
                 .`as`("the face-only files go; the image a face used, and the file an image node names, stay")
                 .containsExactly("mark", "named-ttf")
             assertThat(connection.rows("SELECT count(*) FROM asset_content").single().single()).`as`("no bytes are lost").isEqualTo("4")

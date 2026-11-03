@@ -57,9 +57,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     fun `the showcase template reports one empty block and one overlong block`() {
         val variantId = showcaseVariant()
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
-        val findings = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+        val findings = withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().items }
 
         assertThat(findings)
             .describedAs("the showcase exists to produce findings; if it produces none, the demo shows nothing")
@@ -88,9 +88,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     fun `the showcase reports its unlabelled image and stays quiet about the decorative one`() {
         val variantId = showcaseVariant()
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
-        val findings = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+        val findings = withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().items }
 
         val alt = findings.single { it.ruleId == AccessibilityQualitySource.RULE_IMAGE_MISSING_ALT }
         assertThat(alt.severity).isEqualTo(QualitySeverity.WARNING)
@@ -107,9 +107,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     fun `a block holding only an expression is not among the findings`() {
         val variantId = showcaseVariant()
 
-        withMediator { RunQualityChecks(variantId).execute() }
+        withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
-        val findings = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+        val findings = withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().items }
         assertThat(findings.flatMap { it.nodeIds }).doesNotContain("n-dynamic-only")
     }
 
@@ -121,9 +121,9 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     fun `the showcase's language paragraph trips the built-in rules, with the flagged text and suggestions`() {
         val variantId = showcaseVariant()
 
-        val run = withMediator { RunQualityChecks(variantId).execute() }
+        val run = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
-        val language = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+        val language = withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().items }
             .filter { it.sourceId == QualitySourceId("builtin") && it.nodeIds == listOf("n-language") }
         assertThat(language.map { it.ruleId to it.context.path("quote").asString() }).containsExactlyInAnyOrder(
             "clear-language.repeated-word" to "the the",
@@ -132,7 +132,7 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         )
         assertThat(language.single { it.ruleId == "clear-language.repeated-word" }.context.path("suggestions").toList().map { it.asString() }).containsExactly("the")
         // The legalese the example source already finds too long reads as a writing problem as well.
-        val legalese = withMediator { ListQualityFindings(variantId.tenantKey).query().items }
+        val legalese = withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().items }
             .filter { it.sourceId == QualitySourceId("builtin") && it.nodeIds == listOf("n-long") }
         assertThat(legalese.map { it.ruleId }).containsExactlyInAnyOrder("clear-language.sentence-length", "clear-language.plain-words", "clear-language.plain-words")
         // Nobody configured a LanguageTool server for the demo: it says so rather than reporting nothing.
@@ -144,8 +144,8 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
     fun `re-running the checks is idempotent`() {
         val variantId = showcaseVariant()
 
-        val first = withMediator { RunQualityChecks(variantId).execute() }
-        val second = withMediator { RunQualityChecks(variantId).execute() }
+        val first = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
+        val second = withMediator { RunQualityChecks(variantId, catalogVersion = null).execute() }
 
         val source = QualitySourceId("example")
         assertThat(first[source]!!.opened).isEqualTo(2)
@@ -155,7 +155,7 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
         // The example source's counts are per-source and so unchanged; the tenant-wide total also
         // carries the accessibility source's unlabelled-image finding and the built-in rules' six
         // (three in n-language, three in the legalese of n-long).
-        assertThat(withMediator { ListQualityFindings(variantId.tenantKey).query().total }).isEqualTo(9)
+        assertThat(withMediator { ListQualityFindings(variantId.tenantKey, catalogVersion = null).query().total }).isEqualTo(9)
         assertThat(second[QualitySourceId("builtin")]!!.unchanged).isEqualTo(6)
     }
 }

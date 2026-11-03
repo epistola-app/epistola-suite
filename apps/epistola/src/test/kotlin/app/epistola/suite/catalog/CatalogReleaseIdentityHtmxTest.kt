@@ -42,9 +42,9 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
     /** Catalog [key] named [name], with one theme `brand`, released as 1.0.0. */
     private fun releasedWithBrand(tenant: TenantKey, key: CatalogKey, name: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = name).execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0", catalogVersion = null).execute()
     }
 
     private fun page(tenant: TenantKey, catalog: CatalogKey, version: String): String = restTemplate
@@ -59,7 +59,7 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant("Release identity same").id
         releasedWithBrand(tenant, letters, "Letters")
         releasedWithBrand(tenant, CatalogKey.of("forms"), "Forms")
-        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Only the notes are new").execute() }
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Only the notes are new", catalogVersion = null).execute() }
         val contentHash = withMediator { GetCatalogReleaseDetail(testCatalog(tenant, letters), "1.0.1").query()!!.contentHash!! }
 
         val body = page(tenant, letters, "1.0.1")

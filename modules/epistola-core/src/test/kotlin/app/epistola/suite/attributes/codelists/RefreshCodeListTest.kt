@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.default
+import app.epistola.suite.testing.nextVersion
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
@@ -89,19 +90,20 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 sourceType = CodeListSource.URL,
                 sourceUrl = "http://127.0.0.1:$port/regions.json",
                 authType = AuthType.NONE,
+                catalogVersion = null,
             ).execute()
 
             // Pre-condition: no entries yet, no refresh stamp.
-            assertThat(ListCodeListEntries(id).query()).isEmpty()
-            assertThat(GetCodeList(id).query()!!.lastRefreshedAt).isNull()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).isEmpty()
+            assertThat(GetCodeList(id, catalogVersion = null).query()!!.lastRefreshedAt).isNull()
 
-            RefreshCodeList(id).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
 
-            val entries = ListCodeListEntries(id).query()
+            val entries = ListCodeListEntries(id, catalogVersion = null).query()
             assertThat(entries).extracting<String> { it.code }.containsExactly("eu", "us")
             assertThat(entries.first { it.code == "eu" }.label).isEqualTo("Europe")
 
-            val refreshed = GetCodeList(id).query()!!
+            val refreshed = GetCodeList(id, catalogVersion = null).query()!!
             assertThat(refreshed.lastRefreshedAt).isNotNull()
             assertThat(refreshed.lastRefreshError).isNull()
         }
@@ -119,21 +121,21 @@ class RefreshCodeListTest : IntegrationTestBase() {
         val catalog = CatalogId.default(tenantId)
         val id = CodeListId(CodeListKey.of("regions"), catalog)
         fun hash(): String = jdbi.withHandle<String, Exception> { h ->
-            h.createQuery("SELECT r.content_hash FROM release_resources r JOIN catalog_current_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id WHERE r.tenant_key = :t AND r.resource_type = 'codeList' AND r.resource_key = 'regions'")
+            h.createQuery("SELECT r.content_hash FROM release_resources r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.next_version_id = r.version_id WHERE r.tenant_key = :t AND r.resource_type = 'codeList' AND r.resource_key = 'regions'")
                 .bind("t", tenant.id).mapTo(String::class.java).one()
         }
-        fun ready(): Boolean? = jdbi.withHandle<Boolean?, Exception> { readyMarks.readiness(it, catalog)["codeList/regions"] }
+        fun ready(): Boolean? = jdbi.withHandle<Boolean?, Exception> { readyMarks.readiness(it, nextVersion(catalog))["codeList/regions"] }
 
         val first = withMediator {
-            CreateCodeList(id, "Regions", sourceType = CodeListSource.URL, sourceUrl = "http://127.0.0.1:$port/regions.json", authType = AuthType.NONE).execute()
-            RefreshCodeList(id).execute()
-            MarkCatalogReady(catalog).execute()
-            GetCodeList(id).query()!!
+            CreateCodeList(id, "Regions", sourceType = CodeListSource.URL, sourceUrl = "http://127.0.0.1:$port/regions.json", authType = AuthType.NONE, catalogVersion = null).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
+            GetCodeList(id, catalogVersion = null).query()!!
         }
         val hashBefore = hash()
         assertThat(ready()).isTrue()
 
-        val second = withMediator { RefreshCodeList(id).execute()!! }
+        val second = withMediator { RefreshCodeList(id, catalogVersion = null).execute()!! }
 
         assertThat(hash()).`as`("no new content").isEqualTo(hashBefore)
         assertThat(second.revision).isEqualTo(first.revision)
@@ -166,21 +168,22 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 displayName = "Flaky",
                 sourceType = CodeListSource.URL,
                 sourceUrl = "http://127.0.0.1:$port/flaky.json",
+                catalogVersion = null,
             ).execute()
 
             // First refresh seeds the entry.
-            RefreshCodeList(id).execute()
-            assertThat(ListCodeListEntries(id).query()).extracting<String> { it.code }.containsExactly("initial")
+            RefreshCodeList(id, catalogVersion = null).execute()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).extracting<String> { it.code }.containsExactly("initial")
 
             // Second refresh: server returns 500. Entries should be preserved
             // and last_refresh_error populated; the command must not throw.
-            RefreshCodeList(id).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
 
-            assertThat(ListCodeListEntries(id).query())
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query())
                 .extracting<String> { it.code }
                 .containsExactly("initial")
 
-            val state = GetCodeList(id).query()!!
+            val state = GetCodeList(id, catalogVersion = null).query()!!
             assertThat(state.lastRefreshError).isNotNull()
         }
     }
@@ -211,18 +214,19 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 displayName = "Long source",
                 sourceType = CodeListSource.URL,
                 sourceUrl = "http://127.0.0.1:$port/longsource.json",
+                catalogVersion = null,
             ).execute()
 
-            RefreshCodeList(id).execute()
-            assertThat(ListCodeListEntries(id).query()).extracting<String> { it.code }.containsExactly("initial")
+            RefreshCodeList(id, catalogVersion = null).execute()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).extracting<String> { it.code }.containsExactly("initial")
 
-            RefreshCodeList(id).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
 
-            assertThat(ListCodeListEntries(id).query())
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query())
                 .extracting<String> { it.code }
                 .containsExactly("initial")
 
-            val state = GetCodeList(id).query()!!
+            val state = GetCodeList(id, catalogVersion = null).query()!!
             assertThat(state.lastRefreshError).contains("Entry codes must be 64 characters or less")
         }
     }
@@ -248,12 +252,13 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 sourceUrl = "http://127.0.0.1:$port/authd.json",
                 authType = AuthType.BEARER,
                 credential = "secret-token-xyz",
+                catalogVersion = null,
             ).execute()
 
-            RefreshCodeList(id).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
 
             assertThat(seenAuth.get()).isEqualTo("Bearer secret-token-xyz")
-            assertThat(ListCodeListEntries(id).query()).extracting<String> { it.code }.containsExactly("ok")
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query()).extracting<String> { it.code }.containsExactly("ok")
         }
     }
 
@@ -282,9 +287,10 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 sourceUrl = "http://127.0.0.1:$port/authd.json",
                 authType = AuthType.API_KEY,
                 credential = "k-12345",
+                catalogVersion = null,
             ).execute()
 
-            RefreshCodeList(id).execute()
+            RefreshCodeList(id, catalogVersion = null).execute()
 
             assertThat(seenAuth.get()).isEqualTo("ApiKey k-12345")
             assertThat(seenApiKey.get()).isEqualTo("k-12345")
@@ -303,9 +309,10 @@ class RefreshCodeListTest : IntegrationTestBase() {
                 displayName = "Manual",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("a", "A")),
+                catalogVersion = null,
             ).execute()
 
-            assertThatThrownBy { RefreshCodeList(id).execute() }
+            assertThatThrownBy { RefreshCodeList(id, catalogVersion = null).execute() }
                 .isInstanceOf(CodeListNotRefreshableException::class.java)
                 .hasMessageContaining("INLINE")
         }

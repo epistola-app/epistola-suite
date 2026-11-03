@@ -7,11 +7,10 @@ package app.epistola.suite.attributes.queries
 import app.epistola.suite.attributes.AttributeStore
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -23,8 +22,8 @@ import org.springframework.stereotype.Component
 
 data class GetAttributeDefinition(
     val id: AttributeId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<VariantAttributeDefinition?>,
     RequiresPermission {
@@ -38,5 +37,5 @@ class GetAttributeDefinitionHandler(
     private val attributes: AttributeStore,
 ) : QueryHandler<GetAttributeDefinition, VariantAttributeDefinition?> {
     // A draft or a release, read the same way (ADR 0033).
-    override fun handle(query: GetAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { attributes.get(it, query.id) }
+    override fun handle(query: GetAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { attributes.get(it, it.versionOf(query.id.catalogId, query), query.id) }
 }

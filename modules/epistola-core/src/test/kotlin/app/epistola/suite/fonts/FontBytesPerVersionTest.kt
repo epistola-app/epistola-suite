@@ -8,7 +8,6 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
@@ -36,7 +35,7 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
 
     @Autowired private lateinit var resourceLoader: ResourceLoader
 
-    @Autowired private lateinit var targeting: CatalogReleaseTargeting
+    @Autowired private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     @Autowired private lateinit var transactions: TransactionTemplate
 
@@ -58,7 +57,7 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
     /** The bytes a render of [draft] embeds for House Sans 400. */
     private fun renderedIn(tenant: TenantKey, draft: UUID): ByteArray? = withMediator {
         transactions.execute {
-            targeting.within(draft) { fontFamilyResolver(testCatalog(tenant, letters), dependencies = app.epistola.suite.catalog.dependencies.DraftDependencyView.live(testCatalog(tenant, letters))).resolve(null, "house-sans", 400, false)?.bytes }
+            fontFamilyResolver(testCatalog(tenant, letters), catalogVersion = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.At(draft)), dependencies = app.epistola.suite.catalog.dependencies.DraftDependencyView.live(testCatalog(tenant, letters))).resolve(null, "house-sans", 400, false)?.bytes
         }
     }
 
@@ -69,8 +68,8 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
         houseSans(tenant, "LiberationSans-Bold.ttf", version = null)
         val workKey = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), name = "New house font").execute().versionId }
         houseSans(tenant, "LiberationSans-Regular.ttf", CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(workKey)))
-        val work = withMediator { targeting.resolve(CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(workKey))) }
-        val next = withMediator { targeting.resolve(CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Next)) }
+        val work = jdbi.withHandle<UUID, Exception> { requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(tenant, letters), DraftRef.Id(workKey))) }
+        val next = jdbi.withHandle<UUID, Exception> { requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(tenant, letters), DraftRef.Next)) }
 
         assertThat(renderedIn(tenant, next)).isEqualTo(font("LiberationSans-Bold.ttf"))
         assertThat(renderedIn(tenant, work)).`as`("right after the next version's render").isEqualTo(font("LiberationSans-Regular.ttf"))

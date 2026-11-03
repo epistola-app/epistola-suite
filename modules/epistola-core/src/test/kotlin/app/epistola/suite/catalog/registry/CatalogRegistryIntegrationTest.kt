@@ -87,9 +87,9 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of(key)
         return withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Registry $key").execute()
-            CreateTheme(id = theme(a, catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            val release = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = version).execute()
+            CreateTheme(id = theme(a, catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            val release = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = version, catalogVersion = null).execute()
             Released(a, b, catalog, GetCatalog(testCatalog(a, catalog)).query()!!.namespace, release.fingerprint)
         }
     }
@@ -97,9 +97,9 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     private fun theme(tenant: TenantKey, catalog: CatalogKey) = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog))
 
     private fun releaseNext(r: Released, version: String, themeName: String): String = withMediator {
-        UpdateTheme(theme(r.a, r.catalog), name = themeName).execute()
-        MarkCatalogReady(testCatalog(r.a, r.catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(r.a, r.catalog), version = version).execute().fingerprint
+        UpdateTheme(theme(r.a, r.catalog), name = themeName, catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(r.a, r.catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(r.a, r.catalog), version = version, catalogVersion = null).execute().fingerprint
     }
 
     /** Pushes [archive] as `version` of [r]'s catalog, labelled with [fingerprint], as anyone with push rights could. */

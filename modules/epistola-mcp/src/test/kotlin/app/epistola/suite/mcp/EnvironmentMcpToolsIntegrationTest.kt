@@ -64,9 +64,9 @@ class EnvironmentMcpToolsIntegrationTest : IntegrationTestBase() {
         val staging = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant))
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "MCP environments").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
             CreateEnvironment(staging, "Staging").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production", production = true).execute()
             DeployCatalogRelease(staging, testCatalog(tenant, catalog), "1.0.0").execute()
@@ -98,12 +98,12 @@ class EnvironmentMcpToolsIntegrationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("mcp-deploy")
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "MCP deploy").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand 2").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand 2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0", catalogVersion = null).execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant)), "Staging").execute()
         }
         return tenant to "${withMediator { GetCatalog(testCatalog(tenant, catalog)).query()!!.namespace }}/mcp-deploy"

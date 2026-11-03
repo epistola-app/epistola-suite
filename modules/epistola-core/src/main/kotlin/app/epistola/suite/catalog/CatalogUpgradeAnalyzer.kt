@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -43,27 +45,30 @@ class CatalogUpgradeAnalyzer(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Every resource installed under `(tenant, catalog)`, including resource types not subject to stale pruning. */
-    fun installedResources(catalog: CatalogId): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
+    /** [catalog]'s next version: what a subscribed catalog holds, and what an upgrade replaces. */
+    fun nextOf(catalog: CatalogId): ContentVersion = jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) }
+
+    /** Every resource version [at] holds, including resource types not subject to stale pruning. */
+    fun installedResources(at: ContentVersion): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' AS type, id::text AS slug FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'stencil', id::text FROM current_stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'attribute', id FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'image', id::text FROM current_images WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'codeList', id FROM current_code_lists WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'font', slug::text FROM current_fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            SELECT 'template' AS type, id::text AS slug FROM version_templates WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'theme', id::text FROM version_themes WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'stencil', id::text FROM version_stencils WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'attribute', id FROM version_attributes WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'image', id::text FROM version_images WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'codeList', id FROM version_code_lists WHERE tenant_key = :t AND version_id = :v
+            UNION ALL SELECT 'font', slug::text FROM version_fonts WHERE tenant_key = :t AND version_id = :v
             """,
         )
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
+            .bind("t", at.tenantKey)
+            .bindVersion("v", at.versionId)
             .map { rs, _ -> InstalledResource(rs.getString("type"), rs.getString("slug")) }
             .set()
     }
 
     /** Resources handled by the upgrade analyzer, grouped by type. */
-    fun installedByType(catalog: CatalogId): Map<String, List<InstalledResource>> = installedResources(catalog)
+    fun installedByType(at: ContentVersion): Map<String, List<InstalledResource>> = installedResources(at)
         .filter { it.type in STALE_PRUNED_RESOURCE_TYPES }
         .groupBy { it.type }
 
@@ -85,14 +90,16 @@ class CatalogUpgradeAnalyzer(
      * used from another catalog), from the resource graph, the one reference authority: any kind of
      * use counts (a template's theme, stencils, images and fonts, a theme's fonts, a variant's
      * attributes, an attribute's code list, a stencil's stencils), and so does a theme that is the
-     * tenant's default. What the catalog uses of itself goes with it. Empty = safe.
+     * tenant's default. What the catalog uses of itself goes with it. Empty = safe. Read in version
+     * [at] for its catalog and every other catalog's next version.
      */
     fun findConflicts(
-        catalog: CatalogId,
+        at: ContentVersion,
         staleResources: List<InstalledResource>,
     ): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        val catalog = at.catalog
         if (staleResources.isEmpty()) return@withHandle emptyList()
-        val graph = graphs.buildOn(handle, catalog.tenantKey)
+        val graph = graphs.buildOn(handle, catalog.tenantKey, at.versionId)
         val names = graph.nodes.associate { it.address to it.name }
         val stale = staleResources.associateBy { it.type to it.slug }
         val conflicts = graph.edges.mapNotNull { edge ->
@@ -106,10 +113,10 @@ class CatalogUpgradeAnalyzer(
             handle.createQuery(
                 """
                 SELECT t.id FROM tenants t
-                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
-                WHERE t.id = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug
+                JOIN version_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                WHERE t.id = :t AND th.version_id = :v AND th.id = :slug
                 """,
-            ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", theme.slug)
+            ).bind("t", catalog.tenantKey).bindVersion("v", at.versionId).bind("slug", theme.slug)
                 .mapTo(String::class.java).findOne().map { "Theme '${theme.slug}' is the tenant default theme" }.orElse(null)
         }
         (conflicts.distinct().sorted() + defaultTheme)
@@ -124,9 +131,10 @@ class CatalogUpgradeAnalyzer(
      * definition.
      */
     fun removeStale(
-        catalog: CatalogId,
+        at: ContentVersion,
         staleResources: List<InstalledResource>,
     ): List<RemovedResource> {
+        val catalog = at.catalog
         if (staleResources.isEmpty()) return emptyList()
 
         val ordered = staleResources.sortedByDescending { RESOURCE_INSTALL_ORDER[it.type] ?: Int.MIN_VALUE }
@@ -136,7 +144,7 @@ class CatalogUpgradeAnalyzer(
             for (resource in ordered) {
                 if (resource.type in app.epistola.suite.catalog.revisions.StoredContent.ENVELOPED_TYPES) {
                     // Every type is a draft row naming its content (ADR 0033).
-                    app.epistola.suite.catalog.revisions.DraftResources.delete(handle, catalog, resource.type, resource.slug)
+                    app.epistola.suite.catalog.revisions.DraftResources.delete(handle, at, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))
                     logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
                     continue

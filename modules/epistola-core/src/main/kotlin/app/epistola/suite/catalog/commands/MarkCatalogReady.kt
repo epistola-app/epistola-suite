@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.writableVersionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -32,7 +34,7 @@ import org.springframework.stereotype.Component
 data class MarkCatalogReady(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<CatalogResourceChanges>,
     RequiresPermission {
@@ -49,15 +51,15 @@ class MarkCatalogReadyHandler(
 ) : CommandHandler<MarkCatalogReady, CatalogResourceChanges> {
     override fun handle(command: MarkCatalogReady): CatalogResourceChanges {
         requireCatalogEditable(command.catalog)
-        val catalogId = command.catalog
-        for (change in GetCatalogResourceChanges(command.catalog).query().notReady) {
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.writableVersionOf(command.catalog, command) }
+        for (change in GetCatalogResourceChanges(command.catalog, command.catalogVersion).query().notReady) {
             // A type with checks of its own marks through them (ADR 0039); every other change is marked here.
-            if (types.find(change.type)?.markReady(catalogId, change.slug) == true) continue
+            if (types.find(change.type)?.markReady(at, change.slug) == true) continue
             jdbi.useTransaction<Exception> { handle ->
                 readyMarks.resourceId(handle, command.catalog, change.type, change.slug)
-                    ?.let { readyMarks.mark(handle, command.tenantKey, it) }
+                    ?.let { readyMarks.mark(handle, at, it) }
             }
         }
-        return GetCatalogResourceChanges(command.catalog).query()
+        return GetCatalogResourceChanges(command.catalog, command.catalogVersion).query()
     }
 }

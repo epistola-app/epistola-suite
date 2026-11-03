@@ -12,15 +12,15 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -41,6 +41,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
@@ -105,15 +106,17 @@ class PrepareDraftRenderHandler(
     override fun handle(query: PrepareDraftRender): PreparedDraftRender {
         val templateId = TemplateId(query.templateId, query.catalog)
         val variantId = VariantId(query.variantId, templateId)
-        val model = mediator.query(GetVariantContent(variantId))
+        val draft = query.catalogVersion
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(query.catalog, query) }
+        val model = mediator.query(GetVariantContent(variantId, catalogVersion = draft))
             ?: throw IllegalStateException("Variant ${query.variantId} not found")
-        val template = mediator.query(GetDocumentTemplate(templateId))
+        val template = mediator.query(GetDocumentTemplate(templateId, catalogVersion = draft))
             ?: throw IllegalStateException("Template ${query.templateId} not found")
         val tenant = mediator.query(GetTenant(id = query.tenantKey))
             ?: throw IllegalStateException("Tenant ${query.tenantKey} not found")
 
         // The draft's contract, as generation from this draft promises it.
-        val dataModel = mediator.query(GetDataContract(templateId))?.dataModel
+        val dataModel = mediator.query(GetDataContract(templateId, catalogVersion = draft))?.dataModel
         val data = if (dataModel != null) schemaValidator.applyDefaults(dataModel, query.data) else query.data
         if (dataModel != null) {
             val errors = schemaValidator.validate(dataModel, data)
@@ -122,12 +125,12 @@ class PrepareDraftRenderHandler(
             }
         }
 
-        val dependencies = dependencyViews.of(query.catalog)
-        val expanded = stencilResolvers.expandWithWorkingCopies(query.catalog, model, dependencies)
+        val dependencies = dependencyViews.of(at)
+        val expanded = stencilResolvers.expandWithWorkingCopies(at, model, dependencies)
         // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
-        val catalogTheme = GetCatalogThemeSettings(query.catalog).query().defaultTheme
+        val catalogTheme = GetCatalogThemeSettings(query.catalog, catalogVersion = draft).query().defaultTheme
         val theme = generationService.resolveTheme(
-            query.catalog,
+            at,
             expanded,
             template.themeKey,
             catalogTheme?.themeKey,
@@ -137,10 +140,10 @@ class PrepareDraftRenderHandler(
         )
         val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
             handle.createQuery(
-                "SELECT resource_id FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :template",
+                "SELECT resource_id FROM version_templates WHERE tenant_key = :t AND version_id = :v AND id = :template",
             )
                 .bind("t", query.tenantKey)
-                .bindCatalog("c", query.catalog)
+                .bindVersion("v", at.versionId)
                 .bind("template", query.templateId)
                 .mapTo(UUID::class.java)
                 .findOne()
@@ -154,7 +157,7 @@ class PrepareDraftRenderHandler(
             owning = template.themeCatalogId ?: catalogTheme?.catalog ?: query.catalog,
             theme = theme,
             data = data,
-            culture = localeResolver.resolveCulture(tenant, variantId),
+            culture = localeResolver.resolveCulture(tenant, mediator.query(GetVariant(variantId, catalogVersion = draft))?.attributes ?: emptyMap()),
             tenantName = tenant.name,
             templateResourceId = templateResourceId,
             dependencies = dependencies,

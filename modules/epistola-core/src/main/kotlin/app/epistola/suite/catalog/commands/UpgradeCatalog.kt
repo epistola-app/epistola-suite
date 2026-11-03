@@ -92,12 +92,12 @@ class UpgradeCatalogHandler(
             throw CatalogNotUpgradeableException(command.catalogKey, "only a catalog with a source URL can be upgraded")
         }
         val previousVersion = catalog.latestReleaseVersion
-        val before = analyzer.installedResources(command.catalog)
+        val before = analyzer.installedResources(analyzer.nextOf(command.catalog))
         val imported = installFromSource(source, command.catalog, command.provenance)
         val removed = if (imported.aborted) {
             emptyList()
         } else {
-            (before - analyzer.installedResources(command.catalog)).map { RemovedResource(it.type, it.slug) }
+            (before - analyzer.installedResources(analyzer.nextOf(command.catalog))).map { RemovedResource(it.type, it.slug) }
         }
         logger.info(
             "Upgraded catalog '{}': {} -> {}{}",

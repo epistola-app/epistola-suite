@@ -44,9 +44,9 @@ class ReleaseProvenanceTest : IntegrationTestBase() {
 
     private fun released(tenant: TenantKey, key: CatalogKey): CatalogId = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = "Provenance").execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0", catalogVersion = null).execute()
         testCatalog(tenant, key)
     }
 

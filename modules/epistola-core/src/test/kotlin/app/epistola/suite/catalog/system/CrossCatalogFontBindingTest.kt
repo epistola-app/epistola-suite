@@ -90,6 +90,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
                 ),
+                catalogVersion = null,
             ).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
@@ -124,6 +125,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 slug = FontKey.of("inter"),
                 weight = 400,
                 italic = false,
+                catalogVersion = null,
             ).query()?.content
             assertThat(bytes).isNotNull()
             assertThat(bytes!!).isNotEmpty()
@@ -146,6 +148,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", ttfBytes())),
+                catalogVersion = null,
             ).execute()
 
             // A theme in the SAME catalog referencing that own font.
@@ -155,10 +158,11 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "acme-sans", "catalogKey" to authored.value),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // Read as it always was: the font named with the theme's own catalog.
-            val read = requireNotNull(GetTheme(ThemeId(ThemeKey.of("own-theme"), testCatalog(tenantId, authored))).query())
+            val read = requireNotNull(GetTheme(ThemeId(ThemeKey.of("own-theme"), testCatalog(tenantId, authored)), catalogVersion = null).query())
             assertThat(read.documentStyles["fontFamily"]).isEqualTo(mapOf("key" to "acme-sans", "catalogKey" to authored.value))
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), authored))

@@ -118,6 +118,7 @@ class TestFixture(private val namespace: String, private val systemCatalogTempla
         ): DocumentTemplate = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id))),
             name = name,
+            catalogVersion = null,
         ).execute()
 
         fun variant(
@@ -132,6 +133,7 @@ class TestFixture(private val namespace: String, private val systemCatalogTempla
                 title = title ?: id.key.value,
                 description = null,
                 attributes = attributes,
+                catalogVersion = null,
             ).execute()!!
         }
     }
@@ -142,7 +144,7 @@ class TestFixture(private val namespace: String, private val systemCatalogTempla
 
         fun deleteTenant(id: TenantKey): Boolean = DeleteTenant(id).execute()
 
-        fun listTemplates(tenantId: TenantId): List<DocumentTemplate> = ListDocumentTemplates(tenantId).query()
+        fun listTemplates(tenantId: TenantId): List<DocumentTemplate> = ListDocumentTemplates(tenantId, catalogVersion = null).query()
 
         fun listTenants(searchTerm: String? = null): List<Tenant> = ListTenants(searchTerm).query()
     }

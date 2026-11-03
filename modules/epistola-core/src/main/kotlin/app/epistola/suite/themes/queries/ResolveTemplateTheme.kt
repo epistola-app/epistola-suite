@@ -7,6 +7,8 @@ package app.epistola.suite.themes.queries
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,7 +38,7 @@ data class ResolveTemplateTheme(
     /** The catalog of [catalogDefaultThemeId]; null for [catalog]. */
     val catalogDefaultThemeCatalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<Theme?>,
     RequiresPermission {
@@ -46,16 +48,22 @@ data class ResolveTemplateTheme(
 
 @Component
 class ResolveTemplateThemeHandler(
+    private val jdbi: org.jdbi.v3.core.Jdbi,
     private val resolver: ThemeStyleResolver,
     private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<ResolveTemplateTheme, Theme?> {
-    override fun handle(query: ResolveTemplateTheme): Theme? = resolver.resolveTheme(
-        templateCatalog = query.catalog,
+    override fun handle(query: ResolveTemplateTheme): Theme? {
+        val template = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(query.catalog, query) }
+        return resolveIn(query, template)
+    }
+
+    private fun resolveIn(query: ResolveTemplateTheme, template: ContentVersion): Theme? = resolver.resolveTheme(
+        template = template,
         templateDefaultThemeId = query.templateDefaultThemeId,
         catalogDefaultThemeId = query.catalogDefaultThemeId,
         templateModel = query.templateModel,
         templateThemeCatalog = query.templateThemeCatalog,
         catalogDefaultThemeCatalog = query.catalogDefaultThemeCatalog,
-        dependencies = dependencyViews.of(query.catalog),
+        dependencies = dependencyViews.of(template),
     )
 }

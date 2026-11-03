@@ -7,18 +7,20 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeFields
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.AttributeStore
-import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.contentRevision
-import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.addressedVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.templateViewJoin
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
@@ -40,8 +42,8 @@ data class UpdateAttributeDefinition(
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
     val codeListId: CodeListId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The attribute's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -86,30 +88,34 @@ class UpdateAttributeDefinitionHandler(
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
     override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
         // The code list's catalog is declared first: the binding names it by alias (ADR 0033).
-        usedCatalogs.declare(command.id.catalogId, command.codeListId?.catalogId)
-        return save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        usedCatalogs.declare(at, command.codeListId?.catalogId)
+        return save(command, at)
     }
 
-    private fun save(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
+    private fun save(command: UpdateAttributeDefinition, at: ContentVersion): VariantAttributeDefinition? {
         requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
             // Locked, so the change is applied to what is there, and two writers do not race.
-            val revision = DraftResources.lockRevision(handle, command.id.catalogId, AttributeStore.ATTRIBUTE, command.id.key.value) ?: return@withHandle null
+            val revision = DraftResources.lockRevision(handle, at, AttributeStore.ATTRIBUTE, command.id.key.value) ?: return@withHandle null
             Revisions.refuse("Attribute '${command.id.key.value}'", command.expectedRevision, revision)
-            val current = checkNotNull(attributes.fields(handle, command.id)) { "Attribute ${command.id.key.value} is locked, so it is there" }
+            val current = checkNotNull(attributes.fields(handle, at, command.id)) { "Attribute ${command.id.key.value} is locked, so it is there" }
             // If allowed values are being narrowed, check for existing variants using removed values
             if (command.allowedValues.isNotEmpty()) {
                 val currentValues: List<String> = current.allowedValues
 
                 val removedValues = currentValues.toSet() - command.allowedValues.toSet()
                 if (removedValues.isNotEmpty()) {
+                    // Variants of every catalog: of this version for its catalog, else of each one's next version.
+                    val version = handle.addressedVersion(command)
                     // Check if any variants use the values being removed
                     val valuesInUse = removedValues.filter { value ->
                         handle.createQuery(
                             """
-                            SELECT COUNT(*) FROM current_template_variants variants
-                            ${currentTemplateViewJoin("variants")}
+                            SELECT COUNT(*) FROM version_template_variants variants
+                            ${templateViewJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
+                              AND ${inVersionOrNext("variants", "version")}
                               AND ${AttributeReferences.usesValue("variants", "value")}
                             """,
                         )
@@ -117,6 +123,7 @@ class UpdateAttributeDefinitionHandler(
                             .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(command.id))
                             .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(command.id))
                             .bind("value", value)
+                            .bindVersion("version", version)
                             .mapTo(Long::class.java)
                             .one() > 0
                     }.toSet()
@@ -128,8 +135,8 @@ class UpdateAttributeDefinitionHandler(
             }
 
             val binding = command.codeListId?.let { attributes.bindingOf(handle, command.id.catalogId, it) }
-            if (!attributes.write(handle, command.id, AttributeFields(command.displayName, command.allowedValues, binding), currentUserIdOrNull()?.value)) return@withHandle null
-            attributes.get(handle, command.id)
+            if (!attributes.write(handle, at, command.id, AttributeFields(command.displayName, command.allowedValues, binding), currentUserIdOrNull()?.value)) return@withHandle null
+            attributes.get(handle, at, command.id)
         }
     }
 }

@@ -74,6 +74,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 app.epistola.suite.templates.commands.CreateDocumentTemplate(
                     id = templateId,
                     name = "Fresh Template",
+                    catalogVersion = null,
                 ).execute()
             }
 
@@ -85,6 +86,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     templateId = templateId.key,
                     variantId = defaultVariantId,
                     data = emptyData(),
+                    catalogVersion = null,
                 ).query()
             }
 
@@ -114,6 +116,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
+                        catalogVersion = null,
                     ),
                 )
             }.then { _, pdfBytes ->
@@ -149,6 +152,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
+                        catalogVersion = null,
                     ),
                 )
             }.then { _, pdfBytes ->
@@ -179,6 +183,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         variantId = setup.variant.id,
                         data = emptyData(),
                         templateModel = liveModel,
+                        catalogVersion = null,
                     ),
                 )
             }.then { _, pdfBytes ->
@@ -213,6 +218,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             variantId = setup.variant.id,
                             data = emptyData(),
                             templateModel = invalidLiveModel,
+                            catalogVersion = null,
                         ),
                     )
                 }
@@ -247,6 +253,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }
@@ -267,6 +274,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             templateId = app.epistola.suite.common.ids.TemplateKey.of("nonexistent"),
                             variantId = app.epistola.suite.common.ids.VariantKey.of("nonexistent"),
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(IllegalStateException::class.java)
@@ -299,6 +307,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             objectMapper.createObjectNode().put("name", "Ada"),
                         ),
                     ),
+                    catalogVersion = null,
                 ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -312,6 +321,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(IllegalArgumentException::class.java)
@@ -347,6 +357,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             objectMapper.createObjectNode().put("discount", 5),
                         ),
                     ),
+                    catalogVersion = null,
                 ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -360,6 +371,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
+                        catalogVersion = null,
                     ),
                 )
                 assertThat(pdf).isNotEmpty()
@@ -392,6 +404,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         """.trimIndent(),
                         tools.jackson.databind.node.ObjectNode::class.java,
                     ),
+                    catalogVersion = null,
                 ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -419,6 +432,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = multiParagraphDoc,
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(IllegalArgumentException::class.java)
@@ -483,6 +497,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         """.trimIndent(),
                         tools.jackson.databind.node.ObjectNode::class.java,
                     ),
+                    catalogVersion = null,
                 ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -525,6 +540,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = data,
+                        catalogVersion = null,
                     ),
                 )
             }.then { _, pdfBytes ->
@@ -560,6 +576,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
+                        catalogVersion = null,
                     ),
                 )
             }.then { _, pdfBytes ->
@@ -591,6 +608,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             variantId = setup.variant.id,
                             releaseVersion = "9.9.9",
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(app.epistola.suite.documents.ReleaseNotFoundException::class.java)
@@ -625,6 +643,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             variantId = setup.variant.id,
                             environmentId = production,
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }
@@ -661,6 +680,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             objectMapper.createObjectNode().put("name", "Ada"),
                         ),
                     ),
+                    catalogVersion = null,
                 ).execute()
 
                 DocumentSetup(tenant, template, variant, version)
@@ -676,6 +696,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(IllegalArgumentException::class.java)
@@ -703,6 +724,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             objectMapper.createObjectNode().put("name", "Ada"),
                         ),
                     ),
+                    catalogVersion = null,
                 ).execute()
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
@@ -722,6 +744,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                                 variantId = setup.variant.id,
                                 environmentId = environmentKey,
                                 data = objectMapper.createObjectNode().put("other", "value"),
+                                catalogVersion = null,
                             ),
                         )
                     }

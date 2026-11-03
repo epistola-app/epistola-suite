@@ -23,7 +23,7 @@ import app.epistola.suite.templates.contracts.queries.GetDataContract
  */
 fun Mediator.publishAndRelease(variantId: VariantId): String {
     // Only when the template has no example yet: a test that set its own contract keeps it.
-    if (query(GetDataContract(variantId.templateId))?.dataExamples.isNullOrEmpty()) {
+    if (query(GetDataContract(variantId.templateId, catalogVersion = null))?.dataExamples.isNullOrEmpty()) {
         ensureRequiredDataExample(variantId.templateId)
     }
     return releaseNext(variantId.templateId.catalogId)
@@ -36,8 +36,8 @@ fun Mediator.publishAndRelease(variantId: VariantId): String {
  * @return the version cut.
  */
 fun Mediator.releaseNext(catalogId: CatalogId): String {
-    send(MarkCatalogReady(catalogId))
-    return send(ReleaseCatalogDraft(catalog = catalogId)).version
+    send(MarkCatalogReady(catalogId, catalogVersion = null))
+    return send(ReleaseCatalogDraft(catalog = catalogId, catalogVersion = null)).version
 }
 
 /**
@@ -63,14 +63,14 @@ fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean =
         // A catalog that cannot be changed here (Epistola supplies it) exports its highest release.
         return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId, includeDependencies = includeDependencies))
     }
-    val unreleased = query(app.epistola.suite.catalog.queries.GetCatalogResourceChanges(catalogId)).resources
+    val unreleased = query(app.epistola.suite.catalog.queries.GetCatalogResourceChanges(catalogId, catalogVersion = null)).resources
         .any { it.state != app.epistola.suite.catalog.queries.CatalogResourceState.RELEASED }
     val version = query(GetLatestCatalogRelease(catalogId)).latestVersion?.takeUnless { unreleased } ?: run {
         // Releasing along the drafts of other catalogs it builds on, as the author would be offered,
         // each marked ready first, as their authors would have.
         markDraftDependenciesReady(catalogId, null, mutableSetOf())
-        send(MarkCatalogReady(catalogId))
-        send(ReleaseCatalogDraft(catalog = catalogId, releaseDependencies = true)).version
+        send(MarkCatalogReady(catalogId, catalogVersion = null))
+        send(ReleaseCatalogDraft(catalog = catalogId, releaseDependencies = true, catalogVersion = null)).version
     }
     return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId, version, includeDependencies = includeDependencies))
 }

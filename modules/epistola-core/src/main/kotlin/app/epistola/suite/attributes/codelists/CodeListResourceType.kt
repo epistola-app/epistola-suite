@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.commands.ImportCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceChange
 import app.epistola.suite.catalog.types.ResourceType
@@ -22,8 +23,9 @@ class CodeListResourceType : ResourceType<CodeListResource> {
     override val name = CodeListStore.CODE_LIST
     override val wireClass = CodeListResource::class.java
 
-    override fun receive(catalog: CatalogId, resource: CodeListResource, arrival: Arrival): InstallStatus = ImportCodeList(
-        catalog = catalog,
+    override fun receive(at: ContentVersion, resource: CodeListResource, arrival: Arrival): InstallStatus = ImportCodeList(
+        catalog = at.catalog,
+        catalogVersion = at.ref,
         slug = resource.key,
         displayName = resource.name,
         description = resource.description,

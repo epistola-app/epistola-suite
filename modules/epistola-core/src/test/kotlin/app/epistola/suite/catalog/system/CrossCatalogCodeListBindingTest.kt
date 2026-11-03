@@ -69,9 +69,10 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("preferred-language"), authoredId),
                 displayName = "Preferred Language",
                 codeListId = CodeListId(CodeListKey.of("iso-639-1"), systemCatalog),
+                catalogVersion = null,
             ).execute()
 
-            val fetched = GetAttributeDefinition(AttributeId(AttributeKey.of("preferred-language"), authoredId)).query()
+            val fetched = GetAttributeDefinition(AttributeId(AttributeKey.of("preferred-language"), authoredId), catalogVersion = null).query()
             assertThat(fetched).isNotNull()
             assertThat(fetched!!.codeListCatalogKey?.value).isEqualTo(SYSTEM_CATALOG_KEY.value)
             assertThat(fetched.codeListSlug?.value).isEqualTo("iso-639-1")
@@ -94,6 +95,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("locale-pref"), testCatalog(tenantId, source)),
                 displayName = "Locale preference",
                 codeListId = CodeListId(CodeListKey.of("bcp-47"), systemCatalog),
+                catalogVersion = null,
             ).execute()
 
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
@@ -131,6 +133,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
             val fetched = GetAttributeDefinition(
                 AttributeId(AttributeKey.of("locale-pref"), testCatalog(targetTenantId, result.catalogKey)),
+                catalogVersion = null,
             ).query()
             assertThat(fetched).isNotNull()
             assertThat(fetched!!.codeListCatalogKey?.value).isEqualTo("system")
@@ -181,6 +184,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                         AttributeKey.of("lang"),
                         testCatalog(TenantId(tenant.id), targetCatalogKey),
                     ),
+                    catalogVersion = null,
                 ).query()
                 assertThat(fetched).isNotNull()
                 assertThat(fetched!!.codeListCatalogKey?.value).isEqualTo("system")

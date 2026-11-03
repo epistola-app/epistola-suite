@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.merge
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -33,7 +33,6 @@ class MergeReferenceCheck(
     private val dependencyStore: CatalogDependencyStore,
     private val releaseResources: app.epistola.suite.catalog.revisions.ReleaseResourceStore,
     private val contentBuilder: CatalogContentBuilder,
-    private val targeting: CatalogReleaseTargeting,
 ) {
 
     /** Why a reference does not resolve. */
@@ -114,7 +113,7 @@ class MergeReferenceCheck(
             return when {
                 draftKey != null -> {
                     val draft = jdbi.withHandle<Pair<java.util.UUID, String>?, Exception> { dependencyStore.draftOf(it, tenantKey, declaration, draftKey) } ?: return null
-                    val keys = held.getOrPut("draft" to draftKey) { targeting.within(draft.first) { contentBuilder.build(other).resourceDetails.keys } }
+                    val keys = held.getOrPut("draft" to draftKey) { contentBuilder.build(ContentVersion(other, draft.first)).resourceDetails.keys }
                     Reason.NotInDraft(draft.second).takeIf { wanted !in keys }
                 }
 

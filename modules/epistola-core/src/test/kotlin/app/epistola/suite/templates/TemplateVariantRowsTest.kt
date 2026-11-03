@@ -61,8 +61,8 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         val template = TemplateId(TemplateKey.of("invoice"), catalog)
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            CreateVariant(VariantId(VariantKey.of("second"), template), "Second", "For courts").execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            CreateVariant(VariantId(VariantKey.of("second"), template), "Second", "For courts", catalogVersion = null).execute()
             mediator.releaseNext(catalog)
         }
         assertThat(variants(tenant)).containsExactly("1.0.0/initial", "1.0.0/second", "draft/initial", "draft/second")
@@ -79,10 +79,10 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         }
         assertThat(divergent).isZero()
 
-        withMediator { DeleteVariant(VariantId(VariantKey.of("second"), template)).execute() }
+        withMediator { DeleteVariant(VariantId(VariantKey.of("second"), template), catalogVersion = null).execute() }
         assertThat(variants(tenant)).`as`("a deleted variant leaves the release's").containsExactly("1.0.0/initial", "1.0.0/second", "draft/initial")
 
-        withMediator { DeleteDocumentTemplate(template).execute() }
+        withMediator { DeleteDocumentTemplate(template, catalogVersion = null).execute() }
         assertThat(variants(tenant, "release_resource_is_draft(tenant_key, version_id)")).`as`("a deleted template takes its variants").isEmpty()
         assertThat(variants(tenant)).`as`("the release keeps its own").containsExactly("1.0.0/initial", "1.0.0/second")
     }
@@ -94,8 +94,8 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         val template = TemplateId(TemplateKey.of("invoice"), catalog)
         val version = withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            CreateVariant(VariantId(VariantKey.of("second"), template), "Second", null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            CreateVariant(VariantId(VariantKey.of("second"), template), "Second", null, catalogVersion = null).execute()
             mediator.releaseNext(catalog)
         }
         withMediator {
@@ -117,7 +117,7 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         val template = TemplateId(TemplateKey.of("invoice"), catalog)
         val work = withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
             mediator.releaseNext(catalog)
             CreateCatalogDraft(catalog, name = "Redesign").execute()
         }
@@ -133,7 +133,7 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         val catalog = testCatalog(tenant, letters)
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null).execute()
         }
         assertThatThrownBy {
             jdbi.useTransaction<Exception> { handle ->

@@ -94,6 +94,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateTheme(
                     id = ThemeId(themeKey, catalogIdA),
                     name = "Deletable Theme",
+                    catalogVersion = null,
                 ).execute()
 
                 // Create catalog B with a template referencing catalog A's theme
@@ -107,11 +108,12 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, catalogIdB)
-                CreateDocumentTemplate(id = templateId, name = "Dependent Template").execute()
+                CreateDocumentTemplate(id = templateId, name = "Dependent Template", catalogVersion = null).execute()
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeKey,
                     themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
+                    catalogVersion = null,
                 ).execute()
 
                 assertThatThrownBy {
@@ -134,9 +136,9 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 testCatalog(tenant.id, CatalogKey.of(key))
             }
             withMediator {
-                CreateStencil(StencilId(StencilKey.of("stencil-2"), catB), "Stencil 2").execute()
-                CreateStencil(StencilId(StencilKey.of("stencil-1"), catA), "Stencil 1").execute()
-                UpdateStencil(StencilId(StencilKey.of("stencil-1"), catA), content = buildTemplateModelWithStencil(StencilKey.of("stencil-2"), "cat-b")).execute()
+                CreateStencil(StencilId(StencilKey.of("stencil-2"), catB), "Stencil 2", catalogVersion = null).execute()
+                CreateStencil(StencilId(StencilKey.of("stencil-1"), catA), "Stencil 1", catalogVersion = null).execute()
+                UpdateStencil(StencilId(StencilKey.of("stencil-1"), catA), content = buildTemplateModelWithStencil(StencilKey.of("stencil-2"), "cat-b"), catalogVersion = null).execute()
             }
 
             assertThatThrownBy { withMediator { DeleteCatalog(catB).execute() } }
@@ -151,9 +153,9 @@ class CatalogDeletionTest : IntegrationTestBase() {
             val (shared, letters) = catalogs(tenant.id, "shared", "letters")
             val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
             withMediator {
-                CreateStencil(StencilId(StencilKey.of("header"), shared), "Header").execute()
-                CreateDocumentTemplate(template, "Letter").execute()
-                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithStencil(StencilKey.of("header"), "shared")).execute()
+                CreateStencil(StencilId(StencilKey.of("header"), shared), "Header", catalogVersion = null).execute()
+                CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithStencil(StencilKey.of("header"), "shared"), catalogVersion = null).execute()
             }
 
             assertThatThrownBy { withMediator { DeleteCatalog(shared).execute() } }
@@ -167,9 +169,9 @@ class CatalogDeletionTest : IntegrationTestBase() {
             val (shared, letters) = catalogs(tenant.id, "shared", "letters")
             val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
             withMediator {
-                val asset = UploadAsset(catalog = shared, name = "logo.png", mediaType = AssetMediaType.PNG, content = createMinimalPng(), width = 1, height = 1).execute()
-                CreateDocumentTemplate(template, "Letter").execute()
-                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithAsset(asset.id)).execute()
+                val asset = UploadAsset(catalog = shared, name = "logo.png", mediaType = AssetMediaType.PNG, content = createMinimalPng(), width = 1, height = 1, catalogVersion = null).execute()
+                CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithAsset(asset.id), catalogVersion = null).execute()
             }
 
             assertThatThrownBy { withMediator { DeleteCatalog(shared).execute() } }
@@ -182,10 +184,10 @@ class CatalogDeletionTest : IntegrationTestBase() {
             val tenant = createTenant("Del Own Refs")
             val (own) = catalogs(tenant.id, "own")
             withMediator {
-                CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand").execute()
+                CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand", catalogVersion = null).execute()
                 val template = TemplateId(TestIdHelpers.nextTemplateId(), own)
-                CreateDocumentTemplate(template, "Letter").execute()
-                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = own).execute()
+                CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = own, catalogVersion = null).execute()
             }
 
             assertThat(withMediator { DeleteCatalog(own).execute() }).isTrue()
@@ -218,21 +220,22 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 // Create a stencil
                 val stencilKey = TestIdHelpers.nextStencilId()
                 val stencilId = StencilId(stencilKey, catalogId)
-                CreateStencil(id = stencilId, name = "Used Stencil").execute()
+                CreateStencil(id = stencilId, name = "Used Stencil", catalogVersion = null).execute()
 
                 // Create a template that uses the stencil
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, catalogId)
-                CreateDocumentTemplate(id = templateId, name = "Stencil Consumer").execute()
+                CreateDocumentTemplate(id = templateId, name = "Stencil Consumer", catalogVersion = null).execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithStencil(stencilKey),
+                    catalogVersion = null,
                 ).execute()
 
                 assertThatThrownBy {
-                    DeleteStencil(id = stencilId).execute()
+                    DeleteStencil(id = stencilId, catalogVersion = null).execute()
                 }.isInstanceOf(StencilInUseException::class.java)
                     .hasMessageContaining("Stencil Consumer")
             }
@@ -251,13 +254,13 @@ class CatalogDeletionTest : IntegrationTestBase() {
             }
             val theme = ThemeId(ThemeKey.of("brand"), shared)
             withMediator {
-                CreateTheme(theme, "Brand").execute()
+                CreateTheme(theme, "Brand", catalogVersion = null).execute()
                 val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
-                CreateDocumentTemplate(template, "Branded Letter").execute()
-                UpdateDocumentTemplate(template, themeId = theme.key, themeCatalog = shared).execute()
+                CreateDocumentTemplate(template, "Branded Letter", catalogVersion = null).execute()
+                UpdateDocumentTemplate(template, themeId = theme.key, themeCatalog = shared, catalogVersion = null).execute()
             }
 
-            assertThatThrownBy { withMediator { DeleteTheme(theme).execute() } }
+            assertThatThrownBy { withMediator { DeleteTheme(theme, catalogVersion = null).execute() } }
                 .isInstanceOf(ThemeInUseException::class.java)
                 .hasMessageContaining("Branded Letter")
         }
@@ -270,15 +273,15 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 testCatalog(tenant.id, CatalogKey.of(key))
             }
             withMediator {
-                CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand").execute()
+                CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
                 val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
-                CreateDocumentTemplate(template, "Branded Letter").execute()
-                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters).execute()
+                CreateDocumentTemplate(template, "Branded Letter", catalogVersion = null).execute()
+                UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = letters, catalogVersion = null).execute()
                 val relocations = listOf(testAddress(tenant.id, CatalogResourceType.THEME, "letters", "brand").movedTo(shared.key))
-                MoveCatalogResources(tenant.id, relocations, PreviewCatalogResourceMove(tenant.id, relocations).query().planFingerprint).execute()
+                MoveCatalogResources(tenant.id, relocations, PreviewCatalogResourceMove(tenant.id, relocations, catalogVersion = null).query().planFingerprint, catalogVersion = null).execute()
             }
 
-            assertThatThrownBy { withMediator { DeleteTheme(ThemeId(ThemeKey.of("brand"), shared)).execute() } }
+            assertThatThrownBy { withMediator { DeleteTheme(ThemeId(ThemeKey.of("brand"), shared), catalogVersion = null).execute() } }
                 .isInstanceOf(ThemeInUseException::class.java)
                 .hasMessageContaining("Branded Letter")
         }
@@ -300,21 +303,23 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     content = createMinimalPng(),
                     width = 1,
                     height = 1,
+                    catalogVersion = null,
                 ).execute()
 
                 // Create a template that uses the asset
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Asset Consumer").execute()
+                CreateDocumentTemplate(id = templateId, name = "Asset Consumer", catalogVersion = null).execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
                 UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithAsset(asset.id),
+                    catalogVersion = null,
                 ).execute()
 
                 assertThatThrownBy {
-                    DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
+                    DeleteAsset(tenantId = tenant.id, assetId = asset.id, catalogVersion = null).execute()
                 }.isInstanceOf(AssetInUseException::class.java)
                     .hasMessageContaining("Asset Consumer")
             }

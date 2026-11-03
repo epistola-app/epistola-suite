@@ -54,7 +54,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
     }
 
     private fun stencil(tenant: TenantKey, catalog: CatalogKey, key: String, name: String) = withMediator {
-        CreateStencil(StencilId(StencilKey.of(key), testCatalog(TenantId(tenant), catalog)), name).execute()
+        CreateStencil(StencilId(StencilKey.of(key), testCatalog(TenantId(tenant), catalog)), name, catalogVersion = null).execute()
     }
 
     @Test
@@ -70,7 +70,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
         assertThat(page.getByTestId("organise-applied")).containsText("Moved 1 resource to Shared")
-        fun stencilKeysIn(catalog: CatalogKey) = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), catalog)).query() }.map { it.id.value }
+        fun stencilKeysIn(catalog: CatalogKey) = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), catalog), catalogVersion = null).query() }.map { it.id.value }
         assertThatValue(stencilKeysIn(shared)).containsExactly("header")
         assertThatValue(stencilKeysIn(letters)).isEmpty()
     }
@@ -94,7 +94,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
     @Test
     fun `moving a template from its settings lands on the settings at its new address`() {
         val tenant = tenant("Organise template dialog")
-        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute() }
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice", catalogVersion = null).execute() }
 
         gotoAndReady("/tenants/$tenant/catalogs/letters/templates/invoice/settings")
         val dialog = page.openDialogByTrigger(page.getByTestId("resource-move"), "#move-resource-dialog")
@@ -108,7 +108,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
     @Test
     fun `renaming a theme from its page asks only for the new key and lands on it`() {
         val tenant = tenant("Rename theme in browser")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House", catalogVersion = null).execute() }
 
         gotoAndReady("/tenants/$tenant/catalogs/letters/themes/house")
         val dialog = page.openDialogByTrigger(page.getByTestId("resource-rename"), "#move-resource-dialog")
@@ -137,7 +137,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
         assertThat(page.getByTestId("organise-applied")).containsText("Moved 1 resource to Brand")
-        val brand = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), CatalogKey.of("brand"))).query() }.map { it.id.value }
+        val brand = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), CatalogKey.of("brand")), catalogVersion = null).query() }.map { it.id.value }
         assertThatValue(brand).containsExactly("header")
     }
 

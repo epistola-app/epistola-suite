@@ -61,12 +61,12 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Hist").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.0.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-            val v110 = ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.1.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+            val v110 = ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.1.0", catalogVersion = null).execute()
 
             val r = GetLatestCatalogRelease(testCatalog(tenant.id, catalogKey)).query()
             assertThat(r.latestVersion).isEqualTo("1.1.0")
@@ -90,12 +90,12 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Minor").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.9.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.10.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.9.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.10.0", catalogVersion = null).execute()
 
             val r = GetLatestCatalogRelease(testCatalog(tenant.id, catalogKey)).query()
 

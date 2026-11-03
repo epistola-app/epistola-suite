@@ -155,8 +155,8 @@ class ServedReleasesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = key, name = "Letters").execute()
             CreateEnvironment(production, "Production").execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(INVOICE, letters))
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
             repeat(releases - 1) { mediator.releaseNext(letters) }
         }

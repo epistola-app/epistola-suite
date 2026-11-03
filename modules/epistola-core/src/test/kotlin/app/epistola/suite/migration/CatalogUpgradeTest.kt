@@ -87,9 +87,9 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     /** A theme of [catalog] in the system catalog's Inter: it uses the system catalog. */
     private fun useSystemFont(catalog: CatalogId) = withMediator {
         val theme = ThemeId(ThemeKey.of("brand"), catalog)
-        CreateTheme(theme, "Brand").execute()
-        UpdateTheme(theme, documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
-        MarkCatalogReady(catalog).execute()
+        CreateTheme(theme, "Brand", catalogVersion = null).execute()
+        UpdateTheme(theme, documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value)), catalogVersion = null).execute()
+        MarkCatalogReady(catalog, catalogVersion = null).execute()
     }
 
     @Test
@@ -109,13 +109,13 @@ class CatalogUpgradeTest : IntegrationTestBase() {
                 .bind("k", SYSTEM_CATALOG_KEY.value)
                 .execute()
         }
-        assertThat(withMediator { ListCatalogDependencies(catalog).query() }.single().releaseVersion).isNull()
+        assertThat(withMediator { ListCatalogDependencies(catalog, catalogVersion = null).query() }.single().releaseVersion).isNull()
         val installed = requireNotNull(withMediator { GetCatalog(system).query() }?.latestReleaseVersion)
 
-        val result = withMediator { ReleaseCatalogDraft(catalog).execute() }
+        val result = withMediator { ReleaseCatalogDraft(catalog, catalogVersion = null).execute() }
 
         assertThat(result.pinnedDependencies.map { it.catalogKey to it.releaseVersion }).containsExactly(SYSTEM_CATALOG_KEY.value to installed)
-        assertThat(withMediator { ListCatalogDependencies(catalog).query() }.single().releaseVersion).isEqualTo(installed)
+        assertThat(withMediator { ListCatalogDependencies(catalog, catalogVersion = null).query() }.single().releaseVersion).isEqualTo(installed)
     }
 
     @Test
@@ -127,7 +127,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         // The declaration by name, of a catalog with nothing released, names its next version: to
         // release first, or along.
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(catalog).execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(catalog, catalogVersion = null).execute() } }
             .isInstanceOf(app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException::class.java)
             .hasMessageContaining("/shared (")
             .hasMessageContaining("Release them first, or release them along")
@@ -156,7 +156,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         }
         assertThat(withMediator { GetGenerationReadiness(tenant).query() }.publishedIn1x).containsExactly("Letters")
 
-        withMediator { ReleaseCatalogDraft(catalog).execute() }
+        withMediator { ReleaseCatalogDraft(catalog, catalogVersion = null).execute() }
 
         assertThat(withMediator { GetGenerationReadiness(tenant).query() }.publishedIn1x).isEmpty()
     }

@@ -7,6 +7,7 @@ package app.epistola.suite.fonts.queries
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -53,8 +54,8 @@ data class ResolveFontFace(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-    /** The catalog version a render reads; null for each catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version a render reads; null for each catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : app.epistola.suite.catalog.releases.ReleaseReadable,
     Query<ResolvedFontFace?>,
     RequiresPermission {
@@ -113,7 +114,7 @@ class ResolveFontFaceHandler(
 ) : QueryHandler<ResolveFontFace, ResolvedFontFace?> {
 
     override fun handle(query: ResolveFontFace): ResolvedFontFace? = jdbi.withHandle<ResolvedFontFace?, Exception> { handle ->
-        val best = pickBestFace(fonts.faces(handle, FontId(query.slug, query.catalog)), query.weight, query.italic) ?: return@withHandle null
+        val best = pickBestFace(fonts.faces(handle, handle.versionOf(query.catalog, query), FontId(query.slug, query.catalog)), query.weight, query.italic) ?: return@withHandle null
         // Bytes are the same wherever a hash is.
         val content = bytes.getOrLoad("${query.tenantId.value}|${best.contentHash}") { fonts.bytes(handle, query.tenantId, best.contentHash) }
             ?: return@withHandle null

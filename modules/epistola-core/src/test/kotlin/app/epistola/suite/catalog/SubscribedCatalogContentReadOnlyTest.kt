@@ -49,7 +49,7 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
 
     private fun simpleLetter(tenantKey: TenantKey) = TemplateId(TemplateKey.of("simple-letter"), testCatalog(TenantId(tenantKey), installed))
 
-    private fun firstVariant(tenantKey: TenantKey) = withMediator { ListVariants(simpleLetter(tenantKey)).query().first() }
+    private fun firstVariant(tenantKey: TenantKey) = withMediator { ListVariants(simpleLetter(tenantKey), catalogVersion = null).query().first() }
 
     private fun companyHeader(tenantKey: TenantKey) = StencilId(StencilKey.of("company-header"), testCatalog(TenantId(tenantKey), installed))
 
@@ -59,7 +59,7 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
         val variant = firstVariant(tenantKey)
 
         assertThatThrownBy {
-            withMediator { UpdateVariant(VariantId(variant.id, simpleLetter(tenantKey)), title = "Retitled", attributes = variant.attributes).execute() }
+            withMediator { UpdateVariant(VariantId(variant.id, simpleLetter(tenantKey)), title = "Retitled", attributes = variant.attributes, catalogVersion = null).execute() }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
 
         assertThat(firstVariant(tenantKey).title).isEqualTo(variant.title)
@@ -71,20 +71,20 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
         val variant = firstVariant(tenantKey)
 
         assertThatThrownBy {
-            withMediator { SetDefaultVariant(VariantId(variant.id, simpleLetter(tenantKey))).execute() }
+            withMediator { SetDefaultVariant(VariantId(variant.id, simpleLetter(tenantKey)), catalogVersion = null).execute() }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
     }
 
     @Test
     fun `UpdateStencil is refused and leaves the installed stencil as it was`() {
         val tenantKey = installFixture()
-        val before = withMediator { GetStencil(companyHeader(tenantKey)).query()!! }
+        val before = withMediator { GetStencil(companyHeader(tenantKey), catalogVersion = null).query()!! }
 
         assertThatThrownBy {
-            withMediator { UpdateStencil(companyHeader(tenantKey), name = "Renamed").execute() }
+            withMediator { UpdateStencil(companyHeader(tenantKey), name = "Renamed", catalogVersion = null).execute() }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
 
-        assertThat(withMediator { GetStencil(companyHeader(tenantKey)).query()!! }.name).isEqualTo(before.name)
+        assertThat(withMediator { GetStencil(companyHeader(tenantKey), catalogVersion = null).query()!! }.name).isEqualTo(before.name)
     }
 
     @Test
@@ -93,7 +93,7 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             withMediator {
-                ImportFont(catalog = testCatalog(TenantId(tenantKey), installed), slug = "rogue-sans", name = "Rogue Sans", kind = "sans").execute()
+                ImportFont(catalog = testCatalog(TenantId(tenantKey), installed), slug = "rogue-sans", name = "Rogue Sans", kind = "sans", catalogVersion = null).execute()
             }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
     }

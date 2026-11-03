@@ -6,6 +6,7 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.stencils.StencilStore
 import db.migration.core.frozen.CanonicalJson
@@ -33,9 +34,9 @@ object StencilStorageConversion {
                 SELECT s.id, r.content_hash, s.payload::text AS payload,
                        (SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',')
                         FROM resource_references x WHERE x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash) AS refs
-                FROM current_stencils s
+                FROM version_stencils s
                 JOIN release_resources r ON r.tenant_key = s.tenant_key AND r.version_id = s.version_id AND r.resource_type = 'stencil' AND r.resource_key = s.id
-                WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")}
+                WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")} AND ${inNextVersion("s")}
                 """,
             ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .map { rs, _ -> listOf(rs.getString("id"), rs.getString("content_hash"), rs.getString("payload"), rs.getString("refs").orEmpty().split(",").filter { it.isNotEmpty() }.sorted().joinToString(",")) }

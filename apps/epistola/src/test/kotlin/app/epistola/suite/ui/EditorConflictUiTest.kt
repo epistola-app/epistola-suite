@@ -37,16 +37,16 @@ class EditorConflictUiTest : BasePlaywrightTest() {
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
             TestNamespaces.createTenant(tenantKey, "Editor Conflict").execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
         }
         gotoAndReady("/tenants/$tenantKey/catalogs/default/templates/invoice/variants/${variant.key}/editor")
         page.waitForSelector("epistola-editor")
         // Someone else saves the variant while it is open here: its revision moves on.
-        withMediator { UpdateVariant(variantId = variant, title = "Renamed elsewhere", attributes = emptyMap()).execute() }
+        withMediator { UpdateVariant(variantId = variant, title = "Renamed elsewhere", attributes = emptyMap(), catalogVersion = null).execute() }
         return variant
     }
 
-    private fun containers(variant: VariantId) = withMediator { GetVariantContent(variant).query()!! }.nodes.values.count { it.type == "container" }
+    private fun containers(variant: VariantId) = withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }.nodes.values.count { it.type == "container" }
 
     /** What the editor asked; read once the request that follows the answer arrived. */
     private var asked = ""
@@ -87,6 +87,6 @@ class EditorConflictUiTest : BasePlaywrightTest() {
         page.waitForSelector("epistola-editor")
 
         assertThat(containers(variant)).isZero()
-        assertThat(withMediator { GetVariant(variant).query() }!!.title).isEqualTo("Renamed elsewhere")
+        assertThat(withMediator { GetVariant(variant, catalogVersion = null).query() }!!.title).isEqualTo("Renamed elsewhere")
     }
 }

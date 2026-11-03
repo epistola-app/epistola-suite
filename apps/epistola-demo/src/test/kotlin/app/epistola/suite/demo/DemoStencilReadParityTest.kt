@@ -51,7 +51,7 @@ class DemoStencilReadParityTest : IntegrationTestBase() {
 
         fun Stencil.content() = listOf(id, name, description, tags, content, parameterSchema, readsTemplateData)
 
-        val drafted = withMediator { ListStencils(TenantId(tenant), catalog = catalog).query() }.sortedBy { it.id.value }
+        val drafted = withMediator { ListStencils(TenantId(tenant), catalog = catalog, catalogVersion = null).query() }.sortedBy { it.id.value }
         val released = withMediator { ListStencils(TenantId(tenant), catalog = catalog, catalogVersion = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))).query() }.sortedBy { it.id.value }
 
         assertThat(drafted).isNotEmpty()

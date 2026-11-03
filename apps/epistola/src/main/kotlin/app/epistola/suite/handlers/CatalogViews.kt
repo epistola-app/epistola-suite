@@ -307,7 +307,7 @@ internal object CatalogViews {
         errorMessage: String? = null,
     ): ServerResponse {
         val tenantId = request.tenantId()
-        val result = BrowseCatalog(catalog = catalog).query()
+        val result = BrowseCatalog(catalog = catalog, catalogVersion = null).query()
         val images = catalogImages(catalog)
         val imagesBySlug = images.associateBy { it.id.value }
 

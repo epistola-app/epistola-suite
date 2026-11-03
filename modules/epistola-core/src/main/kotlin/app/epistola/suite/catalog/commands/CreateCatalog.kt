@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
 import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.namespaces.heldNamespaces
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.HouseTheme
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
@@ -77,6 +78,7 @@ class CreateCatalogHandler(
     override fun handle(command: CreateCatalog): Catalog = executeOrThrowDuplicate("catalog", command.id.value) {
         var houseThemeCatalog: CatalogId? = null
         var catalog: CatalogId? = null
+        var nextVersion: ContentVersion? = null
         val created = jdbi.inTransaction<Catalog, Exception> { handle ->
             val name = nameFor(handle, command)
             handle.createUpdate(
@@ -96,12 +98,13 @@ class CreateCatalogHandler(
             catalog = id
             // Its next version, where everyday work goes, is opened by the database with the row.
             // It starts with the tenant's house theme as its default theme (contract ADR 0007, 1a).
-            houseThemeCatalog = HouseTheme.applyTo(handle, id)
+            nextVersion = ContentVersion.next(handle, id)
+            houseThemeCatalog = HouseTheme.applyTo(handle, nextVersion)
 
             handle.findCatalog(id)!!
         }
         // A house theme of another catalog is a use of that catalog, declared as any reference is.
-        houseThemeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(catalog!!, it) }
+        houseThemeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(nextVersion!!, it) }
         created
     }
 

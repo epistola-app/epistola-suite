@@ -44,9 +44,9 @@ class RenderingDefaultsChangeTest : IntegrationTestBase() {
         val id = testCatalog(tenant, catalog)
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Rendered").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), id), name = "Brand").execute()
-            MarkCatalogReady(id).execute()
-            ReleaseCatalogDraft(catalog = id, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), id), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(id, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = id, version = "1.0.0", catalogVersion = null).execute()
         }
         // A release cut before the current defaults existed: no command cuts one with older defaults.
         jdbi.useHandle<Exception> { handle ->
@@ -56,16 +56,16 @@ class RenderingDefaultsChangeTest : IntegrationTestBase() {
         val current = RenderingDefaults.CURRENT.version
 
         withMediator {
-            val change = GetCatalogResourceChanges(id).query().settings.single { it.entry == RENDERING_DEFAULTS_ENTRY }
+            val change = GetCatalogResourceChanges(id, catalogVersion = null).query().settings.single { it.entry == RENDERING_DEFAULTS_ENTRY }
             assertThat(change.name).isEqualTo("Rendering defaults V6 → V$current")
             assertThat(change.description).startsWith("documents may look different")
 
-            assertThatThrownBy { ReleaseCatalogDraft(catalog = id, version = "1.0.1", requireChange = true).execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = id, version = "1.0.1", requireChange = true, catalogVersion = null).execute() }
                 .`as`("new defaults are more than a fix").isInstanceOf(CatalogReleaseVersionException::class.java)
-            ReleaseCatalogDraft(catalog = id, version = "1.1.0", requireChange = true).execute()
+            ReleaseCatalogDraft(catalog = id, version = "1.1.0", requireChange = true, catalogVersion = null).execute()
 
-            assertThat(GetCatalogResourceChanges(id).query().settings.none { it.entry == RENDERING_DEFAULTS_ENTRY }).`as`("cut with the current defaults").isTrue()
-            assertThatThrownBy { ReleaseCatalogDraft(catalog = id, version = "1.2.0", requireChange = true).execute() }
+            assertThat(GetCatalogResourceChanges(id, catalogVersion = null).query().settings.none { it.entry == RENDERING_DEFAULTS_ENTRY }).`as`("cut with the current defaults").isTrue()
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = id, version = "1.2.0", requireChange = true, catalogVersion = null).execute() }
                 .`as`("the same defaults and no other change").isInstanceOf(CatalogDraftUnchangedException::class.java)
         }
     }

@@ -64,9 +64,9 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant(name).id
         val catalog = CatalogKey.of(key)
         CreateCatalog(tenantKey = tenant, id = catalog, name = name).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
         tenant to GetCatalog(testCatalog(tenant, catalog)).query()!!.namespace
     }
 
@@ -114,9 +114,9 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         withMediator {
             PublishReleaseToRegistry(testCatalog(a, key), "1.0.0", "local").execute()
             InstallReleaseFromRegistry(b, "local", namespace, "ui-update", "1.0.0").execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand 1.1").execute()
-            MarkCatalogReady(testCatalog(a, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.1.0").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand 1.1", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.1.0", catalogVersion = null).execute()
             PublishReleaseToRegistry(testCatalog(a, key), "1.1.0", "local").execute()
             CheckCatalogUpstream(testCatalog(b, key)).execute()
         }
@@ -169,9 +169,9 @@ class CatalogRegistryAbsentHandlerHtmxTest : BaseIntegrationTest() {
         val tenant = withMediator {
             val t = createTenant("Registry UI absent").id
             CreateCatalog(tenantKey = t, id = CatalogKey.of("no-registry"), name = "No registry").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t), CatalogKey.of("no-registry"))), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(t, CatalogKey.of("no-registry"))).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(t, CatalogKey.of("no-registry")), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t), CatalogKey.of("no-registry"))), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(t, CatalogKey.of("no-registry")), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(t, CatalogKey.of("no-registry")), version = "1.0.0", catalogVersion = null).execute()
             t
         }
 

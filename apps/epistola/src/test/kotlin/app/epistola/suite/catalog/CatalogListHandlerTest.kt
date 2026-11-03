@@ -464,17 +464,17 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 // Clean: released, untouched.
                 val clean = CatalogKey.of("clean-cat")
                 CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("ct1"), testCatalog(TenantId(t.id), clean)), name = "C1").execute()
-                MarkCatalogReady(testCatalog(t.id, clean)).execute()
-                ReleaseCatalogDraft(testCatalog(t.id, clean), version = "1.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("ct1"), testCatalog(TenantId(t.id), clean)), name = "C1", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(t.id, clean), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, clean), version = "1.0.0", catalogVersion = null).execute()
 
                 // Drifted: released, then edited.
                 val drift = CatalogKey.of("drift-cat")
                 CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("dt1"), testCatalog(TenantId(t.id), drift)), name = "D1").execute()
-                MarkCatalogReady(testCatalog(t.id, drift)).execute()
-                ReleaseCatalogDraft(testCatalog(t.id, drift), version = "2.0.0").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("dt2"), testCatalog(TenantId(t.id), drift)), name = "D2 (post-release)").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt1"), testCatalog(TenantId(t.id), drift)), name = "D1", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(t.id, drift), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, drift), version = "2.0.0", catalogVersion = null).execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt2"), testCatalog(TenantId(t.id), drift)), name = "D2 (post-release)", catalogVersion = null).execute()
             }
         }
 
@@ -558,9 +558,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             withMediator {
                 val catalogKey = CatalogKey.of("released-cat")
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t.id), catalogKey)), name = "Brand").execute()
-                MarkCatalogReady(testCatalog(t.id, catalogKey)).execute()
-                ReleaseCatalogDraft(testCatalog(t.id, catalogKey), version = "1.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t.id), catalogKey)), name = "Brand", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(t.id, catalogKey), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, catalogKey), version = "1.0.0", catalogVersion = null).execute()
             }
         }
 
@@ -878,6 +878,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     id = AttributeId(AttributeKey.of("audience"), testCatalog(TenantId(t.id), catalogKey)),
                     displayName = "Audience",
                     allowedValues = listOf("municipalities"),
+                    catalogVersion = null,
                 ).execute()
                 UpdateCatalogMetadata(
                     catalog = testCatalog(t.id, catalogKey),
@@ -897,6 +898,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
                     width = null,
                     height = null,
+                    catalogVersion = null,
                 ).execute()
 
                 val otherCatalogKey = CatalogKey.of("other-images")
@@ -908,6 +910,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
                     width = null,
                     height = null,
+                    catalogVersion = null,
                 ).execute().id.value
             }
         }

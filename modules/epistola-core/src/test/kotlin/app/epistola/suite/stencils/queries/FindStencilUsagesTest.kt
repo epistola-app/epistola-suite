@@ -47,21 +47,22 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             // Create a stencil
             val stencilKey = TestIdHelpers.nextStencilId()
             val stencilId = StencilId(stencilKey, catalogId)
-            CreateStencil(id = stencilId, name = "Header Stencil").execute()
+            CreateStencil(id = stencilId, name = "Header Stencil", catalogVersion = null).execute()
 
             // Create a template that references the stencil
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Letter Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Letter Template", catalogVersion = null).execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
+                catalogVersion = null,
             ).execute()
 
             // Query stencil usages
-            val usages = FindStencilUsages(stencilId = stencilId).query()
+            val usages = FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()
 
             assertThat(usages).hasSize(1)
             assertThat(usages[0]).isEqualTo("Letter Template")
@@ -85,9 +86,9 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             // Create a stencil but no template references it
             val stencilKey = TestIdHelpers.nextStencilId()
             val stencilId = StencilId(stencilKey, catalogId)
-            CreateStencil(id = stencilId, name = "Orphan Stencil").execute()
+            CreateStencil(id = stencilId, name = "Orphan Stencil", catalogVersion = null).execute()
 
-            val usages = FindStencilUsages(stencilId = stencilId).query()
+            val usages = FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()
 
             assertThat(usages).isEmpty()
         }
@@ -110,14 +111,14 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             // Create a stencil
             val stencilKey = TestIdHelpers.nextStencilId()
             val stencilId = StencilId(stencilKey, catalogId)
-            CreateStencil(id = stencilId, name = "Unused Header").execute()
+            CreateStencil(id = stencilId, name = "Unused Header", catalogVersion = null).execute()
 
             // Create a template WITHOUT the stencil (empty model)
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, catalogId)
-            CreateDocumentTemplate(id = templateId, name = "Plain Template").execute()
+            CreateDocumentTemplate(id = templateId, name = "Plain Template", catalogVersion = null).execute()
 
-            val usages = FindStencilUsages(stencilId = stencilId).query()
+            val usages = FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()
 
             assertThat(usages).isEmpty()
         }
@@ -140,30 +141,32 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             // Create a stencil
             val stencilKey = TestIdHelpers.nextStencilId()
             val stencilId = StencilId(stencilKey, catalogId)
-            CreateStencil(id = stencilId, name = "Shared Header").execute()
+            CreateStencil(id = stencilId, name = "Shared Header", catalogVersion = null).execute()
 
             // Create two templates both referencing the stencil
             val templateKey1 = TestIdHelpers.nextTemplateId()
             val templateId1 = TemplateId(templateKey1, catalogId)
-            CreateDocumentTemplate(id = templateId1, name = "Invoice Template").execute()
+            CreateDocumentTemplate(id = templateId1, name = "Invoice Template", catalogVersion = null).execute()
             val variantKey1 = VariantKey.INITIAL
             val variantId1 = VariantId(variantKey1, templateId1)
             UpdateVariantContent(
                 variantId = variantId1,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
+                catalogVersion = null,
             ).execute()
 
             val templateKey2 = TestIdHelpers.nextTemplateId()
             val templateId2 = TemplateId(templateKey2, catalogId)
-            CreateDocumentTemplate(id = templateId2, name = "Receipt Template").execute()
+            CreateDocumentTemplate(id = templateId2, name = "Receipt Template", catalogVersion = null).execute()
             val variantKey2 = VariantKey.INITIAL
             val variantId2 = VariantId(variantKey2, templateId2)
             UpdateVariantContent(
                 variantId = variantId2,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
+                catalogVersion = null,
             ).execute()
 
-            val usages = FindStencilUsages(stencilId = stencilId).query()
+            val usages = FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()
 
             assertThat(usages).hasSize(2)
             assertThat(usages).containsExactlyInAnyOrder("Invoice Template", "Receipt Template")
@@ -182,11 +185,11 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = other.key, name = "Brand").execute()
             val stencilKey = TestIdHelpers.nextStencilId()
             val stencilId = StencilId(stencilKey, own)
-            CreateStencil(id = stencilId, name = "Seal").execute()
-            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), own), name = "Frame", content = buildTemplateModelWithStencil(stencilKey)).execute()
-            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), other), name = "Letterhead", content = buildTemplateModelWithStencil(stencilKey, own.key.value)).execute()
+            CreateStencil(id = stencilId, name = "Seal", catalogVersion = null).execute()
+            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), own), name = "Frame", content = buildTemplateModelWithStencil(stencilKey), catalogVersion = null).execute()
+            CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), other), name = "Letterhead", content = buildTemplateModelWithStencil(stencilKey, own.key.value), catalogVersion = null).execute()
 
-            assertThat(FindStencilUsages(stencilId = stencilId).query()).containsExactly("Frame", "Letterhead")
+            assertThat(FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()).containsExactly("Frame", "Letterhead")
         }
     }
 

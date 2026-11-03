@@ -98,6 +98,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                                 app.epistola.suite.common.ids.CatalogId.default(app.epistola.suite.common.ids.TenantId(tenant.id)),
                             ),
                             name = "Unauthorized Theme",
+                            catalogVersion = null,
                         ),
                     )
                 }.isInstanceOf(PermissionDeniedException::class.java)

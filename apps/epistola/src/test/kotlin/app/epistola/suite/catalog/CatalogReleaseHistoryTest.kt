@@ -44,12 +44,12 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         withMediator {
             val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-cat"))
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0", notes = "first cut").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.10.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0", notes = "first cut", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.10.0", catalogVersion = null).execute()
         }
 
         val body = versions(versionsPage(tenant.id.value, "hist-cat"))
@@ -88,9 +88,9 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         withMediator {
             val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-cut"))
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
             // Release is offered once nothing changed is unready (CatalogReleaseReadiness).
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
         }
 
         val body = browse(tenant.id.value, "hist-cut")
@@ -119,9 +119,9 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         withMediator {
             val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-publish"))
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         val body = release(tenant.id.value, "hist-publish", "1.0.0")
@@ -139,12 +139,12 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         withMediator {
             val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-delete"))
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.1.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.1.0", catalogVersion = null).execute()
         }
 
         assertThat(release(tenant.id.value, "hist-delete", "1.1.0")).contains("data-testid=\"release-delete\"")

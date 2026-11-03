@@ -46,17 +46,17 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
         val theme = { tenant: app.epistola.suite.common.ids.TenantKey -> ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenant), catalog)) }
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Beside bytes").execute()
-            CreateTheme(id = theme(a), name = "base").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            CreateTheme(id = theme(a), name = "base", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1).execute()
-            MarkCatalogReady(testCatalog(b, catalog)).execute()
+            UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1, catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(b, catalog), catalogVersion = null).execute()
             TestNamespaces.share(a, b).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0", catalogVersion = null).execute()
             val v2 = ExportCatalogZip(testCatalog(b, catalog), "2.0.0").execute().zipBytes
 
-            UpdateTheme(theme(a), name = "A's own").execute()
+            UpdateTheme(theme(a), name = "A's own", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = a, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
             val content = assembler.assemble(testCatalog(a, catalog), "2.0.0")!!.content

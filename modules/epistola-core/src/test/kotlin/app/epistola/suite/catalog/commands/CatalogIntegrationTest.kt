@@ -97,6 +97,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
             val result = BrowseCatalog(
                 catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
+                catalogVersion = null,
             ).query()
 
             assertThat(result.resources).hasSize(12)
@@ -123,7 +124,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(successful).hasSize(12)
 
             // Verify templates were created
-            val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
+            val templates = ListDocumentTemplates(TenantId(tenant.id), catalogVersion = null).query()
             assertThat(templates.map { it.id.value })
                 .containsExactlyInAnyOrder(
                     "hello-world",
@@ -149,6 +150,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
             val result = BrowseCatalog(
                 catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
+                catalogVersion = null,
             ).query()
 
             assertThat(result.resources).allMatch { it.status == ResourceStatus.INSTALLED }
@@ -169,7 +171,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog).isNull()
 
             // Resources are deleted via CASCADE when catalog is removed
-            val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
+            val templates = ListDocumentTemplates(TenantId(tenant.id), catalogVersion = null).query()
             assertThat(templates).isEmpty()
         }
     }
@@ -320,9 +322,9 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(results).anyMatch { it.slug == "broken" && it.status == InstallStatus.FAILED }
 
             // ...and nothing was written, including the theme that installed before it.
-            assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value })
+            assertThat(ListThemes(TenantId(tenant.id), catalogVersion = null).query().map { it.id.value })
                 .doesNotContain("rollback-theme")
-            assertThat(ListDocumentTemplates(TenantId(tenant.id)).query()).isEmpty()
+            assertThat(ListDocumentTemplates(TenantId(tenant.id), catalogVersion = null).query()).isEmpty()
         }
     }
 
@@ -342,7 +344,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThatThrownBy { InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("undeclared-test"))).execute() }
                 .isInstanceOf(CatalogImportValidationException::class.java)
                 .hasMessageContaining("which catalogDependencies does not declare")
-            assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value }).doesNotContain("undeclared-theme")
+            assertThat(ListThemes(TenantId(tenant.id), catalogVersion = null).query().map { it.id.value }).doesNotContain("undeclared-theme")
         }
     }
 

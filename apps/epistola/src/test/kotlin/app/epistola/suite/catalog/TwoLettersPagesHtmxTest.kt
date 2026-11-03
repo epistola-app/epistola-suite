@@ -68,7 +68,7 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
                 CreateCatalog(tenant, letters, "$title letters", namespace = namespace).execute()
                 val catalog = CatalogId(namespace, letters, TenantId(tenant))
                 val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
-                CreateDocumentTemplate(variant.templateId, "$title invoice").execute()
+                CreateDocumentTemplate(variant.templateId, "$title invoice", catalogVersion = null).execute()
                 val version = mediator.publishAndRelease(variant)
                 DeployCatalogRelease(production, catalog, version).execute()
             }
@@ -158,6 +158,7 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
                     width = null,
                     height = null,
                     id = AssetKey.of("logo"),
+                    catalogVersion = null,
                 ).execute()
             }
         }
@@ -178,7 +179,7 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
         val tenant = twoLetters("Two letters organise")
         withMediator {
             SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
-            CreateStencil(StencilId(StencilKey.of("header"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau header").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau header", catalogVersion = null).execute()
         }
 
         val page = get("/tenants/${tenant.value}/catalogs/organise?resource=stencil:bureau/letters/header")

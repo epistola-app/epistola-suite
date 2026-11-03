@@ -136,10 +136,10 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
             // An instance that does not bind its stencil's required parameter may be saved, not marked ready.
             val catalog = CatalogId.default(TenantId(tenant.id))
             val stencil = StencilId(StencilKey.of("letterhead"), catalog)
-            CreateStencil(stencil, "Letterhead").execute()
-            UpdateStencil(stencil, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""")).execute()
+            CreateStencil(stencil, "Letterhead", catalogVersion = null).execute()
+            UpdateStencil(stencil, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}"""), catalogVersion = null).execute()
             val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, catalog))
-            UpdateVariantContent(variantId = variantId, templateModel = modelUsingLetterhead()).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = modelUsingLetterhead(), catalogVersion = null).execute()
         }
 
         whenever {
@@ -166,7 +166,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
     )
 
     private fun variantsOf(tenant: Tenant, template: DocumentTemplate) = withMediator {
-        GetVariantSummaries(TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))).query()
+        GetVariantSummaries(TemplateId(template.id, CatalogId.default(TenantId(tenant.id))), catalogVersion = null).query()
     }
 
     private fun postHtmx(url: String): ResponseEntity<String> {

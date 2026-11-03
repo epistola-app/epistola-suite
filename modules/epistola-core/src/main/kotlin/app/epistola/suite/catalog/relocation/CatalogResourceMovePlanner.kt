@@ -7,17 +7,17 @@ package app.epistola.suite.catalog.relocation
 import app.epistola.suite.catalog.CatalogEditingProperties
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindCatalogs
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.catalogsAt
-import app.epistola.suite.catalog.currentTemplateViewJoin
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ChangeKind
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -39,7 +39,10 @@ class CatalogResourceMovePlanner(
         handle: Handle,
         tenantKey: TenantKey,
         relocations: List<ResourceRelocation>,
+        /** The draft the move changes in its own catalog (ADR 0042); every other catalog's next version. */
+        ref: CatalogReleaseRef?,
     ): CatalogResourceMovePlan {
+        val addressed = ref?.let { handle.versionIn(it.catalog, it).versionId }
         val blockers = mutableListOf<ResourceMoveBlocker>()
         val warnings = mutableListOf<ResourceMoveWarning>()
         if (relocations.isEmpty()) blockers += blocker("empty-batch", "Select at least one resource to move")
@@ -91,14 +94,14 @@ class CatalogResourceMovePlanner(
             val resourceId = resolveIdentity(handle, tenantKey, source)
             if (resourceId == null) {
                 blockers += blocker("resource-not-found", "${source.id} is not a canonical resource", source)
-            } else if (!inChangedVersion(handle, tenantKey, source)) {
+            } else if (!inChangedVersion(handle, tenantKey, source, ref)) {
                 // The registry knows the resource from another draft: the one the move changes lacks it.
                 blockers += blocker("not-in-draft", "${source.id} is not in the draft this move changes", source)
             } else {
                 identities[source] = resourceId
                 // A move changes one draft of its catalog (ADR 0042): the others keep their copy at the
                 // old address, under an identity of their own, and are not changed.
-                for (draft in draftsLeftBehind(handle, tenantKey, source, resourceId)) {
+                for (draft in draftsLeftBehind(handle, tenantKey, source, resourceId, ref)) {
                     warnings += ResourceMoveWarning(
                         "left-behind-draft",
                         "$draft of ${source.catalogAddress} keeps its own copy of ${source.id} at the old address; it is not changed",
@@ -138,14 +141,14 @@ class CatalogResourceMovePlanner(
         // References are re-pointed once for the whole batch, so a reference between two moving
         // resources lands on the other's destination rather than the address it is leaving. An aliased
         // reference means the catalog its holder's catalog declares under that alias (ADR 0034, section 9).
-        val repoint = repointer.plan(handle, tenantKey, relocations.filter { it.source in identities }, graphs.loadAliases(handle, tenantKey))
+        val repoint = repointer.plan(handle, tenantKey, relocations.filter { it.source in identities }, graphs.loadAliases(handle, tenantKey, addressed), ref)
 
         // Catalog ordering is load-bearing for releasing, which pins what a catalog depends on. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
         // part of planning, and a batch already blocked cannot introduce anything.
         var impact = ReleaseImpact()
         if (blockers.isEmpty()) {
-            val graph = graphs.buildOn(handle, tenantKey)
+            val graph = graphs.buildOn(handle, tenantKey, addressed)
             CatalogDependencyCycles.introducedBy(graph, relocations)?.let { cycle ->
                 blockers += blocker(
                     "catalog-dependency-cycle",
@@ -153,7 +156,7 @@ class CatalogResourceMovePlanner(
                         "which would leave no order to release them in",
                 )
             }
-            if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations)
+            if (blockers.isEmpty()) impact = releaseImpact(handle, tenantKey, graph, relocations, ref)
         }
         if (blockers.isEmpty()) warnings += readyAgain(repoint)
 
@@ -185,7 +188,7 @@ class CatalogResourceMovePlanner(
      * catalog whose content now uses another it did not depends on it (additive). The catalogs are
      * ordered for release, each after what it depends on.
      */
-    private fun releaseImpact(handle: Handle, tenantKey: TenantKey, graph: app.epistola.suite.catalog.graph.TenantResourceGraph, relocations: List<ResourceRelocation>): ReleaseImpact {
+    private fun releaseImpact(handle: Handle, tenantKey: TenantKey, graph: app.epistola.suite.catalog.graph.TenantResourceGraph, relocations: List<ResourceRelocation>, ref: CatalogReleaseRef?): ReleaseImpact {
         val destinations = relocations.associate { it.source to it.target }
         fun catalogEdges(moved: Boolean): Set<Pair<String, String>> = graph.edges.mapNotNull { edge ->
             val target = edge.target ?: return@mapNotNull null
@@ -199,7 +202,7 @@ class CatalogResourceMovePlanner(
         val reasons = linkedMapOf<String, MutableList<Pair<ChangeKind, String>>>()
         fun add(catalog: String, kind: ChangeKind, reason: String) = reasons.getOrPut(catalog) { mutableListOf() }.add(kind to reason)
         for ((source, target) in relocations) {
-            if (inBaseRelease(handle, tenantKey, source)) add(source.catalogAddress, ChangeKind.BREAKING, "no longer contains ${source.type.word()} '${source.key}'")
+            if (inBaseRelease(handle, tenantKey, source, ref)) add(source.catalogAddress, ChangeKind.BREAKING, "no longer contains ${source.type.word()} '${source.key}'")
             add(target.catalogAddress, ChangeKind.ADDITIVE, "gains ${target.type.word()} '${target.key}'")
         }
         (after - before).sortedWith(compareBy({ it.first }, { it.second })).forEach { (from, to) -> add(from, ChangeKind.ADDITIVE, "now depends on ${to.substringAfter('/')}") }
@@ -235,37 +238,37 @@ class CatalogResourceMovePlanner(
         return ordered
     }
 
-    /** Whether the version the move changes in [source]'s catalog (the targeted draft, else the next) holds [source]. */
-    private fun inChangedVersion(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): Boolean = handle.createQuery(
+    /** Whether the version the move changes in [source]'s catalog (the one [ref] names, else the next) holds [source]. */
+    private fun inChangedVersion(handle: Handle, tenantKey: TenantKey, source: ResourceAddress, ref: CatalogReleaseRef?): Boolean = handle.createQuery(
         """
         SELECT EXISTS (
             SELECT 1 FROM release_wire_resources r
-            WHERE r.tenant_key = :tenantKey AND r.version_id = ${versionAt("tenantKey", "catalogKey")}
+            WHERE r.tenant_key = :tenantKey AND r.version_id = :changed
               AND r.resource_type = :resourceType AND r.resource_key = :resourceKey
         )
         """,
     )
         .bind("tenantKey", tenantKey)
-        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .bindVersion("changed", handle.versionIn(source.catalogIn(tenantKey), ref).versionId)
         .bind("resourceType", source.type.wireName)
         .bind("resourceKey", source.key)
         .mapTo(Boolean::class.java)
         .one()
 
     /** Whether the release the changed draft of [source]'s catalog is based on holds [source]. */
-    private fun inBaseRelease(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): Boolean = handle.createQuery(
+    private fun inBaseRelease(handle: Handle, tenantKey: TenantKey, source: ResourceAddress, ref: CatalogReleaseRef?): Boolean = handle.createQuery(
         """
         SELECT EXISTS (
             SELECT 1 FROM catalog_versions d
             JOIN catalog_versions b ON b.tenant_key = d.tenant_key AND b.catalog_id = d.catalog_id AND b.state = 'released' AND b.version = d.base_version
             JOIN release_wire_resources r ON r.tenant_key = b.tenant_key AND r.version_id = b.version_id
-            WHERE d.tenant_key = :tenantKey AND d.version_id = ${versionAt("tenantKey", "catalogKey")}
+            WHERE d.tenant_key = :tenantKey AND d.version_id = :changed
               AND r.resource_type = :resourceType AND r.resource_key = :resourceKey
         )
         """,
     )
         .bind("tenantKey", tenantKey)
-        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .bindVersion("changed", handle.versionIn(source.catalogIn(tenantKey), ref).versionId)
         .bind("resourceType", source.type.wireName)
         .bind("resourceKey", source.key)
         .mapTo(Boolean::class.java)
@@ -330,21 +333,21 @@ class CatalogResourceMovePlanner(
 
     /**
      * The other drafts of [source]'s catalog that hold the resource [resourceId]: everything but the
-     * version the move changes (the targeted draft, else the next version), by name.
+     * version the move changes (the one [ref] names, else the next version), by name.
      */
-    private fun draftsLeftBehind(handle: Handle, tenantKey: TenantKey, source: ResourceAddress, resourceId: ResourceIdentity): List<String> = handle.createQuery(
+    private fun draftsLeftBehind(handle: Handle, tenantKey: TenantKey, source: ResourceAddress, resourceId: ResourceIdentity, ref: CatalogReleaseRef?): List<String> = handle.createQuery(
         """
         SELECT COALESCE(v.name, 'The next release') AS draft
         FROM release_wire_resources r
         JOIN catalog_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id AND v.state = 'draft'
         WHERE r.tenant_key = :tenantKey AND r.resource_id = :resourceId
-          AND r.version_id <> ${versionAt("tenantKey", "catalogKey")}
+          AND r.version_id <> :changed
         ORDER BY v.created_at, v.version_id
         """,
     )
         .bind("tenantKey", tenantKey)
         .bind("resourceId", resourceId.value)
-        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
+        .bindVersion("changed", handle.versionIn(source.catalogIn(tenantKey), ref).versionId)
         .mapTo(String::class.java)
         .list()
 

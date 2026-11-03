@@ -84,6 +84,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 width = 1,
                 height = 1,
                 id = app.epistola.suite.common.ids.AssetKey.of("municipality-mark"),
+                catalogVersion = null,
             ).execute()
             // A font's face is not an image. It must not surface here.
             ImportFont(
@@ -92,6 +93,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray)),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -219,6 +221,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 width = null,
                 height = null,
                 id = app.epistola.suite.common.ids.AssetKey.of("svg-mark"),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -248,6 +251,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 width = 1,
                 height = 1,
                 id = app.epistola.suite.common.ids.AssetKey.of("elsewhere-mark"),
+                catalogVersion = null,
             ).execute()
             CreateCatalog(tenantKey, CatalogKey.of("other"), "Other").execute()
         }

@@ -5,6 +5,7 @@
 package app.epistola.suite.themes
 
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -74,23 +75,23 @@ class ThemeStore(
     /** The spacing unit as stored: two decimals. */
     private fun stored(spacingUnit: Float): Float = BigDecimal(spacingUnit.toString()).setScale(2, RoundingMode.HALF_UP).toFloat()
 
-    /** Stores [fields] as theme [key] of [catalog]'s tenant and returns its content hash; its references relative to [catalog]. */
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields): String = contents.store(handle, catalog.tenantKey, THEME, ResourceMetadata.carried(handle, catalog, THEME, key, payload(key, catalog.key.value, fields), fields.metadata, objectMapper))
+    /** Stores [fields] as theme [key] of version [at] and returns its content hash; its references relative to its catalog. */
+    fun store(handle: Handle, at: ContentVersion, key: String, fields: ThemeFields): String = contents.store(handle, at.tenantKey, THEME, ResourceMetadata.carried(handle, at, THEME, key, payload(key, at.catalog.key.value, fields), fields.metadata, objectMapper))
 
-    /** Adds theme [id] to the targeted draft; a theme already there is a unique violation. */
-    fun create(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?): Theme {
-        DraftResources.insert(handle, id.catalogId, THEME, id.key.value, store(handle, id.catalogId, id.key.value, fields), fields.name, fields.description, actor)
-        return checkNotNull(ThemeReads.get(handle, objectMapper, id.catalogId, id.key)) { "Theme ${id.key.value} was just written" }
+    /** Adds theme [id] to draft [at]; a theme already there is a unique violation. */
+    fun create(handle: Handle, at: ContentVersion, id: ThemeId, fields: ThemeFields, actor: UUID?): Theme {
+        DraftResources.insert(handle, at, THEME, id.key.value, store(handle, at, id.key.value, fields), fields.name, fields.description, actor)
+        return checkNotNull(ThemeReads.get(handle, objectMapper, at, id.key)) { "Theme ${id.key.value} was just written" }
     }
 
     /**
-     * Saves [fields] as theme [current] of the targeted draft, which the caller read (and locked)
-     * in this transaction; null when the draft no longer holds it.
+     * Saves [fields] as theme [current] of draft [at], which the caller read (and locked) in this
+     * transaction; null when the draft no longer holds it.
      */
-    fun save(handle: Handle, current: Theme, fields: ThemeFields, actor: UUID?): Theme? {
+    fun save(handle: Handle, at: ContentVersion, current: Theme, fields: ThemeFields, actor: UUID?): Theme? {
         val id = ThemeId(current.id, current.catalogId)
-        val hash = store(handle, id.catalogId, id.key.value, fields)
-        val updated = DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor) ?: return null
+        val hash = store(handle, at, id.key.value, fields)
+        val updated = DraftResources.update(handle, at, THEME, id.key.value, hash, fields.name, fields.description, actor) ?: return null
         // What it says now, without reading it back: the content just written, the row's new bookkeeping.
         return current.copy(
             name = fields.name,
@@ -106,16 +107,16 @@ class ThemeStore(
         )
     }
 
-    /** Creates or replaces theme [id] in the targeted draft; true when it was there already. */
-    fun put(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?): Boolean {
-        val hash = store(handle, id.catalogId, id.key.value, fields)
-        if (DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor) != null) return true
-        DraftResources.insert(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor)
+    /** Creates or replaces theme [id] in draft [at]; true when it was there already. */
+    fun put(handle: Handle, at: ContentVersion, id: ThemeId, fields: ThemeFields, actor: UUID?): Boolean {
+        val hash = store(handle, at, id.key.value, fields)
+        if (DraftResources.update(handle, at, THEME, id.key.value, hash, fields.name, fields.description, actor) != null) return true
+        DraftResources.insert(handle, at, THEME, id.key.value, hash, fields.name, fields.description, actor)
         return false
     }
 
-    /** Removes theme [id] from the targeted draft; false when it held none. */
-    fun delete(handle: Handle, id: ThemeId): Boolean = DraftResources.delete(handle, id.catalogId, THEME, id.key.value)
+    /** Removes theme [id] from draft [at]; false when it held none. */
+    fun delete(handle: Handle, at: ContentVersion, id: ThemeId): Boolean = DraftResources.delete(handle, at, THEME, id.key.value)
 
     companion object {
         /** The resource type, and content kind, of a theme. */

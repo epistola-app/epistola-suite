@@ -6,6 +6,7 @@ package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -34,8 +35,8 @@ data class GetFontVariantContent(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<ByteArray?>,
     RequiresPermission {
@@ -52,7 +53,7 @@ class GetFontVariantContentHandler(
 ) : QueryHandler<GetFontVariantContent, ByteArray?> {
 
     override fun handle(query: GetFontVariantContent): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
-        val face = fonts.faces(handle, FontId(query.slug, query.catalog)).firstOrNull { it.weight == query.weight && it.italic == query.italic }
+        val face = fonts.faces(handle, handle.versionOf(query.catalog, query), FontId(query.slug, query.catalog)).firstOrNull { it.weight == query.weight && it.italic == query.italic }
             ?: return@withHandle null
         fonts.bytes(handle, query.tenantId, face.contentHash)
     }

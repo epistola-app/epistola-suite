@@ -165,6 +165,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
                 content = """<svg xmlns="http://www.w3.org/2000/svg"/>""".toByteArray(),
                 width = null,
                 height = null,
+                catalogVersion = null,
             ).execute()
         }
 

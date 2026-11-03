@@ -65,20 +65,20 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         val catalog = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-        CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("colours"), catalog), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-        MarkCatalogReady(testCatalog(tenant, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("colours"), catalog), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         tenant
     }
 
-    private fun declared(tenant: TenantKey, catalog: CatalogKey = letters) = withMediator { ListCatalogDependencies(testCatalog(tenant, catalog)).query() }
+    private fun declared(tenant: TenantKey, catalog: CatalogKey = letters) = withMediator { ListCatalogDependencies(testCatalog(tenant, catalog), catalogVersion = null).query() }
         .map { Triple(it.catalogKey, it.releaseVersion, it.draftName) }
 
     private fun invoice(tenant: TenantKey) = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)).also {
-        withMediator { runCatching { CreateDocumentTemplate(it, "Invoice").execute().withRequiredDataExample() } }
+        withMediator { runCatching { CreateDocumentTemplate(it, "Invoice", catalogVersion = null).execute().withRequiredDataExample() } }
     }
 
     @Test
@@ -91,6 +91,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
                     stencil("footer-1", "footer", catalogKey = "shared")
                     build("footer-1")
                 },
+                catalogVersion = null,
             ).execute()
         }
 
@@ -105,19 +106,19 @@ class DeclaredOnUseTest : IntegrationTestBase() {
     fun `a variant attribute of another catalog declares that catalog, on create and on update`() {
         val tenant = setUp("on-use-variant-attribute")
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(tenant), shared)), "Tone").execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("size"), testCatalog(TenantId(tenant), letters)), "Size").execute()
-            CreateVariant(VariantId(VariantKey.of("formal"), invoice(tenant)), "Formal", description = null, attributes = mapOf("letters.size" to "a4")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(tenant), shared)), "Tone", catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("size"), testCatalog(TenantId(tenant), letters)), "Size", catalogVersion = null).execute()
+            CreateVariant(VariantId(VariantKey.of("formal"), invoice(tenant)), "Formal", description = null, attributes = mapOf("letters.size" to "a4"), catalogVersion = null).execute()
         }
         assertThat(declared(tenant)).`as`("its own catalog's attribute declares nothing").isEmpty()
 
-        withMediator { CreateVariant(VariantId(VariantKey.of("friendly"), invoice(tenant)), "Friendly", description = null, attributes = mapOf("shared.tone" to "warm")).execute() }
+        withMediator { CreateVariant(VariantId(VariantKey.of("friendly"), invoice(tenant)), "Friendly", description = null, attributes = mapOf("shared.tone" to "warm"), catalogVersion = null).execute() }
         assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
 
         val other = setUp("on-use-variant-attribute-update")
         withMediator {
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(other), shared)), "Tone").execute()
-            UpdateVariant(VariantId(VariantKey.INITIAL, invoice(other)), title = "Default", attributes = mapOf("shared.tone" to "warm")).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(other), shared)), "Tone", catalogVersion = null).execute()
+            UpdateVariant(VariantId(VariantKey.INITIAL, invoice(other)), title = "Default", attributes = mapOf("shared.tone" to "warm"), catalogVersion = null).execute()
         }
         assertThat(declared(other)).containsExactly(Triple("shared", null, "Next release"))
     }
@@ -125,7 +126,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
     @Test
     fun `a template's theme declares the theme's catalog`() {
         val tenant = setUp("on-use-theme")
-        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute() }
+        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute() }
 
         assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
@@ -138,6 +139,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
                 AttributeId(AttributeKey.of("colour"), testCatalog(TenantId(tenant), letters)),
                 "Colour",
                 codeListId = CodeListId(CodeListKey.of("colours"), testCatalog(TenantId(tenant), shared)),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -149,8 +151,8 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = setUp("on-use-font")
         val theme = ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters))
         withMediator {
-            CreateTheme(theme, "House").execute()
-            UpdateTheme(theme, documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
+            CreateTheme(theme, "House", catalogVersion = null).execute()
+            UpdateTheme(theme, documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value)), catalogVersion = null).execute()
         }
 
         val system = declared(tenant).single()
@@ -164,7 +166,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = setUp("on-use-kept")
         withMediator { declareDependency(tenant, letters, on = shared, release = "1.0.0") }
 
-        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute() }
+        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute() }
 
         assertThat(declared(tenant)).containsExactly(Triple("shared", "1.0.0", null))
     }
@@ -172,9 +174,9 @@ class DeclaredOnUseTest : IntegrationTestBase() {
     @Test
     fun `using the latest versions moves pins and leaves a declaration naming a draft as it is`() {
         val tenant = setUp("on-use-upgrade")
-        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute() }
+        withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute() }
 
-        withMediator { UpgradeCatalogDependencies(testCatalog(tenant, letters)).execute() }
+        withMediator { UpgradeCatalogDependencies(testCatalog(tenant, letters), catalogVersion = null).execute() }
 
         assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
@@ -184,12 +186,12 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = setUp("on-use-cycle")
         withMediator {
             // Letters uses Shared's theme; then Shared would use a theme Letters has.
-            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute()
+            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House", catalogVersion = null).execute()
             val memo = TemplateId(TemplateKey.of("memo"), testCatalog(TenantId(tenant), shared))
-            CreateDocumentTemplate(memo, "Memo").execute().withRequiredDataExample()
+            CreateDocumentTemplate(memo, "Memo", catalogVersion = null).execute().withRequiredDataExample()
 
-            assertThatThrownBy { UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = testCatalog(memo.tenantKey, letters)).execute() }
+            assertThatThrownBy { UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = testCatalog(memo.tenantKey, letters), catalogVersion = null).execute() }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Catalog 'shared' cannot use 'letters'")
         }

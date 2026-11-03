@@ -6,16 +6,15 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeFields
 import app.epistola.suite.attributes.AttributeStore
-import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -52,8 +51,8 @@ data class CreateAttributeDefinition(
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
     val codeListId: CodeListId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<VariantAttributeDefinition>,
     RequiresPermission {
@@ -86,16 +85,17 @@ class CreateAttributeDefinitionHandler(
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
         // The code list's catalog is declared first: the binding names it by alias, and an alias means
         // only what a declaration says (ADR 0033), so the attribute saved reads its list at once.
-        usedCatalogs.declare(command.id.catalogId, command.codeListId?.catalogId)
-        return save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        usedCatalogs.declare(at, command.codeListId?.catalogId)
+        return save(command, at)
     }
 
-    private fun save(command: CreateAttributeDefinition): VariantAttributeDefinition {
+    private fun save(command: CreateAttributeDefinition, at: ContentVersion): VariantAttributeDefinition {
         requireCatalogEditable(command.id.catalogId)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
                 val binding = command.codeListId?.let { attributes.bindingOf(handle, command.id.catalogId, it) }
-                attributes.create(handle, command.id, AttributeFields(command.displayName, command.allowedValues, binding), currentUserIdOrNull()?.value)
+                attributes.create(handle, at, command.id, AttributeFields(command.displayName, command.allowedValues, binding), currentUserIdOrNull()?.value)
             }
         }
     }

@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -51,21 +52,21 @@ class AttributeInUseTest : IntegrationTestBase() {
     private fun setUp(): TenantKey = withMediator {
         val tenantKey = createTenant("Attribute in use").id
         CreateCatalog(tenantKey = tenantKey, id = acme, name = "Acme").execute()
-        CreateAttributeDefinition(id = brandIn(tenantKey), displayName = "Brand", allowedValues = listOf("acme", "globex")).execute()
+        CreateAttributeDefinition(id = brandIn(tenantKey), displayName = "Brand", allowedValues = listOf("acme", "globex"), catalogVersion = null).execute()
         tenantKey
     }
 
     /** A template in [catalog] with one variant carrying [attributes]. */
     private fun variantIn(tenantKey: TenantKey, catalog: CatalogKey, attributes: Map<String, String>) = withMediator {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenantKey), catalog))
-        CreateDocumentTemplate(id = templateId, name = "Uses brand").execute()
-        CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Branded", null, attributes).execute()
+        CreateDocumentTemplate(id = templateId, name = "Uses brand", catalogVersion = null).execute()
+        CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Branded", null, attributes, catalogVersion = null).execute()
     }
 
-    private fun delete(tenantKey: TenantKey) = withMediator { DeleteAttributeDefinition(brandIn(tenantKey)).execute() }
+    private fun delete(tenantKey: TenantKey) = withMediator { DeleteAttributeDefinition(brandIn(tenantKey), catalogVersion = null).execute() }
 
     private fun narrowToGlobex(tenantKey: TenantKey) = withMediator {
-        UpdateAttributeDefinition(brandIn(tenantKey), displayName = "Brand", allowedValues = listOf("globex")).execute()
+        UpdateAttributeDefinition(brandIn(tenantKey), displayName = "Brand", allowedValues = listOf("globex"), catalogVersion = null).execute()
     }
 
     @Test
@@ -123,7 +124,7 @@ class AttributeInUseTest : IntegrationTestBase() {
         val tenantKey = setUp()
         variantIn(tenantKey, CatalogKey.DEFAULT, mapOf("acme.brand" to "acme"))
 
-        val conflicts = upgradeAnalyzer.findConflicts(testCatalog(tenantKey, acme), listOf(InstalledResource("attribute", "brand")))
+        val conflicts = upgradeAnalyzer.findConflicts(nextVersion(testCatalog(tenantKey, acme)), listOf(InstalledResource("attribute", "brand")))
 
         assertThat(conflicts).anyMatch { it.contains("brand") && it.contains("Uses brand") }
     }

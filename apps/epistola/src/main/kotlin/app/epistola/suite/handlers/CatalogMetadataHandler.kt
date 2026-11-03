@@ -174,7 +174,7 @@ class CatalogMetadataHandler {
         val tenantKey = catalogId.tenantKey
         val catalog = catalogForMetadata(catalogId)
         val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalogKey}.${it.key}" to it.value }
-        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
+        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey), catalogVersion = null).query())
             .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
         val images = catalogImages(catalogId)
         val gallery = catalog.catalogMetadata.presentation?.imageKeys.orEmpty()

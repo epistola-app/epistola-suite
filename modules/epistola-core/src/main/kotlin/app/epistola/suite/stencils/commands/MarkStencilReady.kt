@@ -5,13 +5,14 @@
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -36,8 +37,8 @@ import java.util.UUID
  */
 data class MarkStencilReady(
     val stencilId: StencilId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Unit>,
     RequiresPermission {
@@ -56,19 +57,20 @@ class MarkStencilReadyHandler(
         val stencil = command.stencilId
         requireCatalogEditable(stencil.catalogId)
         jdbi.useTransaction<Exception> { handle ->
-            DraftResources.lockRevision(handle, stencil.catalogId, StencilStore.STENCIL, stencil.key.value)
+            val at = handle.versionOf(stencil.catalogId, command)
+            DraftResources.lockRevision(handle, at, StencilStore.STENCIL, stencil.key.value)
             val row = handle.createQuery(
-                "SELECT resource_id, content::text AS content FROM current_stencils WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
+                "SELECT resource_id, content::text AS content FROM version_stencils WHERE tenant_key = :t AND version_id = :v AND id = :k",
             )
                 .bind("t", stencil.tenantKey)
-                .bindCatalog("c", stencil.catalogId)
+                .bindVersion("v", at.versionId)
                 .bind("k", stencil.key.value)
                 .map { rs, _ -> rs.getObject("resource_id", UUID::class.java) to rs.getString("content") }
                 .findOne()
                 .orElseThrow { StencilNotFoundException(stencil.tenantKey, stencil.key) }
             val content = objectMapper.readValue(row.second, TemplateDocument::class.java)
-            stencilFit.requireInstancesFit(stencil.catalogId, content, "Cannot mark stencil '${stencil.key.value}' ready")
-            readyMarks.mark(handle, stencil.tenantKey, row.first)
+            stencilFit.requireInstancesFit(at, content, "Cannot mark stencil '${stencil.key.value}' ready")
+            readyMarks.mark(handle, at, row.first)
         }
     }
 }

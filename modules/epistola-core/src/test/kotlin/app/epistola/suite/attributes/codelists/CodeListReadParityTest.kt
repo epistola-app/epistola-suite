@@ -36,7 +36,7 @@ class CodeListReadParityTest : IntegrationTestBase() {
         val release = withMediator { ListCatalogReleases(catalog).query() }.first { it.status == CatalogReleaseStatus.RELEASED }
         val released = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))
 
-        val drafted = withMediator { ListCodeLists(catalog.tenantId, catalog = catalog).query() }
+        val drafted = withMediator { ListCodeLists(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }
         val fromRelease = withMediator { ListCodeLists(catalog.tenantId, catalog = catalog, catalogVersion = released).query() }
 
         assertThat(drafted).isNotEmpty()
@@ -46,7 +46,7 @@ class CodeListReadParityTest : IntegrationTestBase() {
             assertThat(withMediator { GetCodeList(id, catalogVersion = released).query() }?.content()).`as`(list.slug.value).isEqualTo(list.content())
             assertThat(withMediator { ListCodeListEntries(id, includeHidden = true, catalogVersion = released).query() })
                 .`as`("entries of ${list.slug.value}")
-                .isEqualTo(withMediator { ListCodeListEntries(id, includeHidden = true).query() })
+                .isEqualTo(withMediator { ListCodeListEntries(id, includeHidden = true, catalogVersion = null).query() })
         }
     }
 }

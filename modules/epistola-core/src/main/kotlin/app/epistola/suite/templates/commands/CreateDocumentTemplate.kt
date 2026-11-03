@@ -8,8 +8,8 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -52,8 +52,8 @@ const val DEFAULT_VARIANT_TITLE = "Default"
 data class CreateDocumentTemplate(
     val id: TemplateId,
     val name: String,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** Plain-text notes for the template's authors; blank counts as none. */
     val description: String? = null,
     /** The template's data contract; null for none. */
@@ -125,8 +125,9 @@ class CreateDocumentTemplateHandler(
                         ),
                     ),
                 )
-                templates.create(handle, command.id.catalogId, template, auditUser)
-                checkNotNull(documentTemplate(handle, command.id)) { "Template ${command.id.key.value} was just written" }
+                val at = handle.versionOf(command.id.catalogId, command)
+                templates.create(handle, at, template, auditUser)
+                checkNotNull(documentTemplate(handle, at, command.id)) { "Template ${command.id.key.value} was just written" }
             }
         }
     }

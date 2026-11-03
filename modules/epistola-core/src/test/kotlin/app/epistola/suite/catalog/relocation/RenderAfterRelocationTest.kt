@@ -38,7 +38,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
     fun `a released document still renders after its theme's font family moves`() {
         val tenant = tenantWith("Render after font move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, archive)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, archive)), "Brand", documentStyles = fontStyle("acme", letters.value), catalogVersion = null).execute() }
         publishTemplate(tenant, archive, textModel(usesTheme("brand", archive.value).themeRef))
         releaseAll(tenant, catalogsOf(tenant))
         assertPreviewRenders(tenant, archive)
@@ -53,7 +53,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
     fun `a released document still renders after its theme's font family is renamed`() {
         val tenant = tenantWith("Render after font rename")
         importFont(tenant, letters, "acme")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value), catalogVersion = null).execute() }
         publishTemplate(tenant, letters, textModel(usesTheme("brand", letters.value).themeRef))
         releaseAll(tenant, catalogsOf(tenant))
         assertPreviewRenders(tenant, letters)
@@ -68,7 +68,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
     fun `a published document still renders after its theme moves`() {
         val tenant = tenantWith("Render after theme move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value), catalogVersion = null).execute() }
         publishTemplate(tenant, archive, textModel(usesTheme("brand", letters.value).themeRef))
         releaseAll(tenant, catalogsOf(tenant))
 
@@ -94,7 +94,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         val tenant = tenantWith("Render after stencil move")
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         publishTemplate(tenant, letters, templateEmbedding("header", letters.value)) {
-            CreateStencil(header, "Header").execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
         }
         releaseAll(tenant, catalogsOf(tenant))
 

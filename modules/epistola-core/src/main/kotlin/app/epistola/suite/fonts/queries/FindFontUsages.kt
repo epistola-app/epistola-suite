@@ -5,8 +5,13 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inNextVersion
+import app.epistola.suite.catalog.inVersionOrNext
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.model.FontUsage
 import app.epistola.suite.mediator.Query
@@ -17,7 +22,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Finds themes and template versions that reference a given font family via a
+ * Finds the themes and templates of each catalog's next version that reference a given font family via a
  * structured `fontFamily` style ref (`{ "key": ..., "catalogKey": ... }`, or `slug` in content
  * stored before 2.0).
  *
@@ -35,7 +40,10 @@ import org.springframework.stereotype.Component
  */
 data class FindFontUsages(
     val fontId: FontId,
-) : Query<List<FontUsage>>,
+    /** The version whose uses are looked for in its own catalog; every other catalog's next version. Null: every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
+) : CatalogReleaseScoped,
+    Query<List<FontUsage>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = fontId.tenantKey
@@ -62,9 +70,9 @@ class FindFontUsagesHandler(
         val themeUsages = handle.createQuery(
             """
             SELECT t.name AS name
-            FROM current_themes t
+            FROM version_themes t
             WHERE t.tenant_key = :tenantKey
-             
+              AND ${inVersionOrNext("t", "version")}
               AND (
                 jsonb_path_exists(t.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                 OR jsonb_path_exists(COALESCE(t.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
@@ -76,6 +84,7 @@ class FindFontUsagesHandler(
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)
+            .bindVersion("version", handle.addressedVersion(query))
             .bindCatalog("fontCatalog", query.fontId.catalogId)
             .bind("relativePath", relativePath)
             .bind("jsonPath", jsonPath)
@@ -86,10 +95,10 @@ class FindFontUsagesHandler(
         val templateUsages = handle.createQuery(
             """
             SELECT DISTINCT dt.name AS name
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
+            FROM version_template_variants tv
+            JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
                                       AND dt.resource_id = tv.template_resource_id
-            WHERE tv.tenant_key = :tenantKey
+            WHERE tv.tenant_key = :tenantKey AND ${inVersionOrNext("tv", "version")}
               AND (jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                    OR (tv.catalog_id = ${catalogAt("tenantKey", "fontCatalog")}
                        AND jsonb_path_exists(tv.template_model, CAST(:relativePath AS jsonpath), CAST(:vars AS jsonb))))
@@ -97,6 +106,7 @@ class FindFontUsagesHandler(
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)
+            .bindVersion("version", handle.addressedVersion(query))
             .bindCatalog("fontCatalog", query.fontId.catalogId)
             .bind("relativePath", relativePath)
             .bind("jsonPath", jsonPath)

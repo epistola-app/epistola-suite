@@ -38,7 +38,7 @@ class DemoInvoiceSchemaDefaultsIntegrationTest : IntegrationTestBase() {
         withMediator { EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute() }
 
         val contract = withMediator {
-            GetDataContract(TemplateId(invoice, testCatalog(TenantId(tenant.id), demoCatalog))).query()
+            GetDataContract(TemplateId(invoice, testCatalog(TenantId(tenant.id), demoCatalog)), catalogVersion = null).query()
         }!!
         val properties = contract.dataModel!!.get("properties")
         assertThat(properties.get("taxRate").get("default").asDouble()).isEqualTo(0.21)
@@ -59,5 +59,6 @@ class DemoInvoiceSchemaDefaultsIntegrationTest : IntegrationTestBase() {
         catalog = testCatalog(tenantKey, demoCatalog),
         templateId = invoice,
         data = data,
+        catalogVersion = null,
     ).query()
 }

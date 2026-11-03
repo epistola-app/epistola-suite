@@ -8,6 +8,9 @@ import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -32,18 +35,19 @@ class MissingDependencyDeclarer(
     private val contentBuilder: CatalogContentBuilder,
     private val store: CatalogDependencyStore,
 ) {
-    /** @return the declarations added. */
-    fun declareMissing(catalog: CatalogId): List<CatalogDependencyDeclaration> {
-        val content = contentBuilder.build(catalog)
+    /** Declares what draft [at] references but does not declare. @return the declarations added. */
+    fun declareMissing(at: ContentVersion): List<CatalogDependencyDeclaration> {
+        val content = contentBuilder.build(at)
         return jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-            val added = missing(handle, catalog, content)
-            if (added.isNotEmpty()) store.replace(handle, catalog, store.declarations(handle, catalog) + added)
+            val added = missing(handle, at, content)
+            if (added.isNotEmpty()) store.replace(handle, at, store.declarations(handle, at) + added)
             added
         }
     }
 
-    private fun missing(handle: Handle, catalog: CatalogId, content: CatalogContent): List<CatalogDependencyDeclaration> {
-        val declared = store.declarations(handle, catalog)
+    private fun missing(handle: Handle, at: ContentVersion, content: CatalogContent): List<CatalogDependencyDeclaration> {
+        val catalog = at.catalog
+        val declared = store.declarations(handle, at)
         // A reference names its catalog by alias, which is the catalog's key here (DependencyAliases):
         // an alias no declaration has names a catalog of the tenant by that key, if it has one.
         val names = names(handle, catalog.tenantKey)
@@ -82,20 +86,22 @@ class MissingDependencyDeclarer(
 
     /**
      * After resources moved into other catalogs, or were renamed ([arrived]: each catalog the
-     * addresses `type/key` that arrived in it), every catalog of [tenantKey] that can be changed here and now uses one of them
+     * addresses `type/key` that arrived in it), every catalog of [tenantKey] that can be changed here
+     * and now uses one of them, in the version [ref] names for its catalog, else in its next version,
      * names that catalog's next version (ADR 0042): no release of it holds them yet, so a pin of one
      * would not resolve. A declaration that names a draft already stays; one pinned to a release, or
      * none, becomes a declaration of the next version. Releasing with dependencies then releases
      * that catalog first.
      */
-    fun followMoved(tenantKey: TenantKey, arrived: Map<CatalogId, Set<String>>) {
+    fun followMoved(tenantKey: TenantKey, arrived: Map<CatalogId, Set<String>>, ref: CatalogReleaseRef?) {
         if (arrived.isEmpty()) return
         for (catalog in ListCatalogEditability(tenantKey).query().editableCatalogs) {
-            val used = used(contentBuilder.build(catalog))
+            val at = jdbi.withHandle<ContentVersion, Exception> { it.versionIn(catalog, ref) }
+            val used = used(contentBuilder.build(at))
             val into = arrived.filterKeys { it != catalog && used[it.key.value].orEmpty().any(arrived.getValue(it)::contains) }.keys
             if (into.isEmpty()) continue
             jdbi.useTransaction<Exception> { handle ->
-                val declared = store.declarations(handle, catalog)
+                val declared = store.declarations(handle, at)
                 val following = into.mapNotNull { target ->
                     val existing = declared.firstOrNull { it.alias == target.key.value }
                     if (existing?.namesDraft == true) return@mapNotNull null
@@ -104,7 +110,7 @@ class MissingDependencyDeclarer(
                     val (draftId, draftName) = store.nextVersionOf(handle, tenantKey, declaration) ?: return@mapNotNull null
                     declaration.alias to declaration.copy(releaseVersion = null, releaseFingerprint = null, draftId = draftId, draftName = draftName)
                 }.toMap()
-                if (following.isNotEmpty()) store.replace(handle, catalog, declared.filter { it.alias !in following } + following.values)
+                if (following.isNotEmpty()) store.replace(handle, at, declared.filter { it.alias !in following } + following.values)
             }
         }
     }
@@ -130,9 +136,12 @@ class MissingDependencyDeclarer(
         return (references + attributes).groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
     }
 
-    /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032), each in its namespace. */
-    fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogId, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableCatalogs
+    /**
+     * [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032), each in its
+     * namespace: in the version [ref] names for its catalog, else in its next version.
+     */
+    fun declareMissingInTenant(tenantKey: TenantKey, ref: CatalogReleaseRef?): Map<CatalogId, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableCatalogs
         .sortedWith(compareBy({ it.key.value }, { it.namespace }))
-        .associateWith { catalog -> declareMissing(catalog) }
+        .associateWith { catalog -> declareMissing(jdbi.withHandle<ContentVersion, Exception> { it.versionIn(catalog, ref) }) }
         .filterValues { it.isNotEmpty() }
 }

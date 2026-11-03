@@ -43,9 +43,9 @@ class ReleasedVersionReadOnlyTest : IntegrationTestBase() {
         val catalog = withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
             testCatalog(tenant, letters).also {
-                CreateTheme(ThemeId(ThemeKey.of("base"), it), "Base").execute()
-                MarkCatalogReady(it).execute()
-                ReleaseCatalogDraft(it, "1.0.0").execute()
+                CreateTheme(ThemeId(ThemeKey.of("base"), it), "Base", catalogVersion = null).execute()
+                MarkCatalogReady(it, catalogVersion = null).execute()
+                ReleaseCatalogDraft(it, "1.0.0", catalogVersion = null).execute()
             }
         }
 
@@ -53,6 +53,6 @@ class ReleasedVersionReadOnlyTest : IntegrationTestBase() {
             withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = CatalogReleaseRef(catalog, DraftRef.Released("1.0.0"))).execute() }
         }.isInstanceOf(ReleasedVersionReadOnlyException::class.java).hasMessageContaining("Release 1.0.0").hasMessageContaining("read-only")
 
-        assertThat(withMediator { ListThemes(catalog.tenantId, catalog = catalog).query() }.map { it.id.value }).doesNotContain("brand")
+        assertThat(withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }.map { it.id.value }).doesNotContain("brand")
     }
 }

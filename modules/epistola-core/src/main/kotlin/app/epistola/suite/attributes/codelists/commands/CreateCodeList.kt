@@ -16,8 +16,8 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -51,8 +51,8 @@ data class CreateCodeList(
     val authType: AuthType = AuthType.NONE,
     val credential: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<CodeList>,
     RequiresPermission {
@@ -89,12 +89,13 @@ class CreateCodeListHandler(
         }
         return executeOrThrowDuplicate("code-list", command.id.key.value) {
             jdbi.withHandle<CodeList, Exception> { handle ->
+                val at = handle.versionOf(command.id.catalogId, command)
                 val source = if (command.sourceType == CodeListSource.INLINE) {
                     null
                 } else {
                     CodeListSourceSettings(command.sourceType, command.sourceUrl, command.authType, command.credential?.let { codeLists.storeCredential(handle, command.id.catalogId, it) })
                 }
-                codeLists.create(handle, command.id, CodeListFields(command.displayName, command.description, command.entries, source), currentUserIdOrNull()?.value)
+                codeLists.create(handle, at, command.id, CodeListFields(command.displayName, command.description, command.entries, source), currentUserIdOrNull()?.value)
             }
         }
     }

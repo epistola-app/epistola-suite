@@ -95,7 +95,7 @@ class CatalogThemeSettingsHandler {
         val others = ListCatalogDependencies(segment.catalogIn(tenantKey), segment.ref(tenantKey)).query()
             .map { it.catalogIn(tenantKey) }
             .distinct()
-            .flatMap { ListThemes(TenantId(tenantKey), catalog = it).query() }
+            .flatMap { ListThemes(TenantId(tenantKey), catalog = it, catalogVersion = null).query() }
         return (own + others).map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
     }
 }

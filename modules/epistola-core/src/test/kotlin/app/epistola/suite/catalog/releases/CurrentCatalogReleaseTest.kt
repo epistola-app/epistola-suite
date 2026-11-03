@@ -10,7 +10,6 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.isNext
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -26,8 +25,8 @@ import java.util.UUID
 private const val FIXTURE_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 /**
- * `catalog_current_versions` and the helpers over it name the version a caller means: the current one
- * when it names none (`versionAt`).
+ * The version a message that names none reads (ADR 0049, `ContentVersions.of`) is its catalog's next
+ * version: an authored catalog's draft, a subscribed catalog's installed release.
  */
 class CurrentCatalogReleaseTest : IntegrationTestBase() {
 
@@ -49,19 +48,11 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
     }
 
     private fun currentInView(tenantKey: TenantKey, catalogKey: CatalogKey): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
-        handle.createQuery(
-            "SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id " +
-                "WHERE c.tenant_key = :t AND c.catalog_key = :c",
-        )
-            .bind("t", tenantKey).bind("c", catalogKey)
-            .mapTo(UUID::class.java)
-            .findOne().orElse(null)
+        app.epistola.suite.catalog.releases.ContentVersions.of(handle, testCatalog(tenantKey, catalogKey), message = null)
     }
 
     private fun versionAtOf(tenantKey: TenantKey, catalogKey: CatalogKey): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
-        handle.createQuery("SELECT ${versionAt("t", "c")}")
-            .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey))
-            .mapTo(UUID::class.java).findOne().orElse(null)
+        app.epistola.suite.catalog.releases.ContentVersions.next(handle, testCatalog(tenantKey, catalogKey))
     }
 
     @Test

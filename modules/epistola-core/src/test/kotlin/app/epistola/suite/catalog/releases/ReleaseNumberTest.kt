@@ -96,17 +96,17 @@ class ReleaseNumberTest : IntegrationTestBase() {
     private fun released(name: String, dependency: Boolean = false): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDataContract(invoice(tenant), dataModel = contract).execute()
-        CreateStencil(letterhead(tenant), "Letterhead", content = stencilContent("body"), parameterSchema = parameters).execute()
-        CreateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl", "en")).execute()
-        CreateCodeList(colours(tenant), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue"))).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDataContract(invoice(tenant), dataModel = contract, catalogVersion = null).execute()
+        CreateStencil(letterhead(tenant), "Letterhead", content = stencilContent("body"), parameterSchema = parameters, catalogVersion = null).execute()
+        CreateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl", "en"), catalogVersion = null).execute()
+        CreateCodeList(colours(tenant), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue")), catalogVersion = null).execute()
         if (dependency) {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenant, shared, "Shared").execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), shared))
             val catalog = GetCatalog(testCatalog(tenant, shared)).query()!!
-            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", "1.0.0"))).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
         }
         mediator.releaseNext(catalogId(tenant))
         tenant
@@ -135,7 +135,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         val tenant = released("change-kind-none")
         assertThat(assess(tenant).suggested).isEqualTo("1.0.1")
 
-        withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, renamed").execute() }
+        withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, renamed", catalogVersion = null).execute() }
 
         assertThat(assess(tenant).needs).isEqualTo(ChangeKind.NONE)
         assertThat(assess(tenant).reasons).isEmpty()
@@ -145,7 +145,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
     @Test
     fun `a removed resource is breaking, so it needs a major`() {
         val tenant = released("change-kind-removed")
-        withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
+        withMediator { DeleteDocumentTemplate(invoice(tenant), catalogVersion = null).execute() }
 
         val assessment = assess(tenant)
         assertThat(assessment.needs).isEqualTo(ChangeKind.BREAKING)
@@ -165,6 +165,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
                 invoice(tenant),
                 dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""),
                 dataExamples = listOf(DataExample(id = "example-1", name = "Example 1", data = schema("""{"name":"Acme"}"""))),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -180,6 +181,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
                 letterhead(tenant),
                 content = stencilContent("content"),
                 parameterSchema = schema("""{"type":"object","properties":{"title":{"type":"number"}}}"""),
+                catalogVersion = null,
             ).execute()
         }
 
@@ -195,7 +197,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
     fun `a stencil parameter an instance must now bind is breaking`() {
         val tenant = released("change-kind-stencil-required")
         withMediator {
-            UpdateStencil(letterhead(tenant), parameterSchema = schema("""{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}""")).execute()
+            UpdateStencil(letterhead(tenant), parameterSchema = schema("""{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}"""), catalogVersion = null).execute()
         }
 
         assertThat(assess(tenant).reasons).containsExactly("stencil 'letterhead': parameter 'title' must now be bound")
@@ -206,8 +208,8 @@ class ReleaseNumberTest : IntegrationTestBase() {
     fun `an attribute value no longer allowed, or a code-list entry removed, is breaking`() {
         val tenant = released("change-kind-attribute")
         withMediator {
-            UpdateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl")).execute()
-            UpdateCodeList(colours(tenant), "Colours", entries = listOf(CodeListEntry("red", "Red"))).execute()
+            UpdateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl"), catalogVersion = null).execute()
+            UpdateCodeList(colours(tenant), "Colours", entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
         }
 
         assertThat(assess(tenant).reasons).containsExactly("attribute 'language': no longer allows en", "codeList 'colours': entry 'blue' removed")
@@ -219,7 +221,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         val tenant = released("change-kind-dependency", dependency = true)
         withMediator {
             val shared = GetCatalog(testCatalog(tenant, CatalogKey.of("shared"))).query()!!
-            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "1.0.0"))).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
         }
 
         assertThat(assess(tenant).needs).isEqualTo(ChangeKind.NONE)
@@ -236,12 +238,12 @@ class ReleaseNumberTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         val sharedId = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand").execute()
-        CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", content = stencilContent("body")).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand", catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", content = stencilContent("body"), catalogVersion = null).execute()
         mediator.releaseNext(sharedId)
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         if (usesFooter) {
             UpdateVariantContent(
                 VariantId(VariantKey.INITIAL, invoice(tenant)),
@@ -251,20 +253,21 @@ class ReleaseNumberTest : IntegrationTestBase() {
                     stencil("footer-1", "footer", fills = listOf("fill"), catalogKey = "shared")
                     build("footer-1")
                 },
+                catalogVersion = null,
             ).execute()
         }
         mediator.releaseNext(catalogId(tenant))
         change(tenant)
-        MarkCatalogReady(testCatalog(tenant, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, shared), "2.0.0").execute()
-        UpgradeCatalogDependencies(testCatalog(tenant, letters)).execute()
+        MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "2.0.0", catalogVersion = null).execute()
+        UpgradeCatalogDependencies(testCatalog(tenant, letters), catalogVersion = null).execute()
         tenant
     }
 
     @Test
     fun `a dependency's new major that breaks only what is not used here is a fix`() {
         val tenant = lockMovedToNewMajor("change-kind-lock-fits", usesFooter = false) { t ->
-            DeleteStencil(StencilId(StencilKey.of("footer"), testCatalog(TenantId(t), CatalogKey.of("shared")))).execute()
+            DeleteStencil(StencilId(StencilKey.of("footer"), testCatalog(TenantId(t), CatalogKey.of("shared"))), catalogVersion = null).execute()
         }
 
         val assessment = assess(tenant)
@@ -276,7 +279,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
     @Test
     fun `a dependency's new version that breaks what is used here is breaking, naming what`() {
         val tenant = lockMovedToNewMajor("change-kind-lock-breaks", usesFooter = true) { t ->
-            UpdateStencil(StencilId(StencilKey.of("footer"), testCatalog(TenantId(t), CatalogKey.of("shared"))), content = stencilContent("content")).execute()
+            UpdateStencil(StencilId(StencilKey.of("footer"), testCatalog(TenantId(t), CatalogKey.of("shared"))), content = stencilContent("content"), catalogVersion = null).execute()
         }
 
         val assessment = assess(tenant)
@@ -290,9 +293,9 @@ class ReleaseNumberTest : IntegrationTestBase() {
     fun `an added resource or a widened data contract is additive, so it needs a minor`() {
         val tenant = released("change-kind-additive")
         withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalogId(tenant)), "Reminder").execute()
-            UpdateDataContract(invoice(tenant), dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"reference":{"type":"string"}}}""")).execute()
-            UpdateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl", "en", "de")).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalogId(tenant)), "Reminder", catalogVersion = null).execute()
+            UpdateDataContract(invoice(tenant), dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"reference":{"type":"string"}}}"""), catalogVersion = null).execute()
+            UpdateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl", "en", "de"), catalogVersion = null).execute()
         }
 
         val assessment = assess(tenant)
@@ -313,11 +316,11 @@ class ReleaseNumberTest : IntegrationTestBase() {
         withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenant, shared, "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), shared))
-            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute()
+            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         }
-        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.map { it.catalogKey to it.draftName })
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters), catalogVersion = null).query() }.map { it.catalogKey to it.draftName })
             .`as`("declared as it was used, naming Shared's next version").containsExactly("shared" to "Next release")
 
         val assessment = assess(tenant)
@@ -325,9 +328,9 @@ class ReleaseNumberTest : IntegrationTestBase() {
         assertThat(assessment.reasons.single { it.contains("shared") }).contains("added")
         assertThat(assessment.needs).isEqualTo(ChangeKind.ADDITIVE)
         assertThat(assessment.suggested).isEqualTo("1.1.0")
-        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute() }
         // Shared's next version holds nothing it has not released, so the release pins Shared's release.
-        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), assessment.suggested).execute() }.version).isEqualTo("1.1.0")
+        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), assessment.suggested, catalogVersion = null).execute() }.version).isEqualTo("1.1.0")
         assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant, letters), "1.1.0").query() }.map { it.catalogKey to it.releaseVersion }).containsExactly("shared" to "1.0.0")
     }
 
@@ -335,23 +338,23 @@ class ReleaseNumberTest : IntegrationTestBase() {
     fun `releasing numbers the next version from its changes, refuses a number too low or taken, and takes a higher one`() {
         val tenant = released("change-kind-release")
         withMediator {
-            DeleteDocumentTemplate(invoice(tenant)).execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            DeleteDocumentTemplate(invoice(tenant), catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
         }
 
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.1").execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.1", catalogVersion = null).execute() } }
             .isInstanceOf(CatalogReleaseVersionException::class.java)
             .hasMessageContaining("needs at least 2.0.0")
             .hasMessageContaining("template 'invoice': removed")
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", catalogVersion = null).execute() } }
             .isInstanceOf(CatalogReleaseVersionException::class.java)
             .hasMessageContaining("released already")
 
-        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters)).execute() }.version).isEqualTo("2.0.0")
+        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = null).execute() }.version).isEqualTo("2.0.0")
 
         // Nothing changed since: a patch, unless the author asks for more.
-        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
-        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "3.0.0").execute() }.version).isEqualTo("3.0.0")
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute() }
+        assertThat(withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "3.0.0", catalogVersion = null).execute() }.version).isEqualTo("3.0.0")
         assertThat(assess(tenant).base).`as`("the next version continues on the release").isEqualTo("3.0.0")
         assertThat(assess(tenant).suggested).isEqualTo("3.0.1")
     }

@@ -74,8 +74,8 @@ data class PreviewDocument(
      * Generation never does this; a preview may, so an author can see unreleased work.
      */
     val workingCopy: Boolean = false,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
@@ -166,8 +166,8 @@ class PreviewDocumentHandler(
     private fun previewWorkingCopy(query: PreviewDocument): ByteArray {
         val templateId = TemplateId(query.templateId, query.catalog)
         val variant = query.variantId
-            ?: query.variantSelectionCriteria?.let { variantResolver.resolve(templateId, it) }
-            ?: mediator.query(GetVariantSummaries(templateId)).firstOrNull { it.isDefault }?.id
+            ?: query.variantSelectionCriteria?.let { variantResolver.resolve(templateId, it, query.catalogVersion) }
+            ?: mediator.query(GetVariantSummaries(templateId, catalogVersion = query.catalogVersion)).firstOrNull { it.isDefault }?.id
             ?: throw DefaultVariantNotFoundException(query.tenantId, query.templateId)
         return mediator.query(
             PreviewVariant(
@@ -175,6 +175,7 @@ class PreviewDocumentHandler(
                 templateId = query.templateId,
                 variantId = variant,
                 data = query.data,
+                catalogVersion = query.catalogVersion,
             ),
         )
     }

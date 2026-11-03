@@ -56,11 +56,11 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
     fun `renaming a theme another catalog uses lists that catalog too, released after it`() {
         val tenant = tenantWith("impact-rename-user")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, shared)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, shared)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant, shared))
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = catalogId(tenant, shared)).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = catalogId(tenant, shared), catalogVersion = null).execute()
         }
 
         val plan = preview(tenant, address(tenant, CatalogResourceType.THEME, shared, "brand").movedTo(shared, "house"))
@@ -81,7 +81,7 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
     @Test
     fun `a blocked move asks nobody to mark anything ready again, since nothing changes`() {
         val tenant = lettersWithHouse("impact-blocked", released = false)
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, shared)), "Taken").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, shared)), "Taken", catalogVersion = null).execute() }
 
         val plan = preview(tenant, address(tenant, CatalogResourceType.THEME, letters, "house").movedTo(shared))
 
@@ -93,10 +93,10 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
     private fun lettersWithHouse(name: String, released: Boolean): TenantKey {
         val tenant = tenantWith(name)
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House", catalogVersion = null).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters), catalogVersion = null).execute()
             if (released) mediator.releaseNext(catalogId(tenant, letters))
         }
         return tenant

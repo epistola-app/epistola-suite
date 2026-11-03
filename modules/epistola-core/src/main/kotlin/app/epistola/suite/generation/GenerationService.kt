@@ -13,6 +13,7 @@ import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -105,11 +106,11 @@ class GenerationService(
 
     /**
      * The theme cascade [renderPdf] applies when it is given none: the template model's own theme,
-     * then the template's, then the tenant's default. Reads the themes of the catalog version the
-     * calling message targets, so a caller can resolve it in a short read and render later.
+     * then the template's, then the tenant's default. Reads the themes as version [template] of the
+     * template's catalog uses them, so a caller can resolve it in a short read and render later.
      */
     fun resolveTheme(
-        templateCatalog: CatalogId,
+        template: ContentVersion,
         templateModel: TemplateDocument,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
@@ -117,7 +118,7 @@ class GenerationService(
         catalogDefaultThemeCatalog: CatalogId?,
         dependencies: DraftDependencyView? = null,
     ): ResolvedTheme = themeStyleResolver.resolveStyles(
-        templateCatalog,
+        template,
         templateDefaultThemeId,
         catalogDefaultThemeId,
         templateModel,
@@ -256,12 +257,13 @@ class GenerationService(
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        // The template's data contract as it is now: preview renders the working copy.
+        // The template's data contract in its catalog's next version: preview renders the working copy.
         val dataModel: ObjectNode? = app.epistola.suite.templates.contracts.queries.GetDataContract(
             templateId = app.epistola.suite.common.ids.TemplateId(
                 templateId,
                 catalog,
             ),
+            catalogVersion = null,
         ).query()?.dataModel
 
         if (dataModel == null) {

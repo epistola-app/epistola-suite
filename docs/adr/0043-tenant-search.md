@@ -29,8 +29,8 @@ What the storage already gives (ADR 0033, ADR 0036):
   `updated_by`, and for a variant its template (`parent_id`). A search on names needs no new storage and
   no knowledge of resource types.
 - **The version a page shows by default** is a catalog's next version (`catalogs.next_version_id`), which
-  for a catalog that cannot be changed here is the release it runs. The view `catalog_current_versions`
-  answers it only when the transaction targets no other version (ADR 0049).
+  for a catalog that cannot be changed here is the release it runs. A statement asks for it by name
+  (`inNextVersion`, ADR 0049): nothing a caller set elsewhere changes it.
 - **Content is stored once per hash.** `resource_contents` is keyed by `(tenant_key, content_hash)`, and
   `ResourceContentStore.write` extracts `resource_references` from a content in the same transaction
   that stores it, collected with it by foreign key. A content never changes once stored.
@@ -63,10 +63,8 @@ The query runs as **one SQL statement**: catalogs, and the `release_resources` r
 default version, scoped to the tenant, matched, filtered, grouped, ranked and limited in the database.
 Nothing is sorted or limited in application code.
 
-**It names the default version explicitly**, through the default-version helper of ADR 0049
-(`catalogs.next_version_id`), and never reads `catalog_current_versions` or the views built on it.
-Those answer the version a transaction targets, so a search dispatched inside a message that targets
-a draft would read that draft for its catalog. Read explicitly, the same search finds the same hits
+**It names the default version explicitly**, through `inNextVersion` (ADR 0049,
+`catalogs.next_version_id`). Nothing is ambient (ADR 0049), so the same search finds the same hits
 wherever it is dispatched from, and `SearchTenant` does not implement `CatalogReleaseScoped`.
 
 ### What it searches
@@ -258,7 +256,7 @@ decided when content search is built and can be measured.
 Stacked pull requests off `release/2.0`, after this ADR is accepted:
 
 1. `SearchTenant` with filters, grouping and sorting, and its tests, both trigram paths; the
-   default-version helper it reads through (ADR 0049, delivery step 1), and a test that a search
-   dispatched inside a message targeting a draft still reads every catalog's default version.
+   test that a search dispatched by a handler of a message addressing a draft still reads every
+   catalog's default version.
 2. The palette and the search page, behind the beta toggle.
 3. The MCP `search` tool.

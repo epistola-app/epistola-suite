@@ -44,9 +44,9 @@ class StoredContentShapeTest : IntegrationTestBase() {
         val tenant = TenantId(createTenant("Stored content shape").id)
         val catalog = CatalogId.default(tenant)
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            CreateCodeList(CodeListId(CodeListKey.of("inline"), catalog), "Inline", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("a", "Alpha"))).execute()
-            CreateCodeList(CodeListId(CodeListKey.of("remote"), catalog), "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "s3cret").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
+            CreateCodeList(CodeListId(CodeListKey.of("inline"), catalog), "Inline", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("a", "Alpha")), catalogVersion = null).execute()
+            CreateCodeList(CodeListId(CodeListKey.of("remote"), catalog), "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "s3cret", catalogVersion = null).execute()
             mediator.releaseNext(catalog)
         }
 

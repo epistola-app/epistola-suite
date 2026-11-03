@@ -11,9 +11,10 @@ import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.PresetUse
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -23,7 +24,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
-import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilFields
 import app.epistola.suite.stencils.StencilStore
@@ -57,8 +57,8 @@ data class CreateStencil(
     val parameterSchema: JsonNode? = null,
     /** The stencil's content also sees the using template's data (contract ADR 0006, part 5). */
     val readsTemplateData: Boolean = false,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Stencil>,
     RequiresPermission {
@@ -95,17 +95,18 @@ class CreateStencilHandler(
     private val stencils: StencilStore,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
-        val saved = save(command)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
+        val saved = save(command, at)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        command.content?.let { usedCatalogs.declare(command.id.catalogId, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        command.content?.let { usedCatalogs.declare(at, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
         return saved
     }
 
-    private fun save(command: CreateStencil): Stencil {
+    private fun save(command: CreateStencil, at: ContentVersion): Stencil {
         requireCatalogEditable(command.id.catalogId)
         if (command.content != null) {
             templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)
-            PresetUse.requireAvailable(command.id.catalogId, command.content)
+            PresetUse.requireAvailable(command.id.catalogId, command.content, catalogVersion = command.catalogVersion)
         }
         val parameterSchema = command.parameterSchema?.takeUnless(::declaresNoParameters)
         parameterSchemaValidator.validate(parameterSchema)
@@ -119,7 +120,7 @@ class CreateStencilHandler(
                         .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
                         .let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                 }
-                stencils.create(handle, command.id, StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData), auditUser)
+                stencils.create(handle, at, command.id, StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData), auditUser)
             }
         }
     }

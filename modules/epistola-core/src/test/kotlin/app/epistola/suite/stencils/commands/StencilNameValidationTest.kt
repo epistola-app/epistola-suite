@@ -28,7 +28,7 @@ class StencilNameValidationTest {
     @Test
     fun `create rejects a name containing markup`() {
         val thrown = assertFailsWith<ValidationException> {
-            CreateStencil(id = stencilId, name = "\"><img src=x onerror=alert(1)>")
+            CreateStencil(id = stencilId, name = "\"><img src=x onerror=alert(1)>", catalogVersion = null)
         }
         if (thrown.field != "name") fail("Expected 'name' rejection, got '${thrown.field}': ${thrown.message}")
     }
@@ -36,7 +36,7 @@ class StencilNameValidationTest {
     @Test
     fun `create rejects a name containing a control character`() {
         val thrown = assertFailsWith<ValidationException> {
-            CreateStencil(id = stencilId, name = "evil${Char(0)}")
+            CreateStencil(id = stencilId, name = "evil${Char(0)}", catalogVersion = null)
         }
         if (thrown.field != "name") fail("Expected 'name' rejection, got '${thrown.field}': ${thrown.message}")
     }
@@ -44,7 +44,7 @@ class StencilNameValidationTest {
     @Test
     fun `create rejects a tag containing markup`() {
         val thrown = assertFailsWith<ValidationException> {
-            CreateStencil(id = stencilId, name = "Fine", tags = listOf("ok", "<img onerror=alert(1)>"))
+            CreateStencil(id = stencilId, name = "Fine", tags = listOf("ok", "<img onerror=alert(1)>"), catalogVersion = null)
         }
         if (thrown.field != "tags[1]") fail("Expected 'tags[1]' rejection, got '${thrown.field}': ${thrown.message}")
     }
@@ -56,6 +56,7 @@ class StencilNameValidationTest {
             name = "Invoice Header",
             description = "Shows when a < b in the totals row",
             tags = listOf("billing", "header"),
+            catalogVersion = null,
         )
         assertEquals("Invoice Header", cmd.name)
         assertEquals("Shows when a < b in the totals row", cmd.description)
@@ -64,7 +65,7 @@ class StencilNameValidationTest {
     @Test
     fun `update rejects a name containing markup`() {
         val thrown = assertFailsWith<ValidationException> {
-            UpdateStencil(id = stencilId, name = "<script>")
+            UpdateStencil(id = stencilId, name = "<script>", catalogVersion = null)
         }
         if (thrown.field != "name") fail("Expected 'name' rejection, got '${thrown.field}': ${thrown.message}")
     }
@@ -72,14 +73,14 @@ class StencilNameValidationTest {
     @Test
     fun `update rejects a tag containing markup`() {
         val thrown = assertFailsWith<ValidationException> {
-            UpdateStencil(id = stencilId, tags = listOf("<b>"))
+            UpdateStencil(id = stencilId, tags = listOf("<b>"), catalogVersion = null)
         }
         if (thrown.field != "tags[0]") fail("Expected 'tags[0]' rejection, got '${thrown.field}': ${thrown.message}")
     }
 
     @Test
     fun `update accepts an ordinary name and a description containing angle brackets`() {
-        val cmd = UpdateStencil(id = stencilId, name = "Renamed", description = "keeps a < b intact")
+        val cmd = UpdateStencil(id = stencilId, name = "Renamed", description = "keeps a < b intact", catalogVersion = null)
         assertEquals("Renamed", cmd.name)
         assertEquals("keeps a < b intact", cmd.description)
     }

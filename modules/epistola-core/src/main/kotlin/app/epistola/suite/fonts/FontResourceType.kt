@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceType
 import app.epistola.suite.common.ids.CatalogId
@@ -20,8 +21,9 @@ class FontResourceType : ResourceType<FontResource> {
     override val name = FontStore.FONT
     override val wireClass = FontResource::class.java
 
-    override fun receive(catalog: CatalogId, resource: FontResource, arrival: Arrival): InstallStatus = ImportFont(
-        catalog = catalog,
+    override fun receive(at: ContentVersion, resource: FontResource, arrival: Arrival): InstallStatus = ImportFont(
+        catalog = at.catalog,
+        catalogVersion = at.ref,
         slug = resource.key,
         name = resource.name,
         kind = resource.kind,

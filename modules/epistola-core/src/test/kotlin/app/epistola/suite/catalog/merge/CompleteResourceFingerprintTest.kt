@@ -122,21 +122,21 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("complete-fp")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Complete FP").execute()
-            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter").execute().withRequiredDataExample()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter", catalogVersion = null).execute().withRequiredDataExample()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
             val v100 = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
             val fingerprint = ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single().fingerprint
 
             ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UpdateTheme(theme(b, catalog, "brand"), name = "B's brand").execute()
+            UpdateTheme(theme(b, catalog, "brand"), name = "B's brand", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = describedRelease(v100, "letter", fingerprint), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1", catalogVersion = null).query()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
-            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute().taken).containsExactly("template/letter")
+            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", catalogVersion = null).execute().taken).containsExactly("template/letter")
         }
     }
 
@@ -147,21 +147,21 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("legacy-baseline")
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Legacy Baseline").execute()
-            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         // What a next version recorded before baselines named their function: V3 values, a plain map.
         // No command writes that form any more, so it is put in place directly.
-        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(testCatalog(b, catalog)))) }
+        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.buildNext(testCatalog(b, catalog)))) }
         jdbi.useHandle<Exception> { h ->
             h.createUpdate("UPDATE catalog_versions SET base_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND ${isNext("catalog_versions")}")
                 .bind("f", legacy).bind("t", b).bindCatalog("c", testCatalog(b, catalog)).execute()
         }
         withMediator {
             assertThat(nextVersionChanges.changed(testCatalog(b, catalog))).isEmpty()
-            assertThat(GetCatalogResourceChanges(testCatalog(b, catalog)).query().resources.map { it.state }.distinct()).containsExactly(CatalogResourceState.RELEASED)
+            assertThat(GetCatalogResourceChanges(testCatalog(b, catalog), catalogVersion = null).query().resources.map { it.state }.distinct()).containsExactly(CatalogResourceState.RELEASED)
         }
     }
 }

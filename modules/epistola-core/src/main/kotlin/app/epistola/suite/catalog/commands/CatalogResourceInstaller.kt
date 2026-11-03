@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceTypes
 import app.epistola.suite.common.ids.CatalogId
@@ -31,15 +32,15 @@ class CatalogResourceInstaller(
      * that declares them).
      */
     fun install(
-        catalog: CatalogId,
+        at: ContentVersion,
         resource: CatalogResource,
         version: String,
         binaries: (String) -> ByteArray?,
         declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>? = null,
     ): InstallStatus = types.receive(
         types.of(resource),
-        catalog,
+        at,
         resource,
-        Arrival(version, binaries) { alias -> references.resolveReceived(catalog, alias, declarations) },
+        Arrival(version, binaries) { alias -> references.resolveReceived(at, alias, declarations) },
     )
 }

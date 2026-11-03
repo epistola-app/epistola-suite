@@ -12,9 +12,9 @@ import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.VariantRows
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.ResourceIdentity
@@ -135,7 +135,7 @@ data class CatalogResourceMovePreview(
 data class PreviewCatalogResourceMove(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Query<CatalogResourceMovePreview>,
     CatalogReleaseScoped,
     RequiresPermission {
@@ -151,7 +151,7 @@ data class MoveCatalogResources(
     override val tenantKey: TenantKey,
     val relocations: List<ResourceRelocation>,
     val expectedPlanFingerprint: String,
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Command<CatalogResourceMovePreview>,
     CatalogReleaseScoped,
     RequiresPermission,
@@ -186,13 +186,12 @@ class PreviewCatalogResourceMoveHandler(
     private val planner: CatalogResourceMovePlanner,
 ) : QueryHandler<PreviewCatalogResourceMove, CatalogResourceMovePreview> {
     override fun handle(query: PreviewCatalogResourceMove): CatalogResourceMovePreview {
-        // One snapshot for every read of the plan; a preview targeting a draft already runs in the
-        // transaction that targets it, and reads in that.
+        // One snapshot for every read of the plan; one dispatched inside a transaction reads in that.
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            return jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle -> planner.build(handle, query.tenantKey, query.relocations).preview }
+            return jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle -> planner.build(handle, query.tenantKey, query.relocations, query.catalogVersion).preview }
         }
         return jdbi.inTransaction<CatalogResourceMovePreview, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
-            planner.build(handle, query.tenantKey, query.relocations).preview
+            planner.build(handle, query.tenantKey, query.relocations, query.catalogVersion).preview
         }
     }
 }
@@ -211,7 +210,7 @@ class MoveCatalogResourcesHandler(
             .map { _, _ -> Unit }
             .one()
 
-        val plan = planner.build(handle, command.tenantKey, command.relocations)
+        val plan = planner.build(handle, command.tenantKey, command.relocations, command.catalogVersion)
         if (plan.preview.planFingerprint != command.expectedPlanFingerprint) {
             throw StaleCatalogResourceMovePlanException()
         }
@@ -220,14 +219,14 @@ class MoveCatalogResourcesHandler(
         // Every row is written only while it holds the content the plan read, which makes each step
         // safe against a concurrent edit (ADR 0042: one path for every type, ReferenceRepointer).
         for (rewrite in plan.repoint.rewrites) {
-            if (!repointer.apply(handle, command.tenantKey, rewrite)) throw StaleCatalogResourceMovePlanException()
+            if (!repointer.apply(handle, command.tenantKey, rewrite, command.catalogVersion)) throw StaleCatalogResourceMovePlanException()
         }
 
         for (relocation in planner.applyOrder(plan.preview.relocations)) {
             val resourceId = requireNotNull(relocation.resourceId)
             val move = plan.repoint.moves.firstOrNull { it.relocation.source == relocation.source } ?: throw StaleCatalogResourceMovePlanException()
-            val source = relocation.source.catalogIn(command.tenantKey)
-            val target = relocation.target.catalogIn(command.tenantKey)
+            val source = handle.versionIn(relocation.source.catalogIn(command.tenantKey), command.catalogVersion)
+            val target = handle.versionIn(relocation.target.catalogIn(command.tenantKey), command.catalogVersion)
             val head = repointer.store(handle, command.tenantKey, move.head)
             if (!DraftResources.move(handle, source, relocation.source.type.wireName, relocation.source.key, target, relocation.target.key, head, expectedHash = move.head.row.contentHash)) {
                 throw StaleCatalogResourceMovePlanException()
@@ -238,7 +237,7 @@ class MoveCatalogResourcesHandler(
                 VariantRows.move(handle, source, resourceId.value, target)
                 for (part in move.parts) {
                     val moved = part.copy(row = part.row.copy(parentKey = relocation.target.key))
-                    if (!repointer.apply(handle, command.tenantKey, moved, catalog = target)) throw StaleCatalogResourceMovePlanException()
+                    if (!repointer.apply(handle, command.tenantKey, moved, command.catalogVersion, catalog = target.catalog)) throw StaleCatalogResourceMovePlanException()
                 }
             }
         }
@@ -247,7 +246,7 @@ class MoveCatalogResourcesHandler(
         // (contract ADR 0003). The move implies it, so it is declared here rather than left for the
         // next release to refuse: on the draft of a catalog a resource moved into, since no release
         // of it holds the resource yet (ADR 0042).
-        declarer.declareMissingInTenant(command.tenantKey)
+        declarer.declareMissingInTenant(command.tenantKey, command.catalogVersion)
         // A renamed resource arrives at its new key as a moved one arrives in its new catalog: no
         // release holds it there yet, so every catalog using it follows the next version as well.
         declarer.followMoved(
@@ -255,6 +254,7 @@ class MoveCatalogResourcesHandler(
             command.relocations
                 .groupBy({ it.target.catalogIn(command.tenantKey) }, { "${it.target.type.wireName}/${it.target.key}" })
                 .mapValues { it.value.toSet() },
+            command.catalogVersion,
         )
 
         plan.preview

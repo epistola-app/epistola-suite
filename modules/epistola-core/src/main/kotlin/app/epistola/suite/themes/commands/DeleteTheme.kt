@@ -5,13 +5,14 @@
 package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.DraftResources
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -37,7 +38,7 @@ import org.springframework.stereotype.Component
 data class DeleteTheme(
     val id: ThemeId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -57,18 +58,19 @@ class DeleteThemeHandler(
     override fun handle(command: DeleteTheme): Boolean {
         requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
+            val at = handle.versionOf(command.id.catalogId, command)
             val isDefaultTheme = handle.createQuery(
                 """
                 SELECT COUNT(*) FROM tenants t
-                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                JOIN version_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                 WHERE t.id = :tenantId
                   AND th.id = :themeId
-                  AND th.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                  AND th.version_id = :v
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("themeId", command.id.key)
-                .bindCatalog("catalogKey", command.id.catalogId)
+                .bindVersion("v", at.versionId)
                 .mapTo<Long>()
                 .one() > 0
 
@@ -82,18 +84,18 @@ class DeleteThemeHandler(
             val users = handle.createQuery(
                 """
                 WITH theme AS (
-                    SELECT resource_id FROM current_themes
-                    WHERE tenant_key = :tenantId AND id = :themeId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                    SELECT resource_id FROM version_themes
+                    WHERE tenant_key = :tenantId AND id = :themeId AND version_id = :v
                 )
                 SELECT 'the catalog''s default theme' FROM catalog_versions v, theme
-                WHERE v.tenant_key = :tenantId AND v.version_id = ${versionAt("tenantId", "catalogKey")} AND v.default_theme_resource_id = theme.resource_id
+                WHERE v.tenant_key = :tenantId AND v.version_id = :v AND v.default_theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'template ' || dt.id FROM current_templates dt, theme
-                WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.theme_resource_id = theme.resource_id
+                SELECT 'template ' || dt.id FROM version_templates dt, theme
+                WHERE dt.tenant_key = :tenantId AND dt.version_id = :v AND dt.theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'variant ' || dt.id || '/' || tv.id FROM current_template_variants tv
-                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
-                WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                SELECT 'variant ' || dt.id || '/' || tv.id FROM version_template_variants tv
+                JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = :v
                   AND tv.template_model -> 'themeRef' ->> 'type' = 'override'
                   AND tv.template_model -> 'themeRef' ->> 'themeKey' = :themeId
                   AND COALESCE(tv.template_model -> 'themeRef' ->> 'catalogKey', :catalogKey) = :catalogKey
@@ -101,19 +103,20 @@ class DeleteThemeHandler(
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("themeId", command.id.key)
-                .bindCatalog("catalogKey", command.id.catalogId)
+                .bind("catalogKey", command.id.catalogId.key.value)
+                .bindVersion("v", at.versionId)
                 .mapTo<String>()
                 .list()
             if (users.isNotEmpty()) {
                 throw ThemeInUseException(command.id.key, "this version still uses it: " + listed(users))
             }
-            val elsewhere = FindResourceUsages(command.id.catalogId).query()["theme:${command.id.key.value}"].orEmpty()
+            val elsewhere = FindResourceUsages(command.id.catalogId, command.catalogVersion).query()["theme:${command.id.key.value}"].orEmpty()
                 .map { "${it.referenceType} ${it.referencedByName} (catalog ${it.referencedByCatalog})" }
             if (elsewhere.isNotEmpty()) {
                 throw ThemeInUseException(command.id.key, "other catalogs use it: " + listed(elsewhere))
             }
 
-            DraftResources.delete(handle, command.id.catalogId, ThemeStore.THEME, command.id.key.value)
+            DraftResources.delete(handle, at, ThemeStore.THEME, command.id.key.value)
         }
     }
 

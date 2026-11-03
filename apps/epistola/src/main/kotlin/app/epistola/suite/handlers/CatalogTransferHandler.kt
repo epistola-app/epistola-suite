@@ -34,7 +34,7 @@ class CatalogTransferHandler {
         val resourceSlug = request.param("slug").orElse("")
         val key = "$resourceType:$resourceSlug"
 
-        val usages = FindResourceUsages(catalog = catalog).query()
+        val usages = FindResourceUsages(catalog = catalog, catalogVersion = null).query()
         val resourceUsages = usages[key] ?: emptyList()
 
         return fragmentOrPage(

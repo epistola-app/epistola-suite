@@ -73,45 +73,45 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id)))
         val variantId = VariantId(VariantKey.of("english"), templateId)
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            CreateVariant(id = variantId, title = "English", description = null).execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(id = variantId, title = "English", description = null, catalogVersion = null).execute()
         }
         val base = "/tenants/${tenant.id.value}/catalogs/default/templates/invoice/variants/english"
         val opened = revisionIn(get("$base/edit"))
 
-        withMediator { UpdateVariant(variantId = variantId, title = "Changed elsewhere", attributes = emptyMap()).execute() }
+        withMediator { UpdateVariant(variantId = variantId, title = "Changed elsewhere", attributes = emptyMap(), catalogVersion = null).execute() }
         val stale = patch(base, "title" to "Mine", "expectedRevision" to opened)
 
         assertThat(stale.statusCode.value()).isEqualTo(422)
         assertThat(stale.body).contains("Someone else changed this variant since you opened it")
-        assertThat(withMediator { GetVariant(variantId).query() }!!.title).isEqualTo("Changed elsewhere")
+        assertThat(withMediator { GetVariant(variantId, catalogVersion = null).query() }!!.title).isEqualTo("Changed elsewhere")
 
         val reopened = revisionIn(get("$base/edit"))
         assertThat(patch(base, "title" to "Mine", "expectedRevision" to reopened).statusCode.is2xxSuccessful).isTrue()
-        assertThat(withMediator { GetVariant(variantId).query() }!!.title).isEqualTo("Mine")
+        assertThat(withMediator { GetVariant(variantId, catalogVersion = null).query() }!!.title).isEqualTo("Mine")
     }
 
     @Test
     fun `the attribute dialog refuses to save over a change made since it was opened, and shows that change`() {
         val tenant = tenant("Attribute Revision")
         val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
-        withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute() }
+        withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand", catalogVersion = null).execute() }
         val base = "/tenants/${tenant.id.value}/catalogs/default/attributes/brand"
         val opened = revisionIn(get("$base/edit"))
 
-        withMediator { UpdateAttributeDefinition(id = attributeId, displayName = "Brand elsewhere").execute() }
+        withMediator { UpdateAttributeDefinition(id = attributeId, displayName = "Brand elsewhere", catalogVersion = null).execute() }
         val stale = patch(base, "displayName" to "Mine", "constraintKind" to "free", "expectedRevision" to opened)
 
         assertThat(stale.body).contains("Someone else changed this attribute since you opened it")
         assertThat(stale.body).`as`("the form shows their version, at its revision").contains("Brand elsewhere").doesNotContain("name=\"expectedRevision\" value=\"$opened\"")
-        assertThat(withMediator { GetAttributeDefinition(attributeId).query() }!!.displayName).isEqualTo("Brand elsewhere")
+        assertThat(withMediator { GetAttributeDefinition(attributeId, catalogVersion = null).query() }!!.displayName).isEqualTo("Brand elsewhere")
     }
 
     @Test
     fun `a refused attribute edit keeps what was typed`() {
         val tenant = tenant("Attribute Refusal")
         val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
-        withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute() }
+        withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand", catalogVersion = null).execute() }
         val base = "/tenants/${tenant.id.value}/catalogs/default/attributes/brand"
 
         // Only spaces passes the browser's `required`.

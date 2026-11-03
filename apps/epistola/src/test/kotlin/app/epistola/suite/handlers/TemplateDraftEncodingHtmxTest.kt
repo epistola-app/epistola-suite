@@ -76,7 +76,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
                 val tenantId = TenantId(tenant.id)
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-                CreateDocumentTemplate(id = templateId, name = "Diacritics Letter").execute()
+                CreateDocumentTemplate(id = templateId, name = "Diacritics Letter", catalogVersion = null).execute()
                 val variantId = VariantId(VariantKey.INITIAL, templateId)
                 Seed(tenantId.key.value, templateId.catalogKey.value, templateKey.value, variantId)
             }
@@ -101,7 +101,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
-            val model = withMediator { GetVariantContent(variantId = seed.variantId).query() }
+            val model = withMediator { GetVariantContent(variantId = seed.variantId, catalogVersion = null).query() }
             assertThat(model).isNotNull
             val stored = model!!.nodes["text-1"]?.props?.get("content")
             assertThat(stored).isEqualTo(richText(diacritics))
@@ -139,7 +139,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
         }
 
         then {
-            val stored = withMediator { GetDocumentTemplate(id = seed.templateId).query() }
+            val stored = withMediator { GetDocumentTemplate(id = seed.templateId, catalogVersion = null).query() }
             assertThat(stored).isNotNull
             // Before the fix this read mojibake (e.g. "CafÃ©") because the servlet
             // decoded the form body as ISO-8859-1.

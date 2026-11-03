@@ -139,15 +139,15 @@ and must be above every published one) or made the next version (scenario 5).
 
 ## What it changes, technically
 
-| Change                                                                                                 | Where                                        | Contract      |
-| ------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ------------- |
-| A draft has a name and no number until published; addressed by an id in URLs and REST                  | core, UI, REST                               | ADR 0002      |
-| The catalog points at its next version explicitly                                                      | core                                         | ADR 0002      |
-| Renumbering and the draft-number check go (Publish picks the number)                                   | core, UI, REST                               | ADR 0002      |
-| Side work started from a published version resolves other catalogs at that version's locks (rule 6)    | core (`catalog_current_versions`, resolvers) | ADR 0003      |
-| Publish several catalogs at once, in dependency order (decided below: each on its own)                 | core, UI                                     | none          |
-| Take over: a resource-level three-way merge (base / published / next version) with choices on conflict | core, UI                                     | new operation |
-| Deploying adds beside what an environment serves; replacing is a choice; usage shown per version       | UI, REST                                     | none          |
+| Change                                                                                                 | Where                               | Contract      |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------- | ------------- |
+| A draft has a name and no number until published; addressed by an id in URLs and REST                  | core, UI, REST                      | ADR 0002      |
+| The catalog points at its next version explicitly                                                      | core                                | ADR 0002      |
+| Renumbering and the draft-number check go (Publish picks the number)                                   | core, UI, REST                      | ADR 0002      |
+| Side work started from a published version resolves other catalogs at that version's locks (rule 6)    | core (`ContentVersions`, resolvers) | ADR 0003      |
+| Publish several catalogs at once, in dependency order (decided below: each on its own)                 | core, UI                            | none          |
+| Take over: a resource-level three-way merge (base / published / next version) with choices on conflict | core, UI                            | new operation |
+| Deploying adds beside what an environment serves; replacing is a choice; usage shown per version       | UI, REST                            | none          |
 
 What stays: immutable releases, fingerprints and locks, ready marks (set by publishing), several drafts
 in core and REST — the UI just names them and gives each a purpose.

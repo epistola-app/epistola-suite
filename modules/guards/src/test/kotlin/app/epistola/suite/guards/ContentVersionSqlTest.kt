@@ -14,11 +14,11 @@ import kotlin.test.assertTrue
  *
  * Content rows belong to a catalog version (`catalog_versions`): a draft of an authored catalog, or
  * the installed release of a subscribed one. Once a catalog can hold several drafts, a statement that
- * filters content by catalog alone returns one row per draft, or writes into whichever the database
- * picks. So a statement touching a content table must say which version: by `version_id` (the
- * caller's own, or a parent row's), through `versionAt(...)` or `inCurrentVersion(...)`
- * in `CatalogSql.kt`,
- * or, for a tenant-wide read, by joining `catalog_current_versions`.
+ * filters content by catalog alone returns one row per draft and release, or writes into whichever
+ * the database picks. So a statement touching a content table or a view of every version's content
+ * (`version_themes`, …) must say which version (ADR 0049): by `version_id` (the one it binds, or a
+ * parent row's), or, for a read across catalogs, through `inNextVersion(...)` or
+ * `inVersionOrNext(...)` in `CatalogSql.kt` (each catalog's `next_version_id`).
  *
  * The scan looks at each string literal in main Kotlin sources. A literal that reads from, joins,
  * inserts into or updates a content table, and mentions none of those, fails — unless its file is in
@@ -56,8 +56,8 @@ class ContentVersionSqlTest {
         assertTrue(
             violations.isEmpty(),
             "These statements touch catalog content without naming the catalog version. Filter or join " +
-                "on version_id, use versionAt(...) or inCurrentVersion(...) from CatalogSql.kt, or join " +
-                "catalog_current_versions for a tenant-wide read. Allow a file in ContentVersionSqlTest " +
+                "on version_id (bound with bindVersion), or use inNextVersion(...) or inVersionOrNext(...) " +
+                "from CatalogSql.kt for a read across catalogs. Allow a file in ContentVersionSqlTest " +
                 "only with the reason it needs no version:\n" + violations.joinToString("\n"),
         )
     }
@@ -79,6 +79,9 @@ class ContentVersionSqlTest {
             "font face bytes looked up by content hash",
         "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ResourceContentStore.kt" to
             "asset storage scope looked up by content hash",
+        // The collector deletes a content no version's row names: every version is what it asks about.
+        "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ResourceContentCollector.kt" to
+            "content no draft or release names, across every version",
     )
 
     /** Directories allowed as a whole, with their reason. */
@@ -91,7 +94,7 @@ class ContentVersionSqlTest {
     /**
      * The string literals of a Kotlin source and their offsets, with comments skipped. Triple-quoted
      * and ordinary strings both count; a `${...}` template is kept as part of its literal, so a helper
-     * such as `${versionAt("t", "c")}` is seen in the statement it builds.
+     * such as `${inNextVersion("t")}` is seen in the statement it builds.
      */
     private fun stringLiterals(source: String): List<Pair<Int, String>> {
         val literals = mutableListOf<Pair<Int, String>>()
@@ -175,7 +178,7 @@ class ContentVersionSqlTest {
                 depth > 0 && c == '}' -> depth--
 
                 depth > 0 && c == '"' -> {
-                    // A string inside the template expression, e.g. versionAt("t", "c").
+                    // A string inside the template expression, e.g. inNextVersion("t").
                     var k = j + 1
                     while (k < source.length && source[k] != '"') k += if (source[k] == '\\') 2 else 1
                     j = k + 1
@@ -191,8 +194,22 @@ class ContentVersionSqlTest {
 
     private companion object {
         private val CONTENT_TABLES = listOf(
-            // Every resource type is draft rows of release_resources now (ADR 0033), read through its view,
-            // which holds only the version a caller means; DroppedContentTableSqlTest refuses the old table.
+            // Every resource type is rows of release_resources (ADR 0033), read through the views of
+            // every version's content, which choose none (ADR 0049); DroppedContentTableSqlTest refuses
+            // the old tables.
+            "release_resources",
+            "release_wire_resources",
+            "version_themes",
+            "version_code_lists",
+            "version_attributes",
+            "version_fonts",
+            "version_images",
+            "version_stencils",
+            "version_templates",
+            "version_template_variants",
+            "version_references",
+            "quality_version_variants",
+            "quality_version_checks",
             "resource_ready_marks",
             "catalog_version_dependencies",
             "resource_content_digests",
@@ -201,7 +218,9 @@ class ContentVersionSqlTest {
             """\b(FROM|JOIN|INTO|UPDATE)\s+(${CONTENT_TABLES.joinToString("|")})\b""",
             RegexOption.IGNORE_CASE,
         )
-        private val NAMES_VERSION = Regex("""version_id|versionAt\(|inCurrentVersion\(|catalog_current_versions""")
+
+        // A release named by its number (`version = :version`) names its version as much as a `version_id` does.
+        private val NAMES_VERSION = Regex("""version_id|\bversion\s*=|inNextVersion\(|inVersionOrNext\(|templateViewJoin\(|templateJoin\(""")
         private val WHITESPACE = Regex("""\s+""")
     }
 }

@@ -16,7 +16,9 @@ import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogPreset
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.ReleaseLineage
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -217,13 +219,13 @@ class MergeInputReader(
 ) {
 
     /**
-     * The inputs of merging [release] into the draft the running message targets (else the catalog's
-     * next version).
+     * The inputs of merging [release] into the draft of [catalog] that [ref] names (else the
+     * catalog's next version).
      *
      * @throws CatalogReleaseNotFoundException when the catalog has no such draft, or no such release.
      */
-    fun read(catalog: CatalogId, release: String, draftName: String): MergeInputs {
-        val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, catalog) }
+    fun read(catalog: CatalogId, release: String, draftName: String, ref: app.epistola.suite.catalog.releases.CatalogReleaseRef?): MergeInputs {
+        val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, it.versionIn(catalog, ref)) }
             ?: throw CatalogReleaseNotFoundException(catalog.key, draftName)
         val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, catalog) }
         val lines = lineage.releases
@@ -243,7 +245,7 @@ class MergeInputReader(
             mergeBase = mergeBase,
             contained = contained,
             base = base,
-            ours = draftInput(catalog),
+            ours = draftInput(ContentVersion(catalog, draft.versionId)),
             theirs = releaseInput(catalog, release),
             heldBase = mergeBase?.let { heldBase(catalog, draft, it, base, lineage) }.orEmpty(),
             missingBase = missing,
@@ -304,13 +306,13 @@ class MergeInputReader(
     }
 
     /**
-     * The draft the running message targets, as one side: its content and its own dependency
-     * declarations (which may name a draft of another catalog), fingerprinted.
+     * Draft [at], as one side: its content and its own dependency declarations (which may name a
+     * draft of another catalog), fingerprinted.
      */
-    fun draftInput(catalog: CatalogId): MergeInput {
-        val content = contentBuilder.build(catalog)
-        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, catalog) }
-        return input(catalog.key, content, declarations)
+    fun draftInput(at: ContentVersion): MergeInput {
+        val content = contentBuilder.build(at)
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, at) }
+        return input(at.catalog.key, content, declarations)
     }
 
     /** One side: every resource and setting of [content], fingerprinted; dependencies from [declarations] when given. */

@@ -6,6 +6,8 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -42,12 +44,14 @@ data class CatalogReleaseState(
 
 @Component
 class GetCatalogReleaseStatusHandler(
+    private val jdbi: org.jdbi.v3.core.Jdbi,
     private val fingerprintService: CatalogFingerprintService,
 ) : QueryHandler<GetCatalogReleaseStatus, CatalogReleaseState> {
 
     override fun handle(query: GetCatalogReleaseStatus): CatalogReleaseState {
         val release = GetLatestCatalogRelease(query.catalog).query()
-        val fingerprint = fingerprintService.evaluate(query.catalog, release.latestFingerprint)
+        val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(query.catalog, query) }
+        val fingerprint = fingerprintService.evaluate(at, release.latestFingerprint)
 
         return CatalogReleaseState(
             latestVersion = release.latestVersion,

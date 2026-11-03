@@ -32,9 +32,10 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].isDefault).isTrue()
         }
@@ -47,9 +48,9 @@ class DefaultVariantTest : IntegrationTestBase() {
 
         withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].id.value).isEqualTo("initial")
         }
@@ -62,9 +63,9 @@ class DefaultVariantTest : IntegrationTestBase() {
 
         withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].title)
                 .describedAs("a variant title discriminates between a template's variants, so it is not the template's name")
@@ -82,9 +83,9 @@ class DefaultVariantTest : IntegrationTestBase() {
         withMediator {
             val maxSlug = TemplateKey.of("a".repeat(50))
             val templateId = TemplateId(maxSlug, CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].isDefault).isTrue()
         }
@@ -100,12 +101,14 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
             val secondVariant = CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()!!
 
             assertThat(secondVariant.isDefault).isFalse()
@@ -122,23 +125,26 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
             val secondVariant = CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()!!
 
             val result = SetDefaultVariant(
                 variantId = VariantId(secondVariant.id, templateId),
+                catalogVersion = null,
             ).execute()
 
             assertThat(result).isNotNull
             assertThat(result!!.isDefault).isTrue()
 
             // Verify old default lost its flag
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             val defaults = variants.filter { it.isDefault }
             assertThat(defaults).hasSize(1)
             assertThat(defaults[0].id).isEqualTo(secondVariant.id)
@@ -155,14 +161,16 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             val defaultVariant = variants.first()
 
             assertThatThrownBy {
                 DeleteVariant(
                     variantId = VariantId(defaultVariant.id, templateId),
+                    catalogVersion = null,
                 ).execute()
             }.isInstanceOf(DefaultVariantDeletionException::class.java)
         }
@@ -178,16 +186,19 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
             val secondVariant = CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()!!
 
             val deleted = DeleteVariant(
                 variantId = VariantId(secondVariant.id, templateId),
+                catalogVersion = null,
             ).execute()
 
             assertThat(deleted).isTrue()
@@ -204,25 +215,29 @@ class DefaultVariantTest : IntegrationTestBase() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
+                catalogVersion = null,
             ).execute()
 
-            val variants = ListVariants(templateId = templateId).query()
+            val variants = ListVariants(templateId = templateId, catalogVersion = null).query()
             val originalDefault = variants.first()
 
             val secondVariant = CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                 title = "English",
                 description = null,
+                catalogVersion = null,
             ).execute()!!
 
             // Reassign default to second variant
             SetDefaultVariant(
                 variantId = VariantId(secondVariant.id, templateId),
+                catalogVersion = null,
             ).execute()
 
             // Now original can be deleted
             val deleted = DeleteVariant(
                 variantId = VariantId(originalDefault.id, templateId),
+                catalogVersion = null,
             ).execute()
 
             assertThat(deleted).isTrue()

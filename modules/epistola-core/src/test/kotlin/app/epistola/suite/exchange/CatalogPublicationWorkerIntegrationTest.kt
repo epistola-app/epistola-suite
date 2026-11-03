@@ -236,7 +236,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
             ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "epistola").execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
             worker.run()
 
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("epistola")
@@ -320,7 +320,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
         CreateCatalog(tenant.id, catalogKey, catalogKey.value, namespace = TestNamespaces.of(tenant.id).namespace).execute()
         namespace?.let { ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), it).execute() }
-        ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH, catalogVersion = null).execute()
     }
 
     private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())

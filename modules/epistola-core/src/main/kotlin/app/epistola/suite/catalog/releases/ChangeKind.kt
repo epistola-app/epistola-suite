@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UseCompatibility
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.types.ResourceTypes
 import app.epistola.suite.common.ids.CatalogId
@@ -187,9 +188,10 @@ class DraftChangeKinds(
      * draft uses are declared as it starts using them ([app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer]),
      * so its declarations are what it is released with.
      */
-    fun against(catalog: CatalogId, base: String): ChangeAssessment? {
+    fun against(at: ContentVersion, base: String): ChangeAssessment? {
+        val catalog = at.catalog
         val released = releases.assemble(catalog, base)?.content ?: return null
-        val draft = contentBuilder.build(catalog)
+        val draft = contentBuilder.build(at)
         // A dependency's newer version counts only for what the draft uses of it.
         val evaluator = ChangeKindEvaluator(types) { dependency, from, to ->
             // The catalog the alias names, by the draft's declaration of it (ADR 0034, section 9).

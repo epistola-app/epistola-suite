@@ -31,6 +31,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Array Constraints UI Template",
+                catalogVersion = null,
             ).execute()
             UpdateDataContract(
                 templateId = templateId,
@@ -41,6 +42,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                         data = JsonNodeFactory.instance.objectNode(),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -100,6 +102,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Default Value UI Template",
+                catalogVersion = null,
             ).execute()
             UpdateDataContract(
                 templateId = templateId,
@@ -110,6 +113,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                         data = JsonNodeFactory.instance.objectNode(),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }
@@ -153,6 +157,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Default Datetime UI Template",
+                catalogVersion = null,
             ).execute()
             UpdateDataContract(
                 templateId = templateId,
@@ -163,6 +168,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                         data = JsonNodeFactory.instance.objectNode(),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }

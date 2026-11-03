@@ -81,25 +81,25 @@ class NameLengthValidationTest {
     /** label -> builder that puts the given string in the command's name/title field. */
     private val cases: List<Pair<String, (String) -> Any>> = listOf(
         "CreateTenant.name" to { s -> CreateTenant(tenantKey, s) },
-        "CreateTheme.name" to { s -> CreateTheme(themeId, s) },
-        "UpdateTheme.name" to { s -> UpdateTheme(themeId, name = s) },
-        "CreateDocumentTemplate.name" to { s -> CreateDocumentTemplate(templateId, s) },
-        "UpdateDocumentTemplate.name" to { s -> UpdateDocumentTemplate(templateId, name = s) },
-        "CreateStencil.name" to { s -> CreateStencil(stencilId, s) },
-        "UpdateStencil.name" to { s -> UpdateStencil(stencilId, name = s) },
+        "CreateTheme.name" to { s -> CreateTheme(themeId, s, catalogVersion = null) },
+        "UpdateTheme.name" to { s -> UpdateTheme(themeId, name = s, catalogVersion = null) },
+        "CreateDocumentTemplate.name" to { s -> CreateDocumentTemplate(templateId, s, catalogVersion = null) },
+        "UpdateDocumentTemplate.name" to { s -> UpdateDocumentTemplate(templateId, name = s, catalogVersion = null) },
+        "CreateStencil.name" to { s -> CreateStencil(stencilId, s, catalogVersion = null) },
+        "UpdateStencil.name" to { s -> UpdateStencil(stencilId, name = s, catalogVersion = null) },
         "CreateCatalog.name" to { s -> CreateCatalog(tenantKey, CatalogKey("mycatalog"), s) },
-        "CreateVariant.title" to { s -> CreateVariant(variantId, title = s, description = null) },
-        "UpdateVariant.title" to { s -> UpdateVariant(variantId, title = s, attributes = emptyMap()) },
-        "ImportFont.name" to { s -> ImportFont(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "myfont", name = s, kind = "sans") },
+        "CreateVariant.title" to { s -> CreateVariant(variantId, title = s, description = null, catalogVersion = null) },
+        "UpdateVariant.title" to { s -> UpdateVariant(variantId, title = s, attributes = emptyMap(), catalogVersion = null) },
+        "ImportFont.name" to { s -> ImportFont(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "myfont", name = s, kind = "sans", catalogVersion = null) },
         "CreateApiKey.name" to { s -> CreateApiKey(tenantKey, s) },
         // URL-sourced so only the displayName length can fail (INLINE would also require entries).
         "CreateCodeList.displayName" to { s ->
-            CreateCodeList(codeListId, displayName = s, sourceType = CodeListSource.URL, sourceUrl = "https://example.com/codes.json")
+            CreateCodeList(codeListId, displayName = s, sourceType = CodeListSource.URL, sourceUrl = "https://example.com/codes.json", catalogVersion = null)
         },
         // entries default to null, so the displayName length is the only failure mode.
-        "UpdateCodeList.displayName" to { s -> UpdateCodeList(codeListId, displayName = s) },
-        "CreateAttributeDefinition.displayName" to { s -> CreateAttributeDefinition(attributeId, displayName = s) },
-        "UpdateAttributeDefinition.displayName" to { s -> UpdateAttributeDefinition(attributeId, displayName = s) },
+        "UpdateCodeList.displayName" to { s -> UpdateCodeList(codeListId, displayName = s, catalogVersion = null) },
+        "CreateAttributeDefinition.displayName" to { s -> CreateAttributeDefinition(attributeId, displayName = s, catalogVersion = null) },
+        "UpdateAttributeDefinition.displayName" to { s -> UpdateAttributeDefinition(attributeId, displayName = s, catalogVersion = null) },
         "CreateEnvironment.name" to { s -> CreateEnvironment(environmentId, s) },
         "UpdateEnvironment.name" to { s -> UpdateEnvironment(environmentId, s) },
     )

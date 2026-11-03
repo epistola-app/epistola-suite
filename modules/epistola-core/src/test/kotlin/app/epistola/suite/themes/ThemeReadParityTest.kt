@@ -36,7 +36,7 @@ class ThemeReadParityTest : IntegrationTestBase() {
         val release = withMediator { ListCatalogReleases(catalog).query() }.first { it.status == CatalogReleaseStatus.RELEASED }
         val released = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))
 
-        val drafted = withMediator { ListThemes(catalog.tenantId, catalog = catalog).query() }.sortedBy { it.id.value }
+        val drafted = withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = null).query() }.sortedBy { it.id.value }
         val fromRelease = withMediator { ListThemes(catalog.tenantId, catalog = catalog, catalogVersion = released).query() }.sortedBy { it.id.value }
 
         assertThat(drafted).isNotEmpty()

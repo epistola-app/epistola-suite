@@ -66,37 +66,37 @@ class PageQueriesTest : IntegrationTestBase() {
 
     @Test
     fun `fonts page like their list`() = withCatalog { tenantId, catalog ->
-        listOf("Charlie", "Alpha", "Bravo").forEach { ImportFont(catalog = catalog, slug = it.lowercase(), name = it, kind = "sans").execute() }
-        assertPagesOf(ListFonts(tenantId, catalog).query()) { ListFontPage(tenantId, catalog, page = it).query() }
+        listOf("Charlie", "Alpha", "Bravo").forEach { ImportFont(catalog = catalog, slug = it.lowercase(), name = it, kind = "sans", catalogVersion = null).execute() }
+        assertPagesOf(ListFonts(tenantId, catalog, catalogVersion = null).query()) { ListFontPage(tenantId, catalog, page = it, catalogVersion = null).query() }
     }
 
     @Test
     fun `code lists page like their list`() = withCatalog { tenantId, catalog ->
         listOf("c", "a", "b").forEach {
-            CreateCodeList(CodeListId(CodeListKey.of("list-$it"), catalog), "List $it", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("k", "v"))).execute()
+            CreateCodeList(CodeListId(CodeListKey.of("list-$it"), catalog), "List $it", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("k", "v")), catalogVersion = null).execute()
         }
-        assertPagesOf(ListCodeLists(tenantId, catalog).query()) { ListCodeListPage(tenantId, catalog, page = it).query() }
+        assertPagesOf(ListCodeLists(tenantId, catalog, catalogVersion = null).query()) { ListCodeListPage(tenantId, catalog, page = it, catalogVersion = null).query() }
     }
 
     @Test
     fun `attributes page like their list`() = withCatalog { tenantId, catalog ->
-        listOf("c", "a", "b").forEach { CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$it"), catalog), "Attr $it").execute() }
-        assertPagesOf(ListAttributeDefinitions(tenantId, catalog).query()) { ListAttributeDefinitionPage(tenantId, catalog, page = it).query() }
+        listOf("c", "a", "b").forEach { CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$it"), catalog), "Attr $it", catalogVersion = null).execute() }
+        assertPagesOf(ListAttributeDefinitions(tenantId, catalog, catalogVersion = null).query()) { ListAttributeDefinitionPage(tenantId, catalog, page = it, catalogVersion = null).query() }
     }
 
     @Test
     fun `themes page like their list, searched too`() = withCatalog { tenantId, catalog ->
-        listOf("c", "a", "b", "d").forEach { CreateTheme(ThemeId(ThemeKey.of("theme-$it"), catalog), "Theme $it").execute() }
-        assertPagesOf(ListThemes(tenantId, catalog).query()) { ListThemePage(tenantId, catalog, page = it).query() }
-        assertPagesOf(ListThemes(tenantId, catalog, searchTerm = "Theme").query()) { ListThemePage(tenantId, catalog, searchTerm = "Theme", page = it).query() }
+        listOf("c", "a", "b", "d").forEach { CreateTheme(ThemeId(ThemeKey.of("theme-$it"), catalog), "Theme $it", catalogVersion = null).execute() }
+        assertPagesOf(ListThemes(tenantId, catalog, catalogVersion = null).query()) { ListThemePage(tenantId, catalog, page = it, catalogVersion = null).query() }
+        assertPagesOf(ListThemes(tenantId, catalog, searchTerm = "Theme", catalogVersion = null).query()) { ListThemePage(tenantId, catalog, searchTerm = "Theme", page = it, catalogVersion = null).query() }
     }
 
     @Test
     fun `variants page like their list`() = withCatalog { _, catalog ->
         val template = TemplateId(TemplateKey.of("letter"), catalog)
-        CreateDocumentTemplate(template, "Letter").execute()
-        listOf("c", "a", "b").forEach { CreateVariant(VariantId(VariantKey.of("variant-$it"), template), "Variant $it", description = null).execute() }
-        assertPagesOf(ListVariants(template).query()) { ListVariantPage(template, page = it).query() }
+        CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+        listOf("c", "a", "b").forEach { CreateVariant(VariantId(VariantKey.of("variant-$it"), template), "Variant $it", description = null, catalogVersion = null).execute() }
+        assertPagesOf(ListVariants(template, catalogVersion = null).query()) { ListVariantPage(template, page = it, catalogVersion = null).query() }
     }
 
     @Test
@@ -122,11 +122,11 @@ class PageQueriesTest : IntegrationTestBase() {
 
     @Test
     fun `catalog versions page like their list, drafts first and releases highest first`() = withCatalog { _, catalog ->
-        CreateTheme(ThemeId(ThemeKey.of("th1"), catalog), "T1").execute()
+        CreateTheme(ThemeId(ThemeKey.of("th1"), catalog), "T1", catalogVersion = null).execute()
         // 1.10.0 after 1.2.0: by number, not as text.
         listOf("1.0.0", "1.2.0", "1.10.0", "2.0.0").forEach { version ->
-            MarkCatalogReady(catalog).execute()
-            ReleaseCatalogDraft(catalog = catalog, version = version).execute()
+            MarkCatalogReady(catalog, catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = catalog, version = version, catalogVersion = null).execute()
         }
         val all = ListCatalogReleases(catalog).query()
         assertThat(all.map { it.version }).containsExactly(null, "2.0.0", "1.10.0", "1.2.0", "1.0.0")

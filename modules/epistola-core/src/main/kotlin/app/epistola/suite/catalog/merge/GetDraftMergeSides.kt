@@ -32,7 +32,7 @@ data class GetDraftMergeSides(
     val release: String,
     val entry: String,
     /** The draft to merge into; null for the catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<DraftMergeSides>,
     RequiresPermission {
@@ -66,7 +66,7 @@ class GetDraftMergeSidesHandler(
 ) : QueryHandler<GetDraftMergeSides, DraftMergeSides> {
 
     override fun handle(query: GetDraftMergeSides): DraftMergeSides {
-        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next")
+        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next", query.catalogVersion)
         plan.inputs.missingBase?.let { throw MergeBaseMissingException(query.catalogKey, query.release, it.version, it.fingerprint) }
         val index = plan.resources.indexOfFirst { it.contentKey == query.entry && it.outcome in LISTED }
         if (index < 0) throw MergeEntryNotFoundException(query.catalogKey, query.release, query.entry)

@@ -62,9 +62,9 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         return withMediator {
             SaveFeatureToggle(TenantKey.of(tenant.id.value), KnownFeatures.QUALITY, enabled = true).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
@@ -75,8 +75,8 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
     ) = withMediator {
         // Under the variant's input key in its next version, as a check stores what it found (ADR 0044).
         val variantId = VariantId(VariantKey.of(subject.variantKey!!), TemplateId(subject.templateKey, subject.catalogId))
-        val inputKey = requireNotNull(GetQualityInputKey(variantId).query().inputKey)
-        SubmitQualityFindings(source, subject, inputKey, findings.toList()).execute()
+        val inputKey = requireNotNull(GetQualityInputKey(variantId, catalogVersion = null).query().inputKey)
+        SubmitQualityFindings(source, subject, inputKey, findings.toList(), catalogVersion = null).execute()
     }
 
     private fun finding(
@@ -92,7 +92,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
     )
 
     private fun onlyFinding(subject: QualitySubject) = withMediator {
-        ListQualityFindings(subject.tenantKey).query().items.single()
+        ListQualityFindings(subject.tenantKey, catalogVersion = null).query().items.single()
     }
 
     private fun post(

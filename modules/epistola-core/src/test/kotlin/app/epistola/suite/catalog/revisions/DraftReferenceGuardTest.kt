@@ -48,7 +48,7 @@ class DraftReferenceGuardTest : IntegrationTestBase() {
     fun `saving content that inserts a stencil nobody has is refused`() {
         val (_, variant) = letterWithTemplate("guard-new")
 
-        assertThatThrownBy { withMediator { UpdateVariantContent(variant, inserting("no-such-stencil")).execute() } }
+        assertThatThrownBy { withMediator { UpdateVariantContent(variant, inserting("no-such-stencil"), catalogVersion = null).execute() } }
             .isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("stencil no-such-stencil")
             .extracting { (it as ValidationException).code }.isEqualTo(ValidationCode.CATALOG_REFERENCE_UNRESOLVED)
@@ -58,11 +58,11 @@ class DraftReferenceGuardTest : IntegrationTestBase() {
     fun `content inserting a stencil its catalog has is saved`() {
         val (letters, variant) = letterWithTemplate("guard-order")
         withMediator {
-            CreateStencil(StencilId(StencilKey.of("header"), letters), "Header").execute()
-            UpdateVariantContent(variant, inserting("header")).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), letters), "Header", catalogVersion = null).execute()
+            UpdateVariantContent(variant, inserting("header"), catalogVersion = null).execute()
         }
 
-        assertThat(withMediator { GetVariantContent(variant).query() }!!.nodes).containsKey("stencil-instance")
+        assertThat(withMediator { GetVariantContent(variant, catalogVersion = null).query() }!!.nodes).containsKey("stencil-instance")
     }
 
     @Test
@@ -70,8 +70,8 @@ class DraftReferenceGuardTest : IntegrationTestBase() {
     fun `a draft that already names what nothing has can still be saved`() {
         val (letters, variant) = letterWithTemplate("guard-kept")
         withMediator {
-            CreateStencil(StencilId(StencilKey.of("header"), letters), "Header").execute()
-            UpdateVariantContent(variant, inserting("header")).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), letters), "Header", catalogVersion = null).execute()
+            UpdateVariantContent(variant, inserting("header"), catalogVersion = null).execute()
         }
         // Only the 1.x upgrade leaves a draft naming what nothing has; no command does any more.
         jdbi.useHandle<Exception> { handle ->
@@ -79,16 +79,16 @@ class DraftReferenceGuardTest : IntegrationTestBase() {
                 .bind("t", letters.tenantKey).execute()
         }
 
-        withMediator { UpdateVariantContent(variant, inserting("header", nodeId = "moved-instance")).execute() }
+        withMediator { UpdateVariantContent(variant, inserting("header", nodeId = "moved-instance"), catalogVersion = null).execute() }
 
-        assertThat(withMediator { GetVariantContent(variant).query() }!!.nodes).containsKey("moved-instance")
+        assertThat(withMediator { GetVariantContent(variant, catalogVersion = null).query() }!!.nodes).containsKey("moved-instance")
     }
 
     private fun letterWithTemplate(name: String): Pair<CatalogId, VariantId> {
         val tenant = createTenant(name).id
         val letters = catalogIn(tenant, "letters")
         val templateId = TemplateId(TemplateKey.of("invoice"), letters)
-        withMediator { CreateDocumentTemplate(templateId, "Invoice").execute() }
+        withMediator { CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute() }
         return letters to VariantId(VariantKey.INITIAL, templateId)
     }
 

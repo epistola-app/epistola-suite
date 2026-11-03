@@ -64,8 +64,8 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant, letters)), "Brand").execute()
-            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, png(0x123456), 1, 1, id = AssetKey.of("logo")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenant, letters)), "Brand", catalogVersion = null).execute()
+            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, png(0x123456), 1, 1, id = AssetKey.of("logo"), catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), letters))
         }
         return testCatalog(tenant, letters)
@@ -187,7 +187,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val oldTheme = released(catalog, "theme")
         val image = released(catalog, "image")
         withMediator {
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, renamed").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, renamed", catalogVersion = null).execute()
             mediator.releaseNext(catalog)
             DeleteCatalogRelease(catalog, "1.0.0").execute()
         }

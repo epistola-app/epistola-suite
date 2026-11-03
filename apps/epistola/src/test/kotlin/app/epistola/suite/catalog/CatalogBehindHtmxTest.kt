@@ -68,10 +68,10 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
     private fun oneMissing(tenant: Tenant) {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-            CreateTheme(theme(tenant, "brand"), "Brand").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+            CreateTheme(theme(tenant, "brand"), "Brand", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0", catalogVersion = null).execute()
         }
         fix(tenant, "brand", "Brand 2", on = "1.0.0", version = "1.0.1")
     }
@@ -80,9 +80,9 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
     private fun twoMissing(tenant: Tenant) {
         oneMissing(tenant)
         withMediator {
-            CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
-            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
+            CreateTheme(theme(tenant, "letterhead"), "Letterhead", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.1.0", acknowledgedBehind = setOf("1.0.1"), catalogVersion = null).execute()
         }
         fix(tenant, "letterhead", "Letterhead 2", on = "1.1.0", version = "1.1.1", acknowledged = setOf("1.0.1"))
     }

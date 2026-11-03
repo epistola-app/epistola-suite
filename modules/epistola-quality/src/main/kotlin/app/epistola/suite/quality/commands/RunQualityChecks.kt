@@ -8,7 +8,7 @@ import app.epistola.catalog.protocol.FontRef
 import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.versionIn
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -111,7 +111,7 @@ data class RunQualityChecks(
      */
     val triggers: Set<CheckTrigger> = setOf(CheckTrigger.EXPLICIT),
     /** The draft to check; null for the catalog's next version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    override val catalogVersion: CatalogReleaseRef?,
 ) : Command<QualityCheckRun>,
     CatalogReleaseScoped,
     RequiresPermission,
@@ -128,7 +128,6 @@ class RunQualityChecksHandler(
     private val textChecks: TextQualityChecks,
     private val locales: TenantLocaleResolver,
     private val jdbi: Jdbi,
-    private val targeting: CatalogReleaseTargeting,
 ) : CommandHandler<RunQualityChecks, QualityCheckRun> {
     override fun handle(command: RunQualityChecks): QualityCheckRun {
         val subject = QualitySubject.of(command.variantId)
@@ -253,7 +252,7 @@ class RunQualityChecksHandler(
         val slug = FontKey.validateOrNull(ref.key) ?: return@associateWith false
         // The catalog the ref's alias names from the template's (ADR 0034, section 9); unresolved, none.
         if (ref.catalogKey != null && CatalogKey.validateOrNull(ref.catalogKey!!) == null) return@associateWith false
-        val catalog = resolveAlias(subject, ref.catalogKey) ?: return@associateWith false
+        val catalog = resolveAlias(subject, ref.catalogKey, version) ?: return@associateWith false
         ResolveFontFace(
             catalog = catalog,
             slug = slug,
@@ -265,11 +264,10 @@ class RunQualityChecksHandler(
 
     /**
      * The catalog [alias] means from the template's catalog, by the declarations of the version being
-     * checked: this command is self-managed, so the target is applied to the lookup's own transaction.
+     * checked, [version] (else the catalog's next version).
      */
-    private fun resolveAlias(subject: QualitySubject, alias: String?): app.epistola.suite.common.ids.CatalogId? = jdbi.inTransaction<app.epistola.suite.common.ids.CatalogId?, Exception> { handle ->
-        targeting.apply(handle)
-        references.resolve(handle, subject.catalogId, alias)
+    private fun resolveAlias(subject: QualitySubject, alias: String?, version: CatalogReleaseRef?): app.epistola.suite.common.ids.CatalogId? = jdbi.withHandle<app.epistola.suite.common.ids.CatalogId?, Exception> { handle ->
+        references.resolve(handle, handle.versionIn(subject.catalogId, version), alias)
     }
 
     /**

@@ -64,7 +64,7 @@ class TenantIsolationTest : IntegrationTestBase() {
         }
 
         whenever {
-            getTemplateHandler.handle(GetDocumentTemplate(id = TemplateId(templateKey!!, CatalogId.default(TenantId(tenant2.id)))))
+            getTemplateHandler.handle(GetDocumentTemplate(id = TemplateId(templateKey!!, CatalogId.default(TenantId(tenant2.id))), catalogVersion = null))
         }
 
         then {
@@ -82,15 +82,15 @@ class TenantIsolationTest : IntegrationTestBase() {
             val tenantId1 = TenantId(tenant1.id)
             val tenantId2 = TenantId(tenant2.id)
 
-            val template1 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId1)), name = "Invoice A").execute()
-            val template2 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId2)), name = "Invoice B").execute()
+            val template1 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId1)), name = "Invoice A", catalogVersion = null).execute()
+            val template2 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId2)), name = "Invoice B", catalogVersion = null).execute()
 
             assertThat(template1.id).isEqualTo(sharedSlug)
             assertThat(template2.id).isEqualTo(sharedSlug)
 
             // Each tenant sees only their own template
-            val tenant1Templates = ListDocumentTemplates(tenantId1).query()
-            val tenant2Templates = ListDocumentTemplates(tenantId2).query()
+            val tenant1Templates = ListDocumentTemplates(tenantId1, catalogVersion = null).query()
+            val tenant2Templates = ListDocumentTemplates(tenantId2, catalogVersion = null).query()
 
             assertThat(tenant1Templates).hasSize(1)
             assertThat(tenant1Templates[0].name).isEqualTo("Invoice A")

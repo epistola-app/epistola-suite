@@ -86,7 +86,7 @@ class V7ZipImportTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenant.id, v7Archive(stencil = true), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val stencil = GetStencil(StencilId(StencilKey.of("letterhead"), testCatalog(tenant.id, CatalogKey.of("letters")))).query()!!
+            val stencil = GetStencil(StencilId(StencilKey.of("letterhead"), testCatalog(tenant.id, CatalogKey.of("letters"))), catalogVersion = null).query()!!
             assertThat(stencil.readsTemplateData).isTrue()
             assertThat(stencil.content.nodes.values.filter { it.type == "placeholder" }.map { it.props?.get("passParameters") }).containsExactly(true)
         }

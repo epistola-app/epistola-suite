@@ -87,7 +87,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             val variant = VariantId(variant(templateId, "Default").id, templateId)
 
             // 1.0.0 requires `name`.
-            execute(UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada")))))
+            execute(UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada"))), catalogVersion = null))
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
@@ -104,8 +104,8 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             // next major. Rendering 2.0.0 would fail validation; rendering the release the request was
             // accepted against succeeds.
             // A new contract (the last one was released with 1.0.0), saved even though it breaks.
-            execute(UpdateDataContract(templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))), forceUpdate = true))
-            execute(UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
+            execute(UpdateDataContract(templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))), forceUpdate = true, catalogVersion = null))
+            execute(UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter"), catalogVersion = null))
             mediator.publishAndRelease(variant)
             accepted
         }.then { _, accepted ->
@@ -139,7 +139,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
             execute(app.epistola.suite.environments.commands.DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.DEFAULT), "1.0.0"))
             // The next version drops the letter; production still serves the release that has it.
-            execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId))
+            execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId, catalogVersion = null))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
             execute(
@@ -287,6 +287,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                         data = objectMapper.createObjectNode(),
                         variantId = variant.key,
                         workingCopy = workingCopy,
+                        catalogVersion = null,
                     ),
                 )
 

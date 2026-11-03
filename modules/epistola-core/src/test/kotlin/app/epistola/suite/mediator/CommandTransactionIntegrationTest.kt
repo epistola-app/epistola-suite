@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -49,12 +50,13 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
                 CreateStencil(
                     id = StencilId(StencilKey.of("tx-rollback-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                     name = ROLLBACK_MARKER,
+                    catalogVersion = null,
                 ).execute()
             }.hasMessageContaining("Simulated IMMEDIATE event-handler failure")
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM ${atNext("version_stencils")} current_stencils WHERE name = :name")
                 .bind("name", ROLLBACK_MARKER)
                 .mapTo(Int::class.java)
                 .one()
@@ -84,11 +86,12 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
             CreateStencil(
                 id = StencilId(StencilKey.of("tx-commit-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                 name = COMMIT_MARKER,
+                catalogVersion = null,
             ).execute()
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM ${atNext("version_stencils")} current_stencils WHERE name = :name")
                 .bind("name", COMMIT_MARKER)
                 .mapTo(Int::class.java)
                 .one()

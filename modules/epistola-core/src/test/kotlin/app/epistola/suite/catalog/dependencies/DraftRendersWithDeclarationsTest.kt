@@ -64,25 +64,26 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         val catalog = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
-        CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", content = footer("Acme")).execute()
-        MarkCatalogReady(testCatalog(tenant, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#000000"), catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", content = footer("Acme"), catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         UpdateVariantContent(
             VariantId(VariantKey.INITIAL, invoice(tenant)),
             stencilDocument {
                 stencil("footer-1", "footer", catalogKey = "shared")
                 build("footer-1")
             },
+            catalogVersion = null,
         ).execute()
         declareDependency(tenant, letters, on = shared, release = "1.0.0")
 
-        UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), documentStyles = mapOf("color" to "#ff0000")).execute()
-        UpdateStencil(StencilId(StencilKey.of("footer"), catalog), content = footer("Acme Corp")).execute()
+        UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
+        UpdateStencil(StencilId(StencilKey.of("footer"), catalog), content = footer("Acme Corp"), catalogVersion = null).execute()
         tenant
     }
 
@@ -94,10 +95,10 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
     }
 
     private fun editorTheme(tenant: TenantKey): Any? = withMediator {
-        ResolveTemplateTheme(testCatalog(tenant, letters), ThemeKey.of("brand"), null, editorModel(tenant), templateThemeCatalog = testCatalog(tenant, shared)).query()
+        ResolveTemplateTheme(testCatalog(tenant, letters), ThemeKey.of("brand"), null, editorModel(tenant), templateThemeCatalog = testCatalog(tenant, shared), catalogVersion = null).query()
     }?.documentStyles?.get("color")
 
-    private fun editorModel(tenant: TenantKey) = withMediator { GetEditorContext(VariantId(VariantKey.INITIAL, invoice(tenant))).query() }!!.templateModel
+    private fun editorModel(tenant: TenantKey) = withMediator { GetEditorContext(VariantId(VariantKey.INITIAL, invoice(tenant)), catalogVersion = null).query() }!!.templateModel
 
     private fun prepared(tenant: TenantKey) = withMediator {
         PrepareDraftRender(
@@ -125,7 +126,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
         val tenant = setUp("draft-named")
         val sharedNext = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(testCatalog(tenant, shared)).query() }!!.versionId
         val target = withMediator { GetCatalog(testCatalog(tenant, shared)).query() }!!
-        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute() }
+        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext)), catalogVersion = null).execute() }
 
         assertThat(editorModel(tenant).texts()).containsExactly("Acme Corp")
         assertThat(editorTheme(tenant)).isEqualTo("#ff0000")
@@ -144,7 +145,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
             ).execute()
         }
         val target = withMediator { GetCatalog(testCatalog(tenant, shared)).query() }!!
-        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = redesign))).execute() }
+        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = redesign)), catalogVersion = null).execute() }
 
         assertThat(editorModel(tenant).texts()).containsExactly("Acme Redesign")
     }

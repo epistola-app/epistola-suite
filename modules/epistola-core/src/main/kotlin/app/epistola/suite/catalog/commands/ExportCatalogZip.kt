@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.RetainedRelease
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -173,13 +174,14 @@ class ExportCatalogZipHandler(
         ?: throw CatalogReleaseNotFoundException(catalog.key, version)
 
     /**
-     * The current version's content, for a tenant snapshot. Wire v8 numbers every archive's release
+     * The next version's content, for a tenant snapshot. Wire v8 numbers every archive's release
      * `MAJOR.MINOR.PATCH`, so it is labelled by the catalog's highest release, released here or
      * received, or `0.0.0` without one; the fingerprint describes exactly what it holds, which is not
      * necessarily that release.
      */
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
-        val content = pinnedForExport(command.catalog, contentBuilder.build(command.catalog))
+        val next = jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, command.catalog) }
+        val content = pinnedForExport(command.catalog, contentBuilder.build(next))
         fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
         val catalog = GetCatalog(command.catalog).query()

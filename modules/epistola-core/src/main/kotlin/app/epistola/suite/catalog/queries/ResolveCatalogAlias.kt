@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 
 /**
  * The catalog [alias] names in content of [from] ([CatalogReferences.resolve], ADR 0034, section 9):
- * [from] itself for its own key, else the catalog its current version declares under the alias;
+ * [from] itself for its own key, else the catalog its next version declares under the alias;
  * null when it declares none. What a page asks when content it shows names another catalog by
  * alias, as the editor's images do.
  */
@@ -32,5 +32,5 @@ data class ResolveCatalogAlias(
 class ResolveCatalogAliasHandler(
     private val references: CatalogReferences,
 ) : QueryHandler<ResolveCatalogAlias, CatalogId?> {
-    override fun handle(query: ResolveCatalogAlias): CatalogId? = references.resolve(query.from, query.alias)
+    override fun handle(query: ResolveCatalogAlias): CatalogId? = references.resolveInNext(query.from, query.alias)
 }

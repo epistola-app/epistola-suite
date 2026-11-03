@@ -96,8 +96,7 @@ class InstallationStatsPublisher(
                 return@useTransaction
             }
             ENTITIES.forEach { entity ->
-                // Catalog content counts each catalog's current version once, not every draft's copy:
-                // each type's view holds only that.
+                // Catalog content counts each catalog's next version once, not every draft's copy.
                 val count = handle.createQuery("SELECT count(*) FROM ${entity.table}")
                     .mapTo(Long::class.java)
                     .one()
@@ -107,16 +106,16 @@ class InstallationStatsPublisher(
         }
     }
 
-    /** Bounded design-time entity tables. `table` is a hardcoded literal — never user input. */
+    /** Bounded design-time entity tables. `table` is a hardcoded literal (a table, or a view filtered to next versions) — never user input. */
     internal enum class Entity(val metric: String, val table: String) {
         TENANTS("tenants", "tenants"),
 
-        // Each view holds each catalog's current version only (ADR 0033).
-        TEMPLATES("templates", "current_templates"),
-        THEMES("themes", "current_themes"),
+        // Each catalog's next version (ADR 0049): every version's content is in the views.
+        TEMPLATES("templates", "version_templates WHERE version_id IN (SELECT next_version_id FROM catalogs)"),
+        THEMES("themes", "version_themes WHERE version_id IN (SELECT next_version_id FROM catalogs)"),
         CATALOGS("catalogs", "catalogs"),
-        STENCILS("stencils", "current_stencils"),
-        FONTS("fonts", "current_fonts"),
+        STENCILS("stencils", "version_stencils WHERE version_id IN (SELECT next_version_id FROM catalogs)"),
+        FONTS("fonts", "version_fonts WHERE version_id IN (SELECT next_version_id FROM catalogs)"),
         ENVIRONMENTS("environments", "environments"),
     }
 

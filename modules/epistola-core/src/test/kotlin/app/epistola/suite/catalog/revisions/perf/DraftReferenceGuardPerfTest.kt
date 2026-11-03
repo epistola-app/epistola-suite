@@ -80,15 +80,15 @@ class DraftReferenceGuardPerfTest : IntegrationTestBase() {
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared.key, name = "Shared").execute()
-            repeat(SHARED_STENCILS) { CreateStencil(StencilId(StencilKey.of("shared-$it"), shared), "Shared $it").execute() }
+            repeat(SHARED_STENCILS) { CreateStencil(StencilId(StencilKey.of("shared-$it"), shared), "Shared $it", catalogVersion = null).execute() }
             mediator.releaseNext(shared)
             CreateCatalog(tenantKey = tenant, id = letters.key, name = "Letters").execute()
-            repeat(LOCAL_STENCILS) { CreateStencil(StencilId(StencilKey.of("local-$it"), letters), "Local $it").execute() }
+            repeat(LOCAL_STENCILS) { CreateStencil(StencilId(StencilKey.of("local-$it"), letters), "Local $it", catalogVersion = null).execute() }
             for (t in 0 until templates) {
                 val template = TemplateId(TemplateKey.of("tpl-$t"), letters)
-                CreateDocumentTemplate(id = template, name = "Template $t").execute()
-                repeat(VARIANTS - 1) { v -> CreateVariant(VariantId(VariantKey.of("v-$v"), template), "Variant $v", null, mapOf()).execute() }
-                variantsOf(template).forEachIndexed { v, variant -> UpdateVariantContent(variant, using("$t-$v", t + v)).execute() }
+                CreateDocumentTemplate(id = template, name = "Template $t", catalogVersion = null).execute()
+                repeat(VARIANTS - 1) { v -> CreateVariant(VariantId(VariantKey.of("v-$v"), template), "Variant $v", null, mapOf(), catalogVersion = null).execute() }
+                variantsOf(template).forEachIndexed { v, variant -> UpdateVariantContent(variant, using("$t-$v", t + v), catalogVersion = null).execute() }
             }
         }
         val version = draftOf(tenant)
@@ -97,7 +97,7 @@ class DraftReferenceGuardPerfTest : IntegrationTestBase() {
 
         var saves = 0
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("tpl-${templates / 2}"), letters))
-        val model = withMediator { GetVariantContent(variant).query()!! }
+        val model = withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }
         val unresolved = jdbi.withHandle<Set<DraftResources.Unresolved>, Exception> { DraftResources.unresolved(it, tenant, version) }
         assertThat(unresolved).`as`("a catalog built by commands resolves everything").isEmpty()
 
@@ -108,7 +108,7 @@ class DraftReferenceGuardPerfTest : IntegrationTestBase() {
             measure(templates, "save a variant's model (guard included)") {
                 // A save that changes nothing writes nothing, and so is not guarded: each one differs.
                 val edited = model.copy(documentStylesOverride = mapOf("color" to "#%06x".format(++saves)))
-                withMediator { UpdateVariantContent(variant, edited).execute() }
+                withMediator { UpdateVariantContent(variant, edited, catalogVersion = null).execute() }
             },
         )
     }

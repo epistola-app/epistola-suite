@@ -145,7 +145,7 @@ class PreviewCatalogUpgradeHandler(
         // Same conflict logic UpgradeCatalog throws on, on the same set it would
         // delete — so a blocking conflict is visible before Apply, not after.
         val conflicts = analyzer.findConflicts(
-            query.catalog,
+            analyzer.nextOf(query.catalog),
             removed.map { InstalledResource(it.type, it.slug) },
         )
 

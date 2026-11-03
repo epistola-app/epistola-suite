@@ -120,7 +120,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
             val templateId = TemplateId(TemplateKey.of(TEMPLATE), CatalogId.default(TenantId(tenantKey)))
-            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
         }
 
         val response = preview(tenantKey, apiKey, "{}")
@@ -147,7 +147,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
 
     private fun seedPublishedTemplate(tenantKey: TenantKey) = withMediator {
         val templateId = TemplateId(TemplateKey.of(TEMPLATE), CatalogId.default(TenantId(tenantKey)))
-        CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
         UpdateDataContract(
             templateId = templateId,
             dataModel = json(
@@ -163,9 +163,10 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
             dataExamples = listOf(
                 DataExample("example-1", "Example 1", json("""{"customer": {"name": "Ada"}, "invoiceDate": "2026-09-22"}""")),
             ),
+            catalogVersion = null,
         ).execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal()).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(), catalogVersion = null).execute()
         // Preview renders the catalog's latest release.
         mediator.publishAndRelease(variantId)
     }
