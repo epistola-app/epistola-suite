@@ -27,6 +27,7 @@ import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.http.client.HttpRedirects
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -119,5 +120,29 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         assertThat(refused.statusCode.value()).isEqualTo(422)
         assertThat(refused.headers.getFirst("HX-Reswap")).`as`("only the error slot swaps; the form stays as typed").isEqualTo("none")
         assertThat(refused.body).contains("id=\"edit-attribute-error\"").doesNotContain("name=\"displayName\"")
+    }
+
+    /** Opened without htmx (a bookmark, a reload), a dialog route sends the browser to the page it belongs to. */
+    @Test
+    fun `the edit dialogs opened as a page redirect to the page they belong to`() {
+        val tenant = tenant("Dialog Navigation")
+        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant.id)))
+        val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
+        withMediator {
+            CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute()
+            CreateVariant(id = VariantId(VariantKey.of("english"), templateId), title = "English", description = null, catalogVersion = null).execute()
+            CreateAttributeDefinition(id = attributeId, displayName = "Brand", catalogVersion = null).execute()
+        }
+        // The catalog's canonical address: a short one redirects to it first.
+        val catalog = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/default"
+        val page = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
+
+        val variant = page.getForEntity("$catalog/templates/invoice/variants/english/edit", String::class.java)
+        assertThat(variant.statusCode.is3xxRedirection).`as`("${variant.statusCode}: ${variant.body?.take(300)}").isTrue()
+        assertThat(variant.headers.location.toString()).isEqualTo("$catalog/templates/invoice")
+
+        val attribute = page.getForEntity("$catalog/attributes/brand/edit", String::class.java)
+        assertThat(attribute.statusCode.is3xxRedirection).`as`("${attribute.statusCode}: ${attribute.body?.take(300)}").isTrue()
+        assertThat(attribute.headers.location.toString()).isEqualTo("$catalog/attributes")
     }
 }

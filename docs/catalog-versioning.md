@@ -79,8 +79,9 @@ still in the table, defaulted and unused, and goes in a later major release.
   draft's declarations and a release's pins, by the version that declares them.
 - **The freeze** (step (f)): a released row never changes. Every writer of a version's rows refuses a
   released one first (`requireWritableVersion`), and a change through the id a draft had before it
-  was released gets `409 catalog-version-released` ("open the next draft") in the UI, REST and MCP;
-  the template editor then offers to open the same page in the next draft.
+  was released is refused ("open the next draft") in the UI, REST and MCP: the UI answers
+  `409 catalog-version-released`, REST the contract's generic `409 conflict` with `catalogKey` and
+  `version`. The template editor then offers to open the same page in the next draft.
   `FrozenVersionWriteGuardTest` keeps every write either guarded or on the release path.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:

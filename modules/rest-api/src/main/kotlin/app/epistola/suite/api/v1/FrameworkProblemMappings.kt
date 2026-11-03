@@ -76,7 +76,7 @@ fun writeFrameworkProblemDetail(
             response,
             objectMapper,
             request,
-            ApiProblemTypes.PAYLOAD_TOO_LARGE,
+            ApiProblemTypes.CONTENT_TOO_LARGE,
             "The uploaded content exceeds the maximum allowed size",
             mapOf("maxBytes" to ex.maxUploadSize),
         )

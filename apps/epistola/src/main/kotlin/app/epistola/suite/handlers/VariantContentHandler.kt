@@ -7,7 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.api.v1.ApiProblemType
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.problemBody
-import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.api.v1.toUiValidationProblemBody
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
@@ -67,7 +67,7 @@ class VariantContentHandler(
             // editor switches on the problem `type` and renders the field-level `errors`.
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(e.toValidationProblemBody(servletRequest))
+                .body(e.toUiValidationProblemBody(servletRequest))
         }
 
         return ServerResponse.ok()

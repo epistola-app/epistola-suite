@@ -18,7 +18,7 @@ class CatalogOperationProblemMappingTest {
             CatalogReleaseVersionException("Version not-semver is invalid"),
         )!!
 
-        assertThat(mapping.problemType.code).isEqualTo("CATALOG_RELEASE_VERSION_INVALID")
+        assertThat(mapping.problemType).`as`("the generic type of 400").isEqualTo(ApiProblemTypes.BAD_REQUEST)
         assertThat(mapping.problemType.status).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(mapping.detail(CatalogReleaseVersionException("Version not-semver is invalid")))
             .contains("not-semver")
@@ -29,7 +29,7 @@ class CatalogOperationProblemMappingTest {
         val exception = CatalogUpgradeConflictException(listOf("theme/default", "stencil/header"))
         val mapping = ApiExceptionMappings.forException(exception)!!
 
-        assertThat(mapping.problemType.code).isEqualTo("CATALOG_UPGRADE_CONFLICT")
+        assertThat(mapping.problemType).`as`("the generic type of 409").isEqualTo(ApiProblemTypes.CONFLICT)
         assertThat(mapping.problemType.status).isEqualTo(HttpStatus.CONFLICT)
         assertThat(mapping.extensions(exception)["conflicts"])
             .isEqualTo(listOf("theme/default", "stencil/header"))

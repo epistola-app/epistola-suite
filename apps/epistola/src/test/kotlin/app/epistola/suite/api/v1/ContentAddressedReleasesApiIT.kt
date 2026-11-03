@@ -195,7 +195,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val namespace = TestNamespaces.of(seeded.tenant)
         assertThat(JsonPath.read<String>(refused.body!!, "$.detail"))
             .isEqualTo("This tenant does not hold the namespace ${namespace.namespace} (${namespace.authority}); an administrator can grant it.")
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).endsWith("/catalog-namespace-not-held")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).endsWith("/validation-error")
     }
 
     @Test
