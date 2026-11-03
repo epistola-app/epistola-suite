@@ -91,9 +91,15 @@ class UiExceptionFilter(
         // to a 400 so it never renders as an opaque 500. 22001 carries no column info, so
         // this stays a form-level message rather than a field error. Checked against the
         // full chain (not the unwrapped leaf) so the SQLException is found wherever it sits.
-        findStringTruncation(ex)?.let { truncation ->
+        findSqlState(ex, "22001")?.let { truncation ->
             log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
+        }
+        // A NUL character (`\u0000`) in a value: PostgreSQL stores none in text (SQLSTATE 22021,
+        // "invalid byte sequence"). The input is wrong, not the server, as on the REST API.
+        findSqlState(ex, "22021")?.let { encoding ->
+            log.warn("Input the database cannot store rejected (SQLSTATE 22021): {}", encoding.message)
+            return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered contains a character that cannot be stored.")
         }
         val cause = unwrap(ex)
         return when (cause::class.simpleName) {
@@ -147,13 +153,13 @@ class UiExceptionFilter(
     }
 
     /**
-     * The PostgreSQL string-truncation (SQLSTATE 22001) in the failure chain — an
-     * over-length value that reached a `VARCHAR(n)` column — or null if there is none.
+     * The PostgreSQL error with [sqlState] in the failure chain, or null if there is none: 22001
+     * for an over-length value that reached a `VARCHAR(n)` column, 22021 for a NUL in a string.
      */
-    private fun findStringTruncation(ex: Throwable): SQLException? {
+    private fun findSqlState(ex: Throwable, sqlState: String): SQLException? {
         var c: Throwable? = ex
         while (c != null) {
-            if (c is SQLException && c.sqlState == "22001") return c
+            if (c is SQLException && c.sqlState == sqlState) return c
             c = c.cause
         }
         return null
