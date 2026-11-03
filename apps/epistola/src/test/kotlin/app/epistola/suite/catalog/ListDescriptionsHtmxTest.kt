@@ -42,8 +42,8 @@ class ListDescriptionsHtmxTest : BaseIntegrationTest() {
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("letters"), name = "Letters").execute()
                     val letters = testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))
-                    CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", description = "The house colours").execute()
-                    CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "What every page ends with").execute()
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", description = "The house colours", catalogVersion = null).execute()
+                    CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "What every page ends with", catalogVersion = null).execute()
                 }
             }
         }
@@ -90,8 +90,8 @@ class ListDescriptionsHtmxTest : BaseIntegrationTest() {
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("letters"), name = "Letters").execute()
                     val letters = testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))
-                    CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", description = "No").execute()
-                    CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "Off").execute()
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", description = "No", catalogVersion = null).execute()
+                    CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "Off", catalogVersion = null).execute()
                     // The resources table is drawn only for a catalog with a source: this one has one theme, described as "No".
                     RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/falsy-description/catalog.json", authType = AuthType.NONE).execute()
                 }

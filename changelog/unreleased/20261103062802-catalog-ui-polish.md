@@ -11,5 +11,4 @@ block at the card's foot, where a line under "instead of the others" says what r
 cards stack on phones. The Themes and Stencils lists and the catalog's resources table show a description under the
 name it belongs to, cut to one line with the full text on hover, instead of in a narrow column of its
 own. A long catalog name or address in the dependency graph now ellipsises inside its box instead of
-spilling over the neighbouring one. Card titles are the card's own 16px heading again, not the page's
-larger heading with an empty strip beneath it.
+spilling over the neighbouring one.
