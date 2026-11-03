@@ -7,6 +7,7 @@ package app.epistola.suite.migration
 import app.epistola.suite.migration.preflight.UpgradePreflightOutcome
 import app.epistola.suite.migration.preflight.UpgradePreflights
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.atNext
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
@@ -14,7 +15,6 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Connection
 import java.sql.DriverManager
-import app.epistola.suite.testing.atNext
 
 /**
  * Guards the RC1 promise: **the database is stable and user data survives every
