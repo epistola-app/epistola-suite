@@ -5,12 +5,12 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -56,8 +56,8 @@ data class EditorContext(
  */
 data class GetEditorContext(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<EditorContext?>,
     RequiresPermission {
@@ -73,6 +73,7 @@ class GetEditorContextHandler(
     private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<GetEditorContext, EditorContext?> {
     override fun handle(query: GetEditorContext): EditorContext? = jdbi.withHandle<EditorContext?, Exception> { handle ->
+        val at = handle.versionOf(query.variantId.catalogId, query)
         val row = handle.createQuery(
             """
             SELECT
@@ -85,16 +86,17 @@ class GetEditorContextHandler(
                 tv.attributes as variant_attributes,
                 tv.template_model as draft_template_model,
                 tv.revision AS variant_revision
-            FROM current_template_variants tv
-            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
-            WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
-              AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+            FROM version_template_variants tv
+            JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            WHERE tv.tenant_key = :tenantId AND tv.version_id = :v
+              AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId", "v")}
               AND tv.id = :variantId
             """,
         )
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
             .bindCatalog("catalogKey", query.variantId.catalogId)
+            .bindVersion("v", at.versionId)
             .bind("variantId", query.variantId.key)
             .mapToMap()
             .findOne()
@@ -149,7 +151,7 @@ class GetEditorContextHandler(
             },
             variantAttributes = variantAttributes,
             variantRevision = (row["variant_revision"] as Number).toLong(),
-            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.catalogId, templateModel, dependencyViews.of(query.variantId.catalogId)),
+            templateModel = stencilResolvers.expandWithWorkingCopies(at, templateModel, dependencyViews.of(at)),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->
                 val json = raw.toString()

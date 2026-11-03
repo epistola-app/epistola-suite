@@ -13,11 +13,11 @@ The domains depend on `catalog`, never the reverse (ADR 0039; `CatalogBoundaryTe
 type's particulars are its domain's `ResourceType` (relocation re-points every type through its
 `repoint`, ADR 0042), anything else an SPI catalog owns (`CatalogDraftLifecycle`, `ReleaseCheck`, `CatalogAttributeValues`).
 
-Every SQL statement reading or writing catalog content names the catalog version it means, since a
-catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
+Every SQL statement on catalog content names the version it means, as a catalog may hold several drafts
+(`ContentVersionSqlTest`), bound to it and never in the session (`VersionTargetNotInSessionTest`).
 
 A released version never changes (ADR 0036, the freeze): every writer of a version's rows refuses a
-released one first (`requireWritableVersion`, `Handle.writable` or `inDraft`), or belongs to the
+released one first (`ContentVersions.writable`, `Handle.writable(at)` or `inDraft`), or belongs to the
 release path; `FrozenVersionWriteGuardTest` holds that.
 
 A release is a release however it arrived (ADR 0036): a catalog's version is its highest release.

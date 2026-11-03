@@ -62,14 +62,14 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         // Compose the real flow to get a deployment: template (auto-creates a variant), the variant
         // marked ready, a release of the catalog, deployed to the environment.
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
-        val variant = ListVariants(templateId = templateId).query().first()
+        CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        val variant = ListVariants(templateId = templateId, catalogVersion = null).query().first()
         val variantId = VariantId(variant.id, templateId)
 
         val envId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
         CreateEnvironment(id = envId, name = "Production").execute()
 
-        MarkVariantReady(variantId).execute()
+        MarkVariantReady(variantId, catalogVersion = null).execute()
         val version = mediator.deployLatestRelease(envId, templateId.catalogId)
 
         assertThatThrownBy { DeleteEnvironment(id = envId).execute() }

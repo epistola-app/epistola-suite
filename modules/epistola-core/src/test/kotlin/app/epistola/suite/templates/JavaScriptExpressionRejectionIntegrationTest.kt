@@ -105,10 +105,10 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("JS Draft")
         withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "JS Draft").execute()
+            CreateDocumentTemplate(id = templateId, name = "JS Draft", catalogVersion = null).execute()
 
             val exception = assertThrows<ValidationException> {
-                UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript")).execute()
+                UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript"), catalogVersion = null).execute()
             }
 
             assertThat(exception.field).isEqualTo("templateModel.nodes.cond.props.condition.language")
@@ -116,7 +116,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             assertThat(exception.message).contains("JavaScript expressions are no longer supported")
 
             // The same document in JSONata is accepted: only the language is refused.
-            UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata")).execute()
+            UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata"), catalogVersion = null).execute()
         }
     }
 
@@ -129,6 +129,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                     id = StencilId(StencilKey.of("js-stencil"), CatalogId.default(TenantId(tenant.id))),
                     name = "JS Stencil",
                     content = documentWithCondition("javascript"),
+                    catalogVersion = null,
                 ).execute()
             }
             assertThat(exception.field).isEqualTo("content.nodes.cond.props.condition.language")
@@ -154,6 +155,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.FAILED)
@@ -170,10 +172,10 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val exported = withMediator {
             CreateCatalog(tenantKey = source.id, id = catalogKey, name = "JS Zip").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(source.id), catalogKey))
-            CreateDocumentTemplate(id = templateId, name = "JS Zip Template").execute().withRequiredDataExample()
+            CreateDocumentTemplate(id = templateId, name = "JS Zip Template", catalogVersion = null).execute().withRequiredDataExample()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
-            MarkVariantReady(variantId).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata"), catalogVersion = null).execute()
+            MarkVariantReady(variantId, catalogVersion = null).execute()
             mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(source.id), catalogKey)).zipBytes
         }
 
@@ -201,8 +203,8 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
-            CreateDocumentTemplate(id = templateId, name = "JS Stored").execute()
-            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
+            CreateDocumentTemplate(id = templateId, name = "JS Stored", catalogVersion = null).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata"), catalogVersion = null).execute()
         }
 
         // Raw SQL on purpose: every command now refuses a JavaScript expression, and this is the
@@ -221,7 +223,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         })
 
         // …the document still loads, so it can be opened and rewritten in JSONata…
-        val stored = withMediator { GetEditorContext(variantId).query() }!!.templateModel
+        val stored = withMediator { GetEditorContext(variantId, catalogVersion = null).query() }!!.templateModel
 
         // …and rendering it fails with the explanation instead of evaluating it.
         val exception = assertThrows<ValidationException> {
@@ -272,11 +274,11 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
             SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
-            FROM current_template_variants v
-            JOIN current_templates t
-              ON t.tenant_key = v.tenant_key AND t.catalog_id = v.catalog_id AND t.resource_id = v.template_resource_id
+            FROM version_template_variants v
+            JOIN version_templates t
+              ON t.tenant_key = v.tenant_key AND t.version_id = v.version_id AND t.resource_id = v.template_resource_id
             JOIN catalogs c
-              ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+              ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id AND c.next_version_id = t.version_id
             WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
             ORDER BY 1, 2, 3, 4
         """

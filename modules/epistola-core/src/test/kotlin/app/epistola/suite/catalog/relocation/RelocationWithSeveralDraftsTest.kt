@@ -59,7 +59,7 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
         val hotfixInvoice = withMediator { GetDocumentTemplate(invoice(tenant), hotfix(tenant)).query()!! }
         assertThat(hotfixInvoice.themeKey?.value to hotfixInvoice.themeCatalogKey?.value).isEqualTo("house" to "letters")
         // The draft the move changed follows it.
-        val nextInvoice = withMediator { GetDocumentTemplate(invoice(tenant)).query()!! }
+        val nextInvoice = withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query()!! }
         assertThat(nextInvoice.themeKey?.value to nextInvoice.themeCatalogKey?.value).isEqualTo("house" to "shared")
     }
 
@@ -83,14 +83,14 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
     fun `what uses a resource moved into a released catalog depends on that catalog's draft`() {
         val tenant = lettersReleasedWithHotfix("several-drafts-dependency")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("plain"), catalogId(tenant, shared)), "Plain").execute()
+            CreateTheme(ThemeId(ThemeKey.of("plain"), catalogId(tenant, shared)), "Plain", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant, shared))
         }
 
         move(tenant, address(tenant, CatalogResourceType.THEME, letters, "house").movedTo(shared))
 
         // No release of shared holds the theme yet: only its draft does.
-        val onShared = withMediator { ListCatalogDependencies(catalogId(tenant, letters)).query() }.single { it.catalogKey == "shared" }
+        val onShared = withMediator { ListCatalogDependencies(catalogId(tenant, letters), catalogVersion = null).query() }.single { it.catalogKey == "shared" }
         assertThat(onShared.releaseVersion).isNull()
         assertThat(onShared.draftId).isNotNull
         assertThat(withMediator { ListCatalogDependencies(catalogId(tenant, letters), hotfix(tenant)).query() }).describedAs("the hotfix is left alone").isEmpty()
@@ -113,8 +113,8 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
         val hotfixInvoice = withMediator { GetDocumentTemplate(invoice(tenant), hotfix(tenant)).query()!! }
         assertThat(hotfixInvoice.themeKey?.value to hotfixInvoice.themeCatalogKey?.value).isEqualTo("house" to "shared")
         // The next version keeps its copy and its template, at the old address.
-        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters))).query() }).isNotNull
-        val nextInvoice = withMediator { GetDocumentTemplate(invoice(tenant)).query()!! }
+        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), catalogVersion = null).query() }).isNotNull
+        val nextInvoice = withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query()!! }
         assertThat(nextInvoice.themeKey?.value to nextInvoice.themeCatalogKey?.value).isEqualTo("house" to "letters")
     }
 
@@ -159,9 +159,9 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
     private fun lettersReleasedWithHotfix(name: String): TenantKey {
         val tenant = tenantWith(name)
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
-            CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters), catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant, letters))
             hotfixes[tenant] = DraftRef.Id(CreateCatalogDraft(catalogId(tenant, letters), "Hotfix", "1.0.0").execute().versionId)
         }

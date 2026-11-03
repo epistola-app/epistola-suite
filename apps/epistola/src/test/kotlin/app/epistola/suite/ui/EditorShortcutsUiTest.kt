@@ -282,6 +282,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val template = CreateDocumentTemplate(
             id = templateId,
             name = "Editor Shortcut Template",
+            catalogVersion = null,
         ).execute()
 
         val variant = CreateVariant(
@@ -289,6 +290,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
             title = "Shortcut Variant",
             description = null,
             attributes = emptyMap(),
+            catalogVersion = null,
         ).execute()
 
         // Add data examples via contract version command
@@ -302,6 +304,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         app.epistola.suite.templates.contracts.commands.UpdateDataContract(
             templateId = templateId,
             dataExamples = examples,
+            catalogVersion = null,
         ).execute()
 
         return Triple(tenant, template, variant!!.id.toString())

@@ -48,9 +48,9 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val key = CatalogKey.of("frozen-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Original name").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first", catalogVersion = null).execute()
 
             UpdateCatalogMetadata(
                 catalog = testCatalog(tenant.id, key),
@@ -76,9 +76,9 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = mine, name = "Mine").execute()
             CreateCatalog(tenantKey = tenant.id, id = other, name = "Other").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), other)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, other)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, other), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), other)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, other), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, other), version = "1.0.0", catalogVersion = null).execute()
 
             assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, mine), "9.9.9").query())
                 .`as`("a typed version that names nothing")
@@ -100,9 +100,9 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val key = CatalogKey.of("hashed-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Hashed").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
         }
         val cut = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
         assertThat(cut.contentHash).startsWith("v6:").isEqualTo(cut.fingerprint)
@@ -130,15 +130,15 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val catalogId = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Order cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("one"), catalogId), name = "One").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("two"), catalogId), name = "Two").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.9.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("three"), catalogId), name = "Three").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.10.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("one"), catalogId), name = "One", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("two"), catalogId), name = "Two", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.9.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("three"), catalogId), name = "Three", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.10.0", catalogVersion = null).execute()
 
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, key)).query().map { it.version })
                 .containsExactly("1.10.0", "1.9.0", "1.0.0")
@@ -151,10 +151,10 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val kept = CatalogKey.of("kept-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = kept, name = "Kept").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("alpha"), testCatalog(TenantId(tenant.id), kept)), name = "Alpha").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("beta"), testCatalog(TenantId(tenant.id), kept)), name = "Beta").execute()
-            MarkCatalogReady(testCatalog(tenant.id, kept)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, kept), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("alpha"), testCatalog(TenantId(tenant.id), kept)), name = "Alpha", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("beta"), testCatalog(TenantId(tenant.id), kept)), name = "Beta", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, kept), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, kept), version = "1.0.0", catalogVersion = null).execute()
 
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, kept)).query().single().resourceCount).isEqualTo(2)
         }

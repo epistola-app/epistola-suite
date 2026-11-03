@@ -54,18 +54,18 @@ class CatalogBundleTest : IntegrationTestBase() {
 
     private fun template(tenant: TenantKey, catalog: CatalogKey, key: String, themeFrom: CatalogKey, theme: String) {
         val id = TemplateId(TemplateKey.of(key), testCatalog(TenantId(tenant), catalog))
-        CreateDocumentTemplate(id, key.replaceFirstChar { it.uppercase() }).execute().withRequiredDataExample()
-        UpdateDocumentTemplate(id, themeId = ThemeKey.of(theme), themeCatalog = testCatalog(id.tenantKey, themeFrom)).execute()
+        CreateDocumentTemplate(id, key.replaceFirstChar { it.uppercase() }, catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(id, themeId = ThemeKey.of(theme), themeCatalog = testCatalog(id.tenantKey, themeFrom), catalogVersion = null).execute()
     }
 
     /** base (theme `house`) 1.0.0 ← shared (theme `brand`, a letterhead on `house`) 1.0.0 ← letters (an invoice on `brand`) 1.0.0. */
     private fun chain(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, base, "Base").execute()
-        CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), base)), "House").execute()
+        CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), base)), "House", catalogVersion = null).execute()
         mediator.releaseNext(testCatalog(TenantId(tenant), base))
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
         template(tenant, shared, "letterhead", base, "house")
         mediator.releaseNext(testCatalog(TenantId(tenant), shared))
         CreateCatalog(tenant, letters, "Letters").execute()
@@ -107,7 +107,7 @@ class CatalogBundleTest : IntegrationTestBase() {
             .isEqualTo(CarriedReleaseRef(installedBase.registry, installedBase.namespace, base.value, "1.0.0", baseRelease.versionId))
         assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.latestReleaseVersion })
             .contains(base.value to "1.0.0", shared.value to "1.0.0", letters.value to "1.0.0")
-        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(target), letters))).query()!! }.themeCatalogKey)
+        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(target), letters)), catalogVersion = null).query()!! }.themeCatalogKey)
             .isEqualTo(shared)
 
         val again = withMediator { ImportCatalogZip(target, bundle, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute() }
@@ -135,7 +135,7 @@ class CatalogBundleTest : IntegrationTestBase() {
         assertThat(imported.installedDependencies.single { it.catalogKey == shared.value }.namespace).isEqualTo(carried.namespace)
         // The template's theme is the carried Shared's, which its declaration names.
         withMediator {
-            val template = GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), app.epistola.suite.common.ids.CatalogId(carried.namespace, letters, TenantId(target)))).query()!!
+            val template = GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), app.epistola.suite.common.ids.CatalogId(carried.namespace, letters, TenantId(target))), catalogVersion = null).query()!!
             assertThat(template.themeCatalogId).isEqualTo(carried.catalogId)
             assertThat(GetCatalog(carried.catalogId).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
         }

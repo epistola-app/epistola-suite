@@ -48,11 +48,11 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
 
     private fun template(tenantId: TenantId, name: String): VariantId {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = name).execute().withRequiredDataExample()
+        CreateDocumentTemplate(id = templateId, name = name, catalogVersion = null).execute().withRequiredDataExample()
         return VariantId(VariantKey.INITIAL, templateId)
     }
 
-    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model).execute().templateModel.also { MarkVariantReady(variantId).execute() }
+    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model, catalogVersion = null).execute().templateModel.also { MarkVariantReady(variantId, catalogVersion = null).execute() }
 
     private fun using(key: String) = stencilDocument {
         stencil("inst", key)
@@ -70,7 +70,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             build("ph")
         }
 
-        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = invalid).execute() }
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = invalid, catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL)
     }
@@ -83,7 +83,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             build("ph1", "ph2")
         }
 
-        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("placeholder-dup").id)), name = "Dup", content = duplicate).execute() }
+        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("placeholder-dup").id)), name = "Dup", content = duplicate, catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
     }
@@ -98,7 +98,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
 
-        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("stencil-graph-root").id)), name = "Invalid root", content = invalid).execute() }
+        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("stencil-graph-root").id)), name = "Invalid root", content = invalid, catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
     }
@@ -117,7 +117,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
 
-        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = malformed).execute() }
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = malformed, catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
@@ -128,7 +128,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     fun `saving a stencil whose own content uses it is refused, also inside a fill`() = test {
         val tenantId = TenantId(createTenant("placeholder-self").id)
         val box = stencilId(tenantId, "box")
-        CreateStencil(id = box, name = "Box").execute()
+        CreateStencil(id = box, name = "Box", catalogVersion = null).execute()
         // Inside the stencil's own content, a fill is still the stencil's: box(fill: box) is box in box.
         val selfInFill = stencilDocument {
             stencil("inner", "box")
@@ -137,13 +137,13 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             build("frame")
         }
 
-        assertThatThrownBy { UpdateStencil(id = box, content = using("box")).execute() }
+        assertThatThrownBy { UpdateStencil(id = box, content = using("box"), catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_RECURSION)
-        assertThatThrownBy { UpdateStencil(id = box, content = selfInFill).execute() }
+        assertThatThrownBy { UpdateStencil(id = box, content = selfInFill, catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_RECURSION)
-        assertThatThrownBy { CreateStencil(id = stencilId(tenantId, "loop"), name = "Loop", content = using("loop")).execute() }
+        assertThatThrownBy { CreateStencil(id = stencilId(tenantId, "loop"), name = "Loop", content = using("loop"), catalogVersion = null).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_RECURSION)
     }
@@ -151,10 +151,10 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     @Test
     fun `publishing refuses a stencil that contains itself through another`() = test {
         val tenantId = TenantId(createTenant("placeholder-recursion").id)
-        CreateStencil(id = stencilId(tenantId, "header"), name = "Header").execute()
-        CreateStencil(id = stencilId(tenantId, "address"), name = "Address", content = using("header")).execute()
+        CreateStencil(id = stencilId(tenantId, "header"), name = "Header", catalogVersion = null).execute()
+        CreateStencil(id = stencilId(tenantId, "address"), name = "Address", content = using("header"), catalogVersion = null).execute()
         // header → address → header: only the second write closes the cycle.
-        UpdateStencil(id = stencilId(tenantId, "header"), content = using("address")).execute()
+        UpdateStencil(id = stencilId(tenantId, "header"), content = using("address"), catalogVersion = null).execute()
 
         assertThatThrownBy { publish(template(tenantId, "Recursive"), using("header")) }
             .isInstanceOf(ValidationException::class.java)
@@ -168,7 +168,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         // stencil-0 uses stencil-1 uses … stencil-(depth-1), which is plain.
         (depth - 1 downTo 0).forEach { level ->
             val content = if (level == depth - 1) stencilDocument { build() } else using("stencil-${level + 1}")
-            CreateStencil(id = stencilId(tenantId, "stencil-$level"), name = "Level $level", content = content).execute()
+            CreateStencil(id = stencilId(tenantId, "stencil-$level"), name = "Level $level", content = content, catalogVersion = null).execute()
         }
 
         assertThatThrownBy { publish(template(tenantId, "Too deeply nested"), using("stencil-0")) }
@@ -186,6 +186,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 placeholder("inside", "inside")
                 build("inside")
             },
+            catalogVersion = null,
         ).execute()
 
         val boxInBox = stencilDocument {
@@ -209,6 +210,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 placeholder("body", "body")
                 build("letter-text", "body")
             },
+            catalogVersion = null,
         ).execute()
         CreateStencil(
             id = stencilId(tenantId, "address"),
@@ -217,6 +219,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                 text("address-text", "Nested address content")
                 build("address-text")
             },
+            catalogVersion = null,
         ).execute()
 
         val nested = stencilDocument {

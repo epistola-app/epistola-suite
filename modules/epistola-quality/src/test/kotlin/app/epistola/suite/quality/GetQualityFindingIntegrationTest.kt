@@ -37,15 +37,15 @@ class GetQualityFindingIntegrationTest : IntegrationTestBase() {
         return withMediator {
             val catalogId = CatalogId.default(TenantId(tenant.id))
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-            CreateDocumentTemplate(id = templateId, name = name).execute()
+            CreateDocumentTemplate(id = templateId, name = name, catalogVersion = null).execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-            CreateVariant(id = variantId, title = "Default", description = null).execute()
+            CreateVariant(id = variantId, title = "Default", description = null, catalogVersion = null).execute()
             QualitySubject.of(variantId)
         }
     }
 
     private fun onlyFindingOf(subject: QualitySubject) = withMediator {
-        ListQualityFindings(subject.tenantKey).query().items.single()
+        ListQualityFindings(subject.tenantKey, catalogVersion = null).query().items.single()
     }
 
     @Test

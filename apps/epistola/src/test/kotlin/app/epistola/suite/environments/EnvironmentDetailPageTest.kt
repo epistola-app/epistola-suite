@@ -186,14 +186,14 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     private fun releaseDependingOnShared(tenant: Tenant): String = withMediator {
         val shared = CatalogKey.of("shared")
         CreateCatalog(tenantKey = tenant.id, id = shared, name = "shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant.id, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0", catalogVersion = null).execute()
         val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!
-        UpdateCatalogDependencies(testCatalog(tenant.id, LETTERS), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
-        MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
+        UpdateCatalogDependencies(testCatalog(tenant.id, LETTERS), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant.id, LETTERS), catalogVersion = null).execute()
         // A dependency added is a breaking change: released as the number that needs.
-        ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS)).execute().version
+        ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), catalogVersion = null).execute().version
     }
 
     /** A catalog `letters` with releases 1.0.0 and 1.0.1, and an environment `production`. */
@@ -205,13 +205,13 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             CreateCatalog(tenantKey = tenant.id, id = LETTERS, name = "letters").execute()
             CreateEnvironment(production, "Production").execute()
             val catalog = testCatalog(TenantId(tenant.id), LETTERS)
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, LETTERS), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.0", catalogVersion = null).execute()
             // A correction, so the next patch.
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, corrected").execute()
-            MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.1").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, corrected", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, LETTERS), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.1", catalogVersion = null).execute()
         }
         return tenant to production
     }

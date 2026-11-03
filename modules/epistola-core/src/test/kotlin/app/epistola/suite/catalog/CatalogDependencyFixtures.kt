@@ -25,11 +25,12 @@ fun declareDependency(tenantKey: TenantKey, catalogKey: CatalogKey, on: CatalogK
     val target = requireNotNull(GetCatalog(testCatalog(tenantKey, on)).query()) { "No catalog '${on.value}'" }
     val pinned = release ?: target.latestReleaseVersion ?: target.latestReleaseVersion
     val draft = if (pinned == null) requireNotNull(GetCatalogDraft(testCatalog(tenantKey, on)).query()) { "Catalog '${on.value}' has neither a release nor a draft" }.versionId else null
-    val others = ListCatalogDependencies(testCatalog(tenantKey, catalogKey)).query()
+    val others = ListCatalogDependencies(testCatalog(tenantKey, catalogKey), catalogVersion = null).query()
         .filter { it.catalogKey != on.value }
         .map { DeclaredCatalogDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion, it.draftId) }
     return UpdateCatalogDependencies(
         testCatalog(tenantKey, catalogKey),
         others + DeclaredCatalogDependency(target.registry, target.namespace, on.value, pinned, draft),
+        catalogVersion = null,
     ).execute()
 }

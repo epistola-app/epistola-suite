@@ -41,7 +41,7 @@ private fun optionsFor(def: VariantAttributeDefinition): List<AttributeOption> {
     val codeListId = def.codeListId
     if (codeListId != null) {
         // The list's catalog at the version the attribute's catalog declares (ADR 0033, step 3).
-        return ListCodeListEntries(codeListId, includeHidden = false, boundFrom = def.catalogId).query()
+        return ListCodeListEntries(codeListId, includeHidden = false, boundFrom = def.catalogId, catalogVersion = null).query()
             .map { AttributeOption(code = it.code, label = it.label) }
     }
     return def.allowedValues.map { AttributeOption(code = it, label = it) }

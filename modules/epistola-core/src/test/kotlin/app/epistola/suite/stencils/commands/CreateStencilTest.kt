@@ -28,9 +28,10 @@ class CreateStencilTest : IntegrationTestBase() {
             CreateStencil(
                 id = id,
                 name = "Empty Stencil",
+                catalogVersion = null,
             ).execute()
 
-            val stencil = GetStencil(id = id).query()
+            val stencil = GetStencil(id = id, catalogVersion = null).query()
 
             assertThat(stencil).isNotNull
             assertThat(stencil!!.content.root).isEqualTo("root")

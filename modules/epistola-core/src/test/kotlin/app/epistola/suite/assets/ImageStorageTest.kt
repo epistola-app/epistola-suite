@@ -53,11 +53,11 @@ class ImageStorageTest : IntegrationTestBase() {
         val bytes = png(0x123456)
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            val created = UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1, id = AssetKey.of("logo")).execute()
-            assertThat(created).`as`("what an upload returns is what a read gives").isEqualTo(GetAsset(tenant, AssetKey.of("logo")).query())
+            val created = UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1, id = AssetKey.of("logo"), catalogVersion = null).execute()
+            assertThat(created).`as`("what an upload returns is what a read gives").isEqualTo(GetAsset(tenant, AssetKey.of("logo"), catalogVersion = null).query())
             assertThat(created.sizeBytes).isEqualTo(bytes.size.toLong())
-            assertThat(GetAssetContent(tenant, AssetKey.of("logo")).query()!!.content).isEqualTo(bytes)
-            assertThat(ListImagePage(letters, limit = 10, offset = 0).query().items.map { it.id.value }).containsExactly("logo")
+            assertThat(GetAssetContent(tenant, AssetKey.of("logo"), catalogVersion = null).query()!!.content).isEqualTo(bytes)
+            assertThat(ListImagePage(letters, limit = 10, offset = 0, catalogVersion = null).query().items.map { it.id.value }).containsExactly("logo")
         }
         assertThat(
             one(
@@ -69,8 +69,8 @@ class ImageStorageTest : IntegrationTestBase() {
         ).`as`("its content links to its bytes").isEqualTo("1")
         assertThat(one("SELECT CAST(to_regclass('assets') IS NULL AND to_regclass('content_store') IS NULL AS TEXT)")).isEqualTo("true")
 
-        withMediator { DeleteAsset(tenant, AssetKey.of("logo")).execute() }
-        assertThat(withMediator { GetAsset(tenant, AssetKey.of("logo")).query() }).isNull()
+        withMediator { DeleteAsset(tenant, AssetKey.of("logo"), catalogVersion = null).execute() }
+        assertThat(withMediator { GetAsset(tenant, AssetKey.of("logo"), catalogVersion = null).query() }).isNull()
     }
 
     @Test
@@ -81,7 +81,7 @@ class ImageStorageTest : IntegrationTestBase() {
             val letters = testCatalog(tenant, CatalogKey.of("letters"))
             withMediator {
                 CreateCatalog(tenant, letters.key, "Letters").execute()
-                UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1).execute()
+                UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1, catalogVersion = null).execute()
             }
         }
         assertThat(one("SELECT count(*) FROM asset_content WHERE content_hash = '${app.epistola.suite.common.sha256Hex(bytes)}'")).isEqualTo("1")
@@ -94,14 +94,14 @@ class ImageStorageTest : IntegrationTestBase() {
         val bytes = png(0x0000ff)
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1, id = AssetKey.of("logo")).execute()
+            UploadAsset(letters, "Logo", AssetMediaType.PNG, bytes, 2, 1, id = AssetKey.of("logo"), catalogVersion = null).execute()
         }
         val version = withMediator { mediator.releaseNext(letters) }
         val released = CatalogReleaseRef(letters, DraftRef.Released(version))
         withMediator {
             fun content(page: List<Asset>) = page.map { listOf(it.id, it.name, it.mediaType, it.width, it.height, it.sizeBytes) }
             assertThat(content(ListImagePage(letters, limit = 10, offset = 0, catalogVersion = released).query().items))
-                .isEqualTo(content(ListImagePage(letters, limit = 10, offset = 0).query().items))
+                .isEqualTo(content(ListImagePage(letters, limit = 10, offset = 0, catalogVersion = null).query().items))
             assertThat(GetAssetContent(tenant, AssetKey.of("logo"), catalog = letters, catalogVersion = released).query()!!.content).isEqualTo(bytes)
         }
     }
@@ -112,8 +112,8 @@ class ImageStorageTest : IntegrationTestBase() {
         val letters = testCatalog(tenant, CatalogKey.of("letters"))
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            UploadAsset(letters, "Logo", AssetMediaType.PNG, png(0xff0000), 2, 1).execute()
-            UploadAsset(letters, "Mark", AssetMediaType.SVG, """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""".toByteArray(), null, null).execute()
+            UploadAsset(letters, "Logo", AssetMediaType.PNG, png(0xff0000), 2, 1, catalogVersion = null).execute()
+            UploadAsset(letters, "Mark", AssetMediaType.SVG, """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""".toByteArray(), null, null, catalogVersion = null).execute()
         }
         ImageStorageConversion.verify(jdbi, systemCatalog(tenant))
         ImageStorageConversion.verify(jdbi, letters)

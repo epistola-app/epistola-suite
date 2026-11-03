@@ -101,5 +101,6 @@ class DefaultsHandler(
             key = CodeListKey.of("bcp-47"),
             catalogId = app.epistola.suite.catalog.system.systemCatalog(tenantKey),
         ),
+        catalogVersion = null,
     ).query()
 }

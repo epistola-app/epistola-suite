@@ -24,6 +24,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SystemCatalogSetup
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -80,7 +81,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     fun `a new tenant has the nine system font families`() {
         val tenant = createTenant("Fonts1", SystemCatalogSetup.INSTALL)
         withMediator {
-            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
+            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY), catalogVersion = null).query()
             assertThat(fonts).hasSize(9)
             assertThat(fonts.map { it.slug.value }).containsExactlyInAnyOrderElementsOf(expectedSlugs)
         }
@@ -105,6 +106,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                         slug = FontKey.of(slug),
                         weight = weight,
                         italic = italic,
+                        catalogVersion = null,
                     ).query()
                     assertThat(bytes)
                         .withFailMessage("no bytes for $slug/$weight/$italic")
@@ -124,7 +126,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         withMediator {
             // CreateTenant installed the system catalog once; install it again: nothing changes.
             InstallSystemCatalog(tenant.id).execute()
-            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
+            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY), catalogVersion = null).query()
             assertThat(fonts).hasSize(9)
         }
     }
@@ -171,7 +173,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             // Each face is a binary of its font's content (ADR 0033): its hash, and a link to bytes stored under it.
             handle.createQuery(
                 """
-                SELECT face ->> 'contentHash' FROM current_fonts f
+                SELECT face ->> 'contentHash' FROM ${atNext("version_fonts")} f
                 CROSS JOIN LATERAL jsonb_array_elements(f.variants) face
                 WHERE f.tenant_key = :tenantKey AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                   AND EXISTS (
@@ -229,6 +231,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
                 testCatalog(tenant.id, CatalogId.default(tenantId).key),
                 app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("default"), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)),
+                catalogVersion = null,
             ).execute()
             val template = template(tenant.id, "Fonts Render Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
@@ -283,6 +286,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                         """.trimIndent(),
                         ObjectNode::class.java,
                     ),
+                    catalogVersion = null,
                 ).execute()
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
@@ -308,6 +312,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = data,
+                    catalogVersion = null,
                 ),
             )
         }.then { _, pdfBytes ->

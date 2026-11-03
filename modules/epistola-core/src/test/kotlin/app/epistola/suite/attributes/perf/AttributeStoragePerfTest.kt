@@ -57,13 +57,13 @@ class AttributeStoragePerfTest : IntegrationTestBase() {
             for (c in 0 until CATALOGS) {
                 val catalog = testCatalog(tenant, CatalogKey.of("cat-$c"))
                 CreateCatalog(tenantKey = tenant, id = catalog.key, name = "Catalog $c").execute()
-                repeat(LISTS) { l -> CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = (0 until 50).map { CodeListEntry("c$it", "Entry $it", it) }).execute() }
+                repeat(LISTS) { l -> CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = (0 until 50).map { CodeListEntry("c$it", "Entry $it", it) }, catalogVersion = null).execute() }
                 repeat(ATTRIBUTES) { a ->
                     val id = AttributeId(AttributeKey.of("attr-$a"), catalog)
                     when (a % 3) {
-                        0 -> CreateAttributeDefinition(id, "Attribute $c/$a", codeListId = CodeListId(CodeListKey.of("list-${a % LISTS}"), catalog)).execute()
-                        1 -> if (c == 0) CreateAttributeDefinition(id, "Attribute $c/$a", allowedValues = listOf("x", "y")).execute() else CreateAttributeDefinition(id, "Attribute $c/$a", codeListId = CodeListId(CodeListKey.of("list-${a % LISTS}"), shared)).execute()
-                        else -> CreateAttributeDefinition(id, "Attribute $c/$a", allowedValues = listOf("a", "b", "c")).execute()
+                        0 -> CreateAttributeDefinition(id, "Attribute $c/$a", codeListId = CodeListId(CodeListKey.of("list-${a % LISTS}"), catalog), catalogVersion = null).execute()
+                        1 -> if (c == 0) CreateAttributeDefinition(id, "Attribute $c/$a", allowedValues = listOf("x", "y"), catalogVersion = null).execute() else CreateAttributeDefinition(id, "Attribute $c/$a", codeListId = CodeListId(CodeListKey.of("list-${a % LISTS}"), shared), catalogVersion = null).execute()
+                        else -> CreateAttributeDefinition(id, "Attribute $c/$a", allowedValues = listOf("a", "b", "c"), catalogVersion = null).execute()
                     }
                 }
                 mediator.releaseNext(catalog)
@@ -74,14 +74,14 @@ class AttributeStoragePerfTest : IntegrationTestBase() {
         val boundList = CodeListId(CodeListKey.of("list-0"), catalog)
         var flip = 0
         val results = listOf(
-            measure("list a tenant's attributes") { ListAttributeDefinitions(TenantId(tenant)).query() },
-            measure("list a catalog's attributes") { ListAttributeDefinitions(TenantId(tenant), catalog = catalog).query() },
-            measure("read one attribute") { GetAttributeDefinition(one).query() },
-            measure("save an attribute") { UpdateAttributeDefinition(one, "Attribute ${flip++}", codeListId = boundList).execute() },
+            measure("list a tenant's attributes") { ListAttributeDefinitions(TenantId(tenant), catalogVersion = null).query() },
+            measure("list a catalog's attributes") { ListAttributeDefinitions(TenantId(tenant), catalog = catalog, catalogVersion = null).query() },
+            measure("read one attribute") { GetAttributeDefinition(one, catalogVersion = null).query() },
+            measure("save an attribute") { UpdateAttributeDefinition(one, "Attribute ${flip++}", codeListId = boundList, catalogVersion = null).execute() },
             measure("validate variant attributes (3)") {
-                validateAttributes(TenantId(tenant), mapOf("${catalog.key.value}.attr-0" to "c1", "${catalog.key.value}.attr-1" to "c2", "${catalog.key.value}.attr-2" to "a"))
+                validateAttributes(TenantId(tenant), mapOf("${catalog.key.value}.attr-0" to "c1", "${catalog.key.value}.attr-1" to "c2", "${catalog.key.value}.attr-2" to "a"), catalogVersion = null)
             },
-            measure("delete a bound code list (refused)", runs = 100) { runCatching { DeleteCodeList(boundList).execute() } },
+            measure("delete a bound code list (refused)", runs = 100) { runCatching { DeleteCodeList(boundList, catalogVersion = null).execute() } },
         )
         val report = buildString {
             appendLine("operation,cold_ms,median_ms,p95_ms")

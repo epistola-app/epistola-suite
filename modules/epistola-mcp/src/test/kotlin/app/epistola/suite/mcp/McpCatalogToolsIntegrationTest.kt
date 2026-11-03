@@ -113,17 +113,17 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
         val brand = { tenant: TenantKey -> ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)) }
         withMediator {
             CreateCatalog(tenantKey = author, id = catalog, name = "Received").execute()
-            CreateTheme(id = brand(author), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(author, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0").execute()
+            CreateTheme(id = brand(author), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(author, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0", catalogVersion = null).execute()
             val archive = ExportCatalogZip(testCatalog(author, catalog), "1.0.0").execute().zipBytes
             // Received from a file, then changed and released here: it is a catalog like any other.
             ImportCatalogZip(receiver.key, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
-            MarkCatalogReady(testCatalog(receiver.key, catalog)).execute()
+            UpdateTheme(brand(receiver.key), name = "Brand, ours", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(receiver.key, catalog), catalogVersion = null).execute()
             // Releasing it here needs its namespace: the two tenants share it.
             TestNamespaces.share(author, receiver.key).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(receiver.key, catalog), version = "1.0.1").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(receiver.key, catalog), version = "1.0.1", catalogVersion = null).execute()
         }
 
         val catalogs = runAsApiKey(receiver) { catalogTools.listCatalogs() }.associateBy { it.id }
@@ -201,6 +201,7 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
                     displayName = "Regions of $namespace",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("eu", "Europe")),
+                    catalogVersion = null,
                 ).execute()
             }
         }

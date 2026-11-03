@@ -7,8 +7,8 @@ package app.epistola.suite.templates.commands.variants
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -31,8 +31,8 @@ import org.springframework.stereotype.Component
  */
 data class SetDefaultVariant(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The revision of the variant made the default, as read; null to make it the default whatever it is at. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -51,11 +51,12 @@ class SetDefaultVariantHandler(
         requireCatalogEditable(command.variantId.catalogId)
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val key = command.variantId.key.value
-            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
+            val at = handle.versionOf(command.variantId.catalogId, command)
+            templates.modifyVariant(handle, at, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
                 template.variant(key) ?: return@modifyVariant null
                 template.copy(variants = template.variants.map { it.copy(isDefault = it.key == key) })
             } ?: return@inTransaction null
-            templateVariant(handle, command.variantId)
+            templateVariant(handle, at, command.variantId)
         }
     }
 }

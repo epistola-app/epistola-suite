@@ -199,9 +199,11 @@ draft now holds such a stencil as its latest archived version, what those templa
 Step 8 (`V20261101000800`) was corrected too: a stencil instance whose copy became plain content lost
 the styles set on the instance itself, such as keep together or a margin; it now becomes a container
 keeping them. Content alpha.1 converted keeps what it lost: set those styles again where it matters.
-Because the upgrade steps changed (step 9, and the conversion code steps 5 to 10 share), a later 2.0
-version refuses to start on any database alpha.1 migrated, whether it came from 1.x or not: Flyway
-reports a checksum mismatch, and nothing is changed.
+The read model (`V20261101001500`) was rewritten as well: it holds every catalog version's content
+and chooses none, where alpha.1's views read the version a statement means from session settings
+(ADR 0049). Because the upgrade steps changed (step 9, the conversion code steps 5 to 10 share, and
+step 15), a later 2.0 version refuses to start on any database alpha.1 migrated, whether it came from
+1.x or not: Flyway reports a checksum mismatch, and nothing is changed.
 
 Stop alpha.1 and run [`upgrades/2.0.0-alpha.1-repair.sql`](upgrades/2.0.0-alpha.1-repair.sql) once,
 in one transaction, before starting the later version:
@@ -210,7 +212,8 @@ in one transaction, before starting the later version:
 psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f 2.0.0-alpha.1-repair.sql
 ```
 
-It records the corrected steps, and gives each "Published in 1.x" draft the stencils it is missing,
+It records the corrected steps, puts the read model's views in place of alpha.1's, and gives each
+"Published in 1.x" draft the stencils it is missing,
 as the catalog's next draft holds them: the 1.x versions are gone by then, so a stencil that got a
 draft after its version was archived comes with that draft's content, not marked ready. Releasing
 refuses until it is ("not ready: stencil '…'"): check it, mark it ready, then release. A

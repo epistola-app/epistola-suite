@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -51,7 +52,7 @@ class GetFontFamilyFingerprintHandler(
 ) : QueryHandler<GetFontFamilyFingerprint, String?> {
 
     override fun handle(query: GetFontFamilyFingerprint): String? {
-        val faces = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, FontId(query.slug, query.catalog)) }
+        val faces = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, handle.versionOf(query.catalog, query), FontId(query.slug, query.catalog)) }
         if (faces.isEmpty()) return null
 
         val canonical = faces

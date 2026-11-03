@@ -7,8 +7,8 @@ package app.epistola.suite.templates.commands.variants
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -23,8 +23,8 @@ import org.springframework.stereotype.Component
 
 data class DeleteVariant(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -42,7 +42,7 @@ class DeleteVariantHandler(
 
         return jdbi.inTransaction<Boolean, Exception> { handle ->
             val key = command.variantId.key.value
-            templates.modify(handle, command.variantId.templateId, currentUserIdOrNull()?.value, null, "Variant '$key'") { template ->
+            templates.modify(handle, handle.versionOf(command.variantId.catalogId, command), command.variantId.templateId, currentUserIdOrNull()?.value, null, "Variant '$key'") { template ->
                 val variant = template.variant(key) ?: return@modify null
                 // The default variant cannot go.
                 if (variant.isDefault) throw DefaultVariantDeletionException(command.variantId.key)

@@ -41,10 +41,10 @@ class GetGettingStartedTest : IntegrationTestBase() {
         assertThat(steps()).isEqualTo(GettingStarted(hasTemplate = false, hasPublished = false, hasDeployed = false, hasDocument = false))
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        mediator.send(CreateDocumentTemplate(id = templateId, name = "Letter"))
+        mediator.send(CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
-        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Letter")))
+        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Letter"), catalogVersion = null))
         assertThat(steps().hasTemplate).isTrue()
         assertThat(steps().hasPublished).isFalse()
 

@@ -19,7 +19,7 @@ import java.util.UUID
  * already dangled stays, so a draft upgraded from 1.x with such a reference can still be edited; only
  * releasing it refuses it.
  *
- * Every writer of a version passes the freeze guard (`requireWritableVersion`), which reports the
+ * Every writer of a version passes the freeze guard (`ContentVersions.writable`), which reports the
  * version here. Its first write in a transaction notes what of it is unresolved then; before the
  * transaction commits, anything unresolved that was not is refused, and the transaction rolls back.
  * Checking at commit, not per write, lets one command write a template before the stencil it uses.

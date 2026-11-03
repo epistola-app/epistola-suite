@@ -68,12 +68,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
         val key = CatalogKey.of("forget-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Forget cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first", catalogVersion = null).execute()
             // The next version holds the same content as a draft row (ADR 0033); without it, only the
             // release reaches it.
-            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key))).execute()
+            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), catalogVersion = null).execute()
 
             assertThat(revisionCount(tenant.id)).`as`("released content is retained").isGreaterThan(0)
 
@@ -103,12 +103,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
             // Published, not merely created: a release takes published versions only, so a draft
             // template carries no model and would write no model revision to reason about.
             publishTemplate(TemplateId(TemplateKey.of("invoice"), catalog))
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
 
             publishTemplate(TemplateId(TemplateKey.of("letter"), catalog))
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0", catalogVersion = null).execute()
 
             val models = modelsOf(tenant.id, "1.1.0")
             assertThat(models).`as`("a template's model is a revision of its own").isNotEmpty()
@@ -136,9 +136,9 @@ class RevisionCollectionTest : IntegrationTestBase() {
         val key = CatalogKey.of("doomed-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Doomed cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
 
             assertThat(revisionCount(tenant.id)).isGreaterThan(0)
 
@@ -171,10 +171,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 content = ByteArray(256) { (it % 251).toByte() },
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute().id
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
-            DeleteAsset(tenant.id, asset).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
+            DeleteAsset(tenant.id, asset, catalogVersion = null).execute()
 
             assertThat(binaryCount(tenant.id))
                 .`as`("only the release holds those bytes now")
@@ -202,12 +203,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Latest cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0", catalogVersion = null).execute()
 
             assertThat(pointer(tenant.id.value, "latest-cat")["released_version"]).isEqualTo("1.1.0")
 
@@ -228,12 +229,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Older cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0", catalogVersion = null).execute()
 
             DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()
 
@@ -249,11 +250,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
         val key = CatalogKey.of("only-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Only cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", catalogVersion = null).execute()
             // Only the release reaches the theme's content once the next version holds it no more.
-            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key))).execute()
+            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), catalogVersion = null).execute()
 
             DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()
 
@@ -283,7 +284,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     /** Creates a template, gives it a document and publishes it, so a release can carry a model. */
     private fun publishTemplate(templateId: TemplateId) {
         val variant = VariantId(VariantKey.INITIAL, templateId)
-        CreateDocumentTemplate(templateId, templateId.key.value).execute().withRequiredDataExample()
+        CreateDocumentTemplate(templateId, templateId.key.value, catalogVersion = null).execute().withRequiredDataExample()
         UpdateVariantContent(
             variant,
             TemplateDocument(
@@ -293,8 +294,9 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 slots = emptyMap(),
                 themeRef = ThemeRef.Inherit,
             ),
+            catalogVersion = null,
         ).execute()
-        MarkVariantReady(variant).execute()
+        MarkVariantReady(variant, catalogVersion = null).execute()
     }
 
     /**

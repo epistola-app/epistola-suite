@@ -5,6 +5,8 @@
 package app.epistola.suite.quality.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -91,7 +93,7 @@ class RecordManualFindingHandler(
                     fingerprint, input_key, context, metadata, status, first_seen_at, last_seen_at, resolved_at
                 ) VALUES (
                     :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                    ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, NULL, NULL,
+                    ${templateIn("tenantKey", "catalogKey", "templateKey", "v")}, :variantKey, :versionKey, :nodeIds, :path, :message, NULL, NULL,
                     -- message_code NULL: a person's note is prose, not a translatable template.
                     -- metadata '{}': no checker produced it, so there is no operational data to carry.
                     :fingerprint, NULL, '{}'::jsonb, '{}'::jsonb, 'OPEN', :now, :now, NULL
@@ -107,6 +109,7 @@ class RecordManualFindingHandler(
                 .bind("subjectType", command.subject.type.name)
                 .bind("ignoreScopeUrn", command.subject.ignoreScopeUrn)
                 .bindCatalog("catalogKey", command.subject.catalogId)
+                .bindVersion("v", handle.versionOf(command.subject.catalogId, command).versionId)
                 .bind("templateKey", command.subject.templateKey)
                 .bind("variantKey", command.subject.variantKey)
                 .bind("versionKey", command.subject.versionKey)

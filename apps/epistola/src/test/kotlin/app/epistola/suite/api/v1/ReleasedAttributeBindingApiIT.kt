@@ -110,15 +110,17 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
             id = AttributeId(AttributeKey.of("preferred-language"), testCatalog(TenantId(tenantKey), letters)),
             displayName = "Preferred language",
             codeListId = CodeListId(CodeListKey.of("iso-639-1"), testCatalog(TenantId(tenantKey), SYSTEM_CATALOG_KEY)),
+            catalogVersion = null,
         ).execute()
-        CreateCodeList(CodeListId(CodeListKey.of("tones"), testCatalog(TenantId(tenantKey), letters)), "Tones", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("formal", "Formal"))).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("tones"), testCatalog(TenantId(tenantKey), letters)), "Tones", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("formal", "Formal")), catalogVersion = null).execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(tenantKey), letters)),
             displayName = "Tone",
             codeListId = CodeListId(CodeListKey.of("tones"), testCatalog(TenantId(tenantKey), letters)),
+            catalogVersion = null,
         ).execute()
-        MarkCatalogReady(testCatalog(tenantKey, letters)).execute()
-        ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenantKey, letters), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0", catalogVersion = null).execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "rab-it").execute().plaintextKey
     }
 

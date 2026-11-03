@@ -8,7 +8,9 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
@@ -37,6 +39,8 @@ import tools.jackson.databind.ObjectMapper
  */
 data class ImportStencil(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -46,7 +50,8 @@ data class ImportStencil(
     val readsTemplateData: Boolean = false,
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
-) : Command<InstallStatus>,
+) : CatalogReleaseScoped,
+    Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -81,13 +86,14 @@ class ImportStencilHandler(
         val content = objectMapper.readValue(contentJson, app.epistola.template.model.TemplateDocument::class.java)
         val parameterSchema = parameterSchemaJson?.let(objectMapper::readTree)
         return jdbi.withHandle<InstallStatus, Exception> { handle ->
-            val current = stencils.get(handle, id)
+            val at = handle.versionOf(command.catalog, command)
+            val current = stencils.get(handle, at, id)
             // Compared by value, as the stored content would be.
             val unchanged = current?.let {
                 objectMapper.valueToTree<JsonNode>(it.content) == objectMapper.valueToTree<JsonNode>(content) &&
                     it.parameterSchema == parameterSchema && it.readsTemplateData == command.readsTemplateData
             }
-            stencils.put(handle, id, app.epistola.suite.stencils.StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData, command.metadata), auditUser)
+            stencils.put(handle, at, id, app.epistola.suite.stencils.StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData, command.metadata), auditUser)
             when (unchanged) {
                 null -> InstallStatus.INSTALLED
                 true -> InstallStatus.SKIPPED

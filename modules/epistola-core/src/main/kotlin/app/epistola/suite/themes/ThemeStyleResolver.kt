@@ -9,10 +9,8 @@ import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
-import app.epistola.suite.catalog.inCurrentVersion
-import app.epistola.suite.catalog.releases.VersionReads
-import app.epistola.suite.catalog.releases.VersionSelection
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.ContentVersions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -63,12 +61,12 @@ class ThemeStyleResolver(
      * Resolves document-level styles with the theme cascade (contract ADR 0007): the variant's own
      * theme (the template model's `themeRef`), then the template's default theme, then the catalog's.
      * Each theme is of a catalog: the template's default theme of [templateThemeCatalog], the
-     * catalog's of [catalogDefaultThemeCatalog], both [templateCatalog] when null; the variant's names
-     * its catalog by alias, resolved from [templateCatalog] (ADR 0034, section 9). Template styles
-     * override the theme's.
+     * catalog's of [catalogDefaultThemeCatalog], both the template's catalog when null; the variant's
+     * names its catalog by alias, resolved from the template's catalog (ADR 0034, section 9). Template
+     * styles override the theme's. [template] is the version of its catalog the template is read in.
      */
     fun resolveStyles(
-        templateCatalog: CatalogId,
+        template: ContentVersion,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
@@ -76,7 +74,7 @@ class ThemeStyleResolver(
         catalogDefaultThemeCatalog: CatalogId? = null,
         dependencies: DraftDependencyView? = null,
     ): ResolvedStyles {
-        val theme = resolveTheme(templateCatalog, templateDefaultThemeId, catalogDefaultThemeId, templateModel, templateThemeCatalog, catalogDefaultThemeCatalog, dependencies)
+        val theme = resolveTheme(template, templateDefaultThemeId, catalogDefaultThemeId, templateModel, templateThemeCatalog, catalogDefaultThemeCatalog, dependencies)
         val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
 
         return if (theme != null) {
@@ -106,7 +104,7 @@ class ThemeStyleResolver(
      * the release it pins, or the draft it names.
      */
     fun resolveTheme(
-        templateCatalog: CatalogId,
+        template: ContentVersion,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
@@ -114,11 +112,12 @@ class ThemeStyleResolver(
         catalogDefaultThemeCatalog: CatalogId? = null,
         dependencies: DraftDependencyView? = null,
     ): Theme? {
+        val templateCatalog = template.catalog
         val ref = templateModel.themeRef
         val (themeId, catalog) = when {
             ref is ThemeRefOverride -> {
                 // The variant's theme, by alias from the template's catalog.
-                val catalog = dependencies?.resolve(templateCatalog, ref.catalogKey) ?: references.resolve(templateCatalog, ref.catalogKey) ?: return null
+                val catalog = dependencies?.resolve(templateCatalog, ref.catalogKey) ?: references.resolve(template, ref.catalogKey) ?: return null
                 ThemeKey.of(ref.themeKey) to catalog
             }
 
@@ -128,19 +127,28 @@ class ThemeStyleResolver(
 
             else -> return null
         }
-        return getTheme(catalog, themeId, dependencies)
+        return getTheme(catalog, themeId, template, dependencies)
     }
 
     /**
-     * The theme [themeId] of [catalog] in the version a read means: the release or draft
-     * [dependencies] say the template's version uses of that catalog, else its meant version. Read
-     * through `current_themes` ([ThemeReads]) whatever the version, so a release and a draft give the
-     * same theme for the same content (ADR 0033).
+     * The theme [themeId] of [catalog] in the version the template's version [template] uses of it:
+     * the release or draft [dependencies] say it uses, else [template] itself for its own catalog,
+     * else that catalog's next version. Read through `version_themes` ([ThemeReads]) whatever the
+     * version, so a release and a draft give the same theme for the same content (ADR 0033).
      */
-    private fun getTheme(catalog: CatalogId, themeId: ThemeKey, dependencies: DraftDependencyView?): Theme? {
-        val selection = dependencies?.releaseOf(catalog)?.let { VersionSelection.Release(it.catalog, it.version) }
-            ?: dependencies?.draftOf(catalog)?.let { VersionSelection.Draft(it.versionId) }
-        return jdbi.withHandle<Theme?, Exception> { handle -> VersionReads.at(handle, selection) { ThemeReads.get(it, objectMapper, catalog, themeId) } }
+    private fun getTheme(catalog: CatalogId, themeId: ThemeKey, template: ContentVersion, dependencies: DraftDependencyView?): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+        val released = dependencies?.releaseOf(catalog)
+        val versionId = when {
+            // A release that is not here reads nothing.
+            released != null -> ContentVersions.release(handle, released.catalog, released.version)
+
+            dependencies?.draftOf(catalog) != null -> dependencies.draftOf(catalog)?.versionId
+
+            catalog == template.catalog -> template.versionId
+
+            else -> ContentVersions.next(handle, catalog)
+        }
+        ThemeReads.get(handle, objectMapper, ContentVersion(catalog, versionId), themeId)
     }
 
     /**

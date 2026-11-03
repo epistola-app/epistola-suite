@@ -90,7 +90,7 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
             .hasMessageContaining("/${SHARED.value} (")
             .hasMessageContaining("Release them first, or release them along")
 
-        val sharedRelease = asTenant(DEPS) { ReleaseCatalogDraft(shared).execute() }
+        val sharedRelease = asTenant(DEPS) { ReleaseCatalogDraft(shared, catalogVersion = null).execute() }
         val lettersRelease = asTenant(DEPS) { published.execute() }
 
         assertThat(lettersRelease.version).`as`("the patch after letters' 1.x release").isEqualTo("1.1.1")
@@ -103,7 +103,7 @@ abstract class OneXUpgradeScenariosIT : BaseIntegrationTest() {
             .`as`("the tenant's 1.x catalog receives it, renamed to the name its source gives it; no second catalog").isOne()
         val partner = CatalogId(PUBLISHER_NAMESPACE, PARTNER, TenantId(SUBSCRIBER))
         assertThat(releases(SUBSCRIBER, PARTNER)).`as`("received at boot from its source, on the upgrade from 1.x").containsExactly("1.1.0" to "upgrade-1x")
-        val theme = requireNotNull(asTenant(SUBSCRIBER) { GetTheme(ThemeId(ThemeKey.of("partner-theme"), partner)).query() })
+        val theme = requireNotNull(asTenant(SUBSCRIBER) { GetTheme(ThemeId(ThemeKey.of("partner-theme"), partner), catalogVersion = null).query() })
         assertThat(theme.documentStyles["fontSize"]).`as`("its next version fast-forwarded to the received release").isEqualTo("12pt")
     }
 

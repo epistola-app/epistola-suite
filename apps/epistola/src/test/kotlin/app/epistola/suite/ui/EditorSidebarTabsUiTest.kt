@@ -36,8 +36,8 @@ class EditorSidebarTabsUiTest : BasePlaywrightTest() {
             // The plugin tabs a tenant can switch on, as the demo has them: Quality last.
             listOf(KnownFeatures.QUALITY, KnownFeatures.AI_CHAT).forEach { SaveFeatureToggle(tenant.id, it, enabled = true).execute() }
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-            CreateDocumentTemplate(id = templateId, name = "Sidebar Tabs").execute()
-            val variant = CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Default", null, emptyMap()).execute()!!
+            CreateDocumentTemplate(id = templateId, name = "Sidebar Tabs", catalogVersion = null).execute()
+            val variant = CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Default", null, emptyMap(), catalogVersion = null).execute()!!
             "/tenants/${tenant.id}/catalogs/default/templates/${templateId.key.value}/variants/${variant.id}/editor"
         }
 

@@ -37,6 +37,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTenantCounter
+import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -69,7 +70,7 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
             CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
             repeat(releases) { index ->
                 val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice-$index"), CatalogId(namespace, letters, TenantId(tenant))))
-                CreateDocumentTemplate(variant.templateId, "Invoice $index").execute()
+                CreateDocumentTemplate(variant.templateId, "Invoice $index", catalogVersion = null).execute()
                 DeployCatalogRelease(production, CatalogId(namespace, letters, TenantId(tenant)), mediator.publishAndRelease(variant)).execute()
             }
         }
@@ -123,7 +124,7 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
         withMediator {
             val brand = CatalogKey.of("brand")
             CreateCatalog(tenant, brand, "Brand", namespace = "acme").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId("acme", brand, TenantId(tenant))), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId("acme", brand, TenantId(tenant))), "House", catalogVersion = null).execute()
             SetTenantDefaultTheme(tenant, themeId = ThemeKey.of("house"), catalog = CatalogId("acme", brand, TenantId(tenant))).execute()
 
             assertThat(ApplyHouseTheme(tenant).execute().applied).contains(acme(tenant), bureau(tenant))
@@ -138,9 +139,9 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
             CreateCatalog(tenant, forms, "Forms", namespace = "acme").execute()
             val formsCatalog = CatalogId("acme", forms, TenantId(tenant))
             // A reference by the key alone, which two catalogs have, names neither: refused, saying so.
-            assertThatThrownBy { usedCatalogs.declareAliases(formsCatalog, listOf(letters)) }
+            assertThatThrownBy { usedCatalogs.declareAliases(nextVersion(formsCatalog), listOf(letters)) }
                 .isInstanceOfSatisfying(app.epistola.suite.validation.ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.CATALOG_KEY_AMBIGUOUS) }
-            val declared = usedCatalogs.declare(formsCatalog, bureau(tenant))
+            val declared = usedCatalogs.declare(nextVersion(formsCatalog), bureau(tenant))
             assertThat(declared.map { it.namespace to it.catalogKey }).containsExactly("bureau" to "letters")
 
             assertThat(GetCatalogNames(tenant, listOf(letters)).query()).`as`("named by neither").isEmpty()

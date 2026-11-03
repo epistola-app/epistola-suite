@@ -24,6 +24,7 @@ fun ensureRequiredDataExample(templateId: TemplateId) {
                 data = JsonNodeFactory.instance.objectNode(),
             ),
         ),
+        catalogVersion = null,
     ).execute()
 }
 

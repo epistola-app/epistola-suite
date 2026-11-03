@@ -167,6 +167,7 @@ class ScenarioBuilder(private val namespace: String, private val systemCatalogTe
                 CreateDocumentTemplate(
                     id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
                     name = name,
+                    catalogVersion = null,
                 ),
             )
             return template.withRequiredDataExample()
@@ -194,6 +195,7 @@ class ScenarioBuilder(private val namespace: String, private val systemCatalogTe
                     title = title ?: id.key.value,
                     description = description,
                     attributes = attributes,
+                    catalogVersion = null,
                 ),
             )!!
         }
@@ -212,6 +214,7 @@ class ScenarioBuilder(private val namespace: String, private val systemCatalogTe
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
+                catalogVersion = null,
             ),
         ).templateModel
 

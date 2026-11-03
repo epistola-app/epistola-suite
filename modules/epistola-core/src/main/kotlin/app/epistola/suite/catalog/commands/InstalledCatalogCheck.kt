@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class InstalledCatalogCheck(
+    private val jdbi: org.jdbi.v3.core.Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
 ) {
@@ -35,7 +37,8 @@ class InstalledCatalogCheck(
      * link is still missing, whatever the install fetched.
      */
     fun requireValid(catalog: CatalogId, fetched: Map<String, ByteArray> = emptyMap()) {
-        val content = contentBuilder.build(catalog)
+        // What the install put in place: the catalog's next version.
+        val content = contentBuilder.build(jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) })
         val report = fingerprintService.publishability(if (fetched.isEmpty()) content else content.copy(assetContents = FetchedFirst(content, fetched)))
         if (!report.valid) {
             throw CatalogImportValidationException(

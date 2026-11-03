@@ -33,6 +33,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -70,23 +71,23 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         val catalog = CatalogKey.of(name.lowercase().replace(' ', '-'))
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
-            listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it", catalogVersion = null).execute() }
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
             val v1 = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
 
             // The two installations of one organisation hold the catalog's namespace both.
             TestNamespaces.share(a, b).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = v1, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UpdateTheme(theme(b, catalog, "thx"), name = "B's x").execute()
-            CreateTheme(id = theme(b, catalog, "thw"), name = "B's w").execute()
-            DeleteTheme(theme(b, catalog, "thz")).execute()
-            MarkCatalogReady(testCatalog(b, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0").execute()
+            UpdateTheme(theme(b, catalog, "thx"), name = "B's x", catalogVersion = null).execute()
+            CreateTheme(id = theme(b, catalog, "thw"), name = "B's w", catalogVersion = null).execute()
+            DeleteTheme(theme(b, catalog, "thz"), catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(b, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0", catalogVersion = null).execute()
             val v2 = ExportCatalogZip(testCatalog(b, catalog), "2.0.0").execute().zipBytes
 
-            UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
-            UpdateTheme(theme(a, catalog, "thy"), name = "A's y").execute()
+            UpdateTheme(theme(a, catalog, "thx"), name = "A's x", catalogVersion = null).execute()
+            UpdateTheme(theme(a, catalog, "thy"), name = "A's y", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = a, zipBytes = v2, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
         }
         return Installations(a, catalog)
@@ -95,7 +96,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     private fun themeName(tenant: TenantKey, catalog: CatalogKey, key: String): String? = jdbi.withHandle<String?, Exception> { h ->
         // The next version's row of the theme: what the catalog's current version holds.
         h.createQuery(
-            "SELECT t.name FROM current_themes t " +
+            "SELECT t.name FROM ${atNext("version_themes")} t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("k", key)
@@ -106,7 +107,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `the preview says per resource what the release changed, what the draft changed, and what conflicts`() {
         val (a, catalog) = diverged("Merge Preview")
         withMediator {
-            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
+            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query()
 
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.alreadyMerged).isFalse()
@@ -126,11 +127,11 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a merge takes what only the release changed, applies the chosen side of a conflict, and the draft is no longer behind`() {
         val (a, catalog) = diverged("Merge Apply")
         withMediator {
-            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "2.1.0").execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "2.1.0", catalogVersion = null).execute() }
                 .`as`("behind 2.0.0 before the merge")
                 .isInstanceOf(CatalogReleaseBehindException::class.java)
 
-            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs)).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), catalogVersion = null).execute()
 
             assertThat(merged.taken).containsExactlyInAnyOrder("theme/thw", "theme/thx")
             assertThat(merged.removed).containsExactly("theme/thz")
@@ -140,14 +141,14 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             assertThat(themeName(a, catalog, "thy")).`as`("ours, untouched").isEqualTo("A's y")
 
             // Taken resources hold exactly what the release has.
-            val after = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
+            val after = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query()
             assertThat(after.alreadyMerged).isTrue()
             assertThat(after.base).`as`("merged, the release is on the draft's line: its own merge base").isEqualTo("2.0.0")
             assertThat(after.resources.filter { it.key in setOf("thw", "thx", "thz") }.map { it.outcome }).containsOnly(MergeOutcome.UNCHANGED)
             assertThat(ListCatalogReleases(testCatalog(a, catalog), CatalogReleaseStatus.DRAFT, withBehind = true).query().single { it.isNext }.behind).isEmpty()
 
-            MarkCatalogReady(testCatalog(a, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "2.1.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "2.1.0", catalogVersion = null).execute()
             assertThat(ListCatalogReleases(testCatalog(a, catalog), CatalogReleaseStatus.RELEASED).query().map { it.version }).contains("2.1.0")
         }
     }
@@ -156,7 +157,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a conflict resolved to ours keeps the draft's`() {
         val (a, catalog) = diverged("Merge Ours")
         withMediator {
-            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours)).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours), catalogVersion = null).execute()
 
             assertThat(merged.kept).containsExactly("theme/thx")
             assertThat(themeName(a, catalog, "thx")).isEqualTo("A's x")
@@ -168,17 +169,17 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a conflict without a choice refuses the merge and changes nothing`() {
         val (a, catalog) = diverged("Merge Unresolved")
         withMediator {
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0").execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", catalogVersion = null).execute() }
                 .isInstanceOf(MergeConflictsUnresolvedException::class.java)
                 .hasMessageContaining("theme/thx")
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thy" to MergeResolution.Theirs, "theme/thx" to MergeResolution.Theirs)).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thy" to MergeResolution.Theirs, "theme/thx" to MergeResolution.Theirs), catalogVersion = null).execute() }
                 .`as`("a resolution for what is no conflict")
                 .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("theme/thy")
 
             assertThat(themeName(a, catalog, "thw")).isNull()
             assertThat(themeName(a, catalog, "thz")).isEqualTo("base thz")
-            assertThat(PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query().alreadyMerged).isFalse()
+            assertThat(PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query().alreadyMerged).isFalse()
         }
     }
 
@@ -187,10 +188,10 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         val (a, catalog) = diverged("Merge In Use")
         withMediator {
             val template = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(a), catalog))
-            CreateDocumentTemplate(id = template, name = "Uses z").execute()
-            UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("thz"), themeCatalog = testCatalog(template.tenantKey, catalog)).execute()
+            CreateDocumentTemplate(id = template, name = "Uses z", catalogVersion = null).execute()
+            UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("thz"), themeCatalog = testCatalog(template.tenantKey, catalog), catalogVersion = null).execute()
 
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs)).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), catalogVersion = null).execute() }
                 .isInstanceOf(MergeRefusedException::class.java)
                 .hasMessageContaining("thz")
             assertThat(themeName(a, catalog, "thz")).isEqualTo("base thz")
@@ -207,25 +208,25 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("merge-lines")
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Merge lines").execute()
-            CreateTheme(id = theme(tenant, catalog, "thx"), name = "base x").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+            CreateTheme(id = theme(tenant, catalog, "thx"), name = "base x", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
             val fix = app.epistola.suite.catalog.releases.CreateCatalogDraft(testCatalog(tenant, catalog), "Fix", "1.0.0").execute()
             val fixRef = app.epistola.suite.catalog.releases.CatalogReleaseRef(testCatalog(tenant, catalog), app.epistola.suite.catalog.releases.DraftRef.Id(fix.versionId))
-            CreateTheme(id = theme(tenant, catalog, "thw"), name = "w").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0").execute()
+            CreateTheme(id = theme(tenant, catalog, "thw"), name = "w", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.1.0", catalogVersion = null).execute()
             UpdateTheme(theme(tenant, catalog, "thx"), name = "fixed x", catalogVersion = fixRef).execute()
             MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = fixRef).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.1", catalogVersion = fixRef).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(tenant, catalog), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(tenant, catalog), "1.0.1", catalogVersion = null).query()
 
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.associate { it.contentKey to it.outcome }).containsExactlyInAnyOrderEntriesOf(
                 mapOf("theme/thx" to MergeOutcome.THEIRS, "theme/thw" to MergeOutcome.OURS) + UNCHANGED_SETTINGS,
             )
-            val merged = MergeReleaseIntoDraft(testCatalog(tenant, catalog), "1.0.1").execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(tenant, catalog), "1.0.1", catalogVersion = null).execute()
             assertThat(merged.taken to merged.removed).isEqualTo(listOf("theme/thx") to emptyList<String>())
             assertThat(themeName(tenant, catalog, "thw")).isEqualTo("w")
             assertThat(themeName(tenant, catalog, "thx")).isEqualTo("fixed x")
@@ -236,19 +237,19 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a merge confirmed against a preview is refused once the draft changed since`() {
         val (a, catalog) = diverged("Merge Outdated")
         withMediator {
-            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
-            assertThat(PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query().token).`as`("the same state, the same token").isEqualTo(preview.token)
+            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query()
+            assertThat(PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query().token).`as`("the same state, the same token").isEqualTo(preview.token)
 
-            UpdateTheme(theme(a, catalog, "thy"), name = "A's y, again").execute()
+            UpdateTheme(theme(a, catalog, "thy"), name = "A's y, again", catalogVersion = null).execute()
 
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), expectedToken = preview.token).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), expectedToken = preview.token, catalogVersion = null).execute() }
                 .isInstanceOf(MergePreviewOutdatedException::class.java)
                 .hasMessageContaining("preview again")
             assertThat(themeName(a, catalog, "thw")).`as`("nothing was taken").isNull()
 
-            val fresh = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
+            val fresh = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0", catalogVersion = null).query()
             assertThat(fresh.token).isNotEqualTo(preview.token)
-            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), expectedToken = fresh.token).execute()
+            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs), expectedToken = fresh.token, catalogVersion = null).execute()
             assertThat(themeName(a, catalog, "thw")).isEqualTo("B's w")
             assertThat(themeName(a, catalog, "thy")).isEqualTo("A's y, again")
         }
@@ -258,7 +259,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a merge is recorded with its base and resolutions, and a draft copied from the draft contains it too`() {
         val (a, catalog) = diverged("Merge Recorded")
         withMediator {
-            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours)).execute()
+            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours), catalogVersion = null).execute()
 
             val recorded = jdbi.withHandle<List<String>, Exception> { h ->
                 h.createQuery(
@@ -280,12 +281,12 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a release the draft already contains is refused`() {
         val (a, catalog) = diverged("Merge Twice")
         withMediator {
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "1.0.0").execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "1.0.0", catalogVersion = null).execute() }
                 .`as`("its base")
                 .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("already contains 1.0.0")
-            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours)).execute()
-            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0").execute() }
+            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Ours), catalogVersion = null).execute()
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", catalogVersion = null).execute() }
                 .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("already contains 2.0.0")
         }

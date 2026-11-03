@@ -10,7 +10,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component
 
 data class GetCodeList(
     val id: CodeListId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<CodeList?>,
     RequiresPermission {
@@ -37,5 +37,5 @@ class GetCodeListHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetCodeList, CodeList?> {
     // A draft or a release, read the same way (ADR 0033).
-    override fun handle(query: GetCodeList): CodeList? = jdbi.withHandle<CodeList?, Exception> { codeLists.get(it, query.id) }
+    override fun handle(query: GetCodeList): CodeList? = jdbi.withHandle<CodeList?, Exception> { codeLists.get(it, it.versionOf(query.id.catalogId, query), query.id) }
 }

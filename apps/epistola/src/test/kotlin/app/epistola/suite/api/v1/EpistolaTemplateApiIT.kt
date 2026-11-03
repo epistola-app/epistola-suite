@@ -139,10 +139,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "moved-${randomSuffix()}"
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved", catalogVersion = null).execute()
             val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
-            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint, catalogVersion = null).execute()
         }
 
         // A move leaves nothing behind: an integration configured against the old address has to be
@@ -164,10 +164,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "moved-${randomSuffix()}"
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved", catalogVersion = null).execute()
             val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
-            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation), catalogVersion = null).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint, catalogVersion = null).execute()
         }
 
         val response = restTemplate.exchange(
@@ -1264,7 +1264,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Concurrent edits and marks leave the variant with one readable working model.
         val model = withMediator {
-            GetVariantContent(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))))).query()
+            GetVariantContent(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey)))), catalogVersion = null).query()
         }
         assertThat(model).isNotNull()
     }

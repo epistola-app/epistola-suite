@@ -9,7 +9,9 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -39,13 +41,16 @@ import org.springframework.stereotype.Component
  */
 data class ImportCodeList(
     val catalog: CatalogId,
+    /** The draft this writes into (ADR 0049); null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val slug: String,
     val displayName: String,
     val description: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
     /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
     val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
-) : Command<InstallStatus>,
+) : CatalogReleaseScoped,
+    Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
     val catalogKey: CatalogKey get() = catalog.key
@@ -70,7 +75,7 @@ class ImportCodeListHandler(
         // Hidden flags and sort order land straight from the catalog file: the importing tenant has no
         // copy of its own to preserve. A list already there keeps its source (ADR 0033).
         val existed = jdbi.withHandle<Boolean, Exception> { handle ->
-            codeLists.put(handle, CodeListId(codeListSlug, command.catalog), command.displayName, command.description, command.entries, app.epistola.suite.security.currentUserIdOrNull()?.value, command.metadata)
+            codeLists.put(handle, handle.versionOf(command.catalog, command), CodeListId(codeListSlug, command.catalog), command.displayName, command.description, command.entries, app.epistola.suite.security.currentUserIdOrNull()?.value, command.metadata)
         }
         return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }

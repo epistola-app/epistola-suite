@@ -51,7 +51,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of(slug)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Rel $slug").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("tha"), testCatalog(tenantId, catalogKey)), name = "Th").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("tha"), testCatalog(tenantId, catalogKey)), name = "Th", catalogVersion = null).execute()
         }
     }
 
@@ -61,7 +61,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         given {
             testTenant = tenant("Release Handler Tenant")
             seedAuthoredCatalog(testTenant, "rel-cat")
-            withMediator { MarkCatalogReady(testCatalog(testTenant.id, CatalogKey.of("rel-cat"))).execute() }
+            withMediator { MarkCatalogReady(testCatalog(testTenant.id, CatalogKey.of("rel-cat")), catalogVersion = null).execute() }
         }
 
         whenever {
@@ -120,10 +120,10 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             seedAuthoredCatalog(testTenant, "diff-cat")
             val catalogId = testCatalog(TenantId(testTenant.id), CatalogKey.of("diff-cat"))
             withMediator {
-                MarkCatalogReady(testCatalog(testTenant.id, catalogId.key)).execute()
-                ReleaseCatalogDraft(testCatalog(testTenant.id, catalogId.key), version = "1.0.0").execute()
-                UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B").execute()
+                MarkCatalogReady(testCatalog(testTenant.id, catalogId.key), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(testTenant.id, catalogId.key), version = "1.0.0", catalogVersion = null).execute()
+                UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited", catalogVersion = null).execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B", catalogVersion = null).execute()
             }
         }
 

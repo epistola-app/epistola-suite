@@ -23,6 +23,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.CodeListStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -53,7 +54,7 @@ class CodeListStorageTest : IntegrationTestBase() {
     private val entries = listOf(CodeListEntry("b", "Bravo", 2), CodeListEntry("a", "Alpha", 1), CodeListEntry("c", "Charlie", 3, hidden = true))
 
     private fun payload(tenant: TenantId, key: String): String = jdbi.withHandle<String, Exception> {
-        it.createQuery("SELECT payload::text FROM current_code_lists WHERE tenant_key = :t AND id = :k").bind("t", tenant.key).bind("k", key).mapTo(String::class.java).one()
+        it.createQuery("SELECT payload::text FROM ${atNext("version_code_lists")} current_code_lists WHERE tenant_key = :t AND id = :k").bind("t", tenant.key).bind("k", key).mapTo(String::class.java).one()
     }
 
     private fun one(sql: String): String = jdbi.withHandle<String, Exception> { it.createQuery(sql).mapTo(String::class.java).one() }
@@ -62,7 +63,7 @@ class CodeListStorageTest : IntegrationTestBase() {
     fun `a code list is a draft row naming its JSON content, and the tables are gone`() {
         val tenant = TenantId(createTenant("Code list storage").id)
         val id = CodeListId(CodeListKey.of("letters"), CatalogId.default(tenant))
-        withMediator { CreateCodeList(id, "Letters", description = "Phonetic", sourceType = CodeListSource.INLINE, entries = entries).execute() }
+        withMediator { CreateCodeList(id, "Letters", description = "Phonetic", sourceType = CodeListSource.INLINE, entries = entries, catalogVersion = null).execute() }
 
         val same = jdbi.withHandle<Boolean, Exception> { h ->
             h.createQuery("SELECT CAST(:stored AS JSONB) = CAST(:expected AS JSONB)")
@@ -78,24 +79,24 @@ class CodeListStorageTest : IntegrationTestBase() {
     fun `entries are listed, found and hidden in SQL over the content, and a save returns what a read gives`() {
         val tenant = TenantId(createTenant("Code list entries").id)
         val id = CodeListId(CodeListKey.of("letters"), CatalogId.default(tenant))
-        withMediator { CreateCodeList(id, "Letters", sourceType = CodeListSource.INLINE, entries = entries).execute() }
+        withMediator { CreateCodeList(id, "Letters", sourceType = CodeListSource.INLINE, entries = entries, catalogVersion = null).execute() }
 
         withMediator {
-            assertThat(ListCodeListEntries(id).query().map { it.code }).containsExactly("a", "b")
-            assertThat(ListCodeListEntries(id, includeHidden = true).query().map { it.code }).containsExactly("a", "b", "c")
-            assertThat(CodeListEntryExists(id.catalogId, id.key, "c").query()).`as`("a hidden entry still exists").isTrue()
-            assertThat(CodeListEntryExists(id.catalogId, id.key, "z").query()).isFalse()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query().map { it.code }).containsExactly("a", "b")
+            assertThat(ListCodeListEntries(id, includeHidden = true, catalogVersion = null).query().map { it.code }).containsExactly("a", "b", "c")
+            assertThat(CodeListEntryExists(id.catalogId, id.key, "c", catalogVersion = null).query()).`as`("a hidden entry still exists").isTrue()
+            assertThat(CodeListEntryExists(id.catalogId, id.key, "z", catalogVersion = null).query()).isFalse()
 
-            val before = GetCodeList(id).query()!!
-            assertThat(UpdateCodeListEntryHidden(id, "b", hidden = true).execute()).isTrue()
-            assertThat(ListCodeListEntries(id).query().map { it.code }).containsExactly("a")
-            assertThat(GetCodeList(id).query()!!.revision).`as`("hiding an entry changes the list").isEqualTo(before.revision + 1)
-            assertThat(UpdateCodeListEntryHidden(id, "b", hidden = true).execute()).`as`("already hidden counts as found").isTrue()
-            assertThat(GetCodeList(id).query()!!.revision).`as`("and changes nothing").isEqualTo(before.revision + 1)
-            assertThat(UpdateCodeListEntryHidden(id, "z", hidden = true).execute()).isFalse()
+            val before = GetCodeList(id, catalogVersion = null).query()!!
+            assertThat(UpdateCodeListEntryHidden(id, "b", hidden = true, catalogVersion = null).execute()).isTrue()
+            assertThat(ListCodeListEntries(id, catalogVersion = null).query().map { it.code }).containsExactly("a")
+            assertThat(GetCodeList(id, catalogVersion = null).query()!!.revision).`as`("hiding an entry changes the list").isEqualTo(before.revision + 1)
+            assertThat(UpdateCodeListEntryHidden(id, "b", hidden = true, catalogVersion = null).execute()).`as`("already hidden counts as found").isTrue()
+            assertThat(GetCodeList(id, catalogVersion = null).query()!!.revision).`as`("and changes nothing").isEqualTo(before.revision + 1)
+            assertThat(UpdateCodeListEntryHidden(id, "z", hidden = true, catalogVersion = null).execute()).isFalse()
 
-            val saved = UpdateCodeList(id, "Letters, renamed", description = "Now described").execute()
-            assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(GetCodeList(id).query())
+            val saved = UpdateCodeList(id, "Letters, renamed", description = "Now described", catalogVersion = null).execute()
+            assertThat(saved).`as`("what a save returns is what a read gives").isEqualTo(GetCodeList(id, catalogVersion = null).query())
         }
     }
 
@@ -104,14 +105,14 @@ class CodeListStorageTest : IntegrationTestBase() {
         val tenant = TenantId(createTenant("Code list credential").id)
         val id = CodeListId(CodeListKey.of("remote"), CatalogId.default(tenant))
         withMediator {
-            CreateCodeList(id, "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "first-secret").execute()
+            CreateCodeList(id, "Remote", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "first-secret", catalogVersion = null).execute()
         }
-        val first = one("SELECT credential_id::text FROM current_code_lists WHERE tenant_key = '${tenant.key.value}' AND id = 'remote'")
+        val first = one("SELECT credential_id::text FROM ${atNext("version_code_lists")} current_code_lists WHERE tenant_key = '${tenant.key.value}' AND id = 'remote'")
         assertThat(payload(tenant, "remote")).contains(first).doesNotContain("first-secret")
 
         val second = withMediator {
-            UpdateCodeList(id, "Remote", sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "second-secret").execute()
-            GetCodeList(id).query()!!
+            UpdateCodeList(id, "Remote", sourceUrl = "https://example.com/list.json", authType = AuthType.BEARER, credential = "second-secret", catalogVersion = null).execute()
+            GetCodeList(id, catalogVersion = null).query()!!
         }
         assertThat(second.credential?.value).isEqualTo("second-secret")
 
@@ -123,7 +124,7 @@ class CodeListStorageTest : IntegrationTestBase() {
 
         assertThat(collected.credentials).isEqualTo(1)
         assertThat(one("SELECT count(*)::text FROM resource_credentials WHERE tenant_key = '${tenant.key.value}' AND credential_id = '$first'")).isEqualTo("0")
-        assertThat(withMediator { GetCodeList(id).query()!! }.credential?.value).`as`("the one named stays").isEqualTo("second-secret")
+        assertThat(withMediator { GetCodeList(id, catalogVersion = null).query()!! }.credential?.value).`as`("the one named stays").isEqualTo("second-secret")
     }
 
     @Test
@@ -137,8 +138,8 @@ class CodeListStorageTest : IntegrationTestBase() {
         val tenant = TenantId(createTenant("Code list conversion, sourced").id)
         val id = CodeListId(CodeListKey.of("remote"), CatalogId.default(tenant))
         withMediator {
-            CreateCodeList(id, "Remote", description = "Every field", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.API_KEY, credential = "s3cret").execute()
-            UpdateCodeList(id, "Remote", description = "Every field", sourceUrl = "https://example.com/list.json", authType = AuthType.API_KEY, credential = "s3cret").execute()
+            CreateCodeList(id, "Remote", description = "Every field", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/list.json", authType = AuthType.API_KEY, credential = "s3cret", catalogVersion = null).execute()
+            UpdateCodeList(id, "Remote", description = "Every field", sourceUrl = "https://example.com/list.json", authType = AuthType.API_KEY, credential = "s3cret", catalogVersion = null).execute()
         }
         CodeListStorageConversion.verify(jdbi, objectMapper, codeLists, id.catalogId)
     }

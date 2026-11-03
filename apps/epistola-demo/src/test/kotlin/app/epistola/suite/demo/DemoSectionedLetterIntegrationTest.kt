@@ -43,10 +43,10 @@ class DemoSectionedLetterIntegrationTest : IntegrationTestBase() {
 
     private fun previewPages(tenantKey: TenantKey, template: TemplateKey, example: String): List<String> {
         val data = withMediator {
-            GetDataContract(TemplateId(template, testCatalog(TenantId(tenantKey), demoCatalog))).query()
+            GetDataContract(TemplateId(template, testCatalog(TenantId(tenantKey), demoCatalog)), catalogVersion = null).query()
         }!!.dataExamples.single { it.name == example }.data
         val pdf = withMediator {
-            PreviewDocument(catalog = testCatalog(tenantKey, demoCatalog), templateId = template, data = data).query()
+            PreviewDocument(catalog = testCatalog(tenantKey, demoCatalog), templateId = template, data = data, catalogVersion = null).query()
         }
         return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { doc ->
             (1..doc.numberOfPages).map { PdfTextExtractor.getTextFromPage(doc.getPage(it)) }

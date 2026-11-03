@@ -109,7 +109,7 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
 
             assertThat(results).allMatch { it.status != InstallStatus.FAILED }
-            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).hasSize(1)
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG)), catalogVersion = null).query()).hasSize(1)
         }
     }
 
@@ -149,7 +149,7 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             runCatching { InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute() }
                 .onSuccess { results -> assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED } }
                 .onFailure { refused -> assertThat(refused).isInstanceOfAny(OutboundUrlRejectedException::class.java, CatalogSourceUnavailableException::class.java) }
-            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG)), catalogVersion = null).query()).isEmpty()
         }
     }
 
@@ -169,7 +169,7 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             }
                 .isInstanceOf(CatalogSchemaUnknownException::class.java)
                 .hasMessageContaining("must be a relative path below the manifest's directory")
-            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG)), catalogVersion = null).query()).isEmpty()
         }
     }
 

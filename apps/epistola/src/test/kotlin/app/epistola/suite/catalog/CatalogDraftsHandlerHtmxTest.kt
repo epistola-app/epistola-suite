@@ -89,10 +89,10 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     /** `letters` (brand theme, invoice template) released as 1.0.0; its next version continues on it. */
     private fun released(tenant: Tenant) = withMediator {
         CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-        CreateTheme(brand(tenant), "Brand").execute()
-        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+        CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0", catalogVersion = null).execute()
     }
 
     /** [released], then parallel work "Redesign", and the invoice named differently in each; its id. */
@@ -401,7 +401,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.headers["HX-Location"].orEmpty().joinToString()).contains("/catalogs/${tenant.id}/letters@$work/attributes")
             val inWork = withMediator { ListAttributeDefinitions(TenantId(tenant.id), catalog = testCatalog(TenantId(tenant.id), letters), catalogVersion = at(tenant, DraftRef.Id(work))).query() }.map { it.id.value }
-            val current = withMediator { ListAttributeDefinitions(TenantId(tenant.id), catalog = testCatalog(TenantId(tenant.id), letters)).query() }.map { it.id.value }
+            val current = withMediator { ListAttributeDefinitions(TenantId(tenant.id), catalog = testCatalog(TenantId(tenant.id), letters), catalogVersion = null).query() }.map { it.id.value }
             assertThat(inWork).contains("mood", "tone")
             assertThat(current).doesNotContain("mood", "tone")
         }
@@ -452,7 +452,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             }
             assertThat(drafts(tenant)).containsExactly("Next release")
-            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).`as`("the next version is untouched").isEqualTo("Invoice, fixed")
+            assertThat(withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query() }!!.name).`as`("the next version is untouched").isEqualTo("Invoice, fixed")
         }
     }
 
@@ -466,7 +466,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/drafts/discard", emptyMap(), htmx = false) }
         then {
             assertThat(drafts(tenant)).containsExactly("Next release", "Redesign")
-            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).isEqualTo("Invoice")
+            assertThat(withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query() }!!.name).isEqualTo("Invoice")
         }
     }
 
@@ -477,7 +477,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Discard Held")
             withRedesign(tenant)
             withMediator {
-                CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal").execute()
+                CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal", catalogVersion = null).execute()
                 SetTenantDefaultTheme(tenant.id, testCatalog(tenant.id, letters), ThemeKey.of("seasonal")).execute()
             }
         }
@@ -487,7 +487,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("data-testid=\"catalog-next-release-error\"")
                 .contains("the tenant&#39;s default theme (theme letters/seasonal)")
-            assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))).query() }).`as`("nothing was discarded").isNotNull
+            assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), catalogVersion = null).query() }).`as`("nothing was discarded").isNotNull
         }
     }
 
@@ -507,7 +507,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/browse")
             assertThat(drafts(tenant)).`as`("the work became the release").containsExactly("Next release")
-            assertThat(withMediator { GetTheme(brand(tenant)).query() }!!.name).`as`("the next version is left as it was").isEqualTo("Brand")
+            assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = null).query() }!!.name).`as`("the next version is left as it was").isEqualTo("Brand")
         }
     }
 
@@ -519,8 +519,8 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Older Line")
             work = withRedesign(tenant) // from 1.0.0
             withMediator {
-                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0").execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0", catalogVersion = null).execute()
             }
         }
         whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/release").body!! }
@@ -539,8 +539,8 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Continue")
             work = withRedesign(tenant)
             withMediator {
-                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, letters)).execute() // 1.0.1, which the work does not contain
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), catalogVersion = null).execute() // 1.0.1, which the work does not contain
             }
         }
         whenever {
@@ -555,7 +555,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/browse")
             assertThat(drafts(tenant)).containsExactlyInAnyOrder("Next release", "Old")
-            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).`as`("everyday work continues from the redesign").isEqualTo("Invoice redesigned")
+            assertThat(withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = null).query() }!!.name).`as`("everyday work continues from the redesign").isEqualTo("Invoice redesigned")
         }
     }
 

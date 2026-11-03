@@ -5,7 +5,9 @@
 package app.epistola.suite.themes
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -23,16 +25,13 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * The columns a theme read selects from `current_themes` aliased `t`. Its catalog's key and
+ * The columns a theme read selects from `version_themes` aliased `t`. Its catalog's key and
  * namespace are not joined in: a join's order is the planner's, and a plan made before the tables
  * have statistics rescanned every theme once per catalog (ThemePlanStabilityTest); a read names
  * them through [ThemeRows] instead. Every theme read selects these and maps them with [ThemeRows].
  */
 internal const val THEME_COLUMNS: String =
     "t.tenant_key, t.catalog_id, t.id, t.payload::text AS payload, t.created_at, t.updated_at, t.created_by, t.updated_by, t.revision"
-
-/** `current_themes t`: the themes of the versions callers mean. */
-internal const val THEMES_WITH_CATALOG: String = "current_themes t"
 
 /**
  * The one mapping from a theme's JSON content (its wire form, ADR 0033) to the [Theme] the suite
@@ -120,18 +119,15 @@ class ThemeRows(private val objectMapper: ObjectMapper, private val catalogOf: (
     }
 }
 
-/**
- * Theme reads on a handle, through `current_themes`: of the version the handle's transaction means
- * (the message's target, or what [app.epistola.suite.catalog.releases.VersionReads] selects).
- */
+/** Theme reads on a handle, through `version_themes`, of the version they are given. */
 object ThemeReads {
-    /** Theme [key] of [catalog], or null. */
-    fun get(handle: Handle, objectMapper: ObjectMapper, catalog: CatalogId, key: ThemeKey): Theme? = handle
-        .createQuery("SELECT $THEME_COLUMNS FROM $THEMES_WITH_CATALOG WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :id")
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
+    /** Theme [key] of version [at], or null. */
+    fun get(handle: Handle, objectMapper: ObjectMapper, at: ContentVersion, key: ThemeKey): Theme? = handle
+        .createQuery("SELECT $THEME_COLUMNS FROM version_themes t WHERE t.tenant_key = :t AND t.version_id = :v AND t.id = :id")
+        .bind("t", at.tenantKey)
+        .bindVersion("v", at.versionId)
         .bind("id", key.value)
-        .map(ThemeRows.of(objectMapper, catalog))
+        .map(ThemeRows.of(objectMapper, at.catalog))
         .findOne()
         .orElse(null)
 }

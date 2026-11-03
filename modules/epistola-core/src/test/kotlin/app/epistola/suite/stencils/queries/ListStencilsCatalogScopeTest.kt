@@ -32,16 +32,16 @@ class ListStencilsCatalogScopeTest : IntegrationTestBase() {
 
         val stencilA = StencilId(StencilKey.of("in-cat-a"), testCatalog(tenantId, catalogA))
         val stencilB = StencilId(StencilKey.of("in-cat-b"), testCatalog(tenantId, catalogB))
-        CreateStencil(id = stencilA, name = "Catalog A Stencil").execute()
-        CreateStencil(id = stencilB, name = "Catalog B Stencil").execute()
+        CreateStencil(id = stencilA, name = "Catalog A Stencil", catalogVersion = null).execute()
+        CreateStencil(id = stencilB, name = "Catalog B Stencil", catalogVersion = null).execute()
 
-        val onlyA = ListStencils(tenantId = tenantId, catalog = testCatalog(tenantId, catalogA)).query()
+        val onlyA = ListStencils(tenantId = tenantId, catalog = testCatalog(tenantId, catalogA), catalogVersion = null).query()
         assertThat(onlyA.map { it.id.value }).contains("in-cat-a").doesNotContain("in-cat-b")
 
-        val onlyB = ListStencils(tenantId = tenantId, catalog = testCatalog(tenantId, catalogB)).query()
+        val onlyB = ListStencils(tenantId = tenantId, catalog = testCatalog(tenantId, catalogB), catalogVersion = null).query()
         assertThat(onlyB.map { it.id.value }).contains("in-cat-b").doesNotContain("in-cat-a")
 
-        val allCatalogs = ListStencils(tenantId = tenantId).query()
+        val allCatalogs = ListStencils(tenantId = tenantId, catalogVersion = null).query()
         assertThat(allCatalogs.map { it.id.value }).contains("in-cat-a", "in-cat-b")
     }
 }

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -14,8 +16,9 @@ import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
+import java.util.UUID
 
-/** What uses what in [tenantKey]'s catalogs, as each catalog's current version holds it. */
+/** What uses what in [tenantKey]'s catalogs, as each catalog's next version holds it. */
 data class GetTenantResourceGraph(
     override val tenantKey: TenantKey,
 ) : Query<TenantResourceGraph>,
@@ -29,7 +32,7 @@ class GetTenantResourceGraphHandler(
     private val builder: TenantResourceGraphBuilder,
 ) : QueryHandler<GetTenantResourceGraph, TenantResourceGraph> {
     override fun handle(query: GetTenantResourceGraph): TenantResourceGraph = jdbi.inTransaction<TenantResourceGraph, Exception>(TransactionIsolationLevel.REPEATABLE_READ) { handle ->
-        builder.buildOn(handle, query.tenantKey)
+        builder.buildOn(handle, query.tenantKey, version = null)
     }
 }
 
@@ -47,15 +50,16 @@ class TenantResourceGraphBuilder(
     private val reader: app.epistola.suite.catalog.revisions.VersionResourceReader,
 ) {
     /**
-     * The graph from the reference index (`resource_references`, ADR 0033): the resources of each
-     * catalog's current version, and what their stored contents refer to, parts counted as their
+     * The graph from the reference index (`resource_references`, ADR 0033): the resources of [version]
+     * for its catalog and of every other catalog's next version, and what their stored contents refer
+     * to, parts counted as their
      * template's. One read of the index rather than a scan of every content: what a content refers to
      * was found once, when it was stored, by the same authority ([ResourceReferenceSites] and each
      * type's own references).
      */
-    fun buildOn(handle: Handle, tenantKey: TenantKey): TenantResourceGraph {
-        val nodes = loadNodes(handle, tenantKey)
-        val occurrences = reader.currentReferences(handle, tenantKey).mapNotNull { held ->
+    fun buildOn(handle: Handle, tenantKey: TenantKey, version: UUID?): TenantResourceGraph {
+        val nodes = loadNodes(handle, tenantKey, version)
+        val occurrences = reader.heldReferences(handle, tenantKey, version).mapNotNull { held ->
             val type = CatalogResourceType.entries.firstOrNull { it.wireName == held.referencedType } ?: return@mapNotNull null
             val source = ResourceAddress.at(resourceType(held.type), held.catalogAddress, held.key)
             val qualification = when {
@@ -69,21 +73,21 @@ class TenantResourceGraphBuilder(
             val catalog = if (qualification == ReferenceQualification.RELATIVE) source.catalogKey else held.alias
             Occurrence(source, ReferenceSelector(type, catalog, held.referencedKey), qualification)
         }
-        return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences, loadAliases(handle, tenantKey)))
+        return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences, loadAliases(handle, tenantKey, version)))
     }
 
-    /** Every resource of each catalog's current version, read generically from its rows. */
-    private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
+    /** Every resource of [version] for its catalog, else of each catalog's next version, read generically from its rows. */
+    private fun loadNodes(handle: Handle, tenantKey: TenantKey, version: UUID?): List<ResourceNode> = handle.createQuery(
         """
         SELECT r.resource_id, r.resource_type, c.namespace, c.catalog_key::text AS catalog_key, r.resource_key, r.name AS resource_name, c.name AS catalog_name
         FROM release_wire_resources r
-        JOIN catalog_current_versions cv ON cv.tenant_key = r.tenant_key AND cv.version_id = r.version_id
         JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-        WHERE r.tenant_key = :tenantKey
+        WHERE r.tenant_key = :tenantKey AND ${inVersionOrNext("r", "version")}
         ORDER BY c.name, r.resource_type, r.name
         """,
     )
         .bind("tenantKey", tenantKey)
+        .bindVersion("version", version)
         .map { rs, _ ->
             ResourceNode(
                 resourceId = ResourceIdentity.of(rs.getString("resource_id")),
@@ -94,19 +98,18 @@ class TenantResourceGraphBuilder(
         }.list()
 
     /**
-     * What each alias means in each catalog's current version, by the catalog's dependency rows:
+     * What each alias means in [version] for its catalog, else in each catalog's next version, by its dependency rows:
      * `(from address, alias)` to the target's address. The graph resolves an aliased reference with
      * it, as [app.epistola.suite.catalog.CatalogReferences] does (ADR 0034, section 9).
      */
-    fun loadAliases(handle: Handle, tenantKey: TenantKey): Map<Pair<String, String>, String> = handle.createQuery(
+    fun loadAliases(handle: Handle, tenantKey: TenantKey, version: UUID?): Map<Pair<String, String>, String> = handle.createQuery(
         """
             SELECT c.namespace, c.catalog_key::text AS catalog_key, d.alias, d.namespace AS dependency_namespace, d.dependency_key
             FROM catalog_version_dependencies d
-            JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
-            JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id
-            WHERE d.tenant_key = :tenantKey
+            JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
+            WHERE d.tenant_key = :tenantKey AND ${inVersionOrNext("d", "version")}
         """,
-    ).bind("tenantKey", tenantKey).map { rs, _ ->
+    ).bind("tenantKey", tenantKey).bindVersion("version", version).map { rs, _ ->
         ("${rs.getString("namespace")}/${rs.getString("catalog_key")}" to rs.getString("alias")) to "${rs.getString("dependency_namespace")}/${rs.getString("dependency_key")}"
     }.list().toMap()
 

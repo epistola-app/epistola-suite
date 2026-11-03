@@ -5,11 +5,12 @@
 package app.epistola.suite.templates.queries.variants
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ReleaseReadable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -28,8 +29,8 @@ import org.springframework.stereotype.Component
 
 data class GetVariant(
     val variantId: VariantId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<TemplateVariant?>,
     RequiresPermission {
@@ -45,16 +46,17 @@ class GetVariantHandler(
         handle.createQuery(
             """
                 SELECT $VARIANT_COLUMNS
-                FROM current_template_variants tv
+                FROM version_template_variants tv
                 WHERE tv.id = :variantId
-                  AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
-                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+                  AND tv.tenant_key = :tenantId AND tv.version_id = :version
+                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId", "version")}
                 """,
         )
             .bind("variantId", query.variantId.key)
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
             .bindCatalog("catalogKey", query.variantId.catalogId)
+            .bindVersion("version", handle.versionOf(query.variantId.catalogId, query).versionId)
             .mapTo<TemplateVariant>()
             .findOne()
             .orElse(null)
@@ -63,8 +65,8 @@ class GetVariantHandler(
 
 data class GetVariantSummaries(
     val templateId: TemplateId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<VariantSummary>>,
     RequiresPermission {
@@ -90,15 +92,16 @@ class GetVariantSummariesHandler(
                                                          AND d.resource_id = m.resource_id AND d.part = m.part
                         WHERE m.tenant_key = tv.tenant_key AND m.version_id = tv.version_id AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
                     ) as ready
-                FROM current_template_variants tv
-                WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
-                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+                FROM version_template_variants tv
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = :version
+                  AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId", "version")}
                 $VARIANT_ORDER
                 """,
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
             .bindCatalog("catalogKey", query.templateId.catalogId)
+            .bindVersion("version", handle.versionOf(query.templateId.catalogId, query).versionId)
             .mapTo<VariantSummary>()
             .list()
     }

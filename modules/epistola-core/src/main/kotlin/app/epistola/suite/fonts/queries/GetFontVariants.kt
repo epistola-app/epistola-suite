@@ -6,6 +6,7 @@ package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FontStore
 import app.epistola.suite.fonts.model.FontFace
@@ -22,8 +23,8 @@ import org.springframework.stereotype.Component
  */
 data class GetFontVariants(
     val fontId: FontId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<FontFace>>,
     RequiresPermission {
@@ -36,5 +37,5 @@ class GetFontVariantsHandler(
     private val jdbi: Jdbi,
     private val fonts: FontStore,
 ) : QueryHandler<GetFontVariants, List<FontFace>> {
-    override fun handle(query: GetFontVariants): List<FontFace> = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, query.fontId) }
+    override fun handle(query: GetFontVariants): List<FontFace> = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, handle.versionOf(query.fontId.catalogId, query), query.fontId) }
 }

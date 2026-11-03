@@ -40,34 +40,34 @@ class UpdateDataContractTest : IntegrationTestBase() {
     fun createTemplate() {
         val tenant = createTenant("Data contract")
         templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-        withMediator { CreateDocumentTemplate(id = templateId, name = "contract").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(id = templateId, name = "contract", catalogVersion = null).execute().withRequiredDataExample() }
     }
 
     @Test
     fun `a new template has no schema and keeps what an update does not give`() {
-        val examples = withMediator { GetDataContract(templateId).query()!! }.dataExamples
-        assertThat(withMediator { GetDataContract(templateId).query()!! }.dataModel).isNull()
+        val examples = withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }.dataExamples
+        assertThat(withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }.dataModel).isNull()
 
-        withMediator { UpdateDataContract(templateId, dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")).execute() }
+        withMediator { UpdateDataContract(templateId, dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}"""), catalogVersion = null).execute() }
 
-        val contract = withMediator { GetDataContract(templateId).query()!! }
+        val contract = withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }
         assertThat(contract.dataModel!!["properties"]["name"]["type"].asString()).isEqualTo("string")
         assertThat(contract.dataExamples).isEqualTo(examples)
     }
 
     @Test
     fun `the schema can be cleared`() {
-        withMediator { UpdateDataContract(templateId, dataModel = schema("""{"type":"object"}""")).execute() }
+        withMediator { UpdateDataContract(templateId, dataModel = schema("""{"type":"object"}"""), catalogVersion = null).execute() }
 
-        withMediator { UpdateDataContract(templateId, clearDataModel = true).execute() }
+        withMediator { UpdateDataContract(templateId, clearDataModel = true, catalogVersion = null).execute() }
 
-        assertThat(withMediator { GetDataContract(templateId).query()!! }.dataModel).isNull()
+        assertThat(withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }.dataModel).isNull()
     }
 
     @Test
     fun `arbitrary JSON is refused as a schema`() {
         assertThatThrownBy {
-            withMediator { UpdateDataContract(templateId, dataModel = schema("""{"schemaVersion":5,"resource":{"type":"template"}}""")).execute() }
+            withMediator { UpdateDataContract(templateId, dataModel = schema("""{"schemaVersion":5,"resource":{"type":"template"}}"""), catalogVersion = null).execute() }
         }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.DATA_CONTRACT_SCHEMA_INVALID)
@@ -76,7 +76,7 @@ class UpdateDataContractTest : IntegrationTestBase() {
 
     @Test
     fun `a contract without an example is refused`() {
-        assertThatThrownBy { withMediator { UpdateDataContract(templateId, dataExamples = emptyList()).execute() } }
+        assertThatThrownBy { withMediator { UpdateDataContract(templateId, dataExamples = emptyList(), catalogVersion = null).execute() } }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.DATA_EXAMPLE_REQUIRED)
             .hasMessageContaining("At least one data example")
@@ -88,13 +88,14 @@ class UpdateDataContractTest : IntegrationTestBase() {
             UpdateDataContract(
                 templateId,
                 dataModel = schema("""{"type":"object","required":["country"],"properties":{"country":{"type":"string","default":"Netherlands"}}}"""),
+                catalogVersion = null,
             ).execute()
         }
         assertThat(result.warnings).isEmpty()
 
         assertThatThrownBy {
             withMediator {
-                UpdateDataContract(templateId, dataModel = schema("""{"type":"object","required":["country"],"properties":{"country":{"type":"string"}}}""")).execute()
+                UpdateDataContract(templateId, dataModel = schema("""{"type":"object","required":["country"],"properties":{"country":{"type":"string"}}}"""), catalogVersion = null).execute()
             }
         }.isInstanceOf(DataModelValidationException::class.java)
     }
@@ -109,12 +110,13 @@ class UpdateDataContractTest : IntegrationTestBase() {
                 dataModel = schema("""{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}"""),
                 dataExamples = examples,
                 forceUpdate = true,
+                catalogVersion = null,
             ).execute()
         }
 
         // Warnings are keyed by example key, as UpdateDataContractResult documents: a name need not be unique.
         assertThat(result.warnings).containsOnlyKeys("jane")
         // Stored by its key, as the wire form keeps it (ADR 0033): its id reads as its key.
-        assertThat(withMediator { GetDataContract(templateId).query()!! }.dataExamples).isEqualTo(examples.map { it.copy(id = "jane") })
+        assertThat(withMediator { GetDataContract(templateId, catalogVersion = null).query()!! }.dataExamples).isEqualTo(examples.map { it.copy(id = "jane") })
     }
 }

@@ -49,9 +49,9 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template", catalogVersion = null))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -59,6 +59,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
             UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
+                catalogVersion = null,
             ),
         )
         val version = mediator.publishAndRelease(variantId)
@@ -103,10 +104,10 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     fun `fails for a template the latest release does not contain`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
-        mediator.send(CreateDocumentTemplate(id = templateId, name = "Released"))
+        mediator.send(CreateDocumentTemplate(id = templateId, name = "Released", catalogVersion = null))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
-        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
+        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released"), catalogVersion = null))
         mediator.publishAndRelease(variantId)
 
         assertThatThrownBy {

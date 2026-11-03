@@ -64,9 +64,9 @@ class RegistryPublishFailureTest : IntegrationTestBase() {
         val catalog = CatalogKey.of(key)
         return withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Registry fault $key").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
-            val release = ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
+            val release = ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()
             Released(tenant, catalog, GetCatalog(testCatalog(tenant, catalog)).query()!!.namespace, release.fingerprint)
         }
     }

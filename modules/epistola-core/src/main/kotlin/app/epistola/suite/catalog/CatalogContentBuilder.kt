@@ -25,6 +25,7 @@ import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
@@ -81,14 +82,19 @@ class CatalogContentBuilder(
     private val versionResources: app.epistola.suite.catalog.revisions.VersionResourceReader,
     private val assetContentStore: app.epistola.suite.storage.AssetContentStore,
 ) {
-    fun build(catalog: CatalogId): CatalogContent {
+    /** The content of [catalog]'s next version ([build]): the default, by name. */
+    fun buildNext(catalog: CatalogId): CatalogContent = build(jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) })
+
+    /** The content of version [at] of its catalog, as a release of it holds it. */
+    fun build(at: ContentVersion): CatalogContent {
+        val catalog = at.catalog
         val found = GetCatalog(catalog).query()
             ?: throw IllegalArgumentException("Catalog not found: ${catalog.address}")
 
         // Every resource of the version, whatever its type (ADR 0039), read as a release reads its own:
         // as stored, which is how it travels, with the name qualifiers an earlier wire v8 draft let a
         // reference carry dropped. So a draft exports what the release cut from it exports.
-        val read = jdbi.withHandle<List<app.epistola.suite.catalog.revisions.VersionResourceReader.VersionResource>, Exception> { versionResources.read(it, catalog) }
+        val read = jdbi.withHandle<List<app.epistola.suite.catalog.revisions.VersionResourceReader.VersionResource>, Exception> { versionResources.read(it, at) }
         val resourceEntries = read.map { ResourceEntry(type = it.type, key = it.key, name = it.name, description = it.description, detailUrl = "./resources/${it.type}/${it.key}.json") }
         val resourceDetails = read.associateTo(LinkedHashMap()) { resource ->
             val root = resource.resource
@@ -123,7 +129,7 @@ class CatalogContentBuilder(
                 availableAssetSlugs = resources.filterIsInstance<ImageResource>().mapTo(mutableSetOf()) { it.key },
                 namespace = found.namespace,
                 registry = found.registry,
-            ).withThemeSettings(catalog),
+            ).withThemeSettings(at),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
             dependencies = findCrossCatalogDependencies(
@@ -135,7 +141,7 @@ class CatalogContentBuilder(
                 catalog.key.value,
             ),
             catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
-                dependencyStore.declarations(handle, catalog).map { it.toWire() }
+                dependencyStore.declarations(handle, at).map { it.toWire() }
             }.ifEmpty { null },
             assetContents = withFaceBinaries(assetContents, catalog, resources.filterIsInstance<FontResource>()),
         )
@@ -244,8 +250,9 @@ class CatalogContentBuilder(
  * [CatalogContentBuilder.Outbound]), and the presets it declares. Absent ones leave the details, and
  * so the fingerprint, as they were.
  */
-private fun CatalogInfo.withThemeSettings(catalog: CatalogId): CatalogInfo {
-    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(catalog).query()
+private fun CatalogInfo.withThemeSettings(at: ContentVersion): CatalogInfo {
+    val catalog = at.catalog
+    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(catalog, catalogVersion = at.ref).query()
     if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
     val theme = settings.defaultTheme?.let { theme ->
         if (theme.catalogKey == catalog.key) {

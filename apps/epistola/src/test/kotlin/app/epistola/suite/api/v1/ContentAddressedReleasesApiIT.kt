@@ -109,17 +109,17 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         createTenant(tenant, "Content hash tenant")
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("colours"), testCatalog(TenantId(tenant), shared)), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-        MarkCatalogReady(testCatalog(tenant, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("colours"), testCatalog(TenantId(tenant), shared)), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)))
-        CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+        CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
-        CreateTheme(ThemeId(ThemeKey.of("added"), testCatalog(TenantId(tenant), letters)), "Added").execute()
+        CreateTheme(ThemeId(ThemeKey.of("added"), testCatalog(TenantId(tenant), letters)), "Added", catalogVersion = null).execute()
         mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))))
         Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-it").execute().plaintextKey)
     }
@@ -151,7 +151,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         assertThat(malformed.statusCode).`as`("anything but a content hash").isEqualTo(HttpStatus.BAD_REQUEST)
 
         // Two numbers for one content: 1.1.1 re-releases 1.1.0 with new notes only. Paged as found.
-        withMediator { ReleaseCatalogDraft(testCatalog(seeded.tenant, letters), "1.1.1", notes = "Notes only").execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(seeded.tenant, letters), "1.1.1", notes = "Notes only", catalogVersion = null).execute() }
         val firstPage = get("$catalog/releases?contentHash=${hashes[1]}&size=1", seeded)
         assertThat(JsonPath.read<List<String>>(firstPage, "$.items[*].version")).containsExactly("1.1.1")
         assertThat(JsonPath.read<Int>(firstPage, "$.page.total")).isEqualTo(2)
@@ -166,7 +166,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
     fun `releasing over HTTP returns the release with its content hash`() {
         val seeded = seeded()
         val catalog = path(seeded)
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third", catalogVersion = null).execute() }
         exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", seeded)
 
         val released = exchange(HttpMethod.POST, "$catalog/releases/next/release", seeded, "{}")
@@ -183,7 +183,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             createTenant(tenant, "Content hash receiver")
             // Receiving needs no grant.
             ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours").execute()
+            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours", catalogVersion = null).execute()
             Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-receiver").execute().plaintextKey)
         }
         val catalog = path(receiver)
@@ -205,7 +205,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             app.epistola.suite.tenants.commands.CreateTenant(tenant, "Two letters", listOf(app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "acme"), app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "bureau"))).execute()
             for (namespace in listOf("acme", "bureau")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(namespace, letters, TenantId(tenant))), "Invoice of $namespace").execute()
+                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(namespace, letters, TenantId(tenant))), "Invoice of $namespace", catalogVersion = null).execute()
             }
             tenant to CreateApiKey(tenantId = tenant, name = "two-letters").execute().plaintextKey
         }
@@ -252,7 +252,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val deployed = exchange(HttpMethod.PUT, "/api/tenants/${seeded.tenant.value}/environments/production/deployments/~/$namespace/letters/$patch", seeded)
         assertThat(deployed.statusCode).`as`(deployed.body).isEqualTo(HttpStatus.OK)
 
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(seeded.tenant), letters)), "Fix").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(seeded.tenant), letters)), "Fix", catalogVersion = null).execute() }
         exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", seeded)
         // Above what the change needs (1.2.0), so only its being a patch number refuses it.
         val issued = exchange(HttpMethod.POST, "$catalog/releases/next/release", seeded, """{"version":"1.3.0-municipality.1"}""")
@@ -347,7 +347,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(changed, "$.dependenciesChanged")).isTrue()
         assertThat(JsonPath.read<Boolean>(changed, "$.releasable")).`as`("a catalog-level change is a change; it needs no ready mark").isTrue()
 
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third", catalogVersion = null).execute() }
         val withResource = get("$catalog/releases/next/changes", seeded)
         assertThat(JsonPath.read<List<Boolean>>(withResource, "$.changes[?(@.key == 'third')].mergedForReview")).containsExactly(false)
         assertThat(JsonPath.read<Boolean>(withResource, "$.releasable")).`as`("a resource not marked ready").isFalse()

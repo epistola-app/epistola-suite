@@ -64,10 +64,10 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         withMediator {
             for (slug in listOf("bcp-47", "iso-639-1", "iso-3166-1-alpha2")) {
                 val id = CodeListId(CodeListKey.of(slug), systemCatalogId)
-                val codeList = GetCodeList(id).query()
+                val codeList = GetCodeList(id, catalogVersion = null).query()
                 assertThat(codeList).withFailMessage("missing code list $slug").isNotNull()
 
-                val entries = ListCodeListEntries(id).query()
+                val entries = ListCodeListEntries(id, catalogVersion = null).query()
                 assertThat(entries).withFailMessage("code list $slug has no entries").isNotEmpty()
             }
         }
@@ -88,6 +88,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             for ((attrSlug, codeListSlug) in expected) {
                 val attr = GetAttributeDefinition(
                     AttributeId(AttributeKey.of(attrSlug), systemCatalogId),
+                    catalogVersion = null,
                 ).query()
                 assertThat(attr)
                     .withFailMessage("attribute $attrSlug missing from system catalog")
@@ -151,7 +152,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
         withMediator {
             assertThatCode {
-                validateAttributes(TenantId(tenant.id), mapOf("language" to "en"))
+                validateAttributes(TenantId(tenant.id), mapOf("language" to "en"), catalogVersion = null)
             }.doesNotThrowAnyException()
         }
     }
@@ -162,7 +163,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
         withMediator {
             assertThatThrownBy {
-                validateAttributes(TenantId(tenant.id), mapOf("language" to "not-a-real-code"))
+                validateAttributes(TenantId(tenant.id), mapOf("language" to "not-a-real-code"), catalogVersion = null)
             }.isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Not a member of code list 'system/iso-639-1'")
         }
@@ -190,6 +191,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
                 ),
                 displayName = "Language (custom)",
                 allowedValues = listOf("dutch", "english"),
+                catalogVersion = null,
             ).execute()
 
             // Bare slug — `associateBy` picks one definition non-deterministically.
@@ -199,22 +201,22 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             // Qualified key explicitly targets the system definition (ISO
             // 639-1): "en" is in the list, "english" is not.
             assertThatCode {
-                validateAttributes(TenantId(tenant.id), mapOf("system.language" to "en"))
+                validateAttributes(TenantId(tenant.id), mapOf("system.language" to "en"), catalogVersion = null)
             }.doesNotThrowAnyException()
 
             assertThatThrownBy {
-                validateAttributes(TenantId(tenant.id), mapOf("system.language" to "english"))
+                validateAttributes(TenantId(tenant.id), mapOf("system.language" to "english"), catalogVersion = null)
             }.isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Not a member of code list 'system/iso-639-1'")
 
             // Qualified key targets the demo-style custom definition (inline
             // allowedValues): the inverse — "english" passes, "en" fails.
             assertThatCode {
-                validateAttributes(TenantId(tenant.id), mapOf("default.language" to "english"))
+                validateAttributes(TenantId(tenant.id), mapOf("default.language" to "english"), catalogVersion = null)
             }.doesNotThrowAnyException()
 
             assertThatThrownBy {
-                validateAttributes(TenantId(tenant.id), mapOf("default.language" to "en"))
+                validateAttributes(TenantId(tenant.id), mapOf("default.language" to "en"), catalogVersion = null)
             }.isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Allowed values")
         }

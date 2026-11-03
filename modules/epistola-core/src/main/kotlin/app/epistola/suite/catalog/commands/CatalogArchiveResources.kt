@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.mediator.execute
 import org.slf4j.LoggerFactory
@@ -36,7 +37,8 @@ class CatalogArchiveResources(
     // Logs under the import handler, the name these lines had before it was split.
     private val logger = LoggerFactory.getLogger(ImportCatalogZipHandler::class.java)
 
-    internal fun install(catalog: CatalogId, parsed: ParsedCatalogArchive, receiving: Boolean): InstalledArchiveResources {
+    /** Installs [parsed]'s resources into draft [at] of its catalog. */
+    internal fun install(at: ContentVersion, parsed: ParsedCatalogArchive, receiving: Boolean): InstalledArchiveResources {
         val (entries, manifest, catalogCtx) = parsed
         val ordered = manifest.resources
             .sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
@@ -86,7 +88,7 @@ class CatalogArchiveResources(
                         bound["${entry.type}/${entry.key}"] = resource
 
                         val status = installer.install(
-                            catalog = catalog,
+                            at = at,
                             resource = resource,
                             version = manifest.release.version,
                             binaries = entries::get,

@@ -64,7 +64,7 @@ class ExchangeReleaseRegistryHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             CreateCatalog(tenant, catalog, "UI exchange publish").execute()
             ChangeCatalogNamespace(testCatalog(tenant, catalog), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/${catalog.value}/releases/1.0.0", String::class.java).body!!

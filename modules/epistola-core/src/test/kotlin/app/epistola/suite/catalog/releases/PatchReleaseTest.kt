@@ -72,10 +72,10 @@ class PatchReleaseTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(producer), letters)
         CreateCatalog(tenantKey = producer, id = letters, name = "Letters").execute()
         val variant = VariantId(VariantKey.INITIAL, TemplateId(INVOICE, catalog))
-        CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+        CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
-        CreateTheme(ThemeId(ThemeKey.of("fix"), catalog), "Fix").execute()
+        CreateTheme(ThemeId(ThemeKey.of("fix"), catalog), "Fix", catalogVersion = null).execute()
         val next = mediator.releaseNext(catalog)
         ExportCatalogZip(testCatalog(producer, letters), "1.0.0").execute().zipBytes to ExportCatalogZip(testCatalog(producer, letters), next).execute().zipBytes
     }
@@ -167,7 +167,7 @@ class PatchReleaseTest : IntegrationTestBase() {
         val producer = createTenant("Patch not issued").id
         produce(producer)
         withMediator {
-            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(producer, letters), version = "1.1.1-municipality.1").execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(producer, letters), version = "1.1.1-municipality.1", catalogVersion = null).execute() }
                 .isInstanceOf(CatalogReleaseVersionException::class.java)
                 .hasMessageContaining("patch release")
         }

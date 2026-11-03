@@ -43,20 +43,20 @@ class FindResourceUsagesTest : RelocationTestSupport() {
         val tenant = tenantWith("usages-every-kind")
         withMediator {
             importFont(tenant, shared, "brandfont")
-            CreateTheme(ThemeId(ThemeKey.of("corporate"), catalogId(tenant, shared)), "Corporate").execute()
-            CreateTheme(ThemeId(ThemeKey.of("plain"), catalogId(tenant, letters)), "Plain", documentStyles = fontStyle("brandfont", shared.value)).execute()
-            CreateCodeList(CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared)), displayName = "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("lang"), catalogId(tenant, shared)), "Language", codeListId = CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared))).execute()
-            CreateStencil(StencilId(StencilKey.of("seal"), catalogId(tenant, shared)), "Seal").execute()
-            CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant, shared)), "Footer", content = templateEmbedding("seal")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("corporate"), catalogId(tenant, shared)), "Corporate", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("plain"), catalogId(tenant, letters)), "Plain", documentStyles = fontStyle("brandfont", shared.value), catalogVersion = null).execute()
+            CreateCodeList(CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared)), displayName = "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("lang"), catalogId(tenant, shared)), "Language", codeListId = CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared)), catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("seal"), catalogId(tenant, shared)), "Seal", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant, shared)), "Footer", content = templateEmbedding("seal"), catalogVersion = null).execute()
 
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalog = catalogId(tenant, shared)).execute()
-            UpdateVariant(VariantId(VariantKey.INITIAL, invoice), "Default", mapOf("shared.lang" to "nl")).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalog = catalogId(tenant, shared), catalogVersion = null).execute()
+            UpdateVariant(VariantId(VariantKey.INITIAL, invoice), "Default", mapOf("shared.lang" to "nl"), catalogVersion = null).execute()
         }
 
-        val usages = withMediator { FindResourceUsages(catalogId(tenant, shared)).query() }
+        val usages = withMediator { FindResourceUsages(catalogId(tenant, shared), catalogVersion = null).query() }
 
         assertThat(usages["theme:corporate"]).containsExactly(ResourceUsage("Invoice", "letters", "template"))
         assertThat(usages["font:brandfont"]).describedAs("a font another catalog's theme uses").containsExactly(ResourceUsage("Plain", "letters", "theme"))

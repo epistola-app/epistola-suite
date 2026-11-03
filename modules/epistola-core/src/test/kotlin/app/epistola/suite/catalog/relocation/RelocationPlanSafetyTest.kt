@@ -67,8 +67,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val plan = preview(tenant, header.movedTo(shared))
         assertThat(plan.warnings.map { it.code }).doesNotContain("released-source")
 
-        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
-        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute() }
 
         assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
     }
@@ -79,7 +79,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val header = stencilReferencedByDraft(tenant)
         val plan = preview(tenant, header.movedTo(shared))
 
-        withMediator { CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, shared)), "Taken").execute() }
+        withMediator { CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, shared)), "Taken", catalogVersion = null).execute() }
 
         // The operator approved a plan without a blocker; what changed has to be previewed again.
         assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
@@ -107,12 +107,12 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateStencil(StencilId(StencilKey.of("first"), catalogId(tenant, letters)), "First").execute()
-            CreateStencil(StencilId(StencilKey.of("second"), catalogId(tenant, letters)), "Second").execute()
-            CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("a", "first", letters.value), Triple("b", "second", letters.value)))).execute()
+            CreateStencil(StencilId(StencilKey.of("first"), catalogId(tenant, letters)), "First", catalogVersion = null).execute()
+            CreateStencil(StencilId(StencilKey.of("second"), catalogId(tenant, letters)), "Second", catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("a", "first", letters.value), Triple("b", "second", letters.value))), catalogVersion = null).execute()
         }
-        val draftBefore = withMediator { GetVariantContent(variant).query()!! }
+        val draftBefore = withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }
         val batch = listOf(
             address(tenant, CatalogResourceType.STENCIL, letters, "first").movedTo(shared),
             address(tenant, CatalogResourceType.STENCIL, letters, "second").movedTo(shared),
@@ -121,11 +121,11 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         assertThat(plan.executable).isTrue()
 
         withFailingStencilUpdate(tenant, "second") {
-            assertThatThrownBy { withMediator { MoveCatalogResources(tenant, batch, plan.planFingerprint).execute() } }
+            assertThatThrownBy { withMediator { MoveCatalogResources(tenant, batch, plan.planFingerprint, catalogVersion = null).execute() } }
                 .hasMessageContaining("injected failure")
         }
 
-        assertThat(withMediator { GetVariantContent(variant).query()!! }).isEqualTo(draftBefore)
+        assertThat(withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }).isEqualTo(draftBefore)
         batch.forEach {
             assertThat(identityAt(tenant, it.source)).isNotNull()
             assertThat(identityAt(tenant, it.target)).isNull()
@@ -147,8 +147,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val archivePlan = preview(tenant, toArchive)
 
         val contender = whileHeldOpen(
-            hold = { MoveCatalogResources(tenant, toShared, sharedPlan.planFingerprint).execute() },
-            contend = { MoveCatalogResources(tenant, toArchive, archivePlan.planFingerprint).execute() },
+            hold = { MoveCatalogResources(tenant, toShared, sharedPlan.planFingerprint, catalogVersion = null).execute() },
+            contend = { MoveCatalogResources(tenant, toArchive, archivePlan.planFingerprint, catalogVersion = null).execute() },
         )
 
         assertThat(contender.exceptionOrNull()).isInstanceOf(StaleCatalogResourceMovePlanException::class.java)
@@ -171,8 +171,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val plan = preview(tenant, relocation)
 
         val contender = whileHeldOpen(
-            hold = { MoveCatalogResources(tenant, relocation, plan.planFingerprint).execute() },
-            contend = { CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, letters)), "Replacement").execute() },
+            hold = { MoveCatalogResources(tenant, relocation, plan.planFingerprint, catalogVersion = null).execute() },
+            contend = { CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, letters)), "Replacement", catalogVersion = null).execute() },
         )
 
         assertThat(contender.isFailure).describedAs("the racing create must be refused").isTrue()
@@ -264,15 +264,15 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
     private fun stencilReferencedByDraft(tenant: TenantKey) = address(tenant, CatalogResourceType.STENCIL, letters, "header").also {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         withMediator {
-            CreateStencil(header, "Header").execute()
-            CreateDocumentTemplate(invoiceVariant(tenant).templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(invoiceVariant(tenant), templateEmbedding("header", letters.value)).execute()
+            CreateStencil(header, "Header", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoiceVariant(tenant).templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(invoiceVariant(tenant), templateEmbedding("header", letters.value), catalogVersion = null).execute()
         }
     }
 
     private fun assertStale(tenant: TenantKey, relocations: List<ResourceRelocation>, fingerprint: String) {
         val identitiesBefore = relocations.associate { it.source to identityAt(tenant, it.source) }
-        assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, fingerprint).execute() } }
+        assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, fingerprint, catalogVersion = null).execute() } }
             .isInstanceOf(StaleCatalogResourceMovePlanException::class.java)
         assertThat(relocations.associate { it.source to identityAt(tenant, it.source) }).isEqualTo(identitiesBefore)
     }

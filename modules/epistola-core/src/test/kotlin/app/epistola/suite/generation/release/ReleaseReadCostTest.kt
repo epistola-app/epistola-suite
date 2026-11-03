@@ -122,18 +122,19 @@ class ReleaseReadCostTest : IntegrationTestBase() {
             id = AttributeId(AttributeKey.of("lang"), catalog),
             displayName = "Language",
             allowedValues = listOf("dutch", "english"),
+            catalogVersion = null,
         ).execute()
         val letter = TemplateId(TemplateKey.of("letter"), catalog)
-        CreateDocumentTemplate(letter, "Letter").execute().withRequiredDataExample()
-        CreateVariant(VariantId(VariantKey.of("nld"), letter), "Dutch", null, mapOf("lang" to "dutch")).execute()
-        CreateVariant(VariantId(VariantKey.of("eng"), letter), "English", null, mapOf("lang" to "english")).execute()
+        CreateDocumentTemplate(letter, "Letter", catalogVersion = null).execute().withRequiredDataExample()
+        CreateVariant(VariantId(VariantKey.of("nld"), letter), "Dutch", null, mapOf("lang" to "dutch"), catalogVersion = null).execute()
+        CreateVariant(VariantId(VariantKey.of("eng"), letter), "English", null, mapOf("lang" to "english"), catalogVersion = null).execute()
         for (variant in listOf(VariantKey.INITIAL, VariantKey.of("nld"), VariantKey.of("eng"))) {
             val id = VariantId(variant, letter)
-            UpdateVariantContent(id, TestTemplateBuilder.buildMinimal(name = "Letter ${variant.value}")).execute()
-            MarkVariantReady(id).execute()
+            UpdateVariantContent(id, TestTemplateBuilder.buildMinimal(name = "Letter ${variant.value}"), catalogVersion = null).execute()
+            MarkVariantReady(id, catalogVersion = null).execute()
         }
-        MarkCatalogReady(testCatalog(tenantKey, catalog.key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalog.key), version = "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenantKey, catalog.key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         catalog
     }
 }

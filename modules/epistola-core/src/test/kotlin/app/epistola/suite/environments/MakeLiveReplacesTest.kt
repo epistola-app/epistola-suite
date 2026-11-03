@@ -46,22 +46,22 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
         withMediator {
             CreateEnvironment(production, "Production").execute()
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
-            MarkCatalogReady(testCatalog(tenant, shared)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House", catalogVersion = null).execute()
             declareDependency(tenant, letters, on = shared)
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", catalogVersion = null).execute()
         }
         return tenant to production
     }
 
     private fun releaseShared(tenant: TenantKey, version: String, theme: String) = withMediator {
-        CreateTheme(ThemeId(ThemeKey.of(theme), testCatalog(TenantId(tenant), shared)), theme).execute()
-        MarkCatalogReady(testCatalog(tenant, shared)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, shared), version).execute()
+        CreateTheme(ThemeId(ThemeKey.of(theme), testCatalog(TenantId(tenant), shared)), theme, catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), version, catalogVersion = null).execute()
     }
 
     private fun served(tenant: TenantKey): List<String> = withMediator { ListDeployments(tenant).query().map { "${it.catalogKey.value}@${it.version}" } }
@@ -98,9 +98,9 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
         val (tenant, production) = setUp("live-replace-own")
         withMediator { DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.0.0", includeDependencies = true).execute() }
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("second"), testCatalog(TenantId(tenant), letters)), "Second").execute()
-            MarkCatalogReady(testCatalog(tenant, letters)).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.1.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("second"), testCatalog(TenantId(tenant), letters)), "Second", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.1.0", catalogVersion = null).execute()
         }
 
         withMediator { DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.1.0", includeDependencies = true, replace = true).execute() }

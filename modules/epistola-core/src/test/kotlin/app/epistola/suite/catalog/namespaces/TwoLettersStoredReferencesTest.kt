@@ -87,8 +87,8 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
         for (namespace in listOf("acme", "bureau")) {
             CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, letters(tenant, namespace)))
-            CreateDocumentTemplate(variant.templateId, "Invoice of $namespace").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice of $namespace")).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice of $namespace", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice of $namespace"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
         }
     }
@@ -100,18 +100,18 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
         withMediator {
             for ((namespace, colour) in listOf("acme" to "#0000ff", "bureau" to "#ff0000")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-                CreateTheme(ThemeId(ThemeKey.of("brand"), letters(tenant, namespace)), "Brand of $namespace", documentStyles = mapOf("color" to colour)).execute()
-                MarkCatalogReady(letters(tenant, namespace)).execute()
-                ReleaseCatalogDraft(letters(tenant, namespace), "1.0.0").execute()
+                CreateTheme(ThemeId(ThemeKey.of("brand"), letters(tenant, namespace)), "Brand of $namespace", documentStyles = mapOf("color" to colour), catalogVersion = null).execute()
+                MarkCatalogReady(letters(tenant, namespace), catalogVersion = null).execute()
+                ReleaseCatalogDraft(letters(tenant, namespace), "1.0.0", catalogVersion = null).execute()
             }
             CreateCatalog(tenant, forms.key, "Forms", namespace = "acme").execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, forms))
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             // The theme of bureau's letters: declared on use, under its key.
-            UpdateDocumentTemplate(variant.templateId, themeId = ThemeKey.of("brand"), themeCatalog = letters(tenant, "bureau")).execute()
+            UpdateDocumentTemplate(variant.templateId, themeId = ThemeKey.of("brand"), themeCatalog = letters(tenant, "bureau"), catalogVersion = null).execute()
 
-            val borrowed = GetCatalogBorrowing(forms).query().catalogs.single()
+            val borrowed = GetCatalogBorrowing(forms, catalogVersion = null).query().catalogs.single()
             assertThat(borrowed.address).isEqualTo("bureau/letters")
             assertThat(borrowed.uses.map { it.type to it.key }).contains("theme" to "brand")
 
@@ -129,13 +129,13 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
         withMediator {
             for (namespace in listOf("acme", "bureau")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-                CreateStencil(StencilId(letterhead, letters(tenant, namespace)), "Letterhead").execute()
+                CreateStencil(StencilId(letterhead, letters(tenant, namespace)), "Letterhead", catalogVersion = null).execute()
                 val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, letters(tenant, namespace)))
-                CreateDocumentTemplate(variant.templateId, "Invoice of $namespace").execute()
-                UpdateVariantContent(variant, embedding("letterhead")).execute()
+                CreateDocumentTemplate(variant.templateId, "Invoice of $namespace", catalogVersion = null).execute()
+                UpdateVariantContent(variant, embedding("letterhead"), catalogVersion = null).execute()
             }
 
-            val usage = GetStencilUsagePage(StencilId(letterhead, letters(tenant, "acme"))).query()
+            val usage = GetStencilUsagePage(StencilId(letterhead, letters(tenant, "acme")), catalogVersion = null).query()
             assertThat(usage.items.map { it.catalogAddress to it.templateName }).containsExactly("acme/letters" to "Invoice of acme")
         }
     }
@@ -147,13 +147,13 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
         withMediator {
             for (namespace in listOf("acme", "bureau")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-                CreateTheme(ThemeId(brand, letters(tenant, namespace)), "Brand of $namespace").execute()
+                CreateTheme(ThemeId(brand, letters(tenant, namespace)), "Brand of $namespace", catalogVersion = null).execute()
                 val template = TemplateId(invoice, letters(tenant, namespace))
-                CreateDocumentTemplate(template, "Invoice of $namespace").execute()
-                UpdateDocumentTemplate(template, themeId = brand, themeCatalog = letters(tenant, namespace)).execute()
+                CreateDocumentTemplate(template, "Invoice of $namespace", catalogVersion = null).execute()
+                UpdateDocumentTemplate(template, themeId = brand, themeCatalog = letters(tenant, namespace), catalogVersion = null).execute()
             }
 
-            val usage = GetThemeUsagePage(ThemeId(brand, letters(tenant, "acme"))).query()
+            val usage = GetThemeUsagePage(ThemeId(brand, letters(tenant, "acme")), catalogVersion = null).query()
             assertThat(usage.items.map { it.templateCatalogAddress to it.templateName }).containsExactly("acme/letters" to "Invoice of acme")
         }
     }

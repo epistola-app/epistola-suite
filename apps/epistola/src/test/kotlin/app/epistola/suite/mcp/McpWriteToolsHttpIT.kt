@@ -162,14 +162,14 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
         val theme = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenantKey), catalogKey))
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Letters").execute()
-            CreateTheme(id = theme, name = "Brand").execute()
-            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            CreateTheme(id = theme, name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0", catalogVersion = null).execute()
             val fixRef = CatalogReleaseRef(testCatalog(tenantKey, catalogKey), DraftRef.Id(CreateCatalogDraft(testCatalog(tenantKey, catalogKey), "Fix", "1.0.0").execute().versionId))
             UpdateTheme(theme, name = "Brand, fixed", catalogVersion = fixRef).execute()
             MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = fixRef).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.1", catalogVersion = fixRef).execute()
-            UpdateTheme(theme, name = "Brand, ours").execute()
+            UpdateTheme(theme, name = "Brand, ours", catalogVersion = null).execute()
         }
         val session = McpSession(key)
         val tools = session.rpc("tools/list").get("result").get("tools").values().associateBy { it.get("name").asString() }
@@ -186,7 +186,7 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
         )
 
         assertThat(merged.get("merged").values().map { it.asString() }).containsExactly("theme/brand")
-        assertThat(withMediator { GetTheme(theme).query()!!.name }).isEqualTo("Brand, ours and fixed")
+        assertThat(withMediator { GetTheme(theme, catalogVersion = null).query()!!.name }).isEqualTo("Brand, ours and fixed")
     }
 
     @Test

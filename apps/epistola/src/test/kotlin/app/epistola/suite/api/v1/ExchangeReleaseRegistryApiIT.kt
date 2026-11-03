@@ -136,11 +136,11 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, CatalogKey.of("rr-granted"), "Granted").execute()
             ChangeCatalogNamespace(testCatalog(tenant, CatalogKey.of("rr-granted")), "public-services").execute()
-            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("rr-granted")), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("rr-granted")), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
             // Held here, by an administrator's grant, but not granted by the Exchange connection.
             TestNamespaces.grant(tenant, "not-granted").execute()
             CreateCatalog(tenant, CatalogKey.of("rr-other"), "Other", namespace = "not-granted").execute()
-            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("rr-other")), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("rr-other")), "1.0.0", publication = ReleasePublication.SKIP, catalogVersion = null).execute()
         }
         val publish = withMediator { "${CatalogApiPaths.version(tenant, "rr-granted", "1.0.0")}/publish" }
 
@@ -170,9 +170,9 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         return withMediator {
             TestNamespaces.grant(publisher, "acme").execute()
             CreateCatalog(publisher, key, "Letters", namespace = "acme").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), key)), name = "Theme").execute()
-            MarkCatalogReady(testCatalog(publisher, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(publisher, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), key)), name = "Theme", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(publisher, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, key), version = "1.0.0", catalogVersion = null).execute()
             mediator.exportReleased(testCatalog(TenantId(publisher), key)).zipBytes
         }
     }

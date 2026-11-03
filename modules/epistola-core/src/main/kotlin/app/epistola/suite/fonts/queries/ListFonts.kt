@@ -5,9 +5,12 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.ReleaseReadable
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.Paging
 import app.epistola.suite.common.ResultPage
@@ -37,8 +40,8 @@ import org.springframework.stereotype.Component
 data class ListFonts(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : ReleaseReadable,
     Query<List<Font>>,
     RequiresPermission {
@@ -55,8 +58,8 @@ data class ListFonts(
 data class ListFontPage(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses (each other catalog is read in its next version); null for every catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     val page: PageRequest,
 ) : ReleaseReadable,
     Query<ResultPage<Font>>,
@@ -73,7 +76,7 @@ class ListFontsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListFonts, List<Font>> {
     override fun handle(query: ListFonts): List<Font> = jdbi.withHandle<List<Font>, Exception> { handle ->
-        FontList.query(handle, query.tenantId, query.catalog, paged = false).mapTo<Font>().list()
+        FontList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = false).mapTo<Font>().list()
     }
 }
 
@@ -82,22 +85,25 @@ class ListFontPageHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListFontPage, ResultPage<Font>> {
     override fun handle(query: ListFontPage): ResultPage<Font> = jdbi.withHandle<ResultPage<Font>, Exception> { handle ->
-        Paging.read(query.page, Font::class.java) { FontList.query(handle, query.tenantId, query.catalog, paged = true) }
+        Paging.read(query.page, Font::class.java) { FontList.query(handle, query.tenantId, query.catalog, handle.addressedVersion(query), paged = true) }
     }
 }
 
-/** The fonts of a tenant, or of one of its catalogs, by name; [paged] selects one page of them. */
+/**
+ * The fonts of a tenant, or of one of its catalogs, by name; [paged] selects one page of them. Of
+ * [version] for its catalog, else of each catalog's next version.
+ */
 private object FontList {
-    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, paged: Boolean): org.jdbi.v3.core.statement.Query {
+    fun query(handle: Handle, tenantId: TenantId, catalog: CatalogId?, version: java.util.UUID?, paged: Boolean): org.jdbi.v3.core.statement.Query {
         val sql = buildString {
             append("SELECT $FONT_COLUMNS")
             if (paged) append(", ${Paging.TOTAL}")
-            append(" FROM current_fonts f WHERE f.tenant_key = :tenantId")
+            append(" FROM version_fonts f WHERE f.tenant_key = :tenantId AND ${inVersionOrNext("f", "version")}")
             if (catalog != null) append(" AND f.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             append(" ORDER BY f.name ASC, f.catalog_id, f.slug")
             if (paged) append(" ${Paging.LIMIT_OFFSET}")
         }
-        val q = handle.createQuery(sql).bind("tenantId", tenantId.key)
+        val q = handle.createQuery(sql).bind("tenantId", tenantId.key).bindVersion("version", version)
         if (catalog != null) q.bindCatalog("catalogKey", catalog)
         return q
     }

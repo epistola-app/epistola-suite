@@ -291,8 +291,8 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
             // A template in another catalog pins the fixture's theme.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), defaultCatalogId)
-            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(templateId.tenantKey, depKey)).execute()
+            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template", catalogVersion = null).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(templateId.tenantKey, depKey), catalogVersion = null).execute()
 
             // Publisher removes that theme in the next release.
             removeResource(tmp, "test-theme")

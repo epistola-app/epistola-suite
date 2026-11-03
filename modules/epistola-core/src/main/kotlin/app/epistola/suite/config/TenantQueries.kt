@@ -26,7 +26,7 @@ import org.jdbi.v3.core.kotlin.mapTo
  * ```kotlin
  * override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
  *     handle.createQuery(
- *         "SELECT * FROM current_themes WHERE id = :id AND tenant_key = :tenantId"
+ *         "SELECT * FROM version_themes WHERE id = :id AND tenant_key = :tenantId AND version_id = :v"
  *     )
  *         .bind("id", query.id)
  *         .bind("tenantId", query.tenantId)

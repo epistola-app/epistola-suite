@@ -35,6 +35,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("lang"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "french"),
+                catalogVersion = null,
             ),
         )
         mediator.send(
@@ -42,6 +43,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId)),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+                catalogVersion = null,
             ),
         )
     }
@@ -57,7 +59,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 val dutchVariant = mediator.send(
@@ -66,6 +68,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -75,6 +78,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "English",
                         description = null,
                         attributes = mapOf("lang" to "english"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -83,6 +87,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchVariant.id)
@@ -97,7 +102,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 mediator.send(
@@ -106,6 +111,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -115,6 +121,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -123,6 +130,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchAcme.id)
@@ -141,7 +149,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 mediator.send(
@@ -150,6 +158,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -159,6 +168,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -167,6 +177,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
+                    catalogVersion = null,
                 )
 
                 // dutchAcme: optionalMatches=2 -> score = 2*10 = 20
@@ -183,7 +194,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 mediator.send(
@@ -192,6 +203,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -201,6 +213,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -210,6 +223,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchAcme.id)
@@ -228,7 +242,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 val defaultVariantId = VariantKey.INITIAL
@@ -239,6 +253,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "French",
                         description = null,
                         attributes = mapOf("lang" to "french"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -247,6 +262,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(defaultVariantId)
@@ -261,13 +277,13 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 // Give the auto-created default variant some attributes
                 val defaultVariantId = VariantKey.INITIAL
                 mediator.send(
-                    SetDefaultVariant(variantId = VariantId(defaultVariantId, templateId)),
+                    SetDefaultVariant(variantId = VariantId(defaultVariantId, templateId), catalogVersion = null),
                 )
 
                 // Create a non-default variant with different attributes
@@ -277,6 +293,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "French",
                         description = null,
                         attributes = mapOf("lang" to "french"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -286,6 +303,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(defaultVariantId)
@@ -304,7 +322,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 val variant1 = mediator.send(
@@ -313,6 +331,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -323,6 +342,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Globex",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "globex"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -332,6 +352,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         criteria = VariantSelectionCriteria(
                             requiredAttributes = mapOf("lang" to "dutch"),
                         ),
+                        catalogVersion = null,
                     )
                 }
                 assertThat(exception.tiedVariantIds).containsExactlyInAnyOrder(variant1.id, variant2.id)
@@ -350,7 +371,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 // English variant - won't pass required filter
@@ -360,6 +381,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "English Acme",
                         description = null,
                         attributes = mapOf("lang" to "english", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -370,6 +392,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -380,6 +403,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -389,6 +413,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchAcme.id)
@@ -403,7 +428,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 // Variant with language=dutch - score: 1*10 + 1 = 11
@@ -413,6 +438,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("lang" to "dutch"),
+                        catalogVersion = null,
                     ),
                 )
 
@@ -423,6 +449,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -431,6 +458,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchAcme.id)
@@ -448,7 +476,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenantId = TenantId(tenant.id)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 val defaultVariantId = VariantKey.INITIAL
@@ -456,6 +484,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val resolved = variantResolver.resolve(
                     template = templateId,
                     criteria = VariantSelectionCriteria(),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(defaultVariantId)
@@ -470,7 +499,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 setupAttributeDefinitions(tenantId)
                 val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice", catalogVersion = null),
                 )
 
                 val dutchAcme = mediator.send(
@@ -479,6 +508,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("lang" to "dutch", "brand" to "acme"),
+                        catalogVersion = null,
                     ),
                 )!!
 
@@ -487,6 +517,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
+                    catalogVersion = null,
                 )
 
                 assertThat(resolved).isEqualTo(dutchAcme.id)

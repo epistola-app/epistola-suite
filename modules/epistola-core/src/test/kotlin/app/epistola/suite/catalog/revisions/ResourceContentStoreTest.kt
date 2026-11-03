@@ -65,13 +65,13 @@ class ResourceContentStoreTest : IntegrationTestBase() {
         val catalog = authoredCatalog("rev-all")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2", catalogVersion = null).execute()
 
             // The draft stores its themes as JSON already (ADR 0033), the same content a release keeps.
             assertThat(revisionCount(catalog.tenantKey)).isEqualTo(2)
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         assertThat(revisionKinds(catalog.tenantKey)).`as`("releasing them stores nothing new").containsExactly("theme", "theme")
@@ -82,25 +82,25 @@ class ResourceContentStoreTest : IntegrationTestBase() {
         val catalog = authoredCatalog("rev-dedup")
 
         withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited", catalogVersion = null).execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
         val afterFirst = revisionCount(catalog.tenantKey)
         assertThat(afterFirst).isEqualTo(2)
 
         withMediator {
             // Identical content: content-addressed, so there is nothing new to store.
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.1").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.1", catalogVersion = null).execute()
         }
         assertThat(revisionCount(catalog.tenantKey)).isEqualTo(afterFirst)
 
         withMediator {
-            UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.1.0").execute()
+            UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.1.0", catalogVersion = null).execute()
         }
         assertThat(revisionCount(catalog.tenantKey))
             .`as`("the edited theme is one new payload; the untouched one is reused")
@@ -114,9 +114,9 @@ class ResourceContentStoreTest : IntegrationTestBase() {
 
         for (catalog in listOf(first, second)) {
             withMediator {
-                CreateTheme(id = ThemeId(ThemeKey.of("shared"), catalog), name = "Shared").execute()
-                MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-                ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("shared"), catalog), name = "Shared", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
             }
         }
 
@@ -131,12 +131,12 @@ class ResourceContentStoreTest : IntegrationTestBase() {
 
         withMediator {
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, emptyTemplate()).execute()
-            MarkVariantReady(variant).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, emptyTemplate(), catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
 
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         assertThat(revisionKinds(catalog.tenantKey)).contains(app.epistola.suite.catalog.revisions.VariantRows.TYPE, "template")
@@ -159,9 +159,10 @@ class ResourceContentStoreTest : IntegrationTestBase() {
                 content = content,
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute().id
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
             id
         }
 
@@ -169,7 +170,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             .`as`("the release recorded which bytes it needs")
             .contains(hash)
 
-        withMediator { DeleteAsset(catalog.tenantKey, assetId).execute() }
+        withMediator { DeleteAsset(catalog.tenantKey, assetId, catalogVersion = null).execute() }
         jdbi.backdateAssetBlob(hash)
         collector.collectAll()
 
@@ -192,9 +193,10 @@ class ResourceContentStoreTest : IntegrationTestBase() {
                 content = content,
                 width = 1,
                 height = 1,
+                catalogVersion = null,
             ).execute()
-            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         // The collector's reachability rule is one thing that keeps these bytes; the foreign key is

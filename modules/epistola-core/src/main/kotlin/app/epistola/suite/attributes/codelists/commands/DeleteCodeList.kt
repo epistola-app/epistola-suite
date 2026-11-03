@@ -4,14 +4,15 @@
 
 package app.epistola.suite.attributes.codelists.commands
 
-import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.addressedVersion
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -37,8 +38,8 @@ class CodeListInUseException(
 
 data class DeleteCodeList(
     val id: CodeListId,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
@@ -54,17 +55,21 @@ class DeleteCodeListHandler(
     override fun handle(command: DeleteCodeList): Boolean {
         requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
+            val at = handle.versionOf(command.id.catalogId, command)
+            // The attributes of every catalog: of this version for its catalog, else of each one's next version.
             val attributeCount = handle.createQuery(
                 """
                 -- Bound by alias and key, resolved through the one alias resolver (ADR 0033).
-                SELECT COUNT(*) FROM catalog_version_references('attribute') x
-                WHERE x.tenant_key = :tenantKey AND x.ref_type = 'codeList'
+                SELECT COUNT(*) FROM version_references x
+                WHERE x.tenant_key = :tenantKey AND x.resource_type = 'attribute' AND x.ref_type = 'codeList'
+                  AND ${inVersionOrNext("x", "version")}
                   AND x.ref_catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND x.ref_key = CAST(:slug AS TEXT)
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
                 .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
+                .bindVersion("version", handle.addressedVersion(command))
                 .mapTo(Long::class.java)
                 .one()
 
@@ -72,7 +77,7 @@ class DeleteCodeListHandler(
                 throw CodeListInUseException(command.id, attributeCount)
             }
 
-            codeLists.delete(handle, command.id)
+            codeLists.delete(handle, at, command.id)
         }
     }
 }

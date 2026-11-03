@@ -78,21 +78,21 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
     /** The scenario above; the work's draft id. */
     private fun diverged(tenant: Tenant, alsoDefaultTheme: Boolean = false): String = withMediator {
         CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-        CreateTheme(theme(tenant, "brand"), "Brand").execute()
-        CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
-        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-        MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+        CreateTheme(theme(tenant, "brand"), "Brand", catalogVersion = null).execute()
+        CreateTheme(theme(tenant, "letterhead"), "Letterhead", catalogVersion = null).execute()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0", catalogVersion = null).execute()
 
         val work = CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId
         UpdateTheme(theme(tenant, "brand"), name = "Brand redesigned", catalogVersion = work(tenant, work)).execute()
 
-        UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed").execute()
-        UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed").execute()
-        if (alsoDefaultTheme) SetCatalogDefaultTheme(testCatalog(tenant.id, letters), CatalogDefaultTheme(ThemeKey.of("letterhead"), testCatalog(tenant.id, letters))).execute()
-        MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+        UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed", catalogVersion = null).execute()
+        UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed", catalogVersion = null).execute()
+        if (alsoDefaultTheme) SetCatalogDefaultTheme(testCatalog(tenant.id, letters), CatalogDefaultTheme(ThemeKey.of("letterhead"), testCatalog(tenant.id, letters)), catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
         // Another default theme is a minor change, so that release is 1.1.0.
-        ReleaseCatalogDraft(testCatalog(tenant.id, letters), if (alsoDefaultTheme) "1.1.0" else "1.0.1").execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), if (alsoDefaultTheme) "1.1.0" else "1.0.1", catalogVersion = null).execute()
         work
     }
 
@@ -121,10 +121,10 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Offer Overview")
             withMediator {
                 CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-                CreateTheme(theme(tenant, "brand"), "Brand").execute()
-                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+                CreateTheme(theme(tenant, "brand"), "Brand", catalogVersion = null).execute()
+                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0", catalogVersion = null).execute()
 
                 // A fix published from separate work: the next release does not have it.
                 val fix = CreateCatalogDraft(testCatalog(tenant.id, letters), "Fix").execute().versionId
@@ -179,9 +179,9 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             work = diverged(tenant)
             withMediator {
                 CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
-                CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant.id), shared)), "Base").execute()
-                MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0").execute()
+                CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant.id), shared)), "Base", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(tenant.id, shared), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0", catalogVersion = null).execute()
                 val catalog = GetCatalog(testCatalog(tenant.id, shared)).query()!!
                 UpdateCatalogDependencies(
                     testCatalog(tenant.id, letters),
@@ -213,15 +213,15 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             withMediator {
                 CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
                 CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("shared"), name = "Shared").execute()
-                CreateTheme(theme(tenant, "house"), "House").execute()
-                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
-                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
+                CreateTheme(theme(tenant, "house"), "House", catalogVersion = null).execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = null).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0", catalogVersion = null).execute()
                 val fix = CreateCatalogDraft(testCatalog(tenant.id, letters), "Fix", "1.0.0").execute().versionId
 
                 // The next release moves the theme to shared (ADR 0042); the fix changes it where it was.
                 val move = listOf(app.epistola.suite.catalog.relocation.ResourceRelocation(testAddress(tenant.id, CatalogResourceType.THEME, letters.value, "house"), testAddress(tenant.id, CatalogResourceType.THEME, "shared", "house")))
-                val plan = app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove(tenant.id, move).query()
-                app.epistola.suite.catalog.relocation.MoveCatalogResources(tenant.id, move, plan.planFingerprint).execute()
+                val plan = app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove(tenant.id, move, catalogVersion = null).query()
+                app.epistola.suite.catalog.relocation.MoveCatalogResources(tenant.id, move, plan.planFingerprint, catalogVersion = null).execute()
                 UpdateTheme(theme(tenant, "house"), name = "House, fixed", catalogVersion = work(tenant, fix)).execute()
                 MarkCatalogReady(testCatalog(tenant.id, letters), work(tenant, fix)).execute()
                 ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.1", catalogVersion = work(tenant, fix)).execute()

@@ -7,8 +7,8 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -30,8 +30,8 @@ import tools.jackson.databind.ObjectMapper
 data class DeleteDataExample(
     val templateId: TemplateId,
     val exampleId: String,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
 ) : CatalogReleaseScoped,
@@ -58,9 +58,10 @@ class DeleteDataExampleHandler(
 
         return jdbi.inTransaction<DeleteDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
-            val draftContract = readDataContract(handle, objectMapper, command.templateId, forUpdate = true) ?: return@inTransaction null
+            val at = handle.versionOf(command.templateId.catalogId, command)
+            val draftContract = readDataContract(handle, objectMapper, at, command.templateId, forUpdate = true) ?: return@inTransaction null
             // The row is locked now, so its revision holds until this transaction ends.
-            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, command.templateId))
+            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, at, command.templateId))
 
             val exampleExists = draftContract.dataExamples.any { it.id == command.exampleId }
             if (!exampleExists) {
@@ -70,7 +71,7 @@ class DeleteDataExampleHandler(
             val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
             requireAtLeastOneDataExample(updatedExamples)
 
-            val revision = writeContract(handle, templates, objectMapper, command.templateId, draftContract.dataModel, updatedExamples)
+            val revision = writeContract(handle, templates, objectMapper, at, command.templateId, draftContract.dataModel, updatedExamples)
 
             DeleteDataExampleResult(deleted = true, revision = revision)
         }

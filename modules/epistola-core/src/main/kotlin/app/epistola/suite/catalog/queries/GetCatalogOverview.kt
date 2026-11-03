@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogRelease
 import app.epistola.suite.catalog.releases.CatalogReleaseReader
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -106,7 +107,7 @@ class GetCatalogOverviewHandler(
             latestRelease = (base?.let { b -> releases.firstOrNull { it.version == b } } ?: releases.firstOrNull())
                 ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
             // The current version's readiness: the next version's.
-            notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, catalog.catalogId).count { !it.value },
+            notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, ContentVersion.next(handle, catalog.catalogId)).count { !it.value },
             served = servedBy(releases),
             readOnlyReason = reason,
         )

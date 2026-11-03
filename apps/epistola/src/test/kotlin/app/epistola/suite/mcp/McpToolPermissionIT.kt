@@ -248,14 +248,14 @@ class McpToolPermissionIT : IntegrationTestBase() {
         val tenantKey = TenantKey.of("mcpp-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "MCP Permission Tenant")
         val catalog = CatalogId.default(TenantId(tenantKey))
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-        CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("languages"), catalog), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands"))).execute()
-        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalog), "Tone", allowedValues = listOf("formal", "plain")).execute()
-        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("letter"), catalog), name = "Letter").execute()
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", catalogVersion = null).execute()
+        CreateStencil(StencilId(StencilKey.of("header"), catalog), "Header", catalogVersion = null).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("languages"), catalog), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+        CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalog), "Tone", allowedValues = listOf("formal", "plain"), catalogVersion = null).execute()
+        CreateDocumentTemplate(id = TemplateId(TemplateKey.of("letter"), catalog), name = "Letter", catalogVersion = null).execute()
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenantKey)), "Test").execute()
-        MarkCatalogReady(catalog).execute()
-        ReleaseCatalogDraft(catalog = catalog, version = "1.0.0").execute()
+        MarkCatalogReady(catalog, catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = catalog, version = "1.0.0", catalogVersion = null).execute()
         CreateApiKey(tenantId = tenantKey, name = "mcp-permission-it", roles = roles).execute().plaintextKey
     }
 

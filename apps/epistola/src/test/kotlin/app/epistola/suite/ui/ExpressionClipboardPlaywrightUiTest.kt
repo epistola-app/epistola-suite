@@ -128,13 +128,14 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         val tenantId = TenantId(tenant.id)
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Expression Clipboard").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Expression Clipboard", catalogVersion = null).execute()
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = CreateVariant(
             id = variantId,
             title = "Default",
             description = null,
             attributes = emptyMap(),
+            catalogVersion = null,
         ).execute()!!
 
         val body = TemplateDocument(
@@ -154,7 +155,7 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        UpdateVariantContent(variantId = variantId, templateModel = body).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = body, catalogVersion = null).execute()
 
         return "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor"
     }

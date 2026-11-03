@@ -45,13 +45,13 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     fun `a catalog's default theme is set, read back and cleared`() {
         val catalog = lettersIn("Default Theme")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
 
-            val set = SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters))).execute()
+            val set = SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute()
             assertThat(set.defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters)))
-            assertThat(GetCatalogThemeSettings(testCatalog(catalog.tenantKey, letters)).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
+            assertThat(GetCatalogThemeSettings(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
 
-            assertThat(SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), null).execute().defaultTheme).isNull()
+            assertThat(SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), null, catalogVersion = null).execute().defaultTheme).isNull()
         }
     }
 
@@ -61,12 +61,12 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         withMediator {
             CreateCatalog(tenantKey = catalog.tenantKey, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(catalog.tenantKey), shared)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(catalog.tenantKey), shared)), "Brand", catalogVersion = null).execute()
 
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared))).execute()
-            assertThat(ListCatalogDependencies(testCatalog(catalog.tenantKey, letters)).query().map { it.catalogKey }).contains(shared.value)
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared)), catalogVersion = null).execute()
+            assertThat(ListCatalogDependencies(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query().map { it.catalogKey }).contains(shared.value)
 
-            assertThatThrownBy { SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("nope"), testCatalog(catalog.tenantKey, letters))).execute() }
+            assertThatThrownBy { SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("nope"), testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute() }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("does not exist")
         }
@@ -79,11 +79,12 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
             val saved = SetCatalogPresets(
                 testCatalog(catalog.tenantKey, letters),
                 listOf(CatalogPreset("small-print", "Small print"), CatalogPreset("heading-accent", "Heading accent", "For section titles")),
+                catalogVersion = null,
             ).execute()
             assertThat(saved.presets.map { it.key }).containsExactly("heading-accent", "small-print")
-            assertThat(GetCatalogThemeSettings(testCatalog(catalog.tenantKey, letters)).query().presets.first().description).isEqualTo("For section titles")
+            assertThat(GetCatalogThemeSettings(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query().presets.first().description).isEqualTo("For section titles")
         }
-        assertThatThrownBy { SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("a-b", "One"), CatalogPreset("a-b", "Two"))) }
+        assertThatThrownBy { SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("a-b", "One"), CatalogPreset("a-b", "Two")), catalogVersion = null) }
             .isInstanceOf(ValidationException::class.java)
         assertThatThrownBy { CatalogPreset("Not A Key", "Bad") }.isInstanceOf(ValidationException::class.java)
         assertThatThrownBy { CatalogPreset("a".repeat(51), "Too long") }.isInstanceOf(ValidationException::class.java)
@@ -95,13 +96,13 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         withMediator {
             CreateCatalog(tenantKey = catalog.tenantKey, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(catalog.tenantKey), shared)), "Brand").execute()
-            SetCatalogPresets(testCatalog(catalog.tenantKey, shared), listOf(CatalogPreset("accent", "Shared accent"), CatalogPreset("small-print", "Small print"))).execute()
-            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Letters accent"))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(catalog.tenantKey), shared)), "Brand", catalogVersion = null).execute()
+            SetCatalogPresets(testCatalog(catalog.tenantKey, shared), listOf(CatalogPreset("accent", "Shared accent"), CatalogPreset("small-print", "Small print")), catalogVersion = null).execute()
+            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Letters accent")), catalogVersion = null).execute()
             // Using the shared theme makes letters depend on shared.
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared))).execute()
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared)), catalogVersion = null).execute()
 
-            val available = GetAvailablePresets(testCatalog(catalog.tenantKey, letters)).query()
+            val available = GetAvailablePresets(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query()
 
             assertThat(available.map { it.key to it.name }).containsExactly("accent" to "Letters accent", "small-print" to "Small print")
             assertThat(available.last().catalogKey).isEqualTo(shared)
@@ -117,14 +118,14 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
             doc.copy(nodes = doc.nodes.mapValues { (_, node) -> node.copy(stylePreset = preset) })
         }
         withMediator {
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
 
             // Nothing declared: not checked, as before.
-            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("anything")).execute()
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("anything"), catalogVersion = null).execute()
 
-            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent"))).execute()
-            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("accent")).execute()
-            assertThatThrownBy { app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("bogus")).execute() }
+            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent")), catalogVersion = null).execute()
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("accent"), catalogVersion = null).execute()
+            assertThatThrownBy { app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("bogus"), catalogVersion = null).execute() }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("'bogus' is not one of this catalog's presets")
         }
@@ -134,12 +135,12 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     fun `a published version carries its theme settings through export and import`() {
         val catalog = lettersIn("Theme Settings Export")
         val zip = withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", blockStylePresets = null).execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample()
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters))).execute()
-            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent", "For titles"))).execute()
-            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters)).execute()
-            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", blockStylePresets = null, catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute()
+            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent", "For titles")), catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters), catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0", catalogVersion = null).execute()
 
             assertThat(GetReleasedThemeSettings(testCatalog(catalog.tenantKey, letters), "1.0.0").query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
             app.epistola.suite.catalog.commands.ExportCatalogZip(testCatalog(catalog.tenantKey, letters)).execute().zipBytes
@@ -148,7 +149,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         val other = createTenant("Theme Settings Import")
         val imported = withMediator {
             app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            GetCatalogThemeSettings(testCatalog(other.id, letters)).query()
+            GetCatalogThemeSettings(testCatalog(other.id, letters), catalogVersion = null).query()
         }
 
         assertThat(imported.defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(other.id, letters)))
@@ -159,16 +160,16 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     fun `a theme's spacing unit travels with its release through export and import`() {
         val catalog = lettersIn("Spacing Unit Export")
         val zip = withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f).execute()
-            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters)).execute()
-            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f, catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters), catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0", catalogVersion = null).execute()
             app.epistola.suite.catalog.commands.ExportCatalogZip(testCatalog(catalog.tenantKey, letters), "1.0.0").execute().zipBytes
         }
 
         val other = createTenant("Spacing Unit Import")
         val imported = withMediator {
             app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            app.epistola.suite.themes.queries.GetTheme(ThemeId(ThemeKey.of("airy"), testCatalog(TenantId(other.id), letters))).query()
+            app.epistola.suite.themes.queries.GetTheme(ThemeId(ThemeKey.of("airy"), testCatalog(TenantId(other.id), letters)), catalogVersion = null).query()
         }
 
         assertThat(imported?.spacingUnit as Any?).`as`("the imported theme's spacing unit").isEqualTo(8f)
@@ -178,11 +179,11 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     fun `parallel work starts with the theme settings of the version it copies`() {
         val catalog = lettersIn("Theme Settings Parallel")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters))).execute()
-            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent"))).execute()
-            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters)).execute()
-            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute()
+            SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Accent")), catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(testCatalog(catalog.tenantKey, letters), catalogVersion = null).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(testCatalog(catalog.tenantKey, letters), "1.0.0", catalogVersion = null).execute()
 
             val fromRelease = requireNotNull(CreateCatalogDraft(testCatalog(catalog.tenantKey, letters), "From release").execute().versionId)
             val fromNext = requireNotNull(CreateCatalogDraft(testCatalog(catalog.tenantKey, letters), "From next", from = "next").execute().versionId)
@@ -201,22 +202,22 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         val brand = ThemeId(ThemeKey.of("brand"), catalog)
         val invoice = TemplateId(TemplateKey.of("invoice"), catalog)
         withMediator {
-            CreateTheme(brand, "Brand").execute()
-            CreateTheme(ThemeId(ThemeKey.of("spare"), catalog), "Spare").execute()
-            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+            CreateTheme(brand, "Brand", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("spare"), catalog), "Spare", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
 
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(brand.key, testCatalog(catalog.tenantKey, letters))).execute()
-            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand).execute() }
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(brand.key, testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute()
+            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand, catalogVersion = null).execute() }
                 .isInstanceOf(app.epistola.suite.themes.ThemeInUseException::class.java)
                 .hasMessageContaining("the catalog's default theme")
 
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), null).execute()
-            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = brand.key, themeCatalog = testCatalog(invoice.tenantKey, letters)).execute()
-            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand).execute() }
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), null, catalogVersion = null).execute()
+            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = brand.key, themeCatalog = testCatalog(invoice.tenantKey, letters), catalogVersion = null).execute()
+            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand, catalogVersion = null).execute() }
                 .isInstanceOf(app.epistola.suite.themes.ThemeInUseException::class.java)
                 .hasMessageContaining("template invoice")
 
-            assertThat(app.epistola.suite.themes.commands.DeleteTheme(ThemeId(ThemeKey.of("spare"), catalog)).execute()).`as`("one nothing uses").isTrue
+            assertThat(app.epistola.suite.themes.commands.DeleteTheme(ThemeId(ThemeKey.of("spare"), catalog), catalogVersion = null).execute()).`as`("one nothing uses").isTrue
         }
     }
 
@@ -225,9 +226,9 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         val catalog = lettersIn("Default Theme Render")
         val template = TemplateId(TemplateKey.of("invoice"), catalog)
         val prepared = withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
-            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute()
+            CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, letters)), catalogVersion = null).execute()
 
             PrepareDraftRender(
                 catalog = testCatalog(catalog.tenantKey, letters),

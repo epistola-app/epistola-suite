@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.services
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
@@ -66,7 +67,8 @@ data class VariantCandidate(
 class VariantResolver {
 
     /**
-     * Resolves the best matching variant for the given template and criteria.
+     * Resolves the best matching variant for the given template and criteria, among its variants in
+     * [catalogVersion] (null: its catalog's next version).
      *
      * [template] carries its catalog: template keys are unique only within a catalog, so selection
      * must never fall back to `default` (#1021).
@@ -78,8 +80,9 @@ class VariantResolver {
     fun resolve(
         template: TemplateId,
         criteria: VariantSelectionCriteria,
+        catalogVersion: CatalogReleaseRef?,
     ): VariantKey {
-        val variants = ListVariants(template).query()
+        val variants = ListVariants(template, catalogVersion).query()
         return select(
             template.key,
             variants.map { VariantCandidate(it.id, it.attributes, it.isDefault) },

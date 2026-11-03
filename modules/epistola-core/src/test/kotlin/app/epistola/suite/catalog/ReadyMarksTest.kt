@@ -69,15 +69,15 @@ class ReadyMarksTest : IntegrationTestBase() {
 
     private fun invoice(catalog: CatalogId): VariantId = withMediator {
         val templateId = TemplateId(TemplateKey.of("invoice"), catalog)
-        CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
+        CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         VariantId(VariantKey.INITIAL, templateId)
     }
 
-    private fun changes(catalog: CatalogId) = withMediator { GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query() }
+    private fun changes(catalog: CatalogId) = withMediator { GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).query() }
 
     private fun readiness(catalog: CatalogId, type: String, key: String) = changes(catalog).resources.single { it.type == type && it.slug == key }
 
-    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogDraft(testCatalog(catalog.tenantKey, catalog.key), version).execute() }
+    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogDraft(testCatalog(catalog.tenantKey, catalog.key), version, catalogVersion = null).execute() }
 
     // ── Whether a mark holds ──
 
@@ -87,10 +87,10 @@ class ReadyMarksTest : IntegrationTestBase() {
         val variant = invoice(catalog)
         assertThat(readiness(catalog, "template", "invoice").let { it.state to it.ready }).isEqualTo(CatalogResourceState.NEW to false)
 
-        withMediator { MarkVariantReady(variant).execute() }
+        withMediator { MarkVariantReady(variant, catalogVersion = null).execute() }
         assertThat(readiness(catalog, "template", "invoice").ready).isTrue()
 
-        withMediator { UpdateVariantContent(variant, document("edited")).execute() }
+        withMediator { UpdateVariantContent(variant, document("edited"), catalogVersion = null).execute() }
         assertThat(readiness(catalog, "template", "invoice").ready).isFalse()
     }
 
@@ -98,14 +98,14 @@ class ReadyMarksTest : IntegrationTestBase() {
     fun `a variant's readiness covers its template's data contract and which variants exist`() {
         val catalog = catalog("ready-contract")
         val variant = invoice(catalog)
-        withMediator { MarkTemplateReady(variant.templateId).execute() }
+        withMediator { MarkTemplateReady(variant.templateId, catalogVersion = null).execute() }
 
-        withMediator { UpdateDataContract(variant.templateId, dataModel = ObjectMapper().readValue("""{"type":"object"}""", tools.jackson.databind.node.ObjectNode::class.java)).execute() }
+        withMediator { UpdateDataContract(variant.templateId, dataModel = ObjectMapper().readValue("""{"type":"object"}""", tools.jackson.databind.node.ObjectNode::class.java), catalogVersion = null).execute() }
         assertThat(readiness(catalog, "template", "invoice").ready).`as`("contract edited").isFalse()
 
-        withMediator { MarkTemplateReady(variant.templateId).execute() }
-        withMediator { CreateVariant(VariantId(VariantKey.of("english"), variant.templateId), title = "English", description = null, attributes = emptyMap()).execute() }
-        withMediator { MarkVariantReady(VariantId(VariantKey.of("english"), variant.templateId)).execute() }
+        withMediator { MarkTemplateReady(variant.templateId, catalogVersion = null).execute() }
+        withMediator { CreateVariant(VariantId(VariantKey.of("english"), variant.templateId), title = "English", description = null, attributes = emptyMap(), catalogVersion = null).execute() }
+        withMediator { MarkVariantReady(VariantId(VariantKey.of("english"), variant.templateId), catalogVersion = null).execute() }
         assertThat(readiness(catalog, "template", "invoice").ready).`as`("the default variant's mark predates the new variant").isFalse()
     }
 
@@ -113,13 +113,13 @@ class ReadyMarksTest : IntegrationTestBase() {
     fun `a theme is ready once the catalog is marked ready`() {
         val catalog = catalog("ready-theme")
         val theme = ThemeId(ThemeKey.of("brand"), catalog)
-        withMediator { CreateTheme(theme, "Brand").execute() }
+        withMediator { CreateTheme(theme, "Brand", catalogVersion = null).execute() }
         assertThat(readiness(catalog, "theme", "brand").ready).isFalse()
 
-        val remaining = withMediator { MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute() }
+        val remaining = withMediator { MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key), catalogVersion = null).execute() }
 
         assertThat(remaining.notReady).isEmpty()
-        withMediator { UpdateTheme(theme, documentStyles = mapOf("color" to "#ff0000")).execute() }
+        withMediator { UpdateTheme(theme, documentStyles = mapOf("color" to "#ff0000"), catalogVersion = null).execute() }
         assertThat(readiness(catalog, "theme", "brand").ready).isFalse()
     }
 
@@ -135,14 +135,14 @@ class ReadyMarksTest : IntegrationTestBase() {
             .hasValidationCode(ValidationCode.CATALOG_RESOURCES_NOT_READY)
             .hasMessageContaining("template 'invoice' (new)")
 
-        withMediator { MarkVariantReady(variant).execute() }
+        withMediator { MarkVariantReady(variant, catalogVersion = null).execute() }
         assertThat(release(catalog, "1.0.0").version).isEqualTo("1.0.0")
 
         // Released and unchanged: nothing waits on a mark.
-        withMediator { UpdateVariantContent(variant, withMediator { GetVariantContent(variant).query()!! }).execute() }
+        withMediator { UpdateVariantContent(variant, withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }, catalogVersion = null).execute() }
         assertThat(changes(catalog).notReady).isEmpty()
 
-        withMediator { UpdateVariantContent(variant, document("second")).execute() }
+        withMediator { UpdateVariantContent(variant, document("second"), catalogVersion = null).execute() }
         assertThatThrownBy { release(catalog, "1.0.1") }
             .hasMessageContaining("template 'invoice' (modified)")
     }
@@ -168,15 +168,15 @@ class ReadyMarksTest : IntegrationTestBase() {
             val catalog = catalog(name)
             val stencil = StencilId(StencilKey.of("letterhead"), catalog)
             withMediator {
-                CreateStencil(stencil, "Letterhead", content = letterhead).execute()
-                parameterSchema?.let { UpdateStencil(stencil, parameterSchema = ObjectMapper().readTree(it)).execute() }
+                CreateStencil(stencil, "Letterhead", content = letterhead, catalogVersion = null).execute()
+                parameterSchema?.let { UpdateStencil(stencil, parameterSchema = ObjectMapper().readTree(it), catalogVersion = null).execute() }
             }
             return catalog to invoice(catalog)
         }
 
         private fun markWith(variant: VariantId, model: TemplateDocument) = withMediator {
-            UpdateVariantContent(variant, model).execute()
-            MarkVariantReady(variant).execute()
+            UpdateVariantContent(variant, model, catalogVersion = null).execute()
+            MarkVariantReady(variant, catalogVersion = null).execute()
         }
 
         @Test
@@ -192,14 +192,14 @@ class ReadyMarksTest : IntegrationTestBase() {
         @SkipCatalogInvariants("leaves a draft naming a stencil nobody has, as only the 1.x upgrade does")
         fun `an instance of a stencil that does not exist is refused`() {
             val (catalog, variant) = setUp("fit-missing")
-            withMediator { UpdateVariantContent(variant, filling("letterhead", "body")).execute() }
+            withMediator { UpdateVariantContent(variant, filling("letterhead", "body"), catalogVersion = null).execute() }
             // Saving content naming a stencil nobody has is refused; only the 1.x upgrade leaves one.
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate("DELETE FROM release_resources WHERE tenant_key = :t AND resource_type = 'stencil' AND resource_key = 'letterhead'")
                     .bind("t", catalog.tenantKey).execute()
             }
 
-            assertThatThrownBy { withMediator { MarkVariantReady(variant).execute() } }
+            assertThatThrownBy { withMediator { MarkVariantReady(variant, catalogVersion = null).execute() } }
                 .isInstanceOf(ValidationException::class.java)
                 .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
                 .hasMessageContaining("letterhead, which does not exist")
@@ -218,9 +218,9 @@ class ReadyMarksTest : IntegrationTestBase() {
         fun `an unbound required parameter may be saved, but not marked ready`() {
             val (_, variant) = setUp("fit-required", """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""")
 
-            withMediator { UpdateVariantContent(variant, filling("letterhead", "body")).execute() }
+            withMediator { UpdateVariantContent(variant, filling("letterhead", "body"), catalogVersion = null).execute() }
 
-            assertThatThrownBy { withMediator { MarkVariantReady(variant).execute() } }
+            assertThatThrownBy { withMediator { MarkVariantReady(variant, catalogVersion = null).execute() } }
                 .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED)
                 .hasMessageContaining("recipientName")
         }
@@ -250,6 +250,7 @@ class ReadyMarksTest : IntegrationTestBase() {
                 app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = variant.templateId,
                     dataModel = ObjectMapper().readTree("""{"type":"object","properties":{"total":{"type":"string"},"count":{"type":"integer"}}}""") as tools.jackson.databind.node.ObjectNode,
+                    catalogVersion = null,
                 ).execute()
             }
 
@@ -262,9 +263,9 @@ class ReadyMarksTest : IntegrationTestBase() {
         fun `a stencil whose own instance does not fit cannot be marked ready`() {
             val (catalog, _) = setUp("fit-stencil")
             val frame = StencilId(StencilKey.of("frame"), catalog)
-            withMediator { CreateStencil(frame, "Frame", content = filling("letterhead", "footer")).execute() }
+            withMediator { CreateStencil(frame, "Frame", content = filling("letterhead", "footer"), catalogVersion = null).execute() }
 
-            assertThatThrownBy { withMediator { MarkStencilReady(frame).execute() } }
+            assertThatThrownBy { withMediator { MarkStencilReady(frame, catalogVersion = null).execute() } }
                 .hasMessageContaining("placeholder 'footer'")
         }
 
@@ -276,9 +277,9 @@ class ReadyMarksTest : IntegrationTestBase() {
             }.document
             assertThat(inlined.texts()).contains("LOGO", "Dear customer")
 
-            withMediator { UpdateVariantContent(variant, inlined).execute() }
+            withMediator { UpdateVariantContent(variant, inlined, catalogVersion = null).execute() }
 
-            assertThat(withMediator { GetVariantContent(variant).query()!! }.texts()).containsExactly("Dear customer")
+            assertThat(withMediator { GetVariantContent(variant, catalogVersion = null).query()!! }.texts()).containsExactly("Dear customer")
         }
     }
 
@@ -288,7 +289,7 @@ class ReadyMarksTest : IntegrationTestBase() {
         withMediator { RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute() }
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("hello-world"), testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))))
 
-        assertThatThrownBy { withMediator { MarkVariantReady(variant).execute() } }
+        assertThatThrownBy { withMediator { MarkVariantReady(variant, catalogVersion = null).execute() } }
             .isInstanceOf(CatalogReadOnlyException::class.java)
     }
 

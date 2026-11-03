@@ -4,19 +4,9 @@
 
 package app.epistola.suite.catalog.releases
 
-import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.isNext
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import org.jdbi.v3.core.Handle
-import org.jdbi.v3.core.Jdbi
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
-import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.util.UUID
 
 /**
  * A version of a catalog as a message names it (contract ADR 0002; ADR 0033): its next version (a
@@ -42,6 +32,15 @@ sealed interface DraftRef {
      */
     data class Released(val version: String) : DraftRef {
         override fun toString(): String = version
+    }
+
+    /**
+     * A version already resolved, by its internal `version_id` (ADR 0049): what internal work that
+     * holds a version (an import into a draft, a merge, a release) passes on to the messages it
+     * dispatches. Never written in an address, so never parsed.
+     */
+    data class At(val versionId: java.util.UUID) : DraftRef {
+        override fun toString(): String = versionId.toString()
     }
 
     companion object {
@@ -77,206 +76,20 @@ data class CatalogReleaseRef(
 }
 
 /**
- * A command or query that can address one version of a catalog (contract ADR 0002: every resource
- * path of a draft is `…/versions/{catalogVersion}/…`).
+ * A command or query that addresses one version of a catalog (contract ADR 0002: every resource path
+ * of a draft is `…/versions/{catalogVersion}/…`), as it addresses a tenant (ADR 0049).
  *
- * When [catalogVersion] names one, `SpringMediator` resolves it and runs the message, and every
- * message it dispatches in turn, with that version as its catalog's version: the SQL helpers
- * `versionAt` and `inCurrentVersion` and the view `catalog_current_versions` answer it instead of the
- * catalog's current version (see [CatalogReleaseTargeting]). When it is null, the message works on
- * the current version, exactly as one that does not implement this does.
+ * Its handler resolves [catalogVersion] through [ContentVersions] and binds the `version_id` it
+ * answers to the statements it runs. When it is null the message means its catalog's next version.
+ * Nothing is inherited: a handler that dispatches another message for the same version passes it on.
  */
 interface CatalogReleaseScoped {
-    /** The version this message addresses, or null for its catalog's current version. */
+    /** The version this message addresses, or null for its catalog's next version. */
     val catalogVersion: CatalogReleaseRef?
 }
 
 /**
- * A query that can read a released version as well as a draft (ADR 0033): its SQL reads through
- * `catalog_version_resources(type)` (or a view on it, such as `current_themes`), which answers the rows
- * of the release a message targets. A message that is not this, and names a release, finds nothing
- * there ([CatalogReleaseNotFoundException]), until its resource type moves.
+ * A query that can read a released version as well as a draft (ADR 0033). A message that is not this,
+ * and names a release, is refused ([CatalogReleaseNotFoundException]) by [ContentVersions].
  */
 interface ReleaseReadable : CatalogReleaseScoped
-
-/**
- * Makes a transaction work on one catalog version (contract ADR 0002).
- *
- * Content rows belong to a version, and every statement names the one it means through `versionAt`,
- * `inCurrentVersion` or `catalog_current_versions` (`CatalogSql.kt`). Those answer the catalog's
- * current version unless the transaction targets another: [within] sets the PostgreSQL setting
- * `epistola.content_version` to its `version_id`, transaction-locally, and the view prefers that
- * version for its own catalog. So handlers written for "the" version of a catalog work unchanged on
- * any draft, and messages they dispatch inherit the target. The setting is restored when the message
- * ends, so a nested message naming another version does not leak its target into its caller.
- *
- * A [SelfManagedTransaction][app.epistola.suite.mediator.SelfManagedTransaction] handler opens its own
- * transactions; it calls [apply] in each one to take the target its message named.
- */
-@Component
-class CatalogReleaseTargeting(
-    private val jdbi: Jdbi,
-) {
-    private val logger = LoggerFactory.getLogger(javaClass)
-
-    /**
-     * The `version_id` of the draft [ref] names.
-     *
-     * @throws CatalogNotFoundException when the tenant has no such catalog.
-     * @throws CatalogReleaseNotFoundException when the catalog has no such draft: no draft with that
-     *   id, or no next version (a subscribed catalog, or one whose next version was discarded).
-     */
-    fun resolve(ref: CatalogReleaseRef, write: Boolean = false): UUID = jdbi.withHandle<UUID, Exception> { handle ->
-        val match = when (val draft = ref.draft) {
-            DraftRef.Next -> isNext("v")
-
-            is DraftRef.Id -> "v.version_key = :id"
-
-            // A release has no draft rows; reading one through the draft queries comes per type (ADR 0033).
-            is DraftRef.Released -> throw CatalogReleaseNotFoundException(ref.catalogKey, draft.version)
-        }
-        handle.createQuery(
-            """
-            SELECT v.version_id FROM catalog_versions v
-            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.state = 'draft' AND $match
-            """,
-        )
-            .bind("t", ref.tenantKey)
-            .bindCatalog("c", ref.catalog)
-            .also { query -> (ref.draft as? DraftRef.Id)?.let { query.bind("id", it.key) } }
-            .mapTo(UUID::class.java)
-            .findOne()
-            .orElseGet {
-                if (!catalogExists(handle, ref)) throw CatalogNotFoundException(ref.catalogKey)
-                // A draft that was released keeps its id as the release (ADR 0036): a change made
-                // through that id is refused as such, so its author opens the next draft.
-                if (write) releasedAs(handle, ref)?.let { throw CatalogReleaseIsReleasedException(ref.catalogKey, it) }
-                throw CatalogReleaseNotFoundException(ref.catalogKey, ref.draft.toString())
-            }
-    }
-
-    /** The release number the draft [ref] names by its id became, or null. */
-    private fun releasedAs(handle: Handle, ref: CatalogReleaseRef): String? {
-        val id = (ref.draft as? DraftRef.Id)?.key ?: return null
-        return handle.createQuery(
-            "SELECT v.version FROM catalog_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.state = 'released' AND v.version_key = :id",
-        )
-            .bind("t", ref.tenantKey)
-            .bindCatalog("c", ref.catalog)
-            .bind("id", id)
-            .mapTo(String::class.java)
-            .findOne()
-            .orElse(null)
-    }
-
-    /**
-     * Runs [block] with [versionId] as its catalog's version. Inside a transaction the setting is
-     * applied there; outside one (a self-managed command) only [current] carries it, for [apply].
-     */
-    fun <R> within(versionId: UUID, block: () -> R): R = ScopedValue.where(TARGET, versionId).call<R, RuntimeException> {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) return@call block()
-        val previous = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery("SELECT current_setting('$SETTING', TRUE)").mapTo(String::class.java).findOne().orElse(null)
-        }
-        jdbi.useHandle<Exception> { set(it, versionId.toString()) }
-        try {
-            block()
-        } finally {
-            try {
-                jdbi.useHandle<Exception> { set(it, previous.orEmpty()) }
-            } catch (e: Exception) {
-                // The transaction failed and will roll back, which reverts the setting with it.
-                logger.debug("Could not restore {} after a failed message: {}", SETTING, e.message)
-            }
-        }
-    }
-
-    /** Applies the target the running message named, if any, to [handle]'s transaction. */
-    fun apply(handle: Handle) {
-        current()?.let { set(handle, it.toString()) }
-        currentRelease()?.let { (catalogId, version) -> setRelease(handle, catalogId.toString(), version) }
-    }
-
-    /**
-     * The `catalog_id` of the release [ref] names, for [withinRelease].
-     *
-     * @throws CatalogNotFoundException when the tenant has no such catalog.
-     * @throws CatalogReleaseNotFoundException when the catalog has no such release.
-     */
-    fun resolveRelease(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
-        val version = (ref.draft as DraftRef.Released).version
-        handle.createQuery(
-            "SELECT r.catalog_id FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v",
-        )
-            .bind("t", ref.tenantKey)
-            .bindCatalog("c", ref.catalog)
-            .bind("v", version)
-            .mapTo(UUID::class.java)
-            .findOne()
-            .orElseGet {
-                if (!catalogExists(handle, ref)) throw CatalogNotFoundException(ref.catalogKey)
-                throw CatalogReleaseNotFoundException(ref.catalogKey, version)
-            }
-    }
-
-    /**
-     * Runs [block] reading release [version] of the catalog [catalogId] (ADR 0033): the settings
-     * `catalog_version_resources` reads, transaction-locally, restored when the message ends.
-     */
-    fun <R> withinRelease(catalogId: UUID, version: String, block: () -> R): R = ScopedValue.where(RELEASE_TARGET, catalogId to version).call<R, RuntimeException> {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) return@call block()
-        val previous = jdbi.withHandle<Pair<String?, String?>, Exception> { handle ->
-            handle.createQuery("SELECT current_setting('$RELEASE_CATALOG_SETTING', TRUE) AS c, current_setting('$RELEASE_VERSION_SETTING', TRUE) AS v")
-                .map { rs, _ -> rs.getString("c") to rs.getString("v") }
-                .one()
-        }
-        jdbi.useHandle<Exception> { setRelease(it, catalogId.toString(), version) }
-        try {
-            block()
-        } finally {
-            try {
-                jdbi.useHandle<Exception> { setRelease(it, previous.first.orEmpty(), previous.second.orEmpty()) }
-            } catch (e: Exception) {
-                logger.debug("Could not restore the release target after a failed message: {}", e.message)
-            }
-        }
-    }
-
-    private fun setRelease(handle: Handle, catalogId: String, version: String) {
-        handle.createQuery("SELECT set_config('$RELEASE_CATALOG_SETTING', :c, TRUE) AS c, set_config('$RELEASE_VERSION_SETTING', :v, TRUE) AS v")
-            .bind("c", catalogId)
-            .bind("v", version)
-            .mapToMap()
-            .one()
-    }
-
-    private fun set(handle: Handle, value: String) {
-        handle.createQuery("SELECT set_config('$SETTING', :value, TRUE)").bind("value", value).mapTo(String::class.java).one()
-    }
-
-    private fun catalogExists(handle: Handle, ref: CatalogReleaseRef): Boolean = handle
-        .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c))")
-        .bind("t", ref.tenantKey)
-        .bindCatalog("c", ref.catalog)
-        .mapTo(Boolean::class.java)
-        .one()
-
-    companion object {
-        /** The PostgreSQL setting `catalog_current_versions` reads. */
-        const val SETTING: String = "epistola.content_version"
-
-        /** The settings `catalog_version_resources` reads for a targeted release (ADR 0033). */
-        const val RELEASE_CATALOG_SETTING: String = "epistola.release_catalog"
-        const val RELEASE_VERSION_SETTING: String = "epistola.release_version"
-
-        private val TARGET: ScopedValue<UUID> = ScopedValue.newInstance()
-
-        private val RELEASE_TARGET: ScopedValue<Pair<UUID, String>> = ScopedValue.newInstance()
-
-        /** The `version_id` the running message targets, or null when it targets none. */
-        fun current(): UUID? = if (TARGET.isBound) TARGET.get() else null
-
-        /** The release (`catalog_id` and number) the running message reads, or null when it reads none. */
-        fun currentRelease(): Pair<UUID, String>? = if (RELEASE_TARGET.isBound) RELEASE_TARGET.get() else null
-    }
-}

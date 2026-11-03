@@ -80,13 +80,13 @@ class LoadTestReleaseIT : IntegrationTestBase() {
     fun `a run with nothing to render is refused when it starts, with generation's own error`() {
         val tenant = createTenant("lt-refused").id
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant))))
-        withMediator { CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample() }
 
         assertThatThrownBy { start(tenant, variant, environment = null) }
             .isInstanceOf(CatalogNotReleasedException::class.java)
 
         withMediator {
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         }
@@ -99,8 +99,8 @@ class LoadTestReleaseIT : IntegrationTestBase() {
         val tenant = createTenant(slug).id
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant))))
         withMediator {
-            CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
             mediator.releaseNext(variant.templateId.catalogId)
         }

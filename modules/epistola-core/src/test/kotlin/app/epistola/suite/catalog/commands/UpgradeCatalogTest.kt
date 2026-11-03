@@ -150,7 +150,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             assertThat(result.aborted).isFalse()
             assertThat(result.newVersion).isEqualTo("1.1.0")
             assertThat(result.removedResources).containsExactly(app.epistola.suite.catalog.RemovedResource("template", "no-deps"))
-            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNull()
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey)), catalogVersion = null).query()).isNull()
             assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.1.0")
         }
     }
@@ -186,12 +186,12 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         RegisterCatalog(tenantKey = tenant, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
         InstallFromCatalog(catalog = testCatalog(tenant, depKey)).execute()
         CatalogImportContext.runAsImport {
-            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant), depKey)), name = "Ours").execute()
+            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant), depKey)), name = "Ours", catalogVersion = null).execute()
         }
         // Released here in the publisher's namespace, which this tenant is granted.
         app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, "exchange.epistola.app", "epistola").execute()
-        MarkCatalogReady(testCatalog(tenant, depKey)).execute()
-        ReleaseCatalogDraft(testCatalog(tenant, depKey), local).execute()
+        MarkCatalogReady(testCatalog(tenant, depKey), catalogVersion = null).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, depKey), local, catalogVersion = null).execute()
     }
 
     @Test
@@ -248,8 +248,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             // A template of another catalog renders with the subscribed catalog's theme.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
-            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(tenantId, depKey)).execute()
+            CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template", catalogVersion = null).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(tenantId, depKey), catalogVersion = null).execute()
             // 1.1.0 no longer publishes the theme, nor uses it itself.
             fixture(tmp.resolve("next"), "1.1.0") { dir ->
                 drop(dir, "theme", "test-theme")
@@ -280,12 +280,13 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
-            CreateDocumentTemplate(id = templateId, name = "Attribute User").execute()
+            CreateDocumentTemplate(id = templateId, name = "Attribute User", catalogVersion = null).execute()
             app.epistola.suite.templates.commands.variants.CreateVariant(
                 app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("dutch"), templateId),
                 "Dutch",
                 null,
                 attributes = mapOf("dep-test.language" to "nl"),
+                catalogVersion = null,
             ).execute()
             // 1.1.0 no longer publishes the attribute, nor selects by it itself.
             fixture(tmp.resolve("next"), "1.1.0") { dir ->
@@ -313,7 +314,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
-            CreateDocumentTemplate(id = templateId, name = "Stencil User").execute()
+            CreateDocumentTemplate(id = templateId, name = "Stencil User", catalogVersion = null).execute()
             app.epistola.suite.templates.commands.variants.UpdateVariantContent(
                 app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, templateId),
                 app.epistola.suite.templates.model.TemplateDocument(
@@ -326,6 +327,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                     slots = mapOf("children" to app.epistola.suite.templates.model.Slot(id = "children", nodeId = "root", name = "children", children = listOf("header"))),
                     themeRef = app.epistola.suite.templates.model.ThemeRef.Inherit,
                 ),
+                catalogVersion = null,
             ).execute()
             // 1.1.0 no longer publishes the stencil, nor places it itself.
             fixture(tmp.resolve("next"), "1.1.0") { dir ->
@@ -356,7 +358,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = fixture(source, "1.0.0"), authType = AuthType.NONE).execute()
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             CatalogImportContext.runAsImport {
-                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey)), name = "Ours").execute()
+                UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey)), name = "Ours", catalogVersion = null).execute()
             }
             fixture(tmp.resolve("next"), "1.1.0") { drop(it, "template", "no-deps") }
             publish(source, tmp.resolve("next"))
@@ -366,7 +368,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             // Received beside the next version, to be merged (ADR 0032): nothing of it is removed.
             assertThat(result.aborted).isFalse()
             assertThat(result.removedResources).isEmpty()
-            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey))).query()!!.name).isEqualTo("Ours")
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(tenantId, depKey)), catalogVersion = null).query()!!.name).isEqualTo("Ours")
             assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, depKey)).query().map { it.version }).contains("1.0.0", "1.1.0")
             // A release is a release however it arrived: the one received beside is the catalog's highest,
             // while its next version stays on 1.0.0, behind it, to merge.
@@ -391,7 +393,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             assertThatThrownBy { UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute() }
                 .isInstanceOfAny(app.epistola.suite.catalog.outbound.OutboundUrlRejectedException::class.java, app.epistola.suite.catalog.sources.CatalogSourceUnavailableException::class.java)
             assertThat(GetCatalog(testCatalog(tenant.id, depKey)).query()!!.latestReleaseVersion).isEqualTo("1.0.0")
-            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey))).query()).isNotNull()
+            assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant.id), depKey)), catalogVersion = null).query()).isNotNull()
         }
     }
 }

@@ -44,10 +44,10 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
                 withMediator {
                     listOf("shared", "letters", "unrelated").forEach { CreateCatalog(tenantKey = created.id, id = CatalogKey.of(it), name = it.replaceFirstChar { c -> c.uppercase() }).execute() }
                     val shared = testCatalog(TenantId(created.id), CatalogKey.of("shared"))
-                    CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
                     mediator.releaseNext(shared)
                     val target = GetCatalog(testCatalog(created.id, shared.key)).query()!!
-                    UpdateCatalogDependencies(testCatalog(created.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                    UpdateCatalogDependencies(testCatalog(created.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
                 }
             }
         }

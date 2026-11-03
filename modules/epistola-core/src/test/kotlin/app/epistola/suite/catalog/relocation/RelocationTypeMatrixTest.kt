@@ -79,30 +79,30 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
         withMediator {
             when (movable) {
                 MovableResource.STENCIL ->
-                    assertThat(GetStencil(StencilId(StencilKey.of(target.key), catalog)).query()).isNotNull()
+                    assertThat(GetStencil(StencilId(StencilKey.of(target.key), catalog), catalogVersion = null).query()).isNotNull()
 
                 MovableResource.ATTRIBUTE ->
-                    assertThat(GetAttributeDefinition(AttributeId(AttributeKey.of(target.key), catalog)).query()).isNotNull()
+                    assertThat(GetAttributeDefinition(AttributeId(AttributeKey.of(target.key), catalog), catalogVersion = null).query()).isNotNull()
 
                 MovableResource.TEMPLATE -> {
                     val templateId = TemplateId(TemplateKey.of(target.key), catalog)
-                    assertThat(GetDocumentTemplate(templateId).query()).isNotNull()
-                    assertThat(GetVariantContent(VariantId(VariantKey.INITIAL, templateId)).query()).isNotNull()
+                    assertThat(GetDocumentTemplate(templateId, catalogVersion = null).query()).isNotNull()
+                    assertThat(GetVariantContent(VariantId(VariantKey.INITIAL, templateId), catalogVersion = null).query()).isNotNull()
                 }
 
                 MovableResource.CODE_LIST ->
-                    assertThat(ListCodeListEntries(CodeListId(CodeListKey.of(target.key), catalog)).query().map { it.code })
+                    assertThat(ListCodeListEntries(CodeListId(CodeListKey.of(target.key), catalog), catalogVersion = null).query().map { it.code })
                         .containsExactlyInAnyOrder("nl", "en")
 
                 MovableResource.ASSET ->
-                    assertThat(GetAssetContent(tenant, AssetKey.of(target.key), target.catalogIn(tenant)).query()).isNotNull()
+                    assertThat(GetAssetContent(tenant, AssetKey.of(target.key), target.catalogIn(tenant), catalogVersion = null).query()).isNotNull()
 
                 MovableResource.FONT ->
-                    assertThat(ResolveFontFace(testCatalog(tenant, CatalogKey.of(target.catalogKey)), FontKey.of(target.key), 400, italic = false).query()?.content)
+                    assertThat(ResolveFontFace(testCatalog(tenant, CatalogKey.of(target.catalogKey)), FontKey.of(target.key), 400, italic = false, catalogVersion = null).query()?.content)
                         .isEqualTo(ttfBytes())
 
                 MovableResource.THEME ->
-                    assertThat(GetTheme(ThemeId(ThemeKey.of(target.key), catalog)).query()).isNotNull()
+                    assertThat(GetTheme(ThemeId(ThemeKey.of(target.key), catalog), catalogVersion = null).query()).isNotNull()
             }
         }
     }

@@ -83,10 +83,10 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
             val archive = ExportCatalogZip(testCatalog(b, depKey), "1.1.0").execute().zipBytes
 
             // A changes a template, so 1.1.0 is received beside its releases, to be merged.
-            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(a), depKey)), name = "A's no-deps").execute()
+            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(a), depKey)), name = "A's no-deps", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = a, zipBytes = archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(a, depKey), "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(a, depKey), "1.1.0", catalogVersion = null).query()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.filter { it.outcome != MergeOutcome.UNCHANGED }.associate { it.contentKey to it.outcome })
                 .containsExactlyInAnyOrderEntriesOf(

@@ -46,15 +46,17 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("my-locale" to "en")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("my-locale" to "en"), catalogVersion = null) }
                 .doesNotThrowAnyException()
         }
     }
@@ -72,15 +74,17 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
-            assertThatThrownBy { validateAttributes(tenantId, mapOf("my-locale" to "zz")) }
+            assertThatThrownBy { validateAttributes(tenantId, mapOf("my-locale" to "zz"), catalogVersion = null) }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Not a member of code list")
         }
@@ -102,19 +106,21 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                     CodeListEntry("active", "Active"),
                     CodeListEntry("legacy", "Legacy"),
                 ),
+                catalogVersion = null,
             ).execute()
 
-            UpdateCodeListEntryHidden(codeListId, "legacy", hidden = true).execute()
+            UpdateCodeListEntryHidden(codeListId, "legacy", hidden = true, catalogVersion = null).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("status" to "legacy")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("status" to "legacy"), catalogVersion = null) }
                 .doesNotThrowAnyException()
-            assertThatCode { validateAttributes(tenantId, mapOf("status" to "active")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("status" to "active"), catalogVersion = null) }
                 .doesNotThrowAnyException()
         }
     }
@@ -130,11 +136,12 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("brand"), catalogId),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "rocket"),
+                catalogVersion = null,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("brand" to "acme")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("brand" to "acme"), catalogVersion = null) }
                 .doesNotThrowAnyException()
-            assertThatThrownBy { validateAttributes(tenantId, mapOf("brand" to "other")) }
+            assertThatThrownBy { validateAttributes(tenantId, mapOf("brand" to "other"), catalogVersion = null) }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Allowed values")
         }
@@ -150,9 +157,10 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("notes"), catalogId),
                 displayName = "Notes",
+                catalogVersion = null,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("notes" to "anything-goes")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("notes" to "anything-goes"), catalogVersion = null) }
                 .doesNotThrowAnyException()
         }
     }
@@ -163,7 +171,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            assertThatThrownBy { validateAttributes(tenantId, mapOf("not-defined" to "x")) }
+            assertThatThrownBy { validateAttributes(tenantId, mapOf("not-defined" to "x"), catalogVersion = null) }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Unknown attribute")
         }
@@ -192,17 +200,19 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                 displayName = "Regions",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("eu", "Europe"), CodeListEntry("us", "United States")),
+                catalogVersion = null,
             ).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("region"), defaultCatalog),
                 displayName = "Region",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("region" to "eu")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("region" to "eu"), catalogVersion = null) }
                 .doesNotThrowAnyException()
-            assertThatThrownBy { validateAttributes(tenantId, mapOf("region" to "zz")) }
+            assertThatThrownBy { validateAttributes(tenantId, mapOf("region" to "zz"), catalogVersion = null) }
                 .isInstanceOf(ValidationException::class.java)
         }
     }

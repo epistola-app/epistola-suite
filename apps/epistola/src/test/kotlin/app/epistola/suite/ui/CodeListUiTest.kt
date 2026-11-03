@@ -123,6 +123,7 @@ class CodeListUiTest : BasePlaywrightTest() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
             t
         }
@@ -156,6 +157,7 @@ class CodeListUiTest : BasePlaywrightTest() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+                catalogVersion = null,
             ).execute()
             t
         }
@@ -197,6 +199,7 @@ class CodeListUiTest : BasePlaywrightTest() {
                     CodeListEntry("en-US", "English (United States)"),
                     CodeListEntry("nl-NL", "Dutch (Netherlands)"),
                 ),
+                catalogVersion = null,
             ).execute()
 
             // Slug `my-locale` deliberately avoids colliding with the bundled
@@ -207,11 +210,13 @@ class CodeListUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = CodeListId(CodeListKey.of("locales"), catalogId),
+                catalogVersion = null,
             ).execute()
 
             val template = CreateDocumentTemplate(
                 id = TemplateId(TestIdHelpers.nextTemplateId(), catalogId),
                 name = "UI Test Template",
+                catalogVersion = null,
             ).execute()
             t to template
         }
@@ -251,20 +256,23 @@ class CodeListUiTest : BasePlaywrightTest() {
                 displayName = "Statuses",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("active", "Active"), CodeListEntry("legacy", "Legacy")),
+                catalogVersion = null,
             ).execute()
             // Hide the "legacy" entry via the command — this test isn't about
             // the hide-toggle UI; that's covered separately.
-            UpdateCodeListEntryHidden(codeListId, "legacy", hidden = true).execute()
+            UpdateCodeListEntryHidden(codeListId, "legacy", hidden = true, catalogVersion = null).execute()
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
 
             val template = CreateDocumentTemplate(
                 id = TemplateId(TestIdHelpers.nextTemplateId(), catalogId),
                 name = "UI Test Template",
+                catalogVersion = null,
             ).execute()
             t to template
         }
@@ -296,6 +304,7 @@ class CodeListUiTest : BasePlaywrightTest() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
             t
         }
@@ -326,11 +335,13 @@ class CodeListUiTest : BasePlaywrightTest() {
                 displayName = "Locales",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English")),
+                catalogVersion = null,
             ).execute()
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), catalogId),
                 displayName = "Language",
                 codeListId = codeListId,
+                catalogVersion = null,
             ).execute()
             t
         }

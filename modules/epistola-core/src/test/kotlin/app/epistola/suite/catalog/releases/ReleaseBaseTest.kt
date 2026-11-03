@@ -43,7 +43,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
         val tenant = withMediator {
             val tenant = createTenant("release-base-recorded").id
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant))
             mediator.releaseNext(catalogId(tenant))
             tenant
@@ -59,14 +59,14 @@ class ReleaseBaseTest : IntegrationTestBase() {
         val tenant = withMediator {
             val tenant = createTenant("release-base-behind").id
             CreateCatalog(tenant, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand").execute()
-            CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand", catalogVersion = null).execute()
+            CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
             mediator.releaseNext(catalogId(tenant))
             CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
             // The next version changes the invoice and is released, then the theme and is released.
-            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute()
+            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant))
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), name = "Brand, new").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), name = "Brand, new", catalogVersion = null).execute()
             mediator.releaseNext(catalogId(tenant))
             tenant
         }

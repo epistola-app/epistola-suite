@@ -62,8 +62,8 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     }
 
     private fun move(tenant: TenantKey, relocation: ResourceRelocation) = withMediator {
-        val plan = PreviewCatalogResourceMove(tenant, listOf(relocation)).query()
-        MoveCatalogResources(tenant, listOf(relocation), plan.planFingerprint).execute()
+        val plan = PreviewCatalogResourceMove(tenant, listOf(relocation), catalogVersion = null).query()
+        MoveCatalogResources(tenant, listOf(relocation), plan.planFingerprint, catalogVersion = null).execute()
     }
 
     /** A GET that does not follow redirects, so a redirect would show as one. */
@@ -73,7 +73,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     @Test
     fun `a moved template's old pages are not found, and its new ones are`() {
         val tenant = tenant("Template pages after move")
-        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute() }
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, letters.value, "invoice").movedTo(shared))
 
         for (page in listOf("", "/settings")) {
@@ -85,7 +85,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     @Test
     fun `a moved theme's old page is not found`() {
         val tenant = tenant("Theme page after move")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(shared))
 
         assertThat(get("/tenants/$tenant/catalogs/$tenant/letters/themes/brand").statusCode()).isEqualTo(404)
@@ -95,7 +95,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     fun `a moved theme's old REST address is not found`() {
         val tenant = tenant("Theme REST after move")
         val key = withMediator { CreateApiKey(tenantId = tenant, name = "relocation-it").execute() }.plaintextKey
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(shared))
 
         val response = restTemplate.exchange("/api/tenants/$tenant/catalogs/$tenant/letters/themes/brand", HttpMethod.GET, HttpEntity<Void>(api(key)), String::class.java)
@@ -107,7 +107,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     fun `a REST write through a moved template's old address is not found, and changes nothing`() {
         val tenant = tenant("Template REST write after move")
         val key = withMediator { CreateApiKey(tenantId = tenant, name = "relocation-it").execute() }.plaintextKey
-        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute() }
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, letters.value, "invoice").movedTo(shared))
 
         val response = restTemplate.exchange(
@@ -118,7 +118,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        val moved = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), shared))).query()!! }
+        val moved = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), shared)), catalogVersion = null).query()!! }
         assertThat(moved.name).isEqualTo("Invoice")
     }
 

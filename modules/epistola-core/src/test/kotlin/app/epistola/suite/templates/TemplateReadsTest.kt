@@ -67,24 +67,24 @@ class TemplateReadsTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, shared.key, "Shared").execute()
             CreateCatalog(tenant, letters.key, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House", catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters.key, on = shared.key)
-            CreateDocumentTemplate(template, "Invoice", description = "Bills").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = shared).execute()
-            CreateVariant(second, "Second", null, mapOf()).execute()
+            CreateDocumentTemplate(template, "Invoice", description = "Bills", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = shared, catalogVersion = null).execute()
+            CreateVariant(second, "Second", null, mapOf(), catalogVersion = null).execute()
             // Relative, as an author may write it, and named with its catalog, as the editor does.
-            UpdateVariantContent(default, model("house", null)).execute()
-            UpdateVariantContent(second, model("house", "letters")).execute()
+            UpdateVariantContent(default, model("house", null), catalogVersion = null).execute()
+            UpdateVariantContent(second, model("house", "letters"), catalogVersion = null).execute()
         }
         val version = withMediator { mediator.releaseNext(letters) }
         val released = CatalogReleaseRef(letters, DraftRef.Released(version))
-        val before = withMediator { listOf(GetDocumentTemplate(template).query(), ListVariants(template).query().map { it.id }, GetDataContract(template).query()?.dataExamples?.map { it.name }) }
+        val before = withMediator { listOf(GetDocumentTemplate(template, catalogVersion = null).query(), ListVariants(template, catalogVersion = null).query().map { it.id }, GetDataContract(template, catalogVersion = null).query()?.dataExamples?.map { it.name }) }
 
         withMediator {
-            UpdateDocumentTemplate(template, name = "Invoice, renamed", clearThemeId = true).execute()
-            UpdateVariantContent(default, model("brand", "shared")).execute()
+            UpdateDocumentTemplate(template, name = "Invoice, renamed", clearThemeId = true, catalogVersion = null).execute()
+            UpdateVariantContent(default, model("brand", "shared"), catalogVersion = null).execute()
         }
 
         withMediator {
@@ -98,10 +98,10 @@ class TemplateReadsTest : IntegrationTestBase() {
             for (variant in listOf(default, second)) {
                 assertThat((GetVariantContent(variant, released).query()?.themeRef as ThemeRefOverride).catalogKey).`as`(variant.key.value).isEqualTo("letters")
             }
-            assertThat(GetVariantContent(default).query()?.themeRef).isEqualTo(ThemeRefOverride(themeKey = "brand", catalogKey = "shared"))
+            assertThat(GetVariantContent(default, catalogVersion = null).query()?.themeRef).isEqualTo(ThemeRefOverride(themeKey = "brand", catalogKey = "shared"))
             assertThat(ListDocumentTemplates(TenantId(tenant), catalog = letters, catalogVersion = released).query().map { it.name }).containsExactly("Invoice")
             assertThat(CountDocumentTemplates(TenantId(tenant), catalog = letters, catalogVersion = released).query()).isEqualTo(1)
-            assertThat(GetDocumentTemplate(template).query()?.name).isEqualTo("Invoice, renamed")
+            assertThat(GetDocumentTemplate(template, catalogVersion = null).query()?.name).isEqualTo("Invoice, renamed")
         }
     }
 }

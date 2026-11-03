@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ReleaseChannel
@@ -80,8 +79,6 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
 
     @Autowired private lateinit var fingerprints: CatalogFingerprintService
 
-    @Autowired private lateinit var targeting: CatalogReleaseTargeting
-
     @Autowired private lateinit var assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 
     @Autowired private lateinit var renderSource: app.epistola.suite.generation.release.ReleaseRenderSource
@@ -119,23 +116,24 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         val tenant = TenantId(a)
         TestNamespaces.grant(a, partsNamespace, authority = partsRegistry).execute()
         CreateCatalog(tenantKey = a, id = parts, name = "Parts", namespace = partsNamespace, registry = partsRegistry).execute()
-        CreateStencil(StencilId(StencilKey.of("header"), testCatalog(tenant, parts)), "Header").execute()
+        CreateStencil(StencilId(StencilKey.of("header"), testCatalog(tenant, parts)), "Header", catalogVersion = null).execute()
 
         CreateCatalog(tenantKey = a, id = letters, name = "Letters", namespace = TestNamespaces.of(a).namespace).execute()
         declareDependency(a, letters, on = SYSTEM_CATALOG_KEY)
         declareDependency(a, letters, on = parts)
         val own = testCatalog(tenant, letters)
-        CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand", documentStyles = systemFont()).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand", documentStyles = systemFont(), catalogVersion = null).execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("preferred-language"), own),
             displayName = "Preferred language",
             codeListId = CodeListId(CodeListKey.of("iso-639-1"), testCatalog(tenant, SYSTEM_CATALOG_KEY)),
+            catalogVersion = null,
         ).execute()
         val template = TemplateId(TemplateKey.of("letter"), own)
-        CreateDocumentTemplate(template, "Letter").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(template, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(template.tenantKey, SYSTEM_CATALOG_KEY)).execute()
-        UpdateVariantContent(VariantId(VariantKey.INITIAL, template), model()).execute()
-        SetCatalogDefaultTheme(testCatalog(a, letters), CatalogDefaultTheme(ThemeKey.of("default"), testCatalog(a, SYSTEM_CATALOG_KEY))).execute()
+        CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute().withRequiredDataExample()
+        UpdateDocumentTemplate(template, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(template.tenantKey, SYSTEM_CATALOG_KEY), catalogVersion = null).execute()
+        UpdateVariantContent(VariantId(VariantKey.INITIAL, template), model(), catalogVersion = null).execute()
+        SetCatalogDefaultTheme(testCatalog(a, letters), CatalogDefaultTheme(ThemeKey.of("default"), testCatalog(a, SYSTEM_CATALOG_KEY)), catalogVersion = null).execute()
 
         val lettersZip = mediator.exportReleased(own).zipBytes
         Released(parts = mediator.exportReleased(testCatalog(tenant, parts)).zipBytes, letters = lettersZip)
@@ -173,13 +171,13 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            val received = contentBuilder.build(testCatalog(b, letters))
+            val received = contentBuilder.buildNext(testCatalog(b, letters))
             assertThat(qualifier(reference(detail(received, key)))).isEqualTo(expected)
             assertThat(fingerprints.resourceFingerprints(received).getValue(key)).isEqualTo(archiveFingerprints(released.letters).getValue(key))
 
             val draft = CreateCatalogDraft(testCatalog(b, letters), name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, letters), DraftRef.Id(draft.versionId)))
-            val drafted = targeting.within(id) { contentBuilder.build(testCatalog(b, letters)) }
+            val id = jdbi.withHandle<java.util.UUID, Exception> { requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(b, letters), DraftRef.Id(draft.versionId))) }
+            val drafted = contentBuilder.build(app.epistola.suite.catalog.releases.ContentVersion(testCatalog(b, letters), id))
             assertThat(qualifier(reference(detail(drafted, key)))).isEqualTo(expected)
         }
     }
@@ -259,7 +257,7 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(testCatalog(b, letters)).catalog.defaultTheme)).isEqualTo(sent)
+            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.buildNext(testCatalog(b, letters)).catalog.defaultTheme)).isEqualTo(sent)
             // The installed release keeps it on its row (ADR 0036), resolved to the theme its alias names.
             val onRow = jdbi.withHandle<String?, Exception> { handle ->
                 handle.createQuery(
@@ -275,8 +273,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
             assertThat(onRow).isEqualTo("system/default")
 
             val draft = CreateCatalogDraft(testCatalog(b, letters), name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, letters), DraftRef.Id(draft.versionId)))
-            assertThat(objectMapper.valueToTree<JsonNode>(targeting.within(id) { contentBuilder.build(testCatalog(b, letters)) }.catalog.defaultTheme)).isEqualTo(sent)
+            val id = jdbi.withHandle<java.util.UUID, Exception> { requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(b, letters), DraftRef.Id(draft.versionId))) }
+            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(app.epistola.suite.catalog.releases.ContentVersion(testCatalog(b, letters), id)).catalog.defaultTheme)).isEqualTo(sent)
         }
     }
 

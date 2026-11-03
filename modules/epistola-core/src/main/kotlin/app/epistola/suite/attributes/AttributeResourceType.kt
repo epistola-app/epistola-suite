@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.attributes.commands.ImportAttribute
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.types.Arrival
 import app.epistola.suite.catalog.types.ResourceChange
 import app.epistola.suite.catalog.types.ResourceType
@@ -25,8 +26,9 @@ class AttributeResourceType : ResourceType<AttributeResource> {
     override val wireClass = AttributeResource::class.java
     override val installedAfter = setOf(CodeListStore.CODE_LIST)
 
-    override fun receive(catalog: CatalogId, resource: AttributeResource, arrival: Arrival): InstallStatus = ImportAttribute(
-        catalog = catalog,
+    override fun receive(at: ContentVersion, resource: AttributeResource, arrival: Arrival): InstallStatus = ImportAttribute(
+        catalog = at.catalog,
+        catalogVersion = at.ref,
         slug = resource.key,
         displayName = resource.name,
         allowedValues = resource.allowedValues,

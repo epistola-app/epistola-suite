@@ -87,9 +87,9 @@ class InstalledReleaseTest : IntegrationTestBase() {
         val variant = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
             declareDependency(tenant, CatalogKey.DEFAULT, on = SYSTEM_CATALOG_KEY)
-            CreateDocumentTemplate(templateId, "Letter").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(templateId.tenantKey, SYSTEM_CATALOG_KEY)).execute()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
+            CreateDocumentTemplate(templateId, "Letter", catalogVersion = null).execute().withRequiredDataExample()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(templateId.tenantKey, SYSTEM_CATALOG_KEY), catalogVersion = null).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter"), catalogVersion = null).execute()
             mediator.publishAndRelease(variant)
         }
 

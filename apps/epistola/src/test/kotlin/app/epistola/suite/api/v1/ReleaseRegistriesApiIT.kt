@@ -132,9 +132,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         val key = CatalogKey.of(catalog)
         withMediator {
             CreateCatalog(tenantKey = a, id = key, name = catalog, registry = "local", namespace = "personnel").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand").execute()
-            MarkCatalogReady(testCatalog(a, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(a, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.0.0", catalogVersion = null).execute()
         }
 
         val published = call(HttpMethod.POST, "/api/tenants/${a.value}/catalogs/local/personnel/$catalog/releases/1.0.0/publish", keyA, """{"to": "local"}""")
@@ -180,9 +180,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
             // Two installations of one organisation share the namespace.
             TestNamespaces.grant(c, namespace).execute()
             CreateCatalog(tenantKey = c, id = key, name = catalog, namespace = namespace).execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(c), key)), name = "Another brand").execute()
-            MarkCatalogReady(testCatalog(c, key)).execute()
-            ReleaseCatalogDraft(catalog = testCatalog(c, key), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(c), key)), name = "Another brand", catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(c, key), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(c, key), version = "1.0.0", catalogVersion = null).execute()
         }
         val theirs = withMediator { "${CatalogApiPaths.version(c, catalog, "1.0.0")}/publish" }
         assertThat(call(HttpMethod.POST, theirs, keyC, """{"to": "local"}""").statusCode).isEqualTo(HttpStatus.OK)
@@ -198,9 +198,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
     private fun releaseFirst(tenant: TenantKey, catalog: String): String = withMediator {
         val key = CatalogKey.of(catalog)
         CreateCatalog(tenantKey = tenant, id = key, name = catalog).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = "Brand").execute()
-        MarkCatalogReady(testCatalog(tenant, key)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute().fingerprint
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = "Brand", catalogVersion = null).execute()
+        MarkCatalogReady(testCatalog(tenant, key), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0", catalogVersion = null).execute().fingerprint
     }
 
     private fun call(method: HttpMethod, url: String, apiKey: String, body: String? = null): ResponseEntity<String> = restTemplate.exchange(url, method, HttpEntity(body, headers(apiKey)), String::class.java)

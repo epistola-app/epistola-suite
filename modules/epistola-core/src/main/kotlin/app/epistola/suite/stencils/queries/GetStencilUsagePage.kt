@@ -5,9 +5,12 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.releases.addressedVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateKey
@@ -40,8 +43,8 @@ data class GetStencilUsagePage(
     val stencilId: StencilId,
     val page: Int = 1,
     val pageSize: Int = USAGE_PAGE_SIZE,
-    /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The catalog version this addresses; null for its catalog's next version. */
+    override val catalogVersion: CatalogReleaseRef?,
 ) : CatalogReleaseScoped,
     Query<StencilUsagePage>,
     RequiresPermission {
@@ -58,15 +61,15 @@ private val USAGE_CTE = """
         SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.namespace AS namespace, dt.name AS template_name,
                COALESCE(c.source_url LIKE 'classpath:%', FALSE) AS supplied,
                tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
-               COUNT(*) AS instance_count
-        FROM current_template_variants tv
-        JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
+               tv.version_id AS version_id, COUNT(*) AS instance_count
+        FROM version_template_variants tv
+        JOIN version_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
                                   AND dt.resource_id = tv.template_resource_id
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
-        WHERE tv.tenant_key = :tenantId
+        WHERE tv.tenant_key = :tenantId AND ${inVersionOrNext("tv", StencilReferences.VERSION_PARAM)}
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, c.catalog_key, c.namespace, c.source_url, dt.name, tv.id, tv.template_model::text, dt.data_model::text
+        GROUP BY dt.id, c.catalog_key, c.namespace, c.source_url, dt.name, tv.id, tv.version_id, tv.template_model::text, dt.data_model::text
     )
 """
 
@@ -78,16 +81,19 @@ class GetStencilUsagePageHandler(
     private val dependencyViews: app.epistola.suite.catalog.dependencies.DraftDependencyViews,
 ) : QueryHandler<GetStencilUsagePage, StencilUsagePage> {
     override fun handle(query: GetStencilUsagePage): StencilUsagePage = jdbi.withHandle<StencilUsagePage, Exception> { handle ->
+        // The version addressed for its catalog, every other catalog's next version.
+        val version = handle.addressedVersion(query)
         val total = handle.createQuery("$USAGE_CTE SELECT COUNT(*) FROM usage")
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
             .bindCatalog(StencilReferences.CATALOG_PARAM, query.stencilId.catalogId)
+            .bindVersion(StencilReferences.VERSION_PARAM, version)
             .mapTo(Int::class.java)
             .one()
         val totalPages = if (total == 0) 1 else (total + query.pageSize - 1) / query.pageSize
         val current = query.page.coerceIn(1, totalPages)
-        // Each template's instances resolve from its own catalog's declarations (ADR 0034, section 9).
-        val resolvers = mutableMapOf<app.epistola.suite.common.ids.CatalogId, StencilInstances.Resolver>()
+        // Each template's instances resolve from its own version's declarations (ADR 0034, section 9).
+        val resolvers = mutableMapOf<ContentVersion, StencilInstances.Resolver>()
 
         val items = handle.createQuery(
             """
@@ -102,12 +108,14 @@ class GetStencilUsagePageHandler(
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
             .bindCatalog(StencilReferences.CATALOG_PARAM, query.stencilId.catalogId)
+            .bindVersion(StencilReferences.VERSION_PARAM, version)
             .bind("limit", query.pageSize)
             .bind("offset", (current - 1) * query.pageSize)
             .map { rs, _ ->
                 val catalogKey = rs.getString("catalog_key")
                 val templateCatalog = app.epistola.suite.common.ids.CatalogId(rs.getString("namespace"), CatalogKey.of(catalogKey), query.stencilId.catalogId.tenantId)
-                val resolver = resolvers.getOrPut(templateCatalog) { stencilResolvers.workingCopies(dependencyViews.of(templateCatalog)) }
+                val templateVersion = ContentVersion(templateCatalog, rs.getObject("version_id", java.util.UUID::class.java))
+                val resolver = resolvers.getOrPut(templateVersion) { stencilResolvers.workingCopies(templateVersion, dependencyViews.of(templateVersion)) }
                 val document = app.epistola.suite.templates.TemplateModels.read(rs.getString("template_model"), catalogKey, objectMapper)
                 val dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
                 val problems = StencilInstances.expand(document, templateCatalog.address, resolver, dataModel).findings

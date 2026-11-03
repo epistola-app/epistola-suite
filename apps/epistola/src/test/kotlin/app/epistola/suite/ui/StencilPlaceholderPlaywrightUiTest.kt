@@ -97,7 +97,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
         page.keyboard().press("ControlOrMeta+s")
         assertThat(page.locator(".toolbar-btn.saved")).isVisible()
 
-        val stored = withMediator { GetVariantContent(setup.variantId).query() }!!
+        val stored = withMediator { GetVariantContent(setup.variantId, catalogVersion = null).query() }!!
         val instance = stored.nodes.values.single { it.type == "stencil" }
         Assertions.assertThat(instance.props).containsEntry("stencilKey", setup.stencilKey)
         Assertions.assertThat(instance.props).doesNotContainKeys("stencilId", "version")
@@ -111,12 +111,12 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
         val tenant = TestNamespaces.createTenant(TenantKey.of("ui-stencil-ins-${System.nanoTime()}"), "Stencil Insert UI Test").execute()
         val tenantId = TenantId(tenant.id)
         val sId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = sId, name = "Letter Body", content = stencilContent("v1 default")).execute()
+        CreateStencil(id = sId, name = "Letter Body", content = stencilContent("v1 default"), catalogVersion = null).execute()
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute()
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
+        val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap(), catalogVersion = null).execute()!!
         return TemplateAndStencil(
             editorUrl = "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor",
             variantId = variantId,
@@ -178,17 +178,18 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        CreateStencil(id = sId, name = "Letter Body", content = v1).execute()
+        CreateStencil(id = sId, name = "Letter Body", content = v1, catalogVersion = null).execute()
 
         // Template + variant; embed the stencil with a user fill override.
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = CreateDocumentTemplate(id = templateId, name = "Letter").execute()
+        val template = CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute()
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = CreateVariant(
             id = variantId,
             title = "Default",
             description = null,
             attributes = emptyMap(),
+            catalogVersion = null,
         ).execute()!!
 
         val templateBody = TemplateDocument(
@@ -244,7 +245,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        UpdateVariantContent(variantId = variantId, templateModel = templateBody).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = templateBody, catalogVersion = null).execute()
 
         // v2: same placeholder name, different default.
         val v2 = TemplateDocument(
@@ -273,7 +274,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             themeRef = ThemeRef.Inherit,
         )
         // The stencil is used by reference: editing its working copy reaches the template as is.
-        UpdateStencil(id = sId, content = v2).execute()
+        UpdateStencil(id = sId, content = v2, catalogVersion = null).execute()
 
         return "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor"
     }

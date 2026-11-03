@@ -29,6 +29,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Contract Save Bar UI Template",
+                catalogVersion = null,
             ).execute()
             UpdateDataContract(
                 templateId = templateId,
@@ -39,6 +40,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
                         data = JsonNodeFactory.instance.objectNode(),
                     ),
                 ),
+                catalogVersion = null,
             ).execute()
             tenant to template
         }

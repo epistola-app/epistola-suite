@@ -5,6 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.atNext
 import db.migration.core.frozen.CanonicalJson
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
@@ -93,12 +94,12 @@ class LegacyContentMigrationTest {
         flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            assertThat(connection.rows("SELECT id, content_hash FROM current_images ORDER BY id"))
+            assertThat(connection.rows("SELECT id, content_hash FROM ${atNext("version_images")} current_images ORDER BY id"))
                 .`as`("each image with bytes names their hash; one without is kept without; no font file is an image")
                 .containsExactly(listOf("logo", sha(logo)), listOf("lost", null), listOf("secret", sha(secret)))
-            assertThat(connection.rows("SELECT id FROM current_images WHERE media_type NOT LIKE 'image/%'")).isEmpty()
+            assertThat(connection.rows("SELECT id FROM ${atNext("version_images")} current_images WHERE media_type NOT LIKE 'image/%'")).isEmpty()
             // Moved before the fonts are converted (#742), so the conversion finds the face's hash.
-            val face400 = connection.rows("SELECT f.payload -> 'resource' -> 'variants' ->> 0 FROM current_fonts f WHERE f.slug = 'house-sans'").single().single()!!
+            val face400 = connection.rows("SELECT f.payload -> 'resource' -> 'variants' ->> 0 FROM ${atNext("version_fonts")} f WHERE f.slug = 'house-sans'").single().single()!!
             assertThat(face400).`as`("the face whose bytes were still in content_store is the font's").contains("\"contentHash\": \"${sha(face)}\"")
             assertThat(connection.rows("SELECT content_hash FROM asset_content").map { it.single() })
                 .`as`("each moved, once (a sensitive asset's too, one store since step 6)")

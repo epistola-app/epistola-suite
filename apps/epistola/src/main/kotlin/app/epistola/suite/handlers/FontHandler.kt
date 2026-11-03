@@ -115,7 +115,7 @@ class FontHandler(
         val fonts = ListFonts(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = version).query()
         val bar = segment.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/catalogs/${it.value}/fonts" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = it.tenantId, catalog = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/catalogs/${c.address}/fonts", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/catalogs/${c.address}/fonts", n) }
         "pageTitle" to "Fonts - Epistola"
         "tenantId" to tenantKey.value
         "tenant" to tenant
@@ -401,7 +401,7 @@ class FontHandler(
         } else {
             emptyList()
         }
-        val systemFonts = ListFonts(tenantId = tenantId, catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key)).query()
+        val systemFonts = ListFonts(tenantId = tenantId, catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key), catalogVersion = null).query()
 
         val merged = LinkedHashMap<Pair<String, String>, Font>()
         for (font in owningFonts + systemFonts) {

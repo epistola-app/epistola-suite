@@ -32,6 +32,7 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
                 ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)),
                 "Brand",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "acme", "catalogKey" to letters.value)),
+                catalogVersion = null,
             ).execute()
         }
         val font = address(tenant, CatalogResourceType.FONT, letters, "acme")

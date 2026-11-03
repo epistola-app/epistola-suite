@@ -22,6 +22,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FontFixtures
 import app.epistola.suite.testing.FontStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -60,8 +61,8 @@ class FontStorageTest : IntegrationTestBase() {
             FontFixtures.importFont(letters, "house-sans", "House Sans", mapOf((400 to false) to regular, (700 to false) to bytes("lato-Bold.ttf")))
         }
         val id = FontId(FontKey.of("house-sans"), letters)
-        assertThat(withMediator { GetFontVariants(id).query() }.map { it.weight to it.italic }).containsExactly(400 to false, 700 to false)
-        assertThat(withMediator { GetFontVariantContent(letters, id.key, 400, false).query() }).isEqualTo(regular)
+        assertThat(withMediator { GetFontVariants(id, catalogVersion = null).query() }.map { it.weight to it.italic }).containsExactly(400 to false, 700 to false)
+        assertThat(withMediator { GetFontVariantContent(letters, id.key, 400, false, catalogVersion = null).query() }).isEqualTo(regular)
         assertThat(
             one(
                 """
@@ -70,12 +71,12 @@ class FontStorageTest : IntegrationTestBase() {
                 """,
             ),
         ).`as`("each face linked to its bytes").isEqualTo("2")
-        assertThat(one("SELECT count(*) FROM current_images WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no image for a face").isEqualTo("0")
-        assertThat(withMediator { ListImagePage(letters, limit = 50, offset = 0).query() }.items).isEmpty()
+        assertThat(one("SELECT count(*) FROM ${atNext("version_images")} current_images WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no image for a face").isEqualTo("0")
+        assertThat(withMediator { ListImagePage(letters, limit = 50, offset = 0, catalogVersion = null).query() }.items).isEmpty()
         assertThat(one("SELECT CAST(to_regclass('fonts') IS NULL AND to_regclass('font_variants') IS NULL AS TEXT)")).isEqualTo("true")
 
-        withMediator { DeleteFont(id).execute() }
-        assertThat(withMediator { GetFontVariantContent(letters, id.key, 400, false).query() }).`as`("deleted with its faces").isNull()
+        withMediator { DeleteFont(id, catalogVersion = null).execute() }
+        assertThat(withMediator { GetFontVariantContent(letters, id.key, 400, false, catalogVersion = null).query() }).`as`("deleted with its faces").isNull()
     }
 
     @Test
@@ -90,9 +91,9 @@ class FontStorageTest : IntegrationTestBase() {
         val released = CatalogReleaseRef(letters, DraftRef.Released(version))
         withMediator {
             assertThat(ListFonts(TenantId(tenant), catalog = letters, catalogVersion = released).query().map { it.slug to it.name })
-                .isEqualTo(ListFonts(TenantId(tenant), catalog = letters).query().map { it.slug to it.name })
+                .isEqualTo(ListFonts(TenantId(tenant), catalog = letters, catalogVersion = null).query().map { it.slug to it.name })
             val id = FontId(FontKey.of("house-sans"), letters)
-            assertThat(GetFontVariants(id, catalogVersion = released).query()).isEqualTo(GetFontVariants(id).query())
+            assertThat(GetFontVariants(id, catalogVersion = released).query()).isEqualTo(GetFontVariants(id, catalogVersion = null).query())
         }
     }
 

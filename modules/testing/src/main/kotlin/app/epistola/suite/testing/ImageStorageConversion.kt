@@ -6,6 +6,7 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import db.migration.core.frozen.CanonicalJson
 import db.migration.core.frozen.Envelopes
@@ -25,9 +26,9 @@ object ImageStorageConversion {
         jdbi.useHandle<Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT a.id, a.name, a.media_type, a.width, a.height, a.content_hash AS bytes, r.content_hash FROM current_images a
+                SELECT a.id, a.name, a.media_type, a.width, a.height, a.content_hash AS bytes, r.content_hash FROM version_images a
                 JOIN release_resources r ON r.tenant_key = a.tenant_key AND r.version_id = a.version_id AND r.resource_type = 'image' AND r.resource_key = a.id
-                WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")}
+                WHERE a.tenant_key = :t AND a.catalog_id = ${catalogAt("t", "c")} AND ${inNextVersion("a")}
                 """,
             ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .map { rs, _ ->

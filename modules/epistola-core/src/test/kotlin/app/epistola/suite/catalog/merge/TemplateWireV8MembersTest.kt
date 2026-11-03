@@ -19,7 +19,6 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ReleaseChannel
@@ -67,8 +66,6 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     @Autowired private lateinit var fingerprints: CatalogFingerprintService
 
     @Autowired private lateinit var contentBuilder: CatalogContentBuilder
-
-    @Autowired private lateinit var targeting: CatalogReleaseTargeting
 
     private val catalog = CatalogKey.of("wire-members")
 
@@ -137,11 +134,11 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     /** Publisher [a]'s release 1.0.0: a described template with a data example, and a theme. */
     private fun publish(a: TenantKey): ByteArray = withMediator {
         CreateCatalog(tenantKey = a, id = catalog, name = "Wire Members").execute()
-        CreateTheme(id = theme(a, "brand"), name = "Brand").execute()
-        CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter", description = "For letters to residents").execute()
+        CreateTheme(id = theme(a, "brand"), name = "Brand", catalogVersion = null).execute()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter", description = "For letters to residents", catalogVersion = null).execute()
             .withRequiredDataExample()
-        MarkCatalogReady(testCatalog(a, catalog)).execute()
-        ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+        MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
         ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
     }
 
@@ -153,7 +150,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            val built = contentBuilder.build(testCatalog(b, catalog))
+            val built = contentBuilder.buildNext(testCatalog(b, catalog))
             val template = letter(built)
 
             assertThat(template.description).isEqualTo("For letters to residents")
@@ -185,7 +182,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            val built = contentBuilder.build(testCatalog(b, catalog))
+            val built = contentBuilder.buildNext(testCatalog(b, catalog))
 
             assertThat(letter(built).variants.single().description).isEqualTo("For courts")
             assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
@@ -201,8 +198,8 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             val draft = CreateCatalogDraft(testCatalog(b, catalog), name = "Redesign", from = "1.0.0").execute()
-            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, catalog), DraftRef.Id(draft.versionId)))
-            val built = targeting.within(id) { contentBuilder.build(testCatalog(b, catalog)) }
+            val id = jdbi.withHandle<java.util.UUID, Exception> { requireNotNull(app.epistola.suite.catalog.releases.ContentVersions.resolve(it, testCatalog(b, catalog), DraftRef.Id(draft.versionId))) }
+            val built = contentBuilder.build(app.epistola.suite.catalog.releases.ContentVersion(testCatalog(b, catalog), id))
 
             assertThat(letter(built).description).isEqualTo("For letters to residents")
             assertThat(letter(built).metadata).isEqualTo(metadata)
@@ -219,14 +216,14 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
-            UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
+            UpdateTheme(theme(b, "brand"), name = "B's brand", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withMetadata(metadata).put("description", "Described again") }, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1", catalogVersion = null).query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
-            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute().taken).containsExactly("template/letter")
+            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", catalogVersion = null).execute().taken).containsExactly("template/letter")
 
-            val template = letter(contentBuilder.build(testCatalog(b, catalog)))
+            val template = letter(contentBuilder.buildNext(testCatalog(b, catalog)))
             assertThat(template.metadata).isEqualTo(metadata)
             assertThat(template.description).isEqualTo("Described again")
         }
@@ -248,10 +245,10 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
                 .bind("t", b).bindCatalog("c", testCatalog(b, catalog)).execute()
         }
         withMediator {
-            UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
+            UpdateTheme(theme(b, "brand"), name = "B's brand", catalogVersion = null).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.put("description", "Described again") }, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
 
-            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1", catalogVersion = null).query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
         }
     }

@@ -57,10 +57,10 @@ class PublishSeveralHtmxTest : BaseIntegrationTest() {
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
                     CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-                    CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
+                    CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand", catalogVersion = null).execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))
-                    CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-                    UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared)).execute()
+                    CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+                    UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
                 }
             }
         }

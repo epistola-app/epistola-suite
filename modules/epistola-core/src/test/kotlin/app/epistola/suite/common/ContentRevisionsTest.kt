@@ -81,7 +81,7 @@ class ContentRevisionsTest : IntegrationTestBase() {
 
     private fun template(catalog: CatalogId): VariantId {
         val templateId = TemplateId(TemplateKey.of("invoice"), catalog)
-        withMediator { CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample() }
         return VariantId(VariantKey.INITIAL, templateId)
     }
 
@@ -89,24 +89,24 @@ class ContentRevisionsTest : IntegrationTestBase() {
     fun `a variant saved against a stale revision is refused and keeps the other save`() {
         val variant = template(catalog("rev-variant"))
         withMediator {
-            val opened = GetVariant(variant).query()!!.revision
+            val opened = GetVariant(variant, catalogVersion = null).query()!!.revision
 
-            val first = UpdateVariantContent(variant, document("mine"), expectedRevision = opened).execute()
+            val first = UpdateVariantContent(variant, document("mine"), expectedRevision = opened, catalogVersion = null).execute()
             assertThat(first.revision).isEqualTo(opened + 1)
 
-            assertThatThrownBy { UpdateVariantContent(variant, document("theirs"), expectedRevision = opened).execute() }
+            assertThatThrownBy { UpdateVariantContent(variant, document("theirs"), expectedRevision = opened, catalogVersion = null).execute() }
                 .isInstanceOfSatisfying(ResourceModifiedException::class.java) {
                     assertThat(it.expected).isEqualTo(opened)
                     assertThat(it.current).isEqualTo(opened + 1)
                 }
-            assertThat(GetVariantContent(variant).query()!!.toString()).`as`("the first save stands").contains("mine").doesNotContain("theirs")
+            assertThat(GetVariantContent(variant, catalogVersion = null).query()!!.toString()).`as`("the first save stands").contains("mine").doesNotContain("theirs")
 
-            assertThatThrownBy { UpdateVariant(variant, "Renamed", emptyMap(), expectedRevision = opened).execute() }
+            assertThatThrownBy { UpdateVariant(variant, "Renamed", emptyMap(), expectedRevision = opened, catalogVersion = null).execute() }
                 .isInstanceOf(ResourceModifiedException::class.java)
-            assertThat(UpdateVariant(variant, "Renamed", emptyMap(), expectedRevision = first.revision).execute()!!.revision).isEqualTo(first.revision + 1)
+            assertThat(UpdateVariant(variant, "Renamed", emptyMap(), expectedRevision = first.revision, catalogVersion = null).execute()!!.revision).isEqualTo(first.revision + 1)
 
             // Without a revision, last write wins, as before.
-            assertThat(UpdateVariantContent(variant, document("anyway")).execute().revision).isEqualTo(first.revision + 2)
+            assertThat(UpdateVariantContent(variant, document("anyway"), catalogVersion = null).execute().revision).isEqualTo(first.revision + 2)
         }
     }
 
@@ -120,19 +120,19 @@ class ContentRevisionsTest : IntegrationTestBase() {
         val first = template(catalog("rev-parts"))
         val second = VariantId(VariantKey.of("second"), first.templateId)
         withMediator {
-            CreateVariant(second, "Second", null).execute()
-            val firstOpened = GetVariant(first).query()!!.revision
-            val secondOpened = GetVariant(second).query()!!.revision
-            val template = app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId).query()!!.revision
+            CreateVariant(second, "Second", null, catalogVersion = null).execute()
+            val firstOpened = GetVariant(first, catalogVersion = null).query()!!.revision
+            val secondOpened = GetVariant(second, catalogVersion = null).query()!!.revision
+            val template = app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId, catalogVersion = null).query()!!.revision
 
-            UpdateVariantContent(first, document("mine"), expectedRevision = firstOpened).execute()
+            UpdateVariantContent(first, document("mine"), expectedRevision = firstOpened, catalogVersion = null).execute()
             // The other author opened the second variant before the first save: it still stands.
-            val theirs = UpdateVariantContent(second, document("theirs"), expectedRevision = secondOpened).execute()
+            val theirs = UpdateVariantContent(second, document("theirs"), expectedRevision = secondOpened, catalogVersion = null).execute()
             assertThat(theirs.revision).isEqualTo(secondOpened + 1)
-            assertThat(app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId).query()!!.revision)
+            assertThat(app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId, catalogVersion = null).query()!!.revision)
                 .`as`("saving a variant does not write its template").isEqualTo(template)
 
-            assertThatThrownBy { UpdateVariantContent(first, document("stale"), expectedRevision = firstOpened).execute() }
+            assertThatThrownBy { UpdateVariantContent(first, document("stale"), expectedRevision = firstOpened, catalogVersion = null).execute() }
                 .isInstanceOf(ResourceModifiedException::class.java)
         }
     }
@@ -141,15 +141,15 @@ class ContentRevisionsTest : IntegrationTestBase() {
     fun `saving unchanged content or making another variant the default keeps the revision`() {
         val variant = template(catalog("rev-unchanged"))
         withMediator {
-            val saved = UpdateVariantContent(variant, document("same")).execute()
-            assertThat(UpdateVariantContent(variant, document("same"), expectedRevision = saved.revision).execute().revision)
+            val saved = UpdateVariantContent(variant, document("same"), catalogVersion = null).execute()
+            assertThat(UpdateVariantContent(variant, document("same"), expectedRevision = saved.revision, catalogVersion = null).execute().revision)
                 .`as`("nothing changed").isEqualTo(saved.revision)
 
             val other = VariantId(VariantKey.of("other"), variant.templateId)
-            CreateVariant(other, "Other", null).execute()
-            SetDefaultVariant(other).execute()
+            CreateVariant(other, "Other", null, catalogVersion = null).execute()
+            SetDefaultVariant(other, catalogVersion = null).execute()
             // A variant is its own part of its template (ADR 0033): the default is the template's to say.
-            assertThat(GetVariant(variant).query()!!.revision).`as`("losing the default is not an edit of its content").isEqualTo(saved.revision)
+            assertThat(GetVariant(variant, catalogVersion = null).query()!!.revision).`as`("losing the default is not an edit of its content").isEqualTo(saved.revision)
         }
     }
 
@@ -157,16 +157,16 @@ class ContentRevisionsTest : IntegrationTestBase() {
     fun `a template's details and data contract share its revision`() {
         val templateId = template(catalog("rev-template")).templateId
         withMediator {
-            val opened = GetDocumentTemplate(templateId).query()!!.revision
-            assertThat(GetDataContract(templateId).query()!!.revision).isEqualTo(opened)
+            val opened = GetDocumentTemplate(templateId, catalogVersion = null).query()!!.revision
+            assertThat(GetDataContract(templateId, catalogVersion = null).query()!!.revision).isEqualTo(opened)
 
-            val renamed = UpdateDocumentTemplate(templateId, name = "Renamed", expectedRevision = opened).execute()!!
+            val renamed = UpdateDocumentTemplate(templateId, name = "Renamed", expectedRevision = opened, catalogVersion = null).execute()!!
             assertThat(renamed.revision).isEqualTo(opened + 1)
-            assertThatThrownBy { UpdateDataContract(templateId, dataExamples = GetDataContract(templateId).query()!!.dataExamples, expectedRevision = opened).execute() }
+            assertThatThrownBy { UpdateDataContract(templateId, dataExamples = GetDataContract(templateId, catalogVersion = null).query()!!.dataExamples, expectedRevision = opened, catalogVersion = null).execute() }
                 .isInstanceOf(ResourceModifiedException::class.java)
-            assertThatThrownBy { UpdateDocumentTemplate(templateId, name = "Again", expectedRevision = opened).execute() }
+            assertThatThrownBy { UpdateDocumentTemplate(templateId, name = "Again", expectedRevision = opened, catalogVersion = null).execute() }
                 .isInstanceOf(ResourceModifiedException::class.java)
-            assertThat(GetDocumentTemplate(templateId).query()!!.name).isEqualTo("Renamed")
+            assertThat(GetDocumentTemplate(templateId, catalogVersion = null).query()!!.name).isEqualTo("Renamed")
         }
     }
 
@@ -175,29 +175,29 @@ class ContentRevisionsTest : IntegrationTestBase() {
         val catalog = catalog("rev-others")
         withMediator {
             val theme = ThemeId(ThemeKey.of("brand"), catalog)
-            CreateTheme(theme, "Brand").execute()
-            val themeAt = GetTheme(theme).query()!!.revision
-            UpdateTheme(theme, name = "Brand 2", expectedRevision = themeAt).execute()
-            assertThatThrownBy { UpdateTheme(theme, name = "Brand 3", expectedRevision = themeAt).execute() }.isInstanceOf(ResourceModifiedException::class.java)
+            CreateTheme(theme, "Brand", catalogVersion = null).execute()
+            val themeAt = GetTheme(theme, catalogVersion = null).query()!!.revision
+            UpdateTheme(theme, name = "Brand 2", expectedRevision = themeAt, catalogVersion = null).execute()
+            assertThatThrownBy { UpdateTheme(theme, name = "Brand 3", expectedRevision = themeAt, catalogVersion = null).execute() }.isInstanceOf(ResourceModifiedException::class.java)
 
             val stencil = StencilId(StencilKey.of("letterhead"), catalog)
-            CreateStencil(stencil, "Letterhead", content = document("head")).execute()
-            val stencilAt = GetStencil(stencil).query()!!.revision
-            UpdateStencil(stencil, content = document("new head"), expectedRevision = stencilAt).execute()
-            assertThatThrownBy { UpdateStencil(stencil, name = "Other", expectedRevision = stencilAt).execute() }.isInstanceOf(ResourceModifiedException::class.java)
+            CreateStencil(stencil, "Letterhead", content = document("head"), catalogVersion = null).execute()
+            val stencilAt = GetStencil(stencil, catalogVersion = null).query()!!.revision
+            UpdateStencil(stencil, content = document("new head"), expectedRevision = stencilAt, catalogVersion = null).execute()
+            assertThatThrownBy { UpdateStencil(stencil, name = "Other", expectedRevision = stencilAt, catalogVersion = null).execute() }.isInstanceOf(ResourceModifiedException::class.java)
 
             val codeList = CodeListId(CodeListKey.of("colours"), catalog)
-            CreateCodeList(codeList, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-            val listAt = GetCodeList(codeList).query()!!.revision
-            val withBlue = UpdateCodeList(codeList, "Colours", entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue")), expectedRevision = listAt).execute()!!
+            CreateCodeList(codeList, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+            val listAt = GetCodeList(codeList, catalogVersion = null).query()!!.revision
+            val withBlue = UpdateCodeList(codeList, "Colours", entries = listOf(CodeListEntry("red", "Red"), CodeListEntry("blue", "Blue")), expectedRevision = listAt, catalogVersion = null).execute()!!
             assertThat(withBlue.revision).`as`("replacing the entries is a change of the list").isEqualTo(listAt + 1)
-            assertThatThrownBy { UpdateCodeList(codeList, "Colours", entries = emptyList(), expectedRevision = listAt).execute() }.isInstanceOf(ResourceModifiedException::class.java)
+            assertThatThrownBy { UpdateCodeList(codeList, "Colours", entries = emptyList(), expectedRevision = listAt, catalogVersion = null).execute() }.isInstanceOf(ResourceModifiedException::class.java)
 
             val attribute = AttributeId(AttributeKey.of("language"), catalog)
-            CreateAttributeDefinition(attribute, "Language", allowedValues = listOf("nl")).execute()
-            val attributeAt = GetAttributeDefinition(attribute).query()!!.revision
-            UpdateAttributeDefinition(attribute, "Taal", allowedValues = listOf("nl"), expectedRevision = attributeAt).execute()
-            assertThatThrownBy { UpdateAttributeDefinition(attribute, "Language", expectedRevision = attributeAt).execute() }.isInstanceOf(ResourceModifiedException::class.java)
+            CreateAttributeDefinition(attribute, "Language", allowedValues = listOf("nl"), catalogVersion = null).execute()
+            val attributeAt = GetAttributeDefinition(attribute, catalogVersion = null).query()!!.revision
+            UpdateAttributeDefinition(attribute, "Taal", allowedValues = listOf("nl"), expectedRevision = attributeAt, catalogVersion = null).execute()
+            assertThatThrownBy { UpdateAttributeDefinition(attribute, "Language", expectedRevision = attributeAt, catalogVersion = null).execute() }.isInstanceOf(ResourceModifiedException::class.java)
         }
     }
 
@@ -206,13 +206,13 @@ class ContentRevisionsTest : IntegrationTestBase() {
         val catalog = catalog("rev-drafts")
         val variant = template(catalog)
         withMediator {
-            val atNext = UpdateVariantContent(variant, document("next")).execute().revision
+            val atNext = UpdateVariantContent(variant, document("next"), catalogVersion = null).execute().revision
             val draft = CreateCatalogDraft(testCatalog(catalog.tenantKey, catalog.key), "Redesign", from = DraftRef.NEXT).execute()
             val inDraft = CatalogReleaseRef(testCatalog(catalog.tenantKey, catalog.key), DraftRef.Id(draft.versionId))
 
             assertThat(GetVariant(variant, catalogVersion = inDraft).query()!!.revision).`as`("a copy keeps the revision").isEqualTo(atNext)
             UpdateVariantContent(variant, document("redesign"), catalogVersion = inDraft, expectedRevision = atNext).execute()
-            assertThat(UpdateVariantContent(variant, document("next 2"), expectedRevision = atNext).execute().revision)
+            assertThat(UpdateVariantContent(variant, document("next 2"), expectedRevision = atNext, catalogVersion = null).execute().revision)
                 .`as`("the next version's row did not move").isEqualTo(atNext + 1)
         }
     }

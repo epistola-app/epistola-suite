@@ -103,6 +103,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
                     content = byteArrayOf(0x01, 0x02, 0x03, 0x04),
                     width = 1,
                     height = 1,
+                    catalogVersion = null,
                 ).execute()
                 UploadAsset(
                     catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
@@ -111,6 +112,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
                     content = byteArrayOf(0x05, 0x06, 0x07, 0x08),
                     width = null,
                     height = null,
+                    catalogVersion = null,
                 ).execute()
                 tenant.id.value
             }
@@ -215,6 +217,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             content = byteArrayOf(0x01, 0x02, 0x03, 0x04),
             width = 1,
             height = 1,
+            catalogVersion = null,
         ).execute()
         tenant.id.value
     }

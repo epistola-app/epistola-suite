@@ -56,6 +56,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 name = "FP Font",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
+                catalogVersion = null,
             ).execute()
 
             val slug = FontKey.of("fp-font")
@@ -86,6 +87,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
+                catalogVersion = null,
             ).execute()
             val before = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 
@@ -98,6 +100,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, "font/ttf", replacement)),
+                catalogVersion = null,
             ).execute()
             val after = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 

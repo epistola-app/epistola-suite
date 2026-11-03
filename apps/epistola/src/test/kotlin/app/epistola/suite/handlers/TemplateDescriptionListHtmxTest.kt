@@ -66,7 +66,7 @@ class TemplateDescriptionListHtmxTest : BaseIntegrationTest() {
         whenever { create(tenant, "slug" to "described", "name" to "Described", "description" to "For letters to residents") }
         then {
             assertThat(result<ResponseEntity<String>>().statusCode.is2xxSuccessful).isTrue()
-            val stored = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("described"), CatalogId.default(TenantId(tenant.id)))).query() }
+            val stored = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("described"), CatalogId.default(TenantId(tenant.id))), catalogVersion = null).query() }
             assertThat(stored!!.description).isEqualTo("For letters to residents")
         }
     }
@@ -78,7 +78,7 @@ class TemplateDescriptionListHtmxTest : BaseIntegrationTest() {
         whenever { create(tenant, "slug" to "plain", "name" to "Plain", "description" to "") }
         then {
             assertThat(result<ResponseEntity<String>>().statusCode.is2xxSuccessful).isTrue()
-            val stored = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("plain"), CatalogId.default(TenantId(tenant.id)))).query() }
+            val stored = withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("plain"), CatalogId.default(TenantId(tenant.id))), catalogVersion = null).query() }
             assertThat(stored!!.description).isNull()
         }
     }
@@ -92,7 +92,7 @@ class TemplateDescriptionListHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("Description must be 2000 characters or less").contains("x".repeat(2001))
-            assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("too-long"), CatalogId.default(TenantId(tenant.id)))).query() }).isNull()
+            assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("too-long"), CatalogId.default(TenantId(tenant.id))), catalogVersion = null).query() }).isNull()
         }
     }
 
@@ -102,8 +102,8 @@ class TemplateDescriptionListHtmxTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Template Description List")
             val catalog = CatalogId.default(TenantId(tenant.id))
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("described"), catalog), "Described", description = "For letters to residents & companies").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("plain"), catalog), "Plain").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("described"), catalog), "Described", description = "For letters to residents & companies", catalogVersion = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("plain"), catalog), "Plain", catalogVersion = null).execute()
         }
         whenever { get("/tenants/${tenant.id}/catalogs/default/templates") }
         then {
