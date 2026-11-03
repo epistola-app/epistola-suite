@@ -369,7 +369,10 @@
     width: 100%;
   }
 
-  .main-content h2 {
+  /* A bare heading in page content. :where() keeps this at element specificity: the rule loads
+     last in the app layer, so at equal specificity it would beat a component's own heading rule
+     (a card header, a dialog header) and give it this size and margin. */
+  :where(.main-content) h2 {
     margin-bottom: var(--ep-space-4);
     font-size: var(--ep-text-xl);
   }
