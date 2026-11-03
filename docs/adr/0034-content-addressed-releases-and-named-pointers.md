@@ -2,6 +2,7 @@
 
 - **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 done but for aliases other than the key) — superseded in part by ADR 0038
 - **Addendum (2026-10-27):** Superseded in part by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27): the suite's storage and the release-hash backfill (removed; every release records its hash). The naming model stands.
+- **Amendment (2026-11-03, proposed):** [A tenant's authorities and their namespaces](#amendment-2026-11-03-a-tenants-authorities-and-their-namespaces) replaces §3's administrator grant: a tenant's own administrator adds the domains it names catalogs under, inside the tenant.
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -90,6 +91,9 @@ and records it.
   authoritative connection already enforces for publishing).
 
 ### 3. Namespaces are granted to tenants
+
+> Amended 2026-11-03 (proposed): who grants a namespace under an organisation's own domain, and where.
+> See [the amendment](#amendment-2026-11-03-a-tenants-authorities-and-their-namespaces).
 
 An installation records which tenants may use which namespaces: granted through the tenant's Exchange
 connection, or by the administrator for the organisation's own authority. Several tenants may share a
@@ -288,6 +292,70 @@ other than the key, which wait for ADR 0033's storage (#1125).
   layer, as cosign does, or in the manifest).
 - The signature scheme and key distribution per authority.
 - How the Exchange verifies a domain, and what happens when a domain changes hands.
+
+## Amendment (2026-11-03): a tenant's authorities and their namespaces
+
+- **Status:** Proposed
+- **Amends:** §3 and phase 3 (namespace grants)
+
+### Context
+
+§3 has a tenant hold namespaces "granted through the tenant's Exchange connection, or by the
+administrator for the organisation's own authority". Phase 3 built the second as a platform action:
+`GrantTenantNamespace` needs `TENANT_MANAGER`, the grants live on the platform tenant list's Namespaces
+page, and New tenant asked for a namespace and an authority (pre-filled with the Exchange's) before a
+tenant could exist.
+
+In use this reads wrong. Namespaces name a tenant's catalogs, but nobody inside the tenant can see or
+change them, even its administrator; a platform administrator has to know to leave the tenant to find
+them. Meanwhile a tenant's Exchange namespaces already come from inside it, through the Exchange
+connection its own administrator makes (`INTEGRATIONS_MANAGE`). And a grant recorded in an
+installation never protected a name: several tenants may share a namespace (§3), and what makes a name
+someone's is the authority, when a release reaches it (the Exchange checks its grants when publishing;
+a domain through its keys, §8, a later phase). The platform role guarded nothing the authority does not.
+
+### Decision
+
+1. **A tenant is connected to authorities, and each grants it namespaces.** The Exchange, through the
+   Exchange connection, and any number of domains (`gemeente-x.nl`, `hr.gemeente-x.nl`). The
+   installation records the namespaces by authority, as now (`tenant_namespace_grants`); a domain is
+   listed by the namespaces held under it, so adding a domain is adding its first namespace.
+2. **The tenant's administrator manages its domains.** Adding and removing a domain's namespaces needs
+   `INTEGRATIONS_MANAGE`, the permission of the Exchange connection: both are the tenant's
+   connections to an authority. The Exchange's namespaces come only from the Exchange connection;
+   nobody adds one by hand, so a namespace under `exchange.epistola.app` is never entered here.
+3. **A domain's namespaces are unverified until the domain proves them** (§8). Unverified is enough to
+   name catalogs, release them and move them within the organisation (files, container registries,
+   which check no names), and the screens say so. Publishing to the Exchange stays limited to
+   namespaces the Exchange grants, as now.
+4. **Inside the tenant**, under Settings, **Authorities & namespaces** lists the Exchange connection
+   (its state and namespaces, managed where it is now) and each domain with its namespaces, how and
+   when each came to be held, and that `local` is always there. New catalog offers them as now.
+5. **Outside it**, the platform tenant list no longer grants namespaces, and New tenant asks for a
+   name and an ID only: a tenant starts under `local`, its default catalog `local/default/default`,
+   and its administrator connects authorities when it needs a name of its own. `CreateTenant` keeps
+   its `namespaces` for bootstrap, demo and tests.
+6. **Kept from phase 3:** one tenant holds a namespace token under one authority; removing a namespace
+   catalogs the tenant authors are named in is refused, naming them; the rules for `local`; existing
+   grants stay, the administrator's and the pre-grant ones shown as such.
+
+### Consequences
+
+- `GrantTenantNamespace` and `RevokeTenantNamespace` require `INTEGRATIONS_MANAGE` on the tenant
+  instead of `TENANT_MANAGER`, and refuse the Exchange's authority. The Namespaces page moves from
+  `/platform/tenants/{t}/namespaces` into the tenant's settings; the platform tenant list loses its
+  Namespaces action. No migration: grants are already per tenant and authority.
+- New tenant loses its namespace fields, including the optional section added in #1281.
+- Web only, as today: no REST operation or MCP tool grants a namespace. A read for MCP
+  (`list_namespaces`) can follow when an agent needs to choose where to name a catalog.
+- A tenant administrator can name catalogs under any domain without proving it. Within the
+  installation that is no more than a label, as `local` already is; outside, the authority decides.
+
+### Not decided here
+
+- Proving a domain (§8's keys, or a DNS record) and what the screens show once one is proven.
+- Whether an installation may limit which domains its tenants use (an operator setting), for a
+  hosted installation whose tenants are different organisations.
 
 ## Related
 
