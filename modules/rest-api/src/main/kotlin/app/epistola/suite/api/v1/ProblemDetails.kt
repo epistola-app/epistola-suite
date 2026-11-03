@@ -19,6 +19,7 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
+import app.epistola.api.error.ProblemDetails as ContractProblemDetails
 
 const val PROBLEM_TYPE_BASE_URL = "https://epistola.app/errors"
 
@@ -221,19 +222,9 @@ fun HttpServletRequest.problemInstance(): URI = runCatching { URI.create(request
  * the contract has no generic type for (412, 422, 429) is `bad-request`, a server error
  * `internal-error`; the status stays the one the framework chose.
  */
-fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = when (statusCode.value()) {
-    400 -> BAD_REQUEST
-    401 -> UNAUTHORIZED
-    403 -> FORBIDDEN
-    404 -> NOT_FOUND
-    405 -> METHOD_NOT_ALLOWED
-    406 -> NOT_ACCEPTABLE
-    409 -> CONFLICT
-    413 -> CONTENT_TOO_LARGE
-    415 -> UNSUPPORTED_MEDIA_TYPE
-    501 -> OPERATION_NOT_IMPLEMENTED
-    else -> if (statusCode.is4xxClientError) BAD_REQUEST else INTERNAL_ERROR
-}
+fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = ContractProblemDetails.genericSlugFor(statusCode.value())
+    ?.let { slug -> all.firstOrNull { it.slug == slug } }
+    ?: if (statusCode.is4xxClientError) BAD_REQUEST else INTERNAL_ERROR
 
 fun problemResponse(
     request: HttpServletRequest,
