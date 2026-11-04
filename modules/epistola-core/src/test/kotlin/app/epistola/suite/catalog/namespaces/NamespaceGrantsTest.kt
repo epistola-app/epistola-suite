@@ -13,7 +13,9 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
-import app.epistola.suite.security.PlatformAccessDeniedException
+import app.epistola.suite.security.PermissionDeniedException
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
@@ -27,9 +29,9 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 /**
- * Namespaces granted to tenants (ADR 0034, section 3): a platform administrator grants and revokes
- * them, a tenant may hold several and several tenants one, and creating a tenant grants the ones it is
- * created with.
+ * Namespaces granted to tenants (ADR 0034, section 3, and its amendment of 2026-11-03): the tenant's
+ * administrator adds and removes a domain's, a tenant may hold several and several tenants one, and
+ * creating a tenant grants the ones it is created with.
  */
 class NamespaceGrantsTest : IntegrationTestBase() {
 
@@ -100,7 +102,7 @@ class NamespaceGrantsTest : IntegrationTestBase() {
         withMediator {
             GrantTenantNamespace(tenant, "gemeente-x.nl", "acme").execute()
 
-            val taken = refusal { GrantTenantNamespace(tenant, "exchange.epistola.app", "acme").execute() }
+            val taken = refusal { GrantTenantNamespace(tenant, "hr.gemeente-x.nl", "acme").execute() }
             assertThat(taken.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_TAKEN)
             assertThat(taken.message).contains("under gemeente-x.nl already")
 
@@ -133,24 +135,55 @@ class NamespaceGrantsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `only a platform administrator lists, grants and revokes`() {
-        val tenant = bareTenant("Platform only", NamespaceName("gemeente-x.nl", "acme"))
-        val tenantAdministrator = EpistolaPrincipal(
-            userId = UserKey.of("00000000-0000-0000-0000-00000000ca01"),
-            externalId = "namespace-tenant-admin",
-            email = "namespace-tenant-admin@example.com",
-            displayName = "Tenant Administrator",
-            tenantMemberships = mapOf(tenant to TenantRole.entries.toSet()),
-            platformRoles = emptySet(),
-            currentTenantId = tenant,
+    fun `the tenant's administrator lists, adds and removes, and neither a platform administrator nor a content author does`() {
+        val tenant = bareTenant("Tenant administrator", NamespaceName("gemeente-x.nl", "acme"))
+        fun principal(id: String, roles: Set<TenantRole>, platform: Set<PlatformRole> = emptySet()) = EpistolaPrincipal(
+            userId = UserKey.of("00000000-0000-0000-0000-00000000$id"),
+            externalId = "namespace-$id",
+            email = "namespace-$id@example.com",
+            displayName = "Namespace $id",
+            tenantMemberships = if (roles.isEmpty()) emptyMap() else mapOf(tenant to roles),
+            platformRoles = platform,
+            currentTenantId = tenant.takeIf { roles.isNotEmpty() },
         )
 
-        runAs(tenantAdministrator) {
-            assertThatThrownBy { ListNamespaceGrants(tenant).query() }.isInstanceOf(PlatformAccessDeniedException::class.java)
-            assertThatThrownBy { GrantTenantNamespace(tenant, "gemeente-x.nl", "other").execute() }.isInstanceOf(PlatformAccessDeniedException::class.java)
-            assertThatThrownBy { RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute() }.isInstanceOf(PlatformAccessDeniedException::class.java)
-            // What the tenant may name catalogs in is the tenant's own to see.
+        runAs(principal("ca01", setOf(TenantRole.TENANT_ADMINISTRATOR))) {
+            assertThat(GrantTenantNamespace(tenant, "gemeente-x.nl", "other").execute().grantedThrough).isEqualTo(NamespaceGrantSource.ADMINISTRATOR)
+            assertThat(GetTenantAuthorities(tenant).query().domains.single().namespaces.map { it.namespace }).containsExactly("acme", "other")
+            assertThat(RevokeTenantNamespace(tenant, "gemeente-x.nl", "other").execute().revoked).isTrue()
+        }
+        runAs(principal("ca02", TenantRole.entries.toSet() - TenantRole.TENANT_ADMINISTRATOR)) {
+            assertThatThrownBy { ListNamespaceGrants(tenant).query() }.isInstanceOf(PermissionDeniedException::class.java)
+            assertThatThrownBy { GrantTenantNamespace(tenant, "gemeente-x.nl", "other").execute() }.isInstanceOf(PermissionDeniedException::class.java)
+            assertThatThrownBy { RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute() }.isInstanceOf(PermissionDeniedException::class.java)
+            // What the tenant may name catalogs in is every member's to see.
             assertThat(ListHeldNamespaces(tenant).query().held).containsExactly(NamespaceName("gemeente-x.nl", "acme"))
+        }
+        // The platform no longer grants: a platform administrator outside the tenant changes nothing in it.
+        runAs(principal("ca03", emptySet(), PlatformRole.entries.toSet())) {
+            assertThatThrownBy { GrantTenantNamespace(tenant, "gemeente-x.nl", "other").execute() }.isInstanceOf(TenantAccessDeniedException::class.java)
+        }
+    }
+
+    @Test
+    fun `the authorities list the Exchange's namespaces apart from each domain's, domains by name`() {
+        val tenant = bareTenant(
+            "Authorities",
+            NamespaceName("exchange.epistola.app", "acme-public"),
+            NamespaceName("gemeente-x.nl", "acme"),
+            NamespaceName("hr.gemeente-x.nl", "acme-hr"),
+            NamespaceName("gemeente-x.nl", "acme-finance"),
+        )
+
+        withMediator {
+            val authorities = GetTenantAuthorities(tenant).query()
+            assertThat(authorities.exchangeAuthority).isEqualTo("exchange.epistola.app")
+            assertThat(authorities.exchangeNamespaces.map { it.namespace }).containsExactly("acme-public")
+            assertThat(authorities.domains.map { it.authority to it.namespaces.map { grant -> grant.namespace } }).containsExactly(
+                "gemeente-x.nl" to listOf("acme", "acme-finance"),
+                "hr.gemeente-x.nl" to listOf("acme-hr"),
+            )
+            assertThat(authorities.domainNames).containsExactly("gemeente-x.nl", "hr.gemeente-x.nl")
         }
     }
 }

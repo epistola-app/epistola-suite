@@ -14,20 +14,45 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
-import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.security.RequiresPlatformRole
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
-/** Every namespace a tenant holds, with how, when and by whom: what a platform administrator manages. */
-data class ListNamespaceGrants(val tenantKey: TenantKey) :
+/** Every namespace a tenant holds, with how, when and by whom: what the tenant's administrator manages. */
+data class ListNamespaceGrants(override val tenantKey: TenantKey) :
     Query<List<NamespaceGrant>>,
-    RequiresPlatformRole {
-    override val platformRole = PlatformRole.TENANT_MANAGER
+    RequiresPermission {
+    override val permission get() = Permission.INTEGRATIONS_MANAGE
 }
+
+/**
+ * The authorities a tenant is connected to and the namespaces each grants it (ADR 0034, amendment
+ * of 2026-11-03): what Settings, Authorities & namespaces shows its administrator.
+ */
+data class GetTenantAuthorities(override val tenantKey: TenantKey) :
+    Query<TenantAuthorities>,
+    RequiresPermission {
+    override val permission get() = Permission.INTEGRATIONS_MANAGE
+}
+
+/**
+ * The Exchange's authority and the namespaces the tenant holds under it ([exchangeNamespaces]), and
+ * each domain with its own ([domains]), domains in name order. `local` is not listed: every tenant
+ * has it without a grant.
+ */
+data class TenantAuthorities(
+    val exchangeAuthority: String,
+    val exchangeNamespaces: List<NamespaceGrant>,
+    val domains: List<DomainNamespaces>,
+) {
+    /** The domains the tenant is connected to already, for the add dialog to offer. */
+    val domainNames: List<String> get() = domains.map { it.authority }
+}
+
+/** A domain the tenant is connected to, through the namespaces it holds under it; unverified until the domain proves them. */
+data class DomainNamespaces(val authority: String, val namespaces: List<NamespaceGrant>)
 
 /**
  * The namespaces a tenant may name a new catalog in: those it holds, and `local` with any namespace
@@ -78,6 +103,23 @@ class ListNamespaceGrantsHandler(
     private val store: NamespaceGrantStore,
 ) : QueryHandler<ListNamespaceGrants, List<NamespaceGrant>> {
     override fun handle(query: ListNamespaceGrants): List<NamespaceGrant> = jdbi.withHandle<List<NamespaceGrant>, Exception> { store.grants(it, query.tenantKey) }
+}
+
+@Component
+class GetTenantAuthoritiesHandler(
+    private val jdbi: Jdbi,
+    private val store: NamespaceGrantStore,
+    private val identity: CatalogIdentityProperties,
+) : QueryHandler<GetTenantAuthorities, TenantAuthorities> {
+    override fun handle(query: GetTenantAuthorities): TenantAuthorities {
+        val grants = jdbi.withHandle<List<NamespaceGrant>, Exception> { store.grants(it, query.tenantKey) }
+        val (exchange, domains) = grants.partition { it.authority == identity.defaultRegistry }
+        return TenantAuthorities(
+            exchangeAuthority = identity.defaultRegistry,
+            exchangeNamespaces = exchange,
+            domains = domains.groupBy { it.authority }.toSortedMap().map { (authority, held) -> DomainNamespaces(authority, held) },
+        )
+    }
 }
 
 @Component

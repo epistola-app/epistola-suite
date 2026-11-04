@@ -10,8 +10,8 @@ import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.SeedSiteBannerIfAbsent
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
-import app.epistola.suite.catalog.namespaces.GrantTenantNamespace
 import app.epistola.suite.catalog.namespaces.NamespaceName
+import app.epistola.suite.catalog.namespaces.SeedTenantNamespace
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -98,7 +98,7 @@ class DemoLoader(
             log.info("Demo tenant already exists")
             // The namespace its catalogs are named in (ADR 0034, section 3): a database from before
             // grants holds it from the migration, and asserting it here keeps any other one working.
-            mediator.send(GrantTenantNamespace(tenantKey, identity.defaultRegistry, DEMO_NAMESPACE))
+            mediator.send(SeedTenantNamespace(tenantKey, identity.defaultRegistry, DEMO_NAMESPACE))
             // Still (re-)assert the demo API key on every boot so its scope self-heals
             // across upgrades — e.g. the api_key roles migration backfilled it to
             // CONTENT_VIEWER; this restores the full "everything key" scope. The upsert is

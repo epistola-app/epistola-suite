@@ -8,11 +8,14 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.namespaces.GetTenantAuthorities
 import app.epistola.suite.catalog.namespaces.GrantTenantNamespace
 import app.epistola.suite.catalog.namespaces.ListNamespaceGrants
 import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.namespaces.NamespaceGrantSource
+import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.namespaces.NamespaceName
+import app.epistola.suite.catalog.namespaces.RevokeTenantNamespace
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -113,6 +116,28 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             GrantTenantNamespace(tenant, "gemeente-x.nl", "acme").execute()
             assertThat(ListNamespaceGrants(tenant).query().map { it.namespace }).containsExactly("acme", "public-services")
+        }
+    }
+
+    @Test
+    fun `a namespace under the Exchange is not added by hand, and one the connection grants is not removed by hand`() {
+        val tenant = tenant("Exchange only through the connection")
+        exchange.namespaces = listOf("public-services")
+
+        withMediator {
+            val added = assertThatThrownBy { GrantTenantNamespace(tenant, "exchange.epistola.app", "other").execute() }
+            added.isInstanceOfSatisfying(ValidationException::class.java) {
+                assertThat(it.field).isEqualTo("authority")
+                assertThat(it.message).isEqualTo(NamespaceMessages.exchangeOnly("exchange.epistola.app"))
+            }
+
+            enroll(tenant)
+            assertThatThrownBy { RevokeTenantNamespace(tenant, "exchange.epistola.app", "public-services").execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.message).isEqualTo(NamespaceMessages.connectionGrant(NamespaceName("exchange.epistola.app", "public-services")))
+                }
+            assertThat(ListNamespaceGrants(tenant).query().map { it.namespace }).containsExactly("public-services")
+            assertThat(GetTenantAuthorities(tenant).query().exchangeNamespaces.single().removableByHand).isFalse()
         }
     }
 

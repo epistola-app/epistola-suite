@@ -5,8 +5,8 @@
 package app.epistola.suite.testing
 
 import app.epistola.catalog.protocol.CatalogNamespaces
-import app.epistola.suite.catalog.namespaces.GrantTenantNamespace
 import app.epistola.suite.catalog.namespaces.NamespaceName
+import app.epistola.suite.catalog.namespaces.SeedTenantNamespace
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.tenants.commands.CreateTenant
 
@@ -22,11 +22,15 @@ object TestNamespaces {
 
     fun of(tenantKey: TenantKey): NamespaceName = NamespaceName(DEFAULT_AUTHORITY, tenantKey.value.padEnd(CatalogNamespaces.MIN_LENGTH, '0'))
 
-    /** [GrantTenantNamespace] of [namespace] to [tenantKey], as a platform administrator grants one; under the default authority unless named. */
-    fun grant(tenantKey: TenantKey, namespace: String, authority: String = DEFAULT_AUTHORITY): GrantTenantNamespace = GrantTenantNamespace(tenantKey, authority, namespace)
+    /**
+     * [SeedTenantNamespace] of [namespace] to [tenantKey], under the default authority unless named: it
+     * stands in for the Exchange connection, or a domain, granting it. A test about how a person adds
+     * one dispatches [app.epistola.suite.catalog.namespaces.GrantTenantNamespace] itself.
+     */
+    fun grant(tenantKey: TenantKey, namespace: String, authority: String = DEFAULT_AUTHORITY): SeedTenantNamespace = SeedTenantNamespace(tenantKey, authority, namespace)
 
-    /** [GrantTenantNamespace] of [from]'s fixture namespace to [to]: the two share it, as departments, or test and production, do. */
-    fun share(from: TenantKey, to: TenantKey): GrantTenantNamespace = of(from).let { GrantTenantNamespace(to, it.authority, it.namespace) }
+    /** [SeedTenantNamespace] of [from]'s fixture namespace to [to]: the two share it, as departments, or test and production, do. */
+    fun share(from: TenantKey, to: TenantKey): SeedTenantNamespace = of(from).let { SeedTenantNamespace(to, it.authority, it.namespace) }
 
     /** [CreateTenant] for a fixture tenant: granted [of] its key. */
     fun createTenant(tenantKey: TenantKey, name: String): CreateTenant = CreateTenant(id = tenantKey, name = name, namespaces = listOf(of(tenantKey)))

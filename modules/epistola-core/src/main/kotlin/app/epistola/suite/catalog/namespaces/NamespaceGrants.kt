@@ -65,7 +65,7 @@ enum class NamespaceGrantSource(val label: String) {
     /** The tenant's Epistola Exchange connection grants it. */
     EXCHANGE_CONNECTION("Exchange connection"),
 
-    /** A platform administrator granted it, or it was granted when the tenant was created. */
+    /** An administrator added it, or it was granted when the tenant was created. */
     ADMINISTRATOR("Administrator"),
 
     /** Held since before namespaces were granted: catalogs the tenant authored were named in it. */
@@ -84,6 +84,12 @@ data class NamespaceGrant(
     val grantedByName: String?,
 ) {
     val name: NamespaceName get() = NamespaceName(authority, namespace)
+
+    /**
+     * Whether the tenant's administrator may remove it by hand: every grant but the Exchange
+     * connection's, which goes with the connection. What the remove button and the refusal share.
+     */
+    val removableByHand: Boolean get() = grantedThrough != NamespaceGrantSource.EXCHANGE_CONNECTION
 }
 
 /** What recording a grant did. */
@@ -194,6 +200,12 @@ class NamespaceGrantStore {
 object NamespaceMessages {
     /** Why a catalog named in [name] cannot be created, or released, by this tenant. */
     fun notHeld(name: NamespaceName): String = "This tenant does not hold the namespace ${name.namespace} (${name.authority}); an administrator can grant it."
+
+    /** Why a namespace under the Exchange's authority is not added by hand. */
+    fun exchangeOnly(exchangeAuthority: String): String = "Namespaces under $exchangeAuthority come from the tenant's Epistola Exchange connection; connect the tenant under Settings, Exchange."
+
+    /** Why a namespace the Exchange connection grants is not removed by hand. */
+    fun connectionGrant(name: NamespaceName): String = "${name.namespace} (${name.authority}) is granted by the Exchange connection; it goes when the tenant is disconnected from Exchange."
 
     /** Why a catalog named under local is not published to Epistola Exchange: local never leaves the organisation. */
     fun notPublished(catalog: String): String = "$catalog is named under local, which never leaves this organisation, so it is not published to Epistola Exchange."
