@@ -363,6 +363,34 @@ export function createMenuElement(schema: Schema): {
 // Position update
 // ---------------------------------------------------------------------------
 
+interface Rect {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** The gap between the menu and what it is placed against. */
+const MENU_GAP = 8;
+
+/**
+ * What the menu is placed against: the selection, or, when a menu of [menuHeight] above it would
+ * cover its block's [header] (whose trash button deletes the block), the selection reaching up to
+ * the top of that header, so the menu sits above the header instead. Below the selection, when it
+ * flips there, it is unchanged. [header] is null outside a canvas block.
+ */
+export function menuAnchor(
+  selection: Rect,
+  header: Rect | null,
+  menuHeight: number,
+  gap: number,
+): Rect {
+  if (!header) return selection;
+  const menuTop = selection.top - gap - menuHeight;
+  if (menuTop >= header.bottom) return selection;
+  return { ...selection, top: header.top };
+}
+
 function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   const { from, to } = view.state.selection;
 
@@ -379,18 +407,26 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
     return;
   }
 
-  // Create a virtual reference element spanning the selection
+  // Create a virtual reference element spanning the selection, kept clear of the block's header.
+  const header =
+    view.dom.closest('.canvas-block')?.querySelector(':scope > .canvas-block-header') ?? null;
+  const anchor = menuAnchor(
+    { left: start.left, right: end.right, top: start.top, bottom: end.bottom },
+    header?.getBoundingClientRect() ?? null,
+    menuEl.offsetHeight,
+    MENU_GAP,
+  );
   const virtualEl = {
     getBoundingClientRect() {
       return {
-        x: start.left,
-        y: start.top,
-        width: end.right - start.left,
-        height: end.bottom - start.top,
-        top: start.top,
-        right: end.right,
-        bottom: end.bottom,
-        left: start.left,
+        x: anchor.left,
+        y: anchor.top,
+        width: anchor.right - anchor.left,
+        height: anchor.bottom - anchor.top,
+        top: anchor.top,
+        right: anchor.right,
+        bottom: anchor.bottom,
+        left: anchor.left,
       };
     },
   };
@@ -402,7 +438,7 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
     // that scroll the window (the canvas editor never does, form pages do).
     strategy: 'fixed',
     placement: 'top',
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    middleware: [offset(MENU_GAP), flip(), shift({ padding: 8 })],
   }).then(({ x, y }) => {
     menuEl.style.left = `${x}px`;
     menuEl.style.top = `${y}px`;

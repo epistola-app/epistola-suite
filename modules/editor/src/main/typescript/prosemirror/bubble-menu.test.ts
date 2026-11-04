@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { bubbleMenuPlugin } from './bubble-menu.js';
-import { createMenuElement } from './bubble-menu.js';
+import { createMenuElement, menuAnchor } from './bubble-menu.js';
 import { epistolaSchema } from './schema.js';
 import { richTextBlockSchema } from './richTextBlockSchema.js';
 import { richTextInlineSchema } from './richTextInlineSchema.js';
@@ -76,5 +76,33 @@ describe('bubble menu editable guard', () => {
 
     view.destroy();
     host.remove();
+  });
+});
+
+describe('menuAnchor', () => {
+  // The menu floats above the caret. On a block's first line that is over the block's header,
+  // whose trash button then could not be clicked.
+  const header = { left: 100, right: 700, top: 100, bottom: 128 };
+  const MENU = 36;
+  const GAP = 8;
+
+  it('keeps to the selection when the menu fits between it and the header', () => {
+    const selection = { left: 120, right: 120, top: 300, bottom: 318 };
+    expect(menuAnchor(selection, header, MENU, GAP)).toEqual(selection);
+  });
+
+  it('reaches up over the header when the menu would cover it, so it sits above the header', () => {
+    const selection = { left: 120, right: 120, top: 140, bottom: 158 };
+    expect(menuAnchor(selection, header, MENU, GAP)).toEqual({
+      left: 120,
+      right: 120,
+      top: 100,
+      bottom: 158,
+    });
+  });
+
+  it('keeps to the selection outside a canvas block', () => {
+    const selection = { left: 120, right: 120, top: 140, bottom: 158 };
+    expect(menuAnchor(selection, null, MENU, GAP)).toEqual(selection);
   });
 });

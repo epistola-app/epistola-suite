@@ -362,6 +362,21 @@ export class EpistolaTextEditor extends LitElement {
     this._pmView.focus();
   }
 
+  /**
+   * Let go of the text: no selected range, in ProseMirror or in the browser, and no focus. For a
+   * press on the block's header, its handle, after which no text should stay highlighted.
+   */
+  releaseText(): void {
+    const view = this._pmView;
+    if (!view) return;
+    collapseEditorSelection(view);
+    const selection = view.dom.ownerDocument.getSelection();
+    if (selection?.anchorNode && view.dom.contains(selection.anchorNode))
+      selection.removeAllRanges();
+    const active = view.dom.ownerDocument.activeElement;
+    if (active instanceof HTMLElement && view.dom.contains(active)) active.blur();
+  }
+
   // ---------------------------------------------------------------------------
   // TextChange integration
   // ---------------------------------------------------------------------------
