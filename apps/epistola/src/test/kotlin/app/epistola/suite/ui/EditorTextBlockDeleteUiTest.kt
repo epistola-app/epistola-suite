@@ -73,4 +73,27 @@ class EditorTextBlockDeleteUiTest : BasePlaywrightTest() {
         assertThat(page.locator(".ProseMirror:focus")).hasCount(1)
         assertThat(page.locator(".pm-bubble-menu")).isVisible()
     }
+
+    @Test
+    fun `clicking the header lets go of selected text`() {
+        val tenantKey = TenantKey.of("test-editor-text-release-${System.nanoTime()}")
+        val template = withMediator {
+            TestNamespaces.createTenant(tenantKey, "Text Release Tenant").execute()
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
+            CreateDocumentTemplate(id = templateId, name = "Text Release", catalogVersion = null).execute().withRequiredDataExample()
+        }
+        gotoAndReady("/tenants/$tenantKey/catalogs/default/templates/${template.id}/variants/initial/editor")
+        page.waitForSelector("epistola-editor")
+        page.getByTestId("palette-item-text").click()
+        page.locator(".ProseMirror").first().click()
+        page.keyboard().type("Dear customer")
+        page.keyboard().press("Shift+Home")
+        page.waitForFunction("() => window.getSelection()?.toString() === 'Dear customer'")
+
+        // Pressing the handle is about the block, not the text: nothing stays highlighted or focused.
+        page.locator(".canvas-block.selected .canvas-block-header").click()
+        page.waitForFunction("() => window.getSelection()?.isCollapsed ?? true")
+        assertThat(page.locator(".ProseMirror:focus")).hasCount(0)
+        assertThat(page.locator(".pm-bubble-menu")).isHidden()
+    }
 }
