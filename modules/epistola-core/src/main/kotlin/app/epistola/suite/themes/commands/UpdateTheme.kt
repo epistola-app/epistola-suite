@@ -28,6 +28,7 @@ import app.epistola.suite.themes.ThemeReads
 import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.themes.crossCatalogRefs
 import app.epistola.suite.themes.fields
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -74,6 +75,7 @@ data class UpdateTheme(
             validate("name", name.isNotBlank()) { "Name cannot be blank" }
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
+        validate("blockStylePresets", blockStylePresets.orEmpty().size <= FieldLimits.MAX_BLOCK_STYLE_PRESETS) { "A theme has at most ${FieldLimits.MAX_BLOCK_STYLE_PRESETS} block style presets" }
         val changesPerPreset = mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty()
         validate("blockStylePresets", !(changesPerPreset && (blockStylePresets != null || clearBlockStylePresets))) {
             "Replace or clear the presets, or merge and remove individual presets, not both"
@@ -108,7 +110,14 @@ class UpdateThemeHandler(
             Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, revision)
             val current = checkNotNull(ThemeReads.get(handle, objectMapper, at, command.id.key)) { "Theme ${command.id.key.value} is locked, so it is there" }
             if (!command.changesSomething()) return@withHandle current
-            themes.save(handle, at, current, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
+            val updated = command.applyTo(current.fields())
+            // Per-preset changes are held to the limit once merged. A theme imported with more keeps
+            // them, and may lose some, but gains none.
+            val presets = updated.blockStylePresets.orEmpty().size
+            validate("mergeBlockStylePresets", presets <= FieldLimits.MAX_BLOCK_STYLE_PRESETS || presets <= current.fields().blockStylePresets.orEmpty().size) {
+                "A theme has at most ${FieldLimits.MAX_BLOCK_STYLE_PRESETS} block style presets"
+            }
+            themes.save(handle, at, current, updated, currentUserIdOrNull()?.value)
         }
     }
 

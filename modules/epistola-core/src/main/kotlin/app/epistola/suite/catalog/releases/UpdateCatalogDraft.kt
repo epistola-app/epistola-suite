@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -40,6 +41,7 @@ data class UpdateCatalogDraft(
 
     init {
         validate("clearDefaultTheme", !(clearDefaultTheme && defaultTheme != null)) { "Send a defaultTheme or clearDefaultTheme, not both" }
+        validate("presets", presets.orEmpty().size <= FieldLimits.MAX_CATALOG_PRESETS) { "A draft declares at most ${FieldLimits.MAX_CATALOG_PRESETS} presets" }
     }
 }
 

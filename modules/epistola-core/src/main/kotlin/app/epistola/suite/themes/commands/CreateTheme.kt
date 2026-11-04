@@ -26,6 +26,7 @@ import app.epistola.suite.themes.Theme
 import app.epistola.suite.themes.ThemeFields
 import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.themes.crossCatalogRefs
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -55,6 +56,7 @@ data class CreateTheme(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        validate("blockStylePresets", blockStylePresets.orEmpty().size <= FieldLimits.MAX_BLOCK_STYLE_PRESETS) { "A theme has at most ${FieldLimits.MAX_BLOCK_STYLE_PRESETS} block style presets" }
         validate("defaultBlockStyles", defaultBlockStyles.orEmpty().keys.all { it == "marginTop" || it == "marginBottom" }) { "A theme's default block styles set marginTop and marginBottom only" }
     }
 }

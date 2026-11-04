@@ -23,6 +23,8 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.validation.FieldLimits
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -47,6 +49,10 @@ data class UpdateDataExample(
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = templateId.tenantKey
+
+    init {
+        name?.let { validate("name", it.length <= FieldLimits.MAX_DATA_EXAMPLE_NAME_LENGTH) { "A data example's name is ${FieldLimits.MAX_DATA_EXAMPLE_NAME_LENGTH} characters or less" } }
+    }
 }
 
 data class UpdateDataExampleResult(

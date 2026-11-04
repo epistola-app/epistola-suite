@@ -27,6 +27,7 @@ import app.epistola.suite.templates.documentTemplate
 import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.createDefaultTemplateModel
+import app.epistola.suite.templates.model.validateDataExampleLimits
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -74,6 +75,7 @@ data class CreateDocumentTemplate(
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         validate("description", description.fitsTemplateDescription()) { "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less" }
+        dataExamples?.let(::validateDataExampleLimits)
     }
 }
 

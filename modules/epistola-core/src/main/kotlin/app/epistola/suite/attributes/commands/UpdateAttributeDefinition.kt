@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -56,6 +57,7 @@ data class UpdateAttributeDefinition(
         validate("displayName", displayName.isNotBlank()) { "Display name is required" }
         validate("displayName", displayName.length <= MAX_NAME_LENGTH) { "Display name must be $MAX_NAME_LENGTH characters or less" }
         validate("allowedValues", allowedValues.all { it.isNotBlank() }) { "Allowed values must not be blank" }
+        validate("allowedValues", allowedValues.all { it.length <= FieldLimits.MAX_ATTRIBUTE_VALUE_LENGTH }) { "Allowed values are ${FieldLimits.MAX_ATTRIBUTE_VALUE_LENGTH} characters or less" }
         validate("allowedValues", allowedValues.size == allowedValues.distinct().size) { "Allowed values must be unique" }
         validate(
             "codeListId",

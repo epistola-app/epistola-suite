@@ -62,8 +62,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -129,6 +131,7 @@ data class ReleaseCatalogDraft(
 
     init {
         continueEverydayWork?.keepPreviousAs?.let(::validateDraftName)
+        validate("acknowledgedBehind", acknowledgedBehind.size <= FieldLimits.MAX_ACKNOWLEDGED_BEHIND) { "A release acknowledges at most ${FieldLimits.MAX_ACKNOWLEDGED_BEHIND} versions it is behind" }
     }
 }
 
