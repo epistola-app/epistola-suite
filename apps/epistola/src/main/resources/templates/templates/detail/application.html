@@ -27,27 +27,33 @@
                 </dl>
 
                 <!--/* Whether a request gets anything, and which release: what a developer needs before the body. */-->
-                <div th:if="${app.nothingPublished}" class="alert alert-warning" style="margin-top: var(--ep-space-4);"
+                <div th:if="${app.nothingToGet}" class="alert alert-warning" style="margin-top: var(--ep-space-4);"
                      data-testid="template-application-unpublished">
                     <div>
-                        Nothing in this catalog is published yet, so an application cannot get this template.
-                        <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalogSegment})}">Publish a release</a> first.
+                        Nothing in this catalog is published or deployed yet, so an application cannot get this template.
+                        <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalogSegment})}">Publish a release</a>,
+                        or <a th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalogSegment})}">deploy the draft</a>
+                        to a test environment to try it before releasing.
                     </div>
                 </div>
-                <th:block th:unless="${app.nothingPublished}">
+                <th:block th:unless="${app.nothingToGet}">
                     <p th:if="${!app.environments.isEmpty()}" data-testid="template-application-live">
                         Live in
                         <th:block th:each="env, stat : ${app.environments}"><a th:href="@{/tenants/{t}/environments/{e}(t=${tenantId},e=${env.environmentKey})}"
                                 th:text="${env.environmentKey}">production</a> <span class="text-muted"
                                 th:text="${env.version != null} ? 'v' + ${env.version} : '(follows a draft)'">v1.0.0</span><th:block th:unless="${stat.last}">, </th:block></th:block>.
-                        The requests below ask through <code th:text="${app.environmentKey}">production</code>, so they get the release deployed there.
+                        The requests below ask through <code th:text="${app.environmentKey}">production</code>, so they get what is deployed there.
                     </p>
                     <p th:if="${app.environments.isEmpty()}" data-testid="template-application-not-deployed">
                         Not deployed to an environment yet. A request without <code>environmentKey</code> gets the catalog's highest release,
                         <span th:text="'v' + ${app.latestPublished}">v1.0.0</span>;
                         <a th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalogSegment})}">deploy it</a> to choose a release per environment.
                     </p>
-                    <p class="form-hint">A change reaches applications once it is in a published release.</p>
+                    <p th:unless="${app.followsDraft}" class="form-hint">A change reaches applications once it is in a published release.</p>
+                    <p th:if="${app.followsDraft}" class="form-hint" data-testid="template-application-follows-draft">
+                        Through an environment that follows a draft, a saved change reaches applications at once;
+                        elsewhere, once it is in a published release.
+                    </p>
                 </th:block>
             </div>
         </section>

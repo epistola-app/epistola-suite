@@ -75,6 +75,12 @@ Decided and closed:
 
 ## Touched
 
+### The API tab and an environment following a draft (4 November; branch `fix/api-tab-draft-deployment`)
+
+| What                                                                                                                                                                                                                                                                          | Where                                                         | Coverage                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| The API tab said "nothing published, an application cannot get this template" while an environment followed the draft; now `nothingToGet` counts environments, `followsDraft` says a saved change reaches applications at once, and the empty case offers deploying the draft | `ApplicationRequestView`, `templates/detail/application.html` | ✅ `TemplateApplicationTabHtmxTest` +1 (failed before), `ApplicationRequestViewTest` +1 |
+
 ### A tenant's administrator manages its authorities and namespaces (4 November; branch `feat/tenant-authorities-settings`)
 
 ADR 0034's amendment of 2026-11-03 (PR #1282), agreed by the user with `INTEGRATIONS_MANAGE`.
