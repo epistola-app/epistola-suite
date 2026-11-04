@@ -51,6 +51,9 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
   working it out builds the catalog.
 - **Outside a catalog:** the page's name, and the way back to the catalog someone was last in, kept
   in their session.
+- **Help:** beside the account menu on every tenant page, and in that menu: how Epistola works and
+  where each thing is (`/tenants/{tenant}/help`). It names the places it describes, as links only
+  for those who may open them.
 
 ## Dependencies
 
