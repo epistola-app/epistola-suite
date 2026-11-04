@@ -1,5 +1,3 @@
--- backup-restore-compatibility: backward=true forward=true
--- reason: Adds an installation-level table. No backed-up table changes.
 -- rollback-compatible: true
 -- reason: Adds a table that code predating it never reads.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.

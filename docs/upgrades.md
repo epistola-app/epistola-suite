@@ -304,7 +304,7 @@ done
 No tag means the floor is a migration the release itself adds: it cannot be rolled back at all, and
 its notes say so as a breaking upgrade.
 
-Releases from before the check (those without migration `V20261022152421`) do not perform it, so a
+Releases from before the check (those without migration `V20261104203220`) do not perform it, so a
 rollback to one of them is not guarded. When a rollback is refused, or the target predates the
 check, the path is as before: restore the database from the backup taken before the upgrade, then
 deploy the old image. Which is why that backup is not optional.

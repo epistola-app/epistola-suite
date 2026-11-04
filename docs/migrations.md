@@ -310,9 +310,8 @@ older ones still serve ([`upgrades.md`](upgrades.md#the-two-kinds-of-upgrade)).
 -- reason: Adds a nullable column that code predating it never reads.
 ```
 
-The header goes in the leading comment block, beside the
-`backup-restore-compatibility` header where the file has one. The version comes
-from the filename, and the header is part of Flyway's checksum, so it is as
+The header goes in the leading comment block. The version comes from the
+filename, and the header is part of Flyway's checksum, so it is as
 immutable as the SQL below it.
 
 - **`true`** — the previous release keeps working on the new schema: a new table,
@@ -350,12 +349,12 @@ covers `embedded`, `migrate` and `validate` alike (`SchemaRollbackGuard`):
   a warning that it is running on a newer schema.
 - **Default deny.** A migration without the header counts as `false`, and so does
   an applied migration with no recorded row. `RollbackCompatibilityDeclarationTest`
-  requires the header on every migration from `V20261022152421` (the one that
+  requires the header on every migration from `V20261104203220` (the one that
   created the table) onward. Earlier migrations cannot gain one without changing
   their checksum; they count as `false`, which costs nothing, because every build
   that performs the check ships all of them.
 
-Releases that predate `V20261022152421` do not perform the check: rolling back to
+Releases that predate `V20261104203220` do not perform the check: rolling back to
 one of them is not guarded.
 
 ## The application never resets a database

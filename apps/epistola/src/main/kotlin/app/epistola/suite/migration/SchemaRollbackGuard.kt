@@ -79,8 +79,7 @@ sealed interface RollbackVerdict {
  * Whether code that predates a migration can still run against the schema it leaves — the property
  * that decides whether an installation can be rolled back past that migration.
  *
- * Each migration declares it in a header in its own `.sql` file, beside the
- * `backup-restore-compatibility` header where there is one:
+ * Each migration declares it in a header in its own `.sql` file:
  *
  * ```sql
  * -- rollback-compatible: true
