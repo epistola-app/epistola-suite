@@ -70,6 +70,8 @@ class CoreNavContributor : NavContributor {
         }
         // Settings that send tenant data out are their own permission (ADR 0048).
         if (context.hasPermission(Permission.INTEGRATIONS_MANAGE)) {
+            // The tenant's connections to authorities, and the namespaces each grants it (ADR 0034).
+            add(NavItem("settings", "authorities", "Authorities & namespaces", "authorities", 25))
             if (ResolveCatalogPublishingAvailability(context.tenantKey).query()) {
                 add(
                     NavItem(

@@ -75,6 +75,25 @@ Decided and closed:
 
 ## Touched
 
+### A tenant's administrator manages its authorities and namespaces (4 November; branch `feat/tenant-authorities-settings`)
+
+ADR 0034's amendment of 2026-11-03 (PR #1282), agreed by the user with `INTEGRATIONS_MANAGE`.
+
+| What                                                                                                                                                        | Where                                                                                           | Coverage                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Grant/revoke need `INTEGRATIONS_MANAGE` on the tenant, not the platform's `TENANT_MANAGER`; `ListNamespaceGrants` too                                       | `TenantNamespaceCommands.kt`, `TenantNamespaceQueries.kt`                                       | ✅ `NamespaceGrantsTest` (tenant administrator may; member without it and platform administrator outside it may not) |
+| A namespace under the Exchange's authority is refused by hand; one the Exchange connection grants is not removed by hand (`NamespaceGrant.removableByHand`) | `GrantTenantNamespaceHandler`, `RevokeTenantNamespaceHandler`, `NamespaceMessages`              | ✅ `ExchangeNamespaceGrantsTest` +1                                                                                  |
+| `GetTenantAuthorities`: grants by authority, Exchange apart from domains                                                                                    | `TenantNamespaceQueries.kt`                                                                     | ✅ `NamespaceGrantsTest` +1                                                                                          |
+| `SeedTenantNamespace` (`SystemInternal`) for the demo and tests, which stood in for the Exchange with a hand grant                                          | `TenantNamespaceCommands.kt`, `DemoLoader`, `TestNamespaces`                                    | ✅ via the 36 callers of `TestNamespaces.grant/share` (core tests run)                                               |
+| Settings, Authorities & namespaces page: `local`, the Exchange (status, link or why not), each domain (unverified) with add dialog and remove               | `TenantAuthoritiesHandler`, `TenantAuthoritiesRoutes`, `authorities.html`, `CoreNavContributor` | ✅ `TenantAuthoritiesHtmxTest` (5), `TenantAuthoritiesUiTest`                                                        |
+| Platform Namespaces page and tenant-list action removed; New tenant asks for name and ID only (the #1281 section and `tenant-new.js` removed)               | `TenantHandler`, `tenants/new.html`, `tenants/list.html`                                        | ✅ `TenantRoutesTest` (3 rewritten), `TenantDialogUiTest`                                                            |
+
+Noticed, not touched:
+
+- **Revoke wording.** The refusal now says "is not removed" (the page's word); `NamespaceMessages.notHeld`
+  still says "an administrator can grant it", which still holds but names no page.
+- **ADR 0034 amendment** is still "Proposed" in #1282; flip it to Accepted when this lands.
+
 ### Editor delete button and optional tenant naming (3 November; branch `fix/editor-delete-and-tenant-naming`)
 
 | What                                                                                                                                                                                     | Where                                                                 | Covered                                                                                                 |
@@ -86,7 +105,7 @@ Decided and closed:
 
 Noticed, not done:
 
-- **The Namespaces page's grant dialog** still fills in `exchange.epistola.app` as the authority, the
+- **(Superseded 4 November: the page is gone.)** The Namespaces page's grant dialog still filled in `exchange.epistola.app` as the authority, the
   default New tenant no longer offers.
 
 ### Usability quick wins (3 November; branch `fix/usability-quick-wins`)

@@ -149,7 +149,7 @@ class RevokeTenantNamespaceHandler(
         val inUse = store.authoredCatalogsIn(handle, command.tenantKey, name)
         validate("namespace", inUse.isEmpty(), ValidationCode.CATALOG_NAMESPACE_IN_USE) {
             val catalogs = inUse.joinToString(", ") { it.value }
-            "${name.namespace} is not revoked: ${if (inUse.size == 1) "the catalog $catalogs is" else "the catalogs $catalogs are"} named in it. Move or delete ${if (inUse.size == 1) "it" else "them"} first."
+            "${name.namespace} is not removed: ${if (inUse.size == 1) "the catalog $catalogs is" else "the catalogs $catalogs are"} named in it. Move or delete ${if (inUse.size == 1) "it" else "them"} first."
         }
         NamespaceRevocation(name, store.revoke(handle, command.tenantKey, name))
     }

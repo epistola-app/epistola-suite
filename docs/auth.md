@@ -291,16 +291,22 @@ tenant from `epistola.auth.local-users`.
 Platform roles (`PlatformRole`, from `/epistola/platform/{role}` groups or `platform-roles` of a
 local user) apply across tenants. `INSTALLATION_ADMINISTRATOR` sets the site banner, forgets
 cluster nodes and reviews what the installation shares with Epistola; `TENANT_MANAGER` creates and
-deletes tenants and manages the **namespaces** each tenant holds (ADR 0034, section 3): the tenant list's
-**Namespaces** action opens `/platform/tenants/{tenant}/namespaces`, where a namespace is granted
-under an authority (the organisation's own domain, or `exchange.epistola.app`) and revoked again
-once no catalog the tenant authors is named in it. A tenant is created with one namespace, which
-its default catalog is named in. The commands (`GrantTenantNamespace`, `RevokeTenantNamespace`) and
-the listing (`ListNamespaceGrants`) are `RequiresPlatformRole(TENANT_MANAGER)`, so the page needs no
-membership of the tenant; anyone else gets the standard 403. A tenant's own members see what it
-holds where they name a catalog (`ListHeldNamespaces`, `CATALOG_VIEW`). The demo grants the `demo`
-tenant `exchange.epistola.app/demo` on every start; its personal tenants hold none and name their
-catalogs under `local`. See `docs/catalog-versioning.md`, "Who names a catalog".
+deletes tenants. A tenant is created with a name and an ID only; its catalogs start under `local`.
+
+The **namespaces** a tenant holds (ADR 0034, section 3, and its amendment of 2026-11-03) are the
+tenant's own to manage, not the platform's: its administrator (`INTEGRATIONS_MANAGE`, the
+permission of the Exchange connection) opens **Settings, Authorities & namespaces**
+(`/tenants/{tenant}/authorities`), which lists `local`, the Exchange connection's namespaces and
+each domain with its own, and adds a namespace under a domain or removes one once no catalog the
+tenant authors is named in it. The commands (`GrantTenantNamespace`, `RevokeTenantNamespace`) and
+the reads (`ListNamespaceGrants`, `GetTenantAuthorities`) are `RequiresPermission(INTEGRATIONS_MANAGE)`;
+a platform administrator who is not the tenant's administrator gets the standard 403. A namespace
+under `exchange.epistola.app` comes only from the Exchange connection: it is not added by hand, and
+one the connection grants is not removed by hand. Every member sees what the tenant holds where
+they name a catalog (`ListHeldNamespaces`, `CATALOG_VIEW`). The demo grants the `demo` tenant
+`exchange.epistola.app/demo` on every start (`SeedTenantNamespace`, `SystemInternal`); its personal
+tenants hold none and name their catalogs under `local`. See `docs/catalog-versioning.md`, "Who
+names a catalog".
 
 ## Production (OAuth2/OIDC)
 

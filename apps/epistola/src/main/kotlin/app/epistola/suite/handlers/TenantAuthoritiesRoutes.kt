@@ -11,10 +11,10 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
-class TenantNamespaceRoutes(private val handler: TenantNamespaceHandler) {
+class TenantAuthoritiesRoutes(private val handler: TenantAuthoritiesHandler) {
     @Bean
-    fun tenantNamespaceRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/platform/tenants/{tenantId}/namespaces".nest {
+    fun tenantAuthoritiesRouterFunction(): RouterFunction<ServerResponse> = router {
+        "/tenants/{tenantId}/authorities".nest {
             GET("", handler::page)
             GET("/new", handler::newForm)
             POST("", handler::grant)

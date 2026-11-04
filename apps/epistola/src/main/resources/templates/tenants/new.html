@@ -39,35 +39,6 @@
                 <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only.</span>
                 <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
             </div>
-            <!--/* Naming its catalogs matters only once they leave this installation (ADR 0034): optional, and
-                   open when it was filled in or refused. Without it they are named under `local`. */-->
-            <details data-testid="tenant-naming" data-tenant-naming
-                     th:attr="open=${(errors != null and (errors.containsKey('namespace') or errors.containsKey('authority'))) or (formData != null and !#strings.isEmpty(formData.get('namespace')))} ? 'open' : null">
-                <summary>Catalog naming (optional)</summary>
-                <p class="form-hint" style="margin-top: var(--ep-space-2);">
-                    Only needed to publish this tenant's catalogs outside this installation, under a name of your
-                    organisation. Leave it empty and its catalogs are named under <code>local</code> and stay in this
-                    installation; a namespace can be granted later under Namespaces.
-                </p>
-                <div class="form-group" th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
-                    <label class="ep-label" for="namespace">Namespace</label>
-                    <input type="text" id="namespace" name="namespace" class="ep-input" placeholder="acme"
-                           pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
-                           data-testid="tenant-namespace" data-namespace-follows="slug"
-                           th:value="${formData?.get('namespace')}">
-                    <span class="form-hint">The first part of its catalogs' names: <code>acme</code> in <code>acme/letters</code>.</span>
-                    <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
-                </div>
-                <div class="form-group" th:classappend="${errors?.containsKey('authority')} ? 'error' : ''">
-                    <label class="ep-label" for="authority">Granted by (domain)</label>
-                    <input type="text" id="authority" name="authority" class="ep-input" maxlength="253" placeholder="gemeente-x.nl"
-                           data-testid="tenant-authority"
-                           th:value="${formData?.get('authority')}">
-                    <span class="form-hint">Your organisation's domain, which vouches that the namespace is yours. Namespaces on Epistola Exchange come through the tenant's Exchange connection, not from here.</span>
-                    <span class="form-error" th:if="${errors?.containsKey('authority')}" th:text="${errors.authority}"></span>
-                </div>
-                <p class="form-hint" data-testid="tenant-naming-preview" data-naming-preview hidden></p>
-            </details>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"

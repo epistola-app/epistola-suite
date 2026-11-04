@@ -123,7 +123,7 @@ class NamespaceGrantsTest : IntegrationTestBase() {
 
             val refused = refusal { RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute() }
             assertThat(refused.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_IN_USE)
-            assertThat(refused.message).isEqualTo("acme is not revoked: the catalogs default, letters are named in it. Move or delete them first.")
+            assertThat(refused.message).isEqualTo("acme is not removed: the catalogs default, letters are named in it. Move or delete them first.")
             assertThat(ListNamespaceGrants(tenant).query().map { it.name }).containsExactly(acme)
 
             DeleteCatalog(testCatalog(tenant, CatalogKey.of("letters"))).execute()

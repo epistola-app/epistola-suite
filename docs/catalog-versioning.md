@@ -186,11 +186,13 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   grants, under the Exchange's authority (the default registry), when the authorization completes. A
   grant outlives the connection: a namespace the Exchange stops listing, or a disconnect, leaves the
   catalogs named in it able to release here, while publishing still asks the connection what it
-  grants now. A platform administrator grants and revokes them (`GrantTenantNamespace`,
-  `RevokeTenantNamespace`, `TENANT_MANAGER`) on the tenant list's **Namespaces** page, and may grant
-  one when creating a tenant (New tenant's optional **Catalog naming**, under the organisation's own
-  domain), whose default catalog is then named in it. A tenant created without one (the usual case,
-  and the demo's personal tenants) gets its default catalog under `local/default`.
+  grants now. The tenant's administrator adds and removes a domain's namespaces
+  (`GrantTenantNamespace`, `RevokeTenantNamespace`, `INTEGRATIONS_MANAGE`) under **Settings,
+  Authorities & namespaces**; adding a domain's first namespace connects the tenant to that domain,
+  whose namespaces are unverified until the domain proves them. The Exchange's namespaces are not
+  added or removed there: they come and go with the Exchange connection. A new tenant holds none and
+  gets its default catalog under `local/default`; `CreateTenant`'s `namespaces`, and
+  `SeedTenantNamespace` for an existing tenant, record grants for bootstrap, the demo and tests.
 - **Catalogs from before 2.0** are named by the identity migration (`V20261101000100`): a catalog the
   tenant authored becomes `local/<tenant key>/<key>`, the key padded with `0` to a namespace's 3
   characters, since until now a catalog never left its installation but through the Exchange. Only

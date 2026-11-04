@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    Settings, Authorities & namespaces (ADR 0034, amendment of 2026-11-03): the authorities this tenant
+    is connected to and the namespaces each grants it, for its administrator (INTEGRATIONS_MANAGE).
+    Model: `tenantId`, `authorities` (TenantAuthorities), `exchange` (ExchangeSettings), `domainNames`;
+    `openDialog` with `formData`/`errors` to show the add dialog open. `authorities-section`,
+    `grant-dialog` and `grant-form` are the HTMX fragments.
+    */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Authorities & namespaces',
+            pageDescription='A catalog is named authority/namespace/key. The authority vouches that the namespace belongs to this tenant: Epistola Exchange, or a domain of your organisation.',
+            actions=~{::authorities-actions}
+        )}"></div>
+
+        <section id="authorities-section" th:fragment="authorities-section"
+                 th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null" data-testid="authorities-section">
+            <div th:if="${revokeError != null}" class="alert alert-error" role="alert" data-testid="namespace-revoke-error"
+                 th:text="${revokeError}">acme is not removed: the catalog letters is named in it.</div>
+
+            <!--/* local: always there, never granted, never leaves the organisation. */-->
+            <div class="ep-panel detail-section" data-testid="authority-local">
+                <div class="detail-section-header">
+                    <h2>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='house', class='ep-icon')}" />
+                        local
+                    </h2>
+                    <span class="badge badge-default">Always</span>
+                </div>
+                <div class="detail-section-body">
+                    <p style="margin: 0;">
+                        Every tenant names catalogs under <code>local</code> with any namespace, without a grant:
+                        <code>local/default/letters</code>. Such names stay in this organisation and are never
+                        published to Epistola Exchange.
+                    </p>
+                </div>
+            </div>
+
+            <!--/* The Exchange: its namespaces come from the connection, managed on its own page. */-->
+            <div class="ep-panel detail-section" data-testid="authority-exchange">
+                <div class="detail-section-header">
+                    <h2>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
+                        Epistola Exchange
+                        <span class="text-muted text-sm" th:text="${authorities.exchangeAuthority}">exchange.epistola.app</span>
+                    </h2>
+                    <span th:if="${exchange.deploymentEnabled}" th:class="${'badge ' + exchange.status.badgeClass}"
+                          th:text="${exchange.status.label}" data-testid="exchange-status">Connected</span>
+                </div>
+                <div class="detail-section-body">
+                    <p style="margin: 0 0 var(--ep-space-3);" data-testid="exchange-guidance">
+                        <span th:if="${exchange.featureEnabled}">
+                            Its namespaces come from the tenant's Exchange connection, managed under
+                            <a th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}" data-testid="exchange-settings-link">Settings &rarr; Exchange</a>.
+                        </span>
+                        <span th:if="${exchange.deploymentEnabled and !exchange.featureEnabled}">
+                            Its namespaces come from the tenant's Exchange connection. To connect, turn on catalog publishing under
+                            <a th:href="@{/tenants/{tenantId}/features(tenantId=${tenantId})}">Settings &rarr; Features</a>.
+                        </span>
+                        <span th:unless="${exchange.deploymentEnabled}">
+                            Its namespaces come from the tenant's Exchange connection, and Epistola Exchange is not enabled
+                            in this installation.
+                        </span>
+                    </p>
+                    <p th:if="${#lists.isEmpty(authorities.exchangeNamespaces)}" class="text-muted" style="margin: 0;"
+                       data-testid="exchange-namespaces-empty">This tenant holds no namespace on Epistola Exchange.</p>
+                    <th:block th:unless="${#lists.isEmpty(authorities.exchangeNamespaces)}">
+                        <th:block th:replace="~{authorities :: namespace-table(grants=${authorities.exchangeNamespaces}, label='Epistola Exchange namespaces')}"></th:block>
+                    </th:block>
+                </div>
+            </div>
+
+            <!--/* Each domain, by the namespaces held under it: adding a domain is adding its first namespace. */-->
+            <div th:each="domain : ${authorities.domains}" class="ep-panel detail-section" data-testid="authority-domain"
+                 th:attr="data-authority=${domain.authority}">
+                <div class="detail-section-header">
+                    <h2>
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='building-2', class='ep-icon')}" />
+                        <span th:text="${domain.authority}">gemeente-x.nl</span>
+                    </h2>
+                    <span class="badge badge-outline" title="The domain has not proven these namespaces yet">Unverified</span>
+                </div>
+                <div class="detail-section-body">
+                    <p class="text-muted text-sm" style="margin: 0 0 var(--ep-space-3);">
+                        Unverified: enough to name catalogs, release them and move them within your organisation.
+                        Publishing to Epistola Exchange needs a namespace the Exchange grants.
+                    </p>
+                    <th:block th:replace="~{authorities :: namespace-table(grants=${domain.namespaces}, label=${domain.authority} + ' namespaces')}"></th:block>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(authorities.domains)}" class="empty-state" data-testid="domains-empty">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='building-2', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No domains yet</div>
+                <div class="empty-state-description">
+                    Name catalogs under your organisation's own domain, such as gemeente-x.nl, by adding a namespace under it.
+                </div>
+                <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                        th:hx-get="@{/tenants/{tenantId}/authorities/new(tenantId=${tenantId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="namespace-grant-open-empty">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                    Add a namespace
+                </button>
+            </div>
+        </section>
+
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{authorities :: grant-dialog}"></th:block>
+            </th:block>
+        </div>
+    </th:block>
+
+    <th:block th:fragment="authorities-actions">
+        <button type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/authorities/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML"
+                data-testid="namespace-grant-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            Add a namespace
+        </button>
+    </th:block>
+
+    <!--/* The namespaces one authority grants: how and when each came to be held, and removing it when that is by hand. */-->
+    <div th:fragment="namespace-table(grants, label)" class="ep-table-scroll" role="region" th:attr="aria-label=${label}" tabindex="0">
+        <table class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 30%" /><!-- Namespace -->
+                <col style="width: 24%" /><!-- How -->
+                <col style="width: 30%" /><!-- When, by whom -->
+                <col style="width: 16%" /><!-- Actions -->
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Namespace</th>
+                    <th>Held through</th>
+                    <th>Since</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="grant : ${grants}" data-testid="namespace-row"
+                    th:attr="data-namespace=${grant.authority + '/' + grant.namespace}">
+                    <td th:title="${grant.authority + '/' + grant.namespace}"><strong th:text="${grant.namespace}">acme</strong></td>
+                    <td th:text="${grant.grantedThrough.label}">Administrator</td>
+                    <td>
+                        <span th:text="${#temporals.format(grant.grantedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${grant.grantedAt}">2026-10-22 10:00</span>
+                        <span th:if="${grant.grantedByName != null}" class="text-muted text-sm" th:text="'by ' + ${grant.grantedByName}">by Local Admin</span>
+                    </td>
+                    <td class="actions">
+                        <form th:if="${grant.removableByHand}" method="post"
+                              th:action="@{/tenants/{tenantId}/authorities/revoke(tenantId=${tenantId})}"
+                              th:hx-post="@{/tenants/{tenantId}/authorities/revoke(tenantId=${tenantId})}"
+                              hx-target="#authorities-section" hx-swap="outerHTML">
+                            <input type="hidden" name="authority" th:value="${grant.authority}">
+                            <input type="hidden" name="namespace" th:value="${grant.namespace}">
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="namespace-revoke"
+                                    data-confirm-submit data-confirm-submit-title="Remove namespace" data-confirm-submit-label="Remove"
+                                    th:attr="data-confirm-submit-message='Remove ' + ${grant.namespace} + ' (' + ${grant.authority} + ')? This tenant can no longer name new catalogs in it or release them. A namespace its catalogs are named in is not removed.'">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!--/* The add dialog; `grant-form` is re-rendered in place on field errors. */-->
+    <th:block th:fragment="grant-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='grant-namespace-dialog',
+            title='Add a namespace',
+            closeUrl=@{/tenants/{tenantId}/authorities(tenantId=${tenantId})},
+            content=~{authorities :: grant-form})}"></div>
+    </th:block>
+
+    <form th:fragment="grant-form" id="grant-namespace-form"
+          method="post" th:action="@{/tenants/{tenantId}/authorities(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/authorities(tenantId=${tenantId})}"
+          hx-target="#authorities-section" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='grant-namespace-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('authority')} ? 'error' : ''">
+                <label class="ep-label" for="grantAuthority">Domain</label>
+                <input type="text" id="grantAuthority" name="authority" class="ep-input" required maxlength="253"
+                       placeholder="gemeente-x.nl" list="grant-authority-domains" autocomplete="off"
+                       data-testid="namespace-grant-authority"
+                       th:value="${formData?.get('authority') ?: (#lists.size(domainNames) == 1 ? domainNames[0] : null)}">
+                <datalist id="grant-authority-domains">
+                    <option th:each="domain : ${domainNames}" th:value="${domain}"></option>
+                </datalist>
+                <span class="form-hint">Your organisation's domain, which vouches that the namespace is yours. Namespaces on Epistola Exchange come from the Exchange connection instead.</span>
+                <span class="form-error" th:if="${errors?.containsKey('authority')}" th:text="${errors.authority}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
+                <label class="ep-label" for="grantNamespace">Namespace</label>
+                <input type="text" id="grantNamespace" name="namespace" class="ep-input" required
+                       pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
+                       placeholder="acme" data-testid="namespace-grant-namespace"
+                       th:value="${formData?.get('namespace')}">
+                <span class="form-hint">The middle part of a catalog's name: <code>acme</code> in <code>gemeente-x.nl/acme/letters</code>. 3-63 characters, lowercase letters, numbers and single hyphens, starting with a letter.</span>
+                <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="grant-namespace-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="namespace-grant-submit">Add</button>
+        </div>
+    </form>
+</body>
+</html>

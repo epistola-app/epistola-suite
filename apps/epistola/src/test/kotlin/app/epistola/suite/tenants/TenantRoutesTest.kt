@@ -6,11 +6,15 @@ package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.namespaces.ListNamespaceGrants
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.testing.TEST_TENANT_MEMBERSHIPS_HEADER
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
@@ -49,7 +53,7 @@ class TenantRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).`as`("the list leads; creating is a dialog behind New tenant")
                 .contains("data-testid=\"tenant-create-open\"").doesNotContain("id=\"create-tenant-form\"")
             assertThat(response.body).`as`("row actions say what they do")
-                .containsPattern("</svg>\\s*Namespaces\\s*</a>").containsPattern("</svg>\\s*Delete\\s*</button>")
+                .containsPattern("</svg>\\s*Delete\\s*</button>")
         }
     }
 
@@ -148,8 +152,6 @@ class TenantRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "new-tenant")
             formData.add("name", "New Tenant")
-            formData.add("namespace", "new-tenant")
-            formData.add("authority", "gemeente-x.nl")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants", request, String::class.java)
         }
@@ -180,32 +182,23 @@ class TenantRoutesTest : BaseIntegrationTest() {
     )
 
     @Test
-    fun `a tenant is created without a namespace, and its catalogs stay local`() {
-        // A namespace and its authority matter only once catalogs leave this installation; the
-        // dialog asked for both before a tenant could exist.
+    fun `a tenant is created with a name and an ID only, and its catalogs start under local`() {
+        // Its administrator connects authorities when it needs a name of its own (ADR 0034, amendment
+        // of 2026-11-03); a namespace posted anyway is not granted.
         val key = "no-ns-${System.nanoTime().toString().takeLast(8)}"
-        val response = postTenant("slug" to key, "name" to "No Namespace $key", "namespace" to "", "authority" to "")
+        val response = postTenant("slug" to key, "name" to "No Namespace $key", "namespace" to key, "authority" to "gemeente-x.nl")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers["HX-Trigger"].orEmpty().joinToString()).`as`("the dialog closes").contains("closeDialog")
         val tenant = withMediator { ListTenants(idPrefix = key).query().single() }
         assertThat(withMediator { ListNamespaceGrants(tenant.id).query() }).`as`("no namespace granted").isEmpty()
+        val default = withMediator { GetCatalog(testCatalog(tenant.id, CatalogKey.DEFAULT)).query() }!!
+        assertThat(default.registry to default.namespace).isEqualTo(LocalAuthority.NAME to LocalAuthority.DEFAULT_NAMESPACE)
         withMediator { DeleteTenant(tenant.id).execute() }
     }
 
     @Test
-    fun `a namespace without the domain granting it is refused at that field`() {
-        val key = "ns-no-auth-${System.nanoTime().toString().takeLast(8)}"
-        val response = postTenant("slug" to key, "name" to "Namespace $key", "namespace" to key, "authority" to "")
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
-        assertThat(response.body!!.substringAfter("id=\"authority\"").substringBefore("</div>"))
-            .contains("form-error").contains("domain")
-        assertThat(withMediator { ListTenants(idPrefix = key).query() }).isEmpty()
-    }
-
-    @Test
-    fun `New tenant asks for a name and an ID, with naming its catalogs an optional section and no authority filled in`() {
+    fun `New tenant asks for a name and an ID, and nothing about naming catalogs`() {
         val body = restTemplate.exchange(
             "/tenants/new",
             HttpMethod.GET,
@@ -213,12 +206,18 @@ class TenantRoutesTest : BaseIntegrationTest() {
             String::class.java,
         ).body!!
 
-        val naming = body.substringAfter("data-testid=\"tenant-naming\"").substringBefore("</details>")
-        assertThat(body).`as`("a closed section").contains("<details").doesNotContain("data-testid=\"tenant-naming\" open")
-        assertThat(naming).contains("Catalog naming (optional)").contains("<code>local</code>")
-        // Exchange namespaces come through the tenant's Exchange connection, not from this form.
-        assertThat(naming.substringAfter("id=\"authority\"").substringBefore(">")).doesNotContain("exchange.epistola.app")
-        assertThat(naming.substringAfter("id=\"namespace\"").substringBefore(">")).doesNotContain("required")
+        assertThat(body).contains("name=\"name\"").contains("name=\"slug\"")
+        assertThat(body).doesNotContain("name=\"namespace\"").doesNotContain("name=\"authority\"").doesNotContain("tenant-naming")
+    }
+
+    @Test
+    fun `the tenant list no longer leads to a tenant's namespaces, which are the tenant's own to manage`() = fixture {
+        given { tenant("Listed Tenant") }
+        whenever { restTemplate.getForEntity("/", String::class.java) }
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("Listed Tenant").doesNotContain("tenant-namespaces-link").doesNotContain("/namespaces")
+        }
     }
 
     @Test
