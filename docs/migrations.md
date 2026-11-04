@@ -348,7 +348,9 @@ covers `embedded`, `migrate` and `validate` alike (`SchemaRollbackGuard`):
   to restore a PostgreSQL backup taken before the upgrade. When they all are, it starts and logs
   a warning that it is running on a newer schema.
 - **Default deny.** A migration without the header counts as `false`, and so does
-  an applied migration with no recorded row. `RollbackCompatibilityDeclarationTest`
+  an applied migration with no recorded row. A [code migration](#code-migrations)
+  has no file to carry one, so it counts as `false` too: the 2.0 chain's are
+  breaking anyway. `RollbackCompatibilityDeclarationTest`
   requires the header on every migration from `V20261104203220` (the one that
   created the table) onward. Earlier migrations cannot gain one without changing
   their checksum; they count as `false`, which costs nothing, because every build

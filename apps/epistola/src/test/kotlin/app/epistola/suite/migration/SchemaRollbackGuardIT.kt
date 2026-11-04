@@ -45,6 +45,18 @@ class SchemaRollbackGuardIT {
     }
 
     @Test
+    fun `a build starts again on the database it migrated, code migrations included`() {
+        val database = freshDatabase("rollback_guard_same_build")
+        assertThat(migrate(database)).isZero()
+
+        // A code migration has no SQL file to carry a header, but this build ships it all the same.
+        assertThat(recorded(database)[FIRST_CODE_MIGRATION]).isFalse()
+        boot(database, "validate")
+        boot(database, "embedded")
+        assertThat(migrate(database)).isZero()
+    }
+
+    @Test
     fun `a migration without a declaration blocks older builds`() {
         val database = freshDatabase("rollback_guard_undeclared")
         assertThat(migrate(database, "classpath:rollback-probe/undeclared")).isZero()
@@ -177,6 +189,9 @@ class SchemaRollbackGuardIT {
         const val FAILING_PROBE = "29990102000000"
 
         /** The migration just before [RollbackCompatibilityDeclarationTest.FIRST_DECLARING]. */
-        const val LAST_UNDECLARED = "20260923150918"
+        const val LAST_UNDECLARED = "20261101002000"
+
+        /** The first Kotlin migration of the 2.0 chain (`V20261101000500__core_2_0_legacy_blobs`): no SQL file, no header. */
+        const val FIRST_CODE_MIGRATION = "20261101000500"
     }
 }

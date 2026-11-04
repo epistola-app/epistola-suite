@@ -200,13 +200,26 @@ class SchemaRollbackGuard(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /** The headers of the SQL migrations this build ships, by version. */
     private val declarations: Map<String, Boolean?> by lazy {
         RollbackCompatibility.scan(flyway.configuration.locations, flyway.configuration.classLoader)
     }
 
+    /**
+     * Every versioned migration this build ships: what Flyway resolves, SQL and code migrations alike.
+     * A code migration has no file to carry a header, so it is shipped without a declaration and
+     * counts as not rollback-compatible (default deny); read from the SQL files alone, the 2.0 chain's
+     * code migrations looked like a newer build's, and a build refused the database it had migrated.
+     */
+    private val shipped: Set<String> by lazy {
+        flyway.info().all()
+            .filter { it.version != null && it.state.isResolved }
+            .mapTo(sortedSetOf()) { it.version.version }
+    }
+
     fun requireCompatible() {
         val applied = appliedMigrations().map { it.version }
-        when (val verdict = RollbackCompatibility.judge(applied, declarations.keys, recorded())) {
+        when (val verdict = RollbackCompatibility.judge(applied, shipped, recorded())) {
             RollbackVerdict.Shipped -> Unit
 
             is RollbackVerdict.AheadCompatible -> logger.warn(
@@ -221,7 +234,7 @@ class SchemaRollbackGuard(
     }
 
     fun recordApplied() {
-        val applied = appliedMigrations().filter { it.version in declarations }
+        val applied = appliedMigrations().filter { it.version in shipped }
         flyway.configuration.dataSource.connection.use { connection ->
             // Absent only when the step failed before the migration that creates it.
             if (!tableExists(connection)) return
@@ -260,7 +273,7 @@ class SchemaRollbackGuard(
             }
         }
         val floor = verdict.blocking.maxOf { it.version }
-        val newestShipped = declarations.keys.maxOrNull() ?: "none"
+        val newestShipped = shipped.maxOrNull() ?: "none"
         return SchemaAheadException(
             description = "Database schema is ahead of this build, which cannot run against it. A newer release " +
                 "migrated the database with migration(s) this build does not ship and that are not " +
