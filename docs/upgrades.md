@@ -259,13 +259,13 @@ Description:
 
 Database schema is ahead of this build, which cannot run against it. A newer release migrated the
 database with migration(s) this build does not ship and that are not rollback-compatible:
-20261103091500 (not rollback-compatible, recorded by 1.7.0). ...
+20261203091500 (not rollback-compatible, recorded by 2.1.0). ...
 
 Action:
 
 To go back to this build, restore a PostgreSQL backup of the database taken before that upgrade,
 then start this build again; data written since the backup is lost. To keep that data, deploy a
-build that ships migration 20261103091500 or later instead ...
+build that ships migration 20261203091500 or later instead ...
 ```
 
 So a rollback either works or fails fast; old code never serves from a schema it cannot read. When
@@ -276,7 +276,7 @@ still on the newer version keep serving.
 
 To know in advance how far back you can go, look at the **rollback floor** — the newest applied
 migration that is not rollback-compatible. The migration step logs it on every run
-(`Rollback floor: a build must ship migration … (recorded by 1.7.0) …`), or ask the database:
+(`Rollback floor: a build must ship migration … (recorded by 2.1.0) …`), or ask the database:
 
 ```sql
 SELECT version, recorded_by
