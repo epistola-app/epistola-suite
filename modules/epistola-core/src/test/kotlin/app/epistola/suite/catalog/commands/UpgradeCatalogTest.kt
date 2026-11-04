@@ -189,7 +189,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(tenant), depKey)), name = "Ours", catalogVersion = null).execute()
         }
         // Released here in the publisher's namespace, which this tenant is granted.
-        app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, "exchange.epistola.app", "epistola").execute()
+        app.epistola.suite.catalog.namespaces.SeedTenantNamespace(tenant, "exchange.epistola.app", "epistola").execute()
         MarkCatalogReady(testCatalog(tenant, depKey), catalogVersion = null).execute()
         ReleaseCatalogDraft(testCatalog(tenant, depKey), local, catalogVersion = null).execute()
     }

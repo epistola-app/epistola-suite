@@ -71,7 +71,7 @@ enum class ValidationCode(val wire: String) {
     /** The tenant holds the namespace under another authority already (ADR 0034, section 2). */
     CATALOG_NAMESPACE_TAKEN("CATALOG_NAMESPACE_TAKEN"),
 
-    /** Catalogs of the tenant are named in the namespace, so it is not revoked. */
+    /** Catalogs of the tenant are named in the namespace, so it is not removed. */
     CATALOG_NAMESPACE_IN_USE("CATALOG_NAMESPACE_IN_USE"),
 
     /** A catalog named under `local` never leaves the organisation. */

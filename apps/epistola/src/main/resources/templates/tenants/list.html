@@ -4,7 +4,7 @@
     <!--/*
     Platform home: the tenants of this installation, with "Site banner" and "Shared with Epistola".
     Rendered as the content of layout/shell (no workspace), so the platform crumb and the account
-    menu come from the bar. Model: `tenants`, `auth`, `defaultAuthority`, `openDialog`; `tenant-list`
+    menu come from the bar. Model: `tenants`, `auth`, `openDialog`; `tenant-list`
     and `rows` are the HTMX swap fragments, tenants/new the create dialog.
     */-->
     <div th:fragment="content">
@@ -48,14 +48,9 @@
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}"></a>
                             </td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${tenant.createdAt}" th:title="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                            <!--/* Labelled actions: an icon alone (tag, trash) said nothing at a glance and
+                            <!--/* Labelled actions: an icon alone (trash) said nothing at a glance and
                                    nothing at all on touch. The name already opens the tenant. */-->
                             <td class="actions">
-                                <a th:if="${auth.has('TENANT_MANAGER')}" th:href="@{/platform/tenants/{id}/namespaces(id=${tenant.id})}"
-                                   class="ep-btn ep-btn-outline ep-btn-sm" data-testid="tenant-namespaces-link">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-sm')}" />
-                                    Namespaces
-                                </a>
                                 <button th:if="${auth.has('TENANT_MANAGER')}"
                                         type="button"
                                         class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"

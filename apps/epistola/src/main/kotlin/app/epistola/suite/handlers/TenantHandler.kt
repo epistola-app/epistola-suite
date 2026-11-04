@@ -4,9 +4,6 @@
 
 package app.epistola.suite.tenants
 
-import app.epistola.catalog.protocol.CatalogNamespaces
-import app.epistola.suite.catalog.CatalogIdentityProperties
-import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.changelog.ChangelogAudience
 import app.epistola.suite.changelog.ChangelogService
@@ -49,7 +46,6 @@ class TenantHandler(
     private val changelogService: ChangelogService,
     private val homeNoticeResolver: HomeNoticeResolver,
     private val buildProperties: BuildProperties?,
-    private val identity: CatalogIdentityProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
@@ -71,16 +67,13 @@ class TenantHandler(
         "platformPage" to "Tenants"
         "tenants" to ListTenants().query()
         "auth" to AuthContext.platformOnly(SecurityContext.current())
-        "defaultAuthority" to identity.defaultRegistry
     }
 
     /** The create dialog (docs/dialog-forms.md): its fragment for New tenant, the page with it open for a link. */
     fun newForm(request: ServerRequest): ServerResponse {
         requirePlatformRole(PlatformRole.TENANT_MANAGER)
         return request.htmx {
-            fragment("tenants/new", "dialog") {
-                "defaultAuthority" to identity.defaultRegistry
-            }
+            fragment("tenants/new", "dialog")
             onFullPage {
                 page("tenants/list") {
                     listModel()
@@ -159,24 +152,11 @@ class TenantHandler(
                 required()
                 maxLength(100)
             }
-            // Optional: the namespace its catalogs are named in, granted when it is created (ADR 0034,
-            // section 3), with the domain that grants it. It matters only once catalogs leave this
-            // installation; without one they are named under `local`, and one can be granted later.
-            field("namespace") {
-                pattern(CatalogNamespaces.PATTERN)
-                minLength(CatalogNamespaces.MIN_LENGTH)
-                maxLength(CatalogNamespaces.MAX_LENGTH)
-            }
-            field("authority") {
-                maxLength(CatalogNamespaces.REGISTRY_MAX_LENGTH)
-            }
         }
 
         // A refusal re-renders the form inside the dialog with the errors by their fields (422).
         fun refused(formData: FormData): ServerResponse = request.htmx {
-            dialogFieldErrors(template = "tenants/new", fragmentName = "tenant-form", formTarget = "#create-tenant-form", formData = formData) {
-                "defaultAuthority" to identity.defaultRegistry
-            }
+            dialogFieldErrors(template = "tenants/new", fragmentName = "tenant-form", formTarget = "#create-tenant-form", formData = formData)
             onFullPage {
                 page(422, "tenants/list") {
                     listModel()
@@ -193,20 +173,10 @@ class TenantHandler(
         if (tenantId == null) return refused(FormData(form.formData, mapOf("slug" to "Invalid tenant ID format")))
 
         val name = form["name"]
-        val namespace = form["namespace"].trim()
-        val authority = form["authority"].trim()
-        // A namespace is granted under a domain, and a domain grants a namespace: one without the other is half an answer.
-        if (namespace.isNotEmpty() && authority.isEmpty()) {
-            return refused(FormData(form.formData, mapOf("authority" to "Name the domain that grants this namespace, such as your organisation's.")))
-        }
-        if (namespace.isEmpty() && authority.isNotEmpty()) {
-            return refused(FormData(form.formData, mapOf("namespace" to "Name the namespace this domain grants, or leave both empty.")))
-        }
 
-        val result = form.executeOrFormError {
-            val namespaces = if (namespace.isEmpty()) emptyList() else listOf(NamespaceName(authority, namespace))
-            CreateTenant(id = tenantId, name = name, namespaces = namespaces).execute()
-        }
+        // A tenant starts under `local`; its administrator connects authorities when it needs a name
+        // of its own (ADR 0034, amendment of 2026-11-03).
+        val result = form.executeOrFormError { CreateTenant(id = tenantId, name = name).execute() }
 
         if (result.hasErrors()) return refused(result)
 

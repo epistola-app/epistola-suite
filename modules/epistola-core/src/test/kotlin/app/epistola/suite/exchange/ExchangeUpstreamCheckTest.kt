@@ -156,7 +156,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         withMediator {
             // Released here on top of what the Exchange gave it, in the catalog's namespace, granted.
             val catalog = app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenant, catalogKey)).query()!!
-            app.epistola.suite.catalog.namespaces.GrantTenantNamespace(tenant, catalog.registry, catalog.namespace).execute()
+            app.epistola.suite.catalog.namespaces.SeedTenantNamespace(tenant, catalog.registry, catalog.namespace).execute()
             app.epistola.suite.catalog.CatalogImportContext.runAsImport {
                 CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), catalogKey)), name = "Ours", catalogVersion = null).execute()
             }
