@@ -96,6 +96,45 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a list above the contract's maxItems answers 400 naming the list`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val criteria = (1..51).joinToString(",") { """{"key":"attr-$it","value":"v"}""" }
+
+        val response = call(HttpMethod.POST, "/api/tenants/${tenantKey.value}/documents/generate", key, generateBody(criteria))
+
+        assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("attributes")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).containsExactly("max-items")
+    }
+
+    @Test
+    fun `a text inside a list item above its maxLength answers 400 naming the item's field`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val criteria = """{"key":"attr","value":"${"x".repeat(256)}"}"""
+
+        val response = call(HttpMethod.POST, "/api/tenants/${tenantKey.value}/documents/generate", key, generateBody(criteria))
+
+        assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("attributes[0].value")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).containsExactly("max-length")
+    }
+
+    @Test
+    fun `a map above the contract's maxProperties answers 400 naming the map`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val draft = withMediator { CatalogApiPaths.version(tenantKey) }
+        val attributes = (1..51).joinToString(",") { """"attr-$it":"v"""" }
+
+        val response = call(HttpMethod.POST, "$draft/templates/invoice/variants", key, """{"key":"english","name":"English","attributes":{$attributes}}""")
+
+        assertProblem(response, HttpStatus.BAD_REQUEST, "validation-error")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].field")).containsExactly("attributes")
+        assertThat(JsonPath.read<List<String>>(response.body!!, "$.errors[*].code")).containsExactly("max-items")
+    }
+
+    private fun generateBody(criteria: String): String = """{"namespace":"acme","catalogKey":"default","templateKey":"invoice","data":{},"attributes":[$criteria]}"""
+
+    @Test
     fun `validating data for a template the release lacks answers 404`() {
         val (tenantKey, key) = seedTenantAndKey()
         val draft = withMediator { CatalogApiPaths.version(tenantKey) }
