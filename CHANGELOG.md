@@ -2,6 +2,24 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [2.0.0-beta.1] - 2026-11-04
+
+The first beta of Epistola 2.0. The REST API now follows contract 2.0.0-beta.3, roles grant what the 2.0 contract says they grant, and a tenant's administrator manages its own namespaces. Build clients against it and try the upgrade from 1.x, but do not run it in production yet. A database that alpha.1 migrated needs a repair script first.
+
+- **[user]** fix(migration)!: **A database that alpha.1 migrated needs a repair script.** Two upgrade steps were corrected after alpha.1, so beta.1 refuses to start on a database that alpha.1 migrated, and changes nothing. **Action on upgrade from alpha.1:** stop alpha.1 and run `docs/upgrades/2.0.0-alpha.1-repair.sql` once (Upgrades guide, "From 2.0.0-alpha.1"). A database rebuilt from 1.x, or created from scratch, needs nothing.
+
+- **[user]** feat(security,api)!: **Roles follow the 2.0 vocabulary.** Content viewers no longer read generated documents. `document-reader` reads documents without generating them, and `installation-administrator` takes over the site banner, data sharing and cluster maintenance from `tenant-manager`. Every REST operation and MCP tool enforces exactly the permission it declares. Before upgrading, review your role assignments and API key scopes.
+
+- **[user]** feat(api)!: **The REST API follows contract 2.0.0-beta.3.** Every refusal answers `forbidden`. A client mistake answers with a registered 4xx problem instead of a 500, and an unsupported upload answers `415`. Validation errors carry a `code`, and every problem links to a help page.
+
+- **[user]** feat(catalog,ui): **A tenant's administrator manages its namespaces.** They are under Settings, Authorities & namespaces. After publishing several catalogs, the publish page offers to deploy them, and the Deployments page shows one card per environment.
+
+- **[user]** feat(quality): **Templates are checked for clear language (alpha).** Built-in rules check Dutch and English text, and an optional LanguageTool server adds spelling and grammar checks. Findings are kept for each draft and release.
+
+- **[user]** fix: **Fixes since alpha.1.** Text pasted from Word renders in PDF/A. MCP works with more than one replica. Nothing that is still in use can be deleted.
+
+- **[user]** docs(release): **This is a beta.** The full list of changes comes with 2.0.0.
+
 ## [2.0.0-alpha.1] - 2026-10-30
 
 The first alpha of Epistola 2.0, for trying the new catalog model and the upgrade from 1.x, not for production. Catalogs now have versions you publish and deploy, drafts and fixes beside the next version, and resources you can rename and move between catalogs; a 1.x installation upgrades in one migration that only goes forward, so keep a backup.
