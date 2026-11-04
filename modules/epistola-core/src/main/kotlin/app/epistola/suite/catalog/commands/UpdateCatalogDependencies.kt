@@ -24,6 +24,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
@@ -67,6 +68,9 @@ data class UpdateCatalogDependencies(
     override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
+        validate("dependencies", dependencies.size <= FieldLimits.MAX_CATALOG_DEPENDENCIES, ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+            "A draft declares at most ${FieldLimits.MAX_CATALOG_DEPENDENCIES} dependencies"
+        }
         dependencies.forEachIndexed { index, dependency ->
             val field = "dependencies[$index]"
             validate("$field.registry", CatalogNamespaces.isValidRegistry(dependency.registry), ValidationCode.CATALOG_DEPENDENCY_INVALID) {

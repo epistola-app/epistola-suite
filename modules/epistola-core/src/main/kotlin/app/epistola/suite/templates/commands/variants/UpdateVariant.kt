@@ -22,6 +22,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.templateVariant
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -46,6 +47,10 @@ data class UpdateVariant(
     init {
         validate("title", title.isNotBlank()) { "Title is required" }
         validate("title", title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
+        validate("attributes", attributes.size <= FieldLimits.MAX_VARIANT_ATTRIBUTES) { "A variant has at most ${FieldLimits.MAX_VARIANT_ATTRIBUTES} attributes" }
+        attributes.forEach { (key, value) ->
+            validate("attributes.$key", value.length <= FieldLimits.MAX_ATTRIBUTE_VALUE_LENGTH) { "Attribute values are ${FieldLimits.MAX_ATTRIBUTE_VALUE_LENGTH} characters or less" }
+        }
     }
 }
 

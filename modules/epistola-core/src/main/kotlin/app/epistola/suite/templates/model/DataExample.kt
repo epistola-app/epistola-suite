@@ -5,6 +5,8 @@
 package app.epistola.suite.templates.model
 
 import app.epistola.catalog.protocol.CatalogKeys
+import app.epistola.suite.validation.FieldLimits
+import app.epistola.suite.validation.validate
 import tools.jackson.core.JsonGenerator
 import tools.jackson.core.JsonParser
 import tools.jackson.databind.DeserializationContext
@@ -127,5 +129,18 @@ class DataExamplesSerializer : ValueSerializer<DataExamples>() {
             ctxt.writeValue(gen, example)
         }
         gen.writeEndArray()
+    }
+}
+
+/**
+ * Holds [examples] to the REST contract's limits: how many a template has, and the length of each
+ * one's name. The commands that write a template's examples apply it; imports do not.
+ */
+fun validateDataExampleLimits(examples: List<DataExample>) {
+    validate("dataExamples", examples.size <= FieldLimits.MAX_DATA_EXAMPLES) { "A template has at most ${FieldLimits.MAX_DATA_EXAMPLES} data examples" }
+    examples.forEachIndexed { index, example ->
+        validate("dataExamples[$index].name", example.name.length <= FieldLimits.MAX_DATA_EXAMPLE_NAME_LENGTH) {
+            "A data example's name is ${FieldLimits.MAX_DATA_EXAMPLE_NAME_LENGTH} characters or less"
+        }
     }
 }

@@ -23,6 +23,7 @@ import app.epistola.suite.templates.commands.templateRevision
 import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.model.DataContract
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.model.validateDataExampleLimits
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
@@ -53,6 +54,10 @@ data class UpdateDataContract(
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = templateId.tenantKey
+
+    init {
+        dataExamples?.let(::validateDataExampleLimits)
+    }
 }
 
 data class UpdateDataContractResult(

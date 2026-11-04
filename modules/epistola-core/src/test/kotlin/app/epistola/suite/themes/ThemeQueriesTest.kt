@@ -39,6 +39,7 @@ import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -230,6 +231,29 @@ class ThemeQueriesTest : IntegrationTestBase() {
         ).execute()
 
         assertThat(GetTheme(id = themeId, catalogVersion = null).query()!!.blockStylePresets!!.keys).containsExactly("kaart")
+    }
+
+    @Test
+    fun `UpdateTheme refuses a merge that takes the presets past the limit, and replaces one at it`(): Unit = withMediator {
+        val tenant = createTenant("Theme Preset Limit")
+        val themeId = ThemeId(ThemeKey.of("vol"), CatalogId.default(TenantId(tenant.id)))
+        fun preset(label: String) = BlockStylePreset(label = label, styles = emptyMap())
+        CreateTheme(
+            id = themeId,
+            name = "Vol",
+            blockStylePresets = BlockStylePresets((1..100).associate { "preset-$it" to preset("Preset $it") }),
+            catalogVersion = null,
+        ).execute()
+
+        assertThatThrownBy {
+            UpdateTheme(id = themeId, mergeBlockStylePresets = BlockStylePresets.of("preset-101" to preset("One too many")), catalogVersion = null).execute()
+        }.isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.field).isEqualTo("mergeBlockStylePresets") }
+
+        UpdateTheme(id = themeId, mergeBlockStylePresets = BlockStylePresets.of("preset-1" to preset("Replaced")), catalogVersion = null).execute()
+
+        val presets = GetTheme(id = themeId, catalogVersion = null).query()!!.blockStylePresets!!
+        assertThat(presets).hasSize(100)
+        assertThat(presets.getValue("preset-1").label).isEqualTo("Replaced")
     }
 
     @Test

@@ -79,4 +79,28 @@ object FieldLimits {
      * descriptions alike, since the wire bounds both.
      */
     const val MAX_TEMPLATE_DESCRIPTION_LENGTH = app.epistola.catalog.protocol.TemplateResource.MAX_DESCRIPTION_LENGTH
+
+    // The request limits of the REST contract (2.0.0-beta.3), held by the commands as well, so the
+    // UI and MCP cannot write what the REST API then refuses to take back in an update. Import
+    // paths do not apply them: an archive valid under its wire version keeps importing.
+
+    /** Attributes a variant is selected by; and each value's length, as for an allowed value. */
+    const val MAX_VARIANT_ATTRIBUTES = 50
+    const val MAX_ATTRIBUTE_VALUE_LENGTH = 255
+
+    /** Data examples of a template, and the length of each one's name. */
+    const val MAX_DATA_EXAMPLES = 100
+    const val MAX_DATA_EXAMPLE_NAME_LENGTH = 255
+
+    /** Block style presets of a theme. */
+    const val MAX_BLOCK_STYLE_PRESETS = 100
+
+    /** Dependencies a draft declares: as many as a catalog archive may carry. */
+    const val MAX_CATALOG_DEPENDENCIES = 50
+
+    /** Presets a draft declares for its templates. */
+    const val MAX_CATALOG_PRESETS = 100
+
+    /** Versions a release may acknowledge its draft is behind. */
+    const val MAX_ACKNOWLEDGED_BEHIND = 1000
 }
