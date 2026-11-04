@@ -60,10 +60,12 @@ export class EpistolaCanvas extends LitElement {
     if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
-    // The header is the block's handle (select, delete, drag): it does not start typing.
+    // The header is the block's handle (select, delete, drag): it does not start typing, and text
+    // selected before is let go rather than left highlighted.
     if (this._headerPointerDown === nodeId) {
       this._headerPointerDown = null;
       this._textPointerDown = null;
+      this._releaseTextEditor(nodeId);
       return;
     }
     const mouseEvent = e as MouseEvent;
@@ -120,6 +122,13 @@ export class EpistolaCanvas extends LitElement {
     const parentSlotId = this.engine.indexes.parentSlotByNodeId.get(nodeId);
     if (!parentSlotId) return false;
     return isSlotLocked(this.doc, parentSlotId, this.engine.indexes, this.engine.registry);
+  }
+
+  private _releaseTextEditor(nodeId: NodeId) {
+    if (this.doc?.nodes[nodeId]?.type !== 'text') return;
+    this.querySelector<EpistolaTextEditor>(
+      `.canvas-block[data-node-id="${nodeId}"] epistola-text-editor`,
+    )?.releaseText();
   }
 
   private _maybeFocusTextEditor(nodeId: NodeId, options: TextEditorFocusOptions = {}) {
