@@ -3271,3 +3271,21 @@ Noticed, not touched:
   Merriweather, emoji, CJK) still fail a PDF/A render, now with a clear message. Fallback fonts are
   a separate decision (size, licensing, shaping needs pdfCalligraph) (#1244). Marking them in the
   editor is #1243.
+
+## Help page (4 November)
+
+Branch `feat/help-page`. A page for people new to Epistola and for those who use it without knowing
+it well: what it does (design, publish, deploy, generate), the words the screens use, the bar and
+the side menu piece by piece, _I want to…_ answers, a first document step by step, and tips. Reached
+from **Help** in the bar on every tenant page, the account menu, and Getting started on the home page.
+
+| Change                                                                                                                                                | Coverage                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `/tenants/{t}/help` (`HelpHandler`, `help.html`, `pages/help.css`) for every member; places it names link only when the role may open them            | ✅ `HelpHtmxTest` (4; all fail without the change), checked in a browser at desktop and phone width (no overflow, no console errors) |
+| Help in the bar (`circle-help` icon added to the sprite) and the account menu; the bar's crumb names a page no nav item leads to (`workspaceSection`) | ✅ `HelpHtmxTest`; ✅ `WorkspaceNavigationUiTest`, `HtmxSettleUiTest`, `EditorBarStatusUiTest`, `WorkspaceBoostHtmxTest`             |
+| Getting started links to it                                                                                                                           | ✅ `HelpHtmxTest`, `TenantHomeOverviewTest`                                                                                          |
+
+Noticed, not touched:
+
+- The editor has its own bar, so Help is not reachable from inside the template editor.
+- Platform pages (tenant list, site banner) have no tenant, so no Help link there.

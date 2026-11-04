@@ -58,7 +58,10 @@
                 <h2>Getting started</h2>
             </div>
             <div class="detail-section-body">
-                <p class="form-hint" style="margin-top: 0;">From a template to a document your application can request.</p>
+                <p class="form-hint" style="margin-top: 0;">
+                    From a template to a document your application can request.
+                    New to Epistola? <a th:href="@{/tenants/{t}/help(t=${tenant.id})}" data-testid="getting-started-help">Read how it works</a>.
+                </p>
                 <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-2);">
                     <li th:attr="data-done=${gettingStarted.hasTemplate}">
                         <th:block th:if="${startCatalog != null}">

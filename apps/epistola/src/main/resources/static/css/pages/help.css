@@ -1,0 +1,357 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
+ * Help (templates/help.html)
+ *
+ * Part of the app stylesheet — imported by main.css.
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
+ */
+
+.help {
+  max-width: 60rem;
+  display: grid;
+  gap: var(--ep-space-10);
+}
+
+/* ── On this page ─────────────────────────────────────────────────────── */
+
+.help-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+}
+
+.help-toc a {
+  padding: var(--ep-space-1) var(--ep-space-3);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-full);
+  font-size: var(--ep-text-sm);
+  color: var(--ep-foreground);
+  text-decoration: none;
+  background: var(--ep-card);
+  transition: var(--ep-transition-colors);
+}
+
+.help-toc a:hover,
+.help-toc a:focus-visible {
+  border-color: var(--ep-terracotta-400);
+  background: var(--ep-terracotta-50);
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+
+.help-section {
+  scroll-margin-top: var(--ep-space-6);
+}
+
+.help-section > h2 {
+  margin: 0 0 var(--ep-space-3);
+  font-size: var(--ep-text-xl);
+}
+
+.help-section > p {
+  margin: 0 0 var(--ep-space-4);
+  line-height: var(--ep-leading-relaxed);
+}
+
+.help-lead {
+  font-size: var(--ep-text-lg);
+  line-height: var(--ep-leading-relaxed);
+  max-width: 48rem;
+}
+
+.help-callout {
+  margin-top: var(--ep-space-5);
+}
+
+/* ── The four steps ───────────────────────────────────────────────────── */
+
+.help-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--ep-space-3);
+  counter-reset: help-flow;
+}
+
+.help-flow-step {
+  position: relative;
+  display: grid;
+  gap: var(--ep-space-1);
+  align-content: start;
+  padding: var(--ep-space-4);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  background: var(--ep-card);
+  counter-increment: help-flow;
+}
+
+.help-flow-step::after {
+  content: counter(help-flow);
+  position: absolute;
+  top: var(--ep-space-3);
+  right: var(--ep-space-4);
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  color: var(--ep-muted-foreground);
+}
+
+.help-flow-step > span:last-child {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  line-height: var(--ep-leading-snug);
+}
+
+.help-flow-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: var(--ep-space-1);
+  border-radius: var(--ep-radius-full);
+  background: var(--ep-terracotta-50);
+  color: var(--ep-terracotta-600);
+}
+
+/* ── Words ────────────────────────────────────────────────────────────── */
+
+.help-glossary {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--ep-space-3);
+}
+
+.help-term {
+  padding: var(--ep-space-3) var(--ep-space-4);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-card);
+}
+
+.help-term dt {
+  font-weight: 600;
+  margin-bottom: var(--ep-space-1);
+}
+
+.help-term dd {
+  margin: 0;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  line-height: var(--ep-leading-snug);
+}
+
+/* ── The screen, drawn ────────────────────────────────────────────────── */
+
+.help-screen {
+  margin: 0 0 var(--ep-space-4);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  overflow: hidden;
+  background: var(--ep-card);
+  font-size: var(--ep-text-sm);
+}
+
+.help-screen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ep-space-2);
+  padding: var(--ep-space-2) var(--ep-space-3);
+  border-bottom: 1px solid var(--ep-border-color);
+  background: var(--ep-stone-50);
+}
+
+.help-screen-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ep-space-2);
+  color: var(--ep-muted-foreground);
+}
+
+.help-screen-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1-5);
+  padding: var(--ep-space-1) var(--ep-space-2);
+  border-radius: var(--ep-radius-sm);
+  background: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  color: var(--ep-foreground);
+}
+
+.help-screen-body {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  min-height: 6rem;
+}
+
+.help-screen-side {
+  padding: var(--ep-space-3);
+  border-right: 1px solid var(--ep-border-color);
+  background: var(--ep-stone-50);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ep-space-1-5);
+}
+
+.help-screen-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ep-muted-foreground);
+}
+
+.help-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--ep-radius-full);
+  background: var(--ep-primary);
+  color: var(--ep-primary-foreground);
+  font-size: var(--ep-text-xs);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.help-legend {
+  margin: 0 0 var(--ep-space-6);
+  padding-left: var(--ep-space-6);
+  display: grid;
+  gap: var(--ep-space-2);
+  line-height: var(--ep-leading-snug);
+}
+
+.help-legend li::marker {
+  color: var(--ep-primary);
+  font-weight: 600;
+}
+
+/* ── Two columns of panels ────────────────────────────────────────────── */
+
+.help-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--ep-space-4);
+}
+
+.help-panel {
+  padding: var(--ep-space-4) var(--ep-space-5);
+}
+
+.help-panel h3 {
+  margin: 0 0 var(--ep-space-1);
+}
+
+.help-panel > p {
+  margin: 0 0 var(--ep-space-3);
+  font-size: var(--ep-text-sm);
+}
+
+.help-places {
+  margin: 0;
+  display: grid;
+  gap: var(--ep-space-1);
+}
+
+.help-places dt {
+  font-weight: 600;
+  margin-top: var(--ep-space-2);
+}
+
+.help-places dd {
+  margin: 0;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  line-height: var(--ep-leading-snug);
+}
+
+.help-place-off {
+  font-weight: 600;
+  cursor: help;
+}
+
+/* ── Tasks ────────────────────────────────────────────────────────────── */
+
+.help-tasks {
+  display: grid;
+  gap: var(--ep-space-2);
+}
+
+.help-task {
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-card);
+}
+
+.help-task > summary {
+  cursor: pointer;
+  padding: var(--ep-space-3) var(--ep-space-4);
+  font-weight: 600;
+  list-style-position: inside;
+}
+
+.help-task > summary:hover {
+  color: var(--ep-terracotta-600);
+}
+
+.help-task[open] > summary {
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.help-task > p {
+  margin: 0;
+  padding: var(--ep-space-3) var(--ep-space-4) var(--ep-space-4);
+  line-height: var(--ep-leading-relaxed);
+}
+
+/* ── Steps and tips ───────────────────────────────────────────────────── */
+
+.help-steps,
+.help-tips {
+  margin: 0;
+  padding-left: var(--ep-space-6);
+  display: grid;
+  gap: var(--ep-space-3);
+  line-height: var(--ep-leading-relaxed);
+}
+
+.help-steps li::marker {
+  color: var(--ep-primary);
+  font-weight: 600;
+}
+
+/* ── More help ────────────────────────────────────────────────────────── */
+
+.help-link-card {
+  display: grid;
+  gap: var(--ep-space-1);
+  color: var(--ep-foreground);
+  text-decoration: none;
+  transition: var(--ep-transition-colors);
+}
+
+.help-link-card:hover,
+.help-link-card:focus-visible {
+  border-color: var(--ep-terracotta-400);
+}
+
+.help-link-card .text-muted {
+  font-size: var(--ep-text-sm);
+}
+
+@media (max-width: 640px) {
+  .help-screen-body {
+    grid-template-columns: 6rem 1fr;
+  }
+}

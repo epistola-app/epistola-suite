@@ -72,7 +72,9 @@ class WorkspaceBuilder {
             remember(request, tenantKey, BackLink(path + (request.queryString?.let { "?$it" } ?: ""), backLabel(scope)))
             return Workspace(tenantKey, tenantName, catalogs, recent, scope, back = null, section = null)
         }
+        // The active nav item names the page; a page no item leads to (Help) names itself.
         val section = nav.groups.flatMap { it.items }.firstOrNull { it.active }?.label
+            ?: model["workspaceSection"] as? String
         val atHome = path.trimEnd('/') == "/tenants/${tenantKey.value}"
         return Workspace(tenantKey, tenantName, catalogs, recent, catalog = null, back = recall(request, tenantKey), section = section, atHome = atHome)
     }

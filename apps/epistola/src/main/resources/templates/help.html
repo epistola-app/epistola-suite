@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* A place the help names: a link for whoever may open it, its name alone for whoever may not,
+           so the page reads the same for everyone and leads nobody to a refusal (HelpHandler). */-->
+    <th:block th:fragment="place(label, href, may)"><a th:if="${may}" th:href="${href}" class="help-place" th:text="${label}" data-testid="help-place-link">Environments</a><strong th:unless="${may}" class="help-place-off" th:text="${label}" title="Your role does not include this. Your administrator can give you access." data-testid="help-place-off">API keys</strong></th:block>
+
+    <th:block th:fragment="content"
+              th:with="t=${tenantId},
+                       catalogsHref=@{/tenants/{t}/catalogs(t=${t})},
+                       environmentsHref=@{/tenants/{t}/environments(t=${t})},
+                       generationHref=@{/tenants/{t}/generation-history(t=${t})},
+                       apiKeysHref=@{/tenants/{t}/api-keys(t=${t})},
+                       homeHref=@{/tenants/{t}(t=${t})},
+                       mayCatalogs=${auth.has('CATALOG_VIEW')},
+                       mayDocuments=${auth.has('DOCUMENT_VIEW')},
+                       mayApiKeys=${auth.has('CREDENTIALS_MANAGE')}">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Help',
+            pageDescription='How Epistola works and where to find things. New here? Read it from the top. Looking for something? Start at I want to.'
+        )}"></div>
+
+        <div class="help" data-testid="help-page">
+            <nav class="help-toc" aria-label="On this page">
+                <a href="#help-basics">Epistola in short</a>
+                <a href="#help-words">Words you will meet</a>
+                <a href="#help-finding">Finding your way</a>
+                <a href="#help-tasks">I want to…</a>
+                <a href="#help-first">Your first document</a>
+                <a href="#help-tips">Good to know</a>
+                <a href="#help-more">More help</a>
+            </nav>
+
+            <!-- What Epistola does, in four steps. -->
+            <section id="help-basics" class="help-section" data-testid="help-basics">
+                <h2>Epistola in short</h2>
+                <p class="help-lead">
+                    Epistola makes documents, such as letters, invoices, statements and contracts, from templates.
+                    You design a template once. Your organisation's applications send Epistola the details of each
+                    document, like a name, an amount or a list of items, and Epistola returns a finished PDF.
+                </p>
+                <ol class="help-flow">
+                    <li class="help-flow-step">
+                        <span class="help-flow-icon"><th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon')}" /></span>
+                        <strong>Design</strong>
+                        <span>Build a template in the visual editor. No code needed.</span>
+                    </li>
+                    <li class="help-flow-step">
+                        <span class="help-flow-icon"><th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon')}" /></span>
+                        <strong>Publish</strong>
+                        <span>Turn your changes into a release with a number, such as v1.2.0.</span>
+                    </li>
+                    <li class="help-flow-step">
+                        <span class="help-flow-icon"><th:block th:replace="~{epistola-web/icon :: icon(name='radio', class='ep-icon')}" /></span>
+                        <strong>Deploy</strong>
+                        <span>Choose which release an environment, such as Test or Production, uses.</span>
+                    </li>
+                    <li class="help-flow-step">
+                        <span class="help-flow-icon"><th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon')}" /></span>
+                        <strong>Generate</strong>
+                        <span>Applications ask for documents, and Epistola makes them from what is deployed.</span>
+                    </li>
+                </ol>
+                <div class="alert alert-info help-callout">
+                    <strong>Changing a template is safe.</strong>
+                    Your changes are saved as you work, but applications keep getting what they got before, until you
+                    publish a release and deploy it.
+                </div>
+            </section>
+
+            <!-- The words the screens use, each in a sentence or two. -->
+            <section id="help-words" class="help-section" data-testid="help-words">
+                <h2>Words you will meet</h2>
+                <dl class="help-glossary">
+                    <div class="help-term">
+                        <dt>Tenant</dt>
+                        <dd>Your organisation's own space in Epistola: everything you see belongs to it. Work for more than one? Use <em>Switch tenant</em> in your account menu.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Catalog</dt>
+                        <dd>A collection of templates and everything they are built from. A catalog is published as a whole, with one version number.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Template</dt>
+                        <dd>The design of one kind of document, such as an invoice or a reminder letter.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Variant</dt>
+                        <dd>Another version of the same template, for a different language, brand or audience. Attributes, like "language", say which variant is which.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Data contract</dt>
+                        <dd>The details a template expects from the application, such as a customer's name. It holds example data, so you can see the document before any application sends real data.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Stencil</dt>
+                        <dd>A piece used in many templates, such as a letterhead or a footer. Change it once, and every template that uses it follows.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Theme</dt>
+                        <dd>Fonts, colours, page size and margins, shared by the templates that use it.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Next release</dt>
+                        <dd>Your work in progress on a catalog. Every change you make goes here, until you publish it.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Release</dt>
+                        <dd>A catalog as it was when it was published, with a number such as v1.3.0. A release never changes, so you always know what an application got.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Environment</dt>
+                        <dd>A place where applications get documents, such as Test or Production. Each one uses the releases deployed to it.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Deploy</dt>
+                        <dd>Letting an environment use a release. Undeploying takes it away again.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>API key</dt>
+                        <dd>The secret an application uses to ask Epistola for documents.</dd>
+                    </div>
+                    <div class="help-term">
+                        <dt>Read-only catalog</dt>
+                        <dd>A catalog you can use but not change here, such as one supplied by Epistola. A badge says why.</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <!-- The screen, piece by piece: the bar, then the side nav in both places. -->
+            <section id="help-finding" class="help-section" data-testid="help-finding">
+                <h2>Finding your way</h2>
+                <p>Every page has the same frame: a bar along the top that says where you are, and a side menu on the left for the place you are in.</p>
+
+                <figure class="help-screen" aria-label="The bar along the top of every page">
+                    <div class="help-screen-bar">
+                        <span class="help-screen-crumbs">
+                            <span class="help-screen-chip"><span class="help-marker">1</span> Acme</span>
+                            <span aria-hidden="true">/</span>
+                            <span class="help-screen-chip"><span class="help-marker">2</span> Letters ▾</span>
+                            <span aria-hidden="true">/</span>
+                            <span class="help-screen-chip"><span class="help-marker">3</span> Next release ▾</span>
+                        </span>
+                        <span class="help-screen-crumbs">
+                            <span class="help-screen-chip"><span class="help-marker">4</span> Publish…</span>
+                            <span class="help-screen-chip"><span class="help-marker">5</span> Help</span>
+                            <span class="help-screen-chip"><span class="help-marker">6</span> You ▾</span>
+                        </span>
+                    </div>
+                    <div class="help-screen-body">
+                        <span class="help-screen-side"><span class="help-marker">7</span> Menu</span>
+                        <span class="help-screen-page">The page</span>
+                    </div>
+                </figure>
+                <ol class="help-legend">
+                    <li><strong>Your tenant.</strong> Click it to go back to the home page.</li>
+                    <li><strong>The catalog you are in.</strong> Click it to switch to another catalog.</li>
+                    <li><strong>What you are changing.</strong> Nearly always the next release. Its menu also holds published releases, trying your work on an environment, and parallel work for big changes.</li>
+                    <li><strong>What is not published yet,</strong> and <em>Publish…</em> to make a release of it.</li>
+                    <li><strong>Help:</strong> this page.</li>
+                    <li><strong>Your account:</strong> your profile, switching tenant, the API docs and logging out.</li>
+                    <li><strong>The side menu.</strong> It changes with where you are, as below.</li>
+                </ol>
+
+                <div class="help-columns">
+                    <div class="ep-panel help-panel" data-testid="help-outside">
+                        <h3>Outside a catalog</h3>
+                        <p class="text-muted">On the home page and the pages for your whole tenant.</p>
+                        <dl class="help-places">
+                            <dt><span th:replace="~{help :: place(label='Home', href=${homeHref}, may=true)}"></span></dt>
+                            <dd>Where every catalog stands, and the first steps when you are new.</dd>
+                            <dt><span th:replace="~{help :: place(label='All catalogs', href=${catalogsHref}, may=${mayCatalogs})}"></span></dt>
+                            <dd>Every catalog, with the ones you changed most recently listed above it in the menu.</dd>
+                            <dt><span th:replace="~{help :: place(label='Environments', href=${environmentsHref}, may=true)}"></span></dt>
+                            <dd>Where applications get documents, and which releases each one uses. You can try a document there.</dd>
+                            <dt><span th:replace="~{help :: place(label='Generation', href=${generationHref}, may=${mayDocuments})}"></span></dt>
+                            <dd>The documents that were made, and whether each one succeeded.</dd>
+                            <dt>Operations</dt>
+                            <dd>For administrators: API keys, logs, the audit trail and how the system is running.</dd>
+                            <dt>Settings</dt>
+                            <dd>For administrators: features, defaults, and the names your catalogs may use.</dd>
+                        </dl>
+                    </div>
+                    <div class="ep-panel help-panel" data-testid="help-inside">
+                        <h3>Inside a catalog</h3>
+                        <p class="text-muted">Once you open a catalog, the menu is about that catalog.</p>
+                        <dl class="help-places">
+                            <dt>Overview</dt>
+                            <dd>What is not published yet, and what to do next.</dd>
+                            <dt>Templates</dt>
+                            <dd>The documents this catalog makes. Open one to change it.</dd>
+                            <dt>Stencils, themes, images, fonts</dt>
+                            <dd>The building blocks templates are made from.</dd>
+                            <dt>Attributes, code lists</dt>
+                            <dd>Labels that tell variants apart, and lists of values they choose from.</dd>
+                            <dt>Releases</dt>
+                            <dd>Everything published so far, and the work in progress.</dd>
+                            <dt>Deployments</dt>
+                            <dd>Which release each environment uses, and deploying another.</dd>
+                            <dt>Dependencies</dt>
+                            <dd>Other catalogs this one uses, and the catalogs that use it.</dd>
+                            <dt>Settings</dt>
+                            <dd>The catalog's name and description.</dd>
+                        </dl>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tasks, as people would ask them. -->
+            <section id="help-tasks" class="help-section" data-testid="help-tasks">
+                <h2>I want to…</h2>
+                <div class="help-tasks">
+                    <details class="help-task" open>
+                        <summary>Change a letter, an invoice or another document</summary>
+                        <p>Open its catalog and go to <strong>Templates</strong>. Pick the template, then choose <em>Open editor</em> on the variant you want to change. The editor saves as you work, and the preview beside it shows the result with the example data.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>See what I have changed</summary>
+                        <p>The bar at the top says what is not published yet. The catalog's <strong>Overview</strong> lists each change.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Let applications use my changes</summary>
+                        <p>Choose <em>Publish…</em> in the bar at the top. It tells you what will be published and makes a release. Then deploy that release on the catalog's <strong>Deployments</strong> page, or on the page of an
+                            <span th:replace="~{help :: place(label='environment', href=${environmentsHref}, may=true)}"></span>.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Try a change before I publish it</summary>
+                        <p>The preview in the editor shows the document straight away. To try it the way an application gets it, open the menu on <em>Next release</em> in the bar and choose <em>Try it on an environment…</em>: a test environment then uses your work as you save it. Production only ever uses releases.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Go back to an earlier release</summary>
+                        <p>Open the
+                            <span th:replace="~{help :: place(label='environment', href=${environmentsHref}, may=true)}"></span>
+                            and undeploy the newer release: the environment goes back to the release deployed before it. Is the earlier release not deployed there any more? Deploy it again first.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Use the same letterhead or footer in many templates</summary>
+                        <p>Make it a <strong>stencil</strong>, in the catalog's Stencils, and place it in each template. Changing the stencil changes every template that uses it.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Change fonts, colours or the page size</summary>
+                        <p>Go to the catalog's <strong>Themes</strong>. A theme is shared, so one change applies to every template that uses it.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Make a template in another language</summary>
+                        <p>Open the template and choose <em>New variant</em> on its Variants tab. Give it the language, and design it like any other.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Connect an application</summary>
+                        <p>The application needs an
+                            <span th:replace="~{help :: place(label='API key', href=${apiKeysHref}, may=${mayApiKeys})}"></span>
+                            and a release deployed to an environment. The <strong>API</strong> tab of each template shows exactly what the application should send.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Find a document that was made</summary>
+                        <p><span th:replace="~{help :: place(label='Generation', href=${generationHref}, may=${mayDocuments})}"></span>
+                            lists the documents that were made, newest first, with whether each one succeeded.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Work on a big change without holding up small ones</summary>
+                        <p>Open the menu on <em>Next release</em> in the bar and choose <em>Start parallel work…</em>. The big change is kept apart while small fixes are published as usual. The bar turns amber while you are in it, so you always know.</p>
+                    </details>
+                    <details class="help-task">
+                        <summary>Open something I can't see or change</summary>
+                        <p>What you see depends on your role. Places on this page without a link are ones your role does not include. Your administrator can give you access.</p>
+                    </details>
+                </div>
+            </section>
+
+            <!-- The way from nothing to a document, as the home page's getting started has it. -->
+            <section id="help-first" class="help-section" data-testid="help-first">
+                <h2>Your first document</h2>
+                <ol class="help-steps">
+                    <li><strong>Pick a catalog.</strong> Open one from
+                        <span th:replace="~{help :: place(label='All catalogs', href=${catalogsHref}, may=${mayCatalogs})}"></span>, or make one with <em>New catalog</em>.</li>
+                    <li><strong>Create a template.</strong> In the catalog's Templates, choose <em>New template</em>. On its Data contract tab, describe the details your application will send and add an example.</li>
+                    <li><strong>Design it.</strong> Choose <em>Open editor</em>. Add text, tables and images, and put the details from the data where they belong. The preview shows the result.</li>
+                    <li><strong>Publish.</strong> Choose <em>Publish…</em> in the bar at the top.</li>
+                    <li><strong>Deploy.</strong> Deploy the release to an environment, for instance Test.</li>
+                    <li><strong>Make a document.</strong> Try one on the
+                        <span th:replace="~{help :: place(label='environment', href=${environmentsHref}, may=true)}"></span>'s page, or let your application ask for it.</li>
+                </ol>
+            </section>
+
+            <section id="help-tips" class="help-section" data-testid="help-tips">
+                <h2>Good to know</h2>
+                <ul class="help-tips">
+                    <li><strong>Saved is not published.</strong> Your work is kept as you go, and applications see it only once it is published and deployed.</li>
+                    <li><strong>A release never changes.</strong> To change one, change the next release and publish again; the new release gets a higher number.</li>
+                    <li><strong>Catalogs can use each other.</strong> A catalog can use stencils and themes from another, which its Dependencies page shows.</li>
+                    <li><strong>Some catalogs are read-only.</strong> You can use them in your templates, but not change them here.</li>
+                    <li><strong>Your role decides what you see.</strong> Someone else may see menu items you don't.</li>
+                    <li><strong>What's new?</strong> The changelog, in the footer at the bottom of every page, says what changed in each version of Epistola.</li>
+                </ul>
+            </section>
+
+            <section id="help-more" class="help-section" data-testid="help-more">
+                <h2>More help</h2>
+                <div class="help-columns">
+                    <a class="ep-panel help-panel help-link-card" href="https://epistola.app/en/learn" target="_blank" rel="noopener" hx-boost="false">
+                        <span class="ep-row">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon')}" />
+                            <strong>Guides</strong>
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                        </span>
+                        <span class="text-muted">Step-by-step guides on epistola.app.</span>
+                    </a>
+                    <a class="ep-panel help-panel help-link-card" th:href="@{/api-docs}" target="_blank" rel="noopener" hx-boost="false">
+                        <span class="ep-row">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='zap', class='ep-icon')}" />
+                            <strong>API docs</strong>
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                        </span>
+                        <span class="text-muted">For developers connecting an application.</span>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </th:block>
+</body>
+</html>

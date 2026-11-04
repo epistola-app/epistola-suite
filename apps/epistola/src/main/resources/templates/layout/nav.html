@@ -151,6 +151,13 @@
                 <span th:text="${ws.back.label}">Back to Letters</span>
             </a>
 
+            <!--/* Help: how Epistola works and where things are, from every page of a tenant. */-->
+            <a th:if="${ws != null}" th:href="@{/tenants/{t}/help(t=${ws.tenantKey})}" class="ws-crumb ws-help" title="Help" aria-label="Help"
+               th:attr="aria-current=${ws.section == 'Help'} ? 'page' : null" data-testid="ws-help">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='circle-help', class='ep-icon ep-icon-sm')}" />
+                <span>Help</span>
+            </a>
+
             <div class="app-nav-dropdown ws-menu ws-account" sec:authorize="isAuthenticated()">
                 <button type="button" class="app-nav-dropdown-trigger ws-crumb" data-testid="ws-account"
                         aria-expanded="false" aria-haspopup="true" aria-label="Your account">
@@ -161,6 +168,7 @@
                 <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-right" role="menu">
                     <a th:href="@{/profile}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Profile</a>
                     <a th:href="@{/}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Switch tenant</a>
+                    <a th:if="${ws != null}" th:href="@{/tenants/{t}/help(t=${ws.tenantKey})}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Help</a>
                     <a th:href="@{/api-docs}" class="app-nav-dropdown-item ws-menu-item" role="menuitem" hx-boost="false" target="_blank" rel="noopener">API docs</a>
                     <div class="ws-menu-sep"></div>
                     <!--/* Not boosted: logging out may end at the identity provider, which HTMX cannot follow (LogoutNotBoostedTest). */-->

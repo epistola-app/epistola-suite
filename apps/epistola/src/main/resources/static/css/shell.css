@@ -839,6 +839,11 @@
       display: none;
     }
 
+    /* Help keeps its icon on phones; its title says what it is. */
+    .ws-help span {
+      display: none;
+    }
+
     /* The user icon is the account trigger on phones; the chevron would not earn its width. */
     .ws-account .app-nav-dropdown-trigger .app-nav-chevron {
       display: none;
