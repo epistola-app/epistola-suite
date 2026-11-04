@@ -39,8 +39,14 @@ data class ApplicationRequestView(
         val rows: Int get() = body.lines().size.coerceAtMost(14)
     }
 
-    /** Nothing is published yet, so there is no release for an application to get. */
-    val nothingPublished: Boolean get() = latestPublished == null
+    /**
+     * Nothing for an application to get: no release, and no environment serving the catalog. An
+     * environment following a draft serves it before anything is released, so it counts.
+     */
+    val nothingToGet: Boolean get() = latestPublished == null && environments.isEmpty()
+
+    /** Some environment follows a draft: a change saved there reaches applications through it at once. */
+    val followsDraft: Boolean get() = environments.any { it.version == null }
 
     /** The headers the request sends; shown, never sent, by the UI (the UI does not call the REST API). */
     val headers: List<String> get() = listOf("Authorization: ApiKey <key>", "Content-Type: $MEDIA_TYPE", "Accept: $MEDIA_TYPE")

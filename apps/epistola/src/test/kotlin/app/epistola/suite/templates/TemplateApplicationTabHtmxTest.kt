@@ -7,6 +7,7 @@ package app.epistola.suite.templates
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -85,6 +86,22 @@ class TemplateApplicationTabHtmxTest : BaseIntegrationTest() {
 
         assertThat(page).doesNotContain("data-testid=\"template-application-unpublished\"")
         assertThat(page).contains("data-testid=\"template-application-live\"").contains(">v1.0.0<")
+        assertThat(page).contains("&quot;environmentKey&quot; : &quot;test&quot;")
+    }
+
+    @Test
+    fun `an environment following the draft serves it before anything is released, and the tab says so`() {
+        val tenant = catalog("Application Draft") { tenant, catalog ->
+            val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id))
+            CreateEnvironment(test, "Test", production = false).execute()
+            DeployCatalogRelease(test, catalog, GetCatalogDraft(catalog).query()!!.versionId).execute()
+        }
+
+        val page = tab(tenant).body!!
+
+        assertThat(page).doesNotContain("data-testid=\"template-application-unpublished\"")
+        assertThat(page).contains("data-testid=\"template-application-live\"").contains("(follows a draft)")
+        assertThat(page).contains("data-testid=\"template-application-follows-draft\"")
         assertThat(page).contains("&quot;environmentKey&quot; : &quot;test&quot;")
     }
 }

@@ -80,8 +80,18 @@ class ApplicationRequestViewTest {
     fun `with nothing published there is nothing to get, and without an example the data is empty`() {
         val app = view(latestPublished = null, example = false)
 
-        assertThat(app.nothingPublished).isTrue()
+        assertThat(app.nothingToGet).isTrue()
         assertThat(app.exampleName).isNull()
         assertThat(mapper.readTree(app.variants.first().body)["data"].size()).isZero()
+    }
+
+    @Test
+    fun `an environment following a draft serves the catalog before anything is released`() {
+        val app = view(latestPublished = null, deployments = listOf(deployment("test", null)))
+
+        assertThat(app.nothingToGet).isFalse()
+        assertThat(app.followsDraft).isTrue()
+        assertThat(mapper.readTree(app.variants.first().body)["environmentKey"].asString()).isEqualTo("test")
+        assertThat(view(deployments = listOf(deployment("production", "1.2.0"))).followsDraft).isFalse()
     }
 }
