@@ -121,23 +121,13 @@ gh release view vX.Y.Z
 
 ### 6. Announce on the community forum
 
-Once the image is published, post the release on
+Once the image is published, post the release — a pre-release too — in Aankondigingen on
 [community.epistola.app](https://community.epistola.app) through the Discourse MCP
-(`.agents/mcp/discourse/`; it posts as the signed-in user). Draft the post, show it to the
-user and post only after they approve it: once posted, it is public.
-
-- **Category:** Aankondigingen (id 5), a new topic. **Title:** `Epistola X.Y.Z: <Dutch headline>`.
-- **Body:** Dutch first, then the same text in English inside `[details="English"]…[/details]`.
-  Write it for administrators and template authors, not as a copy of the changelog:
-  - Open with `⚠️ **Controleer dit vóór de upgrade:**` when there is an action on upgrade
-    or a breaking change; leave it out otherwise.
-  - `**Nieuw in deze versie:**`, a short bullet list of the headline `[user]` changes, each
-    bullet with a bold lead-in, and one closing "Verder: …" bullet for the smaller fixes.
-    Leave out `[dev]` internals.
-  - Name the Helm chart version that installs this release, if there is one.
-  - End with `[Volledige release notes op GitHub](…/releases/tag/vX.Y.Z)`.
-- Read the previous announcement first (`discourse_search` for `Epistola <previous version>`)
-  and match its tone and layout.
+(`.agents/mcp/discourse/`; it posts as the signed-in user). Follow
+[references/announce.md](references/announce.md): Dutch with English in `[details]`, one post
+when the Valtimo plugin releases alongside, and a pre-release says it is not for production.
+Draft the post, show it to the user and post only after they approve it: once posted, it is
+public.
 
 ## Important
 
