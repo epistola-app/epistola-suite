@@ -47,7 +47,8 @@ Rules:
   production deployments (see below) — editing baseline files in place is then
   acceptable because every database is rebuilt from scratch.
 - **Unreleased migrations may be rewritten.** A migration that is on a release
-  line under development (such as `release/2.0`) but not on `main` has run on
+  line under development (none today: 2.0 became `main` on 2026-11-05, and
+  its chain is frozen like any other) but not on `main` has run on
   no installation, so it may be edited, merged with others or removed — the
   2.0 migrations were written again this way ([The 2.0 chain](#the-20-chain)). `checkMigrationVersions` allows it
   for any path absent from `main`, and still refuses for anything on `main`.
