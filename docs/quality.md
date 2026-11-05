@@ -361,7 +361,7 @@ Several ship today; these are worth reading in this order:
   job is to demonstrate the seam and the fingerprint contract, not to be a good check.
 - **`AccessibilityQualitySource`** (`accessibility`) — a real one. It reports an `image` node
   with no `alt` that is not marked `decorative`, which is exactly the case where
-  `ImageNodeRenderer` will stamp a **PDF/UA-1 identifier** on a document with no alternate
+  `ImageNodeRenderer` leaves a PDF/A document claiming **PDF/UA-1** with no alternate
   description behind it. The rule mirrors that renderer, so the two must move together; it is
   also the first source to carry a `docsUrl`, since it can point at the WCAG technique rather
   than explain itself. It needs nothing but the template model, which is why it did not wait for

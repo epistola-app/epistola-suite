@@ -111,12 +111,18 @@ PDF/A requires an output intent declaring the color space. Epistola embeds the s
 
 ## Conformance testing
 
-`PdfConformanceTest` (in `modules/generation`) validates rendered output with
-[veraPDF](https://verapdf.org/), the reference validator: against PDF/UA-1 always, since every
-document carries the PDF/UA-1 identifier, and against PDF/A-2b when PDF/A is on. Its corpus is every
-example in the contract's component registry (each block must have one), with PDF/A off and on, plus
-synthetic documents for a preview watermark and an address block on a multi-page letter. It runs in
-the normal `unitTest` / `test` tasks, so CI fails on a new violation.
+Every document is tagged for accessibility, but only a PDF/A document claims PDF/UA-1 conformance
+(the `pdfuaid` identifier in its XMP): without PDF/A the standard fonts are not embedded, which
+PDF/UA-1 requires ([#1308](https://github.com/epistola-app/epistola-suite/issues/1308)). So the
+template's PDF/A setting also decides whether a document claims to be accessible.
+
+`PdfConformanceTest` (in `modules/generation`) validates rendered PDF/A output with
+[veraPDF](https://verapdf.org/), the reference validator, against PDF/UA-1 and PDF/A-2b. Its corpus
+is every example in the contract's component registry (each block must have one), plus synthetic
+documents: a preview watermark, an address block on a multi-page letter, and a themed document with
+a custom font family, a style preset and an SVG image. Renders without PDF/A are checked to claim
+nothing and to leave no content untagged. It runs in the normal `unitTest` / `test` tasks, so CI fails
+on a new violation.
 
 It checks the renderer, not authors: a violation an author causes, such as an image without alt text,
 is a quality finding. Violations known today are listed in the test with their issue, and the test
@@ -149,5 +155,4 @@ column, converted by the 2.0 migration chain.
 
 - **Previews are not final output** — they honor the template's PDF/A setting for rendering parity but always carry a visible **PREVIEW** watermark.
 - **Font family is fixed** — Liberation Sans / Helvetica. Custom font support is not yet available.
-- **PDF/UA-1 without PDF/A** — the standard fonts are not embedded, which PDF/UA-1 requires, yet the identifier is stamped ([#1308](https://github.com/epistola-app/epistola-suite/issues/1308)).
 - **PDF/A-2b only** — higher conformance levels (PDF/A-2a with tagged structure, PDF/A-3 with attachments) are not supported.

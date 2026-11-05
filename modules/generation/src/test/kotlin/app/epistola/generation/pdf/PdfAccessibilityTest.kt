@@ -39,7 +39,7 @@ class PdfAccessibilityTest {
         )
 
         val snapshot = PdfAccessibilityInspector.inspect(
-            renderToBytes(doc, metadata = PdfMetadata(title = "Quarterly Report")),
+            renderToBytes(doc, metadata = PdfMetadata(title = "Quarterly Report"), pdfa = true),
         )
 
         assertTrue(snapshot.tagged, "PDF should be tagged")
@@ -47,6 +47,19 @@ class PdfAccessibilityTest {
         assertTrue(snapshot.displayDocTitle, "DisplayDocTitle viewer preference set when a title is present")
         assertTrue(snapshot.xmp.contains("pdfuaid:part"), "XMP should carry the PDF/UA-1 identifier")
         assertEquals("1", snapshot.pageLabels.firstOrNull(), "first page label is decimal 1")
+    }
+
+    @Test
+    fun `without PDF-A the document is tagged but claims no PDF-UA-1 conformance`() {
+        // Its standard fonts are not embedded, which PDF/UA-1 requires (#1308).
+        val doc = documentWithChildren(mapOf("p1" to textNode("p1", "Body.")), listOf("p1"))
+
+        val snapshot = PdfAccessibilityInspector.inspect(
+            renderToBytes(doc, metadata = PdfMetadata(title = "Letter"), pdfa = false),
+        )
+
+        assertTrue(snapshot.tagged, "PDF should still be tagged")
+        assertTrue("pdfuaid" !in snapshot.xmp, "no PDF/UA-1 identifier without PDF/A")
     }
 
     @Test
@@ -274,6 +287,7 @@ class PdfAccessibilityTest {
         metadata: PdfMetadata = PdfMetadata(),
         resolver: AssetResolver? = null,
         watermarkText: String? = null,
+        pdfa: Boolean = false,
     ): ByteArray {
         val output = ByteArrayOutputStream()
         renderer.render(
@@ -281,6 +295,7 @@ class PdfAccessibilityTest {
             data,
             output,
             metadata = metadata,
+            pdfaCompliant = pdfa,
             assetResolver = resolver,
             watermarkText = watermarkText,
         )

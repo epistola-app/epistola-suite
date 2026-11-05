@@ -24,11 +24,12 @@ import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
- * Validates rendered output with veraPDF, the reference validator, against the conformance every
- * document claims: PDF/UA-1 always (the renderer stamps the identifier on every document), and
- * PDF/A-2b when PDF/A is on (#453).
+ * Validates rendered output with veraPDF, the reference validator, against the conformance a PDF/A
+ * document claims: PDF/UA-1 and PDF/A-2b (#453). Without PDF/A a document claims neither (#1308);
+ * those renders are checked for complete tagging instead.
  *
  * The corpus is every example in the contract's component registry, the same examples the editor
  * requires per block and the MCP server serves, so a new block is covered the day it gets its
@@ -65,19 +66,29 @@ class PdfConformanceTest {
     )
 
     @TestFactory
-    fun `every component example conforms`(): List<DynamicTest> = registryExamples().flatMap { (name, document) ->
-        listOf(false, true).map { pdfa ->
-            dynamicTest("$name, PDF/A ${if (pdfa) "on" else "off"}") {
-                val known = KNOWN_VIOLATIONS[name].orEmpty()
-                assertConforms(render(document, pdfa = pdfa), pdfa, expected = known, tolerated = if (pdfa) emptySet() else setOf(FONT_NOT_EMBEDDED))
-            }
+    fun `every component example conforms with PDF-A on`(): List<DynamicTest> = registryExamples().map { (name, document) ->
+        dynamicTest(name) {
+            assertConforms(render(document, pdfa = true), expected = KNOWN_VIOLATIONS[name].orEmpty())
+        }
+    }
+
+    /**
+     * Without PDF/A nothing is claimed: the standard fonts are not embedded, which PDF/UA-1 requires
+     * (#1308). The tagging is the same code, so the render must still leave no content untagged.
+     */
+    @TestFactory
+    fun `every component example without PDF-A claims nothing and is fully tagged`(): List<DynamicTest> = registryExamples().map { (name, document) ->
+        dynamicTest(name) {
+            val pdf = render(document, pdfa = false)
+            assertTrue("pdfuaid" !in PdfAccessibilityInspector.inspect(pdf).xmp, "no PDF/UA-1 identifier without PDF/A")
+            assertEquals(emptyList(), PdfMarkedContentInspector.unmarkedText(pdf), "content neither tagged nor an artifact")
         }
     }
 
     @Test
     fun `a preview watermark conforms`() {
         val document = registryExamples().first { it.first == "text/minimal" }.second
-        assertConforms(render(document, pdfa = true, watermarkText = "PREVIEW"), pdfa = true)
+        assertConforms(render(document, pdfa = true, watermarkText = "PREVIEW"))
     }
 
     @Test
@@ -99,16 +110,50 @@ class PdfConformanceTest {
             nodes = example.nodes + (bodyNode.id to bodyNode),
             slots = example.slots + (rootSlot.id to rootSlot.copy(children = rootSlot.children + bodyNode.id)),
         )
-        assertConforms(render(document, pdfa = true), pdfa = true)
+        assertConforms(render(document, pdfa = true))
     }
 
     @Test
-    fun `without PDF-A the standard fonts are not embedded, which PDF-UA-1 forbids (known, #1308)`() {
-        // Tolerated in every PDF/A-off render above. When #1308 is fixed this fails: drop the
-        // tolerance there and this test.
-        val document = registryExamples().first { it.first == "text/minimal" }.second
-        val rules = violations(render(document, pdfa = false), PDFAFlavour.PDFUA_1).map { it.rule }
-        assertEquals(listOf(FONT_NOT_EMBEDDED), rules)
+    fun `a themed document with a custom font family, a style preset and an SVG image conforms`() {
+        // The registry examples render without a theme, with the built-in font and a PNG. Custom fonts
+        // are what PDF/A and PDF/UA are strictest about (embedding, widths, Unicode maps).
+        val heading = mapOf("type" to "heading", "attrs" to mapOf("level" to 1), "content" to listOf(mapOf("type" to "text", "text" to "Decision on your application")))
+        val paragraph = mapOf(
+            "type" to "paragraph",
+            "content" to listOf(
+                mapOf("type" to "text", "text" to "Dear Jane, we have "),
+                mapOf("type" to "text", "text" to "approved", "marks" to listOf(mapOf("type" to "bold"))),
+                mapOf("type" to "text", "text" to " your application. Ça va, Zoë?", "marks" to listOf(mapOf("type" to "italic"))),
+            ),
+        )
+        val nodes = listOf(
+            Node(id = "n-text", type = "text", props = mapOf("content" to mapOf("type" to "doc", "content" to listOf(heading, paragraph)))),
+            Node(id = "n-label", type = "text", stylePreset = "label", props = mapOf("content" to mapOf("type" to "doc", "content" to listOf(mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "Reference 2026-001"))))))),
+            Node(id = "n-logo", type = "image", props = mapOf("imageKey" to "logo-svg", "alt" to "Municipal logo", "width" to "60pt", "height" to "30pt")),
+        )
+        val document = TemplateDocument(
+            root = "n-root",
+            nodes = mapOf("n-root" to Node(id = "n-root", type = "root", slots = listOf("s-root"))) + nodes.associateBy { it.id },
+            slots = mapOf("s-root" to Slot(id = "s-root", nodeId = "n-root", name = "children", children = nodes.map { it.id })),
+        )
+        val theme = ResolvedTheme(
+            documentStyles = mapOf("fontFamily" to mapOf("slug" to "house-sans", "catalogKey" to "acme"), "color" to "#1a1a1a"),
+            blockStylePresets = mapOf("label" to mapOf("label" to "Label", "fontWeight" to 700, "color" to "#555555")),
+        )
+        val facesAsked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+        val fonts = FontFamilyResolver { _, slug, weight, italic ->
+            facesAsked += "$slug $weight${if (italic) " italic" else ""}"
+            FontFaceBytes(fontFace(weight, italic), contentHash = null)
+        }
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="30"><rect width="60" height="30" fill="#004488"/></svg>"""
+        var svgResolved = false
+        val svgAssets = AssetResolver { id, _ ->
+            if (id == "logo-svg") AssetResolution(svg.toByteArray(), "image/svg+xml").also { svgResolved = true } else null
+        }
+
+        assertConforms(render(document, pdfa = true, theme = theme, fonts = fonts, assetResolver = svgAssets))
+        assertTrue(svgResolved, "the SVG image was rendered")
+        assertTrue(setOf("house-sans 400", "house-sans 700", "house-sans 400 italic").all { it in facesAsked }, "faces asked: $facesAsked")
     }
 
     @Test
@@ -124,7 +169,7 @@ class PdfConformanceTest {
             slots = mapOf("s-root" to Slot(id = "s-root", nodeId = "n-root", name = "children", children = listOf(image.id))),
         )
 
-        val violations = violations(render(document, pdfa = false), PDFAFlavour.PDFUA_1)
+        val violations = violations(render(document, pdfa = true), PDFAFlavour.PDFUA_1)
 
         assertEquals(listOf(FIGURE_WITHOUT_ALT), violations.map { it.rule }, "only the figure rule should fail, got:\n${violations.joinToString("\n")}")
     }
@@ -138,7 +183,14 @@ class PdfConformanceTest {
 
     // --- rendering ------------------------------------------------------------------------------
 
-    private fun render(document: TemplateDocument, pdfa: Boolean, watermarkText: String? = null): ByteArray {
+    private fun render(
+        document: TemplateDocument,
+        pdfa: Boolean,
+        watermarkText: String? = null,
+        theme: ResolvedTheme = ResolvedTheme(),
+        fonts: FontFamilyResolver? = null,
+        assetResolver: AssetResolver = assets,
+    ): ByteArray {
         val out = ByteArrayOutputStream()
         renderer.render(
             document = document,
@@ -146,8 +198,10 @@ class PdfConformanceTest {
             outputStream = out,
             // As production passes it: the template name and the tenant (DocumentGenerationExecutor).
             metadata = PdfMetadata(title = "Conformance letter", author = "Acme Corp"),
+            resolvedTheme = theme,
             pdfaCompliant = pdfa,
-            assetResolver = assets,
+            assetResolver = assetResolver,
+            fontFamilyResolver = fonts,
             renderMode = RenderMode.STRICT,
             watermarkText = watermarkText,
         )
@@ -157,13 +211,13 @@ class PdfConformanceTest {
     // --- validation -----------------------------------------------------------------------------
 
     /**
-     * Fails on any violation not [expected] or [tolerated], and on an [expected] one that no longer
-     * occurs: a fixed violation has to leave [KNOWN_VIOLATIONS], so the list only shrinks.
+     * Validates against PDF/UA-1 and PDF/A-2b. Fails on any violation not [expected], and on an
+     * [expected] one that no longer occurs: a fixed violation has to leave [KNOWN_VIOLATIONS], so the
+     * list only shrinks.
      */
-    private fun assertConforms(pdf: ByteArray, pdfa: Boolean, expected: Set<String> = emptySet(), tolerated: Set<String> = emptySet()) {
-        val flavours = listOfNotNull(PDFAFlavour.PDFUA_1, PDFAFlavour.PDFA_2_B.takeIf { pdfa })
-        val violations = flavours.flatMap { violations(pdf, it) }
-        val unexpected = violations.filter { it.rule !in expected && it.rule !in tolerated }
+    private fun assertConforms(pdf: ByteArray, expected: Set<String> = emptySet()) {
+        val violations = listOf(PDFAFlavour.PDFUA_1, PDFAFlavour.PDFA_2_B).flatMap { violations(pdf, it) }
+        val unexpected = violations.filter { it.rule !in expected }
         assertEquals(emptyList(), unexpected, "veraPDF violations:\n${unexpected.joinToString("\n")}")
         val gone = expected - violations.map { it.rule }.toSet()
         assertEquals(emptySet(), gone, "listed in KNOWN_VIOLATIONS but no longer reported; remove them")
@@ -266,7 +320,6 @@ class PdfConformanceTest {
 
     companion object {
         private const val FIGURE_WITHOUT_ALT = "ISO 14289-1:2014 7.3-1"
-        private const val FONT_NOT_EMBEDDED = "ISO 14289-1:2014 7.21.4.1-1"
         private const val HEADINGS_START_AT_H1 = "ISO 14289-1:2014 7.4.2-1"
 
         /**
@@ -287,6 +340,16 @@ class PdfConformanceTest {
         private const val ROOT_SLOT = "s-conformance-root"
         private const val STENCIL = "n-conformance-stencil"
         private const val STENCIL_SLOT = "s-conformance-stencil"
+
+        private fun fontFace(weight: Int, italic: Boolean): ByteArray {
+            val style = when {
+                weight >= 600 && italic -> "BoldItalic"
+                weight >= 600 -> "Bold"
+                italic -> "Italic"
+                else -> "Regular"
+            }
+            return requireNotNull(PdfConformanceTest::class.java.getResourceAsStream("/fonts/LiberationSans-$style.ttf")).use { it.readBytes() }
+        }
 
         private val pngBytes: ByteArray = ByteArrayOutputStream().also {
             ImageIO.write(BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB), "png", it)
