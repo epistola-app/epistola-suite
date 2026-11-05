@@ -224,7 +224,8 @@ jobs:
 
   # The support floor installations read (`support` in releases.json on epistola.app)
   # must match SUPPORT_POLICY.md and the maintenance branches the watch scans. The
-  # document is authored by hand on the site, so this is what notices a stale one.
+  # site computes it by the same rules, so this notices a rule changed on one side
+  # only, an extension that outlived its date, or a branch left behind.
   support-floor:
     name: Published support matches the policy
     runs-on: ubuntu-latest
@@ -238,7 +239,9 @@ jobs:
 
       - name: Compare releases.json with the policy and the branches
         shell: bash # -o pipefail, so tee does not hide a failing check
-        run: python3 scripts/cve_watch.py check-support | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/cve_watch.py check-support --repository "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
 
   image-scan:
     name: Scan ${{ matrix.image }}

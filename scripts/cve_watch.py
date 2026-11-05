@@ -22,7 +22,9 @@ gap in two steps:
 ``check-support``
     Compares the support floor that installations read (``support`` in the
     published ``releases.json``) with SUPPORT_POLICY.md and with the maintenance
-    branches, and fails when they disagree: a line still advertised after its
+    branches, and fails when they disagree. The website computes that block from
+    the same GitHub release dates by the same rules (src/lib/server/releases/support.ts
+    in epistola-app/website), so a disagreement means one of them changed: a line still advertised after its
     end, a line dropped before it, an end date not announced, a supported major
     with no branch to patch it from, or a branch for a line nobody is promised.
 
@@ -47,7 +49,7 @@ import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -246,8 +248,12 @@ def published_support(url: str) -> dict[str, Any] | None:
     return document.get("products", {}).get(PRODUCT, {}).get("support")
 
 
-def release_tag_dates() -> dict[str, date]:
-    output = git("for-each-ref", "--format=%(refname:short) %(creatordate:short)", "refs/tags/v*")
+def github_release_dates(repository: str) -> dict[str, date]:
+    """Each published release's tag and UTC publication date: what the website dates lines by too."""
+    output = gh(
+        "api", f"repos/{repository}/releases?per_page=100", "--paginate",
+        "--jq", '.[] | select(.draft | not) | select(.published_at) | "\\(.tag_name) \\(.published_at[:10])"',
+    )
     return {tag: date.fromisoformat(day) for tag, day in (line.split() for line in output.splitlines())}
 
 
@@ -401,6 +407,7 @@ def main(argv: list[str] | None = None) -> int:
 
     support_parser = commands.add_parser("check-support", help="compare releases.json with the policy and branches")
     support_parser.add_argument("--releases-url", default=RELEASES_URL)
+    support_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
 
     triage_parser = commands.add_parser("triage", help="open an issue per new vulnerability")
     triage_parser.add_argument("reports", nargs="+", type=Path, help="Trivy JSON reports")
@@ -422,7 +429,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "check-support":
         support = published_support(args.releases_url)
-        problems = support_problems(support, release_tag_dates(), maintained_branch_tags(), date.today())
+        today = datetime.now(timezone.utc).date()
+        problems = support_problems(support, github_release_dates(args.repository), maintained_branch_tags(), today)
         print(f"Published support: {json.dumps(support)}")
         for problem in problems:
             print(f"- {problem}")
