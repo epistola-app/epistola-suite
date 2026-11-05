@@ -44,15 +44,16 @@
                             th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
                             hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this release</button>
 
-                    <!--/* Offered where it can be carried out: the catalog can publish at all, this
-                           release kept content to send, and it has not been sent already. */-->
+                    <!--/* Offered where it can be carried out: the catalog can publish at all, there is
+                           somewhere to send it, and it is not queued, accepted or rejected already. */-->
                     <form th:if="${releaseView != null and releaseView.publishable}" method="post" style="display: inline;"
                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId})}">
                         <input type="hidden" name="version" th:value="${version}">
                         <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="release-exchange-publish">Send to Epistola Exchange</button>
                     </form>
-                    <span th:if="${releaseView != null and releaseView.published}" class="badge badge-default"
-                          title="Already sent to Epistola Exchange">On Epistola Exchange</span>
+                    <span th:if="${releaseView != null and releaseView.exchangeStatus != null}"
+                          th:class="|badge ${releaseView.exchangeStatus.badgeClass}|" data-testid="release-exchange-status"
+                          th:text="|Epistola Exchange: ${releaseView.exchangeStatus.label}|">Epistola Exchange: Accepted</span>
 
                     <!--/* The stronger of the two: the version leaves the list altogether. */-->
                     <form th:if="${canManage}" method="post" style="display: inline;"

@@ -100,6 +100,19 @@ data class CatalogPublicationState(
      */
     val stalledPublications: List<CatalogReleasePublication> get() = publications.filter { it.isStalled }
 
+    /** The publication of [version], if it was ever queued: one per version, queued again in place. */
+    fun publicationOf(version: String): CatalogReleasePublication? = publications.firstOrNull { it.version == version }
+
+    /**
+     * Whether sending [version] to Exchange is a legitimate action now, decided as
+     * [PublishCurrentCatalogRelease] decides it: a version queued or accepted is on its way or there
+     * already, a rejected number cannot be published again, and a cancelled or failed one is queued
+     * again (#1008).
+     */
+    fun offersPublishing(version: String): Boolean = canPublish &&
+        hasPublishableDestination &&
+        publicationOf(version)?.status.let { it == null || it == CatalogPublicationStatus.CANCELLED || it == CatalogPublicationStatus.FAILED }
+
     /** No namespace is available to move to, so waiting for the organization is the only option. */
     val noNamespacesGranted: Boolean get() = available && availableNamespaces.isEmpty()
 

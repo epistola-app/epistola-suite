@@ -8,6 +8,8 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.exchange.CatalogPublicationState
+import app.epistola.suite.exchange.CatalogPublicationStatus
 import app.epistola.suite.handlers.CatalogViews.catalogGraph
 import app.epistola.suite.handlers.CatalogViews.catalogPage
 import app.epistola.suite.handlers.CatalogViews.deployments
@@ -219,9 +221,12 @@ class CatalogHandler {
     /** One release as the catalog page shows it: the release, and what may be done with it. */
     data class CatalogReleaseView(
         val release: CatalogReleaseSummary,
-        /** Already sent to Exchange, so the row says so instead of offering to send it again. */
-        val published: Boolean,
-        /** Publishing this release would be accepted — the command decides the same way. */
+        /**
+         * Where this release stands on Exchange, or null when it was never queued. Shown as it is:
+         * a cancelled or failed attempt is not "sent", a rejected one is not "on Exchange".
+         */
+        val exchangeStatus: CatalogPublicationStatus?,
+        /** Publishing this release would be accepted ([CatalogPublicationState.offersPublishing]). */
         val publishable: Boolean,
     )
 }
