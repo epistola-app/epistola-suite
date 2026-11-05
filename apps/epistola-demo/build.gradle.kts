@@ -14,7 +14,15 @@ extra["tomcat.version"] = "11.0.25"
 extra["jackson-bom.version"] = libs.versions.jackson.get()
 extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
 
+// OpenTelemetry security override — same pin and rationale as apps/epistola.
+extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
+
 dependencies {
+    // Guava security override — same constraint and rationale as apps/epistola.
+    constraints {
+        implementation(libs.guava) { because("CVE-2026-102554 in Guava 33.6.0, pulled in by gRPC") }
+    }
+
     // The whole suite, as a library. This app adds demo mode on top and changes nothing else.
     //
     // Demo mode is why the two apps exist. It gives every person who logs in a tenant of their own,
