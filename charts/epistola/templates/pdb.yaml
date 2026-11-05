@@ -23,4 +23,11 @@ spec:
   selector:
     matchLabels:
       {{- include "epistola.selectorLabels" . | nindent 6 }}
+    {{- /* The migration Job's pods carry the selector labels as well. Counted here, a running
+           migration pod passes for an app pod, and with maxUnavailable the controller cannot scale
+           a Job and allows no eviction at all. Kubernetes sets the first label from 1.27 and the
+           legacy one on every version. */}}
+    matchExpressions:
+      - { key: batch.kubernetes.io/job-name, operator: DoesNotExist }
+      - { key: job-name, operator: DoesNotExist }
 {{- end }}

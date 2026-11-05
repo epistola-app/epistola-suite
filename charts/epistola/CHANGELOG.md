@@ -34,6 +34,16 @@
   when set. Empty (the default) keeps the application defaults, `384MB` and `64` faces; `maxFaces: 0`
   turns the cache off. Raise them on pods that render many distinct fonts.
 
+### Fixed
+
+- **The pod disruption budget no longer counts the migration Job's pods.** They carry the
+  application's selector labels, so the PDB selected them too. With `maxUnavailable`, Kubernetes
+  could not scale a Job and allowed no eviction at all: a failed migration Job, which is kept, blocked
+  every node drain until the next release. With the default `minAvailable: 1`, a running migration
+  pod counted as available, and both application pods of a two-replica install could be evicted at
+  once. The PDB now excludes pods with a `batch.kubernetes.io/job-name` or `job-name` label; the
+  selector updates in place on upgrade ([#1251](https://github.com/epistola-app/epistola-suite/issues/1251)).
+
 ## [1.1.0] - 2026-10-13
 
 Deploys Epistola 1.4.0. Adds `productDomain` and one `endpoint` per Epistola integration, `sharing`, catalog source rules, autoscaling (HPA and VPA), a pod disruption budget and a graceful render drain.
