@@ -265,6 +265,8 @@ spec:
             - name: EPISTOLA_MIGRATION_MODE
               value: "validate"
             {{- end }}
+            - name: EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED
+              value: {{ .Values.migration.rollbackGuard.enabled | quote }}
             {{- /* Data shared with Epistola (docs/outbound-traffic.md). config.env comes after, so it can override. */}}
             - name: EPISTOLA_SHARING_INSTALLATIONID
               value: {{ .Values.sharing.installationId | quote }}

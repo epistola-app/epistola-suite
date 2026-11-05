@@ -17,6 +17,13 @@
 
 ### Added
 
+- **`migration.rollbackGuard.enabled` — the off switch for the rollback guard.** From Epistola 2.0
+  every app pod and migration step refuses to start on a database a newer release migrated past a
+  migration that is not rollback-compatible. `false` renders
+  `EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED=false` into the app container, the migration Job and the
+  init container, so the pods log what they would have refused and start. Default `true`; set it only
+  for a rollback you have checked is safe, then back. Epistola 1.x ignores it.
+
 - **`catalog.editing.enabled` — a run-only installation.** Off (`EPISTOLA_CATALOG_EDITING_ENABLED=false`),
   nobody can change a catalog in the installation: it receives releases, deploys them and rolls
   back. Typical for production when catalogs are made in a test installation. Default `true`, as

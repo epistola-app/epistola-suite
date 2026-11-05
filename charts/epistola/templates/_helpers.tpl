@@ -283,6 +283,8 @@ Rendered as a container list item.
   env:
     - name: EPISTOLA_MIGRATION_MODE
       value: "migrate"
+    - name: EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED
+      value: {{ .Values.migration.rollbackGuard.enabled | quote }}
     {{- if .Values.jvm.options }}
     - name: JAVA_TOOL_OPTIONS
       value: {{ .Values.jvm.options | quote }}
