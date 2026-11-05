@@ -77,6 +77,10 @@ When the timer is running, the run in progress keeps its lease: no other node
 starts the timer beside it, and finishing the run releases the row to the new
 due time and payload instead of deleting or overwriting it.
 
+Cancelling (`CancelClusterTimer`) deletes the row, lease included. A run in
+progress is not stopped, and a timer scheduled again under the same key after a
+cancel is a new timer: it may start on another node while that run still goes.
+
 The mediator-facing read API is `GetClusterTimer` and `ListClusterTimers`.
 Application and operations code should use these commands and queries. The
 `ClusterTimerRegistry` remains an internal persistence boundary for scheduler

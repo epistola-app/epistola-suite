@@ -100,7 +100,7 @@ class ClusterSchedulingMonkeyIT : IntegrationTestBase() {
                 in 76..79 -> taskKeys().random(random).let { key -> record(step, "enable $key") { node.tasks.enable(key) } }
                 in 80..81 -> if (awake) redeploy(step, node)
                 in 82..90 -> scheduleTimer(step, node)
-                in 91..92 -> liveTimers.randomOrNull(random)?.let { key -> record(step, "cancel $key") { node.timers.cancel(key) } }
+                in 91..92 -> liveTimers.randomOrNull(random)?.let { key -> cancelTimer(step, node, key) }
                 in 93..96 -> (taskKeys() + liveTimers).random(random).let { key -> record(step, "fail next $key") { cluster.failNext(key) } }
                 else -> if (awake) record(step, "${node.nodeId} heartbeats") { node.heartbeat() }
             }
@@ -152,6 +152,15 @@ class ClusterSchedulingMonkeyIT : IntegrationTestBase() {
             }
             timerSchedules.merge(key, 1, Int::plus)
             liveTimers += key
+        }
+
+        /**
+         * Cancelling deletes the row, lease and all, so a timer scheduled again under the same key is
+         * a new one: it may start beside a run of the cancelled one still going (docs/timers.md).
+         */
+        private fun cancelTimer(step: Int, node: VirtualCluster.VirtualNode, key: String) {
+            record(step, "cancel $key") { node.timers.cancel(key) }
+            if (cluster.heldKey() == key) cluster.abandonHeld()
         }
 
         private fun advance(duration: Duration) {
