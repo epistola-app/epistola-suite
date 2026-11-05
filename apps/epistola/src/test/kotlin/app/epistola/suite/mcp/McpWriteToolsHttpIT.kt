@@ -31,9 +31,10 @@ import java.util.UUID
 
 /**
  * The MCP write tools over the real transport: a real API key through the production API-key
- * filter, the Streamable HTTP handshake, and `tools/call` with the arguments an MCP client sends.
- * `McpWriteToolsIntegrationTest` covers what each tool does; this covers what only the transport
- * decides — the generated input schemas, argument binding, and how a refusal reaches the client.
+ * filter, the stateless Streamable HTTP transport, and `tools/call` with the arguments an MCP client
+ * sends. `McpWriteToolsIntegrationTest` covers what each tool does; this covers what only the
+ * transport decides — the generated input schemas, argument binding, how a refusal reaches the
+ * client, and that no request depends on a session held by the replica that served `initialize`.
  */
 @Import(
     TestcontainersConfiguration::class,
@@ -132,34 +133,90 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
         assertThat(result.toString()).contains("clearTheme")
     }
 
+    @Test
+    fun `initialize hands out no session, so any replica can serve what follows`() {
+        val key = seedKey(setOf(TenantRole.CONTENT_VIEWER)).second
+
+        val response = post(key, INITIALIZE, session = null)
+
+        assertThat(response.statusCode()).isEqualTo(200)
+        assertThat(response.headers().firstValue("Mcp-Session-Id")).isEmpty
+    }
+
+    @Test
+    fun `a request naming a session this replica never issued is served`() {
+        // What a second replica sees: the client initialized against another pod and carries that
+        // pod's session id. A session-bound transport answers 404 "Session not found" (#1241).
+        val key = seedKey(setOf(TenantRole.CONTENT_VIEWER)).second
+        val toolsList = mapOf("jsonrpc" to "2.0", "id" to 1, "method" to "tools/list")
+
+        val responses = (1..3).map { post(key, toolsList, session = UUID.randomUUID().toString()) }
+
+        assertThat(responses.map { it.statusCode() }).containsOnly(200)
+        assertThat(objectMapper.readTree(jsonRpcPayload(responses.first().body())).get("result").get("tools").size()).isPositive
+    }
+
+    @Test
+    fun `no server-to-client event stream is offered`() {
+        val key = seedKey(setOf(TenantRole.CONTENT_VIEWER)).second
+        val request = HttpRequest.newBuilder(URI.create("http://localhost:$port/api/mcp"))
+            .header("Authorization", "ApiKey $key")
+            .header("Accept", "text/event-stream")
+            .GET()
+            .build()
+
+        assertThat(http.send(request, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(405)
+    }
+
+    @Test
+    fun `a tool call without any initialize is served`() {
+        val key = seedKey(TenantRole.entries.toSet()).second
+        val call = mapOf(
+            "jsonrpc" to "2.0",
+            "id" to 1,
+            "method" to "tools/call",
+            "params" to mapOf("name" to "create_template", "arguments" to mapOf("catalogId" to "default", "templateId" to "cold", "name" to "Cold")),
+        )
+
+        val response = post(key, call, session = null)
+
+        assertThat(response.statusCode()).isEqualTo(200)
+        assertThat(objectMapper.readTree(jsonRpcPayload(response.body())).get("result").get("isError")?.asBoolean() ?: false).isFalse
+    }
+
+    private fun post(key: String, body: Map<String, Any?>, session: String?): HttpResponse<String> {
+        val request = HttpRequest.newBuilder(URI.create("http://localhost:$port/api/mcp"))
+            .header("Authorization", "ApiKey $key")
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .apply { if (session != null) header("Mcp-Session-Id", session) }
+            .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+            .build()
+        return http.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+
+    /** The server answers either with plain JSON or with one SSE `data:` event carrying it. */
+    private fun jsonRpcPayload(body: String): String = body.lineSequence().firstOrNull { it.startsWith("data:") }?.removePrefix("data:")?.trim() ?: body
+
     private fun seedKey(roles: Set<TenantRole>): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("mcpw-${UUID.randomUUID().toString().take(8)}")
         CreateTenant(id = tenantKey, name = "MCP Write Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "mcp-write-it", roles = roles).execute().plaintextKey
     }
 
-    /** One Streamable HTTP session: `initialize`, then `notifications/initialized`, then requests. */
+    /**
+     * What an MCP client does: `initialize`, then `notifications/initialized`, then requests. It
+     * sends `Mcp-Session-Id` only when the server assigned one, which the stateless transport never does.
+     */
     private inner class McpSession(private val key: String) {
-        private var nextId = 1
-        private val sessionId: String
+        private var nextId = 2
+        private val sessionId: String?
 
         init {
-            val response = post(
-                mapOf(
-                    "jsonrpc" to "2.0",
-                    "id" to nextId++,
-                    "method" to "initialize",
-                    "params" to mapOf(
-                        "protocolVersion" to "2025-03-26",
-                        "capabilities" to emptyMap<String, Any>(),
-                        "clientInfo" to mapOf("name" to "mcp-write-it", "version" to "1"),
-                    ),
-                ),
-                session = null,
-            )
+            val response = post(key, INITIALIZE, session = null)
             assertThat(response.statusCode()).isEqualTo(200)
-            sessionId = response.headers().firstValue("Mcp-Session-Id").orElseThrow()
-            post(mapOf("jsonrpc" to "2.0", "method" to "notifications/initialized"), sessionId)
+            sessionId = response.headers().firstValue("Mcp-Session-Id").orElse(null)
+            post(key, mapOf("jsonrpc" to "2.0", "method" to "notifications/initialized"), sessionId)
         }
 
         fun rpc(method: String, params: Map<String, Any?>? = null): JsonNode {
@@ -169,7 +226,7 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
                 put("method", method)
                 if (params != null) put("params", params)
             }
-            val response = post(body, sessionId)
+            val response = post(key, body, sessionId)
             assertThat(response.statusCode()).isEqualTo(200)
             return objectMapper.readTree(jsonRpcPayload(response.body()))
         }
@@ -184,23 +241,20 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
                 ?: objectMapper.readTree(result.get("content").get(0).get("text").asString())
             return structured.get("result") ?: structured
         }
-
-        private fun post(body: Map<String, Any?>, session: String?): HttpResponse<String> {
-            val request = HttpRequest.newBuilder(URI.create("http://localhost:$port/api/mcp"))
-                .header("Authorization", "ApiKey $key")
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json, text/event-stream")
-                .apply { if (session != null) header("Mcp-Session-Id", session) }
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
-                .build()
-            return http.send(request, HttpResponse.BodyHandlers.ofString())
-        }
-
-        /** The server answers either with plain JSON or with one SSE `data:` event carrying it. */
-        private fun jsonRpcPayload(body: String): String = body.lineSequence().firstOrNull { it.startsWith("data:") }?.removePrefix("data:")?.trim() ?: body
     }
 
     private companion object {
+        val INITIALIZE = mapOf(
+            "jsonrpc" to "2.0",
+            "id" to 1,
+            "method" to "initialize",
+            "params" to mapOf(
+                "protocolVersion" to "2025-03-26",
+                "capabilities" to emptyMap<String, Any>(),
+                "clientInfo" to mapOf("name" to "mcp-write-it", "version" to "1"),
+            ),
+        )
+
         val DOCUMENT = """
             {"modelVersion": 1, "root": "root",
              "nodes": {
