@@ -274,6 +274,15 @@ running on a newer schema. Under Helm, `helm rollback` does not run the `pre-upg
 so a refused rollback shows as the rolled-back pods crash-looping on that message while the pods
 still on the newer version keep serving.
 
+**Overriding a refusal.** A refusal is the safe answer, not always the right one: the blocking
+migration may touch nothing the older build uses, or the guard itself may be wrong. Once you have
+checked that the older build can run on the schema, start it with the guard off —
+`EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED=false` (`epistola.migration.rollback-guard.enabled`; in the
+Helm chart `migration.rollbackGuard.enabled: false`, which reaches the app pods and the migration
+step). The build then logs what it would have refused and starts. The migration step keeps
+recording declarations, so turn the guard back on once the rollback is done: the next refusal is
+then one you have not checked yet. Default `true`.
+
 To know in advance how far back you can go, look at the **rollback floor** — the newest applied
 migration that is not rollback-compatible. The migration step logs it on every run
 (`Rollback floor: a build must ship migration … (recorded by 2.1.0) …`), or ask the database:

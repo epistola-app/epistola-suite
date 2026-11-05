@@ -193,10 +193,16 @@ object RollbackCompatibility {
  *   `installed_rank` in `flyway_schema_history` and with its version, because an older build does
  *   not ship those files and can only read what was recorded. Rows are written once
  *   (`ON CONFLICT DO NOTHING`): a header is part of the migration's checksum, so it never changes.
+ *
+ * With [enforced] false (`epistola.migration.rollback-guard.enabled=false`) [requireCompatible] logs
+ * what it would have refused and lets the build start: the way out when an operator has checked that
+ * a refused rollback is safe, or when the guard itself is wrong. [recordApplied] runs either way, so
+ * the record stays complete for when the guard is switched back on.
  */
 class SchemaRollbackGuard(
     private val flyway: Flyway,
     private val buildVersion: String? = BUILD_VERSION,
+    private val enforced: Boolean = true,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -229,7 +235,15 @@ class SchemaRollbackGuard(
                 verdict.unshipped.joinToString(", "),
             )
 
-            is RollbackVerdict.AheadIncompatible -> throw aheadException(verdict)
+            is RollbackVerdict.AheadIncompatible -> {
+                val refusal = aheadException(verdict)
+                if (enforced) throw refusal
+                logger.warn(
+                    "Rollback guard disabled (epistola.migration.rollback-guard.enabled=false), so this build starts " +
+                        "although it would have refused: {}",
+                    refusal.description,
+                )
+            }
         }
     }
 

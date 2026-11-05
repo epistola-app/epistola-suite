@@ -45,6 +45,22 @@ class SchemaRollbackGuardIT {
     }
 
     @Test
+    fun `an operator can switch the guard off, and the refusal returns when it is switched on again`() {
+        val database = freshDatabase("rollback_guard_disabled")
+        assertThat(migrate(database, "classpath:rollback-probe/breaking")).isZero()
+
+        for (mode in listOf("validate", "embedded")) {
+            boot(database, mode, "--$GUARD_SWITCH=false")
+        }
+        assertThat(MigrationLauncher.runMigration(datasourceArgs(database) + "--$GUARD_SWITCH=false")).isZero()
+
+        // Switching it off changes no record: the next start with the guard on refuses as before.
+        assertThat(recorded(database)[PROBE]).isFalse()
+        assertThatThrownBy { boot(database, "validate") }
+            .hasStackTraceContaining("29990101000000 (not rollback-compatible")
+    }
+
+    @Test
     fun `a build starts again on the database it migrated, code migrations included`() {
         val database = freshDatabase("rollback_guard_same_build")
         assertThat(migrate(database)).isZero()
@@ -138,9 +154,10 @@ class SchemaRollbackGuardIT {
     private fun boot(
         database: String,
         mode: String,
+        vararg extraArgs: String,
     ) {
         MigrationLauncher.migrationApplication()
-            .run(*datasourceArgs(database), "--epistola.migration.mode=$mode", "--spring.flyway.clean-disabled=true")
+            .run(*datasourceArgs(database), "--epistola.migration.mode=$mode", "--spring.flyway.clean-disabled=true", *extraArgs)
             .close()
     }
 
@@ -187,6 +204,9 @@ class SchemaRollbackGuardIT {
         const val PROBE = "29990101000000"
 
         const val FAILING_PROBE = "29990102000000"
+
+        /** The operator's off switch for the refusal (docs/upgrades.md#rollback). */
+        const val GUARD_SWITCH = "epistola.migration.rollback-guard.enabled"
 
         /** The migration just before [RollbackCompatibilityDeclarationTest.FIRST_DECLARING]. */
         const val LAST_UNDECLARED = "20261101002000"

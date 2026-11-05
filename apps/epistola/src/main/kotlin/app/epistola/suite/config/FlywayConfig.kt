@@ -56,6 +56,7 @@ class SchemaBehindException(
  * Every mode first runs [SchemaRollbackGuard.requireCompatible]: a build refuses to start against a
  * database that holds a migration it does not ship and that is not rollback-compatible. The modes
  * that migrate then record each applied migration's declaration, so a later, older build can judge.
+ * `epistola.migration.rollback-guard.enabled=false` turns the refusal into a warning; the recording stays.
  *
  * `embedded`/`migrate` run `flyway.migrate()` (idempotent — a no-op when already
  * at head). **The application never resets a database:** there is no
@@ -79,11 +80,13 @@ class FlywayConfig {
         @Value("\${epistola.migration.mode:embedded}") mode: String,
         // Preflight checks an operator skips, by id, after reading why they refused (docs/upgrades.md).
         @Value("\${epistola.migration.preflight.skip:}") skipPreflight: String,
+        // Off only when an operator has checked that a refused rollback is safe (docs/upgrades.md#rollback).
+        @Value("\${epistola.migration.rollback-guard.enabled:true}") rollbackGuardEnabled: Boolean,
     ): FlywayMigrationStrategy {
         val skipped = skipPreflight.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         val migrationMode = MigrationMode.from(mode)
         return FlywayMigrationStrategy { flyway ->
-            val rollbackGuard = SchemaRollbackGuard(flyway)
+            val rollbackGuard = SchemaRollbackGuard(flyway, enforced = rollbackGuardEnabled)
             // Before anything touches the schema: a build that a newer one has migrated past by a
             // change it cannot run against refuses to start, in every mode (docs/upgrades.md#rollback).
             rollbackGuard.requireCompatible()
