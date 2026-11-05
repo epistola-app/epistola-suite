@@ -19,6 +19,15 @@ gap in two steps:
     each in its production and ``-demo`` variant. The workflow scans each one with
     Trivy, applying our own OpenVEX document.
 
+``check-support``
+    Compares the support floor that installations read (``support`` in the
+    published ``releases.json``) with SUPPORT_POLICY.md and with the maintenance
+    branches, and fails when they disagree. The website computes that block from
+    the same GitHub release dates by the same rules (src/lib/server/releases/support.ts
+    in epistola-app/website), so a disagreement means one of them changed: a line still advertised after its
+    end, a line dropped before it, an end date not announced, a supported major
+    with no branch to patch it from, or a branch for a line nobody is promised.
+
 ``triage``
     Reads the Trivy JSON reports, groups the findings per vulnerability, and opens
     one ``cve-watch`` issue for each vulnerability that has never had one. Closing
@@ -38,7 +47,9 @@ import json
 import re
 import subprocess
 import sys
+import urllib.request
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +59,11 @@ VERSION_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z
 TITLE_ID = re.compile(r"^\[cve-watch\] (\S+)")
 SEVERITY_ORDER = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 IMAGE_VARIANTS = ["", "-demo"]
+RELEASES_URL = "https://epistola.app/.well-known/epistola/releases.json"
+PRODUCT = "epistola-suite"
+# SUPPORT_POLICY.md: how long a line stays supported once its successor ships.
+MINOR_GRACE = timedelta(days=30)
+MAJOR_OVERLAP_MONTHS = 3
 REMOTE = "refs/remotes/origin/"
 # A maintenance branch is `release/1.x` (or `release/2.0`). The other `release/*` branches
 # are left over from preparing one release (`release/v1.1.0`, `release/grafana-0.1.1`).
@@ -91,10 +107,10 @@ def branch_versions(tags: list[str]) -> list[Version]:
     deployed; a pre-release newer than it (the next minor's RC, or every alpha of
     a major with no release yet) is what is being tried out.
     """
-    versions = [version for tag in tags if (version := Version.parse(tag))]
-    if not versions:
+    major = branch_major(tags)
+    if major is None:
         return []
-    major = max(versions, key=Version.precedence).major
+    versions = [version for tag in tags if (version := Version.parse(tag))]
     in_line = [version for version in versions if version.major == major]
     releases = [version for version in in_line if not version.pre_release]
     pre_releases = [version for version in in_line if version.pre_release]
@@ -113,6 +129,132 @@ def supported_versions(tags_per_branch: dict[str, list[str]]) -> list[str]:
     """The versions to scan across every maintained branch, newest first and each once."""
     versions = {version for tags in tags_per_branch.values() for version in branch_versions(tags)}
     return [str(version) for version in sorted(versions, key=Version.precedence, reverse=True)]
+
+
+Line = tuple[int, int]
+
+
+def add_months(day: date, months: int) -> date:
+    month = day.month - 1 + months
+    year, month = day.year + month // 12, month % 12 + 1
+    for last in (31, 30, 29, 28):
+        try:
+            return date(year, month, min(day.day, last))
+        except ValueError:
+            continue
+    raise AssertionError("unreachable")
+
+
+def line_starts(release_dates: dict[str, date]) -> dict[Line, date]:
+    """When each minor line shipped: the date of its first release (pre-releases do not count)."""
+    starts: dict[Line, date] = {}
+    for tag, day in release_dates.items():
+        version = Version.parse(tag)
+        if version and not version.pre_release:
+            line = (version.major, version.minor)
+            starts[line] = min(day, starts.get(line, day))
+    return starts
+
+
+def policy_ends(starts: dict[Line, date]) -> dict[Line, date | None]:
+    """The last supported day per SUPPORT_POLICY.md; ``None`` while the line has no successor.
+
+    A minor line ends 30 days after the next minor of its major ships, or as soon as
+    a second one does: a major has at most two supported lines, the newest and the
+    one it replaced. The newest minor of a major ends three months after the next
+    major's first release.
+    """
+    ends: dict[Line, date | None] = {}
+    for line in starts:
+        later_minors = sorted(start for (major, minor), start in starts.items() if major == line[0] and minor > line[1])
+        later_majors = [start for (major, _), start in starts.items() if major > line[0]]
+        if later_minors:
+            grace_end = later_minors[0] + MINOR_GRACE
+            ends[line] = min(grace_end, later_minors[1]) if len(later_minors) > 1 else grace_end
+        elif later_majors:
+            ends[line] = add_months(min(later_majors), MAJOR_OVERLAP_MONTHS)
+        else:
+            ends[line] = None
+    return ends
+
+
+def line_name(line: Line) -> str:
+    return f"{line[0]}.{line[1]}"
+
+
+def support_problems(
+    support: dict[str, Any] | None,
+    release_dates: dict[str, date],
+    tags_per_branch: dict[str, list[str]],
+    today: date,
+) -> list[str]:
+    """Where the published support block, the policy and the maintenance branches disagree."""
+    starts = line_starts(release_dates)
+    if not starts:
+        return []
+    ends = policy_ends(starts)
+    supported = sorted(line for line, end in ends.items() if end is None or end >= today)
+    expected = supported[0]
+    expected_until = ends[expected]
+
+    floor = Version.parse(f"v{(support or {}).get('minVersion', '')}")
+    if floor is None:
+        return [f"releases.json publishes no support.minVersion; the policy's floor is {line_name(expected)}.0."]
+    published = (floor.major, floor.minor)
+    until_text = (support or {}).get("until")
+    until = date.fromisoformat(until_text) if until_text else None
+
+    problems: list[str] = []
+    if published > expected:
+        problems.append(
+            f"releases.json drops {line_name(expected)} (support.minVersion {floor}), but the policy supports it "
+            f"until {expected_until}. An end date is never brought forward."
+        )
+    elif published < expected and not (until and until >= today):
+        ended = ends[published]
+        problems.append(
+            f"releases.json still supports {line_name(published)} (support.minVersion {floor}), whose support "
+            f"ended on {ended}. Raise support.minVersion to {line_name(expected)}.0"
+            + (f" with support.until {expected_until}." if expected_until else ".")
+            + " To extend support on purpose, set support.until to the new end date."
+        )
+    elif published == expected and expected_until and not (until and until >= expected_until):
+        problems.append(
+            f"The policy supports {line_name(expected)} until {expected_until}, but releases.json "
+            + (f"publishes support.until {until}." if until else "announces no support.until.")
+            + f" Set support.until to {expected_until} (or later, to extend it)."
+        )
+
+    # A line can only be patched from a branch: main, or release/<major>.x.
+    majors_by_branch = {branch: branch_major(tags) for branch, tags in tags_per_branch.items()}
+    advertised = {major for major, minor in starts if (major, minor) >= published}
+    for major in sorted(advertised - set(majors_by_branch.values())):
+        problems.append(f"releases.json supports {major}.x, but no branch maintains it: cut release/{major}.x.")
+    for branch, major in sorted(majors_by_branch.items()):
+        if branch != "main" and major is not None and major not in advertised:
+            problems.append(f"{branch} maintains {major}.x, which releases.json no longer supports: delete the branch.")
+    return problems
+
+
+def branch_major(tags: list[str]) -> int | None:
+    versions = [version for tag in tags if (version := Version.parse(tag))]
+    return max(versions, key=Version.precedence).major if versions else None
+
+
+def published_support(url: str) -> dict[str, Any] | None:
+    request = urllib.request.Request(url, headers={"User-Agent": "epistola-cve-watch"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        document = json.load(response)
+    return document.get("products", {}).get(PRODUCT, {}).get("support")
+
+
+def github_release_dates(repository: str) -> dict[str, date]:
+    """Each published release's tag and UTC publication date: what the website dates lines by too."""
+    output = gh(
+        "api", f"repos/{repository}/releases?per_page=100", "--paginate",
+        "--jq", '.[] | select(.draft | not) | select(.published_at) | "\\(.tag_name) \\(.published_at[:10])"',
+    )
+    return {tag: date.fromisoformat(day) for tag, day in (line.split() for line in output.splitlines())}
 
 
 def git(*args: str) -> str:
@@ -263,6 +405,10 @@ def main(argv: list[str] | None = None) -> int:
     images = commands.add_parser("supported-images", help="print the supported release images as JSON")
     images.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
 
+    support_parser = commands.add_parser("check-support", help="compare releases.json with the policy and branches")
+    support_parser.add_argument("--releases-url", default=RELEASES_URL)
+    support_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
+
     triage_parser = commands.add_parser("triage", help="open an issue per new vulnerability")
     triage_parser.add_argument("reports", nargs="+", type=Path, help="Trivy JSON reports")
     triage_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
@@ -281,6 +427,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{branch}: {picked}", file=sys.stderr)
         print(json.dumps(image_refs(args.repository, versions)))
         return 0
+    if args.command == "check-support":
+        support = published_support(args.releases_url)
+        today = datetime.now(timezone.utc).date()
+        problems = support_problems(support, github_release_dates(args.repository), maintained_branch_tags(), today)
+        print(f"Published support: {json.dumps(support)}")
+        for problem in problems:
+            print(f"- {problem}")
+        if not problems:
+            print("The published support floor matches SUPPORT_POLICY.md and the maintenance branches.")
+        return 1 if problems else 0
     return triage(args.reports, args.repository, args.dry_run, args.max_new)
 
 

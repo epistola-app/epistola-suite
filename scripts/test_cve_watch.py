@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -84,6 +85,86 @@ class SupportedVersionsTest(unittest.TestCase):
             cve_watch.image_refs("o/r", ["1.5.0"]),
             ["ghcr.io/o/r:1.5.0", "ghcr.io/o/r:1.5.0-demo"],
         )
+
+
+# The 1.x releases as they shipped, and a 2.0.0 that ships on 10 January 2027.
+RELEASES_1X = {
+    "v1.0.0-RC6": date(2026, 7, 20),
+    "v1.0.0": date(2026, 7, 31),
+    "v1.1.0": date(2026, 8, 25),
+    "v1.2.0": date(2026, 9, 22),
+    "v1.3.0": date(2026, 9, 28),
+    "v1.4.0": date(2026, 10, 13),
+    "v1.5.0": date(2026, 10, 15),
+    "v2.0.0-beta.1": date(2026, 11, 4),
+}
+RELEASES_2_0 = {**RELEASES_1X, "v2.0.0": date(2027, 1, 10)}
+BRANCHES_TODAY = {"main": ["v1.5.0", "v2.0.0-beta.1"], "release/1.x": ["v1.5.0"]}
+BRANCHES_2_0 = {"main": ["v1.5.0", "v2.0.0"], "release/1.x": ["v1.5.0", "v1.5.1"]}
+
+
+def problems(support, today, releases=RELEASES_1X, branches=BRANCHES_TODAY):
+    return cve_watch.support_problems(support, releases, branches, today)
+
+
+class SupportCheckTest(unittest.TestCase):
+    def test_the_floor_published_on_2026_11_05_is_four_lines_too_low(self) -> None:
+        [problem] = problems({"minVersion": "1.0.0"}, date(2026, 11, 5))
+        self.assertIn("still supports 1.0", problem)
+        self.assertIn("Raise support.minVersion to 1.4.0 with support.until 2026-11-14", problem)
+
+    def test_the_previous_minor_has_30_days_after_the_newest_ships(self) -> None:
+        self.assertEqual(problems({"minVersion": "1.4.0", "until": "2026-11-14"}, date(2026, 11, 5)), [])
+
+    def test_its_end_date_is_announced(self) -> None:
+        [problem] = problems({"minVersion": "1.4.0"}, date(2026, 11, 5))
+        self.assertIn("announces no support.until. Set support.until to 2026-11-14", problem)
+
+    def test_a_line_two_minors_back_ends_when_the_second_ships(self) -> None:
+        # 1.3 had 30 days from 1.4.0 (13 October), but 1.5.0 two days later ended it.
+        self.assertEqual(cve_watch.policy_ends(cve_watch.line_starts(RELEASES_1X))[(1, 3)], date(2026, 10, 15))
+
+    def test_after_the_grace_period_the_floor_moves_up(self) -> None:
+        [problem] = problems({"minVersion": "1.4.0", "until": "2026-11-14"}, date(2026, 11, 15))
+        self.assertIn("still supports 1.4", problem)
+        self.assertIn("Raise support.minVersion to 1.5.0.", problem)
+
+    def test_a_line_is_not_dropped_before_its_end(self) -> None:
+        [problem] = problems({"minVersion": "1.5.0"}, date(2026, 11, 5))
+        self.assertIn("drops 1.4", problem)
+        self.assertIn("until 2026-11-14", problem)
+
+    def test_the_last_minor_of_a_major_has_three_months_after_the_next_major(self) -> None:
+        support = {"minVersion": "1.5.0", "until": "2027-04-10"}
+        self.assertEqual(problems(support, date(2027, 1, 11), RELEASES_2_0, BRANCHES_2_0), [])
+        [problem] = problems({"minVersion": "1.5.0"}, date(2027, 1, 11), RELEASES_2_0, BRANCHES_2_0)
+        self.assertIn("Set support.until to 2027-04-10", problem)
+
+    def test_an_end_date_is_never_brought_forward(self) -> None:
+        support = {"minVersion": "1.5.0", "until": "2027-03-01"}
+        [problem] = problems(support, date(2027, 1, 11), RELEASES_2_0, BRANCHES_2_0)
+        self.assertIn("publishes support.until 2027-03-01", problem)
+
+    def test_an_extension_is_allowed(self) -> None:
+        support = {"minVersion": "1.5.0", "until": "2027-06-30"}
+        self.assertEqual(problems(support, date(2027, 5, 1), RELEASES_2_0, BRANCHES_2_0), [])
+
+    def test_a_supported_major_needs_a_branch_to_patch_it_from(self) -> None:
+        support = {"minVersion": "1.5.0", "until": "2027-04-10"}
+        [problem] = problems(support, date(2027, 1, 11), RELEASES_2_0, {"main": ["v2.0.0"]})
+        self.assertIn("no branch maintains it: cut release/1.x", problem)
+
+    def test_a_branch_for_a_line_nobody_is_promised_is_flagged(self) -> None:
+        [problem] = problems({"minVersion": "2.0.0"}, date(2027, 4, 11), RELEASES_2_0, BRANCHES_2_0)
+        self.assertIn("release/1.x maintains 1.x, which releases.json no longer supports", problem)
+
+    def test_no_support_block_is_a_problem(self) -> None:
+        [problem] = problems(None, date(2026, 11, 5))
+        self.assertIn("no support.minVersion; the policy's floor is 1.4.0", problem)
+
+    def test_months_are_calendar_months(self) -> None:
+        self.assertEqual(cve_watch.add_months(date(2027, 11, 30), 3), date(2028, 2, 29))
+        self.assertEqual(cve_watch.add_months(date(2027, 1, 10), 3), date(2027, 4, 10))
 
 
 class CollectFindingsTest(unittest.TestCase):

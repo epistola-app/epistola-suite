@@ -36,25 +36,53 @@ Typical expectation:
 
 ## Supported versions
 
-The **two most recently released minor release lines** are supported and
-patched. As long as fewer than two minor release lines have been released, all
-available minor release lines are supported.
+Within a major version, only the **newest minor release line** is patched. A
+line stays supported for a fixed time after its successor ships, so there is
+always room to upgrade:
 
-The set of currently supported versions is published separately through the
-website and/or repository release metadata.
+| When                                             | The line it replaces stays supported for |
+| ------------------------------------------------ | ---------------------------------------- |
+| A new **minor** ships (1.5.0 after 1.4.x)        | **30 days**                              |
+| A new **major** ships (2.0.0 after the last 1.x) | **3 months**                             |
 
-**Supported** versions receive:
+A major therefore has at most two supported minor lines: the newest, and for 30
+days the one before it. Shipping another minor ends the older one's period
+early.
+
+**The newest minor line** receives:
 
 - Bug fixes
 - Security fixes
 - Documentation updates
 - Technical support (where an arrangement with Epistola Nederland B.V. applies)
 
+**The previous minor line, during its 30 days,** receives technical support.
+Its fixes ship in the newest minor, which is backwards compatible: upgrading to
+it is the fix.
+
+**The last minor line of the previous major, during its three months,** receives
+security fixes and fixes for data loss or corruption, as patch releases (1.5.x),
+and technical support. It receives no other bug fixes and no new features.
+
+**Pre-releases** (alpha, beta, release candidate) of the next major are for
+evaluation, not production. A fix reaches them in the next pre-release.
+
 **Unsupported** versions receive **no** updates.
 
-Installations can also learn support status via the in-product
-[version check](docs/version-check.md), which reads public release metadata
-(including a support floor when published).
+### End dates
+
+The end of a major's last line is announced when the next major's first release
+candidate ships, as "three months after X.0.0", and the date itself is
+published on the day X.0.0 ships. An end date may be **extended, never brought
+forward**. Customers with a support arrangement can ask for an extension.
+
+The currently supported versions are published as release metadata, and
+installations learn their status through the in-product
+[version check](docs/version-check.md): below the published floor
+(`support.minVersion`) an installation shows that it is unsupported, and in the
+last 90 days before the floor's end date (`support.until`) it shows that
+support is ending. A daily check compares that published floor with this policy
+([docs/sbom.md](docs/sbom.md#daily-cve-watch)).
 
 ## Upgrade philosophy
 

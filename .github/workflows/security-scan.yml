@@ -222,6 +222,27 @@ jobs:
         id: list
         run: echo "images=$(python3 scripts/cve_watch.py supported-images --repository "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
 
+  # The support floor installations read (`support` in releases.json on epistola.app)
+  # must match SUPPORT_POLICY.md and the maintenance branches the watch scans. The
+  # site computes it by the same rules, so this notices a rule changed on one side
+  # only, an extension that outlived its date, or a branch left behind.
+  support-floor:
+    name: Published support matches the policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare releases.json with the policy and the branches
+        shell: bash # -o pipefail, so tee does not hide a failing check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/cve_watch.py check-support --repository "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
+
   image-scan:
     name: Scan ${{ matrix.image }}
     needs: release-images
