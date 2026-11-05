@@ -72,8 +72,10 @@ Scheduling stores:
 - `payload`: JSON payload for the handler
 
 Scheduling is an upsert by `timer_key`. Re-scheduling the same timer key
-replaces the due time, routing metadata, payload, and clears any previous lease
-or error state.
+replaces the due time, routing metadata, payload, and clears any error state.
+When the timer is running, the run in progress keeps its lease: no other node
+starts the timer beside it, and finishing the run releases the row to the new
+due time and payload instead of deleting or overwriting it.
 
 The mediator-facing read API is `GetClusterTimer` and `ListClusterTimers`.
 Application and operations code should use these commands and queries. The
@@ -115,14 +117,22 @@ reclaim it after the lease expires.
    `required_capability`.
 6. Rendezvous ownership over `routing_key` decides which active capable node
    should own the timer.
-7. Only the owning node attempts to claim the timer.
+7. Only the owning node attempts to claim the timer — unless the timer has been
+   due for longer than `epistola.cluster.timers.owner-grace-ms` (30 s), when
+   any capable node may. An owner that heartbeats but whose timer poll is stuck
+   in a handler stays in the active set, and would otherwise hold its timers
+   forever.
 8. `ClusterTimerRegistry.claimDue` updates the row to `running` with
    `lease_owner_node_id` and `lease_expires_at`, using `FOR UPDATE SKIP LOCKED`.
-9. The scheduler looks up the handler by `timer.timerType`.
-10. The handler runs inside `MediatorContext.runWithMediator(mediator)`, which
+9. Just before running each claimed timer, the scheduler confirms the lease is
+   still its own (`startRun`). A claim is a batch, and the renewer covers only
+   the run in progress: a timer waiting behind a slow one can lose its lease to
+   another node, and is then skipped rather than run twice.
+10. The scheduler looks up the handler by `timer.timerType`.
+11. The handler runs inside `MediatorContext.runWithMediator(mediator)`, which
     binds the mediator context and current `EpistolaClock` for the same-thread
     poll cycle.
-11. The scheduler completes, reschedules, or retries the timer depending on the
+12. The scheduler completes, reschedules, or retries the timer depending on the
     handler result or exception.
 
 The ownership step is a routing optimization and affinity mechanism. The lease
@@ -191,6 +201,11 @@ The mediator-facing controls are:
 - `ListClusterScheduledTasks`
 - `ListClusterScheduledTaskNodeStates`
 
+None of them releases the lease of a run in progress. Disabling a running task
+lets that run finish and record its completion; no new run starts. Triggering a
+running task, or changing its schedule, sets a due time the run's completion
+keeps, so the task runs again after it rather than beside it.
+
 The current recurring task registrar registers definitions at startup. This
 means the database row is durable, while code remains the source of truth for
 the task definition.
@@ -208,11 +223,13 @@ The scheduled-task flow mirrors one-shot timers:
    the task's required capability.
 6. Singleton tasks claim the task row; all-node tasks claim their
    `(task_key, node_id)` runtime row in `cluster_tasks_scheduled_node_state`.
-7. The scheduler dispatches to a `ClusterScheduledTaskHandler` by `taskType`.
-8. On success, `ClusterScheduledTaskScheduleCalculator` calculates the next due
+7. Just before each claimed task runs, the scheduler confirms its lease is still
+   its own (`startRun`) and skips it otherwise, as for timers.
+8. The scheduler dispatches to a `ClusterScheduledTaskHandler` by `taskType`.
+9. On success, `ClusterScheduledTaskScheduleCalculator` calculates the next due
    occurrence and the lease is released.
-9. On failure, failure policy decides whether to retry the same occurrence or
-   advance to a future occurrence.
+10. On failure, failure policy decides whether to retry the same occurrence or
+    advance to a future occurrence.
 
 Unlike one-shot timers, a scheduled task with **no registered handler** is not
 treated as a failure. The dispatch path folds the orphan check in:
