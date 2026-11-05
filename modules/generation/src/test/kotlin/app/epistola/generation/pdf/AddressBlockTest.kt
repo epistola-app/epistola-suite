@@ -10,6 +10,7 @@ import app.epistola.template.model.TemplateDocument
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class AddressBlockTest {
@@ -244,5 +245,30 @@ class AddressBlockTest {
         val pages = text.split("--- PAGE ")
         assertTrue(pages.size > 2, "Should have multiple pages")
         assertContains(text, "PAGE ONE ADDRESS", message = "Address content should be in the PDF")
+    }
+
+    @Test
+    fun `address block content is structure-tagged, not drawn as unmarked content`() {
+        // Every render is tagged and stamped with a PDF/UA-1 identifier, which requires
+        // all content to be either structure content or an explicit artifact (#752).
+        // The recipient address is meaningful content, so it must land in the
+        // structure tree rather than being marked (or left) as an artifact.
+        val pdfBytes = renderToBytes(
+            documentWithAddressBlock(addressText = "Jane Doe", asideText = "Ref"),
+        )
+
+        assertEquals(
+            emptyList(),
+            PdfMarkedContentInspector.unmarkedText(pdfBytes),
+            "address block content must be structure content or an artifact, never unmarked",
+        )
+        assertTrue(
+            PdfMarkedContentInspector.artifactText(pdfBytes).none { it.contains("Jane Doe") },
+            "the addressee is meaningful content and must not be hidden from screen readers as an artifact",
+        )
+        assertTrue(
+            PdfAccessibilityInspector.inspect(pdfBytes).roleCount("P") >= 1,
+            "address content should be tagged with a structure role like other body text",
+        )
     }
 }

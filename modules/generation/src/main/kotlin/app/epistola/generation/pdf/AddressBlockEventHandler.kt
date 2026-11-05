@@ -58,6 +58,10 @@ class AddressBlockEventHandler(
         // A Canvas does not inherit the Document's default font: without it unstyled text
         // falls back to non-embedded Helvetica, which breaks PDF/A on any non-ASCII glyph.
         val canvas = Canvas(pdfCanvas, rect).setFont(context.fontCache.regular)
+        // The recipient address is meaningful content, not decoration: tag it into
+        // the structure tree (unlike the header/footer/watermark artifacts) so
+        // screen readers announce it (PDF/UA-1, #752).
+        canvas.enableAutoTagging(page)
 
         val slotsByName = addressNode.slots.mapNotNull { slotId ->
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
