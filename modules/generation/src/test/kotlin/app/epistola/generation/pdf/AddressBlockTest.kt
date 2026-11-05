@@ -10,6 +10,7 @@ import app.epistola.template.model.TemplateDocument
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class AddressBlockTest {
@@ -244,5 +245,59 @@ class AddressBlockTest {
         val pages = text.split("--- PAGE ")
         assertTrue(pages.size > 2, "Should have multiple pages")
         assertContains(text, "PAGE ONE ADDRESS", message = "Address content should be in the PDF")
+    }
+
+    @Test
+    fun `address block content is structure-tagged, not drawn as unmarked content`() {
+        // Every render is tagged and stamped with a PDF/UA-1 identifier, which requires
+        // all content to be either structure content or an artifact (#752). The recipient
+        // address is meaningful content, so it belongs in the structure tree, not in an artifact.
+        val pdfBytes = renderToBytes(documentWithAddressBlock(addressText = "Jane Doe", asideText = "Ref"))
+
+        assertEquals(
+            emptyList(),
+            PdfMarkedContentInspector.unmarkedText(pdfBytes),
+            "address block content must be structure content or an artifact, never unmarked",
+        )
+        assertTrue(
+            PdfMarkedContentInspector.artifactText(pdfBytes).none { it.contains("Jane Doe") },
+            "the addressee is meaningful content and must not be hidden from screen readers as an artifact",
+        )
+        assertTrue(
+            PdfMarkedContentInspector.readingOrderText(pdfBytes).any { it.contains("Jane Doe") },
+            "the addressee must be in the structure tree",
+        )
+    }
+
+    @Test
+    fun `the addressee is read before the aside and the body, also when the letter runs on`() {
+        // The address is drawn when page 1 ends, which iText signals only when the document
+        // closes, after the whole body is tagged. Its tag must still come first in reading order.
+        val longBody = (1..12).joinToString("\n") { "Body paragraph $it " + "lorem ipsum ".repeat(80) }
+        for (body in listOf("Body content starts here.", longBody)) {
+            val doc = documentWithAddressBlock(addressText = "Jane Doe", asideText = "Ref 2026")
+            val withBody = doc.copy(nodes = doc.nodes + ("body-text" to textNode("body-text", body)))
+            val pdfBytes = renderToBytes(withBody)
+
+            val order = PdfMarkedContentInspector.readingOrderText(pdfBytes)
+            val addressee = order.indexOfFirst { it.contains("Jane Doe") }
+            val aside = order.indexOfFirst { it.contains("Ref 2026") }
+            val firstBody = order.indexOfFirst { it.contains("Body") }
+            assertTrue(addressee in 0 until aside, "addressee before the aside, got $order")
+            assertTrue(aside < firstBody, "aside before the body, got $order")
+        }
+    }
+
+    @Test
+    fun `an address block without aside content still tags the address before the body`() {
+        val doc = documentWithAddressBlock(addressText = "Jane Doe")
+        val noAside = doc.copy(slots = doc.slots.mapValues { (id, slot) -> if (id == "slot-aside") slot.copy(children = emptyList()) else slot })
+        val pdfBytes = renderToBytes(noAside)
+
+        assertEquals(emptyList(), PdfMarkedContentInspector.unmarkedText(pdfBytes))
+        val order = PdfMarkedContentInspector.readingOrderText(pdfBytes)
+        val addressee = order.indexOfFirst { it.contains("Jane Doe") }
+        val body = order.indexOfFirst { it.contains("Body content") }
+        assertTrue(addressee in 0 until body, "addressee before the body, got $order")
     }
 }

@@ -12,6 +12,9 @@ import com.itextpdf.kernel.pdf.canvas.parser.PdfCanvasProcessor
 import com.itextpdf.kernel.pdf.canvas.parser.data.IEventData
 import com.itextpdf.kernel.pdf.canvas.parser.data.TextRenderInfo
 import com.itextpdf.kernel.pdf.canvas.parser.listener.IEventListener
+import com.itextpdf.kernel.pdf.tagging.IStructureNode
+import com.itextpdf.kernel.pdf.tagging.PdfMcr
+import com.itextpdf.kernel.pdf.tagging.PdfStructElem
 import java.io.ByteArrayInputStream
 
 /**
@@ -73,4 +76,40 @@ object PdfMarkedContentInspector {
 
     /** Text drawn inside an `/Artifact` marked-content sequence. */
     fun artifactText(pdfBytes: ByteArray): List<String> = chunks(pdfBytes).filter { it.isArtifact }.map { it.text }
+
+    /**
+     * Structure content in the order a screen reader announces it: the structure tree walked
+     * depth first, each marked-content reference replaced by the text drawn under its MCID.
+     * Paint order on the page does not matter; where a tag sits in the tree does.
+     */
+    fun readingOrderText(pdfBytes: ByteArray): List<String> {
+        PdfReader(ByteArrayInputStream(pdfBytes)).use { reader ->
+            PdfDocument(reader).use { document ->
+                val textByMcid = HashMap<Pair<Int, Int>, StringBuilder>()
+                for (page in 1..document.numberOfPages) {
+                    val listener = object : IEventListener {
+                        override fun eventOccurred(data: IEventData, type: EventType) {
+                            val info = data as? TextRenderInfo ?: return
+                            if (info.mcid >= 0) textByMcid.getOrPut(page to info.mcid) { StringBuilder() }.append(info.text)
+                        }
+
+                        override fun getSupportedEvents(): Set<EventType> = setOf(EventType.RENDER_TEXT)
+                    }
+                    PdfCanvasProcessor(listener).processPageContent(document.getPage(page))
+                }
+
+                val ordered = mutableListOf<String>()
+                fun walk(node: IStructureNode) {
+                    when (node) {
+                        is PdfMcr -> textByMcid[document.getPageNumber(node.pageObject) to node.mcid]
+                            ?.toString()?.takeIf { it.isNotBlank() }?.let(ordered::add)
+
+                        is PdfStructElem -> node.kids?.forEach { kid -> if (kid != null) walk(kid) }
+                    }
+                }
+                document.structTreeRoot?.kids?.forEach { kid -> if (kid != null) walk(kid) }
+                return ordered
+            }
+        }
+    }
 }
