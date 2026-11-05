@@ -24,5 +24,11 @@ dependencies {
 
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    // PDF/UA-1 and PDF/A-2b conformance of rendered output (PdfConformanceTest, #453)
+    testImplementation(libs.verapdf.validation)
+    // Reads the contract's component registry, whose examples are that test's corpus.
+    testImplementation(platform(libs.jackson.bom))
+    testImplementation("tools.jackson.core:jackson-databind")
+    testImplementation("tools.jackson.module:jackson-module-kotlin")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
