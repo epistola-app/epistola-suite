@@ -30,10 +30,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          # GitHub schedules only from the default branch, and the model test is on release/2.0
-          # until 2.0 becomes main; then drop this line.
-          ref: ${{ github.event_name == 'schedule' && 'release/2.0' || '' }}
 
       - name: Setup tools with mise
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5
