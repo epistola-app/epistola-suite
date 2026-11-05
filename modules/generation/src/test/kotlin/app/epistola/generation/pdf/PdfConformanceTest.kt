@@ -262,8 +262,8 @@ class PdfConformanceTest {
 
     /**
      * A fragment becomes a document: a root example already is one; anything else gets a synthetic
-     * root, with nodes the fragment root does not reach attached beside it, and a placeholder gets
-     * the stencil ancestor it needs. Same wrapping as the MCP `ExampleRenderingIntegrationTest`.
+     * root with a title above it, nodes the fragment root does not reach attached beside it, and a
+     * placeholder gets the stencil ancestor it needs. Same wrapping as the MCP `ExampleRenderingIntegrationTest`.
      */
     private fun wrap(type: String, fragment: ObjectNode): TemplateDocument {
         val fragmentRoot = fragment.get("rootNodeId").asString()
@@ -283,10 +283,24 @@ class PdfConformanceTest {
         } else {
             tops
         }
+        allNodes.set(TITLE, title())
         allNodes.set(ROOT, node(ROOT, "root", ROOT_SLOT))
-        allSlots.set(ROOT_SLOT, slot(ROOT_SLOT, ROOT, rootChildren))
+        allSlots.set(ROOT_SLOT, slot(ROOT_SLOT, ROOT, listOf(TITLE) + rootChildren))
         return document(ROOT, allNodes, allSlots)
     }
+
+    /**
+     * A fragment sits inside a page, under that page's title: an example's section heading is an H2
+     * because something above it is the H1. Rendered alone it would open the document at an H2, which
+     * PDF/UA-1 does not allow (ISO 14289-1, 7.4.2).
+     */
+    private fun title(): ObjectNode = json.createObjectNode().put("id", TITLE).put("type", "text").set(
+        "props",
+        json.createObjectNode().set(
+            "content",
+            json.readTree("""{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Conformance letter"}]}]}"""),
+        ),
+    )
 
     private fun node(id: String, type: String, slotId: String): ObjectNode = json.createObjectNode().put("id", id).put("type", type)
         .set("slots", json.createArrayNode().add(slotId))
@@ -320,20 +334,17 @@ class PdfConformanceTest {
 
     companion object {
         private const val FIGURE_WITHOUT_ALT = "ISO 14289-1:2014 7.3-1"
-        private const val HEADINGS_START_AT_H1 = "ISO 14289-1:2014 7.4.2-1"
 
         /**
-         * Violations reported today, per registry example, each with where it gets fixed. The test
-         * fails when one disappears, so fixing it means deleting its line.
+         * None today. A violation that cannot be fixed in the change that reveals it goes here, per
+         * registry example and with its issue; the test fails once it disappears, so the line goes
+         * with the fix and the list only shrinks.
          */
-        private val KNOWN_VIOLATIONS: Map<String, Set<String>> = mapOf(
-            // The example's text starts at a level-2 heading: the author's choice, not the renderer's,
-            // which the heading-level quality rule reports (#1306). Fix the example in epistola-contract.
-            "container/with-children" to setOf(HEADINGS_START_AT_H1),
-        )
+        private val KNOWN_VIOLATIONS: Map<String, Set<String>> = emptyMap()
 
         private const val REGISTRY = "/META-INF/epistola-catalog/component-registry.json"
         private const val ROOT = "n-conformance-root"
+        private const val TITLE = "n-conformance-title"
         private const val ROOT_SLOT = "s-conformance-root"
         private const val STENCIL = "n-conformance-stencil"
         private const val STENCIL_SLOT = "s-conformance-stencil"

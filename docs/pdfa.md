@@ -125,8 +125,7 @@ nothing and to leave no content untagged. It runs in the normal `unitTest` / `te
 on a new violation.
 
 It checks the renderer, not authors: a violation an author causes, such as an image without alt text,
-is a quality finding. Violations known today are listed in the test with their issue, and the test
-also fails when one of them stops occurring, so the list only shrinks. veraPDF covers only the
+is a quality finding. No violation is tolerated today. One that cannot be fixed in the change that reveals it is listed in the test with its issue, and the test also fails once it stops occurring, so the list only shrinks. veraPDF covers only the
 machine-checkable part of PDF/UA; reading order and the quality of alt text still need a person.
 
 Run it alone with `./gradlew :modules:generation:unitTest --tests "*PdfConformanceTest*"`.
