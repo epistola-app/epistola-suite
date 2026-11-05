@@ -109,6 +109,27 @@ Metadata is populated from:
 
 PDF/A requires an output intent declaring the color space. Epistola embeds the sRGB IEC61966-2.1 ICC profile (bundled at `generation/src/main/resources/color/sRGB.icc`).
 
+## Conformance testing
+
+Every document is tagged for accessibility, but only a PDF/A document claims PDF/UA-1 conformance
+(the `pdfuaid` identifier in its XMP): without PDF/A the standard fonts are not embedded, which
+PDF/UA-1 requires ([#1308](https://github.com/epistola-app/epistola-suite/issues/1308)). So the
+template's PDF/A setting also decides whether a document claims to be accessible.
+
+`PdfConformanceTest` (in `modules/generation`) validates rendered PDF/A output with
+[veraPDF](https://verapdf.org/), the reference validator, against PDF/UA-1 and PDF/A-2b. Its corpus
+is every example in the contract's component registry (each block must have one), plus synthetic
+documents: a preview watermark, an address block on a multi-page letter, and a themed document with
+a custom font family, a style preset and an SVG image. Renders without PDF/A are checked to claim
+nothing and to leave no content untagged. It runs in the normal `unitTest` / `test` tasks, so CI fails
+on a new violation.
+
+It checks the renderer, not authors: a violation an author causes, such as an image without alt text,
+is a quality finding. No violation is tolerated today. One that cannot be fixed in the change that reveals it is listed in the test with its issue, and the test also fails once it stops occurring, so the list only shrinks. veraPDF covers only the
+machine-checkable part of PDF/UA; reading order and the quality of alt text still need a person.
+
+Run it alone with `./gradlew :modules:generation:unitTest --tests "*PdfConformanceTest*"`.
+
 ## Database
 
 The setting is part of the template's content, `resource.pdfaEnabled`

@@ -1,6 +1,7 @@
 plugins {
     id("epistola-kotlin-conventions")
     id("epistola-kover-conventions")
+    `java-test-fixtures`
 }
 
 dependencies {
@@ -24,5 +25,14 @@ dependencies {
 
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    // PDF/UA-1 and PDF/A-2b conformance of rendered output (PdfConformanceTest, #453)
+    testImplementation(libs.verapdf.validation)
+
+    // RegistryExamples: the contract's component-registry examples as renderable documents, shared
+    // by PdfConformanceTest and the MCP ExampleRenderingIntegrationTest (#1309).
+    testFixturesApi(libs.epistola.catalog)
+    testFixturesImplementation(platform(libs.jackson.bom))
+    testFixturesImplementation("tools.jackson.core:jackson-databind")
+    testFixturesImplementation("tools.jackson.module:jackson-module-kotlin")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -54,6 +54,8 @@ class QrCodeNodeRenderer : NodeRenderer {
         val image = Image(ImageDataFactory.create(pngBytes))
         image.setWidth(sizePt)
         image.setHeight(sizePt)
+        // PDF/UA-1 requires a Figure to have a text alternative (ISO 14289-1, 7.3; #1307).
+        image.accessibilityProperties.setAlternateDescription(alternativeText(value))
 
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
@@ -73,6 +75,13 @@ class QrCodeNodeRenderer : NodeRenderer {
 
         return listOf(div)
     }
+
+    /**
+     * What a screen reader announces instead of the code. A web link is what a scan would give, so
+     * it is read out; anything else (a payment payload over several lines, an id) is noise read
+     * aloud, so only the kind of image is named. Authors cannot set their own text yet (#1307).
+     */
+    internal fun alternativeText(value: String): String = if (WEB_LINK.matches(value)) "QR code: $value" else "QR code"
 
     private fun resolveQrValue(expression: Expression, context: RenderContext, node: Node): String? {
         val resolved = context.expressionEvaluator.evaluate(expression, context.effectiveData, context.loopContext)
@@ -146,6 +155,7 @@ class QrCodeNodeRenderer : NodeRenderer {
         /** Over 10 pixels per module for the densest QR code (version 40, 177 modules). */
         private const val MAX_PIXEL_SIZE = 2048
         private const val MAX_VALUE_BYTES = 2500
+        private val WEB_LINK = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
         private const val BLACK = -0x1000000
         private const val WHITE = -0x1
     }

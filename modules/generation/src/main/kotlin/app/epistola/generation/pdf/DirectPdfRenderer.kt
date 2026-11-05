@@ -399,7 +399,7 @@ class DirectPdfRenderer(
             // (WCAG PDF3/PDF9/PDF11/PDF21). Skipped on the discarded
             // first counting pass.
             pdfDocument.setTagged()
-            applyMetadata(pdfDocument, metadata)
+            applyMetadata(pdfDocument, metadata, claimPdfUa = enablePdfA)
         }
 
         val nodeRendererRegistry = createDefaultRegistry(pdfDocument)
@@ -568,7 +568,11 @@ class DirectPdfRenderer(
         )
     }
 
-    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata) {
+    /**
+     * Every document is tagged, but only a PDF/A one claims PDF/UA-1: without PDF/A the standard
+     * fonts are not embedded, which PDF/UA-1 requires (ISO 14289-1, 7.21.4.1; #1308).
+     */
+    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata, claimPdfUa: Boolean) {
         val info = pdfDocument.documentInfo
         metadata.title?.let { info.setTitle(it) }
         metadata.author?.let { info.setAuthor(it) }
@@ -585,9 +589,11 @@ class DirectPdfRenderer(
         }
 
         // PDF/UA-1 identification in XMP metadata (ISO 14289-1 §5)
-        val xmpMeta = XMPMetaFactory.create()
-        xmpMeta.setPropertyInteger("http://www.aiim.org/pdfua/ns/id/", "pdfuaid:part", 1)
-        pdfDocument.xmpMetadata = xmpMeta
+        if (claimPdfUa) {
+            val xmpMeta = XMPMetaFactory.create()
+            xmpMeta.setPropertyInteger("http://www.aiim.org/pdfua/ns/id/", "pdfuaid:part", 1)
+            pdfDocument.xmpMetadata = xmpMeta
+        }
     }
 
     companion object {

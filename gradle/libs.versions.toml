@@ -28,6 +28,8 @@ archunit = "1.5.1"
 kotest = "6.2.6"
 # One iText for the renderer and for every test that reads the PDFs it writes.
 itext = "9.8.0"
+# PDF/A and PDF/UA validation in tests only (GPL-3.0 or MPL-2.0; used under MPL-2.0)
+verapdf = "1.30.3"
 # Declared here because modules:generation is outside the Spring Boot BOM.
 caffeine = "3.3.1"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
@@ -63,6 +65,7 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 kotest-property = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 itext-core = { module = "com.itextpdf:itext-core", version.ref = "itext" }
+verapdf-validation = { module = "org.verapdf:validation-model", version.ref = "verapdf" }
 itext-svg = { module = "com.itextpdf:svg", version.ref = "itext" }
 itext-kernel = { module = "com.itextpdf:kernel", version.ref = "itext" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
