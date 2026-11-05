@@ -37,19 +37,47 @@ def report(image: str, *vulnerabilities: dict) -> dict:
 
 
 class SupportedVersionsTest(unittest.TestCase):
-    def test_latest_patch_of_the_two_newest_minor_lines(self) -> None:
+    def test_the_newest_release_of_the_branch(self) -> None:
         tags = ["v1.3.0", "v1.4.0", "v1.4.2", "v1.4.10", "v1.5.0", "v1.5.1"]
-        self.assertEqual(cve_watch.supported_versions(tags), ["1.5.1", "1.4.10"])
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["1.5.1"])
 
-    def test_pre_releases_and_other_tags_are_not_releases(self) -> None:
-        tags = ["v2.0.0-RC1", "epistola-1.1.0", "v1.5.0", "v1.4.0", "1.9.0"]
-        self.assertEqual(cve_watch.supported_versions(tags), ["1.5.0", "1.4.0"])
+    def test_a_major_with_only_pre_releases_scans_the_newest_one(self) -> None:
+        # main on 2026-11-05: the whole 1.x history is reachable, but main is the 2.0 line.
+        tags = ["v1.4.0", "v1.5.0", "v2.0.0-alpha.1", "v2.0.0-beta.1", "v2.0.0-alpha.2"]
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["2.0.0-beta.1"])
 
-    def test_a_new_major_counts_as_the_newest_line(self) -> None:
-        self.assertEqual(cve_watch.supported_versions(["v1.5.0", "v2.0.0", "v1.4.0"]), ["2.0.0", "1.5.0"])
+    def test_a_pre_release_newer_than_the_release_is_scanned_too(self) -> None:
+        tags = ["v2.0.0-beta.1", "v2.0.0", "v2.0.3", "v2.1.0-RC.1"]
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["2.0.3", "2.1.0-RC.1"])
 
-    def test_a_single_line_is_all_there_is(self) -> None:
-        self.assertEqual(cve_watch.supported_versions(["v1.0.0", "v1.0.1"]), ["1.0.1"])
+    def test_a_pre_release_older_than_the_release_is_not(self) -> None:
+        tags = ["v2.0.0-RC.2", "v2.0.0"]
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["2.0.0"])
+
+    def test_pre_release_identifiers_compare_numerically(self) -> None:
+        tags = ["v2.0.0-alpha.9", "v2.0.0-alpha.10"]
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["2.0.0-alpha.10"])
+
+    def test_other_tags_are_not_versions(self) -> None:
+        tags = ["epistola-1.1.0", "1.9.0", "v1.5", "v1.5.0"]
+        self.assertEqual([str(v) for v in cve_watch.branch_versions(tags)], ["1.5.0"])
+
+    def test_an_untagged_branch_scans_nothing(self) -> None:
+        self.assertEqual(cve_watch.branch_versions([]), [])
+
+    def test_every_maintained_branch_once_newest_first(self) -> None:
+        tags_per_branch = {
+            "main": ["v1.4.0", "v1.5.0", "v2.0.0", "v2.1.0-RC.1"],
+            # cut from main at 2.0.0, so both branches reach that tag
+            "release/2.x": ["v1.4.0", "v1.5.0", "v2.0.0"],
+            "release/1.x": ["v1.4.0", "v1.5.0", "v1.5.1"],
+        }
+        self.assertEqual(cve_watch.supported_versions(tags_per_branch), ["2.1.0-RC.1", "2.0.0", "1.5.1"])
+
+    def test_only_main_and_maintenance_branches_are_lines(self) -> None:
+        maintained = ["main", "release/1.x", "release/2.0", "release/10.x"]
+        leftovers = ["release/v1.1.0", "release/grafana-0.1.1", "release/1.0.0-rc5", "release/x", "mainline"]
+        self.assertEqual([b for b in maintained + leftovers if cve_watch.is_maintained(b)], maintained)
 
     def test_both_variants_of_each_version(self) -> None:
         self.assertEqual(

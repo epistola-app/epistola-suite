@@ -199,7 +199,7 @@ jobs:
             }
 
   # The `scan` job above covers the Java and npm SBOMs of `main`. These jobs cover
-  # what customers run: the published images of every supported release line,
+  # what customers run: the published images of every maintained release line,
   # operating-system packages included. Trivy's database updates daily, so a CVE
   # disclosed today against something we shipped last month surfaces here
   # tomorrow. See docs/sbom.md#daily-cve-watch.
@@ -211,6 +211,8 @@ jobs:
     outputs:
       images: ${{ steps.list.outputs.images }}
     steps:
+      # Full history of every branch and tag: the lines are `main` and the
+      # `release/<major>.x` branches, and each one's tags are those merged into it.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
