@@ -551,7 +551,7 @@ Keys are created as **non-personal accounts (NPAs)** — the key itself becomes 
 Include the key in every REST API request via the `Authorization` header:
 
 ```bash
-curl -H "Authorization: ApiKey epk_abc123..." https://epistola.example.com/api/v1/...
+curl -H "Authorization: ApiKey epk_abc123..." https://epistola.example.com/api/... -H "Accept: application/vnd.epistola.v2+json"
 ```
 
 This is the only way to send an API key: since 2.0 the `X-API-Key` header is not

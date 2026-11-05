@@ -275,18 +275,12 @@ internal object CatalogViews {
      * having content to send, and it not having been sent are three facts from three places, and a
      * screen that ANDs them is a rule with no home.
      */
-    internal fun releaseViews(releases: List<CatalogReleaseSummary>, publication: CatalogPublicationState?): List<CatalogReleaseView> {
-        val publishedVersions = publication?.publications.orEmpty().mapTo(HashSet()) { it.version }
-        return releases.map { release ->
-            CatalogReleaseView(
-                release = release,
-                published = release.version in publishedVersions,
-                publishable = publication != null &&
-                    publication.canPublish &&
-                    publication.hasPublishableDestination &&
-                    release.version !in publishedVersions,
-            )
-        }
+    internal fun releaseViews(releases: List<CatalogReleaseSummary>, publication: CatalogPublicationState?): List<CatalogReleaseView> = releases.map { release ->
+        CatalogReleaseView(
+            release = release,
+            exchangeStatus = publication?.publicationOf(release.version)?.status,
+            publishable = publication?.offersPublishing(release.version) == true,
+        )
     }
 
     /**

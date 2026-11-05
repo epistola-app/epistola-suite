@@ -230,7 +230,7 @@ Examples: `CreateDocumentTemplate`, `MarkVariantReady`, `ReleaseCatalogDraft`, `
 The backend has two distinct endpoint layers:
 
 - **UI handlers** — Internal routes for Thymeleaf pages and HTMX fragments. Free to change.
-- **REST API** — External `/api/v1/` endpoints with stable contracts, OpenAPI spec, and versioned media types.
+- **REST API** — External endpoints under `/api/`, implementing the [`epistola-contract`](https://github.com/epistola-app/epistola-contract) OpenAPI spec. The version is in the media type, not the path: `application/vnd.epistola.v2+json` for contract 2.x, so a client of another major is answered 406 or 415 rather than misread. It follows the contract's major version under SemVer.
 
 UI code never calls REST API endpoints. This separation is enforced by an automated test.
 

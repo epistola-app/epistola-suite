@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
@@ -636,15 +637,27 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             .`as`("retained, somewhere to send it, not sent yet")
             .contains("data-testid=\"release-exchange-publish\"")
 
-        withMediator { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey), version = "1.0.0").execute() }
+        val queued = withMediator { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey), version = "1.0.0").execute() }
 
         val afterSending = releasePage(tenant, catalogKey, "1.0.0")
         assertThat(afterSending)
-            .`as`("sent once is sent: the page says so")
-            .contains("On Epistola Exchange")
+            .`as`("queued: the page says where it stands")
+            .contains("Epistola Exchange: Ready to submit")
         assertThat(afterSending)
             .`as`("and does not offer to send it again")
             .doesNotContain("data-testid=\"release-exchange-publish\"")
+
+        // #1008: a cancelled publication was labelled as sent and withheld, against the cancel
+        // dialog's promise that it can be queued again.
+        withMediator { CancelCatalogPublication(tenant.id, queued.publicationId).execute() }
+
+        val afterCancelling = releasePage(tenant, catalogKey, "1.0.0")
+        assertThat(afterCancelling)
+            .`as`("cancelled is not sent: the page says so")
+            .contains("Epistola Exchange: Cancelled")
+        assertThat(afterCancelling)
+            .`as`("and offers to send it again, which the command accepts")
+            .contains("data-testid=\"release-exchange-publish\"")
     }
 
     /**
