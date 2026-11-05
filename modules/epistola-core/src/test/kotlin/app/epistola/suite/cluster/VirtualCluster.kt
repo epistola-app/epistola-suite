@@ -6,6 +6,7 @@ package app.epistola.suite.cluster
 
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskScheduleCalculator
@@ -23,6 +24,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.jdbi.v3.core.Jdbi
 import tools.jackson.databind.ObjectMapper
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -60,7 +63,7 @@ class VirtualCluster(
     /** Runs that started while another node was still running the same key. */
     val overlaps: MutableList<String> = CopyOnWriteArrayList()
 
-    private val running = ConcurrentHashMap<String, String>()
+    private val running = ConcurrentHashMap<String, Pair<String, Instant>>()
     private val nextGate = AtomicReference<CountDownLatch?>()
     private val held = AtomicReference<Pair<String, CountDownLatch>?>()
     private var heldEntered = CountDownLatch(1)
@@ -86,6 +89,45 @@ class VirtualCluster(
         held.getAndSet(null)?.second?.countDown()
     }
 
+    /** The key of the run currently held, if any. */
+    fun heldKey(): String? = held.get()?.first
+
+    /**
+     * Waits until either the armed hold caught a run (returns its key) or every background poll
+     * finished without running anything (disarms the hold, returns null), so a later poll on the
+     * test thread can never block on it.
+     */
+    fun awaitHeldOrIdle(): String? {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS)
+        while (System.nanoTime() < deadline) {
+            if (heldEntered.count == 0L) return held.get()!!.first
+            if (threads.none { it.isAlive }) {
+                nextGate.set(null)
+                // A run may have taken the gate between the two checks.
+                return if (heldEntered.count == 0L) held.get()!!.first else null.also { threads.clear() }
+            }
+            Thread.onSpinWait()
+        }
+        error("A background poll neither ran a handler nor finished")
+    }
+
+    /**
+     * Treats the held run as one whose node stopped renewing it — paused or partitioned. Another
+     * node taking it over once its lease runs out is then expected, not an overlap.
+     */
+    fun abandonHeld() {
+        held.get()?.let { (key, _) ->
+            abandoned += key
+            running.keys.removeIf { it == key || it.startsWith("$key@") }
+        }
+    }
+
+    /** Keys of runs abandoned by [abandonHeld], once per abandoned run. */
+    val abandoned: MutableList<String> = CopyOnWriteArrayList()
+
+    /** Keys whose run failed on purpose, once per failure. */
+    val failures: MutableList<String> = CopyOnWriteArrayList()
+
     fun failNext(key: String) {
         failing += key
     }
@@ -105,9 +147,24 @@ class VirtualCluster(
         maintenance.shutdown()
     }
 
-    private fun execute(nodeId: String, key: String) {
-        val previous = running.putIfAbsent(key, nodeId)
-        if (previous != null) overlaps += "$key ran on $nodeId while still running on $previous"
+    /** Runs that started on a second node because the first passed the hard run deadline. */
+    val deadlineTakeovers: MutableList<String> = CopyOnWriteArrayList()
+
+    /**
+     * Runs one handler. [exclusiveKey] names what must not run twice at once: the key itself, or
+     * key and node for a task every node runs.
+     */
+    private fun execute(nodeId: String, key: String, exclusiveKey: String = key) {
+        val mine = nodeId to clock.instant()
+        val previous = running.putIfAbsent(exclusiveKey, mine)
+        if (previous != null) {
+            val ranFor = Duration.between(previous.second, mine.second)
+            if (ranFor.toMillis() > properties.scheduledTasks.maxRunDurationMs) {
+                deadlineTakeovers += key
+            } else {
+                overlaps += "$key ran on $nodeId while still running on ${previous.first} (for $ranFor)"
+            }
+        }
         runs += Run(nodeId, key)
         try {
             nextGate.getAndSet(null)?.let { gate ->
@@ -115,9 +172,12 @@ class VirtualCluster(
                 heldEntered.countDown()
                 check(gate.await(WAIT_SECONDS, TimeUnit.SECONDS)) { "Held run of '$key' was never released" }
             }
-            if (failing.remove(key)) error("Induced failure of '$key'")
+            if (failing.remove(key)) {
+                failures += key
+                error("Induced failure of '$key'")
+            }
         } finally {
-            running.remove(key, nodeId)
+            running.remove(exclusiveKey, mine)
         }
     }
 
@@ -129,7 +189,14 @@ class VirtualCluster(
 
         private val taskHandler = object : ClusterScheduledTaskHandler {
             override val taskType: String = TASK_TYPE
-            override fun handle(task: ClusterScheduledTask) = execute(nodeId, task.taskKey)
+            override fun handle(task: ClusterScheduledTask) = execute(
+                nodeId = nodeId,
+                key = task.taskKey,
+                exclusiveKey = when (task.executionScope) {
+                    ClusterScheduledTaskExecutionScope.SINGLE_OWNER -> task.taskKey
+                    ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE -> "${task.taskKey}@$nodeId"
+                },
+            )
         }
 
         private val timerHandler = object : ClusterTimerHandler {

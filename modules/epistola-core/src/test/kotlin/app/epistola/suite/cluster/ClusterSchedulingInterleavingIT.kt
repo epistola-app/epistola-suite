@@ -172,6 +172,33 @@ class ClusterSchedulingInterleavingIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `scheduling a running timer again runs it after the run, not alongside it`() {
+        val a = cluster.node("node-a")
+        a.heartbeat()
+        val ownedByB = routingKeysOwnedBy("node-b", over = "node-a").first()
+        schedule(a, "rescheduled", dueAt = now(), routingKey = ownedByB)
+
+        cluster.holdNextRun()
+        a.pollTimersAsync()
+        cluster.awaitHeld()
+
+        // A save during the run asks for another one, due right away.
+        schedule(a, "rescheduled", dueAt = now(), routingKey = ownedByB)
+        val b = cluster.node("node-b")
+        b.heartbeat()
+        b.pollTimers()
+        assertThat(cluster.overlaps).isEmpty()
+
+        cluster.releaseHeld()
+        cluster.joinAll()
+
+        // The run asked for during the first one is still to come, and comes.
+        assertThat(a.timers.find("rescheduled")?.leaseOwnerNodeId).isNull()
+        b.pollTimers()
+        assertThat(cluster.runsOf("rescheduled").map { it.nodeId }).containsExactly("node-a", "node-b")
+    }
+
+    @Test
     fun `a timer owned by a node whose timer poll is stuck is still run by a healthy node`() {
         val a = cluster.node("node-a")
         val b = cluster.node("node-b")
