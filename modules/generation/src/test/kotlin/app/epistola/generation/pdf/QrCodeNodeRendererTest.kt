@@ -9,6 +9,7 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -57,6 +58,20 @@ class QrCodeNodeRendererTest {
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())
         assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `a QR code is a figure whose alternative text reads out a web link, and only names anything else`() {
+        fun altOf(value: String): List<String> {
+            val document = documentWithQrCodeNode(mapOf("value" to mapOf("raw" to "v", "language" to "jsonata")))
+            val output = ByteArrayOutputStream()
+            renderer.render(document, mapOf("v" to value), output)
+            return PdfAccessibilityInspector.inspect(output.toByteArray()).structElems.filter { it.role == "Figure" }.map { it.alt.orEmpty() }
+        }
+
+        assertEquals(listOf("QR code: https://example.com/pay/123"), altOf("https://example.com/pay/123"))
+        assertEquals(listOf("QR code"), altOf("BCD\n002\n1\nSCT\n\nAcme\nNL91ABNA0417164300\nEUR12.50"))
+        assertEquals(listOf("QR code"), altOf("see https://example.com in the text"))
     }
 
     @Test

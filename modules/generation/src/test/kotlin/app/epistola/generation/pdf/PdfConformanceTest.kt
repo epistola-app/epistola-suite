@@ -327,9 +327,6 @@ class PdfConformanceTest {
          * fails when one disappears, so fixing it means deleting its line.
          */
         private val KNOWN_VIOLATIONS: Map<String, Set<String>> = mapOf(
-            // The renderer tags a QR code as a Figure without alternative text (#1307).
-            "qrcode/data-bound-link" to setOf(FIGURE_WITHOUT_ALT),
-            "qrcode/static-string" to setOf(FIGURE_WITHOUT_ALT),
             // The example's text starts at a level-2 heading: the author's choice, not the renderer's,
             // which the heading-level quality rule reports (#1306). Fix the example in epistola-contract.
             "container/with-children" to setOf(HEADINGS_START_AT_H1),
