@@ -41,7 +41,20 @@ extra["tomcat.version"] = "11.0.25"
 extra["jackson-bom.version"] = libs.versions.jackson.get()
 extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
 
+// Security override: Spring Boot 4.1.1 manages OpenTelemetry 1.62.0, whose W3C tracestate parser
+// takes quadratic CPU (CVE-2026-118259). The tracing bridge is on the classpath even with export
+// off, so take the fix rather than establish whether incoming tracestate headers reach the parser.
+// Drop this pin once the BOM manages 1.67.0 or later.
+extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
+
 dependencies {
+    // Security override: the Epistola Hub client's gRPC pulls in Guava 33.6.0 (CVE-2026-102554, denial
+    // of service while deserializing). The Spring Boot BOM does not manage Guava, so a constraint lifts
+    // it to the catalog's patched version. Drop it once gRPC itself requires 33.7.2 or later.
+    constraints {
+        implementation(libs.guava) { because("CVE-2026-102554 in Guava 33.6.0, pulled in by gRPC") }
+    }
+
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 

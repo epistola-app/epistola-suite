@@ -31,6 +31,10 @@ caffeine = "3.3.1"
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
 jackson2 = "2.21.7"
+# Security override of the Spring Boot BOM's OpenTelemetry (1.62.0, CVE-2026-118259), applied by
+# apps/epistola and apps/epistola-demo (pdfrender has no OpenTelemetry API). Drop it once the BOM
+# manages this version or later.
+opentelemetry = "1.67.0"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
