@@ -368,9 +368,10 @@ Every PR should include:
 
 Located at [`SECURITY.md`](../SECURITY.md) in the repository root.
 
-**Supported versions:** The two most recently released minor release lines are
-supported and patched. As long as fewer than two minor release lines have been
-released, all available minor release lines are supported.
+**Supported versions:** The newest minor line of the current major is patched. The
+previous minor stays supported for 30 days after a new minor ships, and the last
+minor of the previous major for 3 months after a new major ships (security and
+data-loss fixes only). See [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md).
 
 **Response SLA:** 48 hours for initial acknowledgment.
 

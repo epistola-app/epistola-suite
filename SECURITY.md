@@ -2,13 +2,17 @@
 
 ## Supported Versions
 
-| Version                                        | Supported |
-| ---------------------------------------------- | --------- |
-| Two most recently released minor release lines | Yes       |
+| Version                                                         | Security fixes                           |
+| --------------------------------------------------------------- | ---------------------------------------- |
+| Newest minor line of the current major                          | Yes                                      |
+| Previous minor line, for 30 days after the newest one ships     | In the newest minor line (upgrade to it) |
+| Last minor line of the previous major, for 3 months after X.0.0 | Yes, as patch releases                   |
+| Pre-releases (alpha, beta, release candidate) of the next major | In the next pre-release                  |
+| Anything older                                                  | No                                       |
 
-Security updates are provided for the two most recently released minor release
-lines. As long as fewer than two minor release lines have been released, all
-available minor release lines are supported.
+The rules and end dates are in [SUPPORT_POLICY.md](SUPPORT_POLICY.md). The
+currently supported versions are published as release metadata and shown by
+the in-product [version check](docs/version-check.md).
 
 ## Reporting a Vulnerability
 

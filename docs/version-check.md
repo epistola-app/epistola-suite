@@ -43,7 +43,10 @@ This repository only **consumes** the document — nothing here publishes it. Th
 `epistola.app` site owns authoring and hosting it. Keep it in step with releases: `stable.version`
 is the newest final tag (`vX.Y.Z`), `prerelease.version` the newest release-candidate tag
 (`vX.Y.Z-RCn`). The `support` block is a **policy decision**, authored by hand — it is not derivable
-from tags.
+from tags. It follows [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md): `minVersion` is the `X.Y.0` of
+the oldest line still supported, and `until` that line's end date. The daily `Security Scan`
+workflow (`cve_watch.py check-support`) fails when the published block disagrees with the policy
+or with the maintenance branches, and its message says what to publish instead.
 
 ```json
 {

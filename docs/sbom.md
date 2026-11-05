@@ -116,6 +116,12 @@ branches are left over from preparing a single release and are ignored). Per bra
 takes the newest release tagged on it, plus the newest pre-release when that is newer, so a major
 still in alpha or beta is scanned before it has a release. Deleting a maintenance branch takes its
 line out of the watch.
+
+The same workflow checks that the support floor installations read (`support` in `releases.json`,
+see [version-check.md](version-check.md)) matches [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md) and
+these branches: no line advertised after its end or dropped before it, an end date published for
+the oldest line, a branch for every supported major and none for an unsupported one. Run it
+locally with `python3 scripts/cve_watch.py check-support`.
 [`scripts/cve_watch.py`](../scripts/cve_watch.py) then opens one issue labelled `cve-watch`
 for every HIGH or CRITICAL vulnerability that has never had one. Because the Trivy database
 updates daily, a CVE disclosed today against an image we shipped last month is filed tomorrow.
