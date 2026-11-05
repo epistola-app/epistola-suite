@@ -5,7 +5,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 ## Status
 
 - **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author drafts — templates, variants, data contracts, stencils, themes, images and fonts — and publish them, and may still change their arguments in a minor release. Nothing over MCP activates a version in an environment or deletes anything: whether a published version is used to generate documents is still decided in the UI.
-- **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
+- **Transport: stateless Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API. The server keeps no MCP session: `initialize` assigns no `Mcp-Session-Id`, and every request stands alone, so any replica serves it and the endpoint scales horizontally without sticky routing. A request still carrying a session id from an older server is served too. The stateless transport sends no server-initiated messages — no progress or log notifications, sampling or elicitation — and no tool needs them; `GET /api/mcp` (a server-to-client event stream) is answered `405`.
 - **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
 
