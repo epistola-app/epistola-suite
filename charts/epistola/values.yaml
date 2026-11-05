@@ -518,6 +518,15 @@ migration:
   # migration is already bounded by job.activeDeadlineSeconds. Raise to a finite
   # value (e.g. matching activeDeadlineSeconds) if you prefer a hard cap.
   socketTimeoutSeconds: 0
+  # Rollback guard (app 2.0+). Every app pod and migration step refuses to start
+  # on a database a newer release migrated past a migration that is not
+  # rollback-compatible, so a rolled-back release never serves from a schema it
+  # cannot read (docs/upgrades.md#rollback). false renders
+  # EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED=false: the refusal becomes a logged
+  # warning and the pods start. Set it only once you have checked that the
+  # rollback is safe, and back to true afterwards.
+  rollbackGuard:
+    enabled: true
   # Image for the wait-for-db init container (job / initContainer modes).
   waitImage: busybox:1.38
   # Resources for the migrate container.

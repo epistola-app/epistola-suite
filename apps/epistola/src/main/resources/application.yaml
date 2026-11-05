@@ -132,6 +132,12 @@ epistola:
     #              fail fast if behind. Set on separated app pods (Helm
     #              job/initContainer modes, and the 'prod' profile).
     mode: embedded
+    rollback-guard:
+      # A build refuses to start on a database a newer build migrated past a
+      # migration that is not rollback-compatible (docs/upgrades.md#rollback).
+      # false (env: EPISTOLA_MIGRATION_ROLLBACKGUARD_ENABLED) logs a warning and
+      # starts anyway — only once you have checked the rollback is safe.
+      enabled: true
   storage:
     backend: postgres
   encryption:

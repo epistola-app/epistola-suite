@@ -1982,3 +1982,16 @@ $$
             r.revision
            FROM public.release_wire_resources r
           WHERE ((r.resource_type)::text = 'theme'::text)) u
+
+# Added after the chain: what each applied migration declared about rolling back (V20261104203220,
+# docs/migrations.md#rollback-compatibility). The migration step fills it, not a migration, so the
+# chain leaves it empty.
++ CREATE TABLE public.flyway_rollback_compatibility (
+    installed_rank integer NOT NULL,
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    recorded_by text,
+    rollback_compatible boolean NOT NULL,
+    version text NOT NULL
+)
++ ALTER TABLE ONLY public.flyway_rollback_compatibility
+    ADD CONSTRAINT flyway_rollback_compatibility_pkey PRIMARY KEY (installed_rank)

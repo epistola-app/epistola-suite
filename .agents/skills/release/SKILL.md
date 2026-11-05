@@ -76,7 +76,8 @@ git log "$LATEST_TAG"..HEAD --oneline
   heading: a **1–3 sentence** plain-prose summary of the headline user-facing changes and any
   notable breaking change or theme. The in-app dialog (`ChangelogRenderer`) shows it above the
   entries, so write it for end users — lead with `**[user]**`/untagged `feat`/`fix` material
-  and skip deep `**[dev]**` internals. Do **not** start it with `- ` or `### `.
+  and skip deep `**[dev]**` internals. Do **not** start it with `- ` or `### `. End it with how far
+  back the release can be rolled back (recipe: `docs/upgrades.md#rollback`).
 
   ```
   ## [0.23.0] - 2026-06-15

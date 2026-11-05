@@ -75,6 +75,17 @@ Decided and closed:
 
 ## Touched
 
+### The rollback guard on 2.0, with an off switch (5 November; branch `feat/schema-rollback-compatibility`, #1123)
+
+| What                                                                                                                                                        | Where                                                                         | Coverage                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Rebased on `release/2.0`: migration renumbered to `V20261104203220`, backup-header lines dropped (tenant backups are gone in 2.0)                           | `FlywayConfig`, `docs/migrations.md`, `docs/upgrades.md`                      | ✅ `SchemaRollbackGuardIT`, `RollbackCompatibilityDeclarationTest` |
+| The 2.0 chain's Kotlin code migrations counted as unshipped, so a build refused the database it had migrated; "shipped" now comes from what Flyway resolves | `SchemaRollbackGuard.shipped`                                                 | ✅ `SchemaRollbackGuardIT` +1 (4 of 7 failed before)               |
+| `epistola.migration.rollback-guard.enabled=false` turns a refusal into a warning; recording continues, so the refusal returns when switched back on         | `FlywayConfig`, `SchemaRollbackGuard`, `application.yaml`, `docs/upgrades.md` | ✅ `SchemaRollbackGuardIT` +1 (failed before)                      |
+| Chart `migration.rollbackGuard.enabled` renders the switch into the app container, the migration Job and the init container                                 | `charts/epistola` values, `deployment.yaml`, `_helpers.tpl`                   | ✅ `tests/migration-render.sh` (failed before)                     |
+
+Noticed, not touched: no test starts from a real 2.0.0-beta.1 database (a fresh database takes the same path: no table yet, every applied migration shipped).
+
 ### The API tab and an environment following a draft (4 November; branch `fix/api-tab-draft-deployment`)
 
 | What                                                                                                                                                                                                                                                                          | Where                                                         | Coverage                                                                                |

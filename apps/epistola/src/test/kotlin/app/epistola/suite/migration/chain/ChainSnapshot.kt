@@ -139,11 +139,14 @@ object ChainSnapshot {
         ).use { rs -> buildSet { while (rs.next()) add(rs.getString(1)) } }
     }
 
+    // The migration bookkeeping is no data of the seed: Flyway's history, and the rollback declarations
+    // the migration step copies from it (docs/migrations.md#rollback-compatibility), differ per chain.
     private fun tables(connection: Connection): List<String> = connection.createStatement().use { st ->
         st.executeQuery(
             """
             SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition AND c.relname <> 'flyway_schema_history'
+            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+              AND c.relname NOT IN ('flyway_schema_history', 'flyway_rollback_compatibility')
             ORDER BY c.relname
             """,
         ).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
