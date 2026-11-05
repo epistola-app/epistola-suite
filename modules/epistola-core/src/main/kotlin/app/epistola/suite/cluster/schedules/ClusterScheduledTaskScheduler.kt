@@ -116,8 +116,17 @@ class ClusterScheduledTaskScheduler(
                 .map { it.taskKey }
 
             val claimed = taskRegistry.claimDue(ownedCandidateKeys)
-            claimed.forEach { task -> leaseRenewer.withRenewal(task.taskKey) { dispatch(task) } }
-            dispatched = claimed.size
+            // The renewer covers only the run in progress, so a task waiting behind a slow one
+            // can lose its lease to another node meanwhile: confirm each before running it.
+            dispatched = claimed.count { task ->
+                val stillOurs = taskRegistry.startRun(task)
+                if (stillOurs) {
+                    leaseRenewer.withRenewal(task.taskKey) { dispatch(task) }
+                } else {
+                    log.info("Skipping cluster scheduled task '{}': its lease was taken over before it could start", task.taskKey)
+                }
+                stillOurs
+            }
         }
         // Scheduler-liveness stamp: reached only when the cycle above returns, so a
         // poll thread wedged mid-dispatch stops advancing it even while its heartbeat

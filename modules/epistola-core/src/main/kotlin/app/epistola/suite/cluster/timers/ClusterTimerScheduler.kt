@@ -31,6 +31,11 @@ import org.springframework.stereotype.Component
  * [ClusterTimerRegistry]. Claiming uses PostgreSQL row leases, so competing
  * nodes cannot execute the same claimed row at the same time.
  *
+ * Ownership is affinity, not the correctness boundary. A timer left due for
+ * longer than `timers.owner-grace-ms` may be claimed by any capable node: its
+ * owner still heartbeats, so it stays in the active set, but its timer poll may
+ * be stuck in a handler that never returns.
+ *
  * This engine owns *what* a poll does, not *when* it runs — the active
  * [app.epistola.suite.cluster.ClusterSchedulingDriver] decides the cadence
  * (wall-clock ticks in production, explicit invocation in tests).
@@ -80,19 +85,32 @@ class ClusterTimerScheduler(
             }
 
             val activeNodes = activeNodesForTimerOwnership()
+            val ownerLeftItSince = EpistolaClock.offsetDateTime().minusNanos(properties.timers.ownerGraceMs * NANOS_PER_MILLI)
             val ownedCandidateKeys = candidates
                 .filter { timer ->
-                    ownership.isOwnedBy(
-                        routingKey = timer.routingKey,
-                        nodeId = nodeIdentity.nodeId,
-                        nodes = activeNodes.withCapability(timer.requiredCapability),
-                    )
+                    // An owner that heartbeats but whose timer poll is stuck never claims its
+                    // timers, so one left due past the grace is up for any capable node.
+                    timer.dueAt.isBefore(ownerLeftItSince) ||
+                        ownership.isOwnedBy(
+                            routingKey = timer.routingKey,
+                            nodeId = nodeIdentity.nodeId,
+                            nodes = activeNodes.withCapability(timer.requiredCapability),
+                        )
                 }
                 .map { it.timerKey }
 
             val claimed = timerRegistry.claimDue(ownedCandidateKeys)
-            claimed.forEach { timer -> leaseRenewer.withRenewal(timer.timerKey) { dispatch(timer) } }
-            dispatched = claimed.size
+            // The renewer covers only the run in progress, so a timer waiting behind a slow one
+            // can lose its lease to another node meanwhile: confirm each before running it.
+            dispatched = claimed.count { timer ->
+                val stillOurs = timerRegistry.startRun(timer.timerKey)
+                if (stillOurs) {
+                    leaseRenewer.withRenewal(timer.timerKey) { dispatch(timer) }
+                } else {
+                    log.info("Skipping cluster timer '{}': its lease was taken over before it could start", timer.timerKey)
+                }
+                stillOurs
+            }
         }
         dispatched
     }

@@ -144,7 +144,8 @@ data class ClusterProperties(
  *
  * `candidateScanSize` controls how many due rows a node inspects before
  * applying ownership, while `batchSize` controls how many owned rows it attempts
- * to claim in one transaction.
+ * to claim in one transaction. `ownerGraceMs` is how long a timer may stay due
+ * before any capable node, not only its owner, may claim it.
  */
 data class ClusterTimerProperties(
     val pollIntervalMs: Long = 1_000,
@@ -152,6 +153,7 @@ data class ClusterTimerProperties(
     val retryDelayMs: Long = 30_000,
     val batchSize: Int = 25,
     val candidateScanSize: Int = 250,
+    val ownerGraceMs: Long = 30_000,
 )
 
 /**

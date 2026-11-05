@@ -317,6 +317,46 @@ class ClusterScheduledTaskRegistry(
     }
 
     /**
+     * Confirms, just before its handler runs, that [task] — claimed earlier in this node's batch —
+     * is still leased to this node, and restarts its lease and run clock. Returns false when it is
+     * not: while the runs ahead of it in the batch were going, its lease expired and another node
+     * claimed it, or an operator released it. The node must then skip it, or it runs twice.
+     */
+    fun startRun(task: ClusterScheduledTask): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
+        val sql = when (task.executionScope) {
+            ClusterScheduledTaskExecutionScope.SINGLE_OWNER ->
+                """
+                UPDATE cluster_tasks_scheduled
+                SET lease_expires_at = :leaseExpiresAt,
+                    last_started_at = :now,
+                    updated_at = :now
+                WHERE task_key = :taskKey
+                  AND execution_scope = 'single_owner'
+                  AND lease_owner_node_id = :nodeId
+                """
+
+            ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE ->
+                """
+                UPDATE cluster_tasks_scheduled_node_state
+                SET lease_expires_at = :leaseExpiresAt,
+                    last_started_at = :now,
+                    updated_at = :now
+                WHERE task_key = :taskKey
+                  AND node_id = :nodeId
+                  AND lease_expires_at IS NOT NULL
+                """
+        }
+        handle.createUpdate(sql)
+            .bind("taskKey", task.taskKey)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("leaseExpiresAt", leaseExpiresAt)
+            .bind("now", now)
+            .execute() == 1
+    }
+
+    /**
      * Extends the lease on tasks this node is currently executing so a handler
      * that runs longer than [ClusterScheduledTaskProperties.leaseDurationMs] is
      * not reclaimed by another node. Only rows still leased to this node are
@@ -372,7 +412,7 @@ class ClusterScheduledTaskRegistry(
         val singletonCompleted = handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
-            SET next_due_at = :nextDueAt,
+            SET next_due_at = $KEEP_LATER_DUE_SINGLE,
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
                 last_completed_at = :now,
@@ -395,7 +435,7 @@ class ClusterScheduledTaskRegistry(
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled_node_state s
-            SET next_due_at = :nextDueAt,
+            SET next_due_at = $KEEP_LATER_DUE_NODE,
                 lease_expires_at = NULL,
                 last_completed_at = :now,
                 consecutive_failures = 0,
@@ -422,7 +462,7 @@ class ClusterScheduledTaskRegistry(
         val singletonFailed = handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
-            SET next_due_at = :nextDueAt,
+            SET next_due_at = $KEEP_LATER_DUE_SINGLE,
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
                 last_failed_at = :now,
@@ -446,7 +486,7 @@ class ClusterScheduledTaskRegistry(
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled_node_state s
-            SET next_due_at = :nextDueAt,
+            SET next_due_at = $KEEP_LATER_DUE_NODE,
                 lease_expires_at = NULL,
                 last_failed_at = :now,
                 consecutive_failures = s.consecutive_failures + 1,
@@ -479,8 +519,6 @@ class ClusterScheduledTaskRegistry(
             """
             UPDATE cluster_tasks_scheduled
             SET next_due_at = :now,
-                lease_owner_node_id = NULL,
-                lease_expires_at = NULL,
                 updated_at = :now
             WHERE task_key = :taskKey
               AND tenant_key IS NOT DISTINCT FROM :tenantKey
@@ -496,7 +534,6 @@ class ClusterScheduledTaskRegistry(
                 """
                 UPDATE cluster_tasks_scheduled_node_state s
                 SET next_due_at = :now,
-                    lease_expires_at = NULL,
                     updated_at = :now
                 FROM cluster_tasks_scheduled t
                 WHERE s.task_key = t.task_key
@@ -723,14 +760,16 @@ class ClusterScheduledTaskRegistry(
             .execute()
     }
 
+    /**
+     * Turns a task on or off. A run in progress keeps its lease: no node claims a disabled task, and
+     * releasing the lease of one still running let another node start it again once it was
+     * re-enabled, while the first run's completion was then refused.
+     */
     private fun setEnabled(taskKey: String, tenantKey: TenantKey?, enabled: Boolean): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = EpistolaClock.offsetDateTime()
-        val updated = handle.createUpdate(
+        handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
             SET enabled = :enabled,
-                lease_owner_node_id = CASE WHEN :enabled THEN lease_owner_node_id ELSE NULL END,
-                lease_expires_at = CASE WHEN :enabled THEN lease_expires_at ELSE NULL END,
                 updated_at = :now
             WHERE task_key = :taskKey
               AND tenant_key IS NOT DISTINCT FROM :tenantKey
@@ -739,27 +778,8 @@ class ClusterScheduledTaskRegistry(
             .bind("taskKey", taskKey)
             .bind("tenantKey", tenantKey?.value)
             .bind("enabled", enabled)
-            .bind("now", now)
+            .bind("now", EpistolaClock.offsetDateTime())
             .execute() == 1
-
-        if (updated && !enabled) {
-            handle.createUpdate(
-                """
-                UPDATE cluster_tasks_scheduled_node_state s
-                SET lease_expires_at = NULL,
-                    updated_at = :now
-                FROM cluster_tasks_scheduled t
-                WHERE s.task_key = t.task_key
-                  AND s.task_key = :taskKey
-                  AND t.tenant_key IS NOT DISTINCT FROM :tenantKey
-                """,
-            )
-                .bind("taskKey", taskKey)
-                .bind("tenantKey", tenantKey?.value)
-                .bind("now", now)
-                .execute()
-        }
-        updated
     }
 
     private fun scheduleFields(schedule: ClusterScheduledTaskSchedule): ScheduleFields = when (schedule) {
@@ -888,6 +908,20 @@ class ClusterScheduledTaskRegistry(
         const val MAX_ERROR_LENGTH = 2_000
         const val NANOS_PER_MILLI = 1_000_000L
         const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
+
+        // While a run is leased its row's next_due_at is at or before last_started_at: the row
+        // was due when claimed, and startRun moves last_started_at on. A later next_due_at was
+        // set during the run — by TriggerClusterScheduledTaskNow or a changed schedule — and
+        // finishing the run must not overwrite it.
+        const val KEEP_LATER_DUE_SINGLE = """
+            CASE WHEN cluster_tasks_scheduled.next_due_at > cluster_tasks_scheduled.last_started_at
+                 THEN cluster_tasks_scheduled.next_due_at
+                 ELSE :nextDueAt
+            END
+        """
+        const val KEEP_LATER_DUE_NODE = """
+            CASE WHEN s.next_due_at > s.last_started_at THEN s.next_due_at ELSE :nextDueAt END
+        """
 
         // A code task is still "in use" while some node that registered it has a
         // heartbeat (cluster_nodes.last_seen_at) newer than :seenSince. The outer

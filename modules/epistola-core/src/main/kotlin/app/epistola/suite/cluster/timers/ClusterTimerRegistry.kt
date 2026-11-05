@@ -157,6 +157,33 @@ class ClusterTimerRegistry(
     }
 
     /**
+     * Confirms, just before its handler runs, that [timerKey] — claimed earlier in this node's
+     * batch — is still leased to this node and running, and restarts its lease. Returns false
+     * when it is not: while the timers ahead of it in the batch were running, its lease expired
+     * and another node claimed it, or it was scheduled again. The node must then skip it, or it
+     * runs twice.
+     */
+    fun startRun(timerKey: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        handle.createUpdate(
+            """
+            UPDATE cluster_timers
+            SET lease_expires_at = :leaseExpiresAt,
+                last_started_at = :now,
+                updated_at = :now
+            WHERE timer_key = :timerKey
+              AND lease_owner_node_id = :nodeId
+              AND status = 'running'
+            """,
+        )
+            .bind("timerKey", timerKey)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("leaseExpiresAt", now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI))
+            .bind("now", now)
+            .execute() == 1
+    }
+
+    /**
      * Extends the lease on running timers this node owns so a handler that runs
      * longer than [ClusterTimerProperties.leaseDurationMs] is not reclaimed by
      * another node. Only rows still leased to this node and still `running` are
