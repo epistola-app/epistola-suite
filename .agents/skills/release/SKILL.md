@@ -142,3 +142,7 @@ public.
   `gh release create … --prerelease`, and its image never becomes `latest` (`build.yml` skips that
   tag for any version with a `-`). Its fragments may stay for the final release, with a short
   hand-written section for the pre-release.
+- **The previous major's end** (`SUPPORT_POLICY.md`): the first release candidate of a new major
+  says in its notes and announcement that the previous major's last minor is supported until three
+  months after X.0.0; the X.0.0 notes and announcement give that date. Nothing else to set: the
+  website derives `support.until` from the release dates.
