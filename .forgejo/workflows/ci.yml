@@ -41,7 +41,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle
-        uses: https://github.com/gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: https://github.com/gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       # Compiling and testing are two Gradle runs here, unlike build.yml. A runner here gives a job
       # less memory than a GitHub runner (16 GB): in one run, the Kotlin daemon (~1.9 GB) and the
@@ -135,7 +135,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle
-        uses: https://github.com/gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: https://github.com/gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Install Playwright browsers
         run: |
