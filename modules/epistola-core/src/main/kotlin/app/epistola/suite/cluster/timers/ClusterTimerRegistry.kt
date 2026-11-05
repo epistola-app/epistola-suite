@@ -8,6 +8,7 @@ import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.time.EpistolaClock
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -64,8 +65,10 @@ class ClusterTimerRegistry(
                     due_at = EXCLUDED.due_at,
                     payload = EXCLUDED.payload,
                     status = 'scheduled',
-                    lease_owner_node_id = NULL,
-                    lease_expires_at = NULL,
+                    -- A run in progress keeps its lease, so no node starts the next run beside
+                    -- it; finishing the run releases the row to this due time.
+                    lease_owner_node_id = CASE WHEN $RUN_IN_PROGRESS THEN cluster_timers.lease_owner_node_id END,
+                    lease_expires_at = CASE WHEN $RUN_IN_PROGRESS THEN cluster_timers.lease_expires_at END,
                     last_error = NULL,
                     updated_at = :now
                 RETURNING ${selectColumns()}
@@ -157,6 +160,36 @@ class ClusterTimerRegistry(
     }
 
     /**
+     * Confirms, just before its handler runs, that [timerKey] — claimed earlier in this node's
+     * batch — is still leased to this node and running, and restarts its lease. Returns false
+     * when it is not: while the timers ahead of it in the batch were running, its lease expired
+     * and another node claimed it, or it was scheduled again. The node must then skip it, or it
+     * runs twice.
+     */
+    fun startRun(timerKey: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        val started = handle.createUpdate(
+            """
+            UPDATE cluster_timers
+            SET lease_expires_at = :leaseExpiresAt,
+                last_started_at = :now,
+                updated_at = :now
+            WHERE timer_key = :timerKey
+              AND lease_owner_node_id = :nodeId
+              AND status = 'running'
+            """,
+        )
+            .bind("timerKey", timerKey)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("leaseExpiresAt", now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI))
+            .bind("now", now)
+            .execute() == 1
+        // Scheduled again while it waited: not this run's to start, and the lease goes.
+        if (!started) releaseScheduledAgain(handle, timerKey)
+        started
+    }
+
+    /**
      * Extends the lease on running timers this node owns so a handler that runs
      * longer than [ClusterTimerProperties.leaseDurationMs] is not reclaimed by
      * another node. Only rows still leased to this node and still `running` are
@@ -174,7 +207,6 @@ class ClusterTimerRegistry(
                     updated_at = :now
                 WHERE timer_key IN (<timerKeys>)
                   AND lease_owner_node_id = :nodeId
-                  AND status = 'running'
                 """,
             )
                 .setQueryTimeout(LIVENESS_QUERY_TIMEOUT_SECONDS)
@@ -197,8 +229,33 @@ class ClusterTimerRegistry(
         )
             .bind("timerKey", timerKey)
             .bind("nodeId", nodeIdentity.nodeId)
-            .execute() == 1
+            .execute() == 1 ||
+            releaseScheduledAgain(handle, timerKey)
     }
+
+    /**
+     * Ends this node's run of a timer that was scheduled again while it ran: the row keeps the
+     * due time, payload and type it was given and only drops this node's lease. Returns false when
+     * this node does not hold it.
+     */
+    private fun releaseScheduledAgain(handle: Handle, timerKey: String, error: String? = null): Boolean = handle.createUpdate(
+        """
+        UPDATE cluster_timers
+        SET lease_owner_node_id = NULL,
+            lease_expires_at = NULL,
+            last_completed_at = CASE WHEN :error IS NULL THEN :now ELSE last_completed_at END,
+            last_error = :error,
+            updated_at = :now
+        WHERE timer_key = :timerKey
+          AND lease_owner_node_id = :nodeId
+          AND status = 'scheduled'
+        """,
+    )
+        .bind("timerKey", timerKey)
+        .bind("nodeId", nodeIdentity.nodeId)
+        .bind("error", error?.take(MAX_ERROR_LENGTH))
+        .bind("now", EpistolaClock.offsetDateTime())
+        .execute() == 1
 
     fun cancel(timerKey: String, tenantKey: TenantKey? = null): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate(
@@ -238,7 +295,8 @@ class ClusterTimerRegistry(
                 .bind("nextDueAt", nextDueAt)
                 .bind("payload", payloadJson)
                 .bind("now", now)
-                .execute() == 1
+                .execute() == 1 ||
+                releaseScheduledAgain(handle, timerKey)
         }
     }
 
@@ -263,7 +321,8 @@ class ClusterTimerRegistry(
             .bind("retryAt", retryAt)
             .bind("error", error.take(MAX_ERROR_LENGTH))
             .bind("now", now)
-            .execute() == 1
+            .execute() == 1 ||
+            releaseScheduledAgain(handle, timerKey, error)
     }
 
     fun find(timerKey: String): ClusterTimer? = jdbi.withHandle<ClusterTimer?, Exception> { handle ->
@@ -345,6 +404,10 @@ class ClusterTimerRegistry(
 
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000
+
+        // The row is leased to a run that is still renewing it. Only a run sets a lease, and
+        // scheduling, finishing or failing a run otherwise clears it.
+        const val RUN_IN_PROGRESS = "cluster_timers.lease_owner_node_id IS NOT NULL AND cluster_timers.lease_expires_at >= :now"
         const val NANOS_PER_MILLI = 1_000_000L
         const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
     }
