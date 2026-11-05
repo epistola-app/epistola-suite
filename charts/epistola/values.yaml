@@ -203,6 +203,8 @@ affinity: {}
 # `minAvailable` pods running. Set exactly one of minAvailable/maxUnavailable.
 # Needs at least 2 replicas: with 1, minAvailable: 1 blocks every eviction and
 # node drains hang.
+# It selects the Deployment's pods only: the migration Job's pods carry the same
+# labels and are excluded by their job-name label.
 podDisruptionBudget:
   enabled: false
   minAvailable: 1

@@ -120,6 +120,16 @@ gh run list --workflow=build.yml --limit 1
 gh release view vX.Y.Z
 ```
 
+### 6. Announce on the community forum
+
+Once the image is published, post the release — a pre-release too — in Aankondigingen on
+[community.epistola.app](https://community.epistola.app) through the Discourse MCP
+(`.agents/mcp/discourse/`; it posts as the signed-in user). Follow
+[references/announce.md](references/announce.md): Dutch with English in `[details]`, one post
+when the Valtimo plugin releases alongside, and a pre-release says it is not for production.
+Draft the post, show it to the user and post only after they approve it: once posted, it is
+public.
+
 ## Important
 
 - **Tag = `vX.Y.Z`**, disjoint from chart tags (`epistola-*`). CI reacts to the

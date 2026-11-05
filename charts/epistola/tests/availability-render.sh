@@ -39,6 +39,14 @@ for expected in \
   grep -Fq "${expected}" <<<"${pdb}" || fail "Expected PDB render to contain: ${expected}"
 done
 
+# The migration Job's pods carry the selector labels too (#1251). Kubernetes labels a Job's pods
+# with `batch.kubernetes.io/job-name` (1.27+) and the legacy `job-name`; the PDB must exclude both,
+# or it counts a migration pod as an app pod and, with maxUnavailable, blocks every eviction.
+for key in 'batch.kubernetes.io/job-name' 'job-name'; do
+  grep -Eq -- "- \{ key: ${key//./\\.}, operator: DoesNotExist \}" <<<"${pdb}" \
+    || fail "PDB selector must exclude Job pods by ${key}"
+done
+
 max_unavailable="$(render --set podDisruptionBudget.enabled=true \
   --set podDisruptionBudget.minAvailable=null \
   --set podDisruptionBudget.maxUnavailable=1 --show-only templates/pdb.yaml)"

@@ -87,15 +87,16 @@ val buildRunImage = tasks.register<Exec>("buildRunImage") {
     commandLine(
         "docker",
         "build",
+        "--pull",
         "-t",
-        "epistola-run:noble",
+        "docker.io/library/epistola-run:noble",
         rootProject.file("apps/epistola/docker/run-image").absolutePath,
     )
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
     dependsOn(buildRunImage)
-    runImage.set("epistola-run:noble")
+    runImage.set("docker.io/library/epistola-run:noble")
     pullPolicy.set(org.springframework.boot.buildpack.platform.build.PullPolicy.IF_NOT_PRESENT)
     environment.set(
         mapOf(
