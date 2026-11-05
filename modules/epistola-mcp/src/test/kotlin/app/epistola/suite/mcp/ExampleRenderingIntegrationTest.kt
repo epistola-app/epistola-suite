@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp
 
+import app.epistola.generation.testing.RegistryExamples
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -17,15 +18,11 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
-import app.epistola.template.model.TemplateDocument
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.core.io.Resource
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -39,6 +36,9 @@ import tools.jackson.databind.node.ObjectNode
  * a malformed JSONata expression, an inspector prop with the wrong type,
  * an asset reference to nothing — surface here as a render failure.
  *
+ * The examples and their sample data come from `RegistryExamples` (test fixtures of
+ * `modules:generation`), shared with the veraPDF `PdfConformanceTest`.
+ *
  * One template is created per test run; every example reuses it via the
  * `templateModel` override on `PreviewVariant`. Each render is a few ms;
  * the entire test typically runs in < 1s on top of the shared Spring
@@ -49,41 +49,6 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
-
-    @Value("classpath:META-INF/epistola-catalog/component-registry.json")
-    private lateinit var registryResource: Resource
-
-    /**
-     * Sample data that satisfies every expression referenced by a curated
-     * example. Each new example whose expression touches a new field needs
-     * a corresponding entry here. Kept JSON-shaped so the renderer's
-     * JSONata evaluator can resolve paths.
-     */
-    private fun sampleData(): ObjectNode = objectMapper.readTree(
-        """
-        {
-          "recipient": { "name": "Jane Doe", "address": "123 Main Street", "city": "Amsterdam" },
-          "subtotal": 99.95,
-          "notes": "Please pay within 30 days.",
-          "paid": false,
-          "paymentLink": "https://pay.example.com/abc123",
-          "attendees": [
-            { "name": "Alice Example", "email": "alice@example.com" },
-            { "name": "Bob Example", "email": "bob@example.com" }
-          ],
-          "features": ["Fast", "Secure", "Open source"],
-          "steps": [
-            { "title": "Sign up" },
-            { "title": "Verify email" }
-          ],
-          "items": [
-            { "description": "Widget A", "quantity": 2, "amount": 49.95 },
-            { "description": "Widget B", "quantity": 1, "amount": 19.95 }
-          ],
-          "tenant": { "name": "Acme Corp" }
-        }
-        """.trimIndent(),
-    ) as ObjectNode
 
     @Test
     fun `every component example renders to a non-empty PDF`() {
@@ -96,12 +61,12 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Examples Test Template", catalogVersion = null).execute()
         }
 
-        val data = sampleData()
+        val data: ObjectNode = objectMapper.valueToTree(RegistryExamples.sampleData)
         val failures = mutableListOf<String>()
         var rendered = 0
 
-        eachExample { componentType, exampleName, fragment ->
-            val templateModel = wrapAsTemplateDocument(componentType, fragment)
+        for (example in RegistryExamples.all()) {
+            val templateModel = example.document
             try {
                 val pdfBytes = withMediator {
                     PreviewVariant(
@@ -114,12 +79,12 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
                     ).query()
                 }
                 if (pdfBytes.isEmpty()) {
-                    failures += "$componentType/$exampleName: empty PDF"
+                    failures += "${example.id}: empty PDF"
                 } else {
                     rendered++
                 }
             } catch (e: Exception) {
-                failures += "$componentType/$exampleName: ${e.javaClass.simpleName}: ${e.message}"
+                failures += "${example.id}: ${e.javaClass.simpleName}: ${e.message}"
             }
         }
 
@@ -127,143 +92,5 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
             .withFailMessage("rendering failures (rendered ok=$rendered):\n${failures.joinToString("\n")}")
             .isEmpty()
         assertThat(rendered).isGreaterThan(0)
-    }
-
-    /**
-     * Walks the component registry JSON and invokes `block` for every
-     * (componentType, exampleName, fragment) tuple. Reading the raw JSON
-     * directly (vs. the typed DTOs) keeps the test independent of the
-     * Kotlin DTO layout — if we add fields to ComponentExampleInfo later,
-     * this loop keeps working.
-     */
-    private fun eachExample(block: (componentType: String, exampleName: String, fragment: ObjectNode) -> Unit) {
-        val root = registryResource.inputStream.use { objectMapper.readTree(it) }
-        val components = root.get("components") as ArrayNode
-        for (componentNode in components.values()) {
-            val componentType = componentNode.get("type").asString()
-            val examples = componentNode.get("examples") as? ArrayNode ?: continue
-            for (exampleNode in examples.values()) {
-                val exampleName = exampleNode.get("name").asString()
-                val fragment = exampleNode.get("fragment") as ObjectNode
-                block(componentType, exampleName, fragment)
-            }
-        }
-    }
-
-    /**
-     * Builds a valid TemplateDocument for each component example. Root examples
-     * already provide the document root. Other fragments get a synthetic root,
-     * with any orphan top-level nodes attached as siblings. Placeholder examples
-     * additionally get a synthetic stencil ancestor because placeholders are
-     * only valid inside stencils.
-     */
-    private fun wrapAsTemplateDocument(componentType: String, fragment: ObjectNode): TemplateDocument {
-        val rootNodeId = fragment.get("rootNodeId").asString()
-        val fragmentNodes = fragment.get("nodes") as ObjectNode
-        val fragmentSlots = fragment.get("slots") as ObjectNode
-
-        if (componentType == "root") {
-            return createTemplateDocument(rootNodeId, fragmentNodes, fragmentSlots)
-        }
-
-        val syntheticRootId = "n-render-test-root"
-        val syntheticSlotId = "s-render-test-children"
-
-        val reachable = reachableNodeIds(rootNodeId, fragmentNodes, fragmentSlots)
-        val orphans = fragmentNodes.propertyNames().filter { it !in reachable }
-        val fragmentRoots = listOf(rootNodeId) + orphans
-        val stencilNodeId = "n-render-test-stencil"
-        val stencilSlotId = "s-render-test-stencil-children"
-        val rootChildren = if (componentType == "placeholder") listOf(stencilNodeId) else fragmentRoots
-
-        val syntheticRoot = objectMapper.createObjectNode()
-            .put("id", syntheticRootId)
-            .put("type", "root")
-        syntheticRoot.set(
-            "slots",
-            objectMapper.createArrayNode().also { it.add(syntheticSlotId) },
-        )
-
-        val syntheticSlot = objectMapper.createObjectNode()
-            .put("id", syntheticSlotId)
-            .put("nodeId", syntheticRootId)
-            .put("name", "children")
-        syntheticSlot.set(
-            "children",
-            objectMapper.createArrayNode().also { array -> rootChildren.forEach { array.add(it) } },
-        )
-
-        val nodes = objectMapper.createObjectNode()
-        nodes.set(syntheticRootId, syntheticRoot)
-        if (componentType == "placeholder") {
-            nodes.set(
-                stencilNodeId,
-                objectMapper.createObjectNode()
-                    .put("id", stencilNodeId)
-                    .put("type", "stencil")
-                    .set("slots", objectMapper.createArrayNode().add(stencilSlotId))
-                    .set(
-                        "props",
-                        objectMapper.createObjectNode()
-                            .put("stencilKey", "render-test"),
-                    ),
-            )
-        }
-        for (key in fragmentNodes.propertyNames()) {
-            nodes.set(key, fragmentNodes.get(key))
-        }
-
-        val slots = objectMapper.createObjectNode()
-        slots.set(syntheticSlotId, syntheticSlot)
-        if (componentType == "placeholder") {
-            slots.set(
-                stencilSlotId,
-                objectMapper.createObjectNode()
-                    .put("id", stencilSlotId)
-                    .put("nodeId", stencilNodeId)
-                    .put("name", "children")
-                    .set(
-                        "children",
-                        objectMapper.createArrayNode().also { array -> fragmentRoots.forEach { array.add(it) } },
-                    ),
-            )
-        }
-        for (key in fragmentSlots.propertyNames()) {
-            slots.set(key, fragmentSlots.get(key))
-        }
-
-        return createTemplateDocument(syntheticRootId, nodes, slots)
-    }
-
-    private fun createTemplateDocument(rootNodeId: String, nodes: ObjectNode, slots: ObjectNode): TemplateDocument {
-        val themeRef = objectMapper.createObjectNode().put("type", "inherit")
-
-        val docNode = objectMapper.createObjectNode()
-            .put("modelVersion", 1)
-            .put("root", rootNodeId)
-        docNode.set("themeRef", themeRef)
-        docNode.set("nodes", nodes)
-        docNode.set("slots", slots)
-
-        return objectMapper.treeToValue(docNode, TemplateDocument::class.java)
-    }
-
-    private fun reachableNodeIds(rootId: String, nodes: ObjectNode, slots: ObjectNode): Set<String> {
-        val visited = mutableSetOf<String>()
-        val queue = ArrayDeque<String>().apply { add(rootId) }
-        while (queue.isNotEmpty()) {
-            val nodeId = queue.removeFirst()
-            if (!visited.add(nodeId)) continue
-            val node = nodes.get(nodeId) as? ObjectNode ?: continue
-            val nodeSlots = node.get("slots") as? ArrayNode ?: continue
-            for (slotIdNode in nodeSlots.values()) {
-                val slot = slots.get(slotIdNode.asString()) as? ObjectNode ?: continue
-                val children = slot.get("children") as? ArrayNode ?: continue
-                for (childIdNode in children.values()) {
-                    queue.add(childIdNode.asString())
-                }
-            }
-        }
-        return visited
     }
 }

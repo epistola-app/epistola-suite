@@ -4,6 +4,7 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.generation.testing.RegistryExamples
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -14,10 +15,6 @@ import org.verapdf.gf.foundry.VeraGreenfieldFoundryProvider
 import org.verapdf.pdfa.Foundries
 import org.verapdf.pdfa.flavours.PDFAFlavour
 import org.verapdf.pdfa.results.TestAssertion
-import tools.jackson.databind.json.JsonMapper
-import tools.jackson.databind.node.ArrayNode
-import tools.jackson.databind.node.ObjectNode
-import tools.jackson.module.kotlin.KotlinModule
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -33,7 +30,8 @@ import kotlin.test.assertTrue
  *
  * The corpus is every example in the contract's component registry, the same examples the editor
  * requires per block and the MCP server serves, so a new block is covered the day it gets its
- * example. Synthetic documents add what the examples do not exercise. This checks the renderer,
+ * example ([RegistryExamples], shared with the MCP rendering test). Synthetic documents add what
+ * the examples do not exercise. This checks the renderer,
  * not authors: it proves the node-to-tag mapping is valid. Problems an author causes, such as an
  * image without alt text, are the quality checks' business; [an image without alt text fails] keeps
  * this test able to tell the difference.
@@ -41,29 +39,10 @@ import kotlin.test.assertTrue
 class PdfConformanceTest {
 
     private val renderer = DirectPdfRenderer()
-    private val json = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
 
     private val assets = AssetResolver { _, _ -> AssetResolution(pngBytes, "image/png") }
 
-    /** Satisfies every expression the registry examples reference. */
-    private val sampleData: Map<String, Any?> = mapOf(
-        "recipient" to mapOf("name" to "Jane Doe", "address" to "123 Main Street", "city" to "Amsterdam"),
-        "subtotal" to 99.95,
-        "notes" to "Please pay within 30 days.",
-        "paid" to false,
-        "paymentLink" to "https://pay.example.com/abc123",
-        "attendees" to listOf(
-            mapOf("name" to "Alice Example", "email" to "alice@example.com"),
-            mapOf("name" to "Bob Example", "email" to "bob@example.com"),
-        ),
-        "features" to listOf("Fast", "Secure", "Open source"),
-        "steps" to listOf(mapOf("title" to "Sign up"), mapOf("title" to "Verify email")),
-        "items" to listOf(
-            mapOf("description" to "Widget A", "quantity" to 2, "amount" to 49.95),
-            mapOf("description" to "Widget B", "quantity" to 1, "amount" to 19.95),
-        ),
-        "tenant" to mapOf("name" to "Acme Corp"),
-    )
+    private val sampleData = RegistryExamples.sampleData
 
     @TestFactory
     fun `every component example conforms with PDF-A on`(): List<DynamicTest> = registryExamples().map { (name, document) ->
@@ -157,6 +136,80 @@ class PdfConformanceTest {
     }
 
     @Test
+    fun `a datatable, a list and a loop that run over several pages conform`() {
+        val many = sampleData + mapOf(
+            "items" to (1..120).map { mapOf("description" to "Line item $it", "quantity" to it, "amount" to it * 1.25) },
+            "features" to (1..150).map { "Feature $it" },
+            "attendees" to (1..150).map { mapOf("name" to "Attendee $it", "email" to "a$it@example.com") },
+            "steps" to (1..150).map { mapOf("title" to "Step $it") },
+        )
+        for (name in listOf("datatable/invoice-line-items", "datalist/bulleted-list", "datalist/numbered-list", "loop/over-array")) {
+            val pdf = render(example(name), pdfa = true, data = many)
+            assertTrue(pageCount(pdf) > 1, "$name should run over several pages")
+            assertConforms(pdf)
+        }
+    }
+
+    @Test
+    fun `a datatable, a list and a loop over nothing conform`() {
+        val none = sampleData + mapOf("items" to emptyList<Any>(), "features" to emptyList<Any>(), "attendees" to emptyList<Any>())
+        for (name in listOf("datatable/invoice-line-items", "datalist/bulleted-list", "loop/over-array")) {
+            assertConforms(render(example(name), pdfa = true, data = none))
+        }
+    }
+
+    @Test
+    fun `headers and footers per section conform`() {
+        val doc = BandDoc()
+        val document = doc.build(
+            doc.text("title", "Annual report"),
+            doc.header("h1", doc.text("h1-text", "FIRST SECTION HEADER")),
+            doc.footer("f1", doc.text("f1-text", "Page footer")),
+            *doc.body("first", 40).toTypedArray(),
+            doc.pageBreak("break"),
+            doc.header("h2", doc.text("h2-text", "SECOND SECTION HEADER")),
+            *doc.body("second", 40).toTypedArray(),
+        )
+        val pdf = render(document, pdfa = true)
+        assertTrue(pageCount(pdf) > 2, "the sections should span several pages")
+        assertConforms(pdf)
+    }
+
+    @Test
+    fun `nested stencils with styled containers conform`() {
+        val doc = BandDoc()
+        val built = doc.build(
+            doc.stencil("outer", doc.container("box", doc.stencil("inner", doc.text("inner-text", "Inside two stencils")))),
+        )
+        val styled = built.copy(
+            nodes = built.nodes.mapValues { (id, node) ->
+                when (id) {
+                    "box" -> node.copy(styles = mapOf("backgroundColor" to "#eef2f7", "padding" to "8pt", "color" to "#1a1a1a", "fontSize" to "11pt"))
+
+                    // BandDoc names every stencil the same; a stencil inside itself would be recursion.
+                    "inner" -> node.copy(props = node.props.orEmpty() + ("stencilKey" to "signature-block"))
+
+                    else -> node
+                }
+            },
+        )
+        assertConforms(render(styled, pdfa = true))
+    }
+
+    @Test
+    fun `a WebP image conforms`() {
+        val image = Node(id = "n-webp", type = "image", props = mapOf("imageKey" to "photo", "alt" to "Photo of the town hall", "width" to "80pt", "height" to "80pt"))
+        val document = TemplateDocument(
+            root = "n-root",
+            nodes = mapOf("n-root" to Node(id = "n-root", type = "root", slots = listOf("s-root")), image.id to image),
+            slots = mapOf("s-root" to Slot(id = "s-root", nodeId = "n-root", name = "children", children = listOf(image.id))),
+        )
+        // 8x8 red WebP, as in ImageNodeRendererTest
+        val webp = java.util.Base64.getDecoder().decode("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoIAAgAAkA4JaQAA3AA/vuUAAA=")
+        assertConforms(render(document, pdfa = true, assetResolver = { _, _ -> AssetResolution(webp, "image/webp") }))
+    }
+
+    @Test
     fun `an image without alt text fails PDF-UA, so the check can see an author's mistake`() {
         val image = Node(
             id = "n-image",
@@ -176,16 +229,18 @@ class PdfConformanceTest {
 
     @Test
     fun `the corpus covers every block type in the registry`() {
-        val covered = registryExamples().map { it.first.substringBefore('/') }.toSet()
-        val declared = registry().get("components").values().map { it.get("type").asString() }.toSet()
-        assertEquals(declared, covered, "every block type needs at least one registry example")
+        val covered = RegistryExamples.all().map { it.blockType }.toSet()
+        assertEquals(RegistryExamples.blockTypes(), covered, "every block type needs at least one registry example")
     }
 
     // --- rendering ------------------------------------------------------------------------------
 
+    private fun pageCount(pdf: ByteArray): Int = com.itextpdf.kernel.pdf.PdfDocument(com.itextpdf.kernel.pdf.PdfReader(ByteArrayInputStream(pdf))).use { it.numberOfPages }
+
     private fun render(
         document: TemplateDocument,
         pdfa: Boolean,
+        data: Map<String, Any?> = sampleData,
         watermarkText: String? = null,
         theme: ResolvedTheme = ResolvedTheme(),
         fonts: FontFamilyResolver? = null,
@@ -194,7 +249,7 @@ class PdfConformanceTest {
         val out = ByteArrayOutputStream()
         renderer.render(
             document = document,
-            data = sampleData,
+            data = data,
             outputStream = out,
             // As production passes it: the template name and the tenant (DocumentGenerationExecutor).
             metadata = PdfMetadata(title = "Conformance letter", author = "Acme Corp"),
@@ -248,89 +303,9 @@ class PdfConformanceTest {
 
     // --- corpus ---------------------------------------------------------------------------------
 
-    private fun registry(): ObjectNode = javaClass.getResourceAsStream(REGISTRY)
-        .let { requireNotNull(it) { "$REGISTRY is not on the classpath" } }
-        .use { json.readTree(it) as ObjectNode }
+    private fun registryExamples(): List<Pair<String, TemplateDocument>> = RegistryExamples.all().map { it.id to it.document }
 
-    /** Every registry example as a renderable document, named `<block type>/<example name>`. */
-    private fun registryExamples(): List<Pair<String, TemplateDocument>> = registry().get("components").values().flatMap { component ->
-        val type = component.get("type").asString()
-        ((component.get("examples") as? ArrayNode)?.values() ?: emptyList()).map { example ->
-            "$type/${example.get("name").asString()}" to wrap(type, example.get("fragment") as ObjectNode)
-        }
-    }
-
-    /**
-     * A fragment becomes a document: a root example already is one; anything else gets a synthetic
-     * root with a title above it, nodes the fragment root does not reach attached beside it, and a
-     * placeholder gets the stencil ancestor it needs. Same wrapping as the MCP `ExampleRenderingIntegrationTest`.
-     */
-    private fun wrap(type: String, fragment: ObjectNode): TemplateDocument {
-        val fragmentRoot = fragment.get("rootNodeId").asString()
-        val nodes = fragment.get("nodes") as ObjectNode
-        val slots = fragment.get("slots") as ObjectNode
-        if (type == "root") return document(fragmentRoot, nodes, slots)
-
-        val reachable = reachable(fragmentRoot, nodes, slots)
-        val tops = listOf(fragmentRoot) + nodes.propertyNames().filter { it !in reachable }
-        val allNodes = json.createObjectNode().setAll(nodes)
-        val allSlots = json.createObjectNode().setAll(slots)
-
-        val rootChildren = if (type == "placeholder") {
-            allNodes.set(STENCIL, node(STENCIL, "stencil", STENCIL_SLOT).set("props", json.createObjectNode().put("stencilKey", "conformance")))
-            allSlots.set(STENCIL_SLOT, slot(STENCIL_SLOT, STENCIL, tops))
-            listOf(STENCIL)
-        } else {
-            tops
-        }
-        allNodes.set(TITLE, title())
-        allNodes.set(ROOT, node(ROOT, "root", ROOT_SLOT))
-        allSlots.set(ROOT_SLOT, slot(ROOT_SLOT, ROOT, listOf(TITLE) + rootChildren))
-        return document(ROOT, allNodes, allSlots)
-    }
-
-    /**
-     * A fragment sits inside a page, under that page's title: an example's section heading is an H2
-     * because something above it is the H1. Rendered alone it would open the document at an H2, which
-     * PDF/UA-1 does not allow (ISO 14289-1, 7.4.2).
-     */
-    private fun title(): ObjectNode = json.createObjectNode().put("id", TITLE).put("type", "text").set(
-        "props",
-        json.createObjectNode().set(
-            "content",
-            json.readTree("""{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Conformance letter"}]}]}"""),
-        ),
-    )
-
-    private fun node(id: String, type: String, slotId: String): ObjectNode = json.createObjectNode().put("id", id).put("type", type)
-        .set("slots", json.createArrayNode().add(slotId))
-
-    private fun slot(id: String, nodeId: String, children: List<String>): ObjectNode = json.createObjectNode()
-        .put("id", id).put("nodeId", nodeId).put("name", "children")
-        .set("children", json.createArrayNode().also { array -> children.forEach(array::add) })
-
-    private fun document(root: String, nodes: ObjectNode, slots: ObjectNode): TemplateDocument {
-        val doc = json.createObjectNode().put("modelVersion", 1).put("root", root)
-        doc.set("themeRef", json.createObjectNode().put("type", "inherit"))
-        doc.set("nodes", nodes)
-        doc.set("slots", slots)
-        return json.treeToValue(doc, TemplateDocument::class.java)
-    }
-
-    private fun reachable(root: String, nodes: ObjectNode, slots: ObjectNode): Set<String> {
-        val seen = mutableSetOf<String>()
-        val queue = ArrayDeque(listOf(root))
-        while (queue.isNotEmpty()) {
-            val id = queue.removeFirst()
-            if (!seen.add(id)) continue
-            val slotIds = (nodes.get(id) as? ObjectNode)?.get("slots") as? ArrayNode ?: continue
-            for (slotId in slotIds.values()) {
-                val children = (slots.get(slotId.asString()) as? ObjectNode)?.get("children") as? ArrayNode ?: continue
-                children.values().forEach { queue.add(it.asString()) }
-            }
-        }
-        return seen
-    }
+    private fun example(name: String): TemplateDocument = RegistryExamples.named(name)
 
     companion object {
         private const val FIGURE_WITHOUT_ALT = "ISO 14289-1:2014 7.3-1"
@@ -341,13 +316,6 @@ class PdfConformanceTest {
          * with the fix and the list only shrinks.
          */
         private val KNOWN_VIOLATIONS: Map<String, Set<String>> = emptyMap()
-
-        private const val REGISTRY = "/META-INF/epistola-catalog/component-registry.json"
-        private const val ROOT = "n-conformance-root"
-        private const val TITLE = "n-conformance-title"
-        private const val ROOT_SLOT = "s-conformance-root"
-        private const val STENCIL = "n-conformance-stencil"
-        private const val STENCIL_SLOT = "s-conformance-stencil"
 
         private fun fontFace(weight: Int, italic: Boolean): ByteArray {
             val style = when {

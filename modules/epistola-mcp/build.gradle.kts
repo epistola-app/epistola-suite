@@ -50,5 +50,7 @@ dependencies {
     implementation(libs.epistola.catalog)
 
     testImplementation(project(":modules:testing"))
+    // The component-registry examples as documents, shared with modules:generation (#1309)
+    testImplementation(testFixtures(project(":modules:generation")))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
