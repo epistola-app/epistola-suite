@@ -109,9 +109,13 @@ The SBOM scans only see the Java and npm dependencies of `main`. Customers run r
 images, and those also carry operating-system packages from the base image: CVE-2026-111497
 was reported to us against the image's `libbrotli1`, which no SBOM scan could have flagged.
 
-So the daily `Security Scan` workflow also runs Trivy against the published image of every
-supported release line (the latest patch of the two newest minor lines, per
-[`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md)), production and `-demo`, with our VEX applied.
+So the daily `Security Scan` workflow also runs Trivy against the published images of every
+release line we maintain, production and `-demo`, with our VEX applied. A line is maintained
+while it has a branch: `main`, and each `release/<major>.x` maintenance branch (other `release/*`
+branches are left over from preparing a single release and are ignored). Per branch the watch
+takes the newest release tagged on it, plus the newest pre-release when that is newer, so a major
+still in alpha or beta is scanned before it has a release. Deleting a maintenance branch takes its
+line out of the watch.
 [`scripts/cve_watch.py`](../scripts/cve_watch.py) then opens one issue labelled `cve-watch`
 for every HIGH or CRITICAL vulnerability that has never had one. Because the Trivy database
 updates daily, a CVE disclosed today against an image we shipped last month is filed tomorrow.
@@ -124,6 +128,13 @@ and out of customers' scanners.
 To try it locally: `python3 scripts/cve_watch.py supported-images --repository
 epistola-app/epistola-suite`, scan an image with `trivy image --format json`, then
 `python3 scripts/cve_watch.py triage <report.json> --repository epistola-app/epistola-suite --dry-run`.
+`supported-images` reads the remote-tracking branches, so `git fetch --tags origin` first.
+
+To scan an image you built yourself, pull the builder first:
+`docker pull paketobuildpacks/builder-noble-java-tiny:latest` (or `podman pull docker.io/…`).
+`bootBuildImage` keeps a cached builder (`pullPolicy` is `IF_NOT_PRESENT`, because the run image
+is built locally and cannot be pulled), and a stale builder ships outdated buildpack binaries:
+Go standard-library CVEs that the release image, built on a fresh CI runner, does not have.
 
 ### Local Scanning
 
