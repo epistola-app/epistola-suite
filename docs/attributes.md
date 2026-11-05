@@ -141,24 +141,26 @@ Criteria: language=fr (required), no default variant exists
 
 ### Generating with Attributes
 
-Instead of providing `variantId`, supply `attributes` in the generation request:
+Instead of providing `variantKey`, supply `attributes` in the generation request:
 
 ```http
-POST /api/v1/tenants/acme-corp/generation/generate
+POST /api/tenants/acme-corp/documents/generate
 Content-Type: application/vnd.epistola.v2+json
 
 {
-  "templateId": "invoice",
+  "namespace": "acme",
+  "catalogKey": "letters",
+  "templateKey": "invoice",
   "attributes": [
     { "key": "language", "value": "en", "required": true },
     { "key": "brand", "value": "corporate", "required": false }
   ],
-  "versionId": 1,
+  "environmentKey": "production",
   "data": { ... }
 }
 ```
 
-The same `attributes` field is available on `BatchGenerationItem` for batch generation. Within a batch, each item can use either `variantId` or `attributes` independently.
+The same `attributes` field is available on `BatchGenerationItem` for batch generation. Within a batch, each item can use either `variantKey` or `attributes` independently.
 
 ### Attribute Definition Management
 
