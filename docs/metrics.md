@@ -62,6 +62,16 @@ DB query required.
 `epistola.generation.document.*` are the **only** meters carrying a `tenant`
 tag — see [Per-tenant tagging](#per-tenant-tagging).
 
+### Collect
+
+| Meter                            | Type  | Tags                                 |
+| -------------------------------- | ----- | ------------------------------------ |
+| `epistola.collect.inflight.wait` | Timer | `outcome` (`settled` \| `timed_out`) |
+
+Polls that found results still being emitted and waited for them before delivering: the count is
+how many, the time how long; `timed_out` counts the polls that gave up after two seconds and
+delivered nothing (the next poll retries). See [`docs/collect.md`](collect.md#what-to-watch).
+
 ### Font cache
 
 The renderer's parsed-font cache, per node; see [fonts](fonts.md) for what it holds and why.
