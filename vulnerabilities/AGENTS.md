@@ -31,6 +31,9 @@ disclosure, the GitHub advisory becomes a mirror of the record here.
    version immediately, then publish the dated record here and the GitHub advisory. Keep the gap
    between public fix commits and the release as short as you can. GitHub deletes the private fork
    on publication, so keep anything auditable in the advisory or the public record.
+   While the branch rulesets require signed commits, that action cannot merge: its merge commits are
+   unsigned. Land each private-fork PR instead as signed commits, rebased onto the target branch,
+   retested, and fast-forward pushed; then close the PR and name the fixed commit in the record.
 
 ## Record format
 
