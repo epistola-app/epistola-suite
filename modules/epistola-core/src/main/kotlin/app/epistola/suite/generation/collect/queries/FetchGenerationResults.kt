@@ -5,14 +5,21 @@
 package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.generation.collect.domain.EmitsInFlight
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 /**
  * Fetch a page of pending generation results for a consumer.
@@ -36,6 +43,8 @@ data class FetchGenerationResults(
     val consumerId: String,
     val partitions: Set<Int>,
     val limit: Int,
+    /** How long the poll waits for emits in flight before it returns an empty page. */
+    val inFlightWait: Duration = FetchGenerationResultsHandler.IN_FLIGHT_WAIT,
 ) : Query<FetchResultsPage>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -43,6 +52,7 @@ data class FetchGenerationResults(
 
     init {
         require(limit in 1..MAX_LIMIT) { "limit must be in 1..$MAX_LIMIT, got $limit" }
+        require(!inFlightWait.isNegative) { "inFlightWait must not be negative, got $inFlightWait" }
     }
 
     companion object {
@@ -69,7 +79,10 @@ data class FetchResultsPage(
 @Component
 class FetchGenerationResultsHandler(
     private val jdbi: Jdbi,
+    private val meterRegistry: MeterRegistry,
 ) : QueryHandler<FetchGenerationResults, FetchResultsPage> {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(query: FetchGenerationResults): FetchResultsPage {
         if (query.partitions.isEmpty()) return FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
@@ -77,7 +90,7 @@ class FetchGenerationResultsHandler(
         val partitionList = query.partitions.toIntArray()
         // Read cursors and fetch rows in one transaction so a concurrent ack
         // doesn't move the cursor between the two reads (would skip rows).
-        val rawRows = jdbi.inTransaction<List<GenerationResultRow>, Exception> { handle ->
+        val rawRows = jdbi.inTransaction<List<GenerationResultRow>?, Exception> { handle ->
             val cursorMap = handle.createQuery(
                 """
                 SELECT partition, last_acked_sequence
@@ -96,6 +109,10 @@ class FetchGenerationResultsHandler(
             // UNNEST joins per-partition cursors so PG can prune on `r.partition = c.p`.
             // Cursor defaults to 0 for any partition we haven't acked anything from yet.
             val cursorList = LongArray(partitionList.size) { cursorMap[partitionList[it]] ?: 0L }
+            // Nothing handed out past every cursor: an idle poll ends here.
+            val upTo = EmitsInFlight.highestIssued(handle)
+            if (upTo <= (cursorList.minOrNull() ?: 0L)) return@inTransaction emptyList()
+            if (!awaitEmitsInFlight(handle, query.tenantId, query.inFlightWait)) return@inTransaction null
             handle.createQuery(
                 """
                 WITH cursors(p, cur) AS (
@@ -109,6 +126,7 @@ class FetchGenerationResultsHandler(
                 JOIN cursors c ON r.partition = c.p
                 WHERE r.tenant_key = :tenantKey
                   AND r.sequence > c.cur
+                  AND r.sequence <= :upTo
                 ORDER BY r.sequence
                 LIMIT :limit
                 """,
@@ -116,15 +134,65 @@ class FetchGenerationResultsHandler(
                 .bind("tenantKey", query.tenantId)
                 .bindArray("partitions", Int::class.javaObjectType, *partitionList.toTypedArray())
                 .bindArray("cursors", Long::class.javaObjectType, *cursorList.toTypedArray())
+                .bind("upTo", upTo)
                 // Read limit + 1 so we can compute hasMore cheaply: if the over-read
                 // returned an extra row, we know more exist; trim it before returning.
                 .bind("limit", query.limit + 1)
                 .mapTo<GenerationResultRow>()
                 .list()
         }
+            // Emits still in flight after the wait: deliver nothing this time, and say there is more.
+            ?: return FetchResultsPage(emptyList(), hasMore = true, lastSequence = null)
         val hasMore = rawRows.size > query.limit
         val rows = if (hasMore) rawRows.dropLast(1) else rawRows
         val lastSequence = rows.lastOrNull()?.sequence
         return FetchResultsPage(rows = rows, hasMore = hasMore, lastSequence = lastSequence)
+    }
+
+    /**
+     * Wait until [tenant]'s emits in flight now have committed or rolled back. They are the only ones
+     * that can hold one of its sequences up to the highest one read just before; emits that start
+     * later draw a higher one, and another tenant's rows are never in this feed. False when they are
+     * still in flight after [wait].
+     */
+    private fun awaitEmitsInFlight(handle: Handle, tenant: TenantKey, wait: Duration): Boolean {
+        val holders = EmitsInFlight.holders(handle, tenant)
+        if (holders.isEmpty()) return true
+        val started = System.nanoTime()
+        val deadline = started + wait.toNanos()
+        while (EmitsInFlight.anyStillInFlight(handle, tenant, holders)) {
+            if (System.nanoTime() > deadline) {
+                recordWait(started, OUTCOME_TIMED_OUT)
+                logger.warn("Results are still being emitted after {}; this poll delivers none", wait)
+                return false
+            }
+            Thread.sleep(IN_FLIGHT_POLL)
+        }
+        recordWait(started, OUTCOME_SETTLED)
+        return true
+    }
+
+    /**
+     * One poll that found emits in flight and waited for them (`epistola.collect.inflight.wait`):
+     * its count is the polls that waited, its time how long; `outcome=timed_out` counts the polls
+     * that hit their wait limit and delivered nothing.
+     */
+    private fun recordWait(started: Long, outcome: String) {
+        Timer.builder(WAIT_METER)
+            .description("Polls that waited for results still being emitted, and how long")
+            .tag("outcome", outcome)
+            .register(meterRegistry)
+            .record(System.nanoTime() - started, TimeUnit.NANOSECONDS)
+    }
+
+    companion object {
+        /** How long a poll waits for the emits in flight before it returns an empty page, by default. */
+        val IN_FLIGHT_WAIT: Duration = Duration.ofSeconds(2)
+        private val IN_FLIGHT_POLL: Duration = Duration.ofMillis(2)
+
+        /** Timer of polls that waited for emits in flight, tagged `outcome`. */
+        const val WAIT_METER: String = "epistola.collect.inflight.wait"
+        const val OUTCOME_SETTLED: String = "settled"
+        const val OUTCOME_TIMED_OUT: String = "timed_out"
     }
 }
