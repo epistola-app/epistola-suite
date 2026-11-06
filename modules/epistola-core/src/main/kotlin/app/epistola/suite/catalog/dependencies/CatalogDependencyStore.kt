@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDraftReference
 import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.writable
 import app.epistola.suite.common.ids.CatalogId
@@ -398,21 +399,29 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             .execute()
     }
 
-    /** The catalogs, by key and draft label, whose drafts name draft [versionId] in a declaration. */
-    fun namedBy(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<String> = handle
+    /** The drafts of other catalogs, named in full, whose declarations name draft [versionId]. */
+    fun namedBy(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<CatalogDraftReference> = handle
         .createQuery(
             """
-            SELECT DISTINCT c.catalog_key || ' (' || $DECLARING_LABEL || ')' AS who
+            SELECT DISTINCT c.registry, c.namespace, c.catalog_key, v.version_key, $DECLARING_LABEL AS label
             FROM catalog_version_dependencies d
             JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.version_id AND v.state = 'draft'
             JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
             WHERE d.tenant_key = :t AND d.target_version_id = :d AND d.release_version IS NULL
-            ORDER BY who
+            ORDER BY c.catalog_key, label, c.namespace, c.registry, v.version_key
             """,
         )
         .bind("t", tenantKey)
         .bind("d", versionId)
-        .mapTo(String::class.java)
+        .map { rs, _ ->
+            CatalogDraftReference(
+                registry = rs.getString("registry"),
+                namespace = rs.getString("namespace"),
+                catalogKey = rs.getString("catalog_key"),
+                releaseId = rs.getString("version_key"),
+                releaseName = rs.getString("label"),
+            )
+        }
         .list()
 
     /**

@@ -210,7 +210,7 @@ class OperationPermissionContractIT : IntegrationTestBase() {
         "cancelGenerationJob" to delete({ "${it.api}/documents/jobs/${UUID.randomUUID()}" }),
         "listGenerationJobItems" to get({ "${it.api}/documents/jobs/${UUID.randomUUID()}/items" }),
         "listDocuments" to get({ "${it.api}/documents" }),
-        "downloadDocument" to get({ "${it.api}/documents/${UUID.randomUUID()}" }),
+        "downloadDocument" to get({ "${it.api}/documents/${UUID.randomUUID()}/content" }),
         "deleteDocument" to delete({ "${it.api}/documents/${UUID.randomUUID()}" }),
         "collectGenerationResults" to post({ "${it.api}/generation/collect" }, { "{}" }),
     )

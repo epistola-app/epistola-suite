@@ -112,7 +112,7 @@ data class ReleasedDraftInfo(
             previousVersion = result.previousVersion,
             releasedAt = result.releasedAt.toString(),
             unchangedContent = result.unchangedContent,
-            draftsBehind = result.draftsBehind,
+            draftsBehind = result.draftsBehind.map { it.releaseName },
             releasedDependencies = result.releasedDependencies.map { "${it.catalogKey} v${it.releaseVersion}" },
             // A release is fingerprinted with its content hash (ADR 0034).
             contentHash = result.fingerprint.takeIf(CatalogCanonicalizer::isContentHash),

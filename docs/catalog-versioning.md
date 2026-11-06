@@ -230,7 +230,7 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
 - **`local`** (ADR 0034, section 7) needs no grant: any tenant names a catalog under it with a
   namespace it picks, unless it holds that namespace token under another authority. A local catalog
   is created, changed, released and deployed here, and never published to Epistola Exchange
-  (`CATALOG_NAMESPACE_LOCAL`, also when the connection grants the same token). The contract carries
+  (`CATALOG_REGISTRY_LOCAL`, also when the connection grants the same token). The contract carries
   `local` (catalog format and API, contract `feature/v2` `0fe54cc`), so a local catalog is exported,
   copied into a draft, addressed over REST (`…/catalogs/local/{namespace}/{key}/…`) and
   moved through the organisation's own container registries like any other. Container registries
@@ -311,14 +311,15 @@ until it is released**; only releases are numbered.
   included, on that draft's base. `RenameCatalogDraft` renames it.
 - **Discarding.** `DeleteCatalogDraft` discards a draft and everything in it. Another draft is gone;
   the **next release** starts again as a copy of the latest release (`NextVersionOpener`), so everyday
-  work always has somewhere to go. It is refused while a draft of another catalog names it as a dependency
-  (`CatalogDraftInUseException`), and (`CatalogReleaseHeldException`, REST
-  `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone holds a resource something outside it
-  still references: the tenant's house theme, a code list an attribute of another version or
-  catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
-  resource's identity, and those references would fail as a foreign-key violation or, for a template's
-  theme, be cleared silently. The refusal names each holder, e.g. `the tenant's default theme (theme
-  letters/seasonal)`.
+  work always has somewhere to go. It is refused while a draft of another catalog names it as a
+  dependency (`CatalogDraftInUseException`), and (`CatalogReleaseHeldException`) while the draft alone
+  holds a resource something outside it still references: the tenant's house theme, a code list an
+  attribute of another version or catalog binds, or a theme a template of another version or catalog
+  uses. Discarding would delete the resource's identity, and those references would fail as a
+  foreign-key violation or, for a template's theme, be cleared silently. The refusal names each
+  holder, e.g. `the tenant's default theme (theme letters/seasonal)`. REST answers both with 409
+  `catalog-draft-in-use`: `dependents` names the drafts of other catalogs in full, `heldResources` the
+  held resources as `resourceType/resourceKey`.
 - **Theme settings** (contract ADR 0007). A version carries its default theme and the presets it
   declares (`catalog_versions.default_theme_resource_id`, `presets`). A release freezes both in its
   manifest's `catalog` and renders with them; new parallel work copies them from the version it starts
@@ -442,7 +443,7 @@ until it is released**; only releases are numbered.
   **continues** it: the same draft under a new version id, its content the release's, its base the new
   release. Releasing another draft removes it: environments following it stop (recorded as
   released), and another catalog's draft that named it as a dependency now pins the release.
-  Other drafts are untouched and may now be behind it (`draftsBehind`, by name). The 2.0 upgrade
+  Other drafts are untouched and may now be behind it (`draftsBehind`, each named in full on REST, by name on MCP). The 2.0 upgrade
   releases what was published before 2.0 under the next patch of the latest release, as its draft was
   numbered then, and is not held to the change rule.
 - **What a draft's changes need** (`ChangeKindEvaluator`, ADR 0001's rules for a hotfix) compares the

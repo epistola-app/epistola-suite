@@ -336,7 +336,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val result = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = null).execute() }
 
         assertThat(result.version).`as`("a fix: the next patch").isEqualTo("1.0.1")
-        assertThat(result.draftsBehind).containsExactly("Redesign")
+        assertThat(result.draftsBehind.map { it.releaseName }).containsExactly("Redesign")
         assertThat(versionId(tenant, DraftRef.Next)).`as`("the draft became the release; a new next version continues on it (ADR 0036)").isNotEqualTo(nextBefore)
         assertThat(jdbi.withHandle<String, Exception> { it.createQuery("SELECT state || ' ' || version FROM catalog_versions WHERE version_id = :v").bind("v", nextBefore).mapTo(String::class.java).one() })
             .isEqualTo("released 1.0.1")

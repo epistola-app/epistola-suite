@@ -118,7 +118,9 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         assertProblem(import(b, keyB, archive), HttpStatus.BAD_REQUEST, "bad-request")
         assertProblem(import(b, keyB, archive, "namespace" to "named-here"), HttpStatus.BAD_REQUEST, "bad-request")
 
-        val imported = import(b, keyB, archive, "registry" to "~", "namespace" to "named-here")
+        // The registry is named in full (contract `Registry`): `~` is an address's shorthand, not a name.
+        assertProblem(import(b, keyB, archive, "registry" to "~", "namespace" to "named-here"), HttpStatus.BAD_REQUEST, "validation-error")
+        val imported = import(b, keyB, archive, "registry" to "exchange.epistola.app", "namespace" to "named-here")
         assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(imported.body!!, "$.namespace")).isEqualTo("named-here")
         assertThat(JsonPath.read<String>(imported.body!!, "$.registry")).isEqualTo("exchange.epistola.app")
@@ -136,7 +138,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         assertProblem(import(b, keyB, archive, "registry" to "registry.elsewhere.example"), HttpStatus.BAD_REQUEST, "bad-request")
         assertThat(withMediator { GetCatalog(testCatalog(b, CatalogKey.of(catalog))).query() }).isNull()
 
-        val imported = import(b, keyB, archive, "registry" to "~", "namespace" to "v8-own-ns")
+        val imported = import(b, keyB, archive, "registry" to "exchange.epistola.app", "namespace" to "v8-own-ns")
         assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(imported.body!!, "$.namespace")).isEqualTo("v8-own-ns")
     }

@@ -74,8 +74,8 @@ enum class ValidationCode(val wire: String) {
     /** Catalogs of the tenant are named in the namespace, so it is not removed. */
     CATALOG_NAMESPACE_IN_USE("CATALOG_NAMESPACE_IN_USE"),
 
-    /** A catalog named under `local` never leaves the organisation. */
-    CATALOG_NAMESPACE_LOCAL("CATALOG_NAMESPACE_LOCAL"),
+    /** A catalog in the `local` registry never leaves the organisation. */
+    CATALOG_REGISTRY_LOCAL("CATALOG_REGISTRY_LOCAL"),
 
     /** A catalog key names several catalogs of the tenant, and nothing said which namespace (ADR 0034, phase 4). */
     CATALOG_KEY_AMBIGUOUS("CATALOG_KEY_AMBIGUOUS"),

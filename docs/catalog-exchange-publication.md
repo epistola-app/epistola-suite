@@ -62,7 +62,7 @@ release fingerprint, because publishing mutable content under an old version
 would violate the release contract.
 
 A catalog named under `local` (ADR 0034, section 7) is never published: it is not queued when it is
-released, and publishing it is refused (`CATALOG_NAMESPACE_LOCAL`), even when the connection grants
+released, and publishing it is refused (`CATALOG_REGISTRY_LOCAL`), even when the connection grants
 a namespace of the same name.
 
 A namespace chosen by mistake can be corrected until a release of that catalog has reached

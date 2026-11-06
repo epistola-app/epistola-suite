@@ -10,6 +10,9 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -81,9 +84,62 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("the tenant's default theme (theme letters/seasonal)")
+                assertThat(e.heldResources).containsExactly("theme/seasonal")
+                assertThat(e.dependents).isEmpty()
             }
             .hasMessageContaining("default theme")
         assertThat(inNext(tenant, "theme")).`as`("nothing was discarded").contains("seasonal")
+    }
+
+    @Test
+    fun `a draft another catalog's draft builds on is not discarded, naming that draft in full`() {
+        val tenant = twoDrafts("named-by-draft")
+        val (redesign, sharedNext) = withMediator {
+            val redesign = requireNotNull(GetCatalogDraft(id(tenant), DraftRef.Id(draftKey(tenant, "Redesign"))).query())
+            val target = requireNotNull(GetCatalog(id(tenant)).query())
+            UpdateCatalogDependencies(
+                id(tenant, shared),
+                listOf(DeclaredCatalogDependency(target.registry, target.namespace, letters.value, versionId = redesign.versionId)),
+                catalogVersion = null,
+            ).execute()
+            redesign to requireNotNull(GetCatalogDraft(id(tenant, shared)).query())
+        }
+        val sharedCatalog = withMediator { requireNotNull(GetCatalog(id(tenant, shared)).query()) }
+
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(id(tenant), DraftRef.Id(redesign.versionId)).execute() } }
+            .isInstanceOfSatisfying(CatalogDraftInUseException::class.java) { e ->
+                assertThat(e.dependents).containsExactly(
+                    CatalogDraftReference(sharedCatalog.registry, sharedCatalog.namespace, shared.value, sharedNext.versionId, CatalogDraft.NEXT_LABEL),
+                )
+            }
+            .hasMessageContaining("shared (${CatalogDraft.NEXT_LABEL})")
+    }
+
+    @Test
+    fun `a held draft also names the drafts of other catalogs building on it`() {
+        val tenant = twoDrafts("held-and-named")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = null).execute()
+            SetTenantDefaultTheme(tenant, testCatalog(tenant, letters), ThemeKey.of("seasonal")).execute()
+            val target = requireNotNull(GetCatalog(id(tenant)).query())
+            val next = requireNotNull(GetCatalogDraft(id(tenant)).query())
+            UpdateCatalogDependencies(
+                id(tenant, shared),
+                listOf(DeclaredCatalogDependency(target.registry, target.namespace, letters.value, versionId = next.versionId)),
+                catalogVersion = null,
+            ).execute()
+        }
+
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(id(tenant), DraftRef.Next).execute() } }
+            .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
+                assertThat(e.heldResources).containsExactly("theme/seasonal")
+                assertThat(e.dependents.map { it.catalogKey }).containsExactly(shared.value)
+            }
+    }
+
+    /** The id of [tenant]'s `letters` draft named [name]. */
+    private fun draftKey(tenant: TenantKey, name: String): String = withMediator {
+        ListCatalogReleases(id(tenant)).query().single { it.status == CatalogReleaseStatus.DRAFT && it.name == name }.versionId
     }
 
     @Test
@@ -111,6 +167,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("attribute shared/colour (code list letters/colours)")
+                assertThat(e.heldResources).containsExactly("code-list/colours")
             }
         assertThat(inNext(tenant, "codeList")).`as`("nothing was discarded").contains("colours")
     }
