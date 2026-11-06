@@ -224,6 +224,7 @@ class ImportCatalogZipHandler(
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
     private val releaseIdentity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+    private val legacyPins: app.epistola.suite.catalog.dependencies.LegacyDependencyPins,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -264,12 +265,25 @@ class ImportCatalogZipHandler(
         }
     }
 
+    /**
+     * [command]'s archive, read and checked ([ImportArchiveReader]). One from before wire v8 pinned no
+     * catalog it uses; what it declares is pinned to the releases this tenant has of them
+     * ([app.epistola.suite.catalog.dependencies.LegacyDependencyPins], #1319), before anything is
+     * computed or recorded from it.
+     */
+    private fun read(command: ImportCatalogZip): ParsedCatalogArchive {
+        val parsed = archives.read(command)
+        val declared = parsed.manifest.catalogDependencies
+        if (parsed.catalogCtx.sourceVersion >= ImportArchiveReader.ALIASES_SINCE_WIRE_VERSION || declared.isNullOrEmpty()) return parsed
+        return parsed.copy(manifest = parsed.manifest.copy(catalogDependencies = legacyPins.pin(command.tenantKey, declared)))
+    }
+
     /** How the release [command] receives arrived; every receiving caller names it. */
     private fun provenanceOf(command: ImportCatalogZip) = checkNotNull(command.provenance) { "An import that receives a release names how it arrived" }
 
     /** What [handle] does for an archive: receives its release (see [ImportCatalogZip]). */
     private fun install(command: ImportCatalogZip): ImportCatalogZipResult {
-        val parsed = archives.read(command)
+        val parsed = read(command)
         val manifest = parsed.manifest
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         // The archive's name: its own (wire v8), or the one the caller gave a migrated one.
@@ -385,7 +399,7 @@ class ImportCatalogZipHandler(
      * catalog restored ([ImportCatalogZip.restore]).
      */
     private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult {
-        val parsed = archives.read(command)
+        val parsed = read(command)
         return importArchive(command, parsed)
     }
 
