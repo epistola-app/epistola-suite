@@ -57,9 +57,12 @@ describe('QR code createNode', () => {
     expect(node.type).toBe('qrcode');
     expect(node.slots).toEqual([]);
     expect(slots).toEqual([]);
+    // alt and decorative are the contract registry's defaults (catalog 2.0.0-beta.4).
     expect(node.props).toEqual({
       value: { raw: '', language: 'jsonata' },
       size: '120pt',
+      alt: '',
+      decorative: false,
     });
   });
 
@@ -73,6 +76,8 @@ describe('QR code createNode', () => {
     expect(node.props).toEqual({
       value: { raw: 'customer.paymentLink', language: 'jsonata' },
       size: '96pt',
+      alt: '',
+      decorative: false,
     });
   });
 });
