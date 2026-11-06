@@ -130,10 +130,38 @@ class V7ZipImportTest : IntegrationTestBase() {
         }
     }
 
-    /** A v7 catalog `brand` holding theme `brand`. */
-    private fun v7Brand(): ByteArray = zip(
+    /**
+     * Epistola 1.x exported a catalog never released, or changed since its last release, labelled
+     * `-dev` (`0.0.0-dev`, `1.2.0-dev`). Wire v8 numbers a release `MAJOR.MINOR.PATCH`, so the import
+     * refuses it, saying what the label means and what to do; with the version set as it says, the
+     * archive imports.
+     */
+    @Test
+    fun `a 1x export labelled -dev is refused with what to do, and imports once its version is set`() {
+        val tenant = createTenant("V7 dev label")
+
+        withMediator {
+            fun receive(archive: ByteArray) = ImportCatalogZip(tenant.id, archive, confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            assertThatThrownBy { receive(v7Brand(version = "0.0.0-dev")) }
+                .isInstanceOfSatisfying(CatalogImportValidationException::class.java) { refused ->
+                    assertThat(refused.findings.map { it.path }).containsExactly("catalog.json.release.version")
+                    assertThat(refused.message)
+                        .contains("labelled '0.0.0-dev', which is not a release")
+                        .contains("Release the catalog in the installation it came from and export it again")
+                        .contains("set release.version in the archive's catalog.json")
+                        .contains("(such as 0.0.1)")
+                }
+            assertThat(GetCatalog(testCatalog(tenant.id, CatalogKey.of("brand"))).query()).isNull()
+
+            assertThat(receive(v7Brand(version = "0.0.1")).releaseVersion).isEqualTo("0.0.1")
+        }
+    }
+
+    /** A v7 catalog `brand` holding theme `brand`, released as [version]. */
+    private fun v7Brand(version: String = "1.0.0"): ByteArray = zip(
         "catalog.json" to """
-            {"schemaVersion":7,"catalog":{"slug":"brand","name":"Brand"},"publisher":{"name":"Test"},"release":{"version":"1.0.0"},
+            {"schemaVersion":7,"catalog":{"slug":"brand","name":"Brand"},"publisher":{"name":"Test"},"release":{"version":"$version"},
              "resources":[{"type":"theme","slug":"brand","name":"Brand","detailUrl":"./resources/theme/brand.json"}]}
         """.trimIndent(),
         "resources/theme/brand.json" to """{"schemaVersion":7,"resource":{"type":"theme","slug":"brand","name":"Brand","documentStyles":{}}}""",

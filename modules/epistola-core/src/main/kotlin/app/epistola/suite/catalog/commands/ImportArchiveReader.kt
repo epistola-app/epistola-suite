@@ -115,7 +115,7 @@ class ImportArchiveReader(
         }
         val archive = read.archive ?: throw CatalogImportValidationException(
             read.findings.map {
-                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+                CatalogImportValidationFinding.ofMigration(it.code, it.path, it.message)
             },
         )
         var carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList()
@@ -129,7 +129,7 @@ class ImportArchiveReader(
                 CatalogValidationPolicy(verifyFingerprint = true, migration = migration),
             )
             val validationFindings = read.findings.map {
-                CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
+                CatalogImportValidationFinding.ofMigration(it.code, it.path, it.message)
             } + validation.findings.map {
                 CatalogImportValidationFinding(it.code, it.severity, it.path, it.message)
             }
