@@ -75,6 +75,33 @@ class QrCodeNodeRendererTest {
     }
 
     @Test
+    fun `an author's alt text says what scanning does, and a blank one falls back to the derived text`() {
+        fun figures(props: Map<String, Any?>): List<PdfAccessibilityInspector.StructElem> {
+            val document = documentWithQrCodeNode(mapOf("value" to mapOf("raw" to "v", "language" to "jsonata")) + props)
+            val output = ByteArrayOutputStream()
+            renderer.render(document, mapOf("v" to "https://example.com/pay/123"), output)
+            return PdfAccessibilityInspector.inspect(output.toByteArray()).structElems.filter { it.role == "Figure" }
+        }
+
+        assertEquals(listOf("Scan to pay your invoice"), figures(mapOf("alt" to "  Scan to pay your invoice ")).map { it.alt })
+        assertEquals(listOf("QR code: https://example.com/pay/123"), figures(mapOf("alt" to "  ")).map { it.alt })
+        assertEquals(listOf("QR code: https://example.com/pay/123"), figures(mapOf("alt" to "", "decorative" to false)).map { it.alt })
+    }
+
+    @Test
+    fun `a decorative QR code is an artifact, not a figure, whatever its alt text`() {
+        val document = documentWithQrCodeNode(
+            mapOf("value" to mapOf("raw" to "v", "language" to "jsonata"), "alt" to "Scan to pay", "decorative" to true),
+        )
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("v" to "https://example.com/pay/123"), output)
+
+        val snapshot = PdfAccessibilityInspector.inspect(output.toByteArray())
+        assertTrue(snapshot.tagged)
+        assertEquals(emptyList(), snapshot.structElems.filter { it.role == "Figure" })
+    }
+
+    @Test
     fun `renders QR code node from numeric expression`() {
         val document = documentWithQrCodeNode(
             mapOf(

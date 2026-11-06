@@ -210,6 +210,19 @@ class PdfConformanceTest {
     }
 
     @Test
+    fun `a QR code with the author's alt text, and one marked decorative, conform`() {
+        fun qr(id: String, props: Map<String, Any?>) = Node(id = id, type = "qrcode", props = mapOf("value" to mapOf("raw" to "'https://example.com/pay/123'", "language" to "jsonata"), "size" to "80pt") + props)
+        val described = qr("n-qr-alt", mapOf("alt" to "Scan to pay your invoice"))
+        val decorative = qr("n-qr-decorative", mapOf("decorative" to true))
+        val document = TemplateDocument(
+            root = "n-root",
+            nodes = mapOf("n-root" to Node(id = "n-root", type = "root", slots = listOf("s-root")), described.id to described, decorative.id to decorative),
+            slots = mapOf("s-root" to Slot(id = "s-root", nodeId = "n-root", name = "children", children = listOf(described.id, decorative.id))),
+        )
+        assertConforms(render(document, pdfa = true))
+    }
+
+    @Test
     fun `an image without alt text fails PDF-UA, so the check can see an author's mistake`() {
         val image = Node(
             id = "n-image",
