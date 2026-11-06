@@ -255,7 +255,6 @@ class CollectCommitOrderIT : IntegrationTestBase() {
             variantKey = VariantKey.of("default"),
             versionKey = null,
             environmentKey = EnvironmentKey.of("production"),
-            releaseVersion = null,
             data = JsonNodeFactory.instance.objectNode(),
             filename = "doc.pdf",
             correlationId = null,
