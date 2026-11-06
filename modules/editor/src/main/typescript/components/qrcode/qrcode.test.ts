@@ -82,6 +82,19 @@ describe('QR code createNode', () => {
   });
 });
 
+describe('QR code inspector', () => {
+  it('offers alt text and decorative, as the contract declares them (#1307)', () => {
+    const fields = createDefaultRegistry().get('qrcode')!.inspector;
+
+    expect(fields.map((field) => field.key)).toEqual(['value.raw', 'alt', 'decorative', 'size']);
+    expect(fields.find((field) => field.key === 'alt')?.type).toBe('text');
+    expect(fields.find((field) => field.key === 'decorative')).toMatchObject({
+      type: 'boolean',
+      defaultValue: false,
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // InsertNode / RemoveNode
 // ---------------------------------------------------------------------------

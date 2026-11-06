@@ -11,6 +11,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.itextpdf.io.image.ImageDataFactory
+import com.itextpdf.kernel.pdf.tagging.StandardRoles
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
@@ -54,8 +55,13 @@ class QrCodeNodeRenderer : NodeRenderer {
         val image = Image(ImageDataFactory.create(pngBytes))
         image.setWidth(sizePt)
         image.setHeight(sizePt)
-        // PDF/UA-1 requires a Figure to have a text alternative (ISO 14289-1, 7.3; #1307).
-        image.accessibilityProperties.setAlternateDescription(alternativeText(value))
+        // PDF/UA-1 requires a Figure to have a text alternative, or to be an artifact (ISO 14289-1,
+        // 7.3; #1307). A decorative code is one whose information is printed next to it.
+        if (node.props?.get("decorative") == true) {
+            image.accessibilityProperties.setRole(StandardRoles.ARTIFACT)
+        } else {
+            image.accessibilityProperties.setAlternateDescription(alternativeText(node.props?.get("alt"), value))
+        }
 
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
@@ -77,11 +83,13 @@ class QrCodeNodeRenderer : NodeRenderer {
     }
 
     /**
-     * What a screen reader announces instead of the code. A web link is what a scan would give, so
-     * it is read out; anything else (a payment payload over several lines, an id) is noise read
-     * aloud, so only the kind of image is named. Authors cannot set their own text yet (#1307).
+     * What a screen reader announces instead of the code: the author's [alt] text when they wrote
+     * one, saying what scanning it does. Otherwise a web link is what a scan would give, so it is
+     * read out; anything else (a payment payload over several lines, an id) is noise read aloud, so
+     * only the kind of image is named.
      */
-    internal fun alternativeText(value: String): String = if (WEB_LINK.matches(value)) "QR code: $value" else "QR code"
+    internal fun alternativeText(alt: Any?, value: String): String = (alt as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: if (WEB_LINK.matches(value)) "QR code: $value" else "QR code"
 
     private fun resolveQrValue(expression: Expression, context: RenderContext, node: Node): String? {
         val resolved = context.expressionEvaluator.evaluate(expression, context.effectiveData, context.loopContext)
