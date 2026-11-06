@@ -96,6 +96,11 @@ jobs:
         env:
           # Waives the "a change to shipped code needs a changelog fragment" requirement.
           SKIP_CHANGELOG_REQUIREMENT: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+          # A pull request compares against its target branch (GITHUB_BASE_REF). A push or tag build
+          # has none, and the checks would fall back to origin/main, which is a different release
+          # line on a maintenance branch: release/1.x then fails on 2.0's migrations, and a v1.x tag
+          # publishes no image. Those commits are already merged, so compare them with themselves.
+          MIGRATION_VERSION_BASE_REF: ${{ github.event_name != 'pull_request' && 'HEAD' || '' }}
         run: gradle checkMigrationVersions checkChangelogFragments checkBundledCatalogVersions ktlintCheck checkContractVersionAlignment testClasses
 
       # setup-gradle does NOT share the local build cache across jobs, so we
