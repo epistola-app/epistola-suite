@@ -101,7 +101,7 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
 
             assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant, catalog), "1.0.0").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_LOCAL)
+                    assertThat(it.code).isEqualTo(ValidationCode.CATALOG_REGISTRY_LOCAL)
                     assertThat(it.message).isEqualTo("local/public-services/local-letters is named under local, which never leaves this organisation, so it is not published to Epistola Exchange.")
                 }
         }

@@ -31,6 +31,7 @@ import app.epistola.suite.catalog.releases.AssessDraftNumber
 import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDraftLifecycle
+import app.epistola.suite.catalog.releases.CatalogDraftReference
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
@@ -161,8 +162,8 @@ data class ReleaseCatalogDraftResult(
     val unchangedContent: Boolean,
     /** Set when the release was queued for publication; null when it was not. */
     val publicationId: UUID? = null,
-    /** The catalog's other drafts this release puts behind, by name. */
-    val draftsBehind: List<String> = emptyList(),
+    /** The catalog's other drafts this release puts behind, each named in full. */
+    val draftsBehind: List<CatalogDraftReference> = emptyList(),
     /** The drafts of other catalogs released along with this one, dependencies first. */
     val releasedDependencies: List<ReleasedDependency> = emptyList(),
     /** The release's id (contract `CatalogVersionId`): the id the draft had. */
@@ -253,7 +254,7 @@ class ReleaseCatalogDraftHandler(
             val assessment = AssessDraftNumber(command.catalog, other.ref).query() ?: return@filter false
             val theirs = DraftNumberAssessment.nextFree(SemVer.parse(assessment.needed), assessment.needs ?: ChangeKind.NONE, assessment.taken + newVersion.toString())
             other.base != newVersion.toString() && newVersion < theirs
-        }.map { it.label }
+        }.map { CatalogDraftReference(catalog.registry, catalog.namespace, catalog.id.value, it.key, it.label) }
 
         return release(command, catalog, newVersion, latest, existing, draft, draftsBehind, at)
             .copy(releasedDependencies = releasedDependencies)
@@ -360,7 +361,7 @@ class ReleaseCatalogDraftHandler(
         latest: SemVer?,
         existing: List<ReleaseRow>,
         draft: CatalogDraft,
-        draftsBehind: List<String>,
+        draftsBehind: List<CatalogDraftReference>,
         at: ContentVersion,
     ): ReleaseCatalogDraftResult {
         requireChangesReady(at)

@@ -114,7 +114,7 @@ class PublishCurrentCatalogReleaseHandler(
 
         // A catalog named under local never leaves the organisation (ADR 0034, section 7), whatever
         // namespace the connection grants.
-        validate("namespace", !LocalAuthority.isLocal(catalog.registry), ValidationCode.CATALOG_NAMESPACE_LOCAL) {
+        validate("namespace", !LocalAuthority.isLocal(catalog.registry), ValidationCode.CATALOG_REGISTRY_LOCAL) {
             NamespaceMessages.notPublished(catalog.catalogName.toString())
         }
 

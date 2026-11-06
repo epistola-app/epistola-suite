@@ -84,6 +84,7 @@ object ApiProblemTypes {
     val MERGE_BASE_MISSING = problem("MERGE_BASE_MISSING", "Merge Base Missing", HttpStatus.CONFLICT, "This installation does not have the merge base, the release both the draft and the release come from; `version` and `fingerprint` name it, to get first.", listOf("version", "fingerprint"))
     val MERGE_PREVIEW_OUTDATED = problem("MERGE_PREVIEW_OUTDATED", "Merge Preview Outdated", HttpStatus.CONFLICT, "The draft or the release changed since the preview whose token the request sent as expectedToken; preview again.", emptyList())
     val MERGE_NOT_APPLICABLE = problem("MERGE_NOT_APPLICABLE", "Merge Not Applicable", HttpStatus.UNPROCESSABLE_CONTENT, "The draft already contains the release, or a resolution names something that is not a conflict.", emptyList())
+    val CATALOG_DRAFT_IN_USE = problem("CATALOG_DRAFT_IN_USE", "Catalog Draft In Use", HttpStatus.CONFLICT, "The draft cannot be discarded while something outside it relies on it: `dependents` lists the drafts of other catalogs naming it, `heldResources` the resources only it holds that something outside it uses.", listOf("dependents", "heldResources"))
     val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
     val RESOURCE_MODIFIED = problem("RESOURCE_MODIFIED", "Resource Modified", HttpStatus.PRECONDITION_FAILED, "The resource changed since the ETag sent in If-Match was read. Read it again and reapply your change.", listOf("expectedRevision", "currentRevision"))
     val ENVIRONMENT_DEPLOYMENT_REFUSED = problem("ENVIRONMENT_DEPLOYMENT_REFUSED", "Environment Deployment Refused", HttpStatus.CONFLICT, "The environment cannot serve that: a production environment serves only releases, never a draft.", emptyList())
@@ -125,6 +126,7 @@ object ApiProblemTypes {
         MERGE_BASE_MISSING,
         MERGE_PREVIEW_OUTDATED,
         MERGE_NOT_APPLICABLE,
+        CATALOG_DRAFT_IN_USE,
         CATALOG_DRAFT_NAME_IN_USE,
         RESOURCE_MODIFIED,
         ENVIRONMENT_DEPLOYMENT_REFUSED,

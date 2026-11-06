@@ -26,13 +26,26 @@ class CatalogReleaseBehindException(val catalogKey: CatalogKey, val version: Str
 /**
  * Draft [version] is the only draft or release holding a resource something outside it still needs, so
  * discarding it would delete that resource's identity out from under it. [holders] name each one and
- * the resource it needs, e.g. `the tenant's default theme (theme letters/seasonal)`.
+ * the resource it needs, e.g. `the tenant's default theme (theme letters/seasonal)`; [heldResources]
+ * are those resources as `resourceType/resourceKey` (contract `catalog-draft-in-use`), and
+ * [dependents] the drafts of other catalogs that also name the draft.
  */
-class CatalogReleaseHeldException(val catalogKey: CatalogKey, val version: String, val holders: List<String>) :
-    RuntimeException(
-        "Draft $version of catalog '${catalogKey.value}' cannot be discarded: it alone holds what " +
-            "${holders.joinToString("; ")} ${if (holders.size == 1) "uses" else "use"}. Change ${if (holders.size == 1) "it" else "them"} first.",
-    )
+class CatalogReleaseHeldException(
+    val catalogKey: CatalogKey,
+    val version: String,
+    val holders: List<String>,
+    val heldResources: List<String> = emptyList(),
+    val dependents: List<CatalogDraftReference> = emptyList(),
+) : RuntimeException(
+    "Draft $version of catalog '${catalogKey.value}' cannot be discarded: it alone holds what " +
+        "${holders.joinToString("; ")} ${if (holders.size == 1) "uses" else "use"}. Change ${if (holders.size == 1) "it" else "them"} first.",
+)
+
+/** What outside a draft uses a resource only that draft holds: [description] says who and what, [resource] is `resourceType/resourceKey`. */
+data class DraftHolder(val description: String, val resource: String)
+
+/** A draft named in full (contract `CatalogDraftRefDto`): its catalog, its id ([releaseId]) and its name. */
+data class CatalogDraftReference(val registry: String, val namespace: String, val catalogKey: String, val releaseId: String, val releaseName: String)
 
 /**
  * Draft [version] has nothing to release: nothing changed against its base [base], no resource and no
@@ -56,5 +69,8 @@ class CatalogDependenciesUnreleasedException(val catalogKey: CatalogKey, val unr
             ". Release them first, or release them along.",
     )
 
-/** Draft [version] is named by another catalog's draft ([namedBy]), so it cannot be discarded. */
-class CatalogDraftInUseException(val catalogKey: CatalogKey, val version: String, val namedBy: List<String>) : RuntimeException("Draft $version of catalog '${catalogKey.value}' cannot be discarded: ${namedBy.joinToString()} ${if (namedBy.size == 1) "builds" else "build"} on it.")
+/** Draft [version] is named by drafts of other catalogs ([dependents]), so it cannot be discarded. */
+class CatalogDraftInUseException(val catalogKey: CatalogKey, val version: String, val dependents: List<CatalogDraftReference>) : RuntimeException("Draft $version of catalog '${catalogKey.value}' cannot be discarded: ${dependents.joinToString { "${it.catalogKey} (${it.releaseName})" }} ${if (dependents.size == 1) "builds" else "build"} on it.") {
+    /** The drafts naming it, as `catalogKey (draft name)`. */
+    val namedBy: List<String> get() = dependents.map { "${it.catalogKey} (${it.releaseName})" }
+}

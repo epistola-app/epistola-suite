@@ -8,15 +8,19 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
@@ -287,13 +291,15 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val released = call(HttpMethod.POST, "$versions/next/release", "{}")
 
         assertThat(released.statusCode).describedAs(released.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind")).containsExactly("Redesign")
+        assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind[*].releaseName")).containsExactly("Redesign")
+        assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind[*].releaseId")).containsExactly(work)
+        assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind[*].catalogKey")).containsExactly(catalogSlug)
         assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/$work").body!!, "$.behind[*].version")).containsExactly("1.0.1")
         assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/next").body!!, "$.behind")).isEmpty()
     }
 
     @Test
-    fun `discarding the next version while it alone holds the tenant's default theme is a held problem`() {
+    fun `discarding the next version while it alone holds the tenant's default theme is a catalog-draft-in-use problem`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "held-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -308,8 +314,38 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val refused = restTemplate.exchange("$versions/next", HttpMethod.DELETE, HttpEntity(null, baseHeaders(apiKey)), String::class.java)
 
         assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
-        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.heldBy")).containsExactly("the tenant's default theme (theme $catalogSlug/seasonal)")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-in-use")
+        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.heldResources")).containsExactly("theme/seasonal")
+        assertThat(JsonPath.read<List<Any>>(refused.body!!, "$.dependents")).isEmpty()
+    }
+
+    @Test
+    fun `discarding a draft another catalog's draft builds on is a catalog-draft-in-use problem naming that draft`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "named-${UUID.randomUUID().toString().take(8)}"
+        val otherSlug = "uses-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        seedAuthoredCatalog(tenantKey, otherSlug)
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenantKey, CatalogKey.of(catalogSlug)), version = "1.0.0", catalogVersion = null).execute() }
+        val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
+        fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+        val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.releaseId")
+        val (target, other, otherNext) = withMediator {
+            val target = requireNotNull(GetCatalog(testCatalog(tenantKey, CatalogKey.of(catalogSlug))).query())
+            val other = testCatalog(tenantKey, CatalogKey.of(otherSlug))
+            UpdateCatalogDependencies(other, listOf(DeclaredCatalogDependency(target.registry, target.namespace, catalogSlug, versionId = work)), catalogVersion = null).execute()
+            Triple(target, requireNotNull(GetCatalog(other).query()), requireNotNull(GetCatalogDraft(other).query()))
+        }
+
+        val refused = call(HttpMethod.DELETE, "$versions/$work")
+
+        assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-in-use")
+        assertThat(JsonPath.read<List<Map<String, String>>>(refused.body!!, "$.dependents")).containsExactly(
+            mapOf("registry" to other.registry, "namespace" to other.namespace, "catalogKey" to otherSlug, "releaseId" to otherNext.versionId, "releaseName" to "Next release"),
+        )
+        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.heldResources")).isEmpty()
+        assertThat(target.registry).`as`("written in full, never `~`").contains(".")
     }
 
     @Test

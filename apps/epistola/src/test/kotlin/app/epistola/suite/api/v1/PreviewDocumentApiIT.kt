@@ -129,11 +129,73 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         assertThat(response.body).contains("errors/not-found").contains("\"catalogId\":\"default\"")
     }
 
-    private fun preview(tenantKey: TenantKey, apiKey: String, data: String) = restTemplate.exchange(
+    @Test
+    fun `preview by releaseId renders a released release`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val version = seedPublishedTemplate(tenantKey)
+        val releaseId = JsonPath.read<String>(releaseOf(tenantKey, apiKey, version), "$.releaseId")
+
+        val response = preview(tenantKey, apiKey, COMPLETE_DATA, """"releaseId": "$releaseId"""")
+
+        assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
+    }
+
+    @Test
+    fun `preview by releaseId renders a draft`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        seedPublishedTemplate(tenantKey)
+        val releaseId = JsonPath.read<String>(releaseOf(tenantKey, apiKey, "next"), "$.releaseId")
+
+        val response = preview(tenantKey, apiKey, COMPLETE_DATA, """"releaseId": "$releaseId"""")
+
+        assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
+        assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
+    }
+
+    @Test
+    fun `preview by a releaseId the catalog does not have is a 404`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        seedPublishedTemplate(tenantKey)
+
+        val response = preview(tenantKey, apiKey, COMPLETE_DATA, """"releaseId": "zz99zz99"""")
+
+        assertThat(response.statusCode.value()).describedAs(response.body).isEqualTo(404)
+        assertThat(response.body).contains("errors/not-found")
+    }
+
+    @Test
+    fun `preview by releaseId together with a versionRange is a 400`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val version = seedPublishedTemplate(tenantKey)
+        val releaseId = JsonPath.read<String>(releaseOf(tenantKey, apiKey, version), "$.releaseId")
+
+        val response = preview(tenantKey, apiKey, COMPLETE_DATA, """"releaseId": "$releaseId", "versionRange": "$version"""")
+
+        assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body).contains("releaseId")
+    }
+
+    private fun releaseOf(tenantKey: TenantKey, apiKey: String, release: String): String = restTemplate.exchange(
+        "${withMediator { CatalogApiPaths.catalog(tenantKey, "default") }}/releases/$release",
+        HttpMethod.GET,
+        HttpEntity(
+            null,
+            HttpHeaders().apply {
+                accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"), MediaType.APPLICATION_PROBLEM_JSON)
+                set(HttpHeaders.USER_AGENT, "epistola-contract/1.3.1 preview-it")
+                set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
+                set("Authorization", "ApiKey $apiKey")
+            },
+        ),
+        String::class.java,
+    ).also { assertThat(it.statusCode).describedAs(it.body).isEqualTo(HttpStatus.OK) }.body!!
+
+    private fun preview(tenantKey: TenantKey, apiKey: String, data: String, members: String? = null) = restTemplate.exchange(
         "/api/tenants/${tenantKey.value}/documents/preview",
         HttpMethod.POST,
         HttpEntity(
-            """{"namespace": "${withMediator { CatalogApiPaths.namespace(tenantKey) }}", "catalogKey": "default", "templateKey": "$TEMPLATE", "data": $data}""",
+            """{"namespace": "${withMediator { CatalogApiPaths.namespace(tenantKey) }}", "catalogKey": "default", "templateKey": "$TEMPLATE", "data": $data${members?.let { ", $it" }.orEmpty()}}""",
             HttpHeaders().apply {
                 contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
                 accept = listOf(MediaType.APPLICATION_PDF, MediaType.APPLICATION_PROBLEM_JSON)
@@ -182,5 +244,6 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
 
     private companion object {
         const val TEMPLATE = "invoice"
+        const val COMPLETE_DATA = """{"customer": {"name": "Ada"}, "invoiceDate": "2026-09-22"}"""
     }
 }

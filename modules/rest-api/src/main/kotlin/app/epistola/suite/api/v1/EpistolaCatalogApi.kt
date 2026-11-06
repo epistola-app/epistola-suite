@@ -14,6 +14,7 @@ import app.epistola.api.model.CatalogDependencyListResponse
 import app.epistola.api.model.CatalogDraftMergePreview
 import app.epistola.api.model.CatalogDraftMergeResource
 import app.epistola.api.model.CatalogDraftMergeSides
+import app.epistola.api.model.CatalogDraftRefDto
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogLevelChangeDto
@@ -526,7 +527,7 @@ class EpistolaCatalogApi(
                 ReleaseCatalogDraftResponse(
                     release = released.toDto(draft.catalog),
                     unchangedContent = result.unchangedContent,
-                    draftsBehind = result.draftsBehind,
+                    draftsBehind = result.draftsBehind.map { CatalogDraftRefDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, releaseId = it.releaseId, releaseName = it.releaseName) },
                     releasedDependencies = result.releasedDependencies.map {
                         ReleasedDependencyDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, releaseId = it.versionId, version = it.releaseVersion)
                     },

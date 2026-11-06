@@ -160,7 +160,6 @@ class CreateCatalogDraftHandler(
 class NextVersionHandOver(
     private val drafts: CatalogDrafts,
     private val holdersCheck: DeleteCatalogDraftHandler,
-    private val dependencyStore: CatalogDependencyStore,
     private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) {
     /**
@@ -175,10 +174,7 @@ class NextVersionHandOver(
             throw CatalogDraftNameInUseException(catalog.key, keepAs)
         }
         if (keepAs == null) {
-            val holders = holdersCheck.holders(handle, catalog.tenantKey, previous.versionId)
-            if (holders.isNotEmpty()) throw CatalogReleaseHeldException(catalog.key, previous.label, holders)
-            val namedBy = dependencyStore.namedBy(handle, catalog.tenantKey, previous.versionId)
-            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalog.key, previous.label, namedBy)
+            holdersCheck.refuseWhileRelied(handle, catalog, previous)
         }
         check(work.versionId != previous.versionId) { "the next version is the next version already" }
     }
@@ -296,12 +292,7 @@ class DeleteCatalogDraftHandler(
         val (tenantKey, catalogKey) = catalog.tenantKey to catalog.key
         val draft = jdbi.withHandle<CatalogDraft, Exception> { handle ->
             val draft = drafts.find(handle, catalog, command.draft) ?: throw CatalogReleaseNotFoundException(catalogKey, command.draft.toString())
-            // What it alone holds is named first: that is the more specific reason, and using a held
-            // resource from another catalog also names this draft there.
-            val holders = holders(handle, tenantKey, draft.versionId)
-            if (holders.isNotEmpty()) throw CatalogReleaseHeldException(catalogKey, draft.label, holders)
-            val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
-            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
+            refuseWhileRelied(handle, catalog, draft)
             // Environments serving it stop: recorded in their history.
             draftLifecycle.forEach { it.draftDiscarded(handle, tenantKey, draft.versionId) }
             drafts.delete(handle, tenantKey, draft.versionId)
@@ -319,7 +310,7 @@ class DeleteCatalogDraftHandler(
      * then fail (the tenant's default theme, an attribute's code list) or be cleared silently (a
      * template's theme). A reference from inside the draft goes with it.
      */
-    fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
+    fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<DraftHolder> = handle.createQuery(
         $$"""
         WITH own AS (
             SELECT resource_id FROM release_wire_resources WHERE tenant_key = :t AND version_id = :v
@@ -348,7 +339,9 @@ class DeleteCatalogDraftHandler(
         SELECT DISTINCT r.ordinal,
                r.holder || COALESCE(' ' || hc.catalog_key || '/' || h.resource_key, '')
                    || ' (' || CASE held.resource_type WHEN 'asset' THEN 'image' WHEN 'codeList' THEN 'code list' ELSE held.resource_type END
-                   || ' ' || dc.catalog_key || '/' || held.resource_key || ')' AS description
+                   || ' ' || dc.catalog_key || '/' || held.resource_key || ')' AS description,
+               CASE held.resource_type WHEN 'asset' THEN 'image' WHEN 'codeList' THEN 'code-list' ELSE held.resource_type END
+                   || '/' || held.resource_key AS resource
         FROM refs r
         JOIN catalog_resources held ON held.tenant_key = :t AND held.resource_id = r.held_resource_id
         JOIN catalogs dc ON dc.tenant_key = held.tenant_key AND dc.catalog_id = held.catalog_id
@@ -359,6 +352,28 @@ class DeleteCatalogDraftHandler(
     )
         .bind("t", tenantKey)
         .bind("v", versionId)
-        .map { rs, _ -> rs.getString("description") }
+        .map { rs, _ -> DraftHolder(rs.getString("description"), rs.getString("resource")) }
         .list()
+
+    /**
+     * Refuses discarding draft [draft] while something outside it relies on it: with
+     * [CatalogReleaseHeldException] while it alone holds what something outside it uses (the more
+     * specific reason, named first; using a held resource from another catalog also names the draft
+     * there), else with [CatalogDraftInUseException] while drafts of other catalogs name it. Each
+     * carries everything that relies on it (contract `catalog-draft-in-use`).
+     */
+    fun refuseWhileRelied(handle: Handle, catalog: CatalogId, draft: CatalogDraft) {
+        val holders = holders(handle, catalog.tenantKey, draft.versionId)
+        val dependents = dependencyStore.namedBy(handle, catalog.tenantKey, draft.versionId)
+        if (holders.isNotEmpty()) {
+            throw CatalogReleaseHeldException(
+                catalogKey = catalog.key,
+                version = draft.label,
+                holders = holders.map { it.description },
+                heldResources = holders.map { it.resource }.distinct().sorted(),
+                dependents = dependents,
+            )
+        }
+        if (dependents.isNotEmpty()) throw CatalogDraftInUseException(catalog.key, draft.label, dependents)
+    }
 }

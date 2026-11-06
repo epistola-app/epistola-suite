@@ -48,6 +48,7 @@ import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedExceptio
 import app.epistola.suite.catalog.releases.CatalogDraftInUseException
 import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
 import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftReference
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
 import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
@@ -549,9 +550,11 @@ object ApiExceptionMappings {
             logMessage = { "Deleting a stencil refused: ${it.message}" },
         )
 
+        // Both discard refusals are `catalog-draft-in-use`, each naming everything that relies on the draft.
         builder.register<CatalogDraftInUseException>(
-            problemType = ApiProblemTypes.CONFLICT,
-            defaultDetail = "Another catalog's draft builds on this draft",
+            problemType = ApiProblemTypes.CATALOG_DRAFT_IN_USE,
+            defaultDetail = "Drafts of other catalogs build on this draft",
+            extensions = { draftInUseMembers(it.dependents, emptyList()) },
             logMessage = { "Discarding a draft refused: ${it.message}" },
         )
 
@@ -804,9 +807,9 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogReleaseHeldException>(
-            problemType = ApiProblemTypes.CONFLICT,
+            problemType = ApiProblemTypes.CATALOG_DRAFT_IN_USE,
             defaultDetail = "The draft alone holds resources something outside it still uses",
-            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
+            extensions = { draftInUseMembers(it.dependents, it.heldResources) },
             logMessage = { "Discarding a draft refused: ${it.message}" },
         )
 
@@ -836,6 +839,14 @@ object ApiExceptionMappings {
 
     /** Every problem type a registered exception answers with; `ProblemTypeRegistryTest` holds them to the contract. */
     fun registeredProblemTypes(): Set<ApiProblemType> = registry.values.mapTo(mutableSetOf()) { it.problemType }
+
+    /** The members of `catalog-draft-in-use`: the drafts naming the draft, in full, and the resources only it holds as `resourceType/resourceKey`. */
+    private fun draftInUseMembers(dependents: List<CatalogDraftReference>, heldResources: List<String>): Map<String, Any?> = mapOf(
+        "dependents" to dependents.map {
+            mapOf("registry" to it.registry, "namespace" to it.namespace, "catalogKey" to it.catalogKey, "releaseId" to it.releaseId, "releaseName" to it.releaseName)
+        },
+        "heldResources" to heldResources,
+    )
 
     /** A query parameter's [value] the endpoint does not take: `errors[]` names [parameter], and the members list what it takes. */
     private fun parameterRejected(parameter: String, value: String, supportedValues: List<String>): Map<String, Any?> = mapOf(
