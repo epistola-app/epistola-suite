@@ -726,6 +726,15 @@ a theme's fonts, a stencil's content, an attribute's code list. A catalog that c
 declared by naming its **next release**, which is what the draft then renders it from; one that cannot
 by pinning its highest release. A declaration already there is left as the author set it.
 
+**Pinned as received from before wire v8.** A 1.x archive (wire v7 or earlier) pinned nothing: the
+contract's migration declares every catalog its content names, a variant attribute's qualifier
+(`system.locale`) included, under that catalog's key in the archive's own registry and namespace,
+pinning no release. Received, it is a release, and a release pins every catalog it declares, so the
+import resolves each declaration to the tenant's one catalog with that key (the system catalog is in
+Epistola's namespace, not the archive's) and pins its highest release (`LegacyDependencyPins`, #1319),
+as the 2.0 upgrade resolves a 1.x draft's. A key no catalog of the tenant has, or two share, or one
+with no release, keeps the declaration as migrated.
+
 **Catalogs never use each other.** A declaration naming a catalog that already uses this one,
 directly or through others, is refused, and so is the write that would add it, in the same
 transaction (`CatalogDependencyStore.replace`, `ValidationException` with

@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.ReleaseChannel
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogKey
@@ -90,6 +92,89 @@ class V7ZipImportTest : IntegrationTestBase() {
             assertThat(stencil.readsTemplateData).isTrue()
             assertThat(stencil.content.nodes.values.filter { it.type == "placeholder" }.map { it.props?.get("passParameters") }).containsExactly(true)
         }
+    }
+
+    /**
+     * #1319. A v7 catalog using another catalog names it two ways: the resources it uses there, which
+     * its manifest's `dependencies` lists, and a variant attribute's qualifier (`system.locale`), which
+     * nothing lists. Received as a release, it pins every catalog it uses, as a wire-v8 release must,
+     * each to the release the tenant has; else the release cannot be copied into a draft, which reads
+     * it back as a wire-v8 archive.
+     */
+    @Test
+    fun `a wire-v7 release pins every catalog it uses, those only its variant attributes name included`() {
+        val tenant = createTenant("V7 release pins")
+
+        withMediator {
+            fun receive(archive: ByteArray) = ImportCatalogZip(tenant.id, archive, confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns", provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            receive(v7Brand())
+            receive(v7LettersUsingBrand())
+
+            val letters = testCatalog(tenant.id, CatalogKey.of("letters"))
+            val system = GetCatalog(testCatalog(tenant.id, CatalogKey.of("system"))).query()!!
+            val expected = listOf(
+                Triple("${identity.defaultRegistry}/letters-ns/brand", "1.0.0", "brand"),
+                Triple("${system.registry}/${system.namespace}/system", system.latestReleaseVersion, "system"),
+            )
+            fun List<app.epistola.catalog.protocol.CatalogDependency>.described() = map { Triple("${it.registry}/${it.namespace}/${it.catalogKey}", it.releaseVersion, it.alias) }
+
+            // The release as it travels, and the next version it moved to.
+            val released = ExportCatalogZip(letters, "1.0.0").execute().zipBytes
+            val archive = checkNotNull(app.epistola.catalog.archive.CatalogArchiveReader.read(java.io.ByteArrayInputStream(released)).archive)
+            archive.use { assertThat(it.manifest.catalogDependencies.orEmpty().described()).containsExactlyInAnyOrderElementsOf(expected) }
+            assertThat(ListCatalogDependencies(letters, catalogVersion = null).query().map { Triple("${it.registry}/${it.namespace}/${it.catalogKey}", it.releaseVersion, it.alias) })
+                .containsExactlyInAnyOrderElementsOf(expected)
+
+            // Copying the release into a draft reads it back as a wire-v8 archive.
+            CreateCatalogDraft(letters, "Work", from = "1.0.0").execute()
+        }
+    }
+
+    /** A v7 catalog `brand` holding theme `brand`. */
+    private fun v7Brand(): ByteArray = zip(
+        "catalog.json" to """
+            {"schemaVersion":7,"catalog":{"slug":"brand","name":"Brand"},"publisher":{"name":"Test"},"release":{"version":"1.0.0"},
+             "resources":[{"type":"theme","slug":"brand","name":"Brand","detailUrl":"./resources/theme/brand.json"}]}
+        """.trimIndent(),
+        "resources/theme/brand.json" to """{"schemaVersion":7,"resource":{"type":"theme","slug":"brand","name":"Brand","documentStyles":{}}}""",
+    )
+
+    /**
+     * A v7 catalog `letters` whose template uses theme `brand` of catalog `brand` ([v7Brand]) and
+     * whose variant carries the system catalog's `locale` attribute.
+     */
+    private fun v7LettersUsingBrand(): ByteArray {
+        val manifest = """
+            {"schemaVersion":7,
+             "catalog":{"slug":"letters","name":"Letters"},
+             "publisher":{"name":"Test"},
+             "release":{"version":"1.0.0"},
+             "resources":[{"type":"template","slug":"welcome","name":"Welcome","detailUrl":"./resources/template/welcome.json"}],
+             "dependencies":[{"type":"theme","catalogKey":"brand","slug":"brand"}]}
+        """.trimIndent()
+        val document = """
+            {"modelVersion":1,"root":"root",
+             "nodes":{"root":{"id":"root","type":"root","slots":["root-children"]}},
+             "slots":{"root-children":{"id":"root-children","nodeId":"root","name":"children","children":[]}}}
+        """.trimIndent()
+        val template = """
+            {"schemaVersion":7,"resource":{"type":"template","slug":"welcome","name":"Welcome","themeId":"brand","themeCatalogKey":"brand",
+             "dataExamples":[],"templateModel":$document,
+             "variants":[{"slug":"default","title":"Default","isDefault":true,"attributes":{"system.locale":"nl-NL"},"templateModel":null}]}}
+        """.trimIndent()
+        return zip("catalog.json" to manifest, "resources/template/welcome.json" to template)
+    }
+
+    private fun zip(vararg entries: Pair<String, String>): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            for ((path, content) in entries) {
+                zip.putNextEntry(ZipEntry(path))
+                zip.write(content.toByteArray())
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
     }
 
     /** A v7 catalog holding one theme, and with [stencil] a letterhead, addressed by `slug` as v7 did. */

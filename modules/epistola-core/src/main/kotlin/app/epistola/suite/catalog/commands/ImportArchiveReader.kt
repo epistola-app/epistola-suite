@@ -119,7 +119,11 @@ class ImportArchiveReader(
             },
         )
         var carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList()
+        // The catalogs the archive declares as read and validated: for one from before wire v8 these
+        // include the ones only its content names, which migrating its manifest alone cannot see.
+        var readDeclarations: List<app.epistola.catalog.protocol.CatalogDependency>? = null
         val entries = archive.use { safeArchive ->
+            readDeclarations = safeArchive.manifest.catalogDependencies
             val validation = CatalogValidator.validate(
                 safeArchive,
                 CatalogValidationPolicy(verifyFingerprint = true, migration = migration),
@@ -156,8 +160,15 @@ class ImportArchiveReader(
         // current-shape payloads pass straight through to binding.
         // An archive from before wire v8 takes the name the caller gave it (ADR 0003).
         val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace, migration.registry)
-        val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
+        // An archive from before wire v8 declares what the reader declared for it (#1319): every catalog
+        // its content names, a variant attribute's qualifier (`system.locale`) included, not only those
+        // its `dependencies` index listed.
+        val manifest = if (catalogCtx.sourceVersion < ALIASES_SINCE_WIRE_VERSION) {
+            migratedManifest.manifest.copy(catalogDependencies = readDeclarations)
+        } else {
+            migratedManifest.manifest
+        }
         // Content names other catalogs by alias; this installation stores references by catalog key,
         // so an alias that is not the key cannot be stored as it is received (DependencyAliases).
         DependencyAliases.unsupported(manifest.catalogDependencies.orEmpty()).takeIf { it.isNotEmpty() }?.let { refused ->
@@ -191,5 +202,10 @@ class ImportArchiveReader(
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
         return ParsedCatalogArchive(entries, manifest, catalogCtx, carried)
+    }
+
+    internal companion object {
+        /** The wire version from which content names other catalogs by an alias its manifest declares (contract ADR 0003). */
+        internal const val ALIASES_SINCE_WIRE_VERSION = 8
     }
 }
