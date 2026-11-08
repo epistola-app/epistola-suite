@@ -13,6 +13,9 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.statistics.GetGenerationStatistics
+import app.epistola.suite.statistics.StatisticsPeriod
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -30,6 +33,9 @@ class GenerationHistoryHandler {
         val stats = GetGenerationStats(tenantId.key).query()
         val templateUsage = GetTemplateUsage(tenantId.key).query()
         val recentJobs = ListGenerationJobs(tenantId.key, limit = RECENT_JOBS_LIMIT).query()
+        val today = EpistolaClock.localDate()
+        val months = GetGenerationStatistics(tenantId.key, today.withDayOfMonth(1).minusMonths(11), today, StatisticsPeriod.MONTH).query()
+        val days = GetGenerationStatistics(tenantId.key, today.minusDays(29), today, StatisticsPeriod.DAY).query()
 
         return ServerResponse.ok().page("generation-history/dashboard") {
             "pageTitle" to "Generation - Epistola"
@@ -38,6 +44,8 @@ class GenerationHistoryHandler {
             "templateUsage" to templateUsage
             "recentJobs" to recentJobs
             "statuses" to RequestStatus.entries
+            "statisticsMonths" to months
+            "statisticsDays" to days
         }
     }
 

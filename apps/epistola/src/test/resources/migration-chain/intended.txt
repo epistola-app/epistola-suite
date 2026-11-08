@@ -1995,3 +1995,55 @@ $$
 )
 + ALTER TABLE ONLY public.flyway_rollback_compatibility
     ADD CONSTRAINT flyway_rollback_compatibility_pkey PRIMARY KEY (installed_rank)
+
+# Added after the chain: generation statistics per tenant by hour and day, rolled up in the
+# background from a position, and a record of each dropped partition (V20261108184344). The seed has
+# none.
++ ALTER TABLE ONLY public.generation_stats_daily
+    ADD CONSTRAINT generation_stats_daily_pkey PRIMARY KEY (tenant_key, day)
++ CREATE TABLE public.generation_stats_daily (
+    CONSTRAINT generation_stats_daily_completed_check CHECK ((completed >= 0)),
+    CONSTRAINT generation_stats_daily_failed_check CHECK ((failed >= 0)),
+    CONSTRAINT generation_stats_daily_previews_check CHECK ((previews >= 0)),
+    completed bigint DEFAULT 0 NOT NULL,
+    day date NOT NULL,
+    failed bigint DEFAULT 0 NOT NULL,
+    previews bigint DEFAULT 0 NOT NULL,
+    tenant_key character varying(63) NOT NULL
+)
++ ALTER TABLE ONLY public.generation_stats_hourly
+    ADD CONSTRAINT generation_stats_hourly_pkey PRIMARY KEY (tenant_key, hour)
++ CREATE INDEX generation_stats_hourly_hour ON public.generation_stats_hourly USING btree (hour)
++ CREATE TABLE public.generation_stats_hourly (
+    CONSTRAINT generation_stats_hourly_completed_check CHECK ((completed >= 0)),
+    CONSTRAINT generation_stats_hourly_failed_check CHECK ((failed >= 0)),
+    CONSTRAINT generation_stats_hourly_hour_check CHECK ((date_trunc('hour'::text, hour) = hour)),
+    CONSTRAINT generation_stats_hourly_previews_check CHECK ((previews >= 0)),
+    completed bigint DEFAULT 0 NOT NULL,
+    failed bigint DEFAULT 0 NOT NULL,
+    hour timestamp with time zone NOT NULL,
+    previews bigint DEFAULT 0 NOT NULL,
+    tenant_key character varying(63) NOT NULL
+)
++ ALTER TABLE ONLY public.generation_stats_position
+    ADD CONSTRAINT generation_stats_position_pkey PRIMARY KEY (singleton)
++ CREATE TABLE public.generation_stats_position (
+    CONSTRAINT chk_generation_stats_position_singleton CHECK (singleton),
+    complete_until timestamp with time zone,
+    created_at timestamp with time zone,
+    sequence bigint NOT NULL,
+    singleton boolean DEFAULT true NOT NULL
+)
++ ALTER TABLE ONLY public.partition_history
+    ADD CONSTRAINT partition_history_pkey PRIMARY KEY (partition_name)
++ CREATE TABLE public.partition_history (
+    dropped_at timestamp with time zone NOT NULL,
+    estimated_rows bigint NOT NULL,
+    month date NOT NULL,
+    partition_name character varying(128) NOT NULL,
+    size_bytes bigint NOT NULL,
+    table_name character varying(128) NOT NULL
+)
+
+# The roll-up's position starts as a row of its own (V20261108184344), so the first round has it to lock.
++ row generation_stats_position: {"complete_until":null,"created_at":null,"sequence":0,"singleton":true}

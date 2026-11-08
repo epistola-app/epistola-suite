@@ -61,6 +61,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Failed")
             assertThat(response.body).contains("Most used templates")
             assertThat(response.body).contains("Recent jobs")
+            assertThat(response.body).contains("data-testid=\"generation-statistics\"").contains("Documents per month")
         }
     }
 
@@ -83,6 +84,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("No template usage data")
+            assertThat(response.body).contains("Nothing generated yet").doesNotContain("data-testid=\"generation-statistics-months\"")
             assertThat(response.body).contains("No generation jobs yet")
             // Says where documents come from, and the statuses read as words, not enum names.
             assertThat(response.body).contains("through the REST API").contains("href=\"/api-docs\"")

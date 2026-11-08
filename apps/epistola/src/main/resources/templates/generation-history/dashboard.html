@@ -26,6 +26,58 @@
             </div>
         </div>
 
+        <!-- Generation statistics: kept after documents and jobs are gone -->
+        <section style="margin-bottom: var(--ep-space-6);" data-testid="generation-statistics">
+            <h2>Documents per month</h2>
+            <p class="text-muted text-sm">
+                Documents generated and failed, and previews rendered, by month (UTC). These figures stay after the
+                documents and jobs themselves are cleaned up, and lag a few minutes behind.
+            </p>
+            <div th:if="${#lists.isEmpty(statisticsMonths.periods)}" class="empty-state">
+                <div class="empty-state-title">Nothing generated yet</div>
+                <div class="empty-state-description">Months appear here once documents are generated or previewed.</div>
+            </div>
+            <table th:unless="${#lists.isEmpty(statisticsMonths.periods)}" class="ep-table" data-testid="generation-statistics-months">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Generated</th>
+                        <th>Failed</th>
+                        <th>Previews</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="m : ${statisticsMonths.periods}" th:attr="data-month=${#temporals.format(m.start, 'yyyy-MM')}">
+                        <td th:text="${#temporals.format(m.start, 'MMMM yyyy')}">November 2026</td>
+                        <td th:text="${m.completed}">0</td>
+                        <td th:text="${m.failed}">0</td>
+                        <td th:text="${m.previews}">0</td>
+                    </tr>
+                </tbody>
+            </table>
+            <details th:unless="${#lists.isEmpty(statisticsDays.periods)}" style="margin-top: var(--ep-space-3);">
+                <summary class="text-sm" style="cursor: pointer;">The last 30 days</summary>
+                <table class="ep-table" data-testid="generation-statistics-days">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Generated</th>
+                            <th>Failed</th>
+                            <th>Previews</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="d : ${statisticsDays.periods}">
+                            <td th:text="${#temporals.format(d.start, 'yyyy-MM-dd')}">2026-11-07</td>
+                            <td th:text="${d.completed}">0</td>
+                            <td th:text="${d.failed}">0</td>
+                            <td th:text="${d.previews}">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </details>
+        </section>
+
         <!-- Most used templates -->
         <section style="margin-bottom: var(--ep-space-6);">
             <h2>Most used templates</h2>

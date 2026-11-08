@@ -53,6 +53,8 @@ data class PreviewVariant(
     val resolvedTheme: ResolvedTheme? = null,
     /** The catalog version this addresses; null for its catalog's next version. */
     override val catalogVersion: CatalogReleaseRef?,
+    /** Rendered for a [PreviewDocument], which is the preview itself: counted once, as that (generation statistics). */
+    val partOfPreviewDocument: Boolean = false,
 ) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
