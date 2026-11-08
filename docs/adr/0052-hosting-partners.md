@@ -130,7 +130,7 @@ or only what partner staff escalate) and a partner's own desk (CloudEvents over 
 replies through the REST API). One connector owns the status; comments from all are shown with their
 source. Without an enabled connector, the feedback form says that feedback stays in the installation.
 Not built in this round. What feedback needs from its host is kept to a short contract
-([`docs/feedback.md`](../feedback.md#the-host-contract)): W3C trace ids in pages and answers, the
+([`docs/support-requests.md`](../support-requests.md#the-host-contract)): W3C trace ids in pages and answers, the
 console and trace buffers, `FeedbackLogSource` for a request's server log, `FeedbackSyncPort` for
 where feedback goes, so it can later move to another application or out on its own.
 

@@ -218,7 +218,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         Assertions.assertThat((navigated["message"] as Map<*, *>)["path"] as String).endsWith("/boosted-row")
 
         // Scoped to this navigation's own path, not "no request message at
-        // all": the shell's feedback footer widget (FeedbackFooterContributor)
+        // all": the shell's feedback footer widget (SupportRequestFooterContributor)
         // independently fires its own non-boosted GET on every page and is
         // expected to keep reporting — this guards only against the boosted
         // click itself producing a duplicate `request` for the page it navigated to.

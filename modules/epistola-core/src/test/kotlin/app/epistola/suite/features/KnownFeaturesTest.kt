@@ -21,7 +21,7 @@ class KnownFeaturesTest {
     @Test
     fun `a feature carries its declared stage and is stable by default`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.AI_CHAT)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
-        assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_FEEDBACK)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
+        assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_REQUESTS)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
     }
 
     /**

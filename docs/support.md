@@ -20,8 +20,8 @@ grants it **services**, each an OAuth scope:
 | Catalog mirror   | `mirror`    | released catalogs, for release checks                          |
 | Usage            | `usage`     | documents generated and previews rendered, per tenant and hour |
 
-The connection knows all four scopes. Telemetry and usage are described below, the catalog mirror
-in [Catalog mirror](catalog-mirror.md); support requests are described with the service as it lands.
+The connection knows all four scopes. Telemetry and usage are described below, support requests in
+[Support requests](support-requests.md), the catalog mirror in [Catalog mirror](catalog-mirror.md).
 
 A service is used only when an installation administrator **selected** it and Epistola **granted**
 it. Nothing goes to Epistola before the installation is registered, and an installation that is not
@@ -93,19 +93,19 @@ until an administrator saves them (`support.privacy.tenantIdentity`, `support.pr
 A service that sends something per tenant is set per tenant, with a setting for the whole
 installation under **Setup for every tenant** (ADR 0052 §5):
 
-| Setting         | Mirror | Usage | The tenant                                   |
-| --------------- | ------ | ----- | -------------------------------------------- |
-| Ask each tenant | yes    | no    | sets it up in its setup wizard               |
-| On by default   | yes    | yes   | follows it, or changes it for itself         |
-| Off by default  | yes    | yes   | follows it, or changes it for itself         |
-| Required        | no     | yes   | shares it, without a choice; not shown to it |
-| Not allowed     | yes    | yes   | cannot share it; sees why and who decides    |
+| Setting         | Requests, mirror | Usage | The tenant                                   |
+| --------------- | ---------------- | ----- | -------------------------------------------- |
+| Ask each tenant | yes              | no    | sets it up in its setup wizard               |
+| On by default   | yes              | yes   | follows it, or changes it for itself         |
+| Off by default  | yes              | yes   | follows it, or changes it for itself         |
+| Required        | no               | yes   | shares it, without a choice; not shown to it |
+| Not allowed     | yes              | yes   | cannot share it; sees why and who decides    |
 
 - **Defaults** are recorded as agreed on the tenants' behalf, so saving one that shares asks the
-  administrator to agree. Helm can set the mirror default until one is saved
-  (`support.tenantDefaults.mirror`).
-- **Required** is offered only for usage: the mirror sends tenant content, which needs the tenant's
-  own opt-in (ADR 0050 §10).
+  administrator to agree. Helm can set the support request and mirror defaults until one is saved
+  (`support.tenantDefaults`).
+- **Required** is offered only for usage: support requests and the mirror send tenant content, which
+  needs the tenant's own opt-in (ADR 0050 §10).
 - **Not allowed** withdraws every tenant's choice at once, its own choice included, and stops what
   waits to be sent. Allowed again, tenants follow whatever default is set next, or are asked.
 

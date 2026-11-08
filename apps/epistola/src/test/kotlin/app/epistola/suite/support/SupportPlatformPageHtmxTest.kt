@@ -255,7 +255,7 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("data-testid=\"support-summary\"").contains("Pending")
         assertThat(body).doesNotContain(support.latestRegistration.claimCode)
         // Feedback contributes its item to the Support group; the page lists it, not Overview itself.
-        assertThat(body).contains("data-testid=\"support-settings-feedback\"").doesNotContain("data-testid=\"support-settings-overview\"")
+        assertThat(body).contains("data-testid=\"support-settings-requests\"").doesNotContain("data-testid=\"support-settings-overview\"")
         // With the connection on, tenant administrators get the Overview item.
         assertThat(body).contains("nav-dropdown-support").contains("href=\"/tenants/${tenant.id.value}/support\"")
     }

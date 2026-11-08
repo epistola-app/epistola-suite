@@ -147,12 +147,12 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 
 ## Feature modules
 
-| Doc                               | Status   | What it covers                                                       |
-| --------------------------------- | -------- | -------------------------------------------------------------------- |
-| [Feedback](feedback.md)           | Current  | In-app feedback stored locally and optionally synced to GitHub.      |
-| [Quality checks](quality.md)      | Alpha    | The findings ledger: sources submit, the ledger owns and reconciles. |
-| [Plugin architecture](plugins.md) | Proposed | How optional feature modules extend the editor and platform.         |
-| [AI plugin](ai.md)                | Proposed | Conversational template editing built on the plugin architecture.    |
+| Doc                                     | Status   | What it covers                                                       |
+| --------------------------------------- | -------- | -------------------------------------------------------------------- |
+| [Support requests](support-requests.md) | Current  | In-app support requests, sent on with tenant consent.                |
+| [Quality checks](quality.md)            | Alpha    | The findings ledger: sources submit, the ledger owns and reconciles. |
+| [Plugin architecture](plugins.md)       | Proposed | How optional feature modules extend the editor and platform.         |
+| [AI plugin](ai.md)                      | Proposed | Conversational template editing built on the plugin architecture.    |
 
 ## Working on the suite
 

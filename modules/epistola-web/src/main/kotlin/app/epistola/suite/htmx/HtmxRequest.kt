@@ -16,10 +16,10 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.FeedbackId
-import app.epistola.suite.common.ids.FeedbackKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.SupportRequestId
+import app.epistola.suite.common.ids.SupportRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -354,12 +354,12 @@ fun ServerRequest.codeListId(tenantId: TenantId): CodeListId? {
 }
 
 /**
- * Extract and validate a [FeedbackId] from the `feedbackId` path variable.
+ * Extract and validate a [SupportRequestId] from the `requestId` path variable.
  * Returns null if the feedback UUID is invalid.
  */
-fun ServerRequest.feedbackId(tenantId: TenantId): FeedbackId? {
-    val uuid = runCatching { java.util.UUID.fromString(pathVariable("feedbackId")) }.getOrNull() ?: return null
-    return FeedbackId(FeedbackKey.of(uuid), tenantId)
+fun ServerRequest.supportRequestId(tenantId: TenantId): SupportRequestId? {
+    val uuid = runCatching { java.util.UUID.fromString(pathVariable("requestId")) }.getOrNull() ?: return null
+    return SupportRequestId(SupportRequestKey.of(uuid), tenantId)
 }
 
 /**

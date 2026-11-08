@@ -25,7 +25,7 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         withMediator {
             val features = GetFeatureToggles(tenant.id).query()
 
-            assertThat(features).containsKey(KnownFeatures.SUPPORT_FEEDBACK)
+            assertThat(features).containsKey(KnownFeatures.SUPPORT_REQUESTS)
             assertThat(features).hasSize(KnownFeatures.all.size)
         }
     }
@@ -36,12 +36,12 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         withMediator {
             SaveFeatureToggle(
                 tenantKey = tenant.id,
-                featureKey = KnownFeatures.SUPPORT_FEEDBACK,
+                featureKey = KnownFeatures.SUPPORT_REQUESTS,
                 enabled = false,
             ).execute()
 
             val features = GetFeatureToggles(tenant.id).query()
-            assertThat(features[KnownFeatures.SUPPORT_FEEDBACK]).isFalse()
+            assertThat(features[KnownFeatures.SUPPORT_REQUESTS]).isFalse()
         }
     }
 
@@ -49,11 +49,11 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     fun `SaveFeatureToggle upserts existing override`() {
         val tenant = createTenant("toggle-upsert")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = false).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = true).execute()
 
             val features = GetFeatureToggles(tenant.id).query()
-            assertThat(features[KnownFeatures.SUPPORT_FEEDBACK]).isTrue()
+            assertThat(features[KnownFeatures.SUPPORT_REQUESTS]).isTrue()
         }
     }
 
@@ -61,12 +61,12 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     fun `DeleteFeatureToggle removes override and falls back to default`() {
         val tenant = createTenant("toggle-delete")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
-            DeleteFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = false).execute()
+            DeleteFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS).execute()
 
             val features = GetFeatureToggles(tenant.id).query()
             // Should fall back to global default (feedback is freely usable → defaults on)
-            assertThat(features[KnownFeatures.SUPPORT_FEEDBACK]).isNotNull()
+            assertThat(features[KnownFeatures.SUPPORT_REQUESTS]).isNotNull()
         }
     }
 
@@ -74,7 +74,7 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     fun `isEnabled returns global default when no tenant override exists`() {
         val tenant = createTenant("toggle-default")
         withMediator {
-            val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)
+            val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_REQUESTS)
             // No override → global default. Feedback is freely usable, so it defaults on (FeatureDefaults).
             assertThat(enabled).isTrue()
         }
@@ -84,9 +84,9 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     fun `isEnabled returns tenant override when it exists`() {
         val tenant = createTenant("toggle-override")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = false).execute()
 
-            val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)
+            val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_REQUESTS)
             assertThat(enabled).isFalse()
         }
     }
@@ -95,19 +95,19 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     fun `withRequestCache memoizes toggles for the scope`() {
         val tenant = createTenant("toggle-cache")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = true).execute()
 
             featureToggleService.withRequestCache {
-                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
+                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_REQUESTS)).isTrue()
 
                 // Change the stored value mid-scope; the cached scope keeps the first-read value,
                 // proving a single resolve per tenant per scope.
-                SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
-                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
+                SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = false).execute()
+                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_REQUESTS)).isTrue()
             }
 
             // Outside the scope the fresh value is read.
-            assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isFalse()
+            assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_REQUESTS)).isFalse()
         }
     }
 

@@ -386,22 +386,22 @@ epistola:
     connect-timeout: 3s
     read-timeout: 5s
 
-  # Feedback sync scheduling. Feedback stays in this installation; with nothing to send it to, these
-  # schedulers run but do nothing (no-op sync target). Sync is installation-wide.
-  feedback:
-    sync:
-      enabled: true # Enable the outbound retry scheduler
-      retry-interval-ms: 60000 # Retry interval for failed pushes
-      polling:
-        enabled: false # Enable inbound polling (status/comment changes)
-        interval-ms: 300000 # Poll interval (default 5 min)
-
   # The connection to the Epistola support service (docs/support-protocol.md). Off by default:
   # nothing is registered and nothing is sent. When on, an installation administrator registers it
   # under Platform → Epistola support, which shows a claim code to send to Epistola, and it uses the
   # services Epistola grants once linked.
   support:
     enabled: false
+    # Support request sync scheduling. A tenant's requests are sent to the Epistola support service
+    # only when the connection holds the scope AND the tenant consented (its Support page); otherwise
+    # these schedulers do nothing for it (docs/support-requests.md).
+    requests:
+      sync:
+        enabled: true # Enable the outbound retry scheduler
+        retry-interval-ms: 60000 # Retry interval for failed pushes
+        polling:
+          enabled: true # Read replies (status/comment changes) from Epistola support; does nothing without the scope
+          interval-ms: 300000 # Poll interval (default 5 min)
     # Let the check register on its own, and register again at once when a claim code expires before
     # Epistola linked it (after seven days). Off: nothing is sent until an administrator presses Register.
     auto-register: false

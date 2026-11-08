@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="traceparent" th:if="${traceparent != null}" th:content="${traceparent}">
     <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">

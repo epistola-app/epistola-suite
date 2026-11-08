@@ -457,33 +457,33 @@ value class UserKey(@JsonValue override val value: UUID) : UuidKey<UserKey> {
  * Typed key for Feedback entities.
  */
 @JvmInline
-value class FeedbackKey(@JsonValue override val value: UUID) : UuidKey<FeedbackKey> {
+value class SupportRequestKey(@JsonValue override val value: UUID) : UuidKey<SupportRequestKey> {
     companion object {
-        fun generate(): FeedbackKey = FeedbackKey(UUIDv7.generate())
-        fun of(value: UUID): FeedbackKey = FeedbackKey(value)
-        fun of(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+        fun generate(): SupportRequestKey = SupportRequestKey(UUIDv7.generate())
+        fun of(value: UUID): SupportRequestKey = SupportRequestKey(value)
+        fun of(value: String): SupportRequestKey = SupportRequestKey(UUID.fromString(value))
 
         @JvmStatic
         @JsonCreator
-        fun fromJson(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+        fun fromJson(value: String): SupportRequestKey = SupportRequestKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()
 }
 
 /**
- * Typed key for FeedbackComment entities.
+ * Typed key for SupportRequestComment entities.
  */
 @JvmInline
-value class FeedbackCommentKey(@JsonValue override val value: UUID) : UuidKey<FeedbackCommentKey> {
+value class SupportRequestCommentKey(@JsonValue override val value: UUID) : UuidKey<SupportRequestCommentKey> {
     companion object {
-        fun generate(): FeedbackCommentKey = FeedbackCommentKey(UUIDv7.generate())
-        fun of(value: UUID): FeedbackCommentKey = FeedbackCommentKey(value)
-        fun of(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+        fun generate(): SupportRequestCommentKey = SupportRequestCommentKey(UUIDv7.generate())
+        fun of(value: UUID): SupportRequestCommentKey = SupportRequestCommentKey(value)
+        fun of(value: String): SupportRequestCommentKey = SupportRequestCommentKey(UUID.fromString(value))
 
         @JvmStatic
         @JsonCreator
-        fun fromJson(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+        fun fromJson(value: String): SupportRequestCommentKey = SupportRequestCommentKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()
@@ -530,18 +530,18 @@ value class QualityFindingCommentKey(@JsonValue override val value: UUID) : Uuid
 }
 
 /**
- * Typed key for FeedbackAsset entities.
+ * Typed key for SupportRequestAsset entities.
  */
 @JvmInline
-value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<FeedbackAssetKey> {
+value class SupportRequestAssetKey(@JsonValue override val value: UUID) : UuidKey<SupportRequestAssetKey> {
     companion object {
-        fun generate(): FeedbackAssetKey = FeedbackAssetKey(UUIDv7.generate())
-        fun of(value: UUID): FeedbackAssetKey = FeedbackAssetKey(value)
-        fun of(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
+        fun generate(): SupportRequestAssetKey = SupportRequestAssetKey(UUIDv7.generate())
+        fun of(value: UUID): SupportRequestAssetKey = SupportRequestAssetKey(value)
+        fun of(value: String): SupportRequestAssetKey = SupportRequestAssetKey(UUID.fromString(value))
 
         @JvmStatic
         @JsonCreator
-        fun fromJson(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
+        fun fromJson(value: String): SupportRequestAssetKey = SupportRequestAssetKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()

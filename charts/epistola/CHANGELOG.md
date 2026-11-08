@@ -34,6 +34,11 @@
   `EPISTOLA_SUPPORT_MIRROR_ENABLED`) turns it off for the whole installation: nothing is sent, but
   what tenants stopped sharing is still deleted at Epistola.
 
+- **`support.tenantDefaults.requests`**: whether every tenant shares its support requests with
+  Epistola support until a tenant chooses otherwise on its Support page (`share` or `no`), rendered as
+  `EPISTOLA_SUPPORT_TENANT_DEFAULTS_REQUESTS`. Applied at startup only while no installation
+  administrator has saved a setup, and recorded as agreed on the tenants' behalf. Empty by default.
+
 - **`support.tenantDefaults.mirror`**: what every tenant shares with the catalog mirror until a tenant
   chooses otherwise on its Support page (`off`, `all` or `marked`), rendered as
   `EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR`. Applied at startup only while no installation

@@ -150,9 +150,9 @@ class InputMaxLengthTest {
         "stencils/new.html#tags" to "a list; each tag is limited (50) on the server",
         "loadtest/new.html#testData" to "JSON test data",
         "quality/manual-form.html#manual-message" to "no server limit",
-        "feedback/detail.html#body" to "no server limit",
-        "feedback/submit-form.html#fb-title" to "no server limit",
-        "feedback/submit-form.html#fb-description" to "no server limit",
+        "support-requests/detail.html#body" to "no server limit",
+        "support-requests/submit-form.html#fb-title" to "no server limit",
+        "support-requests/submit-form.html#fb-description" to "no server limit",
     )
 
     @Test
