@@ -117,6 +117,24 @@ class ApplicationLogAppenderTest {
         assertThat(captured.single().tenantKey).isEqualTo("acme-corp")
     }
 
+    @Test
+    fun `keeps the user a request ran for, and none for the system's own work`() {
+        val captured = mutableListOf<ApplicationLogRecord>()
+        val appender = ApplicationLogAppender(captured::add)
+
+        SecurityContext.runWithPrincipal(principalForTenant("acme-corp")) {
+            appender.append(event("com.example.Service", Level.INFO, "Rendered {}"))
+        }
+        SecurityContext.runWithPrincipal(app.epistola.suite.security.SystemUser.principalForTenant(TenantKey.of("acme-corp"))) {
+            appender.append(event("com.example.Service", Level.INFO, "background"))
+        }
+
+        assertThat(captured[0].userId).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000001"))
+        assertThat(captured[0].messagePattern).isEqualTo("Rendered {}")
+        assertThat(captured[1].userId).`as`("the system user is nobody's request").isNull()
+        assertThat(captured[1].tenantKey).isEqualTo("acme-corp")
+    }
+
     private fun principalForTenant(tenant: String): EpistolaPrincipal = EpistolaPrincipal(
         userId = UserKey(UUID.fromString("00000000-0000-0000-0000-000000000001")),
         externalId = "ext",

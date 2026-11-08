@@ -6,6 +6,7 @@ package app.epistola.suite.logs
 
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.spi.ThrowableProxyUtil
 import ch.qos.logback.core.AppenderBase
@@ -59,6 +60,8 @@ class ApplicationLogAppender(
                 spanId = mdc[SPAN_ID_KEY],
                 exception = event.throwableProxy?.let { ThrowableProxyUtil.asString(it) },
                 attributes = attributes,
+                messagePattern = event.message,
+                userId = resolveUserId(),
             ),
         )
     }
@@ -73,6 +76,14 @@ class ApplicationLogAppender(
      */
     private fun resolveTenantKey(): String? = runCatching {
         SecurityContext.currentOrNull()?.currentTenantId?.value
+    }.getOrNull()
+
+    /**
+     * The user a request ran for, from the same source as the tenant: null without a principal, and
+     * for the system's own work ([SystemUser]), which is nobody's request. Never throws.
+     */
+    private fun resolveUserId(): java.util.UUID? = runCatching {
+        SecurityContext.currentOrNull()?.userId?.takeIf { it != SystemUser.ID }?.value
     }.getOrNull()
 
     companion object {

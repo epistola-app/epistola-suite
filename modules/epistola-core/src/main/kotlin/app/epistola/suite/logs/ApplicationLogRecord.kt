@@ -27,4 +27,8 @@ data class ApplicationLogRecord(
     val spanId: String?,
     val exception: String?,
     val attributes: Map<String, String>?,
+    /** The message as written in the code, before its arguments were filled in. */
+    val messagePattern: String? = null,
+    /** The user whose request wrote the line; null for system and background work. */
+    val userId: java.util.UUID? = null,
 )
