@@ -109,12 +109,19 @@ class SupportPrivacy(
      * last read, or the strictest before any: a database that cannot be reached never loosens them.
      */
     @Scheduled(fixedDelay = REFRESH_SECONDS, timeUnit = TimeUnit.SECONDS)
-    fun refresh(): SupportPrivacySettings {
+    fun refresh(): SupportPrivacySettings = read() ?: cached ?: STRICTEST
+
+    /**
+     * The settings as stored now, or null when they cannot be read. For a decision that must not rest
+     * on a stand-in, such as forgetting every tenant's choice at startup: [current] and [refresh] give
+     * the strictest settings while nothing was read, which would read as "confidential".
+     */
+    fun read(): SupportPrivacySettings? {
         val read = try {
             metadata.getAs(KEY, StoredSupportPrivacy::class.java)
         } catch (e: RuntimeException) {
             log.warn("Support privacy settings could not be read; keeping the settings last read: {}", e.message)
-            return cached ?: STRICTEST
+            return null
         }
         val settings = if (read == null) {
             SupportPrivacySettings(properties.privacy.tenantIdentityValue, properties.privacy.telemetryValue, fromConfiguration = true)

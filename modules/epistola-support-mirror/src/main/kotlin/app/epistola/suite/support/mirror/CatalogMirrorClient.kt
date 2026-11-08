@@ -4,12 +4,12 @@
 
 package app.epistola.suite.support.mirror
 
+import app.epistola.suite.common.sha256Hex
 import app.epistola.suite.support.connection.SupportConnection
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
-import java.security.MessageDigest
 
 /** The support service's answer to a tenant's complete set (`docs/support-protocol.md`). */
 data class MirrorReconcileResponse(val missing: List<String>, val bindings: Int, val removed: Int)
@@ -20,7 +20,7 @@ class MirrorAnswerIncompleteException(tenantKey: String) : RuntimeException("The
 /** A tenant's complete set as it goes on the wire, and its digest. */
 class MirrorTenantSet(val body: ByteArray, val size: Int) {
     /** SHA-256 of the body: the same set always serialises to the same bytes (stable order, fixed field order). */
-    val digest: String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(body).joinToString("") { "%02x".format(it) }
+    val digest: String = "sha256:" + sha256Hex(body)
 }
 
 /**

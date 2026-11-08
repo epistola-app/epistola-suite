@@ -247,8 +247,19 @@ class ApplyConfiguredCatalogMirrorDefault(
             "marked" -> CatalogMirrorDefaultChoice.MARKED
             else -> CatalogMirrorDefaultChoice.OFF
         }
-        if (!properties.enabled || privacy.current().confidential) return
+        if (!properties.enabled) return
+        val settings = privacy.read() ?: return
+        if (settings.confidential) return
         jdbi.inTransaction<Unit, Exception> { handle ->
+            // Applied once per configured value: a preset an administrator cleared, or that a disconnect
+            // forgot, does not come back at the next start.
+            val applied = handle.createQuery("SELECT value ->> 'mirror' FROM app_metadata WHERE key = :key")
+                .bind("key", APPLIED_KEY).mapTo(String::class.java).findOne().orElse(null)
+            if (applied == choice.name) return@inTransaction
+            handle.createUpdate(
+                "INSERT INTO app_metadata (key, value, updated_at) VALUES (:key, jsonb_build_object('mirror', CAST(:choice AS TEXT)), NOW()) " +
+                    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
+            ).bind("key", APPLIED_KEY).bind("choice", choice.name).execute()
             // Not allowed wins over a configured default: nothing is stored or applied.
             if (SharingRestrictions.isNotAllowed(handle, CatalogMirror.SECTION, MIRROR_CONNECTION)) return@inTransaction
             val stored = handle.createUpdate(
@@ -262,6 +273,11 @@ class ApplyConfiguredCatalogMirrorDefault(
                 .execute()
             if (stored == 1) setMirrorDefault(handle, choice, userId = null, fromConfiguration = true)
         }
+    }
+
+    companion object {
+        /** The configured preset last applied (`app_metadata`), so it is applied once per value. */
+        const val APPLIED_KEY = "support.mirror.configured-default-applied"
     }
 }
 
