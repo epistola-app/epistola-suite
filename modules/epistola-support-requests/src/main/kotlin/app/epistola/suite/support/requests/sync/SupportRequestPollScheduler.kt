@@ -75,7 +75,7 @@ class SupportRequestPollScheduler(
      */
     override fun handle(task: ClusterScheduledTask) {
         if (!pacing.isDue(System.nanoTime())) return
-        work.launch(WORK_KEY) { pacing.record(pollForUpdates(), System.nanoTime()) }
+        work.launch(WORK_KEY) { pacing.round(System.nanoTime()) { pollForUpdates() } }
     }
 
     /** One round; true when it found changes. */

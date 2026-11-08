@@ -170,11 +170,7 @@ class TenantReferences(
     private val computed: Cache<String, String> = Caffeine.newBuilder().maximumSize(MAX_CACHED).build()
 
     /** [tenantKey]'s reference, whatever the setting. */
-    fun reference(tenantKey: String): String = computed.get(tenantKey) {
-        val mac = Mac.getInstance(ALGORITHM)
-        mac.init(SecretKeySpec(secret(), ALGORITHM))
-        PREFIX + HexFormat.of().formatHex(mac.doFinal(it.toByteArray(Charsets.UTF_8)), 0, 8)
-    }
+    fun reference(tenantKey: String): String = computed.get(tenantKey) { derive(PREFIX, it) }
 
     fun reference(tenantKey: TenantKey): String = reference(tenantKey.value)
 
@@ -199,10 +195,13 @@ class TenantReferences(
      * secret, over an input no tenant key can have, so it never equals a tenant's. Whoever handles a
      * request can tell two requests of one person apart without knowing who it is.
      */
-    fun personReference(userId: java.util.UUID): String = computed.get(PERSON_INPUT + userId) {
+    fun personReference(userId: java.util.UUID): String = computed.get(PERSON_INPUT + userId) { derive(PERSON_PREFIX, it) }
+
+    /** [prefix] and the first 16 hex digits of the HMAC of [input] under the installation's secret: every reference. */
+    private fun derive(prefix: String, input: String): String {
         val mac = Mac.getInstance(ALGORITHM)
         mac.init(SecretKeySpec(secret(), ALGORITHM))
-        PERSON_PREFIX + HexFormat.of().formatHex(mac.doFinal(it.toByteArray(Charsets.UTF_8)), 0, 8)
+        return prefix + HexFormat.of().formatHex(mac.doFinal(input.toByteArray(Charsets.UTF_8)), 0, 8)
     }
 
     /** Tenants are confidential to Epistola now: names and addresses stay in the installation too. */

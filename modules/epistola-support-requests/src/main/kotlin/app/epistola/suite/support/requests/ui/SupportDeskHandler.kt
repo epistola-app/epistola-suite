@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
+import app.epistola.suite.support.requests.commands.AddSupportRequestAsset
 import app.epistola.suite.support.requests.desk.AddSupportDeskMessage
 import app.epistola.suite.support.requests.desk.EscalateSupportRequest
 import app.epistola.suite.support.requests.desk.GetSupportDeskAssetContent
@@ -97,7 +98,9 @@ class SupportDeskHandler {
     }
 
     fun saveHandling(request: ServerRequest): ServerResponse {
-        val connection = request.param("connection").orElse("").takeIf { it.isNotBlank() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        // Blank: this inbox. Anything else must name a connection; a value that does not is refused, not saved as "here".
+        val raw = request.param("connection").orElse("").trim()
+        val connection = if (raw.isEmpty()) null else runCatching { UUID.fromString(raw) }.getOrNull() ?: return ServerResponse.badRequest().build()
         SetSupportRequestHandling(connection).execute()
         return redirect("/platform/support-requests?saved=true")
     }
@@ -149,8 +152,11 @@ class SupportDeskHandler {
         val (tenant, key) = ids(request) ?: return ServerResponse.badRequest().build()
         val asset = runCatching { SupportRequestAssetKey.of(request.pathVariable("assetId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
         val content = GetSupportDeskAssetContent(tenant, key, asset).query() ?: return ServerResponse.notFound().build()
+        // As on the tenant's page: only the image types a screenshot is taken as, never sniffed.
+        val type = content.contentType.takeIf { it in AddSupportRequestAsset.IMAGE_TYPES }?.let(MediaType::parseMediaType) ?: MediaType.APPLICATION_OCTET_STREAM
         return ServerResponse.ok()
-            .contentType(MediaType.parseMediaType(content.contentType))
+            .contentType(type)
+            .header("X-Content-Type-Options", "nosniff")
             .cacheControl(CacheControl.noStore())
             .body(content.content)
     }

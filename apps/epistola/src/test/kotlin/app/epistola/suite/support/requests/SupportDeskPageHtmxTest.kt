@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.SupportRequestKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
 import app.epistola.suite.support.requests.desk.SetSupportRequestHandling
@@ -125,6 +126,45 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         val desk = get("/platform/support-requests/${tenant.id.value}/${key.value}")
 
         assertThat(desk).contains("data-testid=\"desk-escalation-blocked\"").doesNotContain("data-testid=\"desk-escalate\"")
+    }
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
+    @Test
+    fun `a screenshot on the desk is never served as anything a browser would run`() {
+        val tenant = createTenant("Desk Screenshot")
+        val key = submit(tenant, "With a stored screenshot")
+        val asset = app.epistola.suite.common.ids.SupportRequestAssetKey.generate()
+        withMediator {
+            app.epistola.suite.support.requests.commands.AddSupportRequestAsset(
+                app.epistola.suite.common.ids.SupportRequestAssetId(asset, SupportRequestId(key, TenantId(tenant.id))),
+                "<script>alert(1)</script>".toByteArray(),
+                "image/png",
+                "x.png",
+            ).execute()
+        }
+        // No command stores another type any more: this is what an older or foreign row may hold.
+        jdbi.useHandle<Exception> {
+            it.createUpdate("UPDATE support_request_assets SET content_type = 'text/html' WHERE id = :a").bind("a", asset.value).execute()
+        }
+
+        val response = restTemplate.getForEntity("/platform/support-requests/${tenant.id.value}/${key.value}/assets/${asset.value}", ByteArray::class.java)
+
+        assertThat(response.headers.contentType.toString()).isEqualTo("application/octet-stream")
+        assertThat(response.headers.getFirst("X-Content-Type-Options")).isEqualTo("nosniff")
+    }
+
+    @Test
+    fun `a handling choice that names no connection is refused, and nothing is saved`() {
+        val before = withMediator { app.epistola.suite.support.requests.desk.GetSupportRequestHandling().query() }
+        val body = LinkedMultiValueMap<String, String>().apply { add("connection", "not-a-uuid") }
+        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+
+        val response = restTemplate.postForEntity("/platform/support-requests/handling", HttpEntity(body, headers), String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(withMediator { app.epistola.suite.support.requests.desk.GetSupportRequestHandling().query() }.fromConfiguration).isEqualTo(before.fromConfiguration)
     }
 
     @Test

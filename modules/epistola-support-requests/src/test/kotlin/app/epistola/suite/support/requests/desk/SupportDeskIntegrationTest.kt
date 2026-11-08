@@ -148,6 +148,31 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a request still waiting to go to Epistola comes back to the inbox when its tenant stops sharing`() {
+        val tenant = sharing("Desk Withdrawn Waiting")
+        withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
+        recording.failCreate = true
+        val waiting = submit(tenant)
+        assertThat(reload(waiting).handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+
+        assertThat(reload(waiting).handlerConnection).`as`("never sent, so the inbox handles it").isNull()
+    }
+
+    @Test
+    fun `with nothing to send them over, the desk says new requests stay here, as they do`() {
+        withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
+        recording.enabled = false
+
+        val handling = withMediator { GetSupportRequestHandling().query() }
+        val created = submit(sharing("Desk Not Wired"))
+
+        assertThat(handling.connectionId).`as`("handled here").isNull()
+        assertThat(reload(created).handlerConnection).isNull()
+    }
+
+    @Test
     fun `internal notes never leave the installation, replies go with a request passed on`() {
         val tenant = sharing("Desk Notes")
         val request = submit(tenant)

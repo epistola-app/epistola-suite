@@ -190,7 +190,11 @@ internal fun choices(handle: Handle, port: SupportRequestSyncPort): List<Support
 }
 
 private fun readHandling(handle: Handle, port: SupportRequestSyncPort, policy: SupportRequestHandlingPolicy): SupportRequestHandling {
-    val id = policy.connectionForNewRequests()
-    val name = id?.let { handle.createQuery("SELECT name FROM support_connections WHERE id = :id").bind("id", it).mapTo(String::class.java).findOne().orElse(null) }
+    // Where new requests actually go: a connection only while something sends over it and it exists,
+    // as CreateSupportRequest decides; otherwise they stay in this inbox.
+    val name = policy.connectionForNewRequests()?.takeIf { port.isEnabled() }?.let {
+        handle.createQuery("SELECT name FROM support_connections WHERE id = :id").bind("id", it).mapTo(String::class.java).findOne().orElse(null)
+    }
+    val id = if (name != null) policy.connectionForNewRequests() else null
     return SupportRequestHandling(id, name, choices(handle, port), fromConfiguration = !policy.saved())
 }

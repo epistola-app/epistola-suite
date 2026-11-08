@@ -5,6 +5,7 @@
 package app.epistola.suite.support.requests.sync
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class SupportRequestPollPacingTest {
@@ -40,5 +41,25 @@ class SupportRequestPollPacingTest {
 
         pacing.record(foundChanges = true, nowNanos = end + 5 * minute * ms)
         assertThat(pacing.isDue(end + 6 * minute * ms)).`as`("the tick after changes").isTrue()
+    }
+
+    @Test
+    fun `a long round does not skip the next tick, as the wait counts from when the round started`() {
+        val pacing = SupportRequestPollPacing(intervalMs = 60_000, maxIntervalMs = 300_000)
+        val start = 1_000_000_000L
+        // A round with many changes that takes 40 seconds.
+        pacing.round(start) { true }
+
+        assertThat(pacing.isDue(start + 60_000 * ms)).`as`("the tick a minute after it started").isTrue()
+    }
+
+    @Test
+    fun `a round that fails backs off like one that found nothing`() {
+        val pacing = SupportRequestPollPacing(intervalMs = 60_000, maxIntervalMs = 300_000)
+
+        assertThatThrownBy { pacing.round(0) { error("the service failed") } }.isInstanceOf(IllegalStateException::class.java)
+
+        assertThat(pacing.currentWaitMs()).isEqualTo(120_000)
+        assertThat(pacing.isDue(60_000 * ms)).`as`("not polled again at the next tick").isFalse()
     }
 }
