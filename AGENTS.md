@@ -50,6 +50,8 @@ These hold everywhere. Each is enforced — the guard is named in the routing ta
 - **UI code never calls `/api/**`.** The REST API is for external systems; UI needs get a UI route.
 - **No inline `<script>`, no `on*=` handlers, no `hx-on::*`** — a strict CSP forbids them. Behaviour
   lives in a static JS file as a delegated listener on a `data-*` hook.
+- **Log messages are constant patterns**: values go in as `{}` arguments, never `"… $x"` — pseudonymised
+  telemetry sends the pattern alone (`LogMessageTemplateTest`).
 - **JSON is Jackson 3** (`tools.jackson.*`), not `com.fasterxml.jackson` — its annotations excepted.
 - **Tests seed state through commands**, not raw SQL.
 - **Feature-toggle reads go through the CQRS queries** `ResolveFeatureToggles` / `GetFeatureToggles`,

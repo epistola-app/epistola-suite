@@ -5,6 +5,8 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.support.connection.SupportScope
+import app.epistola.suite.support.privacy.TelemetryDetail
+import app.epistola.suite.support.privacy.TenantIdentity
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.net.URI
 import java.time.Duration
@@ -33,6 +35,8 @@ import java.time.Duration
  *   support; from then on the saved selection wins and this is ignored. Empty by default: nothing
  *   is used until someone chooses. A name this version does not know is kept and logged, never an
  *   error, so a configuration that names a retired or a newer service still starts.
+ * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
+ *   installation administrator saves them under Platform → Epistola support ([Privacy]).
  */
 @ConfigurationProperties(prefix = "epistola.support")
 data class SupportProperties(
@@ -44,6 +48,7 @@ data class SupportProperties(
     val connectTimeout: Duration = Duration.ofSeconds(5),
     val readTimeout: Duration = Duration.ofSeconds(30),
     val services: List<String> = emptyList(),
+    val privacy: Privacy = Privacy(),
 ) {
     init {
         require(endpoint.isBlank() || configuredIssuer != null) {
@@ -53,6 +58,27 @@ data class SupportProperties(
             "epistola.support.endpoint '$endpoint' is plaintext http; use https, or set epistola.support.allow-http=true for a local support service"
         }
         require(!checkInterval.isNegative && !checkInterval.isZero) { "epistola.support.check-interval must be positive" }
+    }
+
+    /**
+     * What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2), until an
+     * installation administrator saves them under Platform → Epistola support. Helm
+     * `support.privacy.tenantIdentity` / `support.privacy.telemetry`.
+     *
+     * @property tenantIdentity `confidential` (the default: every tenant as a reference) or `named`.
+     * @property telemetry `pseudonymised` (the default: log messages without their values) or `full`.
+     */
+    data class Privacy(
+        val tenantIdentity: String = "confidential",
+        val telemetry: String = "pseudonymised",
+    ) {
+        init {
+            require(TenantIdentity.parse(tenantIdentity) != null) { "epistola.support.privacy.tenant-identity must be confidential or named; got '$tenantIdentity'" }
+            require(TelemetryDetail.parse(telemetry) != null) { "epistola.support.privacy.telemetry must be pseudonymised or full; got '$telemetry'" }
+        }
+
+        val tenantIdentityValue: TenantIdentity get() = TenantIdentity.parse(tenantIdentity)!!
+        val telemetryValue: TelemetryDetail get() = TelemetryDetail.parse(telemetry)!!
     }
 
     /** [services], normalised: the selection in force until an administrator saves one. */

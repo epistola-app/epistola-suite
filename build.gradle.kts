@@ -24,6 +24,7 @@ dependencies {
     kover(project(":modules:epistola-web"))
     kover(project(":modules:epistola-support"))
     kover(project(":modules:epistola-support-feedback"))
+    kover(project(":modules:epistola-support-telemetry"))
     kover(project(":modules:epistola-mcp"))
 }
 

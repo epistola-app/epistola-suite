@@ -126,7 +126,7 @@ class CatalogUpgradeHandler {
         } catch (e: CatalogUpgradeConflictException) {
             upgradeDialog(request, catalog, e.message ?: "Installing it is blocked: resources are still in use.", refused = true)
         } catch (e: Exception) {
-            logger.warn("Failed to install a release of catalog: ${e.message}", e)
+            logger.warn("Failed to install a release of catalog: {}", e.message, e)
             upgradeDialog(request, catalog, e.message ?: "Failed to install the release.", refused = true)
         }
     }

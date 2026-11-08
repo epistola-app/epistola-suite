@@ -212,7 +212,27 @@ you browse:
 - **REST API** — deferred. No `/api/.../logs` endpoint yet.
 - **MCP** — deferred. A read-only "recent logs" tool for AI-assisted ops is
   plausible later.
-- **Forwarding to Epistola support** — the gRPC hub leg was removed with the hub
-  ([ADR 0050](adr/0050-support-connection.md)); forwarding over the support connection's
-  `telemetry` scope lands separately. This table stays the local source of truth for the in-app
-  viewer either way.
+- **Forwarding to the Epistola support service (OTLP/HTTP)** — a dedicated OpenTelemetry
+  leg, **not** the table-draining `LogSyncPort` once sketched here. When the installation is
+  connected to the support service ([`support-protocol.md`](support-protocol.md)),
+  `modules/epistola-support-telemetry` (`SupportTelemetryLogs`) attaches a second Logback
+  appender (`TelemetryLogAppender`) to the root logger, in parallel with this table, which
+  stays the local source of truth for the in-app viewer.
+  - **Transport:** `POST {epistola_otlp_endpoint}/v1/logs`, binary protobuf, gzip, with the
+    node's current bearer token read on every export.
+  - **Gate:** only while Epistola grants the `telemetry` scope. The appender checks a flag
+    refreshed every ten seconds, so while the installation is pending nothing is even
+    converted; the exporter checks the scope again for every batch and drops it without. A
+    grant or a withdrawal takes effect without a restart.
+  - **What is sent:** events at `epistola.support.telemetry.log-level` (default INFO) and
+    above — message, level, logger and thread name, the tenant (`epistola.tenant`: its key, or its
+    reference while tenants are confidential) when a request is bound to one, trace and span ids, and stack traces (a message is cut at 4 096
+    characters and a stack trace at 8 192, keeping its top) — with the resource
+    attributes `service.name`, `service.instance.id`, `service.version`,
+    `deployment.environment` and `epistola.installation.id`. There is no per-tenant opt-out.
+  - **Bounded:** records wait in a batch queue of `log-max-queue-size` (default 2 048, so some
+    tens of MB at most with records cut as above) that drops on overflow, matching this pipeline's own fail-open posture. OpenTelemetry's own
+    loggers and the telemetry module's are never forwarded, so an export failure cannot feed
+    back into the exporter.
+  - **Switches:** `epistola.support.telemetry.enabled` and `epistola.support.telemetry.logs`
+    (both default `true`, since nothing is sent unless Epistola granted `telemetry`).

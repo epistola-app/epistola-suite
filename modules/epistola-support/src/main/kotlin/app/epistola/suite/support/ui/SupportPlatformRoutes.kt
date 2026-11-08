@@ -22,6 +22,7 @@ import app.epistola.suite.support.connection.SupportDisconnectOutcome
 import app.epistola.suite.support.connection.SupportRegistrationNotAllowedException
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.support.connection.SupportWorkAttempt
+import app.epistola.suite.support.privacy.GetSupportPrivacy
 import app.epistola.suite.validation.ValidationException
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -67,6 +68,7 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork) {
         "platformPage" to "Epistola support"
         "overview" to GetSupportConnectionOverview().query()
         "checking" to work.isRunning(WORK_KEY)
+        "privacy" to GetSupportPrivacy().query()
     }
 
     /** The connection panel alone: what the panel polls while a check runs in the background. */
@@ -162,6 +164,7 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork) {
                 "notice" to notice
                 "checking" to work.isRunning(WORK_KEY)
                 "offerLocalOnly" to offerLocalOnly
+                "privacy" to GetSupportPrivacy().query()
             }
             onFullPage { redirect("/platform/support") }
         }

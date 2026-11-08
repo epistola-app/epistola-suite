@@ -216,7 +216,7 @@ class CatalogListHandler {
             // The URL itself was refused (scheme, file roots, address): say why, it is the user's input.
             registerError(request, "Failed to register catalog: ${e.message}")
         } catch (e: Exception) {
-            logger.warn("Failed to register catalog: ${e.message}", e)
+            logger.warn("Failed to register catalog: {}", e.message, e)
             registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
         }
     }
@@ -269,7 +269,7 @@ class CatalogListHandler {
                 listWithError(request, e.message ?: "Catalog is in use by other catalogs")
             }
         } catch (e: Exception) {
-            logger.warn("Failed to unregister catalog: ${e.message}", e)
+            logger.warn("Failed to unregister catalog: {}", e.message, e)
             if (request.isHtmx) {
                 ServerResponse.status(422)
                     .header("Content-Type", "application/json")

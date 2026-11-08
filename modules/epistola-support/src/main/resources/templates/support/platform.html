@@ -17,9 +17,69 @@
     </th:block>
 
 
+    <!--/* What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2): a summary,
+      or with privacyEditing a form. Model: privacy (SupportPrivacySettings), privacyEditing, privacyNotice. */-->
+    <section th:fragment="privacy" id="support-privacy" class="ep-panel detail-section" data-testid="support-privacy"
+             th:with="p=${privacy}">
+        <div class="detail-section-header">
+            <h2>Privacy</h2>
+            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${privacyEditing}" data-testid="support-privacy-change"
+                    th:attr="hx-get=@{/platform/support/privacy/edit}" hx-target="#support-privacy" hx-swap="outerHTML">Change</button>
+        </div>
+        <div class="detail-section-body ep-stack">
+            <div class="alert alert-success" th:if="${privacyNotice != null}" role="status" data-testid="support-privacy-notice"
+                 th:text="${privacyNotice}">Saved.</div>
+            <dl class="description-list" th:unless="${privacyEditing}" data-testid="support-privacy-summary">
+                <dt>Tenants</dt>
+                <dd data-testid="support-privacy-tenants">
+                    <th:block th:if="${p.confidential}">Confidential: Epistola sees each tenant as a reference, never its name.</th:block>
+                    <th:block th:unless="${p.confidential}">Named: Epistola sees each tenant's key.</th:block>
+                </dd>
+                <dt>Telemetry</dt>
+                <dd data-testid="support-privacy-telemetry">
+                    <th:block th:if="${p.pseudonymised}">Pseudonymised: log messages without their values, errors without their message.</th:block>
+                    <th:block th:unless="${p.pseudonymised}">Everything: log messages and errors as written.</th:block>
+                </dd>
+            </dl>
+            <p class="text-muted text-xs" style="margin: 0;" th:unless="${privacyEditing}"
+               th:text="${p.fromConfiguration} ? 'From the configuration (Helm support.privacy).' : 'Set by ' + (${p.setBy} ?: 'a removed user') + ' on ' + ${#temporals.format(p.setAt, 'yyyy-MM-dd', 'UTC')}">From the configuration.</p>
+
+            <form th:if="${privacyEditing}" th:attr="hx-post=@{/platform/support/privacy}" hx-target="#support-privacy" hx-swap="outerHTML"
+                  th:action="@{/platform/support/privacy}" method="post" class="ep-stack" data-testid="support-privacy-form">
+                <fieldset class="form-group" style="border: 0; padding: 0; margin: 0;">
+                    <legend class="ep-label" style="padding: 0;">What Epistola sees of your tenants</legend>
+                    <label class="ep-row" style="gap: var(--ep-space-2);">
+                        <input type="radio" name="tenantIdentity" value="CONFIDENTIAL" th:checked="${p.confidential}" data-testid="support-privacy-confidential">
+                        <span>Confidential: each tenant as a reference that only this installation can trace back.</span>
+                    </label>
+                    <label class="ep-row" style="gap: var(--ep-space-2);">
+                        <input type="radio" name="tenantIdentity" value="NAMED" th:checked="${!p.confidential}" data-testid="support-privacy-named">
+                        <span>Named: each tenant's key</span>
+                    </label>
+                </fieldset>
+                <fieldset class="form-group" style="border: 0; padding: 0; margin: 0;">
+                    <legend class="ep-label" style="padding: 0;">Telemetry</legend>
+                    <label class="ep-row" style="gap: var(--ep-space-2);">
+                        <input type="radio" name="telemetry" value="PSEUDONYMISED" th:checked="${p.pseudonymised}" data-testid="support-privacy-pseudonymised">
+                        <span>Pseudonymised: log messages as written in the code, without the values filled in; errors as their type and where they happened</span>
+                    </label>
+                    <label class="ep-row" style="gap: var(--ep-space-2);">
+                        <input type="radio" name="telemetry" value="FULL" th:checked="${!p.pseudonymised}" data-testid="support-privacy-full">
+                        <span>Everything: log messages and errors as written, which can name people and organisations</span>
+                    </label>
+                </fieldset>
+                <div class="ep-row">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-privacy-save">Save privacy</button>
+                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-privacy-cancel"
+                            th:attr="hx-get=@{/platform/support/privacy}" hx-target="#support-privacy" hx-swap="outerHTML">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
     <!--/*
       Everything about the connection, swapped in place by its actions: the connection, the services,
-      and disconnecting, last.
+      privacy (which swaps itself) and disconnecting, last.
     */-->
     <div th:fragment="connection" id="support-connection" data-testid="support-connection"
          th:with="o=${overview}, s=${overview.state}, kind=${overview.state.class.simpleName}">
@@ -253,6 +313,8 @@
                 <p class="text-muted" th:unless="${kind == 'Active'}">Epistola grants services once it has activated this installation.</p>
             </div>
         </section>
+
+        <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
         <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
             <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>

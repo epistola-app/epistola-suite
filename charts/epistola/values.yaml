@@ -247,7 +247,8 @@ observability:
   # consistent with the app's own NodeIdentity and metric tags. Purely for the
   # customer's own telemetry pipeline — the app's Micrometer OTLP export stays
   # off unless observability.otlpEndpoint is set, so the agent owns the OTLP leg
-  # with no double export.
+  # with no double export. The support-service telemetry leg (scope `telemetry`) is
+  # configured at runtime by the support module, NOT here.
   otelAgent:
     enabled: false
     # service.name reported to the agent.
@@ -365,6 +366,17 @@ support:
   # on it.
   services: []
 
+  # What Epistola sees of the tenants and how much telemetry carries (ADR 0052), until an
+  # installation administrator saves them under Platform → Epistola support (which then wins).
+  # Rendered as EPISTOLA_SUPPORT_PRIVACY_*.
+  privacy:
+    # confidential (each tenant as a reference only this installation can trace back) or named
+    # (tenant keys as they are). Empty: the suite's default, confidential.
+    tenantIdentity: ""
+    # pseudonymised (log messages without their values, errors without their message) or full.
+    # Empty: the suite's default, pseudonymised.
+    telemetry: ""
+
   # The support service's https URL (its OAuth issuer). Empty: found through productDomain, and
   # https://support.{productDomain} when the discovery document names none. Plaintext is a
   # local-development setting and is not exposed here.
@@ -382,6 +394,14 @@ support:
     name: ""
     # Optional free-form description.
     description: ""
+
+  # Forward application logs + metrics to the support service. On by default when
+  # support.enabled is true — the real gate is the `telemetry` service being selected
+  # (support.services or Platform → Epistola support) and granted by Epistola, so
+  # nothing is shipped until both. Set to false to opt out. The endpoint
+  # comes from the support service's metadata — nothing to configure here.
+  telemetry:
+    enabled: true
 
   # NOTE: node id is intentionally NOT a chart value. It must differ per pod, but a
   # Deployment value is identical for every replica. Node identity is resolved at

@@ -56,6 +56,24 @@ expect "${mirror}" EPISTOLA_VERSIONCHECK_ENDPOINT "https://mirror.example/releas
 expect "${mirror}" EPISTOLA_INSTALLATIONCHECK_ENDPOINT "https://mirror.example/installation/{id}.json"
 expect "${mirror}" EPISTOLA_EXCHANGE_ENDPOINT "https://exchange.internal"
 expect "${mirror}" EPISTOLA_SUPPORT_ENDPOINT "https://support.internal"
+# Telemetry is on with the support connection (the telemetry scope gates it), and can be turned off.
+expect "${mirror}" EPISTOLA_SUPPORT_TELEMETRY_ENABLED true
+notelemetry="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set support.enabled=true --set support.telemetry.enabled=false \
+  --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
+  --set support.installation.environment=test)"
+expect "${notelemetry}" EPISTOLA_SUPPORT_TELEMETRY_ENABLED false
+# Privacy is the suite's default unless set; set, it renders as given.
+if grep -q -- "- name: EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY$" <<<"${mirror}"; then
+  echo "Expected EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY not to be rendered by default" >&2
+  exit 1
+fi
+named="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set support.enabled=true --set support.privacy.tenantIdentity=named --set support.privacy.telemetry=full \
+  --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
+  --set support.installation.environment=test)"
+expect "${named}" EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY named
+expect "${named}" EPISTOLA_SUPPORT_PRIVACY_TELEMETRY full
 # The installation registers only when an administrator presses Register, unless auto-register is set.
 expect "${mirror}" EPISTOLA_SUPPORT_AUTO_REGISTER false
 autoregister="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
@@ -94,6 +112,8 @@ reject "a support endpoint that is not a URL" --set support.endpoint=support.exa
 # Plaintext needs epistola.support.allow-http, a local-development setting the chart does not expose.
 reject "a plaintext support endpoint" --set support.endpoint=http://support.internal
 reject "a non-boolean support.autoRegister" --set support.autoRegister=maybe
+reject "an unknown tenant identity" --set support.privacy.tenantIdentity=anonymous
+reject "a non-boolean support.telemetry.enabled" --set support.telemetry.enabled=maybe
 reject "support.services given as one string" --set support.services=feedback
 reject "a malformed support service name" --set 'support.services={Feedback Service}'
 # Keys ADR 0030 replaced fail loudly instead of being ignored.

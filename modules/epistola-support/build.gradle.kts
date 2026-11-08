@@ -20,6 +20,8 @@ dependencies {
     // ES256 client assertions and the JWK it registers.
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.jdbi.core)
+    // Bounded cache of tenant references, asked for on every forwarded log line.
+    implementation(libs.caffeine)
     // Transaction synchronisation: a saved selection is re-read on this node once its transaction ends.
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 

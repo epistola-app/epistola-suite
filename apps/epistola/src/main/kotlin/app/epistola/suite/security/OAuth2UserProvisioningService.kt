@@ -87,7 +87,7 @@ class OAuth2UserProvisioningService(
             )
         }
 
-        logger.info("Auto-provisioning new user: $email (provider: $provider)")
+        logger.info("Auto-provisioning new user: {} (provider: {})", email, provider)
 
         return mediator.send(
             CreateUser(
@@ -154,7 +154,7 @@ class OAuth2UserProvisioningService(
         val storedUser = try {
             getOrCreateUser(externalId, email, displayName, provider)
         } catch (e: Exception) {
-            logger.error("Failed to provision user: $email", e)
+            logger.error("Failed to provision user: {}", email, e)
             throw OAuth2AuthenticationException(
                 OAuth2Error("user_provisioning_failed"),
                 "Failed to provision user",

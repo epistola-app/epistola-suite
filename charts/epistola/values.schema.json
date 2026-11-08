@@ -438,7 +438,23 @@
             ]
           }
         },
-        "installation": { "type": "object" }
+        "privacy": {
+          "type": "object",
+          "description": "What Epistola sees of the tenants and how much telemetry carries, until an installation administrator saves them. Empty: the suite's defaults (confidential, pseudonymised).",
+          "additionalProperties": false,
+          "properties": {
+            "tenantIdentity": { "type": "string", "enum": ["", "confidential", "named"], "description": "confidential: each tenant as a reference; named: tenant keys as they are." },
+            "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "pseudonymised: log messages without their values; full: as written." }
+          }
+        },
+        "installation": { "type": "object" },
+        "telemetry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Forward logs and metrics to the support service while the telemetry scope is selected and granted." }
+          }
+        }
       }
     }
   }
