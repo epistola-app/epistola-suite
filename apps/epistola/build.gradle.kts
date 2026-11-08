@@ -75,6 +75,10 @@ dependencies {
     // service when the installation holds the telemetry scope.
     implementation(project(":modules:epistola-support-telemetry"))
 
+    // Catalog mirror — a custody copy of the releases tenants choose to share, kept with the
+    // support service while the installation holds the mirror scope (docs/catalog-mirror.md).
+    implementation(project(":modules:epistola-support-mirror"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)

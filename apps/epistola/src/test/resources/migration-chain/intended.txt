@@ -2137,3 +2137,43 @@ $$
     hour timestamp with time zone NOT NULL,
     reported_at timestamp with time zone NOT NULL
 )
+
+# Added after the chain: the catalog mirror's state per tenant and catalog (V20261108205504).
++ ALTER TABLE ONLY public.support_mirror_catalog_policies
+    ADD CONSTRAINT fk_support_mirror_catalog_policies_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES public.catalogs(tenant_key, catalog_id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_mirror_catalog_policies
+    ADD CONSTRAINT support_mirror_catalog_policies_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_mirror_catalog_policies
+    ADD CONSTRAINT support_mirror_catalog_policies_pkey PRIMARY KEY (connection_id, tenant_key, catalog_id)
++ ALTER TABLE ONLY public.support_mirror_state
+    ADD CONSTRAINT support_mirror_state_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_mirror_state
+    ADD CONSTRAINT support_mirror_state_pkey PRIMARY KEY (connection_id, tenant_key)
++ ALTER TABLE ONLY public.support_mirror_state
+    ADD CONSTRAINT support_mirror_state_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
++ CREATE TABLE public.support_mirror_catalog_policies (
+    CONSTRAINT chk_support_mirror_catalog_policies_policy CHECK (((policy)::text = ANY ((ARRAY['SHARE'::character varying, 'NEVER'::character varying])::text[]))),
+    catalog_id uuid NOT NULL,
+    connection_id uuid NOT NULL,
+    policy character varying(16) NOT NULL,
+    set_at timestamp with time zone NOT NULL,
+    set_by uuid,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.support_mirror_state (
+    bindings_sent integer DEFAULT 0 NOT NULL,
+    claimed_at timestamp with time zone,
+    connection_id uuid NOT NULL,
+    consecutive_failures integer DEFAULT 0 NOT NULL,
+    failed_releases jsonb DEFAULT '[]'::jsonb NOT NULL,
+    last_attempt_at timestamp with time zone,
+    last_digest character varying(80),
+    last_error text,
+    last_success_at timestamp with time zone,
+    next_attempt_at timestamp with time zone,
+    releases_missing integer DEFAULT 0 NOT NULL,
+    releases_uploaded integer DEFAULT 0 NOT NULL,
+    sync_requested_at timestamp with time zone,
+    synced_catalogs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)

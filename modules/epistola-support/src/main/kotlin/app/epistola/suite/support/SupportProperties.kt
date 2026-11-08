@@ -35,6 +35,8 @@ import java.time.Duration
  *   support; from then on the saved selection wins and this is ignored. Empty by default: nothing
  *   is used until someone chooses. A name this version does not know is kept and logged, never an
  *   error, so a configuration that names a retired or a newer service still starts.
+ * @property tenantDefaults what tenants share with Epistola until a tenant chooses itself, until an
+ *   installation administrator saves a preset under Platform → Epistola support ([TenantDefaults]).
  * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
  *   installation administrator saves them under Platform → Epistola support ([Privacy]).
  */
@@ -48,6 +50,7 @@ data class SupportProperties(
     val connectTimeout: Duration = Duration.ofSeconds(5),
     val readTimeout: Duration = Duration.ofSeconds(30),
     val services: List<String> = emptyList(),
+    val tenantDefaults: TenantDefaults = TenantDefaults(),
     val privacy: Privacy = Privacy(),
 ) {
     init {
@@ -58,6 +61,28 @@ data class SupportProperties(
             "epistola.support.endpoint '$endpoint' is plaintext http; use https, or set epistola.support.allow-http=true for a local support service"
         }
         require(!checkInterval.isNegative && !checkInterval.isZero) { "epistola.support.check-interval must be positive" }
+    }
+
+    /**
+     * A preset of what tenants share, from the deployment configuration (Helm
+     * `support.tenantDefaults`). Applied at startup only while no installation administrator has
+     * saved a preset, recorded as set by the configuration; it then applies to every tenant without
+     * a choice of its own, and to new tenants, as consent given by whoever configured the
+     * installation. Blank (the default): no preset, and every tenant sets itself up.
+     *
+     * @property mirror `off`, `all` (every catalog) or `marked` (the catalogs a tenant marks).
+     */
+    data class TenantDefaults(
+        val mirror: String = "",
+    ) {
+        init {
+            require(mirror.isBlank() || mirror.trim().lowercase() in setOf("off", "all", "marked")) {
+                "epistola.support.tenant-defaults.mirror must be off, all or marked; got '$mirror'"
+            }
+        }
+
+        /** The mirror preset in lower case, or null when not configured. */
+        val mirrorChoice: String? get() = mirror.trim().lowercase().takeIf { it.isNotEmpty() }
     }
 
     /**

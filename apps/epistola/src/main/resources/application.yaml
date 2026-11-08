@@ -436,6 +436,13 @@ epistola:
       metrics: true
       log-level: INFO # Minimum level forwarded
       strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
+    # Catalog mirror (docs/catalog-mirror.md) — a custody copy, kept by the support service, of the
+    # released catalogs tenants choose to share, so Epistola can check them against new suite
+    # versions. Needs the support connection on and the `mirror` scope granted; each tenant opts in
+    # on its own. `enabled: false` turns it off for the whole installation.
+    mirror:
+      enabled: true
+      interval: 15m # Wait between reconcile rounds (one node per round)
 
   # Installation identity, sent when the installation registers with the support service so
   # Epistola staff recognise it; blank fields are left out. Override per environment via

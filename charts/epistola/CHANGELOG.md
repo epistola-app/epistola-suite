@@ -28,6 +28,18 @@
 
 ### Added
 
+- **`support.mirror.enabled` — the switch for the catalog mirror.** From Epistola 2.0, tenants can
+  share their released catalogs with Epistola for release checks once Epistola grants the `mirror`
+  scope and a tenant opts in (docs/catalog-mirror.md). `support.mirror.enabled: false` (rendered as
+  `EPISTOLA_SUPPORT_MIRROR_ENABLED`) turns it off for the whole installation: nothing is sent, but
+  what tenants stopped sharing is still deleted at Epistola.
+
+- **`support.tenantDefaults.mirror`**: what every tenant shares with the catalog mirror until a tenant
+  chooses otherwise on its Support page (`off`, `all` or `marked`), rendered as
+  `EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR`. Applied at startup only while no installation
+  administrator has saved a setup under Platform → Epistola support, and recorded as agreed on the
+  tenants' behalf. Empty by default: each tenant sets itself up.
+
 - **`support.privacy.tenantIdentity` and `support.privacy.telemetry`**: what Epistola sees of the
   tenants (`confidential`, the default, or `named`) and how much telemetry carries (`pseudonymised`,
   the default, or `full`), rendered as `EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY` and

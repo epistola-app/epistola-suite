@@ -32,8 +32,9 @@ class SupportPrivacyHandler {
         val identity = form.getFirst("tenantIdentity")?.let(TenantIdentity::parse) ?: before.tenantIdentity
         val telemetry = form.getFirst("telemetry")?.let(TelemetryDetail::parse) ?: before.telemetry
         if (!before.fromConfiguration && identity == before.tenantIdentity && telemetry == before.telemetry) return panel(request, editing = false, notice = "Nothing changed.")
-        SetSupportPrivacy(identity, telemetry).execute()
-        return panel(request, editing = false, notice = "Saved.")
+        val saved = SetSupportPrivacy(identity, telemetry).execute()
+        val withdrawn = saved.confidential && !before.confidential
+        return panel(request, editing = false, notice = if (withdrawn) "Saved. Tenants are confidential now; the catalog mirror withdraws what it holds." else "Saved.")
     }
 
     private fun panel(request: ServerRequest, editing: Boolean, notice: String? = null): ServerResponse = request.htmx {

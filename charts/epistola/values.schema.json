@@ -438,6 +438,14 @@
             ]
           }
         },
+        "tenantDefaults": {
+          "type": "object",
+          "description": "What every tenant shares with Epistola until a tenant chooses otherwise; applied at startup only while no installation administrator has saved a setup. Empty: each tenant sets itself up.",
+          "additionalProperties": false,
+          "properties": {
+            "mirror": { "type": "string", "enum": ["", "off", "all", "marked"], "description": "Catalog mirror: off, all (every catalog) or marked (only the catalogs a tenant marks)." }
+          }
+        },
         "privacy": {
           "type": "object",
           "description": "What Epistola sees of the tenants and how much telemetry carries, until an installation administrator saves them. Empty: the suite's defaults (confidential, pseudonymised).",
@@ -448,6 +456,14 @@
           }
         },
         "installation": { "type": "object" },
+        "mirror": {
+          "type": "object",
+          "description": "The catalog mirror (docs/catalog-mirror.md).",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "description": "false: nothing is sent to the mirror; withdrawals still run." }
+          }
+        },
         "telemetry": {
           "type": "object",
           "additionalProperties": false,

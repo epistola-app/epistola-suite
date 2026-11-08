@@ -63,7 +63,9 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         store.forgetServices()
         withMediator {
             ForgetUsageSharing().execute()
+            app.epistola.suite.support.mirror.ForgetCatalogMirrorSharing().execute()
             SetSharingRestriction("usage", null).execute()
+            SetSharingRestriction("mirror", null).execute()
         }
     }
 
@@ -221,6 +223,27 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
             val response = restTemplate.exchange(path, org.springframework.http.HttpMethod.GET, HttpEntity<Void>(tenantAdministrator), String::class.java)
             assertThat(response.statusCode).`as`(path).isEqualTo(HttpStatus.FORBIDDEN)
         }
+    }
+
+    @Test
+    fun `with the mirror selected, the wizard asks catalogs then usage, and saves both`() {
+        withMediator { app.epistola.suite.support.connection.SaveSupportServices(setOf("usage", "mirror")).execute() }
+        support.activate(scopes = setOf("usage", "mirror"))
+        connection.checkNow()
+        val tenant = createTenant("Setup With Mirror").id
+
+        val catalogs = setup(tenant, mapOf("step" to "0", "action" to "next"))
+        assertThat(catalogs).contains("data-step=\"1\"").contains("data-testid=\"mirror-statement\"")
+        val usageStep = setup(tenant, mapOf("step" to "1", "action" to "next", "mirror.choice" to "MARKED"))
+        assertThat(usageStep).contains("data-step=\"2\"").contains("data-testid=\"usage-statement\"")
+
+        val done = setup(tenant, mapOf("step" to "3", "action" to "finish", "agree" to "true", "mirror.choice" to "MARKED", "usage.choice" to "NO"))
+
+        assertThat(done).contains("data-testid=\"support-sharing-summary\"")
+        val mirror = withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorSettings(tenant).query() }
+        assertThat(mirror.sharing).isTrue()
+        assertThat(mirror.consent!!.shareByDefault).isFalse()
+        assertThat(usage(tenant).share).isFalse()
     }
 
     companion object {

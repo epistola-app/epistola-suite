@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -36,7 +37,7 @@ enum class TenantIdentity {
     /** Tenant keys are sent as they are. */
     NAMED,
 
-    /** Every tenant is sent as its [TenantReferences] reference. */
+    /** Every tenant is sent as its [TenantReferences] reference; the catalog mirror is unavailable. */
     CONFIDENTIAL,
     ;
 
@@ -224,7 +225,16 @@ class GetSupportPrivacyHandler(private val privacy: SupportPrivacy) : QueryHandl
     override fun handle(query: GetSupportPrivacy): SupportPrivacySettings = privacy.refresh()
 }
 
-/** Saves the privacy settings; every node applies them within [SupportPrivacy.REFRESH_SECONDS] seconds. */
+/** Something that has to happen when tenants become confidential (the catalog mirror withdraws). */
+interface TenantIdentityListener {
+    fun becameConfidential()
+}
+
+/**
+ * Saves the privacy settings; every node applies them within [SupportPrivacy.REFRESH_SECONDS] seconds.
+ * Making tenants confidential tells every [TenantIdentityListener] at once, so the catalog mirror
+ * withdraws what it shares: a release names its client whatever key it is filed under.
+ */
 data class SetSupportPrivacy(
     val tenantIdentity: TenantIdentity,
     val telemetry: TelemetryDetail,
@@ -236,8 +246,14 @@ data class SetSupportPrivacy(
 @Component
 class SetSupportPrivacyHandler(
     private val privacy: SupportPrivacy,
+    private val listeners: ObjectProvider<TenantIdentityListener>,
 ) : CommandHandler<SetSupportPrivacy, SupportPrivacySettings> {
-    override fun handle(command: SetSupportPrivacy): SupportPrivacySettings = privacy.save(
-        StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
-    )
+    override fun handle(command: SetSupportPrivacy): SupportPrivacySettings {
+        val before = privacy.refresh()
+        val saved = privacy.save(
+            StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
+        )
+        if (saved.confidential && (!before.confidential || before.fromConfiguration)) listeners.orderedStream().forEach { it.becameConfidential() }
+        return saved
+    }
 }

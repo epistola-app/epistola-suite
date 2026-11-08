@@ -56,6 +56,14 @@ expect "${mirror}" EPISTOLA_VERSIONCHECK_ENDPOINT "https://mirror.example/releas
 expect "${mirror}" EPISTOLA_INSTALLATIONCHECK_ENDPOINT "https://mirror.example/installation/{id}.json"
 expect "${mirror}" EPISTOLA_EXCHANGE_ENDPOINT "https://exchange.internal"
 expect "${mirror}" EPISTOLA_SUPPORT_ENDPOINT "https://support.internal"
+# The catalog mirror is on with the support connection, and can be turned off from the chart.
+expect "${mirror}" EPISTOLA_SUPPORT_MIRROR_ENABLED true
+nomirror="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set support.enabled=true --set support.mirror.enabled=false --set support.tenantDefaults.mirror=marked \
+  --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
+  --set support.installation.environment=test)"
+expect "${nomirror}" EPISTOLA_SUPPORT_MIRROR_ENABLED false
+expect "${nomirror}" EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR marked
 # Telemetry is on with the support connection (the telemetry scope gates it), and can be turned off.
 expect "${mirror}" EPISTOLA_SUPPORT_TELEMETRY_ENABLED true
 notelemetry="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
@@ -112,6 +120,7 @@ reject "a support endpoint that is not a URL" --set support.endpoint=support.exa
 # Plaintext needs epistola.support.allow-http, a local-development setting the chart does not expose.
 reject "a plaintext support endpoint" --set support.endpoint=http://support.internal
 reject "a non-boolean support.autoRegister" --set support.autoRegister=maybe
+reject "an unknown mirror preset" --set support.tenantDefaults.mirror=some
 reject "an unknown tenant identity" --set support.privacy.tenantIdentity=anonymous
 reject "a non-boolean support.telemetry.enabled" --set support.telemetry.enabled=maybe
 reject "support.services given as one string" --set support.services=feedback
