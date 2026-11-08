@@ -10,26 +10,26 @@ import io.opentelemetry.proto.common.v1.KeyValue
 import io.opentelemetry.proto.metrics.v1.Metric
 
 /**
- * Rewrites a metrics export before it leaves (ADR 0052 §1–2), so the settings in force at export
- * apply, also to meters registered before they changed: the `tenant` tag names the tenant's
- * reference when tenants are confidential, and the `template` tag is dropped when telemetry is
- * pseudonymised. An export that needs neither passes unchanged.
+ * Rewrites a metrics export before it leaves (ADR 0052 §1), so the settings in force at export apply,
+ * also to meters registered before they changed: the `tenant` tag names the tenant's reference when
+ * tenants are confidential, or goes when that reference is not known yet. An export of named tenants
+ * passes unchanged. (The `template` tag never reaches this registry: [SupportTelemetryMeterRegistry]
+ * drops it before aggregation.)
  */
 internal object MetricsPrivacy {
-    const val TENANT_TAG = "tenant"
-    const val TEMPLATE_TAG = "template"
+    private const val TENANT_TAG = SupportTelemetryMeterRegistry.TENANT_TAG
 
     fun apply(metricsData: ByteArray, privacy: TelemetryPrivacy, confidential: Boolean): ByteArray {
-        if (!confidential && !privacy.pseudonymised) return metricsData
+        if (!confidential) return metricsData
         val request = ExportMetricsServiceRequest.newBuilder().mergeFrom(metricsData)
         request.resourceMetricsBuilderList.forEach { resource ->
-            resource.scopeMetricsBuilderList.forEach { scope -> scope.metricsBuilderList.forEach { rewrite(it, privacy, confidential) } }
+            resource.scopeMetricsBuilderList.forEach { scope -> scope.metricsBuilderList.forEach { rewrite(it, privacy) } }
         }
         return request.build().toByteArray()
     }
 
-    private fun rewrite(metric: Metric.Builder, privacy: TelemetryPrivacy, confidential: Boolean) {
-        val fix = { attributes: List<KeyValue> -> fixed(attributes, privacy, confidential) }
+    private fun rewrite(metric: Metric.Builder, privacy: TelemetryPrivacy) {
+        val fix = { attributes: List<KeyValue> -> fixed(attributes, privacy) }
         when {
             metric.hasGauge() -> metric.gaugeBuilder.dataPointsBuilderList.forEach { p -> fix(p.attributesList)?.let { p.clearAttributes().addAllAttributes(it) } }
             metric.hasSum() -> metric.sumBuilder.dataPointsBuilderList.forEach { p -> fix(p.attributesList)?.let { p.clearAttributes().addAllAttributes(it) } }
@@ -40,17 +40,12 @@ internal object MetricsPrivacy {
     }
 
     /** The attributes rewritten, or null when nothing changes. */
-    private fun fixed(attributes: List<KeyValue>, privacy: TelemetryPrivacy, confidential: Boolean): List<KeyValue>? {
-        if (attributes.none { it.key == TENANT_TAG || it.key == TEMPLATE_TAG }) return null
+    private fun fixed(attributes: List<KeyValue>, privacy: TelemetryPrivacy): List<KeyValue>? {
+        if (attributes.none { it.key == TENANT_TAG }) return null
         return attributes.mapNotNull { kv ->
-            when {
-                kv.key == TEMPLATE_TAG && privacy.pseudonymised -> null
-
-                kv.key == TENANT_TAG && confidential ->
-                    kv.toBuilder().setValue(AnyValue.newBuilder().setStringValue(privacy.tenantOnWire(kv.value.stringValue))).build()
-
-                else -> kv
-            }
+            if (kv.key != TENANT_TAG) return@mapNotNull kv
+            // No reference known yet: the tag goes rather than the key.
+            privacy.tenantOnWire(kv.value.stringValue)?.let { kv.toBuilder().setValue(AnyValue.newBuilder().setStringValue(it)).build() }
         }
     }
 }

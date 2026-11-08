@@ -65,9 +65,9 @@ class SupportTelemetryConfiguration {
         resource,
         supportProperties.connectTimeout,
         rewrite = { data ->
-            val settings = privacy.ifAvailable?.current()
-            val refs = references.ifAvailable
-            if (settings == null || refs == null) data else MetricsPrivacy.apply(data, TelemetryPrivacy(settings.pseudonymised, refs::reference), settings.confidential)
+            // Without the settings, the strictest apply.
+            val settings = privacy.ifAvailable?.current() ?: SupportPrivacy.STRICTEST
+            MetricsPrivacy.apply(data, TelemetryPrivacy.of(settings, references.ifAvailable), settings.confidential)
         },
     )
 }

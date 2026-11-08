@@ -29,7 +29,7 @@ import java.time.Duration
  * wrapper keeps the two independent.
  *
  * The `tenant` tag is stripped on the inner OTLP registry when `strip-tenant-tag-from-metrics` is
- * on. It has to be there: a composite nested in another registers each meter straight into the
+ * on, and the `template` tag always. It has to be there: a composite nested in another registers each meter straight into the
  * leaf registries below it, so a filter on this wrapper would be skipped for every meter that
  * arrives through Boot's composite. For the same reason Boot's own meter filters and
  * `management.metrics.*` settings do not reach this leg; the identity it reports is the resource
@@ -42,6 +42,9 @@ class SupportTelemetryMeterRegistry internal constructor(
 ) : CompositeMeterRegistry(Clock.SYSTEM, listOf(otlp)) {
     init {
         if (stripTenantTag) otlp.config().meterFilter(MeterFilter.ignoreTags(TENANT_TAG))
+        // Never sent: a template id is the tenant's content. Dropped here, before aggregation, so the
+        // series of different templates add up instead of arriving as points with equal attributes.
+        otlp.config().meterFilter(MeterFilter.ignoreTags(TEMPLATE_TAG))
     }
 
     /**
@@ -52,6 +55,9 @@ class SupportTelemetryMeterRegistry internal constructor(
      */
     override fun close() {
         sender?.close()
+        // Detached first: closing a composite closes its registries on this thread, and closing the OTLP
+        // registry waits for a publish under way, which could hang on the support service.
+        remove(otlp)
         super.close()
         val closing = Thread.ofPlatform().daemon().name("support-telemetry-close").start { otlp.close() }
         closing.join(CLOSE_WAIT)
@@ -59,6 +65,7 @@ class SupportTelemetryMeterRegistry internal constructor(
 
     companion object {
         const val TENANT_TAG = "tenant"
+        const val TEMPLATE_TAG = "template"
 
         /** The most closing waits for a publish to the support service already under way. */
         val CLOSE_WAIT: Duration = Duration.ofSeconds(1)

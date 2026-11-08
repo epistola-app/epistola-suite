@@ -80,8 +80,9 @@ until an administrator saves them (`support.privacy.tenantIdentity`, `support.pr
 
 - **Pseudonymised:** a log line goes as its message as written in the code, without the values filled
   in (`"Render failed for {}"`); an error as its type and stack frames, without its message; no thread
-  names; library lines only at WARN and above. Metrics lose the `template` tag. A guard
-  (`LogMessageTemplateTest`) keeps values out of the suite's log messages.
+  names; library lines only at WARN and above, and without their message, which a library may have
+  built with values (their logger, level and stack frames still go). A guard (`LogMessageTemplateTest`)
+  keeps values out of the suite's own log messages.
 - **Everything:** log lines and errors as written, which can name people and organisations, also
   while tenants are confidential.
 
@@ -90,7 +91,9 @@ until an administrator saves them (`support.privacy.tenantIdentity`, `support.pr
 With `telemetry` selected and granted, log lines at `epistola.support.telemetry.log-level` (INFO) and
 above, and the metrics, go to the support service over OTLP, shaped by the privacy settings above.
 Every resource names the installation; the support service refuses a report that names another one
-than its token's. Logs and metrics can be switched off separately (`epistola.support.telemetry.logs`,
+than its token's. Metrics never carry the `template` tag (a template id is the tenant's content); a
+tenant tag, when not stripped, names a confidential tenant by its reference. Logs and metrics can be
+switched off separately (`epistola.support.telemetry.logs`,
 `.metrics`), or both with Helm `support.telemetry.enabled`.
 
 ## Disconnecting

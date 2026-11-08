@@ -18,6 +18,9 @@ import app.epistola.suite.time.EpistolaClock
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import org.slf4j.LoggerFactory
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.security.SecureRandom
@@ -93,11 +96,25 @@ class SupportPrivacy(
 ) {
     @Volatile private var cached: SupportPrivacySettings? = null
 
-    fun current(): SupportPrivacySettings = cached ?: refresh()
+    /**
+     * The settings in force, without touching the database: it is asked on every forwarded log line,
+     * on whatever thread logged. Before the first read ([refresh], scheduled from startup) the
+     * strictest settings apply.
+     */
+    fun current(): SupportPrivacySettings = cached ?: STRICTEST
 
+    /**
+     * Reads the settings: saved ones win over the configuration. A read that fails keeps the settings
+     * last read, or the strictest before any: a database that cannot be reached never loosens them.
+     */
     @Scheduled(fixedDelay = REFRESH_SECONDS, timeUnit = TimeUnit.SECONDS)
     fun refresh(): SupportPrivacySettings {
-        val read = runCatching { metadata.getAs(KEY, StoredSupportPrivacy::class.java) }.getOrNull()
+        val read = try {
+            metadata.getAs(KEY, StoredSupportPrivacy::class.java)
+        } catch (e: RuntimeException) {
+            log.warn("Support privacy settings could not be read; keeping the settings last read: {}", e.message)
+            return cached ?: STRICTEST
+        }
         val settings = if (read == null) {
             SupportPrivacySettings(properties.privacy.tenantIdentityValue, properties.privacy.telemetryValue, fromConfiguration = true)
         } else {
@@ -118,9 +135,14 @@ class SupportPrivacy(
         return refresh()
     }
 
+    private val log = LoggerFactory.getLogger(javaClass)
+
     companion object {
         const val KEY = "support.privacy"
         const val REFRESH_SECONDS = 30L
+
+        /** Before the settings were read, and while they cannot be: confidential, pseudonymised. */
+        val STRICTEST = SupportPrivacySettings(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED, fromConfiguration = false)
     }
 }
 
@@ -148,6 +170,22 @@ class TenantReferences(
 
     fun reference(tenantKey: TenantKey): String = reference(tenantKey.value)
 
+    /**
+     * [tenantKey]'s reference, or null while this node has not loaded the secret yet. Never touches the
+     * database: for the telemetry legs, asked on whatever thread logged. The secret is loaded at startup.
+     */
+    fun referenceIfReady(tenantKey: String): String? = if (secret == null) null else reference(tenantKey)
+
+    /** Loads the secret before the first forwarded log line needs it; a failure leaves it to the next use. */
+    @EventListener(ApplicationReadyEvent::class)
+    fun loadSecret() {
+        try {
+            secret()
+        } catch (e: RuntimeException) {
+            log.warn("The tenant reference secret could not be loaded yet; telemetry sends no tenant until it is: {}", e.message)
+        }
+    }
+
     /** Tenants are confidential to Epistola now: names and addresses stay in the installation too. */
     fun confidential(): Boolean = privacy.current().confidential
 
@@ -167,6 +205,7 @@ class TenantReferences(
 
     companion object {
         const val PREFIX = "t-"
+        private val log = LoggerFactory.getLogger(TenantReferences::class.java)
         const val SECRET_KEY = "support.tenant-reference-secret"
         private const val MAX_CACHED = 10_000L
         private const val ALGORITHM = "HmacSHA256"

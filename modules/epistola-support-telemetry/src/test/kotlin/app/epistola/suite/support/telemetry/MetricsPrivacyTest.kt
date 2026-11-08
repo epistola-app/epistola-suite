@@ -23,7 +23,7 @@ class MetricsPrivacyTest {
             ScopeMetrics.newBuilder().addMetrics(
                 Metric.newBuilder().setName("epistola.generation.document.duration").setGauge(
                     Gauge.newBuilder().addDataPoints(
-                        NumberDataPoint.newBuilder().setAsInt(1).addAttributes(kv("tenant", "gemeente-x")).addAttributes(kv("template", "ontslag-jan")).addAttributes(kv("outcome", "success")),
+                        NumberDataPoint.newBuilder().setAsInt(1).addAttributes(kv("tenant", "gemeente-x")).addAttributes(kv("outcome", "success")),
                     ),
                 ),
             ),
@@ -34,10 +34,24 @@ class MetricsPrivacyTest {
         .attributesList.associate { it.key to it.value.stringValue }
 
     @Test
-    fun `confidential and pseudonymised, the tenant is its reference and the template tag is gone`() {
+    fun `confidential, the tenant is its reference`() {
         val rewritten = MetricsPrivacy.apply(export, TelemetryPrivacy(pseudonymised = true, tenantOnWire = { "t-ref" }), confidential = true)
 
         assertThat(attributes(rewritten)).isEqualTo(mapOf("tenant" to "t-ref", "outcome" to "success"))
+    }
+
+    @Test
+    fun `confidential, while the reference is not known yet the tenant tag goes, never the key`() {
+        val rewritten = MetricsPrivacy.apply(export, TelemetryPrivacy(pseudonymised = true, tenantOnWire = { null }), confidential = true)
+
+        assertThat(attributes(rewritten)).isEqualTo(mapOf("outcome" to "success"))
+    }
+
+    @Test
+    fun `confidential settings without tenant references send no tenant at all`() {
+        val confidential = app.epistola.suite.support.privacy.SupportPrivacy.STRICTEST
+
+        assertThat(TelemetryPrivacy.of(confidential, references = null).tenantOnWire("gemeente-x")).isNull()
     }
 
     @Test

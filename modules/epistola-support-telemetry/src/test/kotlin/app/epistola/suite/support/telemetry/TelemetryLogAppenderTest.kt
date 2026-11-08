@@ -94,7 +94,19 @@ class TelemetryLogAppenderTest {
         loggerWith("com.zaxxer.hikari.Other", pseudonymised) { true }.warn("slow")
         loggerWith("app.epistola.suite.Mine", pseudonymised) { true }.info("mine")
 
-        assertThat(exporter.finishedLogRecordItems.map { it.bodyValue!!.asString() }).containsExactly("slow", "mine")
+        // The library's WARN goes, without its message; the suite's own INFO goes with its pattern.
+        assertThat(exporter.finishedLogRecordItems.map { it.bodyValue!!.asString() }).containsExactly(TelemetryLogAppender.WITHHELD_BODY, "mine")
+    }
+
+    @Test
+    fun `pseudonymised, a library line at WARN goes without its message, which the library may have built with values`() {
+        val pseudonymised = TelemetryPrivacy(pseudonymised = true, tenantOnWire = { it })
+
+        loggerWith("org.springframework.web.Resolver", pseudonymised) { true }.warn("Failed to convert value: Invalid UUID string: jan@example.org")
+
+        val record = exporter.finishedLogRecordItems.single()
+        assertThat(record.bodyValue?.asString().orEmpty()).doesNotContain("jan@example.org")
+        assertThat(record.attributes.get(AttributeKey.stringKey("logger.name"))).isEqualTo("org.springframework.web.Resolver")
     }
 
     @Test

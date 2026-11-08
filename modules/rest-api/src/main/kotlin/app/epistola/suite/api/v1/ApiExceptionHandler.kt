@@ -450,7 +450,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         val mapping = ApiExceptionMappings.forException(ex)
             ?: throw IllegalStateException("No ApiExceptionMapping registered for ${ex.javaClass.name}")
 
-        log.warn(mapping.logMessage(ex))
+        // The mapping's text names ids from the request: an argument, so pseudonymised telemetry leaves it out.
+        log.warn("API request refused ({}): {}", ex.javaClass.simpleName, mapping.logMessage(ex))
 
         return problemResponse(
             request = request,

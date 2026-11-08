@@ -377,8 +377,8 @@ why it is OTLP/HTTP, installation-wide and gated by the granted scope.
   meters), with the resource attributes `service.name`, `service.instance.id` (the node id),
   `service.version`, `deployment.environment` and `epistola.installation.id`. These come from the
   suite, never from the customer's `OTEL_*` environment. The per-tenant `tenant` tag is
-  **stripped** by default (`strip-tenant-tag-from-metrics`); Prometheus and Boot's own OTLP
-  export keep it. Boot's `management.metrics.*` filters and histogram settings do not apply to
+  **stripped** by default (`strip-tenant-tag-from-metrics`), and the `template` tag always,
+  before aggregation; Prometheus and Boot's own OTLP export keep both. Boot's `management.metrics.*` filters and histogram settings do not apply to
   this leg.
 - **Wiring.** The registry is a `SupportTelemetryMeterRegistry`, a composite around a private
   `OtlpMeterRegistry`, so it joins Boot's primary composite and receives every app meter. It

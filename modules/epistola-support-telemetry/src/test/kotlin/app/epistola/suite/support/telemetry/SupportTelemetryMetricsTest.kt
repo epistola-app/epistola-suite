@@ -82,6 +82,20 @@ class SupportTelemetryMetricsTest {
     }
 
     @Test
+    fun `the template tag never reaches the support service, and its series add up instead of colliding`() {
+        connection.grant()
+
+        registry.counter("epistola.test.renders", "template", "letter", "outcome", "ok").increment(5.0)
+        registry.counter("epistola.test.renders", "template", "invoice", "outcome", "ok").increment(7.0)
+        clock.add(step)
+        publish(registry.otlp)
+
+        val point = renders().sum.dataPointsList.single()
+        assertThat(point.asDouble).isEqualTo(12.0)
+        assertThat(point.attributesList.asStrings()).doesNotContainKey("template")
+    }
+
+    @Test
     fun `keeps the tenant tag when stripping is off`() {
         registry.close()
         registry = registry(stripTenantTag = false)
@@ -210,6 +224,25 @@ class SupportTelemetryMetricsTest {
         fun publish(registry: OtlpMeterRegistry) {
             OtlpMeterRegistry::class.java.getDeclaredMethod("publish").apply { isAccessible = true }.invoke(registry)
         }
+    }
+
+    @Test
+    fun `closing does not wait for a scheduled publish that hangs on the support service`() {
+        sink.server.fault(app.epistola.suite.testing.FakeSupportFault.Hang(maxMillis = 20_000), "POST", "/otlp/v1/metrics")
+        connection.grant()
+        registry.counter("epistola.test.renders", "outcome", "ok").increment()
+        clock.add(step)
+        // A scheduled publish, as Micrometer's own scheduler runs it: it holds the in-progress semaphore while it hangs.
+        val scheduled = io.micrometer.core.instrument.push.PushMeterRegistry::class.java
+            .getDeclaredMethod("publishSafelyOrSkipIfInProgress").apply { isAccessible = true }
+        Thread.ofPlatform().daemon().start { scheduled.invoke(registry.otlp) }
+        val deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos()
+        while (sink.metricRequests.isEmpty() && System.nanoTime() < deadline) Thread.onSpinWait()
+        assertThat(sink.metricRequests).`as`("the publish reached the hanging service").isNotEmpty()
+
+        val took = kotlin.system.measureTimeMillis { registry.close() }
+
+        assertThat(took).isLessThan(3_000)
     }
 
     @Test

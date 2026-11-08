@@ -115,9 +115,8 @@ class SupportTelemetryLogs(
     }
 
     private fun telemetryPrivacy(): TelemetryPrivacy {
-        val settings = privacy?.current() ?: return TelemetryPrivacy.FULL
-        val refs = references
-        return TelemetryPrivacy(settings.pseudonymised, if (settings.confidential && refs != null) { key -> refs.reference(key) } else { key -> key })
+        // Without the settings, the strictest apply.
+        return TelemetryPrivacy.of(privacy?.current() ?: SupportPrivacy.STRICTEST, references)
     }
 
     /** Sends what is queued, waiting at most the export timeout; for shutdown and tests. */

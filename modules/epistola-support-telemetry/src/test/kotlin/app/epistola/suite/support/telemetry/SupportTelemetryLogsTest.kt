@@ -24,7 +24,9 @@ import java.util.UUID
 class SupportTelemetryLogsTest {
     private val sink = OtlpSink()
     private val connection = FakeSupportConnection(otlp = sink.otlpEndpoint)
-    private val loggerName = "com.example.telemetrytest.L${UUID.randomUUID().toString().take(8)}"
+
+    // The suite's own package: without privacy settings the strictest apply, which withhold a library's messages.
+    private val loggerName = "app.epistola.suite.telemetrytest.L${UUID.randomUUID().toString().take(8)}"
     private val logger = (LoggerFactory.getLogger(loggerName) as Logger).apply {
         level = Level.TRACE
         isAdditive = false

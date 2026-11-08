@@ -5,6 +5,8 @@
 package app.epistola.suite.support.telemetry
 
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.privacy.SupportPrivacySettings
+import app.epistola.suite.support.privacy.TenantReferences
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.spi.IThrowableProxy
@@ -49,7 +51,7 @@ class TelemetryLogAppender(
         val attributes = Attributes.builder()
         attributes.put("logger.name", loggerName)
         if (!mode.pseudonymised) event.threadName?.let { attributes.put("thread.name", it) }
-        tenantKey?.let { attributes.put(TENANT_ATTRIBUTE, mode.tenantOnWire(it)) }
+        tenantKey?.let(mode.tenantOnWire)?.let { attributes.put(TENANT_ATTRIBUTE, it) }
         val mdc = event.mdcPropertyMap ?: emptyMap()
         mdc[TRACE_ID_KEY]?.let { attributes.put("trace_id", it) }
         mdc[SPAN_ID_KEY]?.let { attributes.put("span_id", it) }
@@ -59,8 +61,13 @@ class TelemetryLogAppender(
             val trace = if (mode.pseudonymised) withoutMessages(it) else ThrowableProxyUtil.asString(it)
             attributes.put("exception.stacktrace", cut(trace, MAX_STACKTRACE_CHARS))
         }
-        // Pseudonymised: the message as written in the code, without the values filled in.
-        val body = if (mode.pseudonymised) event.message else event.formattedMessage
+        // Pseudonymised: the suite's own message as written in the code, without the values filled in. A
+        // library's message goes not at all: a library may have built the values into it itself.
+        val body = when {
+            !mode.pseudonymised -> event.formattedMessage
+            loggerName.startsWith(OWN_PACKAGE) -> event.message
+            else -> WITHHELD_BODY
+        }
 
         otelLogger
             .logRecordBuilder()
@@ -103,6 +110,9 @@ class TelemetryLogAppender(
         /** The longest stack trace forwarded: its top, where the cause is named; the rest is cut. */
         const val MAX_STACKTRACE_CHARS = 8_192
 
+        /** The body of a library's line in pseudonymised mode: its logger, level and stack frames still go. */
+        const val WITHHELD_BODY = "(library message withheld)"
+
         /** [value] at most [max] characters, with a note of how much was cut. */
         internal fun cut(value: String, max: Int): String = if (value.length <= max) value else value.take(max) + "\n… [truncated: ${value.length - max} more characters]"
 
@@ -123,10 +133,20 @@ class TelemetryLogAppender(
  * How a log line is turned into a record (ADR 0052 §1–2).
  *
  * @property pseudonymised send the message pattern without its values, exceptions without messages, no thread names.
- * @property tenantOnWire what is sent for a tenant key: the key itself, or its reference.
+ * @property tenantOnWire what is sent for a tenant key: the key itself, its reference, or null for nothing.
  */
-data class TelemetryPrivacy(val pseudonymised: Boolean, val tenantOnWire: (String) -> String) {
+data class TelemetryPrivacy(val pseudonymised: Boolean, val tenantOnWire: (String) -> String?) {
     companion object {
         val FULL = TelemetryPrivacy(pseudonymised = false, tenantOnWire = { it })
+
+        /**
+         * The one place logs and metrics take the privacy settings from. Named, a tenant goes as its key.
+         * Confidential, it goes as its reference once this node knows it, and otherwise not at all: never
+         * as its key, and never by reading the database on the thread that logged.
+         */
+        fun of(settings: SupportPrivacySettings, references: TenantReferences?): TelemetryPrivacy = TelemetryPrivacy(
+            settings.pseudonymised,
+            if (settings.confidential) { key -> references?.referenceIfReady(key) } else { key -> key },
+        )
     }
 }
