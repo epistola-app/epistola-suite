@@ -75,7 +75,8 @@ save. Until an administrator saves one, `epistola.support.services` is the selec
 the saved selection wins and the setting is ignored. Nothing is selected by default. A name the
 suite does not know (a retired or a newer service) is kept and logged, never an error.
 
-Each service has its own settings, described with the service.
+The services have their own settings: telemetry in `epistola.support.telemetry.*`, support requests in
+[support-requests.md](support-requests.md), the catalog mirror in [catalog-mirror.md](catalog-mirror.md).
 
 ## Registration
 

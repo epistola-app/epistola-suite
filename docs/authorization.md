@@ -23,14 +23,14 @@ of each held role's grant. There is no implicit hierarchy — `content-author` d
 
 `security/TenantRole.kt`. Held per-tenant (and/or globally across all tenants).
 
-| Role                   | Capability                                                                                                  |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `CONTENT_VIEWER`       | Read-only content: templates, themes, stencils, reference data, catalogs. Send feedback. **Not documents.** |
-| `CONTENT_AUTHOR`       | Create/edit templates, themes, stencils, and reference data.                                                |
-| `DOCUMENT_GENERATOR`   | Generate documents, and read the documents generated.                                                       |
-| `DOCUMENT_READER`      | Read generated documents without generating.                                                                |
-| `CONTENT_PUBLISHER`    | Release catalogs, deploy releases, publish to Exchange, edit quality profiles. **Separate from admin.**     |
-| `TENANT_ADMINISTRATOR` | Tenant settings, integrations, API keys, feedback, catalogs, diagnostics and audit. **Does not publish.**   |
+| Role                   | Capability                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `CONTENT_VIEWER`       | Read-only content: templates, themes, stencils, reference data, catalogs. Send support requests. **Not documents.** |
+| `CONTENT_AUTHOR`       | Create/edit templates, themes, stencils, and reference data.                                                        |
+| `DOCUMENT_GENERATOR`   | Generate documents, and read the documents generated.                                                               |
+| `DOCUMENT_READER`      | Read generated documents without generating.                                                                        |
+| `CONTENT_PUBLISHER`    | Release catalogs, deploy releases, publish to Exchange, edit quality profiles. **Separate from admin.**             |
+| `TENANT_ADMINISTRATOR` | Tenant settings, integrations, API keys, support requests, catalogs, diagnostics and audit. **Does not publish.**   |
 
 The split of `CONTENT_PUBLISHER` from `TENANT_ADMINISTRATOR` is deliberate: approving content
 is a different duty from administering a tenant. An admin who also approves content holds both.
@@ -60,24 +60,24 @@ publishes the same vocabulary as data (`x-authorization` in the server stubs' sp
 `PermissionContractAlignmentTest` fails the build when the two differ: a name, a grant, an
 identity-provider name, or an operation requiring a permission the suite does not have.
 
-| Permission group                                                     | Permissions                               | Default role                       |
-| -------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------- |
-| Templates                                                            | `TEMPLATE_VIEW` / `TEMPLATE_EDIT`         | viewer / author                    |
-| Stencils                                                             | `STENCIL_VIEW` / `STENCIL_EDIT`           | viewer / author                    |
-| Releasing (cut a release, discard a draft)                           | `CATALOG_RELEASE`                         | publisher                          |
-| Deploying (what an environment serves)                               | `ENVIRONMENT_DEPLOY`                      | publisher                          |
-| Publishing to Exchange                                               | `CATALOG_PUBLISH`                         | publisher                          |
-| Quality profiles and their bindings                                  | `QUALITY_EDIT`                            | publisher                          |
-| Themes                                                               | `THEME_VIEW` / `THEME_EDIT`               | viewer / author                    |
-| Documents                                                            | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`     | generator or reader / generator    |
-| Reference data (attributes, code lists, fonts)                       | `REFERENCE_VIEW` / `REFERENCE_EDIT`       | viewer / author                    |
-| Catalogs                                                             | `CATALOG_VIEW` / `CATALOG_MANAGE`         | viewer / administrator             |
-| Diagnostics (logs, cluster, consumers, load tests)                   | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE` | administrator (view also observer) |
-| Audit trail                                                          | `AUDIT_VIEW`                              | administrator, observer            |
-| Tenant config (feature toggles, defaults, environments)              | `TENANT_SETTINGS`                         | administrator                      |
-| Integrations that send tenant data out (Exchange, quality providers) | `INTEGRATIONS_MANAGE`                     | administrator                      |
-| API keys                                                             | `CREDENTIALS_MANAGE`                      | administrator                      |
-| Feedback to Epistola: send and follow up / manage the tenant's       | `SUPPORT_REQUEST_SUBMIT` / `SUPPORT_REQUEST_HANDLE`     | viewer / administrator             |
+| Permission group                                                     | Permissions                                         | Default role                       |
+| -------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| Templates                                                            | `TEMPLATE_VIEW` / `TEMPLATE_EDIT`                   | viewer / author                    |
+| Stencils                                                             | `STENCIL_VIEW` / `STENCIL_EDIT`                     | viewer / author                    |
+| Releasing (cut a release, discard a draft)                           | `CATALOG_RELEASE`                                   | publisher                          |
+| Deploying (what an environment serves)                               | `ENVIRONMENT_DEPLOY`                                | publisher                          |
+| Publishing to Exchange                                               | `CATALOG_PUBLISH`                                   | publisher                          |
+| Quality profiles and their bindings                                  | `QUALITY_EDIT`                                      | publisher                          |
+| Themes                                                               | `THEME_VIEW` / `THEME_EDIT`                         | viewer / author                    |
+| Documents                                                            | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`               | generator or reader / generator    |
+| Reference data (attributes, code lists, fonts)                       | `REFERENCE_VIEW` / `REFERENCE_EDIT`                 | viewer / author                    |
+| Catalogs                                                             | `CATALOG_VIEW` / `CATALOG_MANAGE`                   | viewer / administrator             |
+| Diagnostics (logs, cluster, consumers, load tests)                   | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`           | administrator (view also observer) |
+| Audit trail                                                          | `AUDIT_VIEW`                                        | administrator, observer            |
+| Tenant config (feature toggles, defaults, environments)              | `TENANT_SETTINGS`                                   | administrator                      |
+| Integrations that send tenant data out (Exchange, quality providers) | `INTEGRATIONS_MANAGE`                               | administrator                      |
+| API keys                                                             | `CREDENTIALS_MANAGE`                                | administrator                      |
+| Support requests: send and follow up / handle the tenant's           | `SUPPORT_REQUEST_SUBMIT` / `SUPPORT_REQUEST_HANDLE` | viewer / administrator             |
 
 `INTEGRATIONS_MANAGE`, `SUPPORT_REQUEST_SUBMIT`, `SUPPORT_REQUEST_HANDLE`, `DIAGNOSTICS_*` and `AUDIT_VIEW`
 gate suite features no REST operation reaches (`outsideApi` in the contract).

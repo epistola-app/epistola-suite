@@ -265,10 +265,11 @@ settings are in [`support-protocol.md`](support-protocol.md).
 
 ## Tables
 
-All in one migration, `db/migration/support-requests/V20261108213145__support_requests.sql`. Support requests start empty: the
-feedback alpha (released in `db/migration/feedback/`, which keeps its path) is not moved, and its
-tables (`feedback`, `feedback_comments`, `feedback_assets`) stay in place, unused, because a
-migration never deletes data.
+In `db/migration/support-requests/`: `V20261108213145__support_requests.sql` creates them, and `V20261108215636__support_requests_desk.sql` adds the desk (a
+handler per request, internal notes, message authors), giving every request already sent the
+connection it went to as its handler. Support requests start empty: the feedback alpha (released in
+`db/migration/feedback/`, which keeps its path) is not moved, and its tables (`feedback`,
+`feedback_comments`, `feedback_assets`) stay in place, unused, because a migration never deletes data.
 
 | Table                             | Holds                                                                                                                                                                                                                                         |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
