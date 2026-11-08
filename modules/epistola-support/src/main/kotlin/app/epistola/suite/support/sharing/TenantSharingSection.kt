@@ -46,6 +46,12 @@ interface TenantSharingSection {
      */
     val offersRequired: Boolean get() = false
 
+    /**
+     * Whether tenants are asked about it now: the installation selected the service. A service it does
+     * not use is not offered, so no tenant agrees to share what is never sent.
+     */
+    fun offered(connectionId: UUID = SupportConnections.DISCOVERED_ID): Boolean = true
+
     /** What the tenant shares now, and whose decision that is. */
     fun tenantView(tenantKey: TenantKey, connectionId: UUID = SupportConnections.DISCOVERED_ID): TenantSharingView
 

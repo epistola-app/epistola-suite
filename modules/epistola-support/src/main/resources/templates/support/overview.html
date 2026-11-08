@@ -85,6 +85,11 @@
             </p>
         </th:block>
 
+        <p th:if="${sharing != null and sharing.nothingToChoose}" class="text-muted" data-testid="support-sharing-nothing">
+            There is nothing for this tenant to choose: the installation shares no service per tenant, or decides it for
+            every tenant. An installation administrator sets this under Platform → Epistola support.
+        </p>
+
         <!--/* The wizard: open while nothing is set up, or after "Change". */-->
         <th:block th:if="${sharing != null and wizard != null}" th:with="w=${wizard}">
             <h2 th:text="(${w.changing} ? 'Change what ' : 'Set up Epistola support for ') + ${w.tenantName} + (${w.changing} ? ' shares' : '')">Set up Epistola support for Acme</h2>
@@ -158,7 +163,7 @@
         </th:block>
 
         <!--/* Set up: by the installation preset or by the tenant. */-->
-        <th:block th:if="${sharing != null and wizard == null}" th:with="o=${sharing}, state=${sharing.state.name()}">
+        <th:block th:if="${sharing != null and wizard == null and !sharing.nothingToChoose}" th:with="o=${sharing}, state=${sharing.state.name()}">
             <h2 th:text="${state == 'NOT_SET_UP'} ? 'Epistola support is not set up for ' + ${o.tenantName} : 'Epistola support is set up for ' + ${o.tenantName}">Epistola support is set up for Acme</h2>
             <p th:if="${state == 'PRESET' and o.presetFromConfiguration}" data-testid="support-sharing-by">
                 Set up by the installation's configuration, which agrees on behalf of every tenant that has not chosen itself.

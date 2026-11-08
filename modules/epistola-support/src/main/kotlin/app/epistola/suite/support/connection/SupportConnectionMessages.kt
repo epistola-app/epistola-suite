@@ -11,12 +11,14 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.sharing.SetSharingRestriction
 import app.epistola.suite.support.sharing.TenantSharingSection
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationCode
@@ -321,6 +323,8 @@ class DisconnectSupportConnectionHandler(
         val outcome = disconnector.disconnect(command.localOnly, SecurityContext.currentOrNull()?.displayName)
         // After the registration is gone: nothing is sent any more, whatever the order of the rest.
         sections.sortedBy { it.order }.forEach { it.forgetAll() }
+        // Required and Not allowed too: registering again asks the administrator again, as everyone else.
+        sections.forEach { SetSharingRestriction(it.key, null).execute() }
         return SupportDisconnected(outcome, connection.status())
     }
 }

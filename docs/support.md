@@ -109,8 +109,9 @@ service says which settings it offers:
 
 A tenant administrator (with `INTEGRATIONS_MANAGE`) sets it on the tenant's **Support** page: a setup
 wizard while nothing is set up (one step per service, then agreeing on the tenant's behalf), and
-afterwards what is shared, by whom it was decided, and **Change**. Disconnecting forgets every
-tenant's choices and the setup for every tenant.
+afterwards what is shared, by whom it was decided, and **Change**. A service the installation has
+not selected is not offered; with nothing to choose, the page says so. Disconnecting forgets every
+tenant's choices and the setup for every tenant, Required and Not allowed included.
 
 ## Usage
 
@@ -128,7 +129,9 @@ the installation or the support service was down are sent when both are back, up
 node sends at a time, never one whose clock is off.
 
 **What is sent.** For every tenant that shares usage and has used anything: the hour's figures and its
-**running totals** since the installation started counting, under its key or reference. Epistola bills
+**running totals** since the installation started counting, under its key or reference. While no
+tenant shares, the report is empty: a tenant missing from a report reads as having stopped.
+Hours while usage was not granted or not allowed are never sent, also not once it is again. Epistola bills
 from what the totals grew by, so a report that never arrives loses nothing: the next one carries it.
 
 **Turning it on.**

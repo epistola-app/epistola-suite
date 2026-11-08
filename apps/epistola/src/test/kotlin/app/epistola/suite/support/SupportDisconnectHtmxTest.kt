@@ -11,8 +11,12 @@ import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
+import app.epistola.suite.support.sharing.GetSharingRestrictions
+import app.epistola.suite.support.sharing.SetSharingRestriction
+import app.epistola.suite.support.sharing.SharingRestriction
 import app.epistola.suite.support.usage.GetUsageChoice
 import app.epistola.suite.support.usage.SetUsageChoice
+import app.epistola.suite.support.usage.USAGE_SECTION
 import app.epistola.suite.testing.FakeSupportFault
 import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
@@ -74,7 +78,10 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
     @Test
     fun `disconnecting ends the registration at Epistola, forgets its key and clears every tenant's choice`() {
         val tenant = createTenant("Disconnect Clears").id
-        withMediator { SetUsageChoice(tenant, share = true).execute() }
+        withMediator {
+            SetUsageChoice(tenant, share = true).execute()
+            SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute()
+        }
         val clientId = support.latestRegistration.clientId
 
         val panel = post("/platform/support/disconnect")
@@ -86,6 +93,7 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         assertThat(state.outcome).isEqualTo(SupportDisconnectOutcome.CONFIRMED)
         assertThat(store.credentials()).`as`("the key is forgotten").isNull()
         assertThat(withMediator { GetUsageChoice(tenant).query() }.share).`as`("no choice is left").isNull()
+        assertThat(withMediator { GetSharingRestrictions().query() }.of(USAGE_SECTION)).`as`("nor Required: registering again asks again").isNull()
     }
 
     @Test

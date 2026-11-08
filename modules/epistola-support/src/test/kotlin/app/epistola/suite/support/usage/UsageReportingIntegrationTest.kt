@@ -210,7 +210,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     fun `a moment stored outside the first ten minutes is chosen again`() {
         // A moment from before the window was narrowed.
         metadata.setAs(UsageReporter.MOMENT_KEY, mapOf("minute" to 51, "second" to 31))
-        val fresh = UsageReporter(connection, jdbi, references, objectMapper, metadata, mediator)
+        val fresh = UsageReporter(connection, jdbi, references, objectMapper, metadata, mediator, StatisticsProperties())
 
         assertThat(fresh.reportMoment()).isLessThan(java.time.Duration.ofMinutes(10))
         assertThat(metadata.get(UsageReporter.MOMENT_KEY)!!.get("minute").asInt()).isLessThan(10)
@@ -232,5 +232,59 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
         @JvmStatic
         @AfterAll
         fun stop() = support.close()
+    }
+
+    @Test
+    fun `hours from while usage was not allowed are never sent, also once it is allowed again`() {
+        val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
+        // The installation has reported before: the hour before this one went out.
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        EpistolaClock.withInstant(hour.plusSeconds(30)) { reporter.report() }
+        assertThat(support.usageReports.keys).contains(hour.minus(1, ChronoUnit.HOURS).toString())
+        tenantWithUse("Usage Not Allowed Then")
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.NOT_ALLOWED).execute() }
+        assertThat(reportNextHour()).isEmpty()
+
+        // An hour later usage is Required again: the hour of the use was under Not allowed, and stays unsent.
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        EpistolaClock.withInstant(hour.plus(2, ChronoUnit.HOURS).plusSeconds(30)) { reporter.report() }
+
+        assertThat(support.usageReports.keys).`as`("the not-allowed hour").doesNotContain(hour.toString())
+    }
+
+    @Test
+    fun `a 403 insufficient_scope on a report tells the connection, which stops using usage`() {
+        tenantWithUse("Usage Withdrawn")
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        support.fault(app.epistola.suite.testing.FakeSupportFault.Respond(app.epistola.suite.testing.FakeSupportResponse.insufficientScope("usage")), "PUT", "/api/v1/usage/hours/")
+
+        reportNextHour()
+
+        assertThat(lastRound?.stoppedBecause).isEqualTo("the usage service is not granted")
+        assertThat(connection.hasScope(app.epistola.suite.support.connection.SupportScope.USAGE)).`as`("the refusal is stored").isFalse()
+        support.clearFaults()
+    }
+
+    @Test
+    fun `an hour the support service refuses for good is skipped, so later hours still go`() {
+        tenantWithUse("Usage Refused Hour")
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        statistics.rollUp()
+        previews.flush()
+        val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
+        support.fault(app.epistola.suite.testing.FakeSupportFault.Respond(app.epistola.suite.testing.FakeSupportResponse.json(422, """{"error":"invalid_report"}""")), "PUT", "/api/v1/usage/hours/$hour", times = 1)
+
+        val round = EpistolaClock.withInstant(hour.plus(2, ChronoUnit.HOURS).plusSeconds(30)) { reporter.report() }
+
+        assertThat(support.usageReports.keys).`as`("round: %s", round).contains(hour.plus(1, ChronoUnit.HOURS).toString())
+        val again = EpistolaClock.withInstant(hour.plus(2, ChronoUnit.HOURS).plusSeconds(60)) { reporter.report() }
+        assertThat(again.sent).`as`("the refused hour is not tried again").isEmpty()
+        support.clearFaults()
+    }
+
+    @Test
+    fun `the backlog never reaches hours the statistics no longer keep by the hour`() {
+        assertThat(UsageReporter.backlog(hourlyRetention = java.time.Duration.ofDays(7))).isEqualTo(UsageReporter.BACKLOG)
+        assertThat(UsageReporter.backlog(hourlyRetention = java.time.Duration.ofDays(1))).isEqualTo(java.time.Duration.ofHours(23))
     }
 }

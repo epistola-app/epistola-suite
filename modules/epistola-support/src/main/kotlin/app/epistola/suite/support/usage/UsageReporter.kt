@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.statistics.GenerationReadings
 import app.epistola.suite.statistics.GetGenerationReadings
+import app.epistola.suite.statistics.StatisticsProperties
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.isInsufficientScope
@@ -52,6 +53,7 @@ class UsageReporter(
     private val objectMapper: ObjectMapper,
     private val metadata: AppMetadataService,
     private val mediator: Mediator,
+    private val statistics: StatisticsProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -101,6 +103,15 @@ class UsageReporter(
         }
     }
 
+    /**
+     * Nothing may be reported now (not granted, or not allowed): the hours until now are never sent,
+     * also once it may again. They were not shared while they happened; the running totals of the
+     * first report after carry what they held.
+     */
+    private fun reportNothingBefore(now: Instant) {
+        metadata.setAs(SINCE_KEY, mapOf("hour" to now.truncatedTo(ChronoUnit.HOURS).toString()))
+    }
+
     /** The first hour this installation reports: the hour it first tried, kept, so a new installation does not send empty days. */
     private fun reportingSince(now: Instant): Instant {
         metadata.setIfAbsent(SINCE_KEY, mapOf("hour" to now.truncatedTo(ChronoUnit.HOURS).minus(1, ChronoUnit.HOURS).toString()))
@@ -109,10 +120,17 @@ class UsageReporter(
 
     /** Counts and sends every finished hour not reported yet, oldest first, within [BACKLOG]. */
     fun report(): UsageReportRound {
-        if (!connection.hasScope(SupportScope.USAGE)) return UsageReportRound(emptyList(), "the usage service is not granted")
+        if (!connection.hasScope(SupportScope.USAGE)) {
+            reportNothingBefore(EpistolaClock.instant())
+            return UsageReportRound(emptyList(), "the usage service is not granted")
+        }
+        // An outage, not a choice: the hours wait and go once the service is back.
         if (connection.lastContactFailed()) return UsageReportRound(emptyList(), "the support service was unreachable at the last contact")
         val restriction = jdbi.withHandle<SharingRestriction?, Exception> { SharingRestrictions.of(it, USAGE_SECTION, connection.id) }
-        if (restriction == SharingRestriction.NOT_ALLOWED) return UsageReportRound(emptyList(), "usage is not allowed in this installation")
+        if (restriction == SharingRestriction.NOT_ALLOWED) {
+            reportNothingBefore(EpistolaClock.instant())
+            return UsageReportRound(emptyList(), "usage is not allowed in this installation")
+        }
         return jdbi.open().use { lock ->
             if (!lock.createQuery("SELECT pg_try_advisory_lock(:key)").bind("key", LOCK_KEY).mapTo(Boolean::class.java).one()) {
                 return UsageReportRound(emptyList(), "another node is reporting")
@@ -128,7 +146,7 @@ class UsageReporter(
     private fun round(required: Boolean): UsageReportRound {
         val now = EpistolaClock.instant()
         val current = now.truncatedTo(ChronoUnit.HOURS)
-        val first = maxOf(current.minus(BACKLOG), reportingSince(now))
+        val first = maxOf(current.minus(backlog(statistics.hourlyRetention)), reportingSince(now))
         val sent = mutableListOf<Instant>()
         for (hour in hoursToReport(first, current)) {
             val readings = MediatorContext.runWithMediator(mediator) { GetGenerationReadings(hour).query() }
@@ -144,28 +162,45 @@ class UsageReporter(
                     .retrieve()
                     .toBodilessEntity()
             } catch (e: Exception) {
-                val why = when {
-                    e.isInsufficientScope() -> "the usage service is not granted"
-                    e.isSupportUnavailable() -> "the support service is unavailable"
-                    else -> "the support service refused $hour: ${e.javaClass.simpleName}"
+                if (e.isInsufficientScope()) {
+                    // Epistola withdrew usage: every node stops using it until a check finds it granted again.
+                    connection.scopeRefused(SupportScope.USAGE)
+                    log.info("Usage report stopped: the usage service is not granted")
+                    return UsageReportRound(sent, "the usage service is not granted")
                 }
+                if (!e.isSupportUnavailable() && e.refusedForGood()) {
+                    // Refused for good (a 4xx): skipped, so the hours after it still go; their running totals carry it.
+                    log.warn("Usage report for {} refused by the support service ({}); skipping that hour", hour, e.javaClass.simpleName)
+                    markReported(hour)
+                    continue
+                }
+                val why = if (e.isSupportUnavailable()) "the support service is unavailable" else "the support service refused $hour: ${e.javaClass.simpleName}"
                 log.info("Usage report stopped: {}", why)
                 return UsageReportRound(sent, why)
             }
-            jdbi.useHandle<Exception> {
-                it.createUpdate(
-                    "INSERT INTO support_usage_reports (connection_id, hour, reported_at) VALUES (:connection, :hour, :now) " +
-                        "ON CONFLICT (connection_id, hour) DO UPDATE SET reported_at = EXCLUDED.reported_at",
-                )
-                    .bind("connection", connection.id)
-                    .bind("now", EpistolaClock.offsetDateTime())
-                    .bind("hour", hour.atOffset(ZoneOffset.UTC))
-                    .execute()
-            }
+            markReported(hour)
             sent += hour
         }
         return UsageReportRound(sent)
     }
+
+    /** Records [hour] as done, sent or skipped: it is not tried again. */
+    private fun markReported(hour: Instant) {
+        jdbi.useHandle<Exception> {
+            it.createUpdate(
+                "INSERT INTO support_usage_reports (connection_id, hour, reported_at) VALUES (:connection, :hour, :now) " +
+                    "ON CONFLICT (connection_id, hour) DO UPDATE SET reported_at = EXCLUDED.reported_at",
+            )
+                .bind("connection", connection.id)
+                .bind("now", EpistolaClock.offsetDateTime())
+                .bind("hour", hour.atOffset(ZoneOffset.UTC))
+                .execute()
+        }
+    }
+
+    /** A 4xx other than an authentication problem: sending the same report again gets the same answer. */
+    private fun Exception.refusedForGood(): Boolean = (this as? org.springframework.web.client.RestClientResponseException)
+        ?.statusCode?.let { it.is4xxClientError && it.value() != 401 && it.value() != 429 } == true
 
     /** Finished hours from [first] not reported yet, oldest first. */
     private fun hoursToReport(first: Instant, current: Instant): List<Instant> {
@@ -220,8 +255,11 @@ class UsageReporter(
         /** Hours missed while the installation was down are sent when it is back, this far back at most. */
         val BACKLOG: Duration = Duration.ofHours(72)
 
-        /** The hours before now counted again every round, for documents committed after their hour. */
-        const val RECOUNT_HOURS = 3L
+        /**
+         * How far back hours are reported: [BACKLOG], but never an hour the generation statistics no
+         * longer keep by the hour (`epistola.statistics.hourly-retention`), which would read as empty.
+         */
+        fun backlog(hourlyRetention: Duration): Duration = minOf(BACKLOG, hourlyRetention.minusHours(1))
 
         /** How long the next round waits after one that could not send everything. */
         val RETRY_AFTER: Duration = Duration.ofMinutes(5)

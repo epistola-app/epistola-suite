@@ -60,6 +60,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
 
     @AfterEach
     fun resetPreset() {
+        store.forgetServices()
         withMediator {
             ForgetUsageSharing().execute()
             SetSharingRestriction("usage", null).execute()
@@ -174,6 +175,52 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         assertThat(notAllowed).contains("data-testid=\"support-defaults-not-allowed\"")
         assertThat(usage(own).share).`as`("its own choice is forgotten too").isNull()
         assertThatThrownBy { withMediator { SetUsageChoice(own, share = true).execute() } }.isInstanceOf(SharingNotAllowedException::class.java)
+    }
+
+    @Test
+    fun `required with no default leaves a tenant nothing to set up, and no wizard that never ends`() {
+        val tenant = createTenant("Usage Required Only").id
+        post("/platform/support/defaults", mapOf("usage.default" to "REQUIRED", "agree" to "true"))
+
+        val page = get("/tenants/${tenant.value}/support")
+
+        assertThat(page).doesNotContain("data-testid=\"support-setup\"").contains("data-testid=\"support-sharing-nothing\"")
+    }
+
+    @Test
+    fun `a service the installation has not selected is not offered to tenants`() {
+        val tenant = createTenant("Usage Not Selected").id
+        post("/platform/support/services", mapOf("services" to "telemetry"))
+
+        val page = get("/tenants/${tenant.value}/support")
+
+        assertThat(page).doesNotContain("data-testid=\"support-setup\"").doesNotContain("data-testid=\"usage-statement\"")
+            .contains("data-testid=\"support-sharing-nothing\"")
+    }
+
+    @Test
+    fun `finishing with a choice the installation forbade meanwhile says so in the wizard and saves nothing`() {
+        val tenant = createTenant("Usage Forbidden Meanwhile").id
+        setup(tenant, mapOf("step" to "1", "action" to "next", "usage.choice" to "SHARE"))
+        post("/platform/support/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
+
+        val finished = setup(tenant, mapOf("step" to "2", "action" to "finish", "agree" to "true", "usage.choice" to "SHARE"))
+
+        assertThat(finished).contains("data-testid=\"support-setup-error\"").contains("Not allowed in this installation")
+        assertThat(usage(tenant).share).isNull()
+    }
+
+    @Test
+    fun `only an installation administrator sees or changes the setup for every tenant`() {
+        val tenantAdministrator = HttpHeaders().apply {
+            set(app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR")
+            set("HX-Request", "true")
+        }
+
+        for (path in listOf("/platform/support/defaults", "/platform/support/defaults/edit")) {
+            val response = restTemplate.exchange(path, org.springframework.http.HttpMethod.GET, HttpEntity<Void>(tenantAdministrator), String::class.java)
+            assertThat(response.statusCode).`as`(path).isEqualTo(HttpStatus.FORBIDDEN)
+        }
     }
 
     companion object {

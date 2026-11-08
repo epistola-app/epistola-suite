@@ -10,7 +10,9 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.requirePlatformRole
 import app.epistola.suite.support.sharing.GetSharingRestrictions
 import app.epistola.suite.support.sharing.InstallationSharingView
 import app.epistola.suite.support.sharing.NOT_ALLOWED
@@ -77,8 +79,14 @@ data class TenantSharingOverview(
     val decidedBy: String? get() = latestOwn?.decidedBy
     val decidedAt: OffsetDateTime? get() = latestOwn?.decidedAt
 
-    /** Setting it up is offered: nothing is set up yet and the viewer may do it. */
-    val offersSetup: Boolean get() = state == TenantSharingState.NOT_SET_UP && canManage
+    /**
+     * There is nothing for this tenant to choose: every service is Required, or the installation uses
+     * none that tenants share. The page says so, rather than open a wizard with no steps.
+     */
+    val nothingToChoose: Boolean get() = views.isEmpty()
+
+    /** Setting it up is offered: nothing is set up yet, there is something to choose, and the viewer may do it. */
+    val offersSetup: Boolean get() = state == TenantSharingState.NOT_SET_UP && canManage && !nothingToChoose
 
     /** Going back to the preset is offered: the tenant chose itself, a preset exists, and the viewer may change it. */
     val offersUsePreset: Boolean get() = state == TenantSharingState.OWN && presetSet && canManage
@@ -134,8 +142,9 @@ class SupportSharingHandler(
         if (!canManage(tenantKey)) return null
         val tenantName = GetTenant(tenantKey).query()?.name ?: tenantKey.value
         val restrictions = GetSharingRestrictions().query()
-        // A Required section is no tenant's choice: its Support page does not show it (ADR 0052 §5).
-        val views = sections.filter { restrictions.of(it.key) != SharingRestriction.REQUIRED }.map { section ->
+        // A Required section is no tenant's choice: its Support page does not show it (ADR 0052 §5). Nor
+        // is a service the installation does not use.
+        val views = sections.filter { restrictions.of(it.key) != SharingRestriction.REQUIRED && it.offered() }.map { section ->
             val view = section.tenantView(tenantKey)
             if (restrictions.of(section.key) != SharingRestriction.NOT_ALLOWED) {
                 view
@@ -199,6 +208,9 @@ class SupportSharingHandler(
     private fun finish(request: ServerRequest, wizard: TenantSharingWizard, agreed: Boolean): ServerResponse {
         val missing = wizard.sections.firstOrNull { wizard.values[it.key] == null }
         if (missing != null) return wizardPanel(request, wizard.copy(step = wizard.sections.indexOf(missing) + 1, error = "Choose one of the options to go on."))
+        // Withheld since the step was taken (Not allowed meanwhile): said in the wizard, before anything is saved.
+        val withheld = wizard.sections.firstNotNullOfOrNull { s -> wizard.views.firstOrNull { it.section.key == s.key }?.withheld?.get(wizard.values.getValue(s.key))?.let { s to it } }
+        if (withheld != null) return wizardPanel(request, wizard.copy(step = wizard.sections.indexOf(withheld.first) + 1, error = withheld.second))
         if (!agreed) return wizardPanel(request, wizard.copy(step = wizard.lastStep, error = "Tick that you agree on behalf of ${wizard.tenantName} to finish."))
         wizard.sections.forEach { it.applyOwn(wizard.tenantKey, wizard.values.getValue(it.key)) }
         return sharingPanel(request, if (wizard.changing) "Saved your changes." else "Saved. This is what ${wizard.tenantName} shares with Epistola now.")
@@ -212,10 +224,16 @@ class SupportSharingHandler(
     }
 
     /** The installation preset as a summary: what `/platform/support` shows, and where Cancel returns to. */
-    fun installationPanel(request: ServerRequest): ServerResponse = defaultsPanel(request, editing = false)
+    fun installationPanel(request: ServerRequest): ServerResponse {
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        return defaultsPanel(request, editing = false)
+    }
 
     /** The installation preset as a form, with the current preset chosen. */
-    fun editInstallation(request: ServerRequest): ServerResponse = defaultsPanel(request, editing = true)
+    fun editInstallation(request: ServerRequest): ServerResponse {
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        return defaultsPanel(request, editing = true)
+    }
 
     /**
      * Saves the installation preset; applied at once to every tenant without a choice of its own. A
@@ -223,6 +241,7 @@ class SupportSharingHandler(
      * in its own setup; without it nothing is saved and the form says so.
      */
     fun saveInstallation(request: ServerRequest): ServerResponse {
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
         val form = request.params()
         val chosen = sections.associate { it.key to form.field("${it.key}.default").orEmpty() }
         val shares = sections.any { section -> chosen[section.key] == REQUIRED || section.choices.any { it.value == chosen[section.key] && it.shares } }

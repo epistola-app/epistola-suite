@@ -17,7 +17,9 @@ import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnections
+import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.sharing.InstallationSharingView
 import app.epistola.suite.support.sharing.SharingChoice
 import app.epistola.suite.support.sharing.SharingRestrictions
@@ -189,7 +191,7 @@ data class ForgottenUsageSharing(val tenants: Int)
  * Usage is no tenant content, so an installation may make it Required; it offers no "ask each tenant".
  */
 @Component
-class UsageSharingSection : TenantSharingSection {
+class UsageSharingSection(private val connection: SupportConnection) : TenantSharingSection {
     override val key = USAGE_SECTION
     override val order = 30
     override val title = "Usage"
@@ -201,6 +203,9 @@ class UsageSharingSection : TenantSharingSection {
     )
     override val offersNoPreset = false
     override val offersRequired = true
+
+    /** Asked only once the installation selected usage under Services. */
+    override fun offered(connectionId: UUID): Boolean = connection.isSelected(SupportScope.USAGE)
 
     override fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView {
         val choice = GetUsageChoice(tenantKey, connectionId).query()
