@@ -11,7 +11,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.security.PlatformRole
-import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
@@ -177,7 +176,9 @@ class TenantReferences(
 /** The privacy settings, for the platform page. */
 class GetSupportPrivacy :
     Query<SupportPrivacySettings>,
-    RequiresAuthentication
+    RequiresPlatformRole {
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
+}
 
 @Component
 class GetSupportPrivacyHandler(private val privacy: SupportPrivacy) : QueryHandler<GetSupportPrivacy, SupportPrivacySettings> {
