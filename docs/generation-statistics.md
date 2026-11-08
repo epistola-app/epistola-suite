@@ -10,7 +10,7 @@ Code: `modules/epistola-core/.../statistics/` (`GenerationStatistics.kt`, `Gener
 
 - **Documents** are counted from `generation_results` in the background, never on the generation path:
   every `rollup-interval` one node of the cluster reads the results after the position it stopped at
-  (`generation_stats_position`) and adds them to the tenant's hour. A document deleted right after it
+  (the `app_metadata` entry `statistics.generation-position`, locked for each chunk) and adds them to the tenant's hour. A document deleted right after it
   was generated still counts.
 - Results younger than `settle` wait for the next round: their sequence numbers may still commit out of
   order, and counting a later one before an earlier one would skip the earlier.
@@ -18,7 +18,7 @@ Code: `modules/epistola-core/.../statistics/` (`GenerationStatistics.kt`, `Gener
   after downtime is worked off in steps.
 - **Previews** are counted in memory on each node and written every `preview-flush-interval`; a node
   that stops between flushes loses at most that interval's previews.
-- `complete_until` says up to when the figures hold every result; later ones follow within minutes.
+- Its `completeUntil` says up to when the figures hold every result; later ones follow within minutes.
 
 ## Retention
 

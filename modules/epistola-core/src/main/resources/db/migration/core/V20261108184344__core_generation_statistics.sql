@@ -28,17 +28,10 @@ CREATE TABLE generation_stats_daily (
     PRIMARY KEY (tenant_key, day)
 );
 
--- Where the roll-up stands in generation_results: every result up to `sequence` is counted, and every
--- result created before `complete_until` is.
-CREATE TABLE generation_stats_position (
-    singleton      BOOLEAN     NOT NULL PRIMARY KEY DEFAULT TRUE CONSTRAINT chk_generation_stats_position_singleton CHECK (singleton),
-    sequence       BIGINT      NOT NULL,
-    created_at     TIMESTAMPTZ,
-    complete_until TIMESTAMPTZ
-);
--- Its one row exists from the start: a round locks it (FOR UPDATE), so two rounds never count the same
--- results, also the very first time.
-INSERT INTO generation_stats_position (singleton, sequence) VALUES (TRUE, 0);
+-- Where the roll-up stands in generation_results, as one app_metadata entry: every result up to
+-- `sequence` is counted, and every result created before `completeUntil` is. It exists from the start:
+-- a round locks it (FOR UPDATE), so two rounds never count the same results, also the very first time.
+INSERT INTO app_metadata (key, value) VALUES ('statistics.generation-position', '{"sequence": 0}'::jsonb);
 
 -- Every monthly partition the maintenance dropped, with what it held: for comparing months long after
 -- their rows are gone. The row count is PostgreSQL's estimate, so recording it reads no rows.

@@ -106,7 +106,10 @@ class GenerationStatisticsRollup(
     }
 
     private fun chunk(handle: Handle): Int {
-        val position = handle.createQuery("SELECT sequence, created_at FROM generation_stats_position FOR UPDATE")
+        val position = handle.createQuery(
+            "SELECT (value->>'sequence')::bigint AS sequence, (value->>'createdAt')::timestamptz AS created_at FROM app_metadata WHERE key = :key FOR UPDATE",
+        )
+            .bind("key", POSITION_KEY)
             .map { rs, _ -> rs.getLong("sequence") to rs.getObject("created_at", OffsetDateTime::class.java) }
             .findOne()
             .orElse(null)
@@ -150,16 +153,18 @@ class GenerationStatisticsRollup(
             .one()
         val (rows, lastSequence, lastCreatedAt) = summary
         val complete = rows < properties.chunkSize
+        // The new position; createdAt and completeUntil keep their value when this chunk has none.
         handle.createUpdate(
             """
-            INSERT INTO generation_stats_position (singleton, sequence, created_at, complete_until)
-            VALUES (TRUE, :sequence, :createdAt, CASE WHEN :complete THEN NOW() - CAST(:settle AS INTERVAL) END)
-            ON CONFLICT (singleton) DO UPDATE SET
-                sequence = EXCLUDED.sequence,
-                created_at = COALESCE(EXCLUDED.created_at, generation_stats_position.created_at),
-                complete_until = COALESCE(EXCLUDED.complete_until, generation_stats_position.complete_until)
+            INSERT INTO app_metadata (key, value, updated_at)
+            VALUES (:key, jsonb_strip_nulls(jsonb_build_object(
+                'sequence', CAST(:sequence AS BIGINT),
+                'createdAt', CAST(:createdAt AS TIMESTAMPTZ),
+                'completeUntil', CASE WHEN :complete THEN NOW() - CAST(:settle AS INTERVAL) END)), NOW())
+            ON CONFLICT (key) DO UPDATE SET value = app_metadata.value || EXCLUDED.value, updated_at = NOW()
             """,
         )
+            .bind("key", POSITION_KEY)
             .bind("sequence", if (rows > 0) lastSequence else after)
             .bind("createdAt", if (rows > 0) lastCreatedAt else position?.second)
             .bind("complete", complete)
@@ -194,6 +199,9 @@ class GenerationStatisticsRollup(
         const val ROUTING_KEY = "system:core.generation-statistics"
         const val TASK_TYPE = "core.generation-statistics"
         private val PRUNING_MARGIN: Duration = Duration.ofHours(1)
+
+        /** The `app_metadata` entry of where the roll-up stands. */
+        const val POSITION_KEY = "statistics.generation-position"
     }
 }
 

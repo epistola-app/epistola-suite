@@ -85,7 +85,10 @@ class GetGenerationStatisticsHandler(private val jdbi: Jdbi) : QueryHandler<GetG
     }
 }
 
-private fun completeUntil(handle: org.jdbi.v3.core.Handle): Instant? = handle.createQuery("SELECT complete_until FROM generation_stats_position")
+private fun completeUntil(handle: org.jdbi.v3.core.Handle): Instant? = handle.createQuery(
+    "SELECT (value->>'completeUntil')::timestamptz AS complete_until FROM app_metadata WHERE key = :key",
+)
+    .bind("key", GenerationStatisticsRollup.POSITION_KEY)
     .map { rs, _ -> rs.getObject("complete_until", OffsetDateTime::class.java)?.toInstant() }
     .findOne()
     .orElse(null)
