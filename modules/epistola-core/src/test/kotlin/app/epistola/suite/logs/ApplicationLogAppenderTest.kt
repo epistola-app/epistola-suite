@@ -123,7 +123,7 @@ class ApplicationLogAppenderTest {
         val appender = ApplicationLogAppender(captured::add)
 
         SecurityContext.runWithPrincipal(principalForTenant("acme-corp")) {
-            appender.append(event("com.example.Service", Level.INFO, "Rendered {}"))
+            appender.append(event("com.example.Service", Level.INFO, "Rendered {}").apply { argumentArray = arrayOf("invoice") })
         }
         SecurityContext.runWithPrincipal(app.epistola.suite.security.SystemUser.principalForTenant(TenantKey.of("acme-corp"))) {
             appender.append(event("com.example.Service", Level.INFO, "background"))
@@ -133,6 +133,18 @@ class ApplicationLogAppenderTest {
         assertThat(captured[0].messagePattern).isEqualTo("Rendered {}")
         assertThat(captured[1].userId).`as`("the system user is nobody's request").isNull()
         assertThat(captured[1].tenantKey).isEqualTo("acme-corp")
+    }
+
+    @Test
+    fun `keeps the message pattern only for a line with values, so a plain line is not stored twice`() {
+        val captured = mutableListOf<ApplicationLogRecord>()
+        val appender = ApplicationLogAppender(captured::add)
+
+        appender.append(event("com.example.Service", Level.INFO, "Started"))
+        appender.append(event("com.example.Service", Level.INFO, "Rendered {}").apply { argumentArray = arrayOf("invoice") })
+
+        assertThat(captured[0].messagePattern).`as`("the same as the message").isNull()
+        assertThat(captured[1].messagePattern).isEqualTo("Rendered {}")
     }
 
     private fun principalForTenant(tenant: String): EpistolaPrincipal = EpistolaPrincipal(

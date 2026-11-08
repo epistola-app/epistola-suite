@@ -15,7 +15,11 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
-/** One log line of an excerpt. [messagePattern] is null for a line stored before patterns were kept. */
+/**
+ * One log line of an excerpt. [messagePattern] is the message as written in the code, before its
+ * values were filled in: the message itself for a line without values. (A line stored before patterns
+ * were kept never reaches an excerpt: it has no user either.)
+ */
 data class TenantLogLine(
     val occurredAt: OffsetDateTime,
     val level: String,
@@ -82,7 +86,7 @@ class GetTenantLogExcerptHandler(private val jdbi: Jdbi) : QueryHandler<GetTenan
                         rs.getString("level"),
                         rs.getString("logger"),
                         rs.getString("message"),
-                        rs.getString("message_pattern"),
+                        rs.getString("message_pattern") ?: rs.getString("message"),
                         rs.getString("exception"),
                         rs.getString("trace_id"),
                     )

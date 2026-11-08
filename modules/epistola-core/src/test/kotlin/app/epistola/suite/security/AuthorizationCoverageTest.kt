@@ -95,7 +95,7 @@ class AuthorizationCoverageTest {
         "app.epistola.suite.apikeys",
         "app.epistola.suite.users",
         "app.epistola.suite.loadtest",
-        "app.epistola.suite.feedback",
+        "app.epistola.suite.support.requests",
         // Previously-missing packages — the build-time net now matches the runtime fail-closed net.
         "app.epistola.suite.catalog",
         "app.epistola.suite.stencils",

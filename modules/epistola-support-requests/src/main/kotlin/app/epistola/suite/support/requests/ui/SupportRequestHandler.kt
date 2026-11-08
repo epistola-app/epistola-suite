@@ -346,9 +346,13 @@ class SupportRequestHandler(
 
         val content = GetSupportRequestAssetContent(assetId).query() ?: return ServerResponse.notFound().build()
 
+        // A tenant's private screenshot: never cached by a shared proxy, and never read as anything but the
+        // image type it was taken as.
+        val type = content.contentType.takeIf { it in AddSupportRequestAsset.IMAGE_TYPES }?.let(MediaType::parseMediaType) ?: MediaType.APPLICATION_OCTET_STREAM
         return ServerResponse.ok()
-            .contentType(MediaType.parseMediaType(content.contentType))
-            .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
+            .contentType(type)
+            .header("X-Content-Type-Options", "nosniff")
+            .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePrivate())
             .body(content.content)
     }
 }

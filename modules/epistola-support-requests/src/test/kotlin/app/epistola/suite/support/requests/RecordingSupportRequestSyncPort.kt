@@ -43,6 +43,9 @@ class RecordingSupportRequestSyncPort : SupportRequestSyncPort {
     var failCreate: Boolean = false
     var failAddComment: Boolean = false
 
+    /** Status pushes fail as if the support service were down. */
+    var failUpdateStatus: Boolean = false
+
     /** Asset uploads fail as if the support service were down: "not now", no attempt counted. */
     var assetServiceUnavailable: Boolean = false
 
@@ -95,6 +98,7 @@ class RecordingSupportRequestSyncPort : SupportRequestSyncPort {
 
     override fun updateStatus(supportRequest: SupportRequest, status: SupportRequestStatus) {
         beforeSend?.invoke(Outbound.STATUS, supportRequest)
+        if (failUpdateStatus) throw SupportUnavailableException("the support service is down")
         statusUpdates += supportRequest to status
     }
 

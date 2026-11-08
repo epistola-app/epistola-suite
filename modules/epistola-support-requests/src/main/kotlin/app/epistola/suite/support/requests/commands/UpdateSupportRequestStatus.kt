@@ -34,12 +34,14 @@ class UpdateSupportRequestStatusHandler(
 ) : CommandHandler<UpdateSupportRequestStatus, Boolean> {
     override fun handle(command: UpdateSupportRequestStatus): Boolean = jdbi.withHandleUnchecked { handle ->
         val rows = handle.createUpdate(
-            "UPDATE support_requests SET status = :status, updated_at = NOW() WHERE tenant_key = :tenantKey AND id = :id",
+            "UPDATE support_requests SET status = :status, updated_at = NOW() WHERE tenant_key = :tenantKey AND id = :id AND status <> :status",
         )
             .bind("tenantKey", command.id.tenantKey)
             .bind("id", command.id.key.value)
             .bind("status", command.status.name)
             .execute()
+        // The status it already has: nothing changed, and nothing goes out again.
+        if (rows == 0) return@withHandleUnchecked false
         // A request the connection has: the status goes there too, until it took it, but only a
         // change made while it is exchanged under the consent in force. A change made while sharing
         // is off is never sent, also once consent is given again. A request still on its way is

@@ -93,11 +93,12 @@ class SupportRequestPollScheduler(
         val deadline = System.nanoTime() + properties.roundBudgetMs * 1_000_000
         while (pages++ < MAX_PAGES_PER_RUN && System.nanoTime() < deadline) {
             val page = try {
-                supportRequestSyncPort.fetchUpdates(acknowledge)
+                supportRequestSyncPort.fetchUpdates(acknowledge).also { acknowledge = null }
             } catch (e: Exception) {
                 if (e.isSupportRequestSyncDeferred()) {
+                    // Unreachable: what was handled is acknowledged by the next poll, not retried now.
                     log.debug("Epistola support service unavailable while polling support request changes: {}", e.message)
-                    break
+                    return
                 }
                 throw e
             }
@@ -125,7 +126,12 @@ class SupportRequestPollScheduler(
             // A page handled to its end is acknowledged up to its last change, also one of a type this
             // suite skips, so those cannot stall the feed.
             acknowledge = page.lastSequence
+            // Nothing more follows: the acknowledgement below is the run's last call.
+            if (!page.hasMore) break
         }
+        // Handled but not yet acknowledged (the feed ran out, or the run its budget or page limit):
+        // acknowledged now, so a replay never applies an older change over a newer one made here.
+        acknowledge?.let { acknowledgeOnly(it) }
     }
 
     /** Acknowledges [sequence] and leaves what the call brings for the next cycle. */
@@ -185,7 +191,7 @@ class SupportRequestPollScheduler(
 
     companion object {
         /** Bound on pages drained per cycle so one run can't loop unbounded on a large backlog. */
-        private const val MAX_PAGES_PER_RUN = 50
+        internal const val MAX_PAGES_PER_RUN = 50
 
         /** The [SupportBackgroundWork] key of a poll. */
         const val WORK_KEY = "feedback.poll"

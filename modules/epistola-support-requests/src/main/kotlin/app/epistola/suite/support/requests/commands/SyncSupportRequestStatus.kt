@@ -43,6 +43,12 @@ class SyncSupportRequestStatusHandler(
             .bind("id", command.id.key.value)
             .bind("status", command.status.name)
             .execute()
+        // The handler's status wins: a local change still waiting to be sent is settled, not sent back
+        // later as if this installation had made Epistola's change.
+        handle.createUpdate("UPDATE support_request_deliveries SET status_unsent = FALSE WHERE tenant_key = :tenantKey AND request_id = :id AND status_unsent")
+            .bind("tenantKey", command.id.tenantKey)
+            .bind("id", command.id.key.value)
+            .execute()
         rows > 0
     }
 }

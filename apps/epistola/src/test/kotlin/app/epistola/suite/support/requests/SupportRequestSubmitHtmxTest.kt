@@ -72,6 +72,20 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `a screenshot is served as the image it was taken as, never cached by a shared proxy`() {
+        val tenant = createTenant("Support Request Screenshot").id
+        assertThat(submit(tenant, "With screenshot", mapOf("screenshotData" to "data:image/png;base64,iVBORw0KGgo=")).statusCode.is2xxSuccessful).isTrue()
+        val request = submitted(tenant, "With screenshot")
+        val asset = withMediator { app.epistola.suite.support.requests.queries.ListSupportRequestAssets(SupportRequestId(request.id, TenantId(tenant))).query() }.single()
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}/assets/${asset.id.value}/content", ByteArray::class.java)
+
+        assertThat(response.headers.contentType.toString()).isEqualTo("image/png")
+        assertThat(response.headers.getFirst("X-Content-Type-Options")).isEqualTo("nosniff")
+        assertThat(response.headers.cacheControl).contains("private").doesNotContain("public")
+    }
+
+    @Test
     fun `a page names its trace for the support request form, in a meta tag and a traceresponse header`() {
         val tenant = createTenant("Feedback Trace Page")
 
@@ -105,6 +119,26 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
         val withLog = submitted(tenant, "With log").serverLogs
         assertThat(withLog).contains("Render failed for {}").contains(trace).doesNotContain("jan@example.org")
         assertThat(submitted(tenant, "Without log").serverLogs).`as`("not chosen, not attached").isNull()
+    }
+
+    @Test
+    fun `pseudonymised, a library's log line goes into the attached server log without its message`() {
+        val tenant = createTenant("Support Request Library Log").id
+        val trace = "4bf92f3577b34da6a3ce929d0e0e" + (1000..9999).random()
+        ingestor.enqueue(
+            ApplicationLogRecord(
+                id = UUIDv7.generate(), occurredAt = OffsetDateTime.now(testClock), level = "WARN", logger = "org.springframework.web.Resolver",
+                message = "Failed to convert value: Invalid UUID string: jan@example.org", thread = "t", tenantKey = tenant.value, traceId = trace, spanId = "00f067aa0ba902b7",
+                exception = null, attributes = null, messagePattern = null,
+                userId = withMediator { app.epistola.suite.security.SecurityContext.current().userId.value },
+            ),
+        )
+        ingestor.flush()
+
+        assertThat(submit(tenant, "Library log", mapOf("attachServerLogs" to "true", "traceIds" to "[\"$trace\"]")).statusCode.is2xxSuccessful).isTrue()
+
+        val serverLogs = submitted(tenant, "Library log").serverLogs
+        assertThat(serverLogs).contains("org.springframework.web.Resolver").doesNotContain("jan@example.org")
     }
 
     @Test

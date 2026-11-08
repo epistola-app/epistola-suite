@@ -76,7 +76,8 @@ class RestSupportRequestSyncAdapter(
             put("status", supportRequest.status.name)
             supportRequest.sourceUrl?.let { put("sourceUrl", fitChars(hide(it), MAX_SOURCE_URL_CHARS)) }
             fitConsoleLogs(supportRequest.consoleLogs?.let(hide))?.let { put("consoleLogs", it) }
-            fitConsoleLogs(supportRequest.serverLogs?.let(hide))?.let { put("serverLogs", it) }
+            // The suite's own log lines may name the tenant anywhere in their text, not only in a path.
+            fitConsoleLogs(supportRequest.serverLogs?.let { confidentialText(it, supportRequest.tenantKey.value, wireKey) })?.let { put("serverLogs", it) }
             fitMetadata(supportRequest.metadata?.let(hide))?.let { put("metadata", it) }
             put("createdAt", supportRequest.createdAt.toInstant().toString())
         }
@@ -332,6 +333,16 @@ class RestSupportRequestSyncAdapter(
 
     /** [text] with every `/tenants/<tenantKey>` path naming [wireKey] instead; unchanged when they are the same. */
     internal fun confidentialPaths(text: String, tenantKey: String, wireKey: String): String = if (tenantKey == wireKey) text else text.replace(Regex("/tenants/" + Regex.escape(tenantKey) + "(?=[/?#\"\\s]|$)"), "/tenants/$wireKey")
+
+    /**
+     * [text] with every whole-word [tenantKey] naming [wireKey] instead; unchanged when they are the same.
+     * A word that happens to equal the key is replaced too: that only ever hides more.
+     */
+    internal fun confidentialText(text: String, tenantKey: String, wireKey: String): String = if (tenantKey == wireKey) {
+        text
+    } else {
+        text.replace(Regex("(?<![A-Za-z0-9_-])" + Regex.escape(tenantKey) + "(?![A-Za-z0-9_-])"), wireKey)
+    }
 
     /** The browser metadata, or nothing when it is over the protocol's limit. */
     internal fun fitMetadata(raw: String?): String? = raw?.takeIf { it.utf8Size() <= MAX_METADATA_BYTES }
