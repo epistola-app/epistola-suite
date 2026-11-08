@@ -86,6 +86,43 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
 
     private fun archive(catalog: CatalogId, version: String): ByteArray = withMediator { ExportCatalogZip(catalog, version).execute().zipBytes }
 
+    @Autowired
+    private lateinit var syncTimer: CatalogMirrorSyncTimerHandler
+
+    @Test
+    fun `a Sync now that finds the tenant claimed by another round asks again rather than being lost`() {
+        val tenant = createTenant("Mirror Sync Busy").id
+        optIn(tenant, shareByDefault = true)
+        val otherRound = checkNotNull(mirrorStore.claim(tenant))
+        try {
+            val result = withMediator { syncTimer.sync(tenant) }
+
+            assertThat(result).isEqualTo(TenantReconcileResult.BUSY)
+            val timers = jdbi.withHandle<Int, Exception> {
+                it.createQuery("SELECT COUNT(*) FROM cluster_timers WHERE timer_key = :k").bind("k", CatalogMirrorSyncTimerHandler.timerKey(tenant)).mapTo(Int::class.java).one()
+            }
+            assertThat(timers).`as`("a timer runs it again").isEqualTo(1)
+        } finally {
+            mirrorStore.release(tenant, otherRound)
+        }
+    }
+
+    @Test
+    fun `while tenants are confidential, Sync now sends no tenant key to the mirror`() {
+        val tenant = createTenant("Mirror Confidential Sync").id
+        withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        try {
+            val before = support.requests.count { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }
+
+            reconciler.syncTenant(tenant)
+
+            assertThat(support.requests.filter { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }.drop(before).map { it.path })
+                .`as`("no request names %s", tenant.value).isEmpty()
+        } finally {
+            withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        }
+    }
+
     @Test
     fun `without the mirror scope the reconcile calls nothing`() {
         supportStore.forget()

@@ -31,6 +31,8 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     @AfterEach
     fun resetDefault() {
         withMediator { ClearCatalogMirrorDefault().execute() }
+        // Which configured preset was applied is bookkeeping no command writes or clears.
+        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", ApplyConfiguredCatalogMirrorDefault.APPLIED_KEY).execute() }
     }
 
     @Autowired
@@ -143,6 +145,56 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
         withMediator { SetCatalogMirrorDefault(CatalogMirrorDefaultChoice.OFF).execute() }
         configured.apply()
         assertThat(withMediator { GetCatalogMirrorDefault().query() }.choice).`as`("a saved preset wins").isEqualTo(CatalogMirrorDefaultChoice.OFF)
+    }
+
+    @Autowired
+    private lateinit var objectMapper: tools.jackson.databind.ObjectMapper
+
+    @Autowired
+    private lateinit var cipher: app.epistola.suite.crypto.CredentialCipher
+
+    private val namedConfiguration = SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(mirror = "all"), privacy = SupportProperties.Privacy(tenantIdentity = "named"))
+
+    /** The metadata store, switched to failing as an unreachable database does. */
+    private inner class Flaky : app.epistola.suite.metadata.AppMetadataService(jdbi, objectMapper, cipher) {
+        @Volatile var down = false
+
+        override fun get(key: String): tools.jackson.databind.JsonNode? = if (down) error("the database is unreachable") else super.get(key)
+    }
+
+    @Test
+    fun `a configured preset an administrator cleared is not applied again at the next start`() {
+        val following = createTenant("Mirror Default Cleared Configured").id
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, privacy).apply()
+        withMediator { ClearCatalogMirrorDefault().execute() }
+
+        // The next start, with the same configuration.
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, privacy).apply()
+
+        assertThat(withMediator { GetCatalogMirrorDefault().query() }.isSet).isFalse()
+        assertThat(consent(following)!!.sharing).isFalse()
+    }
+
+    @Test
+    fun `the configured preset applies at startup also before this node read the privacy settings`() {
+        val following = createTenant("Mirror Default Unread Privacy").id
+        val unread = app.epistola.suite.support.privacy.SupportPrivacy(Flaky(), namedConfiguration)
+
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, unread).apply()
+
+        assertThat(withMediator { GetCatalogMirrorDefault().query() }.choice).isEqualTo(CatalogMirrorDefaultChoice.ALL)
+        assertThat(consent(following)!!.sharing).isTrue()
+    }
+
+    @Test
+    fun `a startup that cannot read the privacy settings forgets no tenant's choice`() {
+        val tenant = createTenant("Mirror Default Startup Unreadable").id
+        optIn(tenant, shareByDefault = true)
+        val unreadable = app.epistola.suite.support.privacy.SupportPrivacy(Flaky().apply { down = true }, namedConfiguration)
+
+        CatalogMirrorConfidentiality(unreadable, jdbi).withdrawWhenConfidential()
+
+        assertThat(consent(tenant)!!.sharing).isTrue()
     }
 
     @Test
