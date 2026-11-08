@@ -26,7 +26,7 @@ data class AddSupportRequestAsset(
     RequiresPermission,
     // Its IMMEDIATE handler sends the asset to the support service: no open transaction.
     SelfManagedTransaction {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
     override val tenantKey get() = id.tenantKey
 
     init {

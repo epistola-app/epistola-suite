@@ -194,6 +194,17 @@ class TenantReferences(
         }
     }
 
+    /**
+     * [userId]'s person reference (ADR 0053 §3): `p-` and 16 hex digits of an HMAC under the same
+     * secret, over an input no tenant key can have, so it never equals a tenant's. Whoever handles a
+     * request can tell two requests of one person apart without knowing who it is.
+     */
+    fun personReference(userId: java.util.UUID): String = computed.get(PERSON_INPUT + userId) {
+        val mac = Mac.getInstance(ALGORITHM)
+        mac.init(SecretKeySpec(secret(), ALGORITHM))
+        PERSON_PREFIX + HexFormat.of().formatHex(mac.doFinal(it.toByteArray(Charsets.UTF_8)), 0, 8)
+    }
+
     /** Tenants are confidential to Epistola now: names and addresses stay in the installation too. */
     fun confidential(): Boolean = privacy.current().confidential
 
@@ -214,6 +225,10 @@ class TenantReferences(
     companion object {
         const val PREFIX = "t-"
         private val log = LoggerFactory.getLogger(TenantReferences::class.java)
+        const val PERSON_PREFIX = "p-"
+
+        /** Prefixed to a user id before the HMAC: a tenant key never contains a space. */
+        private const val PERSON_INPUT = "person "
         const val SECRET_KEY = "support.tenant-reference-secret"
         private const val MAX_CACHED = 10_000L
         private const val ALGORITHM = "HmacSHA256"

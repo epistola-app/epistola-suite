@@ -7,7 +7,7 @@
 - **Related:** [ADR 0005](0005-feedback-storage-local-vs-remote.md) (feedback stored locally),
   [ADR 0050](0050-support-connection.md) (the support connection),
   [ADR 0052](0052-hosting-partners.md) (hosting partners; its §7 is replaced by this ADR),
-  [`docs/support-requests.md`](../support-requests.md) (the host contract)
+  [`docs/feedback.md`](../feedback.md) (the host contract)
 
 ## Context
 

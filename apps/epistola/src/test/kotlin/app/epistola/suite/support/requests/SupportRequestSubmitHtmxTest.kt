@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
+import app.epistola.suite.support.requests.desk.SetSupportDeskPriority
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.ListSupportRequest
 import org.assertj.core.api.Assertions.assertThat
@@ -164,7 +165,7 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
         val detail = { restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}", String::class.java).body!! }
         assertThat(detail()).doesNotContain("support-request-requested-priority")
 
-        withMediator { SyncSupportRequestPriority(SupportRequestId(request.id, TenantId(tenant)), SupportRequestPriority.CRITICAL).execute() }
+        withMediator { SetSupportDeskPriority(tenant, request.id, SupportRequestPriority.CRITICAL).execute() }
 
         assertThat(detail()).contains("data-testid=\"support-request-requested-priority\"").contains("Requested: ")
     }

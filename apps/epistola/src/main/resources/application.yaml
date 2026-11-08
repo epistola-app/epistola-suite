@@ -401,7 +401,8 @@ epistola:
         retry-interval-ms: 60000 # Retry interval for failed pushes
         polling:
           enabled: true # Read replies (status/comment changes) from Epistola support; does nothing without the scope
-          interval-ms: 300000 # Poll interval (default 5 min)
+          interval-ms: 60000 # Poll every minute while replies come in...
+          max-interval-ms: 300000 # ...and back off to every 5 minutes while nothing changes
     # Let the check register on its own, and register again at once when a claim code expires before
     # Epistola linked it (after seven days). Off: nothing is sent until an administrator presses Register.
     auto-register: false

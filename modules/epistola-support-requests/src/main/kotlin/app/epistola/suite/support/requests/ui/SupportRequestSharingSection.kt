@@ -37,7 +37,7 @@ class SupportRequestSharingSection(private val connection: SupportConnection) : 
     /** Asked only once the installation selected support requests under Services. */
     override fun offered(connectionId: UUID): Boolean = connection.isSelected(SupportScope.REQUESTS)
     override val title = "Support requests"
-    override val summary = "Each new support request, with its comments, screenshot and logs, goes to Epistola support, who can reply."
+    override val summary = "Support requests, with their comments, screenshot and logs, can go to Epistola support, who can reply."
     override val statementFragment = "support-requests/sharing :: statement"
     override val choices = listOf(
         SharingChoice(SHARE, "Share support requests with Epistola support", shares = true),

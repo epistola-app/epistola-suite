@@ -17,9 +17,11 @@ import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.lockedConsentInForce
 import app.epistola.suite.support.requests.consent.lockedConsentInForceId
+import app.epistola.suite.support.requests.desk.SupportRequestHandlingPolicy
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.inTransactionUnchecked
@@ -43,7 +45,7 @@ data class CreateSupportRequest(
     RequiresPermission,
     // Its IMMEDIATE handler pushes the created feedback to the support service: no open transaction.
     SelfManagedTransaction {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
     override val tenantKey get() = id.tenantKey
 
     init {
@@ -56,6 +58,7 @@ data class CreateSupportRequest(
 class CreateSupportRequestHandler(
     private val jdbi: Jdbi,
     private val supportRequestSyncPort: SupportRequestSyncPort,
+    private val handling: SupportRequestHandlingPolicy,
 ) : CommandHandler<CreateSupportRequest, SupportRequest> {
     override fun handle(command: CreateSupportRequest): SupportRequest {
         val supportRequestKey = command.id.key
@@ -66,6 +69,8 @@ class CreateSupportRequestHandler(
         // The consent is read in the same statement, locked (FOR SHARE): a withdrawal under way is
         // waited for and then read as withdrawn, so it cannot slip past.
         val portEnabled = supportRequestSyncPort.isEnabled()
+        // Who handles new requests: the saved choice, or the configuration.
+        val toConnection = handling.connectionForNewRequests() == REQUESTS_CONNECTION
 
         return jdbi.inTransactionUnchecked { handle ->
             handle.createUpdate(
@@ -108,21 +113,30 @@ class CreateSupportRequestHandler(
                 .bind("id", supportRequestKey.value)
                 .bind("description", command.description)
                 .execute()
-            // It goes to the support connection only when a sync target is wired and the tenant's
-            // consent is in force, read in the statement that records it.
-            handle.createUpdate(
+            // It goes to the support connection only when that connection handles new requests, a
+            // sync target is wired and the tenant's consent is in force, read in the statement that
+            // records it; the connection then handles it. Otherwise the installation's inbox does.
+            val delivered = handle.createUpdate(
                 """
                 INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
                 SELECT f.tenant_key, f.id, $REQUESTS_CONNECTION_SQL, :pending
                 FROM support_requests f
                 WHERE f.tenant_key = :tenantKey AND f.id = :id AND f.sync_consent_id IS NOT NULL
+                  AND :toConnection
                   AND ${lockedConsentInForce(":tenantKey")}
                 """,
             )
                 .bind("tenantKey", tenantKey)
                 .bind("id", supportRequestKey.value)
                 .bind("pending", SyncStatus.PENDING.name)
+                .bind("toConnection", toConnection)
                 .execute()
+            if (delivered > 0) {
+                handle.createUpdate("UPDATE support_requests SET handler_connection = $REQUESTS_CONNECTION_SQL WHERE tenant_key = :tenantKey AND id = :id")
+                    .bind("tenantKey", tenantKey)
+                    .bind("id", supportRequestKey.value)
+                    .execute()
+            }
             handle.createQuery("$SELECT_SUPPORT_REQUEST WHERE f.tenant_key = :tenantKey AND f.id = :id")
                 .bind("tenantKey", tenantKey)
                 .bind("id", supportRequestKey.value)

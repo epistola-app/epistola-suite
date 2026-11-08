@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestPriority
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -33,7 +34,7 @@ class SyncSupportRequestPriorityHandler(
             """
             UPDATE support_requests
             SET priority = :priority, updated_at = NOW()
-            WHERE tenant_key = :tenantKey AND id = :id AND priority <> :priority
+            WHERE tenant_key = :tenantKey AND id = :id AND handler_connection = $REQUESTS_CONNECTION_SQL AND priority <> :priority
             """,
         )
             .bind("tenantKey", command.id.tenantKey)

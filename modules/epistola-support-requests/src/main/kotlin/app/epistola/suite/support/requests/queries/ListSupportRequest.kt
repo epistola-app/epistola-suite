@@ -23,7 +23,7 @@ data class ListSupportRequest(
     val sourceUrl: String? = null,
 ) : Query<List<SupportRequestSummary>>,
     RequiresPermission {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
 }
 
 @Component

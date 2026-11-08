@@ -220,9 +220,11 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                     body = "This is a comment",
                     authorName = "Test User",
                     authorEmail = "test@example.com",
+                    authorId = testUserKey,
                 ).execute()
 
                 assertThat(comment.body).isEqualTo("This is a comment")
+                assertThat(comment.authorId).`as`("who wrote it, for the person reference").isEqualTo(testUserKey.value)
                 assertThat(comment.source).isEqualTo(CommentSource.LOCAL)
 
                 val comments = GetSupportRequestComments(supportRequestId).query()

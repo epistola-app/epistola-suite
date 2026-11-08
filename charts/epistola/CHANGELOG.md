@@ -28,6 +28,12 @@
 
 ### Added
 
+- **`support.requests.handledBy`**: who handles new support requests until an installation
+  administrator saves a choice under Platform → Support requests: `inbox` (the default: the
+  installation's own support desk) or `epistola` (new requests go to Epistola support, as before),
+  rendered as `EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY`. Set `epistola` to keep sending new requests to
+  Epistola support on upgrade.
+
 - **`support.mirror.enabled` — the switch for the catalog mirror.** From Epistola 2.0, tenants can
   share their released catalogs with Epistola for release checks once Epistola grants the `mirror`
   scope and a tenant opts in (docs/catalog-mirror.md). `support.mirror.enabled: false` (rendered as

@@ -111,12 +111,12 @@ Tenant roles map to fine-grained permissions in application code (not in Keycloa
 
 | Role                   | Permissions                                                                                                                                                 |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-viewer`       | `TEMPLATE_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `FEEDBACK_SUBMIT`                                                          |
+| `content-viewer`       | `TEMPLATE_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `SUPPORT_REQUEST_SUBMIT`                                                          |
 | `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                                                             |
 | `document-generator`   | `DOCUMENT_GENERATE`, `DOCUMENT_VIEW`                                                                                                                        |
 | `document-reader`      | `DOCUMENT_VIEW`                                                                                                                                             |
 | `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`, `QUALITY_EDIT`                                                                                  |
-| `tenant-administrator` | `TENANT_SETTINGS`, `INTEGRATIONS_MANAGE`, `CREDENTIALS_MANAGE`, `FEEDBACK_MANAGE`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `DIAGNOSTICS_MANAGE`, `AUDIT_VIEW` |
+| `tenant-administrator` | `TENANT_SETTINGS`, `INTEGRATIONS_MANAGE`, `CREDENTIALS_MANAGE`, `SUPPORT_REQUEST_HANDLE`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `DIAGNOSTICS_MANAGE`, `AUDIT_VIEW` |
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 

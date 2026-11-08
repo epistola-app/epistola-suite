@@ -89,10 +89,10 @@ enum class Permission {
     CREDENTIALS_MANAGE,
 
     /** Send feedback to Epistola, and follow up on it: comments, attachments. No REST operation requires it. */
-    FEEDBACK_SUBMIT,
+    SUPPORT_REQUEST_SUBMIT,
 
     /** Manage the tenant's feedback: change its status, act on another member's. No REST operation requires it. */
-    FEEDBACK_MANAGE,
+    SUPPORT_REQUEST_HANDLE,
 }
 
 /**
@@ -110,7 +110,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.STENCIL_VIEW,
         Permission.REFERENCE_VIEW,
         Permission.CATALOG_VIEW,
-        Permission.FEEDBACK_SUBMIT,
+        Permission.SUPPORT_REQUEST_SUBMIT,
     )
 
     TenantRole.CONTENT_AUTHOR -> setOf(
@@ -140,7 +140,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.TENANT_SETTINGS,
         Permission.INTEGRATIONS_MANAGE,
         Permission.CREDENTIALS_MANAGE,
-        Permission.FEEDBACK_MANAGE,
+        Permission.SUPPORT_REQUEST_HANDLE,
         Permission.CATALOG_MANAGE,
         Permission.DIAGNOSTICS_VIEW,
         Permission.DIAGNOSTICS_MANAGE,
@@ -160,5 +160,5 @@ fun Set<TenantRole>.effectivePermissions(): Set<Permission> = flatMapTo(mutableS
  */
 fun PlatformRole.permissionsInEveryTenant(): Set<Permission> = when (this) {
     PlatformRole.PLATFORM_OBSERVER -> setOf(Permission.DIAGNOSTICS_VIEW, Permission.AUDIT_VIEW)
-    PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR -> emptySet()
+    PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR, PlatformRole.SUPPORT_DESK -> emptySet()
 }

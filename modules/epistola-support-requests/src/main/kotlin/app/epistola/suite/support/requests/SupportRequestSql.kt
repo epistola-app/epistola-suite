@@ -15,7 +15,7 @@ import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 internal val SELECT_SUPPORT_REQUEST = """
     SELECT f.tenant_key, f.id, f.title, COALESCE(q.body, '') AS description, f.category, f.status, f.priority,
            f.requested_priority, f.source_url, f.console_logs, f.server_logs, f.metadata, f.created_by,
-           f.created_at, f.updated_at, d.remote_ref AS external_ref, d.remote_url AS external_url,
+           f.created_at, f.updated_at, f.handler_connection, d.remote_ref AS external_ref, d.remote_url AS external_url,
            COALESCE(d.state, 'NOT_CONFIGURED') AS sync_status, COALESCE(d.attempts, 0) AS sync_attempts
     FROM support_requests f
     LEFT JOIN support_request_messages q ON q.tenant_key = f.tenant_key AND q.request_id = f.id AND q.id = f.id
@@ -29,7 +29,7 @@ internal val SELECT_SUPPORT_REQUEST = """
  * connection's id for it either way. Add a `WHERE` on `c`.
  */
 internal val SELECT_SUPPORT_REQUEST_REPLY = """
-    SELECT c.tenant_key, c.request_id, c.id, c.body, c.author_name, c.author_email,
+    SELECT c.tenant_key, c.request_id, c.id, c.body, c.author_name, c.author_email, c.author_id,
            CASE WHEN c.from_connection IS NULL THEN 'LOCAL' ELSE 'EXTERNAL' END AS source,
            COALESCE(c.remote_id, dm.remote_id) AS external_comment_id, c.created_at,
            COALESCE(dm.attempts, 0) AS sync_attempts

@@ -42,11 +42,12 @@ documents without generating them.
 
 `security/PlatformRole.kt`. Cross-tenant, never persisted (token/config only).
 
-| Role                         | Capability                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `TENANT_MANAGER`             | Create and delete tenants, and grant them namespaces.                                                  |
-| `INSTALLATION_ADMINISTRATOR` | Installation state: forget cluster nodes, the site banner, what the installation shares with Epistola. |
-| `PLATFORM_OBSERVER`          | `DIAGNOSTICS_VIEW` and `AUDIT_VIEW` in **every** tenant, member or not. Read-only.                     |
+| Role                         | Capability                                                                                                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TENANT_MANAGER`             | Create and delete tenants, and grant them namespaces.                                                                                                                               |
+| `INSTALLATION_ADMINISTRATOR` | Installation state: forget cluster nodes, the site banner, what the installation shares with Epistola, and who handles new support requests.                                        |
+| `SUPPORT_DESK`               | The support desk (Platform → Support requests): every tenant's support requests, their replies and internal notes, status and priority, and passing them on. Nothing in any tenant. |
+| `PLATFORM_OBSERVER`          | `DIAGNOSTICS_VIEW` and `AUDIT_VIEW` in **every** tenant, member or not. Read-only.                                                                                                  |
 
 `PLATFORM_OBSERVER`'s grants are `PlatformRole.permissionsInEveryTenant()`: the mediator lets a
 message needing one of them through without tenant membership, and refuses anything else in a tenant
@@ -76,9 +77,9 @@ identity-provider name, or an operation requiring a permission the suite does no
 | Tenant config (feature toggles, defaults, environments)              | `TENANT_SETTINGS`                         | administrator                      |
 | Integrations that send tenant data out (Exchange, quality providers) | `INTEGRATIONS_MANAGE`                     | administrator                      |
 | API keys                                                             | `CREDENTIALS_MANAGE`                      | administrator                      |
-| Feedback to Epistola: send and follow up / manage the tenant's       | `FEEDBACK_SUBMIT` / `FEEDBACK_MANAGE`     | viewer / administrator             |
+| Feedback to Epistola: send and follow up / manage the tenant's       | `SUPPORT_REQUEST_SUBMIT` / `SUPPORT_REQUEST_HANDLE`     | viewer / administrator             |
 
-`INTEGRATIONS_MANAGE`, `FEEDBACK_SUBMIT`, `FEEDBACK_MANAGE`, `DIAGNOSTICS_*` and `AUDIT_VIEW`
+`INTEGRATIONS_MANAGE`, `SUPPORT_REQUEST_SUBMIT`, `SUPPORT_REQUEST_HANDLE`, `DIAGNOSTICS_*` and `AUDIT_VIEW`
 gate suite features no REST operation reaches (`outsideApi` in the contract).
 
 ## Enforcement — one fail-closed seam

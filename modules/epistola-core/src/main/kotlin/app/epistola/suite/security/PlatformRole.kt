@@ -28,4 +28,11 @@ enum class PlatformRole {
      * audit trail in every tenant ([permissionsInEveryTenant]). Grants no write capability.
      */
     PLATFORM_OBSERVER,
+
+    /**
+     * Works the installation's support desk (ADR 0053): the support requests of every tenant, their
+     * replies and internal notes, their status and priority, and passing them on to a support
+     * connection. Grants nothing in any tenant.
+     */
+    SUPPORT_DESK,
 }

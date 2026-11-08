@@ -29,6 +29,7 @@ internal val KNOWN_PLATFORM_ROLES = mapOf(
     "tenant-manager" to PlatformRole.TENANT_MANAGER,
     "installation-administrator" to PlatformRole.INSTALLATION_ADMINISTRATOR,
     "platform-observer" to PlatformRole.PLATFORM_OBSERVER,
+    "support-desk" to PlatformRole.SUPPORT_DESK,
 )
 
 /**

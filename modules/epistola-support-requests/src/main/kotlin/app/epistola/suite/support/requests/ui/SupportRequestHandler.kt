@@ -130,7 +130,7 @@ class SupportRequestHandler(
 
         // Access control: admin or creator only
         val principal = SecurityContext.current()
-        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
+        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)) {
             throw SupportRequestAccessDeniedException(tenantId.key, supportRequestId.key)
         }
 
@@ -147,7 +147,7 @@ class SupportRequestHandler(
             "assets" to assets
             "activeNavSection" to "requests"
             "statuses" to SupportRequestStatus.entries
-            "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
+            "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)
         }
     }
 
@@ -249,7 +249,7 @@ class SupportRequestHandler(
 
         // Only admin or creator can update status
         val principal = SecurityContext.current()
-        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
+        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)) {
             throw SupportRequestAccessDeniedException(tenantId.key, supportRequestId.key)
         }
 
@@ -267,7 +267,7 @@ class SupportRequestHandler(
                 "comments" to comments
                 "assets" to assets
                 "statuses" to SupportRequestStatus.entries
-                "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
+                "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)
             }
             onFullPage { redirect("/tenants/${tenantId.key}/support/requests/${supportRequestId.key}") }
         }
@@ -286,7 +286,7 @@ class SupportRequestHandler(
         val supportRequest = GetSupportRequest(supportRequestId).query() ?: return ServerResponse.notFound().build()
 
         val principal = SecurityContext.current()
-        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
+        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)) {
             throw SupportRequestAccessDeniedException(tenantId.key, supportRequestId.key)
         }
 
@@ -297,6 +297,7 @@ class SupportRequestHandler(
             body = form["body"],
             authorName = principal.displayName,
             authorEmail = principal.email,
+            authorId = principal.userId,
         ).execute()
 
         // Return updated comments list
@@ -307,7 +308,7 @@ class SupportRequestHandler(
                 "tenantId" to tenantId.key
                 "supportRequest" to supportRequest
                 "comments" to comments
-                "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)
+                "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)
             }
             onFullPage { redirect("/tenants/${tenantId.key}/support/requests/${supportRequestId.key}") }
         }
@@ -340,7 +341,7 @@ class SupportRequestHandler(
         // Access control: admin or creator only
         val supportRequest = GetSupportRequest(supportRequestId).query() ?: return ServerResponse.notFound().build()
         val principal = SecurityContext.current()
-        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.FEEDBACK_MANAGE)) {
+        if (principal.userId != supportRequest.createdBy && !principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)) {
             throw SupportRequestAccessDeniedException(tenantId.key, supportRequestId.key)
         }
 

@@ -16,6 +16,7 @@ import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestStatus
+import app.epistola.suite.support.requests.desk.SetSupportDeskPriority
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestComments
 import app.epistola.suite.support.requests.queries.ListSupportRequest
@@ -165,8 +166,10 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
         assertThat(created.requestedPriority).isEqualTo(SupportRequestPriority.MEDIUM)
         assertThat(created.priority).`as`("the priority starts as the requested one").isEqualTo(SupportRequestPriority.MEDIUM)
 
-        val changed = withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.HIGH).execute() }
-        val again = withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.HIGH).execute() }
+        // The inbox handles it: the desk sets the priority, and a connection's is not applied.
+        assertThat(withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.LOW).execute() }).`as`("not from a connection").isFalse()
+        val changed = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
+        val again = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
 
         assertThat(changed).isTrue()
         assertThat(again).`as`("an unchanged priority writes nothing").isFalse()

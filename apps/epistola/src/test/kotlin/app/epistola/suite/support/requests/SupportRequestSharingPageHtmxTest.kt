@@ -105,7 +105,7 @@ class SupportRequestSharingPageHtmxTest : BaseIntegrationTest() {
         assertThat(ready).contains("data-testid=\"support-request-sharing-support-link\"").contains("href=\"/tenants/${tenant.id.value}/support\"")
 
         withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
-        assertThat(page(tenant.id.value)).contains("This tenant consented: new support requests are sent to Epistola support.")
+        assertThat(page(tenant.id.value)).contains("This tenant consented: its support requests can go to Epistola support.")
             .contains("data-testid=\"support-request-sharing-consented\"")
     }
 

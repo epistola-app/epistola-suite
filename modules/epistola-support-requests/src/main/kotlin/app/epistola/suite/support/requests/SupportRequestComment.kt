@@ -21,6 +21,8 @@ data class SupportRequestComment(
     val createdAt: OffsetDateTime,
     /** Refusals so far when sending it to Epistola support; read only by the retry sweep. */
     val syncAttempts: Int = 0,
+    /** Who wrote it here; null for a reply from a connection, or once that user is deleted. */
+    val authorId: java.util.UUID? = null,
 )
 
 enum class CommentSource {

@@ -447,6 +447,14 @@
             "mirror": { "type": "string", "enum": ["", "off", "all", "marked"], "description": "Catalog mirror: off, all (every catalog) or marked (only the catalogs a tenant marks)." }
           }
         },
+        "requests": {
+          "type": "object",
+          "description": "Support requests (ADR 0053).",
+          "additionalProperties": false,
+          "properties": {
+            "handledBy": { "type": "string", "enum": ["", "inbox", "epistola"], "description": "Who handles new support requests until an installation administrator saves a choice: inbox (the installation's support desk) or epistola. Empty: inbox." }
+          }
+        },
         "privacy": {
           "type": "object",
           "description": "What Epistola sees of the tenants and how much telemetry carries, until an installation administrator saves them. Empty: the suite's defaults (confidential, pseudonymised).",

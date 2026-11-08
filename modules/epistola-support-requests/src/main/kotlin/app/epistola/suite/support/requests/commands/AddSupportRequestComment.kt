@@ -5,6 +5,7 @@
 package app.epistola.suite.support.requests.commands
 
 import app.epistola.suite.common.ids.SupportRequestCommentId
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
@@ -23,11 +24,13 @@ data class AddSupportRequestComment(
     val body: String,
     val authorName: String,
     val authorEmail: String?,
+    /** The user who wrote it, whose person reference goes in place of the name while tenants are confidential. */
+    val authorId: UserKey? = null,
 ) : Command<SupportRequestComment>,
     RequiresPermission,
     // Its IMMEDIATE handler sends the comment to the support service: no open transaction.
     SelfManagedTransaction {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
     override val tenantKey get() = id.tenantKey
 
     init {
@@ -43,11 +46,11 @@ class AddSupportRequestCommentHandler(
         handle.createUpdate(
             """
             INSERT INTO support_request_messages (
-                tenant_key, request_id, id, kind, body, author_name, author_email, created_at, sync_consent_id
+                tenant_key, request_id, id, kind, body, author_name, author_email, author_id, created_at, sync_consent_id
             )
             VALUES (
                 :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail,
-                NOW(), ${lockedConsentInForceId(":tenantKey")}
+                (SELECT id FROM users WHERE id = :authorId), NOW(), ${lockedConsentInForceId(":tenantKey")}
             )
             """,
         )
@@ -57,6 +60,7 @@ class AddSupportRequestCommentHandler(
             .bind("body", command.body)
             .bind("authorName", command.authorName)
             .bind("authorEmail", command.authorEmail)
+            .bind("authorId", command.authorId?.value)
             .execute()
         handle.createQuery("$SELECT_SUPPORT_REQUEST_REPLY WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id")
             .bind("tenantKey", command.id.tenantKey)

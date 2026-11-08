@@ -32,4 +32,9 @@ data class SupportRequest(
     val serverLogs: String? = null,
     /** The priority the submitter asked for; null only on rows read without it. */
     val requestedPriority: SupportRequestPriority? = null,
-)
+    /** Who handles it: null, the installation's own inbox; otherwise the support connection it went to. */
+    val handlerConnection: java.util.UUID? = null,
+) {
+    /** The installation's own inbox handles it: the desk sets its status and final priority. */
+    val handledHere: Boolean get() = handlerConnection == null
+}

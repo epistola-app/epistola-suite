@@ -19,7 +19,7 @@ data class GetSupportRequestComments(
     val id: SupportRequestId,
 ) : Query<List<SupportRequestComment>>,
     RequiresPermission {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
     override val tenantKey get() = id.tenantKey
 }
 

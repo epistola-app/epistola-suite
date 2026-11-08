@@ -32,7 +32,9 @@ import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncRef
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncStatus
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
+import app.epistola.suite.support.requests.desk.GetSupportRequestHandling
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestComments
 import app.epistola.suite.support.requests.queries.ListPendingSyncSupportRequest
@@ -91,6 +93,8 @@ import java.util.concurrent.TimeUnit
         "epistola.support.requests.sync.retry-interval-ms=3600000",
         "epistola.support.requests.sync.polling.enabled=true",
         "epistola.support.requests.sync.polling.interval-ms=3600000",
+        // These tests are about sending: Epistola handles new requests, as configured.
+        "epistola.support.requests.handled-by=epistola",
     ],
 )
 class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
@@ -219,6 +223,18 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         // OnSupportRequestCreated started a sending round in the background; wait for it, then reload.
         backgroundWork.awaitIdle()
         GetSupportRequest(SupportRequestId(created.id, TenantId(tenant.id))).query()!!
+    }
+
+    @Test
+    fun `with the configuration handing new requests to Epistola, a new request goes there and the desk says where that comes from`() {
+        val handling = withMediator { GetSupportRequestHandling().query() }
+        assertThat(handling.fromConfiguration).isTrue()
+        assertThat(handling.connectionId).isEqualTo(REQUESTS_CONNECTION)
+
+        val supportRequest = createSyncedSupportRequest(createTenant("Driver Configured"))
+
+        assertThat(supportRequest.handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(recording.createdTickets.map { it.id }).contains(supportRequest.id)
     }
 
     @Test

@@ -67,27 +67,33 @@ class SupportRequestPollScheduler(
         requiredCapability = SupportCluster.CAPABILITY,
     )
 
-    /** Hands the poll to [SupportBackgroundWork]: the scheduler thread never waits on the support service. */
+    private val pacing = SupportRequestPollPacing(properties.polling.intervalMs, properties.polling.maxIntervalMs)
+
+    /**
+     * Hands the poll to [SupportBackgroundWork] when it is due ([SupportRequestPollPacing]): the
+     * scheduler thread never waits on the support service.
+     */
     override fun handle(task: ClusterScheduledTask) {
-        work.launch(WORK_KEY) { pollForUpdates() }
+        if (!pacing.isDue(System.nanoTime())) return
+        work.launch(WORK_KEY) { pacing.record(pollForUpdates(), System.nanoTime()) }
     }
 
-    fun pollForUpdates() {
-        MediatorContext.runWithMediator(mediator) { drainUpdates() }
-    }
+    /** One round; true when it found changes. */
+    fun pollForUpdates(): Boolean = MediatorContext.runWithMediator(mediator) { drainUpdates() }
 
-    private fun drainUpdates() {
+    private fun drainUpdates(): Boolean {
         // Not wired, no `feedback` scope, or the service known unreachable: skip the poll rather
         // than fail the fetch.
         if (!gate.canSendNow()) {
             log.debug("Feedback sync cannot reach the support service now; skipping the poll")
-            return
+            return false
         }
 
         // What this run handled and has not acknowledged yet. The connection keeps the position:
         // each call acknowledges what the previous page brought, and the run calls until a page comes
         // back empty, so what it handled is acknowledged in the same run.
         var acknowledge: Long? = null
+        var found = false
         var pages = 0
         // At most `round-budget-ms` per run: a slow service leaves the rest of the pages for the next.
         val deadline = System.nanoTime() + properties.roundBudgetMs * 1_000_000
@@ -102,6 +108,7 @@ class SupportRequestPollScheduler(
                 throw e
             }
             if (page.lastSequence == null) break
+            found = true
             log.info("Fetched {} support request changes up to {}", page.updates.size, page.lastSequence)
 
             var lastProcessed: Long? = null
@@ -119,13 +126,14 @@ class SupportRequestPollScheduler(
                     )
                     // Acknowledge only what was handled before it, so it comes again next cycle.
                     lastProcessed?.let { acknowledgeOnly(it) }
-                    return
+                    return true
                 }
             }
             // A page handled to its end is acknowledged up to its last change, also one of a type this
             // suite skips, so those cannot stall the feed.
             acknowledge = page.lastSequence
         }
+        return found
     }
 
     /** Acknowledges [sequence] and leaves what the call brings for the next cycle. */

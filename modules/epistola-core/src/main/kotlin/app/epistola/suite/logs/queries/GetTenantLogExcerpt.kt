@@ -34,7 +34,7 @@ data class TenantLogExcerpt(val lines: List<TenantLogLine>, val truncated: Boole
  * most [limit] of them: what someone reporting a problem attaches to it. Only the tenant's own lines
  * of the caller's own requests: trace ids are no secret (a client may choose its own), so naming a
  * colleague's finds nothing, and reading everyone's lines stays `DIAGNOSTICS_VIEW`'s. Gated on
- * [Permission.FEEDBACK_SUBMIT]: it is read for a report, by whoever submits one.
+ * [Permission.SUPPORT_REQUEST_SUBMIT]: it is read for a report, by whoever submits one.
  */
 data class GetTenantLogExcerpt(
     override val tenantKey: TenantKey,
@@ -42,7 +42,7 @@ data class GetTenantLogExcerpt(
     val limit: Int = DEFAULT_LIMIT,
 ) : Query<TenantLogExcerpt>,
     RequiresPermission {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
 
     init {
         validate("traceIds", traceIds.size <= MAX_TRACES) { "At most $MAX_TRACES traces" }

@@ -24,7 +24,7 @@ data class UpdateSupportRequestStatus(
     RequiresPermission,
     // Its IMMEDIATE handler sends the status to the support service: no open transaction.
     SelfManagedTransaction {
-    override val permission get() = Permission.FEEDBACK_MANAGE
+    override val permission get() = Permission.SUPPORT_REQUEST_HANDLE
     override val tenantKey get() = id.tenantKey
 }
 

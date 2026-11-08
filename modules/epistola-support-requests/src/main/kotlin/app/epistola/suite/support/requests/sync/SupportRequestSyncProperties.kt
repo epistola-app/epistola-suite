@@ -22,8 +22,14 @@ data class SupportRequestSyncProperties(
     val roundBudgetMs: Long = 30_000,
     val polling: PollingProperties = PollingProperties(),
 ) {
+    /**
+     * The poll runs every [intervalMs]; after a round that found nothing it waits twice as long as
+     * the last time, up to [maxIntervalMs], and a round that found changes brings it back to every
+     * [intervalMs] (ADR 0053 §5: a reply shows up within about a minute).
+     */
     data class PollingProperties(
         val enabled: Boolean = true,
-        val intervalMs: Long = 300_000,
+        val intervalMs: Long = 60_000,
+        val maxIntervalMs: Long = 300_000,
     )
 }

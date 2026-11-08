@@ -5,9 +5,10 @@
 > Called feedback until November 2026 (ADR 0053 §2).
 
 Users report problems, ask questions and suggest things from inside the suite, as support requests.
-They are stored in the installation's own database, which stays the source of truth. A tenant that
-consents also sends its requests to Epistola support over the installation's support connection, and
-replies from Epistola come back onto the request.
+They are stored in the installation's own database, which stays the source of truth. The
+installation's own **support desk** handles them, or hands them to Epistola support over the
+installation's support connection when the tenant consents; replies from Epistola come back onto the
+request.
 
 Code: `modules/epistola-support-requests` (domain, sync, UI, migrations). The connection itself is
 `modules/epistola-support` (`SupportConnection`).
@@ -32,9 +33,40 @@ of truth, and [ADR 0050](adr/0050-support-connection.md) §9 why sending needs t
 The `support-requests` toggle defaults to on and only shows or hides the support request UI. **It is not
 consent**: it sends nothing.
 
+## The support desk
+
+Platform → Support requests (`/platform/support-requests`) is the installation's inbox of support
+requests across tenants (ADR 0053 §3–4), for the `SUPPORT_DESK` platform role (identity-provider
+group `/epistola/platform/support-desk`). Who handles new requests stays the installation
+administrator's to set; the desk sees it without the form. It lists requests newest first, paged in the database, filtered by status, priority,
+tenant and who handles them (`ListSupportInbox`).
+
+- **Who handles a request.** Each request has a handler: the inbox (`support_requests.handler_connection`
+  null) or the connection it went to. Only the handler sets the status and the final priority: the
+  desk on a request the inbox handles (`SetSupportDeskStatus`, `SetSupportDeskPriority`), the
+  connection's changes feed on one it handles (`SyncSupportRequestStatus` and `…Priority` apply only
+  then). The requester can still close their own request from its page, as before.
+- **Who handles new requests.** The inbox by default. An installation administrator chooses on the
+  desk page (`SetSupportRequestHandling`, stored as `support_connections.handles_new_requests` and
+  marked saved in `app_metadata` key `support.requests.handling-saved`); until then the configuration
+  applies (`epistola.support.requests.handled-by`, Helm `support.requests.handledBy`: `inbox` or
+  `epistola`), and **Follow the configuration** drops a saved choice (`ResetSupportRequestHandling`).
+  With Epistola handling new requests, a new one goes there when the tenant consents, as in the pilot;
+  otherwise it stays in the inbox. Requests already handed on stay where they are when this changes.
+- **Replies and internal notes.** The desk replies (`AddSupportDeskMessage`), which the requester sees
+  and which goes to the connection with the request, under the tenant's grant like any reply; or it
+  writes an internal note (message kind `NOTE`), which only the desk sees. A note records no grant,
+  and every query that picks messages to send reads `REPLY` only, so a note never leaves the
+  installation (`SupportDeskIntegrationTest` proves it).
+- **Passing a request on** (`EscalateSupportRequest`): the request gets a delivery to the connection,
+  which handles it from then on; it is sent as any request is, with replies written so far, and its
+  replies come back. Refused, with the reason on the page, when the tenant did not share support
+  requests when it was submitted or does not share them now, or no connection takes requests.
+
 ## Sending to Epistola support
 
-A support request leaves the installation only when all of these hold:
+A support request leaves the installation only when it goes to a connection (Epistola handles new
+requests, or the desk passed it on; see [The support desk](#the-support-desk)), and all of these hold:
 
 1. the support connection is on (`epistola.support.enabled=true`) and Epistola has activated the
    installation and granted it the `requests` scope, and an installation administrator selected the
@@ -50,21 +82,29 @@ To the support service the installation is connected to (`epistola.support.endpo
 `https://support.{product-domain}`), run by Epistola Nederland B.V., over the protocol in
 [`support-protocol.md`](support-protocol.md#support-requests--scope-requests-v2):
 
-| What                                              | When                                 |
-| ------------------------------------------------- | ------------------------------------ |
-| tenant key (or its reference¹), the request's id  | with every item                      |
-| title, kind, requested priority, status, question | when the item is submitted           |
-| page address including query string               | when the item is submitted           |
-| console log (≤ 256 KiB; oldest entries dropped)   | when the item is submitted           |
-| server log of the last requests², when attached   | when the item is submitted           |
-| browser metadata (≤ 16 KiB; left out when larger) | when the item is submitted           |
-| screenshot (PNG, JPEG or WebP, ≤ 2 MiB)           | after the item, as a separate upload |
-| comments with author name and email address       | when written in the suite            |
-| status changes                                    | when changed in the suite            |
+| What                                                                                               | When                                 |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| tenant key (or its reference¹), the request's id                                                   | with every item                      |
+| who submitted it, as a person reference³                                                           | when the item is submitted           |
+| title, kind, requested priority, status, question                                                  | when the item is submitted           |
+| page address including query string                                                                | when the item is submitted           |
+| console log (≤ 256 KiB; oldest entries dropped)                                                    | when the item is submitted           |
+| server log of the last requests², when attached                                                    | when the item is submitted           |
+| browser metadata (≤ 16 KiB; left out when larger)                                                  | when the item is submitted           |
+| screenshot (PNG, JPEG or WebP, ≤ 2 MiB)                                                            | after the item, as a separate upload |
+| comments with their author's person reference³, and name and email address while tenants are named | when written in the suite            |
+| status changes                                                                                     | when changed in the suite            |
 
 ¹ While the installation keeps its tenants confidential (the default, [support](support.md#privacy)),
 the tenant goes as its reference (`t-` and 16 hex digits), which also replaces the tenant key in the
 page address, console log and metadata.
+
+³ A person reference (ADR 0053 §3) is `p-` and 16 hex digits, an HMAC of the user's id under the same
+installation secret as the tenant references (`TenantReferences.personReference`), over an input no
+tenant key can have. It is the same for every request and comment of one person, so whoever handles
+requests sees that they come from one person, and never who. The name of who submitted a request is
+never sent; a comment's author goes by reference alone while tenants are confidential
+(`messages.author_id` keeps who wrote it here).
 
 ² The suite's log lines of the submitter's last 20 requests on the page, only this tenant's, at most
 200 lines, when the submitter leaves "Attach the server log of my last requests" ticked (it is by
@@ -208,15 +248,17 @@ database transaction.
 
 ## Configuration
 
-| Property                                             | Default  | Meaning                                            |
-| ---------------------------------------------------- | -------- | -------------------------------------------------- |
-| `epistola.support.enabled`                           | `false`  | The support connection; without it nothing is sent |
-| `epistola.support.tenant-defaults.requests`          | empty    | Preset for tenants: `share` or `no` (see above)    |
-| `epistola.support.requests.sync.enabled`             | `true`\* | Run the retry sweep                                |
-| `epistola.support.requests.sync.retry-interval-ms`   | `60000`  | Sweep interval                                     |
-| `epistola.support.requests.sync.round-budget-ms`     | `30000`  | Most one sweep or poll spends on the service       |
-| `epistola.support.requests.sync.polling.enabled`     | `true`   | Read replies from Epistola                         |
-| `epistola.support.requests.sync.polling.interval-ms` | `300000` | Poll interval                                      |
+| Property                                                 | Default  | Meaning                                                                               |
+| -------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `epistola.support.enabled`                               | `false`  | The support connection; without it nothing is sent                                    |
+| `epistola.support.tenant-defaults.requests`              | empty    | Preset for tenants: `share` or `no` (see above)                                       |
+| `epistola.support.requests.sync.enabled`                 | `true`\* | Run the retry sweep                                                                   |
+| `epistola.support.requests.sync.retry-interval-ms`       | `60000`  | Sweep interval                                                                        |
+| `epistola.support.requests.sync.round-budget-ms`         | `30000`  | Most one sweep or poll spends on the service                                          |
+| `epistola.support.requests.sync.polling.enabled`         | `true`   | Read replies from Epistola                                                            |
+| `epistola.support.requests.sync.polling.interval-ms`     | `60000`  | Poll interval while replies come in                                                   |
+| `epistola.support.requests.sync.polling.max-interval-ms` | `300000` | After rounds that find nothing the wait doubles, up to this                           |
+| `epistola.support.requests.handled-by`                   | `inbox`  | Who handles new requests until an administrator saves a choice: `inbox` or `epistola` |
 
 \* `true` in the app's `application.yaml`; the code default is `false`. The connection's own
 settings are in [`support-protocol.md`](support-protocol.md).
