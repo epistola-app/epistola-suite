@@ -196,12 +196,27 @@ class PartitionMaintenanceScheduler(
         val retentionMonths = config.retentionMonths ?: return
         val cutoff = currentMonthUtc().minusMonths(retentionMonths.toLong()).atDay(1)
 
-        val dropped = jdbi.withHandle<List<String>, Exception> { handle ->
-            handle.createQuery("SELECT * FROM epistola_drop_partitions_before(:parent::regclass, :cutoff)")
+        val dropped = jdbi.inTransaction<List<String>, Exception> { handle ->
+            // What each partition held, read from the catalog before it goes (no rows are read), so the
+            // month can still be compared once its rows are gone.
+            val held = handle.createQuery(
+                """
+                SELECT c.relname AS name, GREATEST(c.reltuples, 0)::bigint AS estimated_rows, pg_total_relation_size(c.oid) AS size_bytes
+                FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid
+                WHERE i.inhparent = :parent::regclass
+                """,
+            )
+                .bind("parent", config.tableName)
+                .map { rs, _ -> rs.getString("name") to (rs.getLong("estimated_rows") to rs.getLong("size_bytes")) }
+                .list()
+                .toMap()
+            val names = handle.createQuery("SELECT * FROM epistola_drop_partitions_before(:parent::regclass, :cutoff)")
                 .bind("parent", config.tableName)
                 .bind("cutoff", cutoff)
                 .mapTo(String::class.java)
                 .list()
+            names.forEach { name -> recordDropped(handle, config.tableName, name, held[name]) }
+            names
         }
 
         if (dropped.isNotEmpty()) {
@@ -209,6 +224,24 @@ class PartitionMaintenanceScheduler(
         } else {
             logger.debug("No old partitions to drop for table {}", config.tableName)
         }
+    }
+
+    private fun recordDropped(handle: org.jdbi.v3.core.Handle, table: String, partition: String, held: Pair<Long, Long>?) {
+        val month = runCatching { YearMonth.parse(partition.removePrefix("${table}_").replace('_', '-')).atDay(1) }.getOrNull() ?: return
+        handle.createUpdate(
+            """
+            INSERT INTO partition_history (partition_name, table_name, month, estimated_rows, size_bytes, dropped_at)
+            VALUES (:partition, :table, :month, :rows, :size, :now)
+            ON CONFLICT (partition_name) DO NOTHING
+            """,
+        )
+            .bind("partition", partition)
+            .bind("table", table)
+            .bind("month", month)
+            .bind("rows", held?.first ?: 0L)
+            .bind("size", held?.second ?: 0L)
+            .bind("now", EpistolaClock.offsetDateTime())
+            .execute()
     }
 
     /** The current month in UTC, the zone every partition is bounded in, whatever zone the JVM runs in. */

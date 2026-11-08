@@ -172,6 +172,31 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a dropped partition is recorded with its month, before it goes`() {
+        val ancient = YearMonth.now(testClock).minusYears(3)
+        val name = "generation_results_" + ancient.format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        jdbi.useHandle<Exception> { handle ->
+            handle.execute(
+                """
+                CREATE TABLE IF NOT EXISTS $name PARTITION OF generation_results
+                FOR VALUES FROM ('${ancient.atDay(1)}') TO ('${ancient.plusMonths(1).atDay(1)}')
+                """,
+            )
+        }
+
+        scheduler.maintainPartitions()
+
+        val recorded = jdbi.withHandle<Map<String, Any>?, Exception> { handle ->
+            handle.createQuery("SELECT table_name, month, size_bytes FROM partition_history WHERE partition_name = :name")
+                .bind("name", name).mapToMap().findOne().orElse(null)
+        }
+        assertThat(recorded).`as`("partition_history row for %s", name).isNotNull
+        assertThat(recorded!!["table_name"]).isEqualTo("generation_results")
+        assertThat(recorded["month"].toString()).isEqualTo(ancient.atDay(1).toString())
+        assertThat(recorded["size_bytes"] as Long).isGreaterThan(0)
+    }
+
+    @Test
     fun `skips quietly when another instance holds the advisory lock`() {
         // Simulate "another Suite instance is currently running maintenance" by
         // grabbing the same advisory lock on a held connection. The scheduler's

@@ -130,6 +130,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Load test results](load-test-results.md)                  | Current  | Running log of measured throughput, by named hardware profile.           |
 | [Metrics & observability](metrics.md)                      | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.              |
 | [Application logs](application-logs.md)                    | Current  | Persisting Logback events into a bounded, queryable table.               |
+| [Generation statistics](generation-statistics.md)          | Current  | Documents and previews per tenant, kept after documents are deleted.     |
 | [Audit log](audit-log.md)                                  | Current  | The PII-free, append-only record of who did and read what.               |
 | [Version check](version-check.md)                          | Current  | The default-on daily release and support check, and how to disable it.   |
 | [Data shared with Epistola](outbound-traffic.md)           | Current  | What an installation shares, every outbound call, the support badge.     |

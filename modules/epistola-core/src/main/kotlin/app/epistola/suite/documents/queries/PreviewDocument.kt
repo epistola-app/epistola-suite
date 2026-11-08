@@ -124,6 +124,7 @@ class PreviewDocumentHandler(
                 variantId = target.variantKey,
                 data = query.data,
                 catalogVersion = CatalogReleaseRef(query.catalog, DraftRef.Id(selection.source.draftId)),
+                partOfPreviewDocument = true,
             ),
         )
     }
@@ -176,6 +177,7 @@ class PreviewDocumentHandler(
                 variantId = variant,
                 data = query.data,
                 catalogVersion = query.catalogVersion,
+                partOfPreviewDocument = true,
             ),
         )
     }
