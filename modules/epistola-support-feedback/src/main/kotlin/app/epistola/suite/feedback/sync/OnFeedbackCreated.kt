@@ -17,8 +17,6 @@ import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.support.HubConnectivityService
-import app.epistola.suite.support.isHubUnreachable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -31,7 +29,6 @@ import org.springframework.stereotype.Component
 @Component
 class OnFeedbackCreated(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val connectivity: HubConnectivityService,
 ) : EventHandler<CreateFeedback> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -57,11 +54,6 @@ class OnFeedbackCreated(
             return
         }
 
-        // Hub known unreachable: leave it PENDING and let the retry sweep push it once back up.
-        if (!connectivity.reachable()) {
-            return
-        }
-
         try {
             val assets = loadAssetContents(event.id)
             val syncResult = feedbackSyncPort.createTicket(feedback, assets)
@@ -74,11 +66,7 @@ class OnFeedbackCreated(
 
             log.info("Synced feedback {} to external ticket {}", feedback.id, syncResult.externalRef)
         } catch (e: Exception) {
-            if (e.isHubUnreachable()) {
-                log.warn("Sync deferred for feedback {} (hub unreachable): {}", feedback.id, e.message)
-            } else {
-                log.error("Failed to sync feedback {} to external issue tracker: {}", feedback.id, e.message, e)
-            }
+            log.error("Failed to sync feedback {} to external issue tracker: {}", feedback.id, e.message, e)
         }
     }
 

@@ -16,9 +16,6 @@ class SupportOverviewRoutes(
 ) {
     @Bean
     fun supportOverviewRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/support".nest {
-            GET("", handler::overview)
-            POST("/entitlements/refresh", handler::refreshEntitlements)
-        }
+        GET("/tenants/{tenantId}/support", handler::overview)
     }
 }

@@ -43,8 +43,8 @@ Sources vary in where they run, and the ledger deliberately does not care:
 ## Where it lives
 
 `modules/epistola-quality` — an OSS feature module depending on `epistola-core` +
-`epistola-web`, **not** the commercial support tier (the ledger and its in-process sources work
-with the tier off).
+`epistola-web`, **not** the commercial support modules (the ledger and its in-process sources work
+with the support connection off).
 
 Outside core deliberately. Core must never call quality — the intended shape is that the
 generation pipeline _emits_ and this module _subscribes_ — and having the dependency point this
@@ -558,16 +558,11 @@ human half too (a hand-raised finding, a comment, an ignore with a reason) — t
 source to produce it, and without it the demo would show only the machine side of a feature
 whose point is that both share one ledger.
 
-The feature key is `quality`, **not** `support-quality`, and is deliberately outside
-`SUPPORT_TIER`/`HUB_ONLY`: the ledger and its in-process sources work with the support tier
-off. A key in `SUPPORT_TIER` is gated on a hub entitlement, and the hub wire contract has no
-`QUALITY` feature to grant — so a quality key there would be _permanently unavailable_ on
-every installation running the tier. `KnownFeaturesTest` guards that; note
-`WireContractAlignmentTest` would not (it asserts three named keys rather than iterating
-`KnownFeatures.all`).
+The feature key is `quality`, **not** `support-quality`: the ledger and its in-process sources
+work with the support connection off, and no feature is gated on it.
 
-A future hub _transport_ for findings gets its own separate key rather than reclassifying
-this one — renaming a feature key is a migration.
+A future support-service _transport_ for findings gets its own separate key rather than
+reclassifying this one — renaming a feature key is a migration.
 
 ## Compatibility is not a quality source
 

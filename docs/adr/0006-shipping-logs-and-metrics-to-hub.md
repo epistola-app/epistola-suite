@@ -1,6 +1,9 @@
 # ADR 0006: Shipping logs and metrics to epistola-hub
 
-- **Status:** Accepted — Option A (unified OTLP)
+- **Status:** Superseded by [ADR 0050](0050-support-connection.md) (2026-11-05). Accepted — Option A
+  (unified OTLP) before that; ADR 0050 replaces its transport (OTLP over gRPC to the hub) and its
+  gating (the `ek_` key and the `support-telemetry` entitlement). Decision 1, per installation and
+  not per tenant, carries over.
 - **Date:** 2026-06-13
 - **Deciders:** Epistola team
 - **Tags:** logs, metrics, observability, hub, entitlement, otlp, architecture

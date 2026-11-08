@@ -25,26 +25,6 @@ class KnownFeaturesTest {
     }
 
     /**
-     * Quality is not a support-tier feature and must never become one by accident. A key in
-     * [KnownFeatures.SUPPORT_TIER] is gated on a hub entitlement, and the hub wire contract has no
-     * `QUALITY` feature to grant — so a quality key there would make the feature *permanently
-     * unavailable* on every installation running with the support tier on, silently, when in fact the
-     * ledger and its in-process sources work perfectly well without a hub.
-     *
-     * `WireContractAlignmentTest` does not catch this — it asserts three named keys rather than
-     * iterating [KnownFeatures.all]. This is the guard.
-     */
-    @Test
-    fun `quality is toggle-only and never hub-gated`() {
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.QUALITY)
-    }
-
-    @Test
-    fun `ai chat is toggle-only and never hub-gated`() {
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.AI_CHAT)
-    }
-
-    /**
      * Quality is alpha: the ledger's semantics are settled but its surfaces are not, and the
      * badge is how a tenant admin is told that on the Features page before switching it on.
      */
@@ -69,17 +49,6 @@ class KnownFeaturesTest {
         assertThat(FeatureDefaults(quality = true).isEnabled(KnownFeatures.QUALITY)).isTrue()
     }
 
-    /**
-     * The editor walkthrough is a client-side onboarding aid with no hub component, so — exactly like
-     * [KnownFeatures.QUALITY] — it must never become hub-gated. A key in [KnownFeatures.SUPPORT_TIER]
-     * has no matching wire-contract feature to grant and would be permanently unavailable with the
-     * support tier on.
-     */
-    @Test
-    fun `editor walkthrough is toggle-only and never hub-gated`() {
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.EDITOR_WALKTHROUGH)
-    }
-
     /** Editor walkthrough is alpha: wired but not yet a supported onboarding surface. */
     @Test
     fun `editor walkthrough is marked alpha`() {
@@ -100,19 +69,15 @@ class KnownFeaturesTest {
     }
 
     @Test
-    fun `resource relocation is toggle-only, stable and on by default`() {
+    fun `resource relocation is stable and on by default`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
         assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isTrue()
         assertThat(FeatureDefaults(resourceRelocation = false).isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isFalse()
     }
 
     @Test
-    fun `catalog installing is toggle-only alpha and defaults off`() {
+    fun `catalog installing is alpha and defaults off`() {
         assertThat(KnownFeatures.stageOf(KnownFeatures.CATALOG_INSTALLING)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
-        // The hub contract has no feature to grant for this, so a key in SUPPORT_TIER would be
-        // permanently unavailable on every support-enabled installation.
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.CATALOG_INSTALLING)
         assertThat(FeatureDefaults().isEnabled(KnownFeatures.CATALOG_INSTALLING)).isFalse()
         assertThat(FeatureDefaults(catalogInstalling = true).isEnabled(KnownFeatures.CATALOG_INSTALLING)).isTrue()
     }

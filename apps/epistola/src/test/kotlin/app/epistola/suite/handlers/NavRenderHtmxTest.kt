@@ -19,7 +19,7 @@ import org.springframework.http.HttpStatus
 
 /**
  * Verifies the module-contributed navigation renders into the app shell: the host's core groups
- * are always present, the Support group appears only when a support feature is toggled on, and the
+ * are always present, the Support group appears only when one of its items is visible, and the
  * active section is highlighted from the request path. Permission-based item visibility is covered
  * by the NavMenuAggregator unit test; here the default test user is a manager.
  */
@@ -108,7 +108,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `support group shows the enabled feature plus overview`() {
+    fun `support group shows the enabled feature, and no overview while the support connection is off`() {
         val tenant = createTenant("Nav Support On")
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
@@ -117,7 +117,8 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).contains("nav-dropdown-support")
-        assertThat(body).contains("/tenants/${tenant.id.value}/support") // Overview
+        // Overview is for tenant administrators while the connection is on (SupportPlatformPageHtmxTest).
+        assertThat(body).doesNotContain("href=\"/tenants/${tenant.id.value}/support\"")
         assertThat(body).contains("/tenants/${tenant.id.value}/feedback")
         // Backups and Upgrading were withdrawn: no items of theirs.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/backups")

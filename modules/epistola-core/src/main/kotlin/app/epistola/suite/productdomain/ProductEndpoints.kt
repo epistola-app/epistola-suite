@@ -15,24 +15,15 @@ data class ProductEndpoints(
     /** The installation check; `{id}` is replaced by the installation id. */
     val installationCheck: String,
     val exchange: ExchangeEndpoint,
-    val supportHub: HubAddress,
+    val support: SupportEndpoint,
 ) {
     data class ExchangeEndpoint(val issuer: String, val endpoint: String)
 
-    /** A gRPC target: always TLS when discovered. */
-    data class HubAddress(val host: String, val port: Int) {
-        override fun toString(): String = "$host:$port"
-
-        companion object {
-            /** Parses `host:port`; null when it is not one. */
-            fun parse(value: String): HubAddress? {
-                val host = value.substringBeforeLast(':', missingDelimiterValue = "")
-                val port = value.substringAfterLast(':').toIntOrNull()
-                if (host.isBlank() || port == null || port !in 1..65535 || '/' in host) return null
-                return HubAddress(host, port)
-            }
-        }
-    }
+    /**
+     * The support service (`docs/support-protocol.md`). Only its OAuth issuer: every other address
+     * comes from the issuer's own metadata, which the support connection checks against it.
+     */
+    data class SupportEndpoint(val issuer: URI)
 
     companion object {
         /**
@@ -44,7 +35,7 @@ data class ProductEndpoints(
             versionCheck = "${domain.siteUrl}/.well-known/epistola/releases.json",
             installationCheck = "${domain.siteUrl}/installation/{id}.json",
             exchange = "https://exchange.${domain.host}".let { ExchangeEndpoint(issuer = it, endpoint = it) },
-            supportHub = HubAddress("hub.${domain.host}", 443),
+            support = SupportEndpoint(URI("https://support.${domain.host}")),
         )
     }
 }
@@ -58,7 +49,8 @@ data class DiscoveredEndpoints(
     val installationCheck: String? = null,
     val exchangeIssuer: String? = null,
     val exchangeEndpoint: String? = null,
-    val supportHub: String? = null,
+    /** The support service's OAuth issuer (`support.issuer`). */
+    val supportIssuer: String? = null,
     /**
      * How long this copy stays valid, as the document says, clamped to [MIN_REFRESH]..[MAX_REFRESH];
      * null when it does not say, and the Suite's own default applies.
@@ -76,7 +68,7 @@ data class DiscoveredEndpoints(
         } else {
             fallback.exchange
         },
-        supportHub = supportHub?.let { ProductEndpoints.HubAddress.parse(it) } ?: fallback.supportHub,
+        support = supportIssuer?.let { ProductEndpoints.SupportEndpoint(URI(it)) } ?: fallback.support,
     )
 
     companion object {
@@ -114,15 +106,6 @@ data class DiscoveredEndpoints(
                 return value.takeIf { reason == null }?.trimEnd('/')
             }
 
-            val hub = root.path("supportHub").path("endpoint").takeIf { it.isString }?.stringValue()?.let { value ->
-                val address = ProductEndpoints.HubAddress.parse(value)
-                if (address != null && onDomain("https://${address.host}", domain)) {
-                    value
-                } else {
-                    rejected += "supportHub.endpoint: not a host:port on ${domain.host}"
-                    null
-                }
-            }
             val refreshAfter = root.path("refreshAfter").takeUnless { it.isMissingNode || it.isNull }?.let { node ->
                 val parsed = node.takeIf { it.isString }?.stringValue()?.let { runCatching { Duration.parse(it) }.getOrNull() }
                 when {
@@ -136,7 +119,7 @@ data class DiscoveredEndpoints(
                 installationCheck = url("installationCheck", "endpoint", needsId = true),
                 exchangeIssuer = url("exchange", "issuer"),
                 exchangeEndpoint = url("exchange", "endpoint"),
-                supportHub = hub,
+                supportIssuer = url("support", "issuer"),
                 refreshAfter = refreshAfter,
                 rejected = rejected,
             )

@@ -376,8 +376,8 @@ when the directory exists in the pod, so add it through `volumes` and `volumeMou
 
 Some environments route the suite's **outbound HTTPS** through endpoints signed
 by a private/internal CA — an internal Keycloak, a private template catalog
-server, the epistola-hub, or a corporate TLS-inspecting egress proxy. The suite's
-outbound clients (catalog fetch, Keycloak Admin API, hub registration) use the
+server, the Epistola support service, or a corporate TLS-inspecting egress proxy. The suite's
+outbound clients (catalog fetch, Keycloak Admin API, support registration) use the
 JVM's default truststore, so the pod must be told to trust that CA.
 
 `extraCaCerts` does this without rebuilding the image and without weakening the

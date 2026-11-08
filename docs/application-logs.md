@@ -4,7 +4,7 @@ Epistola persists its **application log output** (Logback events) into a bounded
 queryable database table so operators can see what an instance is doing without
 shell access to the container or an external log stack. Logs are retained for a
 short window (default one week), viewable per tenant in the UI, and the schema is
-shaped so they can later be forwarded to **epistola-hub** for fleet aggregation.
+shaped so they can be forwarded to Epistola support for fleet aggregation.
 
 > This is distinct from the **`event_log`** table (`EventLogSubscriber`), which
 > is a command-completion **audit trail** (domain events), not logger output.
@@ -212,17 +212,7 @@ you browse:
 - **REST API** — deferred. No `/api/.../logs` endpoint yet.
 - **MCP** — deferred. A read-only "recent logs" tool for AI-assisted ops is
   plausible later.
-- **Hub forwarding (OTLP-over-gRPC)** — implemented as a dedicated OTLP leg, **not** the
-  table-draining `LogSyncPort` once sketched here. Per
-  [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md), logs ride the standard
-  OpenTelemetry path: `modules/epistola-support-telemetry` attaches a second Logback
-  appender (`TelemetryLogAppender`) that forwards events to the hub's OTLP collector
-  service over gRPC (`OtlpGrpcLogRecordExporter`), in parallel with this table (the table
-  stays the local source of truth for the in-app viewer). It is **on by default with the
-  support tier** (`epistola.support.enabled=true`), but the installation-wide
-  `support-telemetry` entitlement is the real gate — nothing ships unless the installation
-  is entitled (opt out locally with `epistola.support.telemetry.enabled=false`); a
-  tenant-scoped DENY excludes that tenant's logs. The endpoint is the hub's own gRPC endpoint (resolved by the support
-  module — no separate port or proxy), authenticated with the installation's
-  `x-ep-api-key`. Forwarding is fail-open (the OTLP batch processor drops on overflow),
-  matching this pipeline's own posture.
+- **Forwarding to Epistola support** — the gRPC hub leg was removed with the hub
+  ([ADR 0050](adr/0050-support-connection.md)); forwarding over the support connection's
+  `telemetry` scope lands separately. This table stays the local source of truth for the in-app
+  viewer either way.

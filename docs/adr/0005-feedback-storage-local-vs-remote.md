@@ -1,6 +1,8 @@
 # ADR 0005: Feedback storage — local copy + sync vs. remote-only
 
 - **Status:** Accepted — Option A (local store + sync), implemented in `modules/epistola-support-feedback`
+- **Addendum (2026-11-05):** [The sync target is the support service](#addendum-2026-11-05-the-sync-target-is-the-support-service)
+  (ADR 0050); the local-store decision stands.
 - **Date:** 2026-06-06
 - **Deciders:** Epistola team
 - **Tags:** feedback, architecture, hub, data-residency, availability
@@ -186,3 +188,20 @@ proves acceptable.
   produced, which is what the inbound direction consumes.
 - epistola-hub#6 (performance & scale) — Option B would make hub read latency/availability a
   user-facing SLO for the suite, materially raising the scale bar.
+
+## Addendum (2026-11-05): the sync target is the support service
+
+[ADR 0050](0050-support-connection.md) replaces epistola-hub with the Epistola support service. For
+feedback this changes where the sync goes, not this decision:
+
+- **Kept:** PostgreSQL is the source of truth, the sync runs through `FeedbackSyncPort` with a no-op
+  adapter when the support tier is off, and the contract stays a sync contract (idempotent submit,
+  fetch updates since a sequence number), as Option A's consequences required.
+- **Changed:** the adapter speaks REST to the support service ([`docs/support-protocol.md`](../support-protocol.md),
+  "Feedback") with a bearer token carrying the `feedback` scope, instead of gRPC with the hub's API
+  key. Writes are keyed by the suite's own ids, so a retried submit, comment or attachment never
+  duplicates.
+- **Added:** feedback is connected per installation but sent per tenant, and only for a tenant whose
+  administrator opted in with recorded consent. The `support-feedback` toggle still decides whether
+  users see the feedback button; it is not consent.
+- epistola-hub#2 and epistola-hub#6 above refer to the retired hub.

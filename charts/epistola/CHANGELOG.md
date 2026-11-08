@@ -4,6 +4,18 @@
 
 ### Changed
 
+- **Breaking: `support.hub.*` and `support.telemetry` are removed; the support connection takes
+  `support.endpoint`.** From Epistola 2.0 the installation connects to the Epistola support service
+  over HTTPS with OAuth client credentials instead of the gRPC hub. `support.endpoint` is the
+  service's URL and renders `EPISTOLA_SUPPORT_ENDPOINT`; leave it empty to find the service through
+  `productDomain`. `EPISTOLA_SUPPORT_HUB_ENDPOINT` and `EPISTOLA_SUPPORT_TELEMETRY_ENABLED` are no
+  longer rendered, and the schema refuses `support.hub`, so a values file that still sets it fails
+  instead of being ignored: delete `support.hub.endpoint`, and set `support.endpoint` only if you
+  used a self-hosted hub. The schema accepts only an `https:` URL there, since plaintext is a
+  local-development setting the chart does not expose. After upgrading, an installation with
+  `support.enabled` registers again and shows a claim code under Platform → Epistola support to send
+  to Epistola support (docs/support-protocol.md).
+
 - **`appVersion` is pinned in the chart, `1.5.0`.** Publishing a chart used to set it to the newest
   app release, so a chart patch could move an installation to a new app major. It is now chosen when
   the chart is released and publishing checks that it names a released app version; the chart that
@@ -16,6 +28,23 @@
   the application port. A scrape configured explicitly for port `4000` must move to `4040`.
 
 ### Added
+
+- **`support.autoRegister` — let the installation register with Epistola support on its own.** From
+  Epistola 2.0, an installation with `support.enabled` registers only when an installation
+  administrator presses Register under Platform → Epistola support, so nothing leaves it before
+  that. `support.autoRegister: true` (rendered as `EPISTOLA_SUPPORT_AUTO_REGISTER`) lets the check
+  register on its own, and register again at once when a claim code expires before Epistola linked
+  the installation (the support service removes such a registration after seven days). Default
+  `false`.
+
+- **`support.services` — which support services the installation uses.** From Epistola 2.0 an
+  installation uses a support service only when it is selected **and** Epistola granted it. The list
+  (any of `telemetry`, `requests`, `mirror`, `usage`; rendered as `EPISTOLA_SUPPORT_SERVICES`) is the
+  initial selection; once an installation administrator saves one under Platform → Epistola support,
+  that selection wins and this value is ignored. Default `[]`: nothing is used until someone selects
+  it. The schema lists the known names but also accepts a name it does not know, so a values file
+  that still names a service Epistola retired never breaks `helm upgrade`; the suite logs such a name
+  and ignores it.
 
 - **`migration.rollbackGuard.enabled` — the off switch for the rollback guard.** From Epistola 2.0
   every app pod and migration step refuses to start on a database a newer release migrated past a

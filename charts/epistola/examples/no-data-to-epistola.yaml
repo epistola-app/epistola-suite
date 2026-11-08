@@ -8,7 +8,7 @@
 # data. Release and security-advisory notices are off too; follow releases another way, for example
 # the GitHub releases of epistola-app/epistola-suite.
 #
-# The support hub (support.enabled) and Exchange (exchange.enabled) are separate integrations and are
+# The support service connection (support.enabled) and Exchange (exchange.enabled) are separate integrations and are
 # off by default; keep them off as well. See docs/outbound-traffic.md for every outbound call.
 sharing:
   installationId: false

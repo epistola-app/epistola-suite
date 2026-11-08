@@ -1,6 +1,8 @@
 # ADR 0030: One product domain, one discovery document
 
 - **Status:** Accepted — implemented
+- **Addendum (2026-11-05):** [A `support` entry replaces `supportHub` for 2.x](#addendum-2026-11-05-a-support-entry-replaces-supporthub-for-2x)
+  (ADR 0050).
 - **Date:** 2026-10-12
 - **Deciders:** Epistola team
 - **Tags:** configuration, outbound-traffic, discovery, version-check, exchange, support
@@ -165,3 +167,29 @@ than being ignored.
   `hub.{product-domain}:443`, as unreachable as the old `hub.json` was.
 - The test profiles set `epistola.product-domain: epistola.invalid`, a name that never resolves, so
   no test can reach epistola.app by forgetting to stub discovery.
+
+## Addendum (2026-11-05): a `support` entry replaces `supportHub` for 2.x
+
+[ADR 0050](0050-support-connection.md) replaces the gRPC support hub with an OAuth-based support
+service. Discovery changes with it; the rest of this ADR stands.
+
+- **A new optional field**, `support`, names the service's OAuth issuer:
+
+  ```json
+  "support": { "issuer": "https://support.epistola.app" }
+  ```
+
+  The suite reads the service's endpoints from the issuer's own metadata (RFC 8414), so the discovery
+  document carries only the issuer. Being optional, it keeps `schemaVersion: 1`.
+
+- **`supportHub` stays served** for released 1.x suites, which still read it. 2.x suites ignore it.
+- **The built-in default** becomes `https://support.{product-domain}`, replacing
+  `hub.{product-domain}:443`.
+- **The same checks** apply as to every discovered endpoint: `https:`, on the product domain or a
+  subdomain. ADR 0050 adds its own: the metadata's issuer must equal the URL asked, and every endpoint
+  in it must be on the issuer's origin.
+- **Settings.** In the table above, `epistola.support.hub.endpoint` (`host:port`) becomes
+  `epistola.support.endpoint`, the issuer URL (Helm `support.endpoint`), with
+  `epistola.support.allow-http` for a plain-`http` service in local development, as Exchange has.
+  `support.hub.plaintext` and `support.hub.node-id` go. Old names still set fail startup naming their
+  replacement, as the renames here do. This is a 2.0-line change, before GA.

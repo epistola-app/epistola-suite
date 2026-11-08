@@ -39,6 +39,8 @@ class ClusterNodeRegistry(
      */
     @Value("\${epistola.generation.pdf-render.enabled:true}")
     private val pdfRenderEnabled: Boolean = true,
+    /** Capabilities modules add while this node can do their work ([ClusterCapabilityContributor]). */
+    private val capabilityContributors: List<ClusterCapabilityContributor> = emptyList(),
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val capabilitiesType = objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java)
@@ -46,7 +48,7 @@ class ClusterNodeRegistry(
 
     fun heartbeat(): ClusterNode {
         val now = EpistolaClock.offsetDateTime()
-        val capabilities = properties.normalizedCapabilities(pdfRenderEnabled)
+        val capabilities = advertisedCapabilities()
         val capabilitiesJson = objectMapper.writeValueAsString(capabilities)
         val metadataJson = objectMapper.writeValueAsString(emptyMap<String, Any?>())
         val version = buildProperties?.version
@@ -78,6 +80,18 @@ class ClusterNodeRegistry(
 
         log.debug("Cluster node heartbeat recorded: nodeId={} capabilities={}", node.nodeId, node.capabilities)
         return node
+    }
+
+    /** The configured capabilities, plus what each [ClusterCapabilityContributor] adds now. */
+    private fun advertisedCapabilities(): List<String> {
+        val configured = properties.normalizedCapabilities(pdfRenderEnabled)
+        if (capabilityContributors.isEmpty()) return configured
+        val added = capabilityContributors.flatMap { contributor ->
+            runCatching { contributor.capabilities(configured) }
+                .onFailure { log.warn("Cluster capability contributor {} failed; it adds nothing this heartbeat: {}", contributor.javaClass.simpleName, it.message) }
+                .getOrDefault(emptySet())
+        }
+        return (configured + added.map(String::trim).filter(String::isNotEmpty)).distinct()
     }
 
     /**

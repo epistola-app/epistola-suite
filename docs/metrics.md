@@ -11,9 +11,8 @@ your own OpenTelemetry pipeline.
 > document-generation business meters, for the operator's own attribution.
 > Exports: scrape `/actuator/prometheus`, or attach an OpenTelemetry Java agent
 > (bring-your-own — the app's own OTLP export stays off so the agent owns that
-> leg with no double export). Forwarding to **epistola-hub** is a separate
-> commercial-tier leg configured at runtime by the support module — see
-> [Hub leg](#hub-leg).
+> leg with no double export). Forwarding to Epistola support is a separate
+> leg — see [Support leg](#support-leg).
 
 ## Identity tags (on every meter)
 
@@ -357,28 +356,8 @@ This matters because `GrafanaAlertRuleGroup.spec.folderRef`/`folderUID` are
 the folder anchor never needs to change, so upgrades never hit the immutability
 wall (and the display `title` can still be renamed freely).
 
-## Hub leg
+## Support leg
 
-Forwarding metrics to **epistola-hub** (the commercial support tier) is a
-dedicated, isolated OTLP push leg the suite owns end-to-end — distinct from the
-bring-your-own agent / `management.otlp.metrics.export` self-export leg above, so the
-two never double-export. It lives in `modules/epistola-support-telemetry`:
-a second Micrometer `OtlpMeterRegistry` is registered as a Spring bean
-(`TelemetryMetricsConfiguration`) so Boot composes it and fans every meter to it, with a
-custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload to the hub
-**over gRPC** — the same `MetricsService/Export` call the hub serves, on the same gRPC
-endpoint the suite already resolves for the hub (no separate port or proxy). The sender
-gates per-publish (registered + entitled). Logs are wired separately by `TelemetryLeg` (a
-Logback appender).
-Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally and
-**on by default with the support tier** (`epistola.support.enabled=true`); the
-installation-wide `support-telemetry` entitlement is the real gate, so nothing ships unless
-the installation is entitled (the capability is installation-wide; there is no per-tenant
-metrics toggle). Opt out locally with `epistola.support.telemetry.enabled=false`. The endpoint is the hub's own
-gRPC endpoint, derived programmatically by the support module — there is nothing to
-configure. The per-tenant `tenant` tag is **stripped before forwarding** by default
-(`strip-tenant-tag-from-metrics`), keeping the hub feed data-residency-friendly; the
-local Prometheus / self-export leg keeps it. The hub authenticates the OTLP gRPC stream
-with the installation's `x-ep-api-key` (the same credential as its other gRPC services)
-and requires an installation-wide `support-telemetry` entitlement (else `PERMISSION_DENIED`);
-real ingestion is still to come (the hub discards the payload for now).
+Forwarding metrics to Epistola support is not part of this release: the gRPC hub leg was removed
+with the hub ([ADR 0050](adr/0050-support-connection.md)), and its replacement over the support
+connection's `telemetry` scope ([Epistola support](support.md)) lands separately.

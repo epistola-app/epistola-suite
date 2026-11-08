@@ -7,8 +7,15 @@ alone never exposes a usable secret. This covers:
   a remote catalog).
 - **Code-list credentials** — `resource_credentials.credential` (auth used to fetch a
   remote code list).
-- **Hub credentials** — the support tier's `app_metadata` entry
-  (`support.hub.credentials`).
+- **Support connection** — the installation's registration with the Epistola
+  support service, private key included: `support_connections.credentials`
+  ([support protocol](support-protocol.md)). Losing the key set without
+  re-encrypting it loses the registration: the installation then registers again
+  and needs a new claim. Installations upgraded from the gRPC hub may still hold
+  `support.hub.credentials` and `support.entitlements` in `app_metadata`; nothing
+  reads them any more, and they are left in place rather than deleted, since
+  migrations never delete data. Key rotation covers an `app_metadata` key only when
+  it is named in `metadataKeys`, so the old hub key does not hold a rotation back.
 - **Exchange credentials** — the tenant's OAuth application secret, its
   access/refresh tokens, and the pending PKCE verifier used for catalog
   publication.
@@ -137,8 +144,8 @@ kubectl create secret generic epistola-encryption \
 3. **Backfill**: run the `ReencryptCredentials` command (a `SystemInternal`
    maintenance operation) to rewrite every stored credential under the new
    primary. It is idempotent — values already on the primary are skipped — and
-   it also upgrades any legacy plaintext. Pass the hub-credentials metadata key
-   (`support.hub.credentials`) in `metadataKeys` to include it.
+   it also upgrades any legacy plaintext. Pass any encrypted `app_metadata` key
+   in `metadataKeys` to include it.
 4. **Verify**: run the `VerifyNoStaleKeyIds` query and confirm
    `allOnPrimary == true` (no value still references an old key id, and no
    plaintext remains).

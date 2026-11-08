@@ -12,7 +12,7 @@ import java.net.InetAddress
  * Stable per-process node identifier, available app-wide regardless of whether
  * the commercial support tier is enabled. This is the single source of truth
  * for "which instance am I" — it tags metrics ([instance] common tag), feeds
- * the `/ping` server info, and is reported to epistola-hub.
+ * the `/ping` server info, and is sent when registering with the support service.
  *
  * Resolution order (first non-blank wins):
  *  1. `epistola.node-id` property (relaxed binding also picks up the

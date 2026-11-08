@@ -30,7 +30,7 @@ expect "${defaults}" EPISTOLA_SHARING_USAGESTATISTICS true
 expect "${defaults}" EPISTOLA_VERSIONCHECK_ENABLED true
 expect "${defaults}" EPISTOLA_PRODUCTDOMAIN epistola.app
 # Endpoints are found through the product domain unless set, so none is rendered by default.
-for name in EPISTOLA_VERSIONCHECK_ENDPOINT EPISTOLA_INSTALLATIONCHECK_ENDPOINT EPISTOLA_EXCHANGE_ENDPOINT EPISTOLA_SUPPORT_HUB_ENDPOINT; do
+for name in EPISTOLA_VERSIONCHECK_ENDPOINT EPISTOLA_INSTALLATIONCHECK_ENDPOINT EPISTOLA_EXCHANGE_ENDPOINT EPISTOLA_SUPPORT_ENDPOINT; do
   if grep -q -- "- name: ${name}$" <<<"${defaults}"; then
     echo "Expected ${name} not to be rendered by default" >&2
     exit 1
@@ -48,14 +48,34 @@ mirror="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=fal
   --set versionCheck.endpoint=https://mirror.example/releases.json \
   --set 'installationCheck.endpoint=https://mirror.example/installation/{id}.json' \
   --set exchange.endpoint=https://exchange.internal \
-  --set support.enabled=true --set support.hub.endpoint=hub.internal:443 \
+  --set support.enabled=true --set support.endpoint=https://support.internal \
   --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
   --set support.installation.environment=test)"
 expect "${mirror}" EPISTOLA_PRODUCTDOMAIN staging.epistola.app
 expect "${mirror}" EPISTOLA_VERSIONCHECK_ENDPOINT "https://mirror.example/releases.json"
 expect "${mirror}" EPISTOLA_INSTALLATIONCHECK_ENDPOINT "https://mirror.example/installation/{id}.json"
 expect "${mirror}" EPISTOLA_EXCHANGE_ENDPOINT "https://exchange.internal"
-expect "${mirror}" EPISTOLA_SUPPORT_HUB_ENDPOINT "hub.internal:443"
+expect "${mirror}" EPISTOLA_SUPPORT_ENDPOINT "https://support.internal"
+# The installation registers only when an administrator presses Register, unless auto-register is set.
+expect "${mirror}" EPISTOLA_SUPPORT_AUTO_REGISTER false
+autoregister="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set support.enabled=true --set support.autoRegister=true \
+  --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
+  --set support.installation.environment=test)"
+expect "${autoregister}" EPISTOLA_SUPPORT_AUTO_REGISTER true
+# No service is selected by default: none is rendered, and the application's default (none) applies.
+if grep -q -- "- name: EPISTOLA_SUPPORT_SERVICES$" <<<"${mirror}"; then
+  echo "Expected EPISTOLA_SUPPORT_SERVICES not to be rendered by default" >&2
+  exit 1
+fi
+# support.services renders as a comma-separated list. A name this chart does not know (a service
+# Epistola retired, or one a newer suite offers) is accepted, so a values file that still names it
+# never breaks an upgrade; the suite logs it and ignores it.
+services="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set support.enabled=true --set 'support.services={feedback,mirror,translation}' \
+  --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
+  --set support.installation.environment=test)"
+expect "${services}" EPISTOLA_SUPPORT_SERVICES "feedback,mirror,translation"
 
 reject() {
   local why="$1"
@@ -70,11 +90,17 @@ reject "a non-boolean sharing.installationId" --set sharing.installationId=maybe
 reject "an installation check endpoint without {id}" --set installationCheck.endpoint=https://mirror.example/installation.json
 reject "a relative release metadata endpoint" --set versionCheck.endpoint=mirror.example/releases.json
 reject "a product domain given as a URL" --set productDomain=https://epistola.app
-reject "a hub endpoint that is not host:port" --set support.hub.endpoint=https://hub.example
+reject "a support endpoint that is not a URL" --set support.endpoint=support.example:443
+# Plaintext needs epistola.support.allow-http, a local-development setting the chart does not expose.
+reject "a plaintext support endpoint" --set support.endpoint=http://support.internal
+reject "a non-boolean support.autoRegister" --set support.autoRegister=maybe
+reject "support.services given as one string" --set support.services=feedback
+reject "a malformed support service name" --set 'support.services={Feedback Service}'
 # Keys ADR 0030 replaced fail loudly instead of being ignored.
 reject "the old versionCheck.wellKnownUrl key" --set versionCheck.wellKnownUrl=https://mirror.example/releases.json
 reject "the old installationCheck.url key" --set 'installationCheck.url=https://mirror.example/installation/{id}.json'
 reject "the old exchange.discoveryUrl key" --set exchange.discoveryUrl=https://epistola.app/.well-known/epistola/exchange.json
 reject "the old support.hub.discoveryUrl key" --set support.hub.discoveryUrl=https://epistola.app/.well-known/epistola/hub.json
+reject "the old support.hub.endpoint key" --set support.hub.endpoint=hub.internal:443
 
 echo "sharing render: ok"

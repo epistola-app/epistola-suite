@@ -133,29 +133,27 @@ epistola:
     dev-server:
       auto-start: true
 
-  # Identity reported to epistola-hub when support is enabled. Sensible
-  # defaults so a developer can just flip `epistola.support.enabled=true`
-  # on the command line without re-typing every required field.
+  # Identity sent to the support service when the support connection is on, so
+  # a developer can just flip `epistola.support.enabled=true` on the command line.
   installation:
     company-name: Local Dev
     admin-email: dev@local
     environment: local
 
-  # Support tier is OFF by default for local dev. It is the commercial tier and
-  # needs a running epistola-hub; without one the suite still works, but
-  # registration retries in the background and every attempt logs a gRPC
-  # UNAVAILABLE stack trace. That is noise in every local session, for a tier most
-  # local work never touches.
+  # The support connection is OFF by default for local dev: it needs a running
+  # support service, and without one every check logs a failure.
   #
-  # Turn it on when working on Feedback, telemetry or the Support → Overview page:
-  # start epistola-hub, then run with `--epistola.support.enabled=true`. The
-  # settings below already point at the local hub gRPC port (9090, plaintext) and
-  # skip product discovery, so that one flag is all it takes.
+  # To work on it (Platform → Epistola support): start the sibling service with
+  #   ./gradlew bootRun --args='--spring.profiles.active=local'
+  # in ../epistola-support, then run the suite with `--epistola.support.enabled=true`.
+  # The settings below already point at it (plaintext, port 8095) and skip product
+  # discovery, so that one flag is all it takes. Then press Register under
+  # Platform → Epistola support (or add `--epistola.support.auto-register=true`).
   support:
     enabled: false
-    hub:
-      endpoint: localhost:9090
-      plaintext: true
+    endpoint: http://localhost:8095
+    # The local support service is plaintext; every other profile refuses http://.
+    allow-http: true
 
 # ---------------------------------------------------------------------------
 # Keycloak OAuth2/OIDC for local development (opt-in).
