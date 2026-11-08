@@ -113,7 +113,7 @@ spring:
 
 epistola:
   # Where Epistola-operated services are found (ADR 0030, docs/outbound-traffic.md): a host name,
-  # never a URL. The version check, the installation check, Exchange and the support hub read their
+  # never a URL. The version check, the installation check, Exchange and the support service read their
   # endpoints from https://{product-domain}/.well-known/epistola.json unless their own `endpoint`
   # names one; without that document they fall back to their built-in addresses on this domain.
   product-domain: epistola.app
@@ -141,8 +141,8 @@ epistola:
   storage:
     backend: postgres
   encryption:
-    # Encryption-at-rest for stored credentials (catalog/code-list auth, hub
-    # credentials). AES-256-GCM with a self-describing, key-id-tagged envelope.
+    # Encryption-at-rest for stored credentials (catalog/code-list auth, the support
+    # registration key). AES-256-GCM with a self-describing, key-id-tagged envelope.
     # See docs/encryption.md.
     enabled: true
     # The keyset. Each key id is opaque and embedded in every ciphertext it
@@ -386,46 +386,44 @@ epistola:
     connect-timeout: 3s
     read-timeout: 5s
 
-  # Feedback sync scheduling. Feedback syncs to epistola-hub when the support
-  # tier is enabled (epistola.support.enabled=true); otherwise these schedulers
-  # run but do nothing (no-op sync target). Sync is installation-wide.
+  # Feedback sync scheduling. Feedback stays in this installation; with nothing to send it to, these
+  # schedulers run but do nothing (no-op sync target). Sync is installation-wide.
   feedback:
     sync:
       enabled: true # Enable the outbound retry scheduler
       retry-interval-ms: 60000 # Retry interval for failed pushes
       polling:
-        enabled: false # Enable inbound polling (status/comment changes from the hub)
+        enabled: false # Enable inbound polling (status/comment changes)
         interval-ms: 300000 # Poll interval (default 5 min)
 
-  # Optional commercial support tier (epistola-hub integration).
-  # OSS default: disabled. Enable to register the installation with the hub
-  # for feedback sync, monitoring, quality checks, and version-compatibility
-  # services. See modules/epistola-support.
+  # The connection to the Epistola support service (docs/support-protocol.md). Off by default:
+  # nothing is registered and nothing is sent. When on, an installation administrator registers it
+  # under Platform → Epistola support, which shows a claim code to send to Epistola, and it uses the
+  # services Epistola grants once linked.
   support:
     enabled: false
-    hub:
-      # The hub's gRPC endpoint as host:port, for a self-hosted or local hub. Blank: found
-      # through the product domain.
-      endpoint: ""
-      # Override the per-pod node id. Blank → auto-detect from
-      # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
-      node-id: ""
-    # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
-    # hub-operated collector. **On by default when the support tier is enabled** — like every support
-    # feature, the hub's entitlement is the real gate: nothing ships unless the installation holds an
-    # installation-wide `support-telemetry` entitlement. Set `enabled: false` to opt out locally.
-    # Separate from any bring-your-own OpenTelemetry agent / management.otlp.* self-export leg (no
-    # double export). OTLP-over-gRPC; the endpoint is resolved by the support module from the hub's
-    # gRPC endpoint (same port — no separate port or proxy). See ADR 0006.
-    telemetry:
-      enabled: true
-      logs: true
-      metrics: true
-      log-level: INFO # Minimum level forwarded
-      strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
+    # Let the check register on its own, and register again at once when a claim code expires before
+    # Epistola linked it (after seven days). Off: nothing is sent until an administrator presses Register.
+    auto-register: false
+    # The support services this installation uses (telemetry, requests, mirror, usage) until an
+    # installation administrator saves a selection under Platform → Epistola support; from then on that
+    # selection wins. A service is used only when selected AND granted by Epistola. Empty: none. A name
+    # this version does not know is logged and ignored.
+    services: []
+    # The support service's https URL (its OAuth issuer). Blank: found through the product domain,
+    # https://support.{product-domain} when discovery names none.
+    endpoint: ""
+    # Permit a plaintext http:// support service. Local development only.
+    allow-http: false
+    # How often one node refreshes the connection status (and registers, with auto-register).
+    check-interval: 5m
+    connect-timeout: 5s
+    # Deadline for one whole call to the support service, request and answer (a request body adds a
+    # second per 512 KiB). No call runs on a request or scheduler thread (docs/support-protocol.md, "Reliability").
+    read-timeout: 30s
 
-  # Installation identity. Required when epistola.support.enabled=true;
-  # ignored otherwise. Override per environment via
+  # Installation identity, sent when the installation registers with the support service so
+  # Epistola staff recognise it; blank fields are left out. Override per environment via
   # EPISTOLA_INSTALLATION_COMPANYNAME etc.
   installation:
     company-name: ""

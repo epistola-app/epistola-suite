@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+    <div class="regular">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Epistola support',
+            pageDescription='The connection between this installation and the Epistola support service: whether Epistola has activated it for your organisation, and which services it may use.'
+        )}"></div>
+
+        <p>
+            <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="support-back">&larr; Back to tenants</a>
+        </p>
+
+        <th:block th:replace="~{support/platform :: connection}"></th:block>
+    </div>
+    </th:block>
+
+
+    <!--/*
+      Everything about the connection, swapped in place by its actions: the connection, the services,
+      and disconnecting, last.
+    */-->
+    <div th:fragment="connection" id="support-connection" data-testid="support-connection"
+         th:with="o=${overview}, s=${overview.state}, kind=${overview.state.class.simpleName}">
+        <!--/* While a check or registration runs in the background, the panel refreshes itself until it is done. */-->
+        <div th:if="${checking}" th:attr="hx-get=@{/platform/support/connection}" hx-trigger="every 2s" hx-target="#support-connection" hx-swap="outerHTML"
+             data-testid="support-checking"></div>
+
+        <section class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Connection</h2>
+                <span data-testid="support-state">
+                <span th:if="${kind == 'Disabled'}" th:remove="tag"><span class="badge badge-muted">Off</span></span>
+                <span th:if="${kind == 'Unregistered'}" th:remove="tag"><span class="badge badge-warning">Not registered</span></span>
+                <span th:if="${kind == 'Expired'}" th:remove="tag"><span class="badge badge-warning">Claim code expired</span></span>
+                <span th:if="${kind == 'Pending'}" th:remove="tag"><span class="badge badge-info">Waiting for activation</span></span>
+                <span th:if="${kind == 'Active'}" th:remove="tag"><span class="badge badge-success">Connected</span></span>
+                <span th:if="${kind == 'Refused'}" th:remove="tag"><span class="badge badge-error">Refused</span></span>
+                <span th:if="${kind == 'Declined'}" th:remove="tag"><span class="badge badge-muted">Declined</span></span>
+                <span th:if="${kind == 'Disconnected'}" th:remove="tag"><span class="badge badge-muted">Disconnected</span></span>
+                </span>
+            </div>
+            <div class="detail-section-body ep-stack">
+                <div class="alert alert-info" th:if="${notice != null}" role="status" data-testid="support-notice" th:text="${notice}">Checked just now.</div>
+                <th:block th:if="${kind == 'Disabled'}">
+                    <p>
+                        This installation does not connect to Epistola support: nothing is registered and nothing is sent.
+                        To connect it, set <code>epistola.support.enabled=true</code> (Helm: <code>support.enabled</code>) and restart.
+                        Then register it here, and send the claim code it shows to Epistola support.
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Unregistered'}">
+                    <p th:if="${o.autoRegister}">
+                        This installation has not registered with the support service yet. It tries at every check;
+                        the last error below says what stopped it.
+                    </p>
+                    <p th:unless="${o.autoRegister}" data-testid="support-register-explained">
+                        Nothing goes to Epistola support until you register. Registering applies for support: it sends
+                        this installation's name, company, environment, the e-mail address below, its installation id and
+                        a public key to the support service. Epistola then contacts you at that address to activate it.
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Expired'}">
+                    <p data-testid="support-expired">
+                        <th:block th:if="${s.claimCodeExpiresAt != null}">The claim code expired on
+                            <span th:text="${#temporals.format(s.claimCodeExpiresAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-12 14:02 UTC</span>
+                            before Epistola activated this installation, so the support service removed the registration.</th:block>
+                        <th:block th:if="${s.claimCodeExpiresAt == null}">The support service removed the registration before Epistola activated this installation.</th:block>
+                        Register to apply again.
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Pending'}">
+                    <div class="alert alert-info" th:if="${s.replacedExpiredAt != null}" role="status" data-testid="support-replaced-expired">
+                        The previous registration expired before Epistola activated this installation, so it registered again on
+                        <span th:text="${#temporals.format(s.replacedExpiredAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-12 14:05 UTC</span>.
+                    </div>
+                    <p data-testid="support-waiting">
+                        Waiting for Epistola.
+                        <th:block th:if="${!o.contact.adminEmail.isEmpty()}">Epistola will contact you at
+                            <strong th:text="${o.contact.adminEmail}">beheer@gemeente.example</strong> to activate this installation.</th:block>
+                        <th:block th:if="${o.contact.adminEmail.isEmpty()}">This installation gave no e-mail address
+                            (<code>epistola.installation.admin-email</code>), so contact Epistola support yourself.</th:block>
+                        Until then it uses no support service.
+                    </p>
+                    <p class="text-sm text-muted">
+                        Reference: <code th:text="${s.claimCode}" data-testid="support-claim-code">ABCD-EFGH</code>.
+                        Mention it if you contact Epistola support first.
+                        <th:block th:if="${s.claimCodeExpiresAt != null and !o.claimCodeExpired}"><span data-testid="support-claim-code-expires">If Epistola has not activated
+                            this installation by <span th:text="${#temporals.format(s.claimCodeExpiresAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-12 14:02 UTC</span>,
+                            the registration lapses and you can apply again.</span></th:block>
+                        <span th:if="${o.claimCodeExpired}" data-testid="support-claim-code-expired">The registration lapsed on
+                            <span th:text="${#temporals.format(s.claimCodeExpiresAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-12 14:02 UTC</span>;
+                            the next check finds out whether Epistola activated it in time.</span>
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Active'}">
+                    <p>Epistola activated this installation. The services below are in use as far as you selected them and Epistola granted them.</p>
+                    <div class="alert alert-warning" th:if="${o.pause != null}" role="status" data-testid="support-paused">
+                        <strong>Paused by Epistola:</strong>
+                        <span th:text="${o.pausedServices}">Support requests</span>,
+                        <th:block th:if="${o.pause.until != null}">until <span th:text="${#temporals.format(o.pause.until, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-20</span>.</th:block>
+                        <th:block th:if="${o.pause.until == null}">until Epistola resumes it.</th:block>
+                        Epistola says: “<span th:text="${o.pause.reason}">Planned maintenance</span>”.
+                        Support requests and catalogs waiting to be sent go out once the pause ends; telemetry is dropped meanwhile.
+                    </div>
+                </th:block>
+
+                <th:block th:if="${kind == 'Declined'}">
+                    <p data-testid="support-declined">
+                        Epistola declined this installation<th:block th:if="${s.at != null}"> on
+                        <span th:text="${#temporals.format(s.at, 'yyyy-MM-dd', 'UTC')}">2026-11-06</span></th:block>, so it uses no
+                        support service. Contact Epistola support if you think this is a mistake; Register again applies again.
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Refused'}">
+                    <p>
+                        The support service refused this installation's registration
+                        (<span th:text="${s.reason}" data-testid="support-refused-reason">invalid_client</span>), for example because
+                        Epistola revoked it. Register again to apply again.
+                    </p>
+                </th:block>
+
+                <th:block th:if="${kind == 'Disconnected'}">
+                    <p data-testid="support-disconnected">
+                        Disconnected<th:block th:if="${s.by != null}"> by <span th:text="${s.by}">Admin</span></th:block>
+                        on <span th:text="${#temporals.format(s.at, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 21:00 UTC</span>.
+                        Nothing is sent to Epistola support, and every tenant's choice of what to share was cleared.
+                        <th:block th:if="${s.outcome.name() == 'CONFIRMED'}">Epistola support deleted the catalog mirror, and deletes this installation's support requests after its retention period.</th:block>
+                        <th:block th:if="${s.outcome.name() == 'ALREADY_GONE'}">Epistola support no longer accepted the registration, so there was nothing to end there.</th:block>
+                        <th:block th:if="${s.outcome.name() == 'LOCAL_ONLY'}">It was removed here only, so Epistola support keeps the registration and what it holds of this installation until it removes them; ask them to.</th:block>
+                    </p>
+                    <p>Register to connect again. Each tenant then sets up what it shares again.</p>
+                </th:block>
+
+                <dl class="description-list" th:if="${kind != 'Disabled'}" data-testid="support-details" style="overflow-wrap: anywhere;">
+                    <dt>Support service</dt>
+                    <dd><code th:text="${o.issuer != null} ? ${o.issuer} : 'Not resolved yet'">https://support.epistola.app</code></dd>
+                    <th:block th:if="${kind == 'Pending' or kind == 'Active' or kind == 'Refused' or kind == 'Expired' or kind == 'Declined'}">
+                        <dt>Client id</dt>
+                        <dd><code th:text="${s.clientId}">sc_…</code></dd>
+                    </th:block>
+                    <dt>Installation id</dt>
+                    <dd><code th:text="${o.installationId}">0190…</code></dd>
+                    <dt>Last check</dt>
+                    <dd th:text="${o.checkedAt != null} ? ${#temporals.format(o.checkedAt, 'yyyy-MM-dd HH:mm:ss', 'UTC')} + ' UTC' : 'Not checked yet'"
+                        data-testid="support-checked-at">2026-11-05 14:02:11 UTC</dd>
+                    <dt>Last error</dt>
+                    <dd data-testid="support-last-error">
+                        <span th:if="${o.lastError == null and o.nodeWarning == null}">None</span>
+                        <span th:if="${o.lastError != null}" th:text="${o.lastError}">connection refused</span>
+                        <span th:if="${o.lastError == null and o.nodeWarning != null}" th:text="${o.nodeWarning}"
+                              data-testid="support-node-warning">this node's clock is off</span>
+                    </dd>
+                </dl>
+
+                <form th:if="${o.canRegister}" th:attr="hx-post=@{/platform/support/register}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/register}" method="post" class="ep-stack" data-testid="support-register-form">
+                    <p class="text-sm" style="margin: 0;">Check who Epistola contacts about this installation; you can correct it here.</p>
+                    <div class="form-group">
+                        <label class="ep-label" for="support-company">Company or organisation</label>
+                        <input class="ep-input" id="support-company" name="companyName" maxlength="200" required th:value="${o.contact.companyName}" data-testid="support-register-company">
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="support-email">E-mail address</label>
+                        <input class="ep-input" id="support-email" name="adminEmail" type="email" maxlength="200" required th:value="${o.contact.adminEmail}" data-testid="support-register-email">
+                        <span class="form-hint">Epistola may contact you at this address about activating this installation and about its support.</span>
+                    </div>
+                    <div><button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-register">Register</button></div>
+                </form>
+
+                <div class="ep-row" th:if="${o.canCheck or o.canRegisterAgain}">
+                    <form th:if="${o.canCheck}" th:attr="hx-post=@{/platform/support/check}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/check}" method="post">
+                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-check-now">Check now</button>
+                    </form>
+                    <form th:if="${o.canRegisterAgain}" th:attr="hx-post=@{/platform/support/register-again}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/register-again}" method="post">
+                        <input type="hidden" name="confirmed" value="true">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-register-again"
+                                data-confirm-submit
+                                data-confirm-submit-title="Register again"
+                                th:attr="data-confirm-submit-message=${o.registerAgainNeedsConfirm} ? 'This installation registers again with a new key and a new reference. If you are already in touch with Epistola support, mention the new reference.' : 'This installation registers again with a new key and applies for support again.'"
+                                data-confirm-submit-label="Register again"
+                                data-confirm-submit-class="ep-btn-primary">Register again</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section class="ep-panel detail-section" th:if="${o.canSelect}">
+            <div class="detail-section-header"><h2>Services</h2></div>
+            <div class="detail-section-body ep-stack">
+                <p>
+                    Choose the services this installation uses. A service is in use only when you selected it here
+                    <em>and</em> Epistola granted it. Saving needs no connection to the support service; a service you
+                    deselect stops at once.
+                </p>
+                <form th:attr="hx-post=@{/platform/support/services}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/services}" method="post" data-testid="support-services-form">
+                    <div class="ep-table-scroll" role="region" aria-label="Support services" tabindex="0">
+                    <table class="ep-table" data-testid="support-services">
+                        <thead>
+                            <tr>
+                                <th scope="col">Service</th>
+                                <th scope="col">Selected here</th>
+                                <th scope="col">Granted by Epistola</th>
+                                <th scope="col">In use</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="service : ${o.services}" th:attr="data-scope=${service.name}">
+                                <th scope="row" style="text-align: left;">
+                                    <label th:for="${'support-service-' + service.name}" th:text="${service.title}">Telemetry</label>
+                                    <span th:if="${service.noLongerOffered}" class="form-hint" data-testid="support-service-retired">No longer offered by Epistola.</span>
+                                    <span th:unless="${service.known}" class="form-hint" data-testid="support-service-unknown">Not known to this version of Epistola; kept, but not used.</span>
+                                </th>
+                                <td>
+                                    <input type="checkbox" name="services" th:id="${'support-service-' + service.name}" th:value="${service.name}"
+                                           th:checked="${service.selected}" th:attr="data-testid=${'support-service-select-' + service.name}">
+                                </td>
+                                <td data-testid="support-service-granted">
+                                    <span th:if="${service.granted}" class="badge badge-success">Granted</span>
+                                    <span th:unless="${service.granted}" class="badge badge-muted">Not granted</span>
+                                </td>
+                                <td data-testid="support-service-in-use">
+                                    <span th:if="${service.inUse}" class="badge badge-success">In use</span>
+                                    <span th:if="${service.paused}" class="badge badge-warning" data-testid="support-service-paused">Paused by Epistola</span>
+                                    <span th:if="${!service.inUse and !service.paused}" class="badge badge-muted">Not in use</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                    <p class="form-hint" data-testid="support-services-source">
+                        <th:block th:if="${o.selection.fromConfiguration}">
+                            Until you save, the selection comes from the configuration (<code>epistola.support.services</code>,
+                            Helm <code>support.services</code>). Once saved here, this selection wins.
+                        </th:block>
+                        <th:block th:unless="${o.selection.fromConfiguration}">
+                            Saved<th:block th:if="${o.selection.savedBy != null}"> by <span th:text="${o.selection.savedBy}">Admin</span></th:block><th:block th:if="${o.selection.savedAt != null}">
+                            on <span th:text="${#temporals.format(o.selection.savedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 09:00 UTC</span></th:block>;
+                            the configuration (<code>epistola.support.services</code>) no longer applies.
+                        </th:block>
+                    </p>
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-services-save">Save services</button>
+                </form>
+                <p class="text-muted" th:unless="${kind == 'Active'}">Epistola grants services once it has activated this installation.</p>
+            </div>
+        </section>
+
+        <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
+            <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
+            <div class="detail-section-body ep-stack">
+                <p data-testid="support-disconnect-explained">
+                    Ends this installation's connection with Epistola support. Epistola support deletes the catalog mirror at once and
+                    keeps the support requests for a limited time, then deletes it. Here, nothing is sent any more, the registration is forgotten,
+                    and every tenant's choice of what to share and the setup for every tenant are cleared. Support requests stay in this
+                    installation. To connect again, register and send the new claim code to Epistola support.
+                </p>
+                <div class="ep-row">
+                    <form th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/disconnect}" method="post">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect"
+                                data-confirm-submit
+                                data-confirm-submit-title="Disconnect from Epistola support"
+                                data-confirm-submit-message="Epistola support deletes the catalog mirror and, after a limited time, this installation's support requests. Every tenant's choice of what to share is cleared here. Connecting again needs a new activation by Epistola."
+                                data-confirm-submit-label="Disconnect">Disconnect</button>
+                    </form>
+                    <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/disconnect}" method="post">
+                        <input type="hidden" name="localOnly" value="true">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect-local"
+                                data-confirm-submit
+                                data-confirm-submit-title="Remove here only"
+                                data-confirm-submit-message="This installation forgets the connection without telling Epistola support, which keeps the registration and what it holds until Epistola removes them. Every tenant's choice of what to share is cleared here."
+                                data-confirm-submit-label="Remove here only">Remove here only</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

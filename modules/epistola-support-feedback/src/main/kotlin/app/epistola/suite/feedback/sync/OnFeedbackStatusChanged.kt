@@ -10,8 +10,6 @@ import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.query
-import app.epistola.suite.support.HubConnectivityService
-import app.epistola.suite.support.isHubUnreachable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -30,7 +28,6 @@ import org.springframework.stereotype.Component
 @Component
 class OnFeedbackStatusChanged(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val connectivity: HubConnectivityService,
 ) : EventHandler<UpdateFeedbackStatus> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -52,11 +49,6 @@ class OnFeedbackStatusChanged(
             return
         }
 
-        // Hub known unreachable: skip the push; a later status change reconciles when it is back up.
-        if (!connectivity.reachable()) {
-            return
-        }
-
         val feedback = GetFeedback(event.id).query() ?: return
         if (feedback.syncStatus != SyncStatus.SYNCED || feedback.externalRef == null) {
             return
@@ -66,11 +58,7 @@ class OnFeedbackStatusChanged(
             feedbackSyncPort.updateStatus(feedback, feedback.status)
             log.info("Synced status {} for feedback {} to external issue {}", feedback.status, feedback.id, feedback.externalRef)
         } catch (e: Exception) {
-            if (e.isHubUnreachable()) {
-                log.warn("Status sync deferred for feedback {} (hub unreachable): {}", feedback.id, e.message)
-            } else {
-                log.error("Failed to sync status for feedback {} to {}: {}", feedback.id, feedback.externalRef, e.message, e)
-            }
+            log.error("Failed to sync status for feedback {} to {}: {}", feedback.id, feedback.externalRef, e.message, e)
         }
     }
 }

@@ -12,9 +12,8 @@ import app.epistola.suite.feedback.FeedbackStatus
 /**
  * Port for syncing feedback to an external system.
  *
- * The production implementation (`HubFeedbackSyncAdapter`, in the `epistola-support`
- * module) pushes feedback to epistola-hub over gRPC; [NoOpFeedbackSyncAdapter] is the
- * default when the support tier is disabled. Authentication and the target are
+ * [NoOpFeedbackSyncAdapter] is the only implementation: feedback stays in this
+ * installation until a sync over the support connection replaces it. Authentication and the target are
  * installation-wide — there is no per-tenant configuration — so the methods take only the
  * feedback/comment being synced. Each [Feedback] carries its own `tenantKey` and (once
  * synced) `externalRef`.

@@ -13,14 +13,9 @@ object KnownFeatures {
      * Quality checks — the findings ledger, its report, and the editor panel.
      *
      * Deliberately named `quality`, not `support-quality`: this is **not** a support-tier feature.
-     * The ledger and its in-process check sources work with the support tier off, so the key must
-     * stay out of [SUPPORT_TIER]. A key in [SUPPORT_TIER] is gated by a hub
-     * entitlement, and the hub wire contract has no `QUALITY` feature to grant — so a quality key
-     * there would be *permanently unavailable* on every `epistola.support.enabled=true`
-     * installation. `KnownFeaturesTest` guards that; note `WireContractAlignmentTest` would **not**
-     * (it asserts three named keys, it does not iterate [all]).
+     * The ledger and its in-process check sources work with the support connection off.
      *
-     * A later hub *transport* for findings gets its own separate key rather than reclassifying this
+     * A later transport for findings gets its own separate key rather than reclassifying this
      * one — renaming a feature key is a migration (see
      * `V20260618204750__core_rename_compatibility_check_feature_key.sql`).
      */
@@ -44,11 +39,8 @@ object KnownFeatures {
     /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
      *
-     * A purely client-side onboarding aid: no hub, no server component. Like [QUALITY] it is
-     * deliberately toggle-only and must stay out of [SUPPORT_TIER] — the hub wire contract
-     * has no feature to grant for it, so a key in [SUPPORT_TIER] would make it *permanently
-     * unavailable* on every `epistola.support.enabled=true` installation. `KnownFeaturesTest` guards
-     * that. The resolved toggle is threaded into the editor bundle as an `EditorFeatureFlags` flag.
+     * A purely client-side onboarding aid: no server component, and toggle-only like [QUALITY].
+     * The resolved toggle is threaded into the editor bundle as an `EditorFeatureFlags` flag.
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
@@ -61,13 +53,6 @@ object KnownFeatures {
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
     )
-
-    /**
-     * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
-     * (the [FeatureEntitlementGate.gatedFeatures] set). With no tier present (OSS) they fall through to
-     * their plain toggle: feedback is freely usable.
-     */
-    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK)
 
     /**
      * Release maturity of a feature. [STABLE] shows no marker; [BETA]/[ALPHA] render a badge in the
@@ -94,9 +79,8 @@ object KnownFeatures {
     val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
         SUPPORT_FEEDBACK to FeatureMetadata(
             "Feedback",
-            // True with and without the support tier: feedback is always kept here, and only sent on with it.
-            "Lets people report feedback from any page, under Support → Feedback. It is kept in this installation, " +
-                "and sent to Epistola when the installation's support tier is enabled.",
+            // True with and without the support connection: feedback is always kept here.
+            "Lets people report feedback from any page, under Support → Feedback. It is kept in this installation.",
         ),
         QUALITY to FeatureMetadata(
             "Quality",

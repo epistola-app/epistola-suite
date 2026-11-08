@@ -216,7 +216,7 @@ jvm:
   options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
 
 # Additional trusted root CA certificates for OUTBOUND TLS — e.g. an internal
-# Keycloak, a private catalog server, the epistola-hub, or a corporate
+# Keycloak, a private catalog server, the Epistola support service, or a corporate
 # TLS-inspecting egress proxy that re-signs traffic with its own root CA.
 #
 # Certs are delivered to the app as a Paketo `ca-certificates` service binding;
@@ -247,8 +247,7 @@ observability:
   # consistent with the app's own NodeIdentity and metric tags. Purely for the
   # customer's own telemetry pipeline — the app's Micrometer OTLP export stays
   # off unless observability.otlpEndpoint is set, so the agent owns the OTLP leg
-  # with no double export. The epistola-hub leg (commercial support tier) is
-  # configured at runtime by the support module, NOT here.
+  # with no double export.
   otelAgent:
     enabled: false
     # service.name reported to the agent.
@@ -274,7 +273,7 @@ observability:
   # grafana-operator. This chart still emits the Prometheus scrape annotations
   # (observability.prometheus) and OTel agent env (observability.otelAgent) above.
 
-# Credential encryption at rest (catalog/code-list auth, hub credentials).
+# Credential encryption at rest (catalog/code-list auth, the support registration key).
 # AES-256-GCM with key-id-tagged envelopes. See docs/encryption.md.
 #
 # REQUIRED in production: the app's `prod` profile fails to start if encryption
@@ -344,45 +343,49 @@ oidc:
   # See docs/keycloak-setup.md / docs/authentik-setup.md for the token contract.
   flatRolesClaimName: ""
 
-# Optional commercial support tier (epistola-hub integration).
-# When enabled, the application registers itself with epistola-hub on startup
-# for feedback sync, monitoring and quality checks. OSS deployments leave this disabled — the support module ships in
-# the image but never constructs any beans. See modules/epistola-support.
+# The connection to the Epistola support service (docs/support-protocol.md). When enabled, an
+# installation administrator registers the installation under Platform → Epistola support, which
+# shows a claim code to send to Epistola; once linked it uses the services Epistola grants.
+# Off by default: nothing is registered and nothing is sent.
 support:
   enabled: false
 
+  # Let the installation register itself at its next check, and register again at once when a claim
+  # code expires before Epistola linked it (the support service removes such a registration after
+  # seven days). Off by default: nothing leaves the installation until an administrator presses
+  # Register.
+  autoRegister: false
+
+  # The support services this installation uses: any of telemetry, requests, mirror, usage. Rendered as
+  # EPISTOLA_SUPPORT_SERVICES. Only the initial selection: once an installation administrator saves
+  # one under Platform → Epistola support, that selection wins and this is ignored. Empty (the
+  # default): nothing is used until an administrator selects it. A service is used only when it is
+  # selected AND Epistola granted it. A name this chart or the suite does not know (a retired or a
+  # newer service) is accepted and logged by the suite, never an error, so an upgrade never breaks
+  # on it.
+  services: []
+
+  # The support service's https URL (its OAuth issuer). Empty: found through productDomain, and
+  # https://support.{productDomain} when the discovery document names none. Plaintext is a
+  # local-development setting and is not exposed here.
+  endpoint: ""
+
   # Installation identity. Required when support.enabled is true.
-  # The companyName/environment combination becomes the default installation
-  # name reported to the hub; override via installation.name.
+  # Sent when the installation registers, so Epistola staff recognise it. The
+  # companyName/environment combination becomes the default registration name;
+  # override via installation.name.
   installation:
     companyName: ""
     adminEmail: ""
     environment: "" # e.g., "production", "staging"
     # Optional display name override. Blank → "{companyName} - {environment}".
     name: ""
-    # Optional free-form description shown in the hub.
+    # Optional free-form description.
     description: ""
 
-  # Forward application logs + metrics to epistola-hub over OTLP-over-gRPC.
-  # On by default when support.enabled is true (like every support feature) —
-  # the hub's `support-telemetry` entitlement is the real gate, so nothing is
-  # shipped until the installation is entitled. Set to false to opt out. The
-  # endpoint is the hub's own gRPC endpoint, derived at runtime by the support
-  # module — nothing to configure here. See modules/epistola-support-telemetry.
-  telemetry:
-    enabled: true
-
-  # Hub connection (only used when support.enabled is true).
-  hub:
-    # The hub's gRPC endpoint as host:port, for a self-hosted hub (always TLS). Empty: found
-    # through productDomain. Plaintext stays a local-development setting and is not exposed here.
-    endpoint: ""
-    # NOTE: node id is intentionally NOT a chart value. It must differ per pod,
-    # but a Deployment value is identical for every replica — so it can't give
-    # per-pod identity. Node identity is resolved at runtime from the pod's
-    # hostname (Kubernetes sets the hostname to the pod name), so each replica
-    # is distinct automatically. (The app property epistola.support.hub.node-id
-    # still exists for rare single-instance overrides outside Kubernetes.)
+  # NOTE: node id is intentionally NOT a chart value. It must differ per pod, but a
+  # Deployment value is identical for every replica. Node identity is resolved at
+  # runtime from the pod's hostname (Kubernetes sets it to the pod name).
 
 # Demo-profile options. Only meaningful when config.profiles includes "demo", which in turn only
 # works on the `-demo` image (image.tag: "{version}-demo"). The default image does not contain the
@@ -448,7 +451,7 @@ exchange:
 
 # What this installation shares with Epistola ("Data shared with Epistola", docs/outbound-traffic.md).
 # Everything is shared by default; set a value to false to stop sharing it. Exchange and the
-# support hub (support.*) are separate integrations with their own settings.
+# support service (support.*) are separate integrations with their own settings.
 sharing:
   # Share the installation id (a random UUID): enables the daily installation check behind the
   # support badge, and lets Epistola count installations. Off: nothing is sent, and the badge says
@@ -460,7 +463,7 @@ sharing:
   usageStatistics: true
 
 # Where Epistola-operated services are found (ADR 0030): a host name, never a URL. The version check,
-# the installation check, Exchange and the support hub read their endpoints from
+# the installation check, Exchange and the support service read their endpoints from
 # https://{productDomain}/.well-known/epistola.json, unless their own `endpoint` below names one.
 productDomain: epistola.app
 

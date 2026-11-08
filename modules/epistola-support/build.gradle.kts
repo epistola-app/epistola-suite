@@ -13,17 +13,17 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // Core module (provides Installation domain, AppMetadataService, JDBI config).
-    // The support module persists credentials through AppMetadataService — it does
-    // not talk to JDBI / SQL directly, so it doesn't pull JDBI or Flyway in itself.
+    // The support connection persists its credentials and status through AppMetadataService; the
+    // advisory lock that keeps registration to one node is its only SQL.
     api(project(":modules:epistola-core"))
 
-    // Epistola Hub client (Kotlin gRPC SDK). Bundles its own gRPC + protobuf
-    // BOMs via Gradle module metadata so consumers don't need to know any
-    // gRPC version coordinates. Drags in grpc-stub, grpc-kotlin-stub,
-    // grpc-netty-shaded (runtime), grpc-protobuf, protobuf-kotlin,
-    // and kotlinx-serialization-json-jvm. Verified no conflicts with the
-    // rest of the suite (no other module uses gRPC).
-    implementation(libs.epistola.hub.client)
+    // The support connection (docs/support-protocol.md): the installation's EC P-256 key, its
+    // ES256 client assertions and the JWK it registers.
+    implementation(libs.nimbus.jose.jwt)
+    implementation(libs.jdbi.core)
+    implementation(libs.caffeine)
+    // Transaction synchronisation: a saved selection is re-read on this node once its transaction ends.
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
     // Shared web/UI toolkit (HTMX functional-web DSL + NavContributor SPI). The base support
     // module owns the Support → Overview page and the "Support" nav group.
@@ -45,5 +45,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation(libs.swagger.request.validator)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+// SupportFakeServiceConformanceTest reads the protocol's OpenAPI copy: a change to it alone runs the tests again.
+tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.file("docs/support-api.yaml")).withPropertyName("supportApi")
 }

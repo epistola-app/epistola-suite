@@ -34,6 +34,9 @@ dependencies {
     // Jackson (needed by FakeDocumentGenerationExecutor)
     implementation("tools.jackson.module:jackson-module-kotlin")
 
+    // FakeSupportServer verifies the support connection's ES256 client assertions.
+    implementation(libs.nimbus.jose.jwt)
+
     // Micrometer (needed by FakeExecutorTestConfiguration)
     implementation("io.micrometer:micrometer-core")
 

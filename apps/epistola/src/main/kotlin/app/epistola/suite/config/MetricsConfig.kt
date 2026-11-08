@@ -21,8 +21,7 @@ import org.springframework.context.annotation.DependsOn
  * Cross-cutting metric configuration for fleet monitoring.
  *
  * Stamps every meter with the identity tags needed to tell instances apart once
- * many remote instances report into one backend (and, later, push to
- * epistola-hub):
+ * many remote instances report into one backend (and the support service):
  *
  *   - `service`         — always `epistola-suite`
  *   - `instance`        — the per-process node id ([NodeIdentity])
@@ -30,7 +29,7 @@ import org.springframework.context.annotation.DependsOn
  *   - `environment`     — `epistola.installation.environment`
  *   - `version`         — the running build version
  *
- * These survive OTLP push as datapoint/resource attributes — the hub's
+ * These survive OTLP push as datapoint/resource attributes — the backend's
  * per-instance/per-installation partition key. Without them, metrics from N
  * instances are indistinguishable.
  *

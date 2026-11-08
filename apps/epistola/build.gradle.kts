@@ -48,13 +48,6 @@ extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
 extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
 dependencies {
-    // Security override: the Epistola Hub client's gRPC pulls in Guava 33.6.0 (CVE-2026-102554, denial
-    // of service while deserializing). The Spring Boot BOM does not manage Guava, so a constraint lifts
-    // it to the catalog's patched version. Drop it once gRPC itself requires 33.7.2 or later.
-    constraints {
-        implementation(libs.guava) { because("CVE-2026-102554 in Guava 33.6.0, pulled in by gRPC") }
-    }
-
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 
@@ -72,16 +65,11 @@ dependencies {
     // alpha and off by default (epistola.features.quality).
     implementation(project(":modules:epistola-quality"))
 
-    // Support module (optional commercial-tier hub integration; off by default)
+    // Support module: the connection to the Epistola support service (off by default)
     implementation(project(":modules:epistola-support"))
 
-    // Feedback feature — full domain + UI + hub sync (freely usable; the hub sync server
-    // component is gated on epistola.support.enabled). Pulls in the feedback domain.
+    // Feedback feature — full domain + UI, kept in this installation. Pulls in the feedback domain.
     implementation(project(":modules:epistola-support-feedback"))
-
-    // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to epistola-hub
-    // when enabled (epistola.support.telemetry.enabled) and the installation is entitled. ADR 0006.
-    implementation(project(":modules:epistola-support-telemetry"))
 
     // Catalog module (catalog exchange for sharing templates)
 
@@ -139,8 +127,6 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
-    // Hub client error types (e.g. HubUnavailableException) for the support-page connectivity tests.
-    testImplementation(libs.epistola.hub.client)
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")

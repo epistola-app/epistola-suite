@@ -15,8 +15,6 @@ import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.support.HubConnectivityService
-import app.epistola.suite.support.isHubUnreachable
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -33,7 +31,6 @@ import org.springframework.stereotype.Component
 @Component
 class OnFeedbackCommentAdded(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val connectivity: HubConnectivityService,
 ) : EventHandler<AddFeedbackComment> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -62,11 +59,6 @@ class OnFeedbackCommentAdded(
             return
         }
 
-        // Hub known unreachable: leave external_comment_id null so the retry sweep pushes it later.
-        if (!connectivity.reachable()) {
-            return
-        }
-
         try {
             val ref = feedbackSyncPort.addComment(feedback, comment)
 
@@ -77,11 +69,7 @@ class OnFeedbackCommentAdded(
 
             log.info("Synced comment {} to external issue #{}", comment.id, feedback.externalRef)
         } catch (e: Exception) {
-            if (e.isHubUnreachable()) {
-                log.warn("Comment sync deferred for comment {} (hub unreachable): {}", comment.id, e.message)
-            } else {
-                log.error("Failed to sync comment {} to external issue #{}: {}", comment.id, feedback.externalRef, e.message, e)
-            }
+            log.error("Failed to sync comment {} to external issue #{}: {}", comment.id, feedback.externalRef, e.message, e)
         }
     }
 }

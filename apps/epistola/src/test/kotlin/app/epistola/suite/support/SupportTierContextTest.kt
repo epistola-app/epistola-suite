@@ -12,11 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
 
 /**
- * Boots the full app with the **support tier enabled** and asserts the context loads with exactly
- * one bean per sync port — the hub adapters, not the no-op fallbacks. Regression guard for the
- * `@ConditionalOnMissingBean` ordering bug that registered both a no-op and a hub adapter and failed
- * startup with "a single bean, but 2 were found". Registration is fire-and-forget, so no running hub
- * is needed for the context to come up.
+ * Boots the full app with the **support connection enabled** against a support service that does not
+ * exist: the context starts (nothing calls the service at startup), and feedback has one sync port,
+ * the no-op one, since nothing sends feedback anywhere.
  */
 @TestPropertySource(
     properties = [
@@ -24,8 +22,7 @@ import org.springframework.test.context.TestPropertySource
         "epistola.installation.company-name=Test Co",
         "epistola.installation.admin-email=test@example.com",
         "epistola.installation.environment=test",
-        "epistola.support.hub.endpoint=localhost:9090",
-        "epistola.support.hub.plaintext=true",
+        "epistola.support.endpoint=https://support.invalid",
     ],
 )
 class SupportTierContextTest : BaseIntegrationTest() {
@@ -33,9 +30,7 @@ class SupportTierContextTest : BaseIntegrationTest() {
     private lateinit var feedbackSyncPort: FeedbackSyncPort
 
     @Test
-    fun `support tier wires the hub adapters with no bean conflicts`() {
-        // Single-bean injection above already proves no no-op/hub-adapter collision; isEnabled()
-        // confirms the hub adapter won (the no-op reports false).
-        assertThat(feedbackSyncPort.isEnabled()).isTrue()
+    fun `the support connection starts without the service, and feedback stays in the installation`() {
+        assertThat(feedbackSyncPort.isEnabled()).isFalse()
     }
 }

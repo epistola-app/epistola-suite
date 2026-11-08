@@ -1,0 +1,572 @@
+# The machine-readable half of the support protocol: every endpoint this service defines itself.
+# OAuth (RFC 7591 registration, RFC 7523 tokens, RFC 8414 metadata) and OTLP/HTTP are specified by
+# their RFCs and the OpenTelemetry specification; only the Epistola extensions of the registration
+# answer are described here. The prose (docs/protocol.md) explains behaviour; this file fixes shapes.
+#
+# Source of truth: this file. The suite keeps a copy (modules/testing/src/main/resources/support-api.yaml)
+# and checks its stand-in support service against it; this service checks its own answers.
+openapi: 3.0.3
+info:
+  title: Epistola support service
+  version: "1"
+  description: |
+    What an Epistola Suite installation sends to and reads from the Epistola support service.
+    Every `/api/v1` endpoint takes a bearer access token from the token endpoint; a scope-specific
+    endpoint also needs that scope, and answers `403` otherwise (`insufficient_scope`, or
+    `service_paused` while Epistola paused the service; the `WWW-Authenticate` challenge is
+    `insufficient_scope` either way).
+servers:
+  - url: "{issuer}"
+    variables:
+      issuer:
+        default: https://support.epistola.app
+security:
+  - bearer: []
+paths:
+  /oauth2/register:
+    post:
+      summary: Register this installation (RFC 7591, with Epistola extensions)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegistrationRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Registered" }
+        "200": { $ref: "#/components/responses/Registered" }
+        "400":
+          description: invalid_client_metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          description: too many registrations from this address
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/connection:
+    get:
+      summary: The registration as it is now
+      responses:
+        "200":
+          description: The registration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Connection" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+    delete:
+      summary: The installation ends its connection
+      responses:
+        "204": { description: Disconnected; the token is refused from now on }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+  /api/v2/requests/{tenantKey}/{suiteRequestId}:
+    put:
+      summary: Send a support request (idempotent; the first content wins). Its question follows as a message.
+      parameters:
+        - $ref: "#/components/parameters/TenantKey"
+        - { name: suiteRequestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequestSubmission" }
+      responses:
+        "201": { $ref: "#/components/responses/RequestStored" }
+        "200": { $ref: "#/components/responses/RequestStored" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "507": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/v2/requests/{requestId}/attachments/{suiteAttachmentId}:
+    put:
+      summary: Attach an image (idempotent per suite attachment id)
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+        - {
+            name: suiteAttachmentId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - { name: filename, in: query, required: false, schema: { type: string, maxLength: 255 } }
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "201": { $ref: "#/components/responses/AttachmentStored" }
+        "200": { $ref: "#/components/responses/AttachmentStored" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v2/requests/{requestId}/messages/{suiteMessageId}:
+    put:
+      summary: Add a message (idempotent per suite message id); a STATUS message also sets the status
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+        - { name: suiteMessageId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Message" }
+      responses:
+        "201": { $ref: "#/components/responses/MessageStored" }
+        "200": { $ref: "#/components/responses/MessageStored" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "507": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/v2/requests/changes:
+    post:
+      summary: Acknowledge what the installation handled, and get the staff replies, status and priority after it, in order
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                acknowledgeUpTo:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: "The last change's sequence the installation handled; at most the last one handed out. Never moves back."
+                limit: { type: integer, default: 100, description: "Clamped to 1..500." }
+      responses:
+        "200":
+          description: One page of changes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Changes" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/mirror/tenants/{tenantKey}:
+    put:
+      summary: Reconcile a tenant's complete binding set (an empty set withdraws the tenant)
+      parameters:
+        - $ref: "#/components/parameters/TenantKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReconcileRequest" }
+      responses:
+        "200":
+          description: Taken; `missing` lists the content no installation has uploaded yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReconcileResult" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "507": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/v1/mirror/tenants:
+    get:
+      summary: The tenants the mirror holds for this installation
+      responses:
+        "200":
+          description: Tenant keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenants]
+                properties:
+                  tenants: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/mirror/releases/{contentHash}:
+    put:
+      summary: Upload an announced release archive (at most 20 MiB)
+      parameters:
+        - {
+            name: contentHash,
+            in: path,
+            required: true,
+            schema: { $ref: "#/components/schemas/ContentHash" },
+          }
+      requestBody:
+        required: true
+        content:
+          application/zip: { schema: { type: string, format: binary } }
+      responses:
+        "201": { $ref: "#/components/responses/ReleaseStored" }
+        "200": { $ref: "#/components/responses/ReleaseStored" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: not_announced
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413":
+          description: too_large
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "507": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/v1/usage/hours/{hour}:
+    put:
+      summary: Report a finished UTC hour's readings per tenant; replaces the last report for that hour
+      parameters:
+        - name: hour
+          in: path
+          required: true
+          description: The start of the hour, such as 2026-11-07T09:00:00Z
+          schema: { type: string, format: date-time }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UsageHour" }
+      responses:
+        "200":
+          description: Taken
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hour, tenants]
+                properties:
+                  hour: { type: string, format: date-time }
+                  tenants: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidToken" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TenantKey:
+      name: tenantKey
+      in: path
+      required: true
+      schema: { type: string, maxLength: 63, pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" }
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      description: The service's request id, from the answer to sending the request.
+      schema: { type: string, format: uuid }
+  responses:
+    Registered:
+      description: Registered (201) or registered again with the same key (200)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Registration" }
+    RequestStored:
+      description: Stored (201) or held already (200)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [requestId]
+            properties:
+              requestId: { type: string, format: uuid }
+              url: { type: string, nullable: true }
+    AttachmentStored:
+      description: Stored (201) or held already (200)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [attachmentId]
+            properties:
+              attachmentId: { type: string, format: uuid }
+    MessageStored:
+      description: Stored (201) or held already (200)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [messageId]
+            properties:
+              messageId: { type: string, format: uuid }
+    ReleaseStored:
+      description: Stored (201) or held already (200)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [contentHash]
+            properties:
+              contentHash: { $ref: "#/components/schemas/ContentHash" }
+    InvalidRequest:
+      description: invalid_request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: not_found (also for another installation's request)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    QuotaExceeded:
+      description: quota_exceeded
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidToken:
+      description: invalid_token (RFC 6750)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: insufficient_scope, or service_paused while Epistola paused the service
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        error_description: { type: string, nullable: true }
+        scope: { type: string, description: "The scope the endpoint needs (403 only)." }
+    Scope:
+      type: string
+      description: A service name. Unknown names are possible and are ignored, never an error.
+    ContentHash:
+      type: string
+      pattern: "^v[0-9]{1,3}:[0-9a-f]{16,128}$"
+    RegistrationRequest:
+      type: object
+      required: [jwks, epistola_installation_id]
+      properties:
+        client_name: { type: string, maxLength: 200 }
+        grant_types: { type: array, items: { type: string } }
+        token_endpoint_auth_method: { type: string }
+        jwks:
+          type: object
+          required: [keys]
+          properties:
+            keys: { type: array, minItems: 1, maxItems: 1, items: { type: object } }
+        software_id: { type: string }
+        software_version: { type: string }
+        epistola_installation_id: { type: string, format: uuid }
+        epistola_environment: { type: string, maxLength: 200 }
+        epistola_company_name: { type: string, maxLength: 200 }
+        epistola_admin_email: { type: string, maxLength: 200 }
+        epistola_node_id: { type: string, maxLength: 200 }
+    Registration:
+      type: object
+      required: [client_id, epistola_claim_code, epistola_status]
+      properties:
+        client_id: { type: string }
+        client_id_issued_at: { type: integer, format: int64 }
+        client_name: { type: string, nullable: true }
+        grant_types: { type: array, items: { type: string } }
+        token_endpoint_auth_method: { type: string }
+        jwks: { type: object }
+        epistola_claim_code:
+          type: string
+          description: A reference to mention when contacting Epistola; nothing needs to send it.
+        epistola_status: { $ref: "#/components/schemas/RegistrationStatus" }
+        epistola_claim_code_expires_at: { type: string, format: date-time, nullable: true }
+    RegistrationStatus:
+      type: string
+      description: Values may be added; treat an unknown one as not active.
+      enum: [PENDING, ACTIVE, DECLINED, REVOKED, DISCONNECTED]
+    Connection:
+      type: object
+      required: [clientId, installationId, status, scopes]
+      properties:
+        clientId: { type: string }
+        installationId: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/RegistrationStatus" }
+        scopes:
+          type: array
+          description: The granted scopes, paused ones included.
+          items: { $ref: "#/components/schemas/Scope" }
+        activatedAt: { type: string, format: date-time, nullable: true }
+        claimCodeExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: While PENDING, when the registration is deleted unless Epistola activates it.
+        declinedAt: { type: string, format: date-time, nullable: true }
+        pause:
+          type: object
+          nullable: true
+          description: Services Epistola holds back for a while; null when nothing is paused.
+          required: [scopes, since, reason]
+          properties:
+            scopes: { type: array, items: { $ref: "#/components/schemas/Scope" } }
+            since: { type: string, format: date-time }
+            until:
+              type: string
+              format: date-time
+              nullable: true
+              description: When the pause ends by itself; null until Epistola resumes.
+            reason: { type: string, maxLength: 200, description: As Epistola staff wrote it. }
+    RequestKind: { type: string, enum: [BUG, FEATURE_REQUEST, QUESTION, OTHER] }
+    RequestPriority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+    RequestStatus: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+    RequestSubmission:
+      type: object
+      required: [title, kind, requestedPriority]
+      properties:
+        title: { type: string, maxLength: 1000 }
+        kind: { $ref: "#/components/schemas/RequestKind" }
+        requestedPriority:
+          allOf: [{ $ref: "#/components/schemas/RequestPriority" }]
+          description: The submitter's; staff set the priority they work with, which reaches the installation as a change.
+        status: { $ref: "#/components/schemas/RequestStatus" }
+        sourceUrl: { type: string, maxLength: 4096, nullable: true }
+        consoleLogs: { type: string, nullable: true }
+        serverLogs:
+          type: string
+          nullable: true
+          description: The installation's log lines of the submitter's recent requests (a JSON array, oldest first), when attached; at most 256 KiB
+        metadata: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        requesterRef:
+          type: string
+          pattern: "^p-[0-9a-f]{16}$"
+          description: Who submitted it, as the installation's person reference; stable per person, never a name.
+    Message:
+      type: object
+      required: [kind]
+      description: >-
+        QUESTION (the request's description) and REPLY need a body, a REPLY also its author: authorName,
+        or authorRef alone from an installation that keeps names in. STATUS needs the status it sets.
+      properties:
+        kind: { type: string, enum: [QUESTION, REPLY, STATUS] }
+        authorName: { type: string, maxLength: 200 }
+        authorEmail: { type: string, maxLength: 320, nullable: true }
+        authorRef:
+          type: string
+          pattern: "^p-[0-9a-f]{16}$"
+          description: Who wrote it, as the installation's person reference.
+        body: { type: string }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+        createdAt: { type: string, format: date-time }
+    Changes:
+      type: object
+      required: [changes, hasMore, lastSequence]
+      properties:
+        changes:
+          type: array
+          items:
+            type: object
+            required: [sequence, requestId, tenantKey, suiteRequestId, occurredAt, type]
+            properties:
+              sequence: { type: integer, format: int64 }
+              requestId: { type: string, format: uuid }
+              tenantKey: { type: string }
+              suiteRequestId: { type: string, format: uuid }
+              occurredAt: { type: string, format: date-time }
+              type: { type: string, enum: [MESSAGE, STATUS, PRIORITY] }
+              message:
+                type: object
+                required: [messageId, kind, authorName, body]
+                properties:
+                  messageId: { type: string, format: uuid }
+                  kind: { type: string, enum: [QUESTION, REPLY, STATUS] }
+                  authorName: { type: string }
+                  authorEmail: { type: string, nullable: true }
+                  body: { type: string }
+              status: { $ref: "#/components/schemas/RequestStatus" }
+              priority: { $ref: "#/components/schemas/RequestPriority" }
+        hasMore: { type: boolean }
+        lastSequence:
+          {
+            type: integer,
+            format: int64,
+            nullable: true,
+            description: "The last change's sequence, to acknowledge once handled; null on an empty page.",
+          }
+    UsageHour:
+      type: object
+      required: [tenants]
+      properties:
+        tenants:
+          type: array
+          maxItems: 10000
+          items:
+            type: object
+            required: [tenant, generated, previews, generatedTotal, previewsTotal]
+            properties:
+              tenant:
+                { type: string, description: "The tenant's key, or its confidential reference" }
+              generated:
+                {
+                  type: integer,
+                  format: int64,
+                  minimum: 0,
+                  description: Documents generated in the hour,
+                }
+              previews:
+                {
+                  type: integer,
+                  format: int64,
+                  minimum: 0,
+                  description: Previews rendered in the hour,
+                }
+              generatedTotal:
+                {
+                  type: integer,
+                  format: int64,
+                  minimum: 0,
+                  description: Documents generated since the installation started counting (billed from),
+                }
+              previewsTotal:
+                {
+                  type: integer,
+                  format: int64,
+                  minimum: 0,
+                  description: Previews rendered since the installation started counting,
+                }
+    ReconcileRequest:
+      type: object
+      required: [bindings]
+      properties:
+        bindings: { type: array, maxItems: 10000, items: { $ref: "#/components/schemas/Binding" } }
+    Binding:
+      type: object
+      required: [registry, namespace, key, version, contentHash]
+      properties:
+        registry: { type: string, maxLength: 255 }
+        namespace: { type: string, maxLength: 255 }
+        key: { type: string, maxLength: 255 }
+        version: { type: string, maxLength: 128 }
+        contentHash: { $ref: "#/components/schemas/ContentHash" }
+        releasedAt: { type: string, format: date-time, nullable: true }
+        deployments:
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+            required: [environment, production]
+            properties:
+              environment: { type: string }
+              production: { type: boolean }
+        dependencies:
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+            required: [registry, namespace, key, contentHash]
+            properties:
+              registry: { type: string }
+              namespace: { type: string }
+              key: { type: string }
+              version: { type: string, nullable: true }
+              contentHash: { $ref: "#/components/schemas/ContentHash" }
+    ReconcileResult:
+      type: object
+      required: [missing, bindings, removed]
+      properties:
+        missing: { type: array, items: { $ref: "#/components/schemas/ContentHash" } }
+        bindings: { type: integer }
+        removed: { type: integer }

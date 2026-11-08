@@ -3,6 +3,8 @@
 - **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 done but for aliases other than the key) — superseded in part by ADR 0038
 - **Addendum (2026-10-27):** Superseded in part by [ADR 0038](0038-catalogs-in-2-0.md) (2026-10-27): the suite's storage and the release-hash backfill (removed; every release records its hash). The naming model stands.
 - **Amendment (2026-11-03, proposed):** [A tenant's authorities and their namespaces](#amendment-2026-11-03-a-tenants-authorities-and-their-namespaces) replaces §3's administrator grant: a tenant's own administrator adds the domains it names catalogs under, inside the tenant.
+- **Amendment (2026-11-05, proposed):** [Custody is not publication](#amendment-2026-11-05-custody-is-not-publication)
+  refines §7: a support mirror under contract may hold `local` releases (ADR 0051).
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -131,6 +133,9 @@ recorded by hash, with the number for people. Lineage then survives renames, mir
   its own domain and distribute through the Exchange later under the same name.
 
 ### 7. A local authority for names that never leave the organisation
+
+> Amended 2026-11-05 (proposed): a support mirror under contract holds copies without publishing.
+> See [the amendment](#amendment-2026-11-05-custody-is-not-publication).
 
 Every installation has the authority `local`. `local/hr/letters` is valid within the organisation's own
 installations (moved by file or its own registry) and never published to the Exchange or outside.
@@ -356,6 +361,21 @@ a domain through its keys, §8, a later phase). The platform role guarded nothin
 - Proving a domain (§8's keys, or a DNS record) and what the screens show once one is proven.
 - Whether an installation may limit which domains its tenants use (an operator setting), for a
   hosted installation whose tenants are different organisations.
+
+## Amendment (2026-11-05): custody is not publication
+
+- **Status:** Proposed
+- **Amends:** §7 (the local authority)
+
+§7 says `local/hr/letters` is "never published to the Exchange or outside" the organisation.
+[ADR 0051](0051-catalog-mirror.md) sends releases, `local` ones included, to Epistola's catalog
+mirror, so that Epistola can check them against new suite versions under a support contract.
+
+That is custody, not publication. The mirror holds a copy for the party the organisation contracted;
+nobody resolves a name against it, nothing is distributed from it, and a release the tenant stops
+sharing is deleted. A `local` release may therefore go there, when the tenant opted in and shares
+the catalog. §7 stands for everything that names or distributes: Exchange, release registries, files
+given to others. Leaving the organisation in that sense still requires a real name.
 
 ## Related
 

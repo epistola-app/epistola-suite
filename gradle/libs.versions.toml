@@ -18,7 +18,10 @@ uuid-creator = "6.1.1"
 spring-web = "7.0.10"
 playwright = "1.64.0"
 epistola-contract = "2.0.0-beta.4"
-epistola-hub-client = "0.7.0"
+# The support connection's keys and client assertions; the version Spring Security 7.1 uses.
+nimbus-jose-jwt = "10.9.1"
+# Checks the stand-in support service against docs/support-api.yaml (tests only).
+swagger-request-validator = "2.44.9"
 epistola-exchange-client = "0.1.1"
 aws-sdk = "2.57.8"
 guava = "33.7.2-jre"
@@ -57,7 +60,8 @@ spring-web = { module = "org.springframework:spring-web", version.ref = "spring-
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
 epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
-epistola-hub-client = { module = "app.epistola.hub:client", version.ref = "epistola-hub-client" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+swagger-request-validator = { module = "com.atlassian.oai:swagger-request-validator-core", version.ref = "swagger-request-validator" }
 epistola-exchange-client = { module = "app.epistola.exchange:client", version.ref = "epistola-exchange-client" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }

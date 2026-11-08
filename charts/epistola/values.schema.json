@@ -410,19 +410,35 @@
     },
     "support": {
       "type": "object",
+      "description": "The connection to the Epistola support service (docs/support-protocol.md).",
+      "additionalProperties": false,
       "properties": {
-        "hub": {
-          "type": "object",
-          "description": "Hub connection; only used when support.enabled is true.",
-          "additionalProperties": false,
-          "properties": {
-            "endpoint": {
-              "type": "string",
-              "description": "The hub's gRPC endpoint as host:port; empty means found through productDomain.",
-              "pattern": "^$|^[A-Za-z0-9.-]+:[0-9]{1,5}$"
-            }
+        "enabled": { "type": "boolean" },
+        "autoRegister": {
+          "type": "boolean",
+          "description": "Register on its own at the next check, and again when a claim code expires unlinked; false: an administrator presses Register."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "The support service's URL (its OAuth issuer); empty means found through productDomain.",
+          "pattern": "^$|^https://[^/?#@]+(/[^?#]*)?$"
+        },
+        "services": {
+          "type": "array",
+          "description": "The support services this installation uses until an administrator saves a selection: telemetry, requests, mirror, usage. A name the chart does not know is accepted, so values naming a retired or newer service never break an upgrade; the suite logs and ignores it.",
+          "uniqueItems": true,
+          "items": {
+            "anyOf": [
+              { "enum": ["telemetry", "requests", "mirror", "usage"] },
+              {
+                "type": "string",
+                "description": "A service this chart does not know: kept, logged by the suite, not used.",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+              }
+            ]
           }
-        }
+        },
+        "installation": { "type": "object" }
       }
     }
   }

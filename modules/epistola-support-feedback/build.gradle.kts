@@ -13,21 +13,15 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // The full feedback feature lives here: domain (model + commands/queries + migrations),
-    // the sync engine (FeedbackSyncPort + drivers + NoOp fallback), the UI (handlers +
-    // templates), and the hub adapter. The feature is freely usable; only the hub *sync*
-    // (the paid server component) is gated on epistola.support.enabled.
+    // the sync engine (FeedbackSyncPort + drivers + NoOp fallback) and the UI (handlers +
+    // templates). Feedback stays in this installation; nothing sends it anywhere.
 
     // Core (IDs, mediator, security, JDBI config) — api so the feedback domain types are
     // exposed to the host app (which uses them via this module).
     api(project(":modules:epistola-core"))
 
-    // Commercial support tier (hub client wiring, registration, credentials) — used by the
-    // hub-backed FeedbackSyncPort. Inert until epistola.support.enabled=true.
+    // Commercial support tier: the support connection and the tenant Support page.
     api(project(":modules:epistola-support"))
-
-    // Epistola Hub client (Kotlin gRPC SDK) — EpistolaHubClient + generated feedback proto
-    // types. epistola-support depends on it only as `implementation`, so declare it here too.
-    implementation(libs.epistola.hub.client)
 
     // Shared web/UI toolkit (HTMX functional-web DSL) for the feedback UI.
     implementation(project(":modules:epistola-web"))

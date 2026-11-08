@@ -34,7 +34,7 @@ class ResolveAvailableFeaturesTest {
     }
 
     private fun gate(entitled: Boolean): FeatureEntitlementGate = object : FeatureEntitlementGate {
-        override val gatedFeatures = KnownFeatures.SUPPORT_TIER
+        override val gatedFeatures = setOf(KnownFeatures.SUPPORT_FEEDBACK)
 
         override fun isEntitled(
             featureKey: FeatureKey,

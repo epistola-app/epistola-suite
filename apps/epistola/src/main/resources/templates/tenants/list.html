@@ -86,6 +86,7 @@
         <th:block th:if="${auth.has('INSTALLATION_ADMINISTRATOR')}">
             <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline" data-testid="platform-banner-link">Site banner</a>
             <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline" data-testid="platform-sharing-link">Shared with Epistola</a>
+            <a th:href="@{/platform/support}" class="ep-btn ep-btn-outline" data-testid="platform-support-link">Epistola support</a>
         </th:block>
         <th:block th:if="${auth.has('TENANT_MANAGER')}">
             <button type="button" class="ep-btn ep-btn-primary"

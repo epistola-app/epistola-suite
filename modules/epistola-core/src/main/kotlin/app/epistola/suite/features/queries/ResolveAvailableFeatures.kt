@@ -16,13 +16,13 @@ import org.springframework.stereotype.Component
 
 /**
  * Resolves which features are **available** to a tenant: a feature is available when its local
- * toggle is on **and** — for hub-gated features — the installation is entitled to it. This is the
- * proactive composition the nav contributors and background schedulers consult so gated features are
- * hidden/skipped up front rather than only failing reactively at the hub.
+ * toggle is on **and** — for a feature a [FeatureEntitlementGate] gates — the installation is
+ * entitled to it. This is the proactive composition the nav contributors and background schedulers
+ * consult so gated features are hidden/skipped up front rather than only failing when used.
  *
  * [SystemInternal] for the same reason as [ResolveFeatureToggles] (UI/scheduler use, auth-bypassing).
- * When no [FeatureEntitlementGate] is present (OSS / support tier off) this degrades to the plain
- * toggle map — hub-only features are already off by default there (see [FeatureToggleService]).
+ * When no [FeatureEntitlementGate] is present — today none is: the support connection grants scopes
+ * to what is *sent*, not to what is usable locally — this is the plain toggle map.
  */
 data class ResolveAvailableFeatures(
     val tenantKey: TenantKey,

@@ -4,40 +4,41 @@
 
 package app.epistola.suite.support.ui
 
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
-import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.support.SupportProperties
 import org.springframework.stereotype.Component
 
 /**
- * Owns the "Support" nav group and its Overview landing item.
+ * Owns the "Support" nav group ([GROUP_KEY]) and its Overview item.
  *
- * The base support module declares the group; the per-feature modules
- * (feedback) add their own items to it. The Overview item — and therefore the
- * whole group, since empty groups are dropped — appears only when at least one support feature is
- * enabled for the tenant, matching the previous "Support hidden unless ≥1 toggle on" behavior.
+ * Other modules add their own items to the group with `NavItem(SupportNavContributor.GROUP_KEY, …)`:
+ * feedback for everyone who may use it, the per-tenant support settings for tenant administrators.
+ * The group is dropped when it has no items. Overview is for tenant administrators while the
+ * support connection is on: with it off there is nothing to say there.
  */
 @Component
-class SupportNavContributor : NavContributor {
+class SupportNavContributor(
+    private val properties: SupportProperties,
+) : NavContributor {
 
     override fun groups(context: UiRequestContext): List<NavGroup> = listOf(
-        NavGroup(key = "support", label = "Support", order = 80, testId = "nav-dropdown-support"),
+        NavGroup(key = GROUP_KEY, label = "Support", order = 80, testId = "nav-dropdown-support"),
     )
 
     override fun items(context: UiRequestContext): List<NavItem> {
-        val toggles = ResolveFeatureToggles(context.tenantKey).query()
-        val anyFeatureOn = SUPPORT_FEATURES.any { toggles[it] == true }
-        if (!anyFeatureOn) return emptyList()
-        return listOf(NavItem("support", "overview", "Overview", "support", order = 0))
+        if (!properties.enabled || !context.hasPermission(Permission.TENANT_SETTINGS)) return emptyList()
+        return listOf(NavItem(GROUP_KEY, OVERVIEW_SECTION, "Overview", "support", order = 0))
     }
 
-    private companion object {
-        val SUPPORT_FEATURES = listOf(
-            KnownFeatures.SUPPORT_FEEDBACK,
-        )
+    companion object {
+        /** The Support group's key: contribute items with `NavItem(GROUP_KEY, …)`. */
+        const val GROUP_KEY = "support"
+
+        /** The Overview item's section key; the tenant support page lists the group's other items. */
+        const val OVERVIEW_SECTION = "overview"
     }
 }

@@ -7,13 +7,9 @@ package app.epistola.suite.installation
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Describes the installation for surfaces that report it (e.g. the
- * commercial epistola-hub integration in :modules:epistola-support).
- *
- * Defaults are blank so OSS deployments with the support module disabled
- * bind cleanly. Required-field validation is **lazy**: consumers that
- * actually need these values (the support module) check non-blankness
- * when they wire their beans.
+ * Describes the installation for surfaces that report it: the support
+ * connection (:modules:epistola-support) sends these when it registers, so
+ * Epistola staff recognise the installation. Blank fields are left out.
  */
 @ConfigurationProperties(prefix = "epistola.installation")
 data class InstallationProperties(

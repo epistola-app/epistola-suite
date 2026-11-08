@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
+import java.net.URI
 import java.time.Duration
 
 class DiscoveredEndpointsTest {
@@ -25,6 +26,7 @@ class DiscoveredEndpointsTest {
               "versionCheck": { "endpoint": "https://epistola.app/releases.json" },
               "installationCheck": { "endpoint": "https://epistola.app/installation/{id}.json" },
               "exchange": { "issuer": "https://exchange.epistola.app", "endpoint": "https://exchange.epistola.app/" },
+              "support": { "issuer": "https://support.epistola.app/" },
               "supportHub": { "endpoint": "hub.epistola.app:443" },
               "somethingNew": { "endpoint": "https://epistola.app/new" }
             }
@@ -34,12 +36,12 @@ class DiscoveredEndpointsTest {
         assertThat(endpoints.versionCheck).isEqualTo("https://epistola.app/releases.json")
         assertThat(endpoints.installationCheck).isEqualTo("https://epistola.app/installation/{id}.json")
         assertThat(endpoints.exchange).isEqualTo(ProductEndpoints.ExchangeEndpoint("https://exchange.epistola.app", "https://exchange.epistola.app"))
-        assertThat(endpoints.supportHub).isEqualTo(ProductEndpoints.HubAddress("hub.epistola.app", 443))
+        assertThat(endpoints.support).isEqualTo(ProductEndpoints.SupportEndpoint(URI("https://support.epistola.app")))
     }
 
     /** Pins the contract against what the website actually builds (website `src/lib/server/discovery/document.ts`). */
     @Test
-    fun `the document epistola_app publishes is taken whole, and the hub keeps its default`() {
+    fun `the document epistola_app publishes is taken whole, and the support service keeps its default`() {
         val published = """{"schemaVersion":1,"refreshAfter":"PT1H","versionCheck":{"endpoint":"https://epistola.app/releases.json"},""" +
             """"installationCheck":{"endpoint":"https://epistola.app/installation/{id}.json"},""" +
             """"exchange":{"issuer":"https://exchange.epistola.app","endpoint":"https://exchange.epistola.app"}}"""
@@ -52,7 +54,7 @@ class DiscoveredEndpointsTest {
         assertThat(endpoints.versionCheck).isEqualTo("https://epistola.app/releases.json")
         assertThat(endpoints.installationCheck).isEqualTo("https://epistola.app/installation/{id}.json")
         assertThat(endpoints.exchange.endpoint).isEqualTo("https://exchange.epistola.app")
-        assertThat(endpoints.supportHub).isEqualTo(ProductEndpoints.defaults(domain).supportHub)
+        assertThat(endpoints.support).isEqualTo(ProductEndpoints.defaults(domain).support)
     }
 
     @Test
@@ -64,7 +66,7 @@ class DiscoveredEndpointsTest {
         assertThat(endpoints.versionCheck).isEqualTo("https://epistola.app/releases.json")
         assertThat(endpoints.installationCheck).isEqualTo(defaults.installationCheck)
         assertThat(endpoints.exchange).isEqualTo(defaults.exchange)
-        assertThat(endpoints.supportHub).isEqualTo(defaults.supportHub)
+        assertThat(endpoints.support).isEqualTo(defaults.support)
     }
 
     @Test
@@ -76,7 +78,7 @@ class DiscoveredEndpointsTest {
               "versionCheck": { "endpoint": "https://evil.example/releases.json" },
               "installationCheck": { "endpoint": "https://epistola.app/installation.json" },
               "exchange": { "issuer": "http://exchange.epistola.app", "endpoint": "https://exchange.epistola.app" },
-              "supportHub": { "endpoint": "hub.notepistola.app:443" }
+              "support": { "issuer": "https://support.notepistola.app" }
             }
             """,
         )
@@ -84,10 +86,27 @@ class DiscoveredEndpointsTest {
         assertThat(discovered.versionCheck).isNull()
         assertThat(discovered.installationCheck).isNull()
         assertThat(discovered.exchangeIssuer).isNull()
-        assertThat(discovered.supportHub).isNull()
+        assertThat(discovered.supportIssuer).isNull()
         assertThat(discovered.rejected).hasSize(4)
         // A half-refused Exchange pair is not used: issuer and endpoint come together or not at all.
         assertThat(discovered.over(ProductEndpoints.defaults(domain)).exchange).isEqualTo(ProductEndpoints.defaults(domain).exchange)
+    }
+
+    @Test
+    fun `a plain http support issuer is refused, and the old gRPC hub entry is ignored`() {
+        val discovered = parse(
+            """
+            {
+              "schemaVersion": 1,
+              "support": { "issuer": "http://support.epistola.app" },
+              "supportHub": { "endpoint": "hub.epistola.app:443" }
+            }
+            """,
+        )
+
+        assertThat(discovered.supportIssuer).isNull()
+        assertThat(discovered.rejected).containsExactly("support.issuer: not an https URL on epistola.app")
+        assertThat(discovered.over(ProductEndpoints.defaults(domain)).support.issuer).isEqualTo(URI("https://support.epistola.app"))
     }
 
     @Test
@@ -121,7 +140,7 @@ class DiscoveredEndpointsTest {
         assertThat(defaults.versionCheck).isEqualTo("https://staging.epistola.app/.well-known/epistola/releases.json")
         assertThat(defaults.installationCheck).isEqualTo("https://staging.epistola.app/installation/{id}.json")
         assertThat(defaults.exchange.endpoint).isEqualTo("https://exchange.staging.epistola.app")
-        assertThat(defaults.supportHub.toString()).isEqualTo("hub.staging.epistola.app:443")
+        assertThat(defaults.support.issuer).isEqualTo(URI("https://support.staging.epistola.app"))
     }
 
     @Test
