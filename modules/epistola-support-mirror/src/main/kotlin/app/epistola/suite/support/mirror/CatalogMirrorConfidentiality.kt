@@ -33,7 +33,10 @@ class CatalogMirrorConfidentiality(
 
     @EventListener(ApplicationReadyEvent::class)
     fun withdrawWhenConfidential() {
-        if (!privacy.current().confidential) return
+        // Read now, never a stand-in: before the settings were read the strictest apply, which would
+        // forget every tenant's choice on an installation whose tenants are named.
+        val settings = privacy.read() ?: return log.warn("Privacy settings could not be read at startup; the catalog mirror leaves every tenant's choice as it is")
+        if (!settings.confidential) return
         val choices = jdbi.withHandle<Int, Exception> { it.createQuery("SELECT COUNT(*) FROM support_sharing_choice WHERE ${mirrorSharing()}").mapTo(Int::class.java).one() }
         if (choices == 0) return
         log.info("Tenants are confidential to Epistola: the catalog mirror forgets {} tenant choices and withdraws what it holds", choices)

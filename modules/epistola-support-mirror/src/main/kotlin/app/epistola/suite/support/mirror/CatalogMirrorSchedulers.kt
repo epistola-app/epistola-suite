@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportCluster
 import app.epistola.suite.time.EpistolaClock
+import org.jdbi.v3.core.Jdbi
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
@@ -66,6 +67,7 @@ class CatalogMirrorReconcileScheduler(
 class CatalogMirrorSyncTimerHandler(
     private val reconciler: CatalogMirrorReconciler,
     private val work: SupportBackgroundWork,
+    private val jdbi: Jdbi,
 ) : ClusterTimerHandler {
     override val timerType: String = TIMER_TYPE
 
@@ -76,10 +78,18 @@ class CatalogMirrorSyncTimerHandler(
     override fun handle(timer: ClusterTimer): ClusterTimerResult {
         val tenantKey = timer.tenantKey ?: return ClusterTimerResult.Complete
         if (reconciler.isClaimed(tenantKey)) return ClusterTimerResult.Reschedule(EpistolaClock.offsetDateTime().plus(BUSY_RETRY))
-        if (!work.launch("$TIMER_TYPE:${tenantKey.value}") { reconciler.syncTenant(tenantKey) }) {
+        if (!work.launch("$TIMER_TYPE:${tenantKey.value}") { sync(tenantKey) }) {
             return ClusterTimerResult.Reschedule(EpistolaClock.offsetDateTime().plus(BUSY_RETRY))
         }
         return ClusterTimerResult.Complete
+    }
+
+    /**
+     * Runs the sync; when another round claimed the tenant between [handle]'s check and the claim, asks
+     * for it again, so a "Sync now" is never lost (that round's release clears the request).
+     */
+    internal fun sync(tenantKey: TenantKey): TenantReconcileResult = reconciler.syncTenant(tenantKey).also {
+        if (it == TenantReconcileResult.BUSY) scheduleSync(jdbi, tenantKey)
     }
 
     companion object {

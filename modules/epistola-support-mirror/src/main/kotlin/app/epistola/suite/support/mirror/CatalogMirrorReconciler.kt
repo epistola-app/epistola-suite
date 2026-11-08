@@ -155,7 +155,13 @@ class CatalogMirrorReconciler(
 
     /** "Sync now" for one tenant: its set is sent whatever changed, or the tenant withdrawn when it does not share. */
     fun syncTenant(tenantKey: TenantKey): TenantReconcileResult {
-        val sharing = !privacy.current().confidential && tenantKey in withMediator { ListMirrorTenants().query() }.sharing
+        // Confidential: no request names a tenant by its key. What the mirror still holds goes in the
+        // regular round, under the keys the mirror itself lists.
+        if (privacy.current().confidential) {
+            store.clearSyncRequest(tenantKey)
+            return TenantReconcileResult.SKIPPED
+        }
+        val sharing = tenantKey in withMediator { ListMirrorTenants().query() }.sharing
         if (!reachable() || (sharing && !properties.enabled)) {
             store.clearSyncRequest(tenantKey)
             return TenantReconcileResult.SKIPPED
