@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SupportRequestSummary
@@ -32,6 +33,10 @@ class ListSupportRequestHandler(
 ) : QueryHandler<ListSupportRequest, List<SupportRequestSummary>> {
     override fun handle(query: ListSupportRequest): List<SupportRequestSummary> = jdbi.withHandleUnchecked { handle ->
         val conditions = mutableListOf("f.tenant_key = :tenantKey")
+        // Someone who does not manage support requests sees only their own: as for opening one.
+        val principal = SecurityContext.current()
+        val ownOnly = !principal.hasPermission(query.tenantKey, Permission.SUPPORT_REQUEST_HANDLE)
+        if (ownOnly) conditions.add("f.created_by = :caller")
         if (query.status != null) {
             conditions.add("f.status = :status")
         } else if (query.sourceUrl != null) {
@@ -71,6 +76,7 @@ class ListSupportRequestHandler(
         if (query.status != null) q.bind("status", query.status.name)
         if (query.category != null) q.bind("category", query.category.name)
         if (query.sourceUrl != null) q.bind("pathname", query.sourceUrl)
+        if (ownOnly) q.bind("caller", principal.userId.value)
 
         q.mapTo(SupportRequestSummary::class.java).list()
     }

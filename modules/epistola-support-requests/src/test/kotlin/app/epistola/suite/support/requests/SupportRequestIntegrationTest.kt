@@ -66,6 +66,34 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
         ).execute()
     }
 
+    @Test
+    fun `a colleague lists only their own support requests, a manager every one of the tenant`() {
+        val tenant = createTenant("Requests Listed")
+        fun viewer(n: Int) = app.epistola.suite.security.EpistolaPrincipal(
+            userId = UserKey.of("00000000-0000-0000-0000-00000000c0${n}0"),
+            externalId = "listed-viewer-$n",
+            email = "viewer$n@listed.test",
+            displayName = "Viewer $n",
+            tenantMemberships = mapOf(tenant.id to setOf(app.epistola.suite.security.TenantRole.CONTENT_VIEWER)),
+            currentTenantId = tenant.id,
+        )
+        val alice = viewer(1).also { ensureUser(it) }
+        val bob = viewer(2).also { ensureUser(it) }
+        for ((who, title) in listOf(alice to "Alice's salary letter", bob to "Bob's question")) {
+            runAs(who) {
+                CreateSupportRequest(
+                    id = SupportRequestId(SupportRequestKey.generate(), TenantId(tenant.id)), title = title, description = "d",
+                    category = SupportRequestCategory.BUG, priority = SupportRequestPriority.MEDIUM, sourceUrl = "https://example.com/p",
+                    consoleLogs = null, metadata = null, createdBy = who.userId,
+                ).execute()
+            }
+        }
+
+        assertThat(runAs(alice) { ListSupportRequest(tenant.id).query() }.map { it.title }).containsExactly("Alice's salary letter")
+        assertThat(runAs(bob) { ListSupportRequest(tenant.id, sourceUrl = "/p").query() }.map { it.title }).containsExactly("Bob's question")
+        assertThat(withMediator { ListSupportRequest(tenant.id).query() }.map { it.title }).containsExactlyInAnyOrder("Alice's salary letter", "Bob's question")
+    }
+
     @Nested
     inner class CreateSupportRequestTests {
         @Test
@@ -338,6 +366,22 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
 
             assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "not-a-data-url")).isNull()
             assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/png;base64,!!!invalid!!!")).isNull()
+        }
+
+        @Test
+        fun `fromDataUrl takes only the image types the support service accepts, nothing a browser would run`() {
+            val assetId = SupportRequestAssetId(
+                SupportRequestAssetKey.generate(),
+                SupportRequestId(SupportRequestKey.generate(), TenantId(TenantKey.of("test"))),
+            )
+            val payload = java.util.Base64.getEncoder().encodeToString("<svg onload=alert(1)/>".toByteArray())
+
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/svg+xml;base64,$payload")).isNull()
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:text/html;base64,$payload")).isNull()
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/gif;base64,R0lGOD")).isNull()
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/png;name=x;base64,iVBORw0K")).isNull()
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/jpeg;base64,/9j/4AAQ")!!.filename).isEqualTo("screenshot.jpeg")
+            assertThat(AddSupportRequestAsset.fromDataUrl(assetId, "data:image/webp;base64,UklGRg")).isNotNull
         }
 
         @Test

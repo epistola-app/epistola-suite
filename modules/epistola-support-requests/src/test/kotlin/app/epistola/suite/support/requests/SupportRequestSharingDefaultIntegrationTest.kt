@@ -186,6 +186,19 @@ class SupportRequestSharingDefaultIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a configured preset that changes takes effect at the next start, while nobody saved one`() {
+        val following = createTenant("Default Configured Changed")
+        ApplyConfiguredSupportRequestSharingDefault(jdbi, SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(requests = "share"))).apply()
+        assertThat(withMediator { GetSupportRequestSyncConsent(following.id).query() }.inForce).isTrue()
+
+        // The operator turns sharing off in the configuration and restarts.
+        ApplyConfiguredSupportRequestSharingDefault(jdbi, SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(requests = "no"))).apply()
+
+        assertThat(withMediator { GetSupportRequestSharingDefault().query() }.share).isFalse()
+        assertThat(withMediator { GetSupportRequestSyncConsent(following.id).query() }.inForce).`as`("its following tenants stop sharing").isFalse()
+    }
+
+    @Test
     fun `only an installation administrator sets the default`() {
         val tenant = createTenant("Default Denied")
         val tenantAdmin = EpistolaPrincipal(

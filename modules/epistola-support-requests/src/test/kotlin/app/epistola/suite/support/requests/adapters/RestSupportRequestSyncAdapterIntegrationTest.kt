@@ -122,6 +122,23 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `with confidential tenants and full telemetry, an attached server log names the tenant by its reference only`() {
+        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.FULL).execute() }
+        try {
+            val reference = references.reference(TENANT)
+            val supportRequest = supportRequest(serverLogs = """[{"level":"ERROR","message":"Rendering invoice for tenant acme-fb failed: Tenant acme-fb not found"}]""")
+
+            port.createTicket(supportRequest)
+
+            val body = support.requests.last { it.method == "PUT" && it.path.startsWith("/api/v2/requests/$reference/") }.json()
+            assertThat(body.path("serverLogs").stringValue()).doesNotContain("acme-fb").contains("tenant $reference failed")
+        } finally {
+            jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+            privacy.refresh()
+        }
+    }
+
+    @Test
     fun `a support request is sent with its own id, every field and a bearer token, then its question`() {
         val supportRequest = supportRequest(
             consoleLogs = """[{"level":"error","message":"boom"}]""",

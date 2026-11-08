@@ -60,7 +60,8 @@ class ApplicationLogAppender(
                 spanId = mdc[SPAN_ID_KEY],
                 exception = event.throwableProxy?.let { ThrowableProxyUtil.asString(it) },
                 attributes = attributes,
-                messagePattern = event.message,
+                // Only for a line with values: otherwise the pattern is the message, and stored once.
+                messagePattern = event.message.takeIf { event.argumentArray?.isNotEmpty() == true },
                 userId = resolveUserId(),
             ),
         )

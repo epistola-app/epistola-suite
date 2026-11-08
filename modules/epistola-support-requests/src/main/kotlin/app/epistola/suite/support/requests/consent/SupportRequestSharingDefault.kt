@@ -217,7 +217,12 @@ class ApplyConfiguredSupportRequestSharingDefault(
                 .bind("share", share)
                 .bind("now", EpistolaClock.offsetDateTime())
                 .execute()
-            if (stored == 1) setSupportRequestDefault(handle, share, userId = null, fromConfiguration = true)
+            // A preset the configuration stored and nobody replaced follows the configuration when it
+            // changes; one an administrator saved wins over it.
+            val fromChangedConfiguration = stored == 0 && handle.createQuery(
+                "SELECT from_configuration AND share <> :share FROM support_sharing_default WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION'",
+            ).bind("share", share).mapTo(Boolean::class.java).findOne().orElse(false)
+            if (stored == 1 || fromChangedConfiguration) setSupportRequestDefault(handle, share, userId = null, fromConfiguration = true)
         }
     }
 

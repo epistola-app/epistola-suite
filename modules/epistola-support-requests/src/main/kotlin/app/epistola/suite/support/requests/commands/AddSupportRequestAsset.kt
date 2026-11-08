@@ -42,17 +42,23 @@ data class AddSupportRequestAsset(
          */
         const val MAX_ASSET_BYTES: Int = 1024 * 1024 // 1 MB
 
+        /** The screenshot types taken and served. */
+        val IMAGE_TYPES: Set<String> = setOf("image/png", "image/jpeg", "image/webp")
+
         /**
          * Creates an [AddSupportRequestAsset] from a base64 data URL (e.g., `data:image/png;base64,iVBOR...`).
          *
          * @return the command, or null if the data URL is malformed or exceeds [MAX_ASSET_BYTES]
          */
+
         fun fromDataUrl(id: SupportRequestAssetId, dataUrl: String): AddSupportRequestAsset? {
             if (!dataUrl.startsWith("data:")) return null
             val parts = dataUrl.split(",", limit = 2)
             if (parts.size != 2) return null
 
-            val contentType = parts[0].removePrefix("data:").removeSuffix(";base64")
+            // Only the image types the support service takes (docs/support-protocol.md): nothing a browser
+            // would run when the screenshot is opened from this installation's origin.
+            val contentType = parts[0].removePrefix("data:").removeSuffix(";base64").takeIf { it in IMAGE_TYPES } ?: return null
             val bytes = try {
                 Base64.getDecoder().decode(parts[1])
             } catch (_: IllegalArgumentException) {

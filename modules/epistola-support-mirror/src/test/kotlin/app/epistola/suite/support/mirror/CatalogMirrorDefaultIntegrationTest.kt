@@ -187,6 +187,20 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     }
 
     @Test
+    fun `a configured preset that changes takes effect at the next start, while nobody saved one`() {
+        val following = createTenant("Mirror Default Configured Changed").id
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, privacy).apply()
+        assertThat(consent(following)!!.sharing).isTrue()
+
+        // The operator turns the mirror preset off in the configuration and restarts.
+        val off = SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(mirror = "off"), privacy = SupportProperties.Privacy(tenantIdentity = "named"))
+        ApplyConfiguredCatalogMirrorDefault(jdbi, off, privacy).apply()
+
+        assertThat(withMediator { GetCatalogMirrorDefault().query() }.choice).isEqualTo(CatalogMirrorDefaultChoice.OFF)
+        assertThat(consent(following)!!.sharing).`as`("its following tenants stop sharing").isFalse()
+    }
+
+    @Test
     fun `a startup that cannot read the privacy settings forgets no tenant's choice`() {
         val tenant = createTenant("Mirror Default Startup Unreadable").id
         optIn(tenant, shareByDefault = true)

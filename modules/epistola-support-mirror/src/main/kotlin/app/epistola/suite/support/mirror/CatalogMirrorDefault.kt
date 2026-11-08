@@ -271,7 +271,12 @@ class ApplyConfiguredCatalogMirrorDefault(
                 .bind("version", CatalogMirror.CONSENT_VERSION)
                 .bind("now", EpistolaClock.offsetDateTime())
                 .execute()
-            if (stored == 1) setMirrorDefault(handle, choice, userId = null, fromConfiguration = true)
+            // A preset the configuration stored and nobody replaced follows the configuration when it
+            // changes (this value was not applied yet); one an administrator saved wins over it.
+            val fromConfiguration = stored == 0 && handle.createQuery(
+                "SELECT from_configuration FROM support_sharing_default WHERE connection_id = $MIRROR_CONNECTION_SQL AND section = '${CatalogMirror.SECTION}'",
+            ).mapTo(Boolean::class.java).findOne().orElse(false)
+            if (stored == 1 || fromConfiguration) setMirrorDefault(handle, choice, userId = null, fromConfiguration = true)
         }
     }
 

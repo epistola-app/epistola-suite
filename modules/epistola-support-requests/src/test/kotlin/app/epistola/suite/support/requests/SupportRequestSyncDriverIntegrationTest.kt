@@ -761,6 +761,67 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a page that says nothing more follows is the last call of the run, also when it names a position`() {
+        repeat(5) { recording.pages.addLast(ExternalUpdatePage(updates = emptyList(), lastSequence = 43, hasMore = false)) }
+
+        pollScheduler.pollForUpdates()
+
+        assertThat(recording.fetchCalls).`as`("no spinning on an empty page").containsExactly(null, 43L)
+    }
+
+    @Test
+    fun `a run that stops at its page limit acknowledges what it handled before it goes`() {
+        repeat(SupportRequestPollScheduler.MAX_PAGES_PER_RUN + 1) { i ->
+            recording.pages.addLast(ExternalUpdatePage(updates = emptyList(), lastSequence = (i + 1).toLong(), hasMore = true))
+        }
+
+        pollScheduler.pollForUpdates()
+
+        assertThat(recording.fetchCalls.last()).`as`("the last handled page is acknowledged in this run")
+            .isEqualTo(SupportRequestPollScheduler.MAX_PAGES_PER_RUN.toLong())
+    }
+
+    @Test
+    fun `a status from the support service settles a local one still waiting, which is then not sent`() {
+        val tenant = createTenant("Driver Status Settled")
+        val supportRequest = createSyncedSupportRequest(tenant)
+        val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
+        recording.failUpdateStatus = true
+        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
+        recording.failUpdateStatus = false
+        recording.statusUpdates.clear()
+        recording.pages.addLast(
+            ExternalUpdatePage(
+                updates = listOf(ExternalUpdate.StatusChange(5, tenant.id, supportRequest.externalRef!!, OCCURRED_AT, SupportRequestStatus.RESOLVED)),
+                lastSequence = 5,
+                hasMore = false,
+            ),
+        )
+        pollScheduler.pollForUpdates()
+
+        retryScheduler.retryPendingSync()
+
+        assertThat(withMediator { GetSupportRequest(supportRequestId).query()!! }.status).isEqualTo(SupportRequestStatus.RESOLVED)
+        assertThat(recording.statusUpdates).`as`("Epistola's own status is not sent back as the suite's").isEmpty()
+    }
+
+    @Test
+    fun `setting the status a request already has changes nothing and sends nothing`() {
+        val tenant = createTenant("Driver Same Status")
+        val supportRequest = createSyncedSupportRequest(tenant)
+        val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
+        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
+        retryScheduler.retryPendingSync()
+        recording.statusUpdates.clear()
+
+        val changed = withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
+        retryScheduler.retryPendingSync()
+
+        assertThat(changed).isFalse()
+        assertThat(recording.statusUpdates).isEmpty()
+    }
+
+    @Test
     fun `a page of updates this suite skipped is still acknowledged`() {
         recording.pages.addLast(ExternalUpdatePage(updates = emptyList(), lastSequence = 12, hasMore = false))
 

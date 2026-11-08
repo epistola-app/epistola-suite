@@ -36,7 +36,18 @@ class ApplicationLogSupportRequestSource(
                 put("time", line.occurredAt.toInstant().toString())
                 put("level", line.level)
                 put("logger", line.logger)
-                put("message", if (pseudonymised) line.pattern() else line.message)
+                // Pseudonymised: the suite's own message as written in the code; a library's not at all, as it
+                // may have built the values into it itself (the same rule as telemetry).
+                put(
+                    "message",
+                    if (!pseudonymised) {
+                        line.message
+                    } else if (line.logger.startsWith(OWN_PACKAGE)) {
+                        line.pattern()
+                    } else {
+                        LIBRARY_MESSAGE_WITHHELD
+                    },
+                )
                 line.exception?.let { put("exception", if (pseudonymised) withoutMessages(it) else it) }
                 put("traceId", line.traceId)
             }
@@ -45,11 +56,13 @@ class ApplicationLogSupportRequestSource(
         return objectMapper.writeValueAsString(lines)
     }
 
-    /** The pattern; a line stored before patterns were kept has none, so nothing of its text goes. */
+    /** The pattern; never absent from an excerpt, but nothing of the text goes if it ever were. */
     private fun TenantLogLine.pattern(): String = messagePattern ?: "(message not kept)"
 
     companion object {
         private val TRACE_ID = Regex("[0-9a-f]{32}")
+        private const val OWN_PACKAGE = "app.epistola."
+        const val LIBRARY_MESSAGE_WITHHELD = "(library message withheld)"
 
         /**
          * A rendered stack trace with only its exception types and frames: "Type: message" and
