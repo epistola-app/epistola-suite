@@ -184,6 +184,30 @@ open class SupportConnectionStore(
 
     fun saveStatus(status: StoredSupportStatus) = writeJson("status", status)
 
+    /**
+     * Records a failed check in one statement: [checkedAt], [lastError] and, when known, [issuer] are
+     * merged into the stored status, and everything else is left as it is now. A refusal another node
+     * stored while the check ran (its token requests do not take the cluster lock) is kept, and when
+     * the scopes were last learned stays as it was ([StoredSupportStatus.scopesAt]).
+     */
+    fun noteCheckFailed(issuer: String?, checkedAt: Instant, lastError: String) {
+        val patch = objectMapper.writeValueAsString(
+            buildMap {
+                put("checkedAt", checkedAt)
+                put("lastError", lastError)
+                issuer?.let { put("issuer", it) }
+            },
+        )
+        write(
+            """
+            status = COALESCE(status, '{}'::jsonb)
+                || jsonb_strip_nulls(jsonb_build_object('scopesCheckedAt', COALESCE(status -> 'scopesCheckedAt', status -> 'checkedAt')))
+                || :value::jsonb
+            """.trimIndent(),
+            patch,
+        )
+    }
+
     /** The saved selection of services; null until an installation administrator saves one. */
     open fun services(): StoredSupportServices? = json("services", StoredSupportServices::class.java)
 

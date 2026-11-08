@@ -95,8 +95,7 @@ sealed interface SupportConnectionState {
 
     /**
      * An installation administrator ([by], null when unknown) disconnected at [at]: the registration
-     * is forgotten, every tenant's sharing choice and the installation's preset are cleared, and
-     * nothing is registered again until an administrator registers. [outcome] says how the support
+     * is forgotten, and nothing is registered again until an administrator registers. [outcome] says how the support
      * service took it.
      */
     data class Disconnected(val at: Instant, val by: String?, val outcome: SupportDisconnectOutcome) : SupportConnectionState

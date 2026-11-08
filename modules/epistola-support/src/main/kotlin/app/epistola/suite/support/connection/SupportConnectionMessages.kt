@@ -290,9 +290,7 @@ class RegisterSupportConnectionAgainHandler(
 
 /**
  * Ends this installation's connection with Epistola support, as an installation administrator
- * asked: the support service ends the registration (it deletes the catalog mirror and keeps the
- * feedback for its retention period), this installation forgets it, and every tenant's sharing
- * choice and the installation's preset are cleared, so registering again asks everyone again.
+ * asked: the support service ends the registration and this installation forgets it.
  * [localOnly] skips telling the service, for when it cannot be reached. Talks to the support
  * service, so it runs outside a database transaction.
  */

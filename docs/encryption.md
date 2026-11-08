@@ -12,8 +12,10 @@ alone never exposes a usable secret. This covers:
   ([support protocol](support-protocol.md)). Losing the key set without
   re-encrypting it loses the registration: the installation then registers again
   and needs a new claim. Installations upgraded from the gRPC hub may still hold
-  `support.hub.credentials`; nothing reads it any more, and it is left in place
-  rather than deleted.
+  `support.hub.credentials` and `support.entitlements` in `app_metadata`; nothing
+  reads them any more, and they are left in place rather than deleted, since
+  migrations never delete data. Key rotation covers an `app_metadata` key only when
+  it is named in `metadataKeys`, so the old hub key does not hold a rotation back.
 - **Exchange credentials** — the tenant's OAuth application secret, its
   access/refresh tokens, and the pending PKCE verifier used for catalog
   publication.

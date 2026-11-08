@@ -7,6 +7,8 @@ package app.epistola.suite.support
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
+import app.epistola.suite.testing.FakeSupportFault
+import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
@@ -44,9 +46,11 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @BeforeEach
     fun forget() {
+        support.clearFaults()
         store.forget()
         store.forgetServices()
         connection.invalidate()
+        connection.resetBackoff()
     }
 
     private fun page(): String = restTemplate.getForEntity("/platform/support", String::class.java).let {
@@ -195,6 +199,22 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
         val second = support.latestRegistration
         assertThat(second.clientId).isNotEqualTo(first.clientId)
         assertThat(again).contains("Registered again. Epistola will contact you to activate this installation.").contains(">${second.claimCode}</code>")
+    }
+
+    @Test
+    fun `registering again that fails says it failed, not that it registered`() {
+        post("/platform/support/register")
+        val first = support.latestRegistration
+        support.activate(first.clientId)
+        post("/platform/support/check")
+        support.revoke(first.clientId)
+        post("/platform/support/check")
+        support.fault(FakeSupportFault.Respond(FakeSupportResponse.json(503, """{"error":"temporarily_unavailable"}""")), "POST", "/oauth2/register")
+
+        val again = post("/platform/support/register-again", mapOf("confirmed" to "true"))
+
+        assertThat(again).doesNotContain("Registered again").contains("Registering failed")
+        assertThat(connection.status().state).isNotInstanceOf(app.epistola.suite.support.connection.SupportConnectionState.Pending::class.java)
     }
 
     @Test

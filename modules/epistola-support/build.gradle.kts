@@ -12,16 +12,14 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 }
 
 dependencies {
-    // Core module (provides Installation domain, AppMetadataService, JDBI config).
-    // The support connection persists its credentials and status through AppMetadataService; the
-    // advisory lock that keeps registration to one node is its only SQL.
+    // Core module (provides Installation domain, credential encryption, JDBI config). The support
+    // connection keeps its registration, status and selection in its own table, support_connections.
     api(project(":modules:epistola-core"))
 
     // The support connection (docs/support-protocol.md): the installation's EC P-256 key, its
     // ES256 client assertions and the JWK it registers.
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.jdbi.core)
-    implementation(libs.caffeine)
     // Transaction synchronisation: a saved selection is re-read on this node once its transaction ends.
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 

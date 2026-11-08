@@ -98,13 +98,14 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork) {
 
     fun registerAgain(request: ServerRequest): ServerResponse {
         val confirmed = request.param("confirmed").map { it == "true" }.orElse(false)
-        val notice = attempt { RegisterSupportConnectionAgain(confirmed).execute() }.notice { "Registered again. Epistola will contact you to activate this installation." }
+        val notice = attempt { RegisterSupportConnectionAgain(confirmed).execute() }.notice { status ->
+            if (status.state is SupportConnectionState.Pending) "Registered again. Epistola will contact you to activate this installation." else status.lastError?.let { "Registering failed: $it" }
+        }
         return connectionPanel(request, notice)
     }
 
     /**
-     * Disconnects: tells the support service, then forgets the registration and clears every tenant's
-     * choice. When the service cannot be reached nothing changes, and the panel offers to remove the
+     * Disconnects: tells the support service, then forgets the registration. When the service cannot be reached nothing changes, and the panel offers to remove the
      * connection here only (`localOnly=true`).
      */
     fun disconnect(request: ServerRequest): ServerResponse {
@@ -113,7 +114,7 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork) {
         val notice = try {
             attempt { DisconnectSupportConnection(localOnly).execute().also { outcome = it.outcome }.status }.notice {
                 when (outcome) {
-                    SupportDisconnectOutcome.CONFIRMED -> "Disconnected. Epistola support deleted the catalog mirror and keeps this installation's support requests for its retention period."
+                    SupportDisconnectOutcome.CONFIRMED -> "Disconnected. Epistola support ended this installation's registration."
                     SupportDisconnectOutcome.ALREADY_GONE -> "Disconnected. Epistola support no longer accepted this registration, so there was nothing to end there."
                     else -> "Removed here only. Ask Epistola support to remove the registration and what it holds of this installation."
                 }

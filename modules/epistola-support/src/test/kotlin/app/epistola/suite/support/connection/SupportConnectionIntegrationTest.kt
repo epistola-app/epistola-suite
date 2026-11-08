@@ -258,6 +258,41 @@ class SupportConnectionIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a register refused while active leaves the stored contact as it was`() {
+        connection.checkNow()
+        support.activate()
+        connection.checkNow()
+        val before = store.contact()
+
+        assertThatThrownBy { connection.registerNow(StoredSupportContact("Someone Else B.V.", "other@example.org")) }
+            .isInstanceOf(SupportRegistrationNotAllowedException::class.java)
+
+        assertThat(store.contact()).isEqualTo(before)
+    }
+
+    @Test
+    fun `a failed check keeps a refusal another node stored while it ran`() {
+        connection.checkNow()
+        support.activate()
+        connection.checkNow()
+        val clientId = support.latestRegistration.clientId
+        // While this check waits for the service, another node's token request is refused and stores it.
+        support.route("GET", "/api/v1/connection") {
+            store.saveStatus(StoredSupportStatus(clientId = clientId, state = StoredConnectionState.REFUSED, reason = "invalid_client"))
+            FakeSupportResponse.json(503, """{"error":"temporarily_unavailable"}""")
+        }
+        try {
+            connection.checkNow()
+        } finally {
+            support.clearRoutes()
+        }
+
+        val status = checkNotNull(store.status())
+        assertThat(status.state).`as`("the refusal is kept").isEqualTo(StoredConnectionState.REFUSED)
+        assertThat(status.lastError).isNotNull()
+    }
+
+    @Test
     fun `registering again is not offered while active`() {
         connection.checkNow()
         support.activate()
@@ -302,6 +337,26 @@ class SupportConnectionIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a token asked for with an undecryptable registration is unavailable, and backs off`() {
+        connection.checkNow()
+        support.activate()
+        connection.checkNow()
+        // No command writes an undecryptable row: this is what a lost or rotated-away encryption key leaves.
+        jdbi.useHandle<Exception> {
+            it.createUpdate("UPDATE support_connections SET credentials = :c WHERE id = :id")
+                .bind("c", "enc:v1:a-key-that-is-gone:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").bind("id", store.connectionId).execute()
+        }
+        connection.invalidate()
+        connection.resetBackoff()
+        // The token from the check has expired, so the next call asks for one.
+        testClock.advanceBy(Duration.ofSeconds(support.tokenLifetimeSeconds))
+
+        assertThatThrownBy { connection.accessToken() }.isInstanceOf(SupportUnavailableException::class.java)
+        assertThatThrownBy { connection.accessToken() }.`as`("backed off: not decrypted again")
+            .isInstanceOf(SupportUnavailableException::class.java).hasMessageContaining("Not contacting the support service until")
+    }
+
+    @Test
     fun `a failed check does not hide scopes a newer token on this node already carries`() {
         connection.checkNow()
         support.activate(scopes = setOf("requests"))
@@ -335,6 +390,24 @@ class SupportConnectionIntegrationTest : IntegrationTestBase() {
         val withdrawnToken = checkNotNull(connection.cachedAccessToken())
         assertThat(support.issuedTokens.getValue(withdrawnToken).second).containsExactly("requests")
         assertThat(connection.hasScope(SupportScope.TELEMETRY)).isFalse()
+    }
+
+    @Test
+    fun `while a service is paused the token without it fits, and no tick asks for another`() {
+        connection.checkNow()
+        support.activate(scopes = setOf("telemetry", "mirror"))
+        support.pause(setOf("mirror"), "Incident")
+        connection.checkNow()
+        val token = checkNotNull(connection.cachedAccessToken())
+        assertThat(support.issuedTokens.getValue(token).second).containsExactly("telemetry")
+        val tokenRequests = support.requests.count { it.method == "POST" && it.path == "/oauth2/token" }
+
+        // Older than a refit, younger than its refresh margin: a fitting token is kept.
+        testClock.advanceBy(Duration.ofMinutes(2))
+        repeat(3) { connection.refreshTokenIfDue() }
+
+        assertThat(connection.cachedAccessToken()).isEqualTo(token)
+        assertThat(support.requests.count { it.method == "POST" && it.path == "/oauth2/token" }).`as`("no new token while paused").isEqualTo(tokenRequests)
     }
 
     @Test

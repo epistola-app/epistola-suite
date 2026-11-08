@@ -480,7 +480,6 @@ class DefaultSupportConnection(
      */
     fun registerNow(contact: StoredSupportContact? = null) {
         if (!properties.enabled) throw SupportUnavailableException("The support connection is off (epistola.support.enabled=false)")
-        contact?.let { store.saveContact(it) }
         try {
             store.tryExclusively {
                 invalidate()
@@ -492,6 +491,8 @@ class DefaultSupportConnection(
                     store.forget()
                     invalidate()
                 }
+                // Only once registering is allowed and this node holds the lock: a refused request changes nothing.
+                contact?.let { store.saveContact(it) }
                 token = null
                 localFailure = null
                 log.info("Support connection: registering, as an installation administrator asked")
@@ -567,7 +568,8 @@ class DefaultSupportConnection(
         val state = status().state
         if (state !is SupportConnectionState.Pending && state !is SupportConnectionState.Active) return
         val current = token
-        val granted = (state as? SupportConnectionState.Active)?.scopes.orEmpty()
+        // Granted and not paused: the service leaves a paused scope out of every token.
+        val granted = (state as? SupportConnectionState.Active)?.usable(EpistolaClock.instant()).orEmpty()
         val wanted = wantedScopes(metadataCache.cached())
         val refusedSince = snapshot().refusals.values.maxOrNull()
         if (current != null &&
@@ -692,15 +694,9 @@ class DefaultSupportConnection(
                 // is left as it is (register() may just have written it): not this check's to change.
                 return
             }
-            // The scopes were not learned now: keep when they were, so a newer token still counts.
-            store.saveStatus(
-                (previous ?: StoredSupportStatus()).copy(
-                    issuer = issuer?.toString() ?: previous?.issuer,
-                    checkedAt = now,
-                    lastError = message,
-                    scopesCheckedAt = previous?.scopesAt(),
-                ),
-            )
+            // Merged into the status as it is now, not as this check read it: a refusal another node
+            // stored meanwhile is kept, and when the scopes were learned stays, so a newer token still counts.
+            store.noteCheckFailed(issuer?.toString(), now, message)
         }
     }
 
@@ -817,7 +813,8 @@ class DefaultSupportConnection(
     private fun fitsNow(t: SupportCachedToken): Boolean {
         val wanted = wantedScopes(metadataCache.cached())
         if (t.requested != wanted) return false
-        val granted = (status().state as? SupportConnectionState.Active)?.scopes ?: return true
+        // Granted and not paused: the service leaves a paused scope out of every token.
+        val granted = (status().state as? SupportConnectionState.Active)?.usable(EpistolaClock.instant()) ?: return true
         if (t.scopes.containsAll(wanted.intersect(granted))) return true
         // A check learned the grants after this token was asked for: a new token is newer than it.
         val checkedSince = snapshot().status?.scopesVersion?.let { t.seq <= it } == true
@@ -825,7 +822,15 @@ class DefaultSupportConnection(
     }
 
     private fun fetchToken(): SupportCachedToken {
-        val credentials = store.credentials()?.takeIf { it.clientId != null }
+        val stored = try {
+            store.credentials()
+        } catch (e: UnreadableSupportCredentialsException) {
+            // A lost or rotated-away key: backs off like any "not now", so the registration is not decrypted on
+            // every call. The check under the cluster lock forgets it and registers again.
+            noteUnavailable(e.message ?: "The stored support registration cannot be read")
+            throw SupportUnavailableException("The stored support registration cannot be read", e)
+        }
+        val credentials = stored?.takeIf { it.clientId != null }
             ?: throw SupportUnavailableException("This installation is not registered with the support service yet")
         val clientId = checkNotNull(credentials.clientId)
         val now = EpistolaClock.instant()

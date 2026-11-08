@@ -130,8 +130,8 @@
                     <p data-testid="support-disconnected">
                         Disconnected<th:block th:if="${s.by != null}"> by <span th:text="${s.by}">Admin</span></th:block>
                         on <span th:text="${#temporals.format(s.at, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 21:00 UTC</span>.
-                        Nothing is sent to Epistola support, and every tenant's choice of what to share was cleared.
-                        <th:block th:if="${s.outcome.name() == 'CONFIRMED'}">Epistola support deleted the catalog mirror, and deletes this installation's support requests after its retention period.</th:block>
+                        Nothing is sent to Epistola support.
+                        <th:block th:if="${s.outcome.name() == 'CONFIRMED'}">Epistola support ended the registration.</th:block>
                         <th:block th:if="${s.outcome.name() == 'ALREADY_GONE'}">Epistola support no longer accepted the registration, so there was nothing to end there.</th:block>
                         <th:block th:if="${s.outcome.name() == 'LOCAL_ONLY'}">It was removed here only, so Epistola support keeps the registration and what it holds of this installation until it removes them; ask them to.</th:block>
                     </p>
@@ -258,10 +258,9 @@
             <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
             <div class="detail-section-body ep-stack">
                 <p data-testid="support-disconnect-explained">
-                    Ends this installation's connection with Epistola support. Epistola support deletes the catalog mirror at once and
-                    keeps the support requests for a limited time, then deletes it. Here, nothing is sent any more, the registration is forgotten,
-                    and every tenant's choice of what to share and the setup for every tenant are cleared. Support requests stay in this
-                    installation. To connect again, register and send the new claim code to Epistola support.
+                    Ends this installation's connection with Epistola support: Epistola support ends the registration, and here
+                    nothing is sent any more and the registration is forgotten. Feedback stays in this installation. To connect
+                    again, register; Epistola then activates the installation again.
                 </p>
                 <div class="ep-row">
                     <form th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
@@ -269,7 +268,7 @@
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect"
                                 data-confirm-submit
                                 data-confirm-submit-title="Disconnect from Epistola support"
-                                data-confirm-submit-message="Epistola support deletes the catalog mirror and, after a limited time, this installation's support requests. Every tenant's choice of what to share is cleared here. Connecting again needs a new activation by Epistola."
+                                data-confirm-submit-message="Epistola support ends this installation's registration, and this installation forgets it. Connecting again needs a new activation by Epistola."
                                 data-confirm-submit-label="Disconnect">Disconnect</button>
                     </form>
                     <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
@@ -278,7 +277,7 @@
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect-local"
                                 data-confirm-submit
                                 data-confirm-submit-title="Remove here only"
-                                data-confirm-submit-message="This installation forgets the connection without telling Epistola support, which keeps the registration and what it holds until Epistola removes them. Every tenant's choice of what to share is cleared here."
+                                data-confirm-submit-message="This installation forgets the connection without telling Epistola support, which keeps the registration and what it holds until Epistola removes them."
                                 data-confirm-submit-label="Remove here only">Remove here only</button>
                     </form>
                 </div>

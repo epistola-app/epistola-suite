@@ -79,13 +79,9 @@ class FeedbackPollScheduler(
         var cursor = loadCursor()
         var pages = 0
         while (pages++ < MAX_PAGES_PER_RUN) {
-            val page = try {
-                feedbackSyncPort.fetchUpdates(cursor)
-            } catch (e: Exception) {
-                throw e
-            }
+            val page = feedbackSyncPort.fetchUpdates(cursor)
             if (page.updates.isEmpty()) {
-                // Nothing new — leave the cursor untouched (it is the hub's seq, not a clock).
+                // Nothing new — leave the cursor untouched (it is the target's seq, not a clock).
                 break
             }
 

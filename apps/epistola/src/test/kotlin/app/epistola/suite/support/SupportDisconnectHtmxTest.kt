@@ -75,7 +75,7 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
 
         val panel = post("/platform/support/disconnect")
 
-        assertThat(panel).contains("Disconnected. Epistola support deleted the catalog mirror").contains("data-testid=\"support-disconnected\"")
+        assertThat(panel).contains("Disconnected. Epistola support ended this installation").doesNotContain("every tenant").contains("data-testid=\"support-disconnected\"")
             .contains("data-testid=\"support-register\"").doesNotContain("data-testid=\"support-disconnect\"")
         assertThat(support.registrations.getValue(clientId).status).isEqualTo("DISCONNECTED")
         val state = connection.status().state as SupportConnectionState.Disconnected
