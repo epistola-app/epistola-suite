@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* What sharing usage sends (ADR 0052 §6), shown in the setup wizard and on /platform/support. */-->
+    <div th:fragment="statement" data-testid="usage-statement">
+        <p>
+            This installation counts, for every tenant and hour, how many documents it generated and how many previews it
+            rendered. With this tenant's agreement, every hour the counts of the hour before go to Epistola, with the
+            running totals, and Epistola bills the installation's operator by the documents generated. Previews are
+            counted, not billed.
+        </p>
+        <p>
+            Only the numbers are sent, with the tenant's key, or its reference when this installation keeps its tenants
+            confidential. No document, template, data or person is sent.
+        </p>
+    </div>
+</body>
+</html>

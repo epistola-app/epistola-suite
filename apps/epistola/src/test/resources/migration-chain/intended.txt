@@ -2068,3 +2068,72 @@ $$
 )
 + CREATE UNIQUE INDEX uq_support_connections_discovered ON public.support_connections USING btree (source) WHERE ((source)::text = 'DISCOVERED'::text)
 + row support_connections: {"auth":"PRIVATE_KEY_JWT","contact":null,"created_at":"<now>","credentials":null,"endpoint":null,"escalates_to":null,"id":"@d5a34a0f4c48","name":"Epistola support","node_clocks":{},"refusals":{},"services":null,"source":"DISCOVERED","status":null,"updated_at":"<now>","version":0}
+
+# Added after the chain: what tenants share per support connection, and the usage hours reported
+# (V20261108202810, V20261108202811).
++ ALTER TABLE ONLY public.support_sharing_choice
+    ADD CONSTRAINT support_sharing_choice_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_sharing_choice
+    ADD CONSTRAINT support_sharing_choice_given_by_fkey FOREIGN KEY (given_by) REFERENCES public.users(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_sharing_choice
+    ADD CONSTRAINT support_sharing_choice_pkey PRIMARY KEY (connection_id, section, tenant_key)
++ ALTER TABLE ONLY public.support_sharing_choice
+    ADD CONSTRAINT support_sharing_choice_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_sharing_choice
+    ADD CONSTRAINT support_sharing_choice_withdrawn_by_fkey FOREIGN KEY (withdrawn_by) REFERENCES public.users(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_sharing_default
+    ADD CONSTRAINT support_sharing_default_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_sharing_default
+    ADD CONSTRAINT support_sharing_default_pkey PRIMARY KEY (connection_id, section)
++ ALTER TABLE ONLY public.support_sharing_default
+    ADD CONSTRAINT support_sharing_default_set_by_fkey FOREIGN KEY (set_by) REFERENCES public.users(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_sharing_restriction
+    ADD CONSTRAINT support_sharing_restriction_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_sharing_restriction
+    ADD CONSTRAINT support_sharing_restriction_pkey PRIMARY KEY (connection_id, section)
++ ALTER TABLE ONLY public.support_sharing_restriction
+    ADD CONSTRAINT support_sharing_restriction_set_by_fkey FOREIGN KEY (set_by) REFERENCES public.users(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_usage_reports
+    ADD CONSTRAINT support_usage_reports_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_usage_reports
+    ADD CONSTRAINT support_usage_reports_pkey PRIMARY KEY (connection_id, hour)
++ CREATE TABLE public.support_sharing_choice (
+    CONSTRAINT chk_support_sharing_choice_confirmed CHECK (((withdrawal_confirmed_at IS NULL) OR (withdrawn_at IS NOT NULL))),
+    CONSTRAINT chk_support_sharing_choice_given_or_withdrawn CHECK (((given_at IS NOT NULL) OR (withdrawn_at IS NOT NULL))),
+    connection_id uuid NOT NULL,
+    follows_default boolean DEFAULT false NOT NULL,
+    given_at timestamp with time zone,
+    given_by uuid,
+    grant_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    options jsonb DEFAULT '{}'::jsonb NOT NULL,
+    section character varying(64) NOT NULL,
+    statement_version character varying(32),
+    tenant_key public.tenant_key NOT NULL,
+    withdrawal_confirmed_at timestamp with time zone,
+    withdrawn_at timestamp with time zone,
+    withdrawn_by uuid
+)
++ CREATE TABLE public.support_sharing_default (
+    connection_id uuid NOT NULL,
+    from_configuration boolean DEFAULT false NOT NULL,
+    options jsonb DEFAULT '{}'::jsonb NOT NULL,
+    section character varying(64) NOT NULL,
+    set_at timestamp with time zone NOT NULL,
+    set_by uuid,
+    share boolean NOT NULL,
+    statement_version character varying(32)
+)
++ CREATE TABLE public.support_sharing_restriction (
+    CONSTRAINT chk_support_sharing_restriction CHECK (((restriction)::text = ANY ((ARRAY['NOT_ALLOWED'::character varying, 'REQUIRED'::character varying])::text[]))),
+    connection_id uuid NOT NULL,
+    restriction character varying(16) NOT NULL,
+    section character varying(64) NOT NULL,
+    set_at timestamp with time zone NOT NULL,
+    set_by uuid
+)
++ CREATE TABLE public.support_usage_reports (
+    CONSTRAINT support_usage_reports_hour_check CHECK ((date_trunc('hour'::text, hour) = hour)),
+    connection_id uuid NOT NULL,
+    hour timestamp with time zone NOT NULL,
+    reported_at timestamp with time zone NOT NULL
+)

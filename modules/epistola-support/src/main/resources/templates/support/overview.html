@@ -48,6 +48,10 @@
             </p>
         </section>
 
+        <th:block th:unless="${summary.connection.name() == 'OFF'}">
+            <div th:replace="~{support/overview :: sharing}"></div>
+        </th:block>
+
         <!--/* The tenant's support pages: the Support nav group's other items, contributed by their modules. */-->
         <section class="ep-panel form-section" data-testid="support-settings"
                  th:with="groups=${navGroups.?[key == 'support']}">
@@ -63,5 +67,133 @@
             </th:block>
         </section>
     </th:block>
+    <!--/*
+      What the tenant shares with Epistola: the one place it is set. A setup wizard while nothing is
+      set up (no own choice, no installation preset), otherwise who set it up and what is shared,
+      with "Change". Sections come from their modules (TenantSharingSection).
+      Model: sharing (TenantSharingOverview; null when the viewer may not manage integrations),
+      wizard (TenantSharingWizard; null unless it is open), sharingNotice, tenantId.
+    */-->
+    <section th:fragment="sharing" id="support-sharing" class="ep-panel form-section" data-testid="support-sharing">
+        <div class="alert alert-info" th:if="${sharingNotice != null}" role="status" data-testid="support-sharing-notice"
+             th:text="${sharingNotice}">Epistola support is set up for Acme.</div>
+
+        <th:block th:if="${sharing == null}">
+            <h2>Sharing with Epistola</h2>
+            <p class="text-muted" data-testid="support-sharing-not-allowed">
+                A tenant administrator who manages integrations chooses what this tenant shares with Epistola.
+            </p>
+        </th:block>
+
+        <!--/* The wizard: open while nothing is set up, or after "Change". */-->
+        <th:block th:if="${sharing != null and wizard != null}" th:with="w=${wizard}">
+            <h2 th:text="(${w.changing} ? 'Change what ' : 'Set up Epistola support for ') + ${w.tenantName} + (${w.changing} ? ' shares' : '')">Set up Epistola support for Acme</h2>
+            <ol data-testid="support-setup-steps" aria-label="Setup steps"
+                style="display:flex;flex-wrap:wrap;gap:0.25rem 1.5rem;list-style:none;padding:0;margin:0 0 1.25rem">
+                <li th:each="title, it : ${w.titles}" th:text="${it.count + '. ' + title}" th:attr="aria-current=${it.index == w.step} ? 'step' : null"
+                    th:style="${it.index == w.step} ? 'font-weight:600' : 'color:var(--ep-muted-foreground)'">1. About</li>
+            </ol>
+            <form th:attr="hx-post=@{'/tenants/' + ${tenantId} + '/support/setup'}" hx-target="#support-sharing" hx-swap="outerHTML"
+                  th:action="@{'/tenants/' + ${tenantId} + '/support/setup'}" method="post" data-testid="support-setup"
+                  th:attrappend="data-step=${w.step}">
+                <input type="hidden" name="step" th:value="${w.step}">
+                <input type="hidden" name="changing" th:value="${w.changing}">
+                <th:block th:each="s : ${w.sections}">
+                    <input th:if="${w.section == null or w.section.key != s.key}" th:unless="${w.values[s.key] == null}"
+                           type="hidden" th:name="${s.key + '.choice'}" th:value="${w.values[s.key]}">
+                </th:block>
+                <div class="alert alert-warning" th:if="${w.error != null}" role="alert" data-testid="support-setup-error" th:text="${w.error}">Choose one of the options to go on.</div>
+
+                <th:block th:if="${w.isIntro}">
+                    <p>
+                        Epistola support helps this tenant when something goes wrong and checks its templates before
+                        Epistola releases a new version. Choose what this tenant shares with Epistola for that. Nothing is
+                        shared until you finish, and you can change it here at any time.
+                    </p>
+                    <p class="text-muted">
+                        Each step says exactly what is sent. Nothing is sent before Epistola has activated this installation.
+                    </p>
+                </th:block>
+
+                <fieldset th:if="${w.section != null}" class="form-group ep-stack" style="border:0;padding:0;margin:0"
+                          th:attr="data-testid='support-setup-' + ${w.section.key}">
+                    <legend class="ep-label" th:text="'What ' + ${w.tenantName} + ' shares: ' + ${#strings.toLowerCase(w.section.title)}">What Acme shares: support requests</legend>
+                    <div th:replace="~{__${w.section.statementFragment}__}"></div>
+                    <label th:each="c : ${w.section.choices}">
+                        <input type="radio" th:name="${w.section.key + '.choice'}" th:value="${c.value}"
+                               th:checked="${w.values[w.section.key] == c.value}" th:disabled="${w.view.withheld.containsKey(c.value)}"
+                               th:attr="data-testid='support-setup-' + ${w.section.key} + '-' + ${#strings.toLowerCase(c.value)}">
+                        <span th:text="${c.label}">Share support requests with Epistola support</span>
+                    </label>
+                    <p class="form-hint" th:each="r : ${w.view.withheld.values()}" th:text="${r}">This installation does not keep a catalog mirror.</p>
+                </fieldset>
+
+                <th:block th:if="${w.isReview}">
+                    <p th:text="'This is what ' + ${w.tenantName} + ' will share with Epistola:'">This is what Acme will share with Epistola:</p>
+                    <table class="ep-table" data-testid="support-setup-review">
+                        <tbody>
+                            <tr th:each="s : ${w.sections}">
+                                <th scope="row" style="text-align:left;width:10rem" th:text="${s.title}">Support requests</th>
+                                <td th:text="${w.labelOf(s)}">Share support requests with Epistola support</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <label style="display:block;margin-top:1rem">
+                        <input type="checkbox" name="agree" value="true" data-testid="support-setup-agree">
+                        <span th:text="'I agree on behalf of ' + ${w.tenantName} + ' that Epistola receives what is described in the previous steps.'">I agree on behalf of Acme.</span>
+                    </label>
+                </th:block>
+
+                <div class="ep-row" style="margin-top:1rem">
+                    <button th:if="${w.step > 0}" type="submit" name="action" value="back" class="ep-btn ep-btn-outline"
+                            formnovalidate data-testid="support-setup-back">Back</button>
+                    <button th:unless="${w.isReview}" type="submit" name="action" value="next" class="ep-btn ep-btn-primary"
+                            data-testid="support-setup-next">Next</button>
+                    <button th:if="${w.isReview}" type="submit" name="action" value="finish" class="ep-btn ep-btn-primary"
+                            data-testid="support-setup-finish" th:text="${w.changing} ? 'Save changes' : 'Finish setup'">Finish setup</button>
+                    <button th:if="${w.changing}" type="button" class="ep-btn ep-btn-ghost" data-testid="support-setup-cancel"
+                            th:attr="hx-get=@{'/tenants/' + ${tenantId} + '/support/sharing'}" hx-target="#support-sharing" hx-swap="outerHTML">Cancel</button>
+                </div>
+            </form>
+        </th:block>
+
+        <!--/* Set up: by the installation preset or by the tenant. */-->
+        <th:block th:if="${sharing != null and wizard == null}" th:with="o=${sharing}, state=${sharing.state.name()}">
+            <h2 th:text="${state == 'NOT_SET_UP'} ? 'Epistola support is not set up for ' + ${o.tenantName} : 'Epistola support is set up for ' + ${o.tenantName}">Epistola support is set up for Acme</h2>
+            <p th:if="${state == 'PRESET' and o.presetFromConfiguration}" data-testid="support-sharing-by">
+                Set up by the installation's configuration, which agrees on behalf of every tenant that has not chosen itself.
+            </p>
+            <p th:if="${state == 'PRESET' and !o.presetFromConfiguration}" data-testid="support-sharing-by"
+               th:text="'Set up by your installation administrator' + (${o.presetBy} != null ? ' (' + ${o.presetBy} + ', ' + ${#temporals.format(o.presetAt, 'd MMM yyyy')} + ')' : '') + ', who agreed on behalf of every tenant that has not chosen itself.'">
+                Set up by your installation administrator (J. Admin, 6 Nov 2026), who agreed on behalf of every tenant that has not chosen itself.
+            </p>
+            <p th:if="${state == 'OWN'}" data-testid="support-sharing-by"
+               th:text="'Set up for this tenant' + (${o.decidedBy} != null ? ' by ' + ${o.decidedBy} : '') + (${o.decidedAt} != null ? ' on ' + ${#temporals.format(o.decidedAt, 'd MMM yyyy')} : '') + '.'">
+                Set up for this tenant by M. Tenant on 6 Nov 2026.
+            </p>
+            <table class="ep-table" th:unless="${state == 'NOT_SET_UP'}" data-testid="support-sharing-summary">
+                <tbody>
+                    <tr th:each="v : ${o.views}" th:attr="data-section=${v.section.key}">
+                        <th scope="row" style="text-align:left;width:10rem" th:text="${v.section.title}">Support requests</th>
+                        <td>
+                            <span th:text="${v.label}">Share support requests with Epistola support</span>
+                            <div th:if="${v.section.key == 'mirror' and v.value != 'OFF'}">
+                                <a th:href="@{'/tenants/' + ${tenantId} + '/support/mirror'}" data-testid="support-sharing-catalogs">Manage catalogs</a>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="ep-row" style="margin-top:1rem" th:if="${o.canManage and state != 'NOT_SET_UP'}">
+                <button type="button" class="ep-btn ep-btn-outline" data-testid="support-sharing-change"
+                        th:attr="hx-get=@{'/tenants/' + ${tenantId} + '/support/setup'}" hx-target="#support-sharing" hx-swap="outerHTML"
+                        th:text="${state == 'PRESET'} ? 'Change for this tenant' : 'Change'">Change</button>
+                <form th:if="${o.offersUsePreset}" th:attr="hx-post=@{'/tenants/' + ${tenantId} + '/support/use-preset'}" hx-target="#support-sharing" hx-swap="outerHTML"
+                      th:action="@{'/tenants/' + ${tenantId} + '/support/use-preset'}" method="post">
+                    <button type="submit" class="ep-btn ep-btn-ghost" data-testid="support-sharing-use-preset">Use the installation's setup</button>
+                </form>
+            </div>
+        </th:block>
+    </section>
 </body>
 </html>

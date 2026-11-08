@@ -20,8 +20,8 @@ grants it **services**, each an OAuth scope:
 | Catalog mirror   | `mirror`    | released catalogs, for release checks                          |
 | Usage            | `usage`     | documents generated and previews rendered, per tenant and hour |
 
-The connection knows all four scopes. Telemetry is described below; the others are described with
-the service itself as it lands.
+The connection knows all four scopes. Telemetry and usage are described below; the others are
+described with the service itself as it lands.
 
 A service is used only when an installation administrator **selected** it and Epistola **granted**
 it. Nothing goes to Epistola before the installation is registered, and an installation that is not
@@ -85,6 +85,59 @@ until an administrator saves them (`support.privacy.tenantIdentity`, `support.pr
   keeps values out of the suite's own log messages.
 - **Everything:** log lines and errors as written, which can name people and organisations, also
   while tenants are confidential.
+
+## What each tenant shares
+
+A service that sends something per tenant is set per tenant, with a setting for the whole
+installation under **Setup for every tenant** (ADR 0052 §5). Usage is the first such service; each
+service says which settings it offers:
+
+| Setting         | Usage | The tenant                                   |
+| --------------- | ----- | -------------------------------------------- |
+| Ask each tenant | no    | sets it up in its setup wizard               |
+| On by default   | yes   | follows it, or changes it for itself         |
+| Off by default  | yes   | follows it, or changes it for itself         |
+| Required        | yes   | shares it, without a choice; not shown to it |
+| Not allowed     | yes   | cannot share it; sees why and who decides    |
+
+- **Defaults** are recorded as agreed on the tenants' behalf, so saving one that shares asks the
+  administrator to agree.
+- **Required** is offered only for a service that sends no tenant content, such as usage: content
+  needs the tenant's own opt-in (ADR 0050 §10).
+- **Not allowed** withdraws every tenant's choice at once, its own choice included, and stops what
+  waits to be sent. Allowed again, tenants follow whatever default is set next, or are asked.
+
+A tenant administrator (with `INTEGRATIONS_MANAGE`) sets it on the tenant's **Support** page: a setup
+wizard while nothing is set up (one step per service, then agreeing on the tenant's behalf), and
+afterwards what is shared, by whom it was decided, and **Change**. Disconnecting forgets every
+tenant's choices and the setup for every tenant.
+
+## Usage
+
+For installations Epistola bills by use, such as a partner hosting its clients (ADR 0052 §6).
+
+**What is counted.** The suite's own [generation statistics](generation-statistics.md), which are
+there whether or not usage is shared: documents generated (what Epistola bills) and previews rendered
+(counted, not billed), per tenant and hour, rolled up in the background at no cost to generating. A
+document deleted right after it was generated still counts.
+
+**When it is sent.** Once an hour, at a moment within the first ten minutes past the hour, chosen at
+random once per installation and kept (`app_metadata`, `support.usage.report-moment`), for the hour
+before. It waits until the statistics hold that whole hour, a few minutes at most. Hours missed while
+the installation or the support service was down are sent when both are back, up to 72 of them. One
+node sends at a time, never one whose clock is off.
+
+**What is sent.** For every tenant that shares usage and has used anything: the hour's figures and its
+**running totals** since the installation started counting, under its key or reference. Epistola bills
+from what the totals grew by, so a report that never arrives loses nothing: the next one carries it.
+
+**Turning it on.**
+
+1. Epistola grants `usage`.
+2. Select **Usage** under Services.
+3. Under **Setup for every tenant**, set usage to Required, or a default that tenants may change.
+
+The first report is each tenant's starting point; billing starts with the growth after it.
 
 ## Telemetry
 

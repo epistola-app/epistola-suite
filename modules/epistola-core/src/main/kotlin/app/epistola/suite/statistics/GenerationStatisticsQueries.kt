@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -92,3 +93,60 @@ private fun completeUntil(handle: org.jdbi.v3.core.Handle): Instant? = handle.cr
     .map { rs, _ -> rs.getObject("complete_until", OffsetDateTime::class.java)?.toInstant() }
     .findOne()
     .orElse(null)
+
+/** One tenant's reading at the end of an hour: its figures for the hour and its running totals. */
+data class GenerationReading(
+    val tenantKey: TenantKey,
+    val completed: Long,
+    val previews: Long,
+    val completedTotal: Long,
+    val previewsTotal: Long,
+)
+
+/**
+ * Every tenant's reading at the end of [hour] (its start), for usage reporting (ADR 0052 §6).
+ *
+ * @property complete the statistics hold every result created before the end of the hour.
+ */
+data class GenerationReadings(val hour: Instant, val readings: List<GenerationReading>, val complete: Boolean)
+
+/**
+ * Readings of every tenant that generated or previewed anything, at the end of [hour]: totals are
+ * every day kept plus every hour up to and including [hour], so [hour] must still be kept by the hour
+ * (`epistola.statistics.hourly-retention`).
+ *
+ * `SystemInternal`: the usage reporter asks it for every tenant at once, with no user behind it.
+ */
+data class GetGenerationReadings(val hour: Instant) :
+    Query<GenerationReadings>,
+    SystemInternal
+
+@Component
+class GetGenerationReadingsHandler(private val jdbi: Jdbi) : QueryHandler<GetGenerationReadings, GenerationReadings> {
+    override fun handle(query: GetGenerationReadings): GenerationReadings = jdbi.withHandle<GenerationReadings, Exception> { handle ->
+        val at = query.hour.truncatedTo(ChronoUnit.HOURS).atOffset(ZoneOffset.UTC)
+        val readings = handle.createQuery(
+            """
+            SELECT tenant_key,
+                   COALESCE(SUM(completed) FILTER (WHERE hour = :hour), 0) AS hour_completed,
+                   COALESCE(SUM(previews) FILTER (WHERE hour = :hour), 0) AS hour_previews,
+                   SUM(completed) AS completed, SUM(previews) AS previews
+            FROM (
+                SELECT tenant_key, NULL::timestamptz AS hour, completed, previews FROM generation_stats_daily
+                UNION ALL
+                SELECT tenant_key, hour, completed, previews FROM generation_stats_hourly WHERE hour <= :hour
+            ) figures
+            GROUP BY tenant_key
+            HAVING SUM(completed) > 0 OR SUM(previews) > 0
+            ORDER BY tenant_key
+            """,
+        )
+            .bind("hour", at)
+            .map { rs, _ ->
+                GenerationReading(TenantKey.of(rs.getString("tenant_key")), rs.getLong("hour_completed"), rs.getLong("hour_previews"), rs.getLong("completed"), rs.getLong("previews"))
+            }
+            .list()
+        val completeUntil = completeUntil(handle)
+        GenerationReadings(query.hour, readings, completeUntil != null && !completeUntil.isBefore(at.plusHours(1).toInstant()))
+    }
+}
