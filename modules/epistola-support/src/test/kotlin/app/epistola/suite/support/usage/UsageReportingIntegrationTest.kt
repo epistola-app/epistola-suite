@@ -212,7 +212,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     fun `a moment stored outside the first ten minutes is chosen again`() {
         // A moment from before the window was narrowed.
         metadata.setAs(UsageReporter.MOMENT_KEY, mapOf("minute" to 51, "second" to 31))
-        val fresh = UsageReporter(connection, jdbi, references, objectMapper, metadata, mediator, StatisticsProperties(), app.epistola.suite.support.SupportProperties())
+        val fresh = UsageReporter(connection, applicationContext.getBeanProvider(app.epistola.suite.support.connection.SupportConnectionRegistry::class.java), jdbi, references, objectMapper, metadata, mediator, StatisticsProperties(), app.epistola.suite.support.SupportProperties())
 
         assertThat(fresh.reportMoment()).isLessThan(java.time.Duration.ofMinutes(10))
         assertThat(metadata.get(UsageReporter.MOMENT_KEY)!!.get("minute").asInt()).isLessThan(10)
