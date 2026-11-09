@@ -9,21 +9,29 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.AddSupportConnection
 import app.epistola.suite.support.connection.CheckSupportConnection
 import app.epistola.suite.support.connection.DisconnectSupportConnection
+import app.epistola.suite.support.connection.DiscoverSupportConnectionPreset
 import app.epistola.suite.support.connection.GetSupportConnectionOverview
 import app.epistola.suite.support.connection.ListSupportConnections
 import app.epistola.suite.support.connection.RegisterSupportConnection
 import app.epistola.suite.support.connection.RegisterSupportConnectionAgain
+import app.epistola.suite.support.connection.RemoveSupportConnection
 import app.epistola.suite.support.connection.SaveSupportServices
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportConnectionCheckScheduler
+import app.epistola.suite.support.connection.SupportConnectionExistsException
+import app.epistola.suite.support.connection.SupportConnectionPreset
+import app.epistola.suite.support.connection.SupportConnectionPresetUnavailableException
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
 import app.epistola.suite.support.connection.SupportRegistrationNotAllowedException
+import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.support.connection.SupportWorkAttempt
+import app.epistola.suite.support.connection.UpdateSupportConnection
 import app.epistola.suite.support.privacy.GetSupportPrivacy
 import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.support.privacy.SupportConnectionNotFoundException
@@ -59,6 +67,10 @@ class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
             POST("/disconnect", handler::disconnect)
             POST("/services", handler::saveServices)
             POST("/connections/{connectionId}/privacy", handler::saveConnectionPrivacy)
+            POST("/connections/lookup", handler::lookUpConnection)
+            POST("/connections", handler::addConnection)
+            POST("/connections/{connectionId}", handler::updateConnection)
+            POST("/connections/{connectionId}/remove", handler::removeConnection)
         }
     }
 }
@@ -79,7 +91,23 @@ class SupportPlatformHandler(
 
     private fun panelViews() = panels.map { SupportPlatformPanelView(it.fragment, it.model()) }
 
-    fun show(request: ServerRequest): ServerResponse = ServerResponse.ok().page("support/platform") {
+    fun show(request: ServerRequest): ServerResponse = page(request)
+
+    /**
+     * The page, with what the Add connection form shows: the [preset] looked up, or an [addError] with
+     * the values given ([addForm]), answered with [status].
+     */
+    private fun page(
+        request: ServerRequest,
+        preset: SupportConnectionPreset? = null,
+        addError: String? = null,
+        addForm: Map<String, String> = emptyMap(),
+        status: Int = 200,
+    ): ServerResponse = ServerResponse.status(status).page("support/platform") {
+        "addPreset" to preset
+        "addError" to addError
+        "addForm" to addForm
+        "serviceNames" to SupportScope.entries.map { it.value }
         "pageTitle" to "Epistola support - Epistola"
         "platformPage" to "Epistola support"
         "overview" to GetSupportConnectionOverview().query()
@@ -181,6 +209,58 @@ class SupportPlatformHandler(
         } catch (_: SupportConnectionNotFoundException) {
             ServerResponse.notFound().build()
         }
+    }
+
+    /** Looks up the preset a domain publishes and fills the Add connection form with it. */
+    fun lookUpConnection(request: ServerRequest): ServerResponse {
+        val domain = request.param("domain").orElse("").trim()
+        if (domain.isEmpty()) return page(request, addError = "Enter the domain of the party to connect to.", status = 422)
+        return try {
+            page(request, preset = DiscoverSupportConnectionPreset(domain).query())
+        } catch (e: SupportConnectionPresetUnavailableException) {
+            page(request, addError = e.reason, addForm = mapOf("domain" to domain), status = 422)
+        }
+    }
+
+    /** Adds a connection from the form: from a preset or filled in by hand. */
+    fun addConnection(request: ServerRequest): ServerResponse {
+        val form = listOf("name", "endpoint", "token", "tenantIdentity", "telemetry").associateWith { request.param(it).orElse("").trim() }
+        val services = request.params()["services"].orEmpty()
+        return try {
+            AddSupportConnection(
+                name = form.getValue("name"),
+                endpoint = form.getValue("endpoint"),
+                token = form.getValue("token"),
+                services = services,
+                tenantIdentity = TenantIdentity.parse(form.getValue("tenantIdentity")),
+                telemetry = TelemetryDetail.parse(form.getValue("telemetry")),
+            ).execute()
+            redirect("/platform/support#support-connections")
+        } catch (e: ValidationException) {
+            page(request, addError = e.message, addForm = form - "token", status = 422)
+        } catch (e: SupportConnectionExistsException) {
+            page(request, addError = "A connection to ${e.endpoint} exists already.", addForm = form - "token", status = 422)
+        }
+    }
+
+    /** Saves a connection's name and services, and replaces its token when one is given. */
+    fun updateConnection(request: ServerRequest): ServerResponse {
+        val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
+        return try {
+            UpdateSupportConnection(id, request.param("name").orElse(""), request.params()["services"].orEmpty(), request.param("token").orElse(null)).execute()
+            redirect("/platform/support#support-connections")
+        } catch (e: ValidationException) {
+            page(request, addError = e.message, status = 422)
+        } catch (_: SupportConnectionNotFoundException) {
+            ServerResponse.notFound().build()
+        }
+    }
+
+    /** Removes a connection other than Epistola support's. */
+    fun removeConnection(request: ServerRequest): ServerResponse {
+        val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
+        RemoveSupportConnection(id).execute()
+        return redirect("/platform/support#support-connections")
     }
 
     /** Saves the selected services; no network I/O, so it works while the support service is down. */

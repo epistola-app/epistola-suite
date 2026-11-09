@@ -266,6 +266,10 @@ can open requests through the same protocol.
      selected for, each with its own back-off, `support_usage_reports` rows, reporting-since key and
      advisory lock (Epistola support's keep theirs), naming tenants as that connection's privacy says;
      the usage sharing section is offered per connection.
+   - **3e, built:** Add connection on the platform page, from a domain's `/.well-known/epistola.json`
+     preset (the `support` object) or by hand, with the token entered there; rename, change services
+     or token, remove. `support_connections.from_configuration` marks what the configuration owns, so
+     what an administrator saved is left alone at the next start.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

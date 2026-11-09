@@ -123,6 +123,20 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         assertThat(attached.body).contains("data-testid=\"desk-attached-connection\"").contains("Acme Partner")
     }
 
+    @Test
+    fun `an installation administrator adds a connection by hand, is told what is missing, and removes it`() {
+        assertThat(post("/platform/support/connections/lookup", mapOf("domain" to "")).body).contains("data-testid=\"support-connection-add-error\"")
+        val missing = post("/platform/support/connections", mapOf("name" to "Hand Partner", "endpoint" to "https://desk.hand.example", "token" to ""))
+        assertThat(missing.body).contains("data-testid=\"support-connection-add-error\"").contains("token")
+
+        val added = post("/platform/support/connections", mapOf("name" to "Hand Partner", "endpoint" to "https://desk.hand.example", "token" to "hand-token", "services" to "requests"))
+        assertThat(added.body).contains("Hand Partner").contains("https://desk.hand.example")
+
+        val id = registry.tokenConnections().single { it.endpoint.toString() == "https://desk.hand.example" }.id
+        post("/platform/support/connections/$id/remove", emptyMap())
+        assertThat(registry.tokenConnections().none { it.id == id }).isTrue()
+    }
+
     companion object {
         private const val TOKEN = "partner-page-token"
 

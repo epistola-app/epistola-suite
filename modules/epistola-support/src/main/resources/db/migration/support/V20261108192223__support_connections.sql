@@ -25,6 +25,9 @@ CREATE TABLE support_connections (
     services     JSONB,
     contact      JSONB,
     privacy      JSONB,
+    -- Set from `epistola.support.connections` and kept so at every start; FALSE once an administrator
+    -- added or saved it, which the configuration then leaves alone.
+    from_configuration BOOLEAN NOT NULL DEFAULT FALSE,
     refusals     JSONB       NOT NULL DEFAULT '{}'::jsonb,
     node_clocks  JSONB       NOT NULL DEFAULT '{}'::jsonb,
     version      BIGINT      NOT NULL DEFAULT 0,
