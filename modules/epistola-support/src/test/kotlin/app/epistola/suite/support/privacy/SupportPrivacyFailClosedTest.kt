@@ -56,7 +56,7 @@ class SupportPrivacyFailClosedTest : IntegrationTestBase() {
     fun `a failed read keeps the settings last read`() {
         withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
         val metadata = Flaky()
-        val privacy = SupportPrivacy(metadata, loose)
+        val privacy = SupportPrivacy(metadata, loose, jdbi, objectMapper)
         assertThat(privacy.refresh().confidential).isTrue()
 
         metadata.down = true
@@ -69,7 +69,7 @@ class SupportPrivacyFailClosedTest : IntegrationTestBase() {
     @Test
     fun `before any read the strictest settings apply, without reading the database`() {
         val metadata = Flaky().apply { down = true }
-        val privacy = SupportPrivacy(metadata, loose)
+        val privacy = SupportPrivacy(metadata, loose, jdbi, objectMapper)
 
         val first = privacy.current()
 
@@ -81,7 +81,7 @@ class SupportPrivacyFailClosedTest : IntegrationTestBase() {
     @Test
     fun `a tenant reference for the telemetry legs never reads the database, and is there once the secret is loaded`() {
         val metadata = Flaky().apply { down = true }
-        val references = TenantReferences(metadata, SupportPrivacy(metadata, loose))
+        val references = TenantReferences(metadata, SupportPrivacy(metadata, loose, jdbi, objectMapper))
 
         assertThat(references.referenceIfReady("acme")).`as`("not loaded, and not loaded on this thread").isNull()
         references.loadSecret()

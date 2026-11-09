@@ -70,6 +70,8 @@ data class SupportProperties(
             require(c.token.isNotBlank()) { "epistola.support.connections[$i].token is required" }
             val url = runCatching { URI(c.endpoint.trim()) }.getOrNull()?.takeIf { it.isAbsolute && it.host != null && it.scheme in setOf("https", "http") }
             requireNotNull(url) { "epistola.support.connections[$i].endpoint must be an absolute http(s) URL; got '${c.endpoint}'" }
+            require(c.tenantIdentity.isBlank() || TenantIdentity.parse(c.tenantIdentity) != null) { "epistola.support.connections[$i].tenant-identity must be named or confidential; got '${c.tenantIdentity}'" }
+            require(c.telemetry.isBlank() || TelemetryDetail.parse(c.telemetry) != null) { "epistola.support.connections[$i].telemetry must be pseudonymised or full; got '${c.telemetry}'" }
             require(allowHttp || url.scheme == "https") { "epistola.support.connections[$i].endpoint '${c.endpoint}' is plaintext http; use https, or set epistola.support.allow-http=true locally" }
         }
         require(connections.map { it.baseUrl }.distinct().size == connections.size) { "epistola.support.connections names an endpoint twice" }
@@ -85,12 +87,17 @@ data class SupportProperties(
      * @property endpoint its base URL; the paths are those of the published protocol under it.
      * @property token the bearer token it issued; from a secret, never in a values file.
      * @property services the services to use over it (`requests`, `usage`), as far as it grants them.
+     * @property tenantIdentity what it learns of tenants, `named` or `confidential`; blank: the
+     *   installation's setting ([Privacy]), until an administrator saves one for this connection.
+     * @property telemetry how much telemetry carries over it, `pseudonymised` or `full`; blank likewise.
      */
     data class Connection(
         val name: String = "",
         val endpoint: String = "",
         val token: String = "",
         val services: List<String> = emptyList(),
+        val tenantIdentity: String = "",
+        val telemetry: String = "",
     ) {
         /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
         val baseUrl: String get() = endpoint.trim().trimEnd('/')

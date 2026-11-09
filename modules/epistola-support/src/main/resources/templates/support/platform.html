@@ -94,7 +94,7 @@
             </p>
             <table class="ep-table">
                 <thead>
-                    <tr><th>Connection</th><th>State</th><th>Services granted</th><th>Services used</th><th>Last checked</th></tr>
+                    <tr><th>Connection</th><th>State</th><th>Services granted</th><th>Services used</th><th>Last checked</th><th>Privacy</th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="c : ${connections}" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
@@ -110,6 +110,21 @@
                         <td th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</td>
                         <td th:text="${#lists.isEmpty(c.selected)} ? 'None' : ${#strings.listJoin(c.selected, ', ')}">requests</td>
                         <td th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-09 10:00</td>
+                        <td>
+                            <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" data-testid="support-connection-privacy">
+                                <select name="tenantIdentity" class="ep-select ep-select-sm form-control-auto" aria-label="What this connection learns of tenants">
+                                    <option value="CONFIDENTIAL" th:selected="${c.privacy.tenantIdentity.name() == 'CONFIDENTIAL'}">Tenants confidential</option>
+                                    <option value="NAMED" th:selected="${c.privacy.tenantIdentity.name() == 'NAMED'}">Tenants named</option>
+                                </select>
+                                <select name="telemetry" class="ep-select ep-select-sm form-control-auto" aria-label="How much telemetry carries">
+                                    <option value="PSEUDONYMISED" th:selected="${c.privacy.telemetry.name() == 'PSEUDONYMISED'}">Telemetry pseudonymised</option>
+                                    <option value="FULL" th:selected="${c.privacy.telemetry.name() == 'FULL'}">Telemetry full</option>
+                                </select>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Save</button>
+                            </form>
+                            <div class="text-muted text-sm" data-testid="support-connection-privacy-source"
+                                 th:text="${c.privacy.followsInstallation} ? 'As the installation\'s settings' : (${c.privacy.fromConfiguration} ? 'From the configuration' : 'Set by ' + (${c.privacy.setBy} ?: 'a removed user'))">As the installation's settings</div>
+                        </td>
                     </tr>
                 </tbody>
             </table>

@@ -8,6 +8,8 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
+import app.epistola.suite.support.privacy.SupportPrivacy
+import app.epistola.suite.support.privacy.SupportPrivacySettings
 import org.springframework.stereotype.Component
 import java.time.Instant
 import java.util.UUID
@@ -30,6 +32,7 @@ enum class SupportConnectionStanding {
  * @property granted the services it grants now; empty until a check found it active.
  * @property selected the services the installation uses over it, as far as they are granted.
  * @property lastError why the last check failed; null when it succeeded.
+ * @property privacy what it learns of tenants and how much telemetry carries over it.
  */
 data class SupportConnectionListing(
     val id: UUID,
@@ -41,6 +44,7 @@ data class SupportConnectionListing(
     val selected: List<String>,
     val checkedAt: Instant?,
     val lastError: String?,
+    val privacy: SupportPrivacySettings,
 )
 
 /** The installation's support connections besides Epistola support, oldest first. No network I/O. */
@@ -54,6 +58,7 @@ class ListSupportConnections :
 class ListSupportConnectionsHandler(
     private val registry: SupportConnectionRegistry,
     private val connections: SupportConnections,
+    private val privacy: SupportPrivacy,
 ) : QueryHandler<ListSupportConnections, List<SupportConnectionListing>> {
     override fun handle(query: ListSupportConnections): List<SupportConnectionListing> = registry.tokenConnections().map { connection ->
         val status = connection.status()
@@ -72,6 +77,7 @@ class ListSupportConnectionsHandler(
             selected = SupportScope.entries.filter { connection.isSelected(it) }.map { it.value },
             checkedAt = status.checkedAt,
             lastError = status.lastError,
+            privacy = privacy.forConnection(connection.id),
         )
     }
 }

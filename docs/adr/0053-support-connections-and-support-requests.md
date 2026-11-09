@@ -239,6 +239,10 @@ can open requests through the same protocol.
      `support.connections`, the token from a Secret), named by their endpoint, checked with
      `GET {endpoint}/api/v1/connection`, listed on the platform page. Independent of
      `epistola.support.enabled`.
+   - **3b, built:** privacy per connection. Epistola support's stays the installation's
+     (`app_metadata` `support.privacy`); another connection's is `support_connections.privacy` as an
+     administrator saved it, else its configuration, else the installation's.
+     `TenantReferences.onWire(tenant, connection)` says what a connection is sent for a tenant.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

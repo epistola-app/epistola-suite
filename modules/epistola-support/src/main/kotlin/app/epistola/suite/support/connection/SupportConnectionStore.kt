@@ -239,6 +239,12 @@ open class SupportConnectionStore(
     /** The contact an administrator confirmed before registering, or null. */
     fun contact(): StoredSupportContact? = json("contact", StoredSupportContact::class.java)
 
+    /** This connection's privacy as an administrator saved it, as JSON; null when none was saved. */
+    fun privacyJson(): String? = column("privacy")
+
+    /** Saves this connection's privacy, as JSON. */
+    fun savePrivacyJson(json: String) = write("privacy = :value::jsonb", json)
+
     fun saveContact(contact: StoredSupportContact) = writeJson("contact", contact)
 
     /** Drops the saved selection, so `epistola.support.services` applies again. */

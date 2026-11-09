@@ -387,6 +387,10 @@ support:
   #       endpoint: https://desk.partner.example/epistola
   #       services: [requests, usage]
   #       tokenSecret: { name: acme-support-token, key: token }
+  #       # What it learns of tenants (named or confidential) and how much telemetry carries
+  #       # (pseudonymised or full); left out: the installation's privacy settings. An
+  #       # administrator's choice under Platform → Epistola support wins.
+  #       tenantIdentity: named
   connections: []
 
   # Support requests (ADR 0053).

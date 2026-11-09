@@ -32,6 +32,8 @@
   a partner's (ADR 0053): `name`, `endpoint` (https), `services` and `tokenSecret` (a Secret holding
   the token that party issued). Rendered as `EPISTOLA_SUPPORT_CONNECTIONS_<n>_*`, independent of
   `support.enabled`, so an installation can connect to its partner alone.
+  Each entry may set `tenantIdentity` (`named`, `confidential`) and `telemetry` (`pseudonymised`,
+  `full`); left out, the connection follows the installation's privacy settings.
 
 - **`support.requests.handledBy`**: who handles new support requests until an installation
   administrator saves a choice under Platform → Support requests: `inbox` (the default: the

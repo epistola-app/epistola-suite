@@ -458,6 +458,8 @@
               "name": { "type": "string", "minLength": 1, "description": "What the platform page and the support desk call it." },
               "endpoint": { "type": "string", "pattern": "^https://", "description": "Its base URL; the published protocol's paths are under it." },
               "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage), as far as it grants them." },
+              "tenantIdentity": { "type": "string", "enum": ["", "named", "confidential"], "description": "What it learns of tenants. Empty: the installation's setting." },
+              "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "How much telemetry carries over it. Empty: the installation's setting." },
               "tokenSecret": {
                 "type": "object",
                 "additionalProperties": false,

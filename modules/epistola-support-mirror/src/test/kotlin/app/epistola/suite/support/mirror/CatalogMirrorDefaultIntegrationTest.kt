@@ -178,7 +178,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     @Test
     fun `the configured preset applies at startup also before this node read the privacy settings`() {
         val following = createTenant("Mirror Default Unread Privacy").id
-        val unread = app.epistola.suite.support.privacy.SupportPrivacy(Flaky(), namedConfiguration)
+        val unread = app.epistola.suite.support.privacy.SupportPrivacy(Flaky(), namedConfiguration, jdbi, objectMapper)
 
         ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, unread).apply()
 
@@ -204,7 +204,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     fun `a startup that cannot read the privacy settings forgets no tenant's choice`() {
         val tenant = createTenant("Mirror Default Startup Unreadable").id
         optIn(tenant, shareByDefault = true)
-        val unreadable = app.epistola.suite.support.privacy.SupportPrivacy(Flaky().apply { down = true }, namedConfiguration)
+        val unreadable = app.epistola.suite.support.privacy.SupportPrivacy(Flaky().apply { down = true }, namedConfiguration, jdbi, objectMapper)
 
         CatalogMirrorConfidentiality(unreadable, jdbi).withdrawWhenConfidential()
 
