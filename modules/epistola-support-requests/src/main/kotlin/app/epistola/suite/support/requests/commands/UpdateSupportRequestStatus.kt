@@ -13,10 +13,17 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.exchangedUnderLockedConsent
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
+/**
+ * The tenant closes its support request ([SupportRequestStatus.CLOSED]) or reopens it
+ * ([SupportRequestStatus.OPEN]), whoever handles it (ADR 0053): every other status is the handler's
+ * to set. Reopening applies to a request that is closed or resolved; one still open or being worked
+ * on stays as it is. Returns whether the status changed.
+ */
 data class UpdateSupportRequestStatus(
     val id: SupportRequestId,
     val status: SupportRequestStatus,
@@ -26,6 +33,15 @@ data class UpdateSupportRequestStatus(
     SelfManagedTransaction {
     override val permission get() = Permission.SUPPORT_REQUEST_HANDLE
     override val tenantKey get() = id.tenantKey
+
+    init {
+        validate("status", status in TENANT_STATUSES) { "A tenant closes or reopens a support request; $status is the handler's to set" }
+    }
+
+    companion object {
+        /** The statuses a tenant sets. */
+        val TENANT_STATUSES = setOf(SupportRequestStatus.OPEN, SupportRequestStatus.CLOSED)
+    }
 }
 
 @Component
@@ -34,8 +50,14 @@ class UpdateSupportRequestStatusHandler(
 ) : CommandHandler<UpdateSupportRequestStatus, Boolean> {
     override fun handle(command: UpdateSupportRequestStatus): Boolean = jdbi.withHandleUnchecked { handle ->
         val rows = handle.createUpdate(
-            "UPDATE support_requests SET status = :status, updated_at = NOW() WHERE tenant_key = :tenantKey AND id = :id AND status <> :status",
+            """
+            UPDATE support_requests SET status = :status, updated_at = NOW()
+            WHERE tenant_key = :tenantKey AND id = :id AND status <> :status
+              AND (:status = :closed OR status IN (:closed, :resolved))
+            """,
         )
+            .bind("closed", SupportRequestStatus.CLOSED.name)
+            .bind("resolved", SupportRequestStatus.RESOLVED.name)
             .bind("tenantKey", command.id.tenantKey)
             .bind("id", command.id.key.value)
             .bind("status", command.status.name)

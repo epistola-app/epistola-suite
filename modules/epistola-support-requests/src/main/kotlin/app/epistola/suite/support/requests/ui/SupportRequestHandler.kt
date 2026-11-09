@@ -146,7 +146,6 @@ class SupportRequestHandler(
             "comments" to comments
             "assets" to assets
             "activeNavSection" to "requests"
-            "statuses" to SupportRequestStatus.entries
             "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)
         }
     }
@@ -243,7 +242,9 @@ class SupportRequestHandler(
 
         if (form.hasErrors()) return ServerResponse.badRequest().build()
 
-        val newStatus = SupportRequestStatus.valueOf(form["status"])
+        // A tenant closes or reopens; every other status is the handler's.
+        val newStatus = SupportRequestStatus.entries.firstOrNull { it.name == form["status"] }
+            ?.takeIf { it in UpdateSupportRequestStatus.TENANT_STATUSES } ?: return ServerResponse.badRequest().build()
 
         val supportRequest = GetSupportRequest(supportRequestId).query() ?: return ServerResponse.notFound().build()
 
@@ -266,7 +267,6 @@ class SupportRequestHandler(
                 "supportRequest" to updated
                 "comments" to comments
                 "assets" to assets
-                "statuses" to SupportRequestStatus.entries
                 "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)
             }
             onFullPage { redirect("/tenants/${tenantId.key}/support/requests/${supportRequestId.key}") }

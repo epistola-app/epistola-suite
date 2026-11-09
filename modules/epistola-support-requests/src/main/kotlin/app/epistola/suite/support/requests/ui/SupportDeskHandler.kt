@@ -18,17 +18,15 @@ import app.epistola.suite.support.requests.commands.AddSupportRequestAsset
 import app.epistola.suite.support.requests.desk.AddSupportDeskMessage
 import app.epistola.suite.support.requests.desk.EscalateSupportRequest
 import app.epistola.suite.support.requests.desk.GetSupportDeskAssetContent
+import app.epistola.suite.support.requests.desk.GetSupportDeskHandling
 import app.epistola.suite.support.requests.desk.GetSupportInboxRequest
-import app.epistola.suite.support.requests.desk.GetSupportRequestHandling
 import app.epistola.suite.support.requests.desk.ListSupportInbox
-import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
+import app.epistola.suite.support.requests.desk.ListSupportInboxTenants
 import app.epistola.suite.support.requests.desk.SetSupportDeskPriority
 import app.epistola.suite.support.requests.desk.SetSupportDeskStatus
-import app.epistola.suite.support.requests.desk.SetSupportRequestHandling
 import app.epistola.suite.support.requests.desk.SupportInboxHandler
 import app.epistola.suite.support.requests.desk.SupportRequestHandledElsewhereException
 import app.epistola.suite.support.requests.desk.SupportRequestNotEscalatedException
-import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.CacheControl
@@ -42,7 +40,7 @@ import java.util.UUID
 
 /**
  * `/platform/support-requests` — the support desk: the installation's support requests across
- * tenants (ADR 0053 §3–4), who handles new ones, and per request the conversation, internal notes,
+ * tenants (ADR 0053 §3–4), who handles new ones (read only), and per request the conversation, internal notes,
  * status, priority and passing it on. A platform page; the mediator enforces the desk's role on every
  * message.
  */
@@ -52,8 +50,6 @@ class SupportDeskRoutes(private val handler: SupportDeskHandler) {
     fun supportDeskRouterFunction(): RouterFunction<ServerResponse> = router {
         "/platform/support-requests".nest {
             GET("", handler::inbox)
-            POST("/handling", handler::saveHandling)
-            POST("/handling/reset", handler::resetHandling)
             GET("/{tenantKey}/{requestId}", handler::detail)
             POST("/{tenantKey}/{requestId}/messages", handler::addMessage)
             POST("/{tenantKey}/{requestId}/status", handler::setStatus)
@@ -78,8 +74,8 @@ class SupportDeskHandler {
             "pageTitle" to "Support requests - Epistola"
             "platformPage" to "Support requests"
             "inboxPage" to page
-            "handling" to GetSupportRequestHandling().query()
-            "tenants" to ListTenants().query()
+            "handling" to GetSupportDeskHandling().query()
+            "tenants" to ListSupportInboxTenants().query()
             "statuses" to SupportRequestStatus.entries
             "priorities" to SupportRequestPriority.entries
             "handlers" to SupportInboxHandler.entries
@@ -93,21 +89,7 @@ class SupportDeskHandler {
             "previousOffset" to (offset - ListSupportInbox.PAGE_SIZE).coerceAtLeast(0)
             "nextOffset" to offset + ListSupportInbox.PAGE_SIZE
             "hasNext" to (offset + ListSupportInbox.PAGE_SIZE < page.total)
-            "saved" to request.param("saved").isPresent
         }
-    }
-
-    fun saveHandling(request: ServerRequest): ServerResponse {
-        // Blank: this inbox. Anything else must name a connection; a value that does not is refused, not saved as "here".
-        val raw = request.param("connection").orElse("").trim()
-        val connection = if (raw.isEmpty()) null else runCatching { UUID.fromString(raw) }.getOrNull() ?: return ServerResponse.badRequest().build()
-        SetSupportRequestHandling(connection).execute()
-        return redirect("/platform/support-requests?saved=true")
-    }
-
-    fun resetHandling(request: ServerRequest): ServerResponse {
-        ResetSupportRequestHandling().execute()
-        return redirect("/platform/support-requests?saved=true")
     }
 
     fun detail(request: ServerRequest): ServerResponse = detailPage(request, error = null)

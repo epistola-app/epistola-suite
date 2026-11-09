@@ -12,7 +12,6 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
 import org.jdbi.v3.core.Handle
@@ -33,7 +32,7 @@ enum class SupportRequestHandledBy {
 
 /**
  * `epistola.support.requests.handled-by` (Helm `support.requests.handledBy`): who handles new
- * support requests until an installation administrator saves a choice on the support desk, which then
+ * support requests until an installation administrator saves a choice on the Epistola support page, which then
  * wins. Default [SupportRequestHandledBy.INBOX].
  */
 @ConfigurationProperties(prefix = "epistola.support.requests")
@@ -80,7 +79,8 @@ class SupportRequestHandlingPolicy(
 
 /**
  * Who may work the support desk: the installation's inbox of support requests across tenants
- * (ADR 0053 §3–4). Who handles new requests stays the installation administrator's to set.
+ * (ADR 0053 §3–4). Who handles new requests stays the installation administrator's to set, on the
+ * Epistola support page.
  */
 internal val SUPPORT_DESK_ROLE: PlatformRole = PlatformRole.SUPPORT_DESK
 
@@ -99,21 +99,16 @@ data class SupportRequestHandling(
     val choices: List<SupportRequestHandlerChoice>,
     /** No installation administrator saved a choice: the configuration (`epistola.support.requests.handled-by`) applies. */
     val fromConfiguration: Boolean = false,
-    /**
-     * The reader may change who handles new requests: an installation administrator. The desk
-     * page shows everyone else the choice without the form.
-     */
-    val mayChange: Boolean = false,
 ) {
     /** New requests stay in the installation's inbox. */
     val handledHere: Boolean get() = connectionId == null
 }
 
-/** Who handles new support requests, and who could. */
+/** Who handles new support requests, and who could: for the installation administrator, who sets it. */
 class GetSupportRequestHandling :
     Query<SupportRequestHandling>,
     RequiresPlatformRole {
-    override val platformRole = SUPPORT_DESK_ROLE
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component
@@ -123,7 +118,22 @@ class GetSupportRequestHandlingHandler(
     private val policy: SupportRequestHandlingPolicy,
 ) : QueryHandler<GetSupportRequestHandling, SupportRequestHandling> {
     override fun handle(query: GetSupportRequestHandling): SupportRequestHandling = jdbi.withHandleUnchecked { readHandling(it, port, policy) }
-        .copy(mayChange = SecurityContext.current().hasPlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR))
+}
+
+/** Who handles new support requests, as the support desk shows it: read only, the desk does not set it. */
+class GetSupportDeskHandling :
+    Query<SupportRequestHandling>,
+    RequiresPlatformRole {
+    override val platformRole = SUPPORT_DESK_ROLE
+}
+
+@Component
+class GetSupportDeskHandlingHandler(
+    private val jdbi: Jdbi,
+    private val port: SupportRequestSyncPort,
+    private val policy: SupportRequestHandlingPolicy,
+) : QueryHandler<GetSupportDeskHandling, SupportRequestHandling> {
+    override fun handle(query: GetSupportDeskHandling): SupportRequestHandling = jdbi.withHandleUnchecked { readHandling(it, port, policy) }
 }
 
 /**

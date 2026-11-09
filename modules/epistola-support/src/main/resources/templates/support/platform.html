@@ -408,6 +408,11 @@
 
         <th:block th:replace="~{support/platform :: defaults}"></th:block>
 
+        <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
+        <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
+            <th:block th:replace="~{__${panel.fragment}__}"></th:block>
+        </th:block>
+
         <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
             <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
             <div class="detail-section-body ep-stack">

@@ -62,7 +62,15 @@ class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
  * this or another node, is said to be running instead of waited for.
  */
 @Component
-class SupportPlatformHandler(private val work: SupportBackgroundWork, private val sharing: SupportSharingHandler) {
+class SupportPlatformHandler(
+    private val work: SupportBackgroundWork,
+    private val sharing: SupportSharingHandler,
+    panels: List<SupportPlatformPanel>,
+) {
+    private val panels = panels.sortedBy { it.order }
+
+    private fun panelViews() = panels.map { SupportPlatformPanelView(it.fragment, it.model()) }
+
     fun show(request: ServerRequest): ServerResponse = ServerResponse.ok().page("support/platform") {
         "pageTitle" to "Epistola support - Epistola"
         "platformPage" to "Epistola support"
@@ -70,6 +78,7 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork, private va
         "checking" to work.isRunning(WORK_KEY)
         "privacy" to GetSupportPrivacy().query()
         "defaults" to sharing.installationViews()
+        "panels" to panelViews()
     }
 
     /** The connection panel alone: what the panel polls while a check runs in the background. */
@@ -168,6 +177,7 @@ class SupportPlatformHandler(private val work: SupportBackgroundWork, private va
                 "offerLocalOnly" to offerLocalOnly
                 "privacy" to GetSupportPrivacy().query()
                 "defaults" to sharing.installationViews()
+                "panels" to panelViews()
             }
             onFullPage { redirect("/platform/support") }
         }

@@ -88,18 +88,41 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(body).contains("data-testid=\"desk-table\"").contains("Blank preview").contains("Desk Page Inbox").contains("This inbox")
             .contains("/platform/support-requests/${tenant.id.value}/${key.value}")
-        assertThat(body).contains("data-testid=\"desk-handling\"").contains("Handled here, in this inbox")
-            .contains("data-testid=\"desk-handling-from-configuration\"").doesNotContain("data-testid=\"desk-handling-reset\"")
+        assertThat(body).contains("data-testid=\"desk-handling-current\"").contains("New support requests are handled here, in this inbox.")
+            .doesNotContain("data-testid=\"request-handling-select\"")
     }
 
     @Test
-    fun `a saved choice can be dropped to follow the configuration again`() {
-        val saved = post("/platform/support-requests/handling", mapOf("connection" to "01900000-0000-7000-8000-000000000001"))
-        assertThat(saved).contains("data-testid=\"desk-handling-reset\"").doesNotContain("data-testid=\"desk-handling-from-configuration\"")
+    fun `who handles new requests is set on the Epistola support page, and a saved choice can be dropped to follow the configuration again`() {
+        val page = get("/platform/support")
+        assertThat(page).contains("data-testid=\"support-request-handling\"").contains("data-testid=\"request-handling-select\"")
+            .contains("data-testid=\"request-handling-from-configuration\"").doesNotContain("data-testid=\"request-handling-reset\"")
 
-        val reset = post("/platform/support-requests/handling/reset", emptyMap())
+        val saved = post("/platform/support/request-handling", mapOf("connection" to "01900000-0000-7000-8000-000000000001"))
+        assertThat(saved).contains("data-testid=\"request-handling-reset\"").doesNotContain("data-testid=\"request-handling-from-configuration\"")
+        assertThat(get("/platform/support-requests")).contains("New support requests are passed on to")
 
-        assertThat(reset).contains("data-testid=\"desk-handling-from-configuration\"").doesNotContain("data-testid=\"desk-handling-reset\"")
+        val reset = post("/platform/support/request-handling/reset", emptyMap())
+
+        assertThat(reset).contains("data-testid=\"request-handling-from-configuration\"").doesNotContain("data-testid=\"request-handling-reset\"")
+    }
+
+    @Test
+    fun `an installation administrator without the desk role sets who handles new requests`() {
+        val page = getAs("/platform/support", "INSTALLATION_ADMINISTRATOR")
+        assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(page.body).contains("data-testid=\"request-handling-select\"")
+    }
+
+    @Test
+    fun `the tenant filter offers every tenant with requests, also one the reader is no member of`() {
+        val tenant = createTenant("Desk Filter Stranger")
+        submit(tenant, "From a stranger")
+        createTenant("Desk Filter Silent")
+
+        val inbox = getAs("/platform/support-requests", "SUPPORT_DESK").body!!
+
+        assertThat(inbox).contains("value=\"${tenant.id.value}\"").contains(">Desk Filter Stranger<").doesNotContain("Desk Filter Silent")
     }
 
     @Test
@@ -161,7 +184,7 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         val body = LinkedMultiValueMap<String, String>().apply { add("connection", "not-a-uuid") }
         val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
 
-        val response = restTemplate.postForEntity("/platform/support-requests/handling", HttpEntity(body, headers), String::class.java)
+        val response = restTemplate.postForEntity("/platform/support/request-handling", HttpEntity(body, headers), String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(withMediator { app.epistola.suite.support.requests.desk.GetSupportRequestHandling().query() }.fromConfiguration).isEqualTo(before.fromConfiguration)
@@ -193,7 +216,7 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         val inbox = getAs("/platform/support-requests?tenant=${tenant.id.value}", "SUPPORT_DESK")
         assertThat(inbox.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(inbox.body).contains("Role").contains("data-testid=\"desk-handling-current\"")
-            .doesNotContain("data-testid=\"desk-handling-select\"").doesNotContain("data-testid=\"desk-handling-reset\"")
+            .doesNotContain("data-testid=\"request-handling-select\"").doesNotContain("data-testid=\"request-handling-reset\"")
             .contains("data-testid=\"ws-platform-support-requests\"")
         assertThat(getAs("/platform/support-requests/${tenant.id.value}/${key.value}", "SUPPORT_DESK").statusCode).isEqualTo(HttpStatus.OK)
     }

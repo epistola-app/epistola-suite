@@ -38,16 +38,22 @@ consent**: it sends nothing.
 Platform → Support requests (`/platform/support-requests`) is the installation's inbox of support
 requests across tenants (ADR 0053 §3–4), for the `SUPPORT_DESK` platform role (identity-provider
 group `/epistola/platform/support-desk`). Who handles new requests stays the installation
-administrator's to set; the desk sees it without the form. It lists requests newest first, paged in the database, filtered by status, priority,
-tenant and who handles them (`ListSupportInbox`).
+administrator's to set on the Epistola support page; the desk shows it read only
+(`GetSupportDeskHandling`). It lists requests newest first, paged in the database, filtered by
+status, priority, tenant and who handles them (`ListSupportInbox`). The tenant filter offers every
+tenant with requests (`ListSupportInboxTenants`), not only those the reader is a member of; a
+tenant's own Support requests page shows that tenant's requests only.
 
 - **Who handles a request.** Each request has a handler: the inbox (`support_requests.handler_connection`
   null) or the connection it went to. Only the handler sets the status and the final priority: the
   desk on a request the inbox handles (`SetSupportDeskStatus`, `SetSupportDeskPriority`), the
   connection's changes feed on one it handles (`SyncSupportRequestStatus` and `…Priority` apply only
-  then). The requester can still close their own request from its page, as before.
-- **Who handles new requests.** The inbox by default. An installation administrator chooses on the
-  desk page (`SetSupportRequestHandling`, stored as `support_connections.handles_new_requests` and
+  then). The tenant always closes its request, or reopens one that is closed or resolved, from its
+  page, whoever handles it (`UpdateSupportRequestStatus` takes only `CLOSED` and `OPEN`); for a
+  request a connection handles, that change is sent there.
+- **Who handles new requests.** The inbox by default. An installation administrator chooses on
+  Platform → Epistola support (`/platform/support`, the panel **New support requests**, which
+  `epistola-support-requests` adds through the `SupportPlatformPanel` SPI; `SetSupportRequestHandling`, stored as `support_connections.handles_new_requests` and
   marked saved in `app_metadata` key `support.requests.handling-saved`); until then the configuration
   applies (`epistola.support.requests.handled-by`, Helm `support.requests.handledBy`: `inbox` or
   `epistola`), and **Follow the configuration** drops a saved choice (`ResetSupportRequestHandling`).

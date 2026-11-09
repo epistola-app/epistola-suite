@@ -296,13 +296,13 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         withMediator {
             UpdateSupportRequestStatus(
                 id = SupportRequestId(supportRequest.id, TenantId(tenant.id)),
-                status = SupportRequestStatus.RESOLVED,
+                status = SupportRequestStatus.CLOSED,
             ).execute()
         }
         // Sent by a round started in the background.
         backgroundWork.awaitIdle()
 
-        assertThat(recording.statusUpdates.map { it.second }).contains(SupportRequestStatus.RESOLVED)
+        assertThat(recording.statusUpdates.map { it.second }).contains(SupportRequestStatus.CLOSED)
     }
 
     @Test
@@ -845,9 +845,9 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }).`as`("changed while withdrawn: never sent").isEmpty()
         assertThat(withMediator { ListUnsentSupportRequestStatuses(limit = 10_000).query() }.map { it.supportRequest.id }).doesNotContain(supportRequest.id)
 
-        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.RESOLVED).execute() }
+        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.OPEN).execute() }
         backgroundWork.awaitIdle()
-        assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }.map { it.second }).`as`("changed after the new grant: sent").containsExactly(SupportRequestStatus.RESOLVED)
+        assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }.map { it.second }).`as`("changed after the new grant: sent").containsExactly(SupportRequestStatus.OPEN)
     }
 
     @Test

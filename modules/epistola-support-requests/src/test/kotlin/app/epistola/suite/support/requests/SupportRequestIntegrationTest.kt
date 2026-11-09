@@ -193,11 +193,11 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                 val tenant = createTenant("Filter Status")
                 val fb = createTestSupportRequest(tenant, "Open Bug")
                 val fbId = SupportRequestId(fb.id, TenantId(tenant.id))
-                UpdateSupportRequestStatus(id = fbId, status = SupportRequestStatus.RESOLVED).execute()
+                UpdateSupportRequestStatus(id = fbId, status = SupportRequestStatus.CLOSED).execute()
                 createTestSupportRequest(tenant, "Still Open")
 
                 val openItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.OPEN).query()
-                val resolvedItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.RESOLVED).query()
+                val resolvedItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.CLOSED).query()
 
                 assertThat(openItems).hasSize(1)
                 assertThat(openItems[0].title).isEqualTo("Still Open")

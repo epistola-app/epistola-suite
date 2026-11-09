@@ -142,7 +142,7 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
             comment(supportRequest, "first")
             comment(supportRequest, "second")
         }
-        val tookStatus = measureTimeMillis { withMediator { UpdateSupportRequestStatus(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), SupportRequestStatus.IN_PROGRESS).execute() } }
+        val tookStatus = measureTimeMillis { withMediator { UpdateSupportRequestStatus(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), SupportRequestStatus.CLOSED).execute() } }
 
         assertThat(tookCreate).`as`("submit").isLessThan(300)
         assertThat(tookComments).`as`("two comments").isLessThan(300)
@@ -198,10 +198,10 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
             scoped(r) { FakeSupportResponse.json(201, """{"requestId":"fb-${r.path.substringAfterLast('/')}","url":null}""") }
         }
 
-        // The change's own round sends the feedback, still OPEN; the user resolves it meanwhile.
+        // The change's own round sends the feedback, still OPEN; the user closes it meanwhile.
         val supportRequest = create(tenant)
         assertThat(arrived.await(5, TimeUnit.SECONDS)).isTrue()
-        withMediator { UpdateSupportRequestStatus(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), SupportRequestStatus.RESOLVED).execute() }
+        withMediator { UpdateSupportRequestStatus(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), SupportRequestStatus.CLOSED).execute() }
         proceed.countDown()
         work.awaitIdle()
         sweep.retryPendingSync()
@@ -209,7 +209,7 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
         val sent = reload(supportRequest)
         assertThat(sent.syncStatus).isEqualTo(SyncStatus.SYNCED)
         val statuses = statusMessages(sent.externalRef)
-        assertThat(statuses.map { it.json().path("status").stringValue() }).containsExactly("RESOLVED")
+        assertThat(statuses.map { it.json().path("status").stringValue() }).containsExactly("CLOSED")
     }
 
     @Test

@@ -380,7 +380,7 @@ support:
   # Support requests (ADR 0053).
   requests:
     # Who handles new support requests until an installation administrator saves a choice under
-    # Platform → Support requests (which then wins): inbox (the installation's own support desk, which
+    # Platform → Epistola support (which then wins): inbox (the installation's own support desk, which
     # passes requests on) or epistola (new requests go to Epistola support, as in the pilot). Requests
     # already passed on stay where they are. Empty: the suite's default, inbox. Rendered as
     # EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY.

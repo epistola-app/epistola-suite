@@ -8,37 +8,15 @@
             pageDescription='Support requests from every tenant of this installation. Handle them here, or pass them on to a support connection.'
         )}"></div>
 
-        <div class="alert alert-success" th:if="${saved}" data-testid="desk-handling-saved">Saved.</div>
-
-        <!-- Who handles new requests -->
+        <!-- Who handles new requests: set by an installation administrator on the Epistola support page. -->
         <section class="ep-panel form-section" style="margin-bottom: var(--ep-space-6);" data-testid="desk-handling">
-            <h3 style="margin-bottom: var(--ep-space-2);">New support requests</h3>
-            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                Requests already passed on stay with the connection that handles them.
-            </p>
-            <p th:unless="${handling.mayChange}" data-testid="desk-handling-current"
+            <p data-testid="desk-handling-current"
                th:text="${handling.handledHere} ? 'New support requests are handled here, in this inbox.' : |New support requests are passed on to ${handling.connectionName}.|">
                 New support requests are handled here, in this inbox.
             </p>
-            <p th:unless="${handling.mayChange}" class="text-muted text-sm">An installation administrator changes this.</p>
-            <form th:if="${handling.mayChange}" th:action="@{/platform/support-requests/handling}" method="post" class="ep-row ep-row-wrap ep-gap-3">
-                <select name="connection" class="ep-select ep-select-sm form-control-auto" aria-label="Who handles new support requests" data-testid="desk-handling-select">
-                    <option value="" th:selected="${handling.handledHere}">Handled here, in this inbox</option>
-                    <option th:each="choice : ${handling.choices}" th:value="${choice.connectionId}"
-                            th:selected="${choice.connectionId == handling.connectionId}"
-                            th:text="|Passed on to ${choice.name}|">Passed on to Epistola support</option>
-                </select>
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-handling-save">Save</button>
-            </form>
-            <p th:if="${handling.mayChange and handling.fromConfiguration}" class="text-muted text-sm" style="margin-top: var(--ep-space-2);" data-testid="desk-handling-from-configuration">
-                Set by this installation's configuration until you save a choice here.
-            </p>
-            <form th:if="${handling.mayChange and !handling.fromConfiguration}" th:action="@{/platform/support-requests/handling/reset}" method="post" style="margin-top: var(--ep-space-2);">
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-handling-reset">Follow the configuration</button>
-            </form>
-            <p th:if="${handling.mayChange and #lists.isEmpty(handling.choices)}" class="text-muted text-sm" style="margin-top: var(--ep-space-2);" data-testid="desk-handling-no-connection">
-                No support connection takes support requests: connect to Epistola support on the
-                <a th:href="@{/platform/support}">Epistola support</a> page to pass requests on.
+            <p class="text-muted text-sm">
+                Requests already passed on stay with the connection that handles them. An installation administrator
+                changes this on the Epistola support page.
             </p>
         </section>
 
@@ -57,8 +35,8 @@
             </select>
             <select name="tenant" class="ep-select ep-select-sm form-control-auto" aria-label="Tenant">
                 <option value="">All tenants</option>
-                <option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.name}"
-                        th:selected="${selectedTenant != null and selectedTenant == t.id}">Acme</option>
+                <option th:each="t : ${tenants}" th:value="${t.key}" th:text="${t.name}"
+                        th:selected="${selectedTenant != null and selectedTenant == t.key}">Acme</option>
             </select>
             <select name="handler" class="ep-select ep-select-sm form-control-auto" aria-label="Handled by">
                 <option value="ALL" th:selected="${selectedHandler.name() == 'ALL'}">Handled anywhere</option>

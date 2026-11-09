@@ -132,6 +132,32 @@ class ListSupportInboxHandler(
     }
 }
 
+/** A tenant the desk's inbox can be filtered on, by its [key] as the filter takes it. */
+data class SupportInboxTenant(val key: String, val name: String)
+
+/**
+ * The tenants with support requests, by name: what the inbox's tenant filter offers. Every tenant of
+ * the installation, as the inbox shows them all, not only those the reader is a member of.
+ */
+class ListSupportInboxTenants :
+    Query<List<SupportInboxTenant>>,
+    RequiresPlatformRole {
+    override val platformRole = SUPPORT_DESK_ROLE
+}
+
+@Component
+class ListSupportInboxTenantsHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ListSupportInboxTenants, List<SupportInboxTenant>> {
+    override fun handle(query: ListSupportInboxTenants): List<SupportInboxTenant> = jdbi.withHandleUnchecked { handle ->
+        handle.createQuery(
+            "SELECT t.id, t.name FROM tenants t WHERE EXISTS (SELECT 1 FROM support_requests f WHERE f.tenant_key = t.id) ORDER BY t.name, t.id",
+        )
+            .map { rs, _ -> SupportInboxTenant(rs.getString("id"), rs.getString("name")) }
+            .list()
+    }
+}
+
 /** A message on the desk's view of a request: a reply, or an internal [note] only the desk sees. */
 data class SupportDeskMessage(
     val id: UUID,
