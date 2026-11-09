@@ -169,6 +169,8 @@ class ApiKeyAuthenticationFilter(
             displayName = apiKey.name,
             tenantMemberships = mapOf(apiKey.tenantKey to apiKey.roles),
             currentTenantId = apiKey.tenantKey,
+            // Decides whose documents the caller sees and stamps its generation requests (ADR 0054).
+            application = apiKey.application,
         )
 
         SecurityContextHolder.getContext().authentication = ApiKeyAuthenticationToken(principal)

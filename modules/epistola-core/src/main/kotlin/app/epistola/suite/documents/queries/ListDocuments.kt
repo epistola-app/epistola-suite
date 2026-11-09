@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -67,6 +68,8 @@ class ListDocumentsHandler(
             sql.append(" AND correlation_id = :correlationId")
         }
         sql.append(query.catalog.sql)
+        val visibility = DocumentVisibility.current()
+        sql.append(" ").append(visibility.predicate("application_id"))
 
         sql.append(" ORDER BY created_at DESC")
         sql.append(" LIMIT :limit OFFSET :offset")
@@ -84,6 +87,7 @@ class ListDocumentsHandler(
             q.bind("correlationId", query.correlationId)
         }
         query.catalog.bindTo(q)
+        visibility.bindTo(q)
 
         q.map { rs, _ ->
             DocumentMetadata(

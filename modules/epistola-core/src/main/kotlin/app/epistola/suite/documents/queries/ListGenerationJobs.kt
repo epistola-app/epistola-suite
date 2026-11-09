@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
@@ -53,6 +54,8 @@ class ListGenerationJobsHandler(
         if (query.status != null) {
             sql.append(" AND status = :status")
         }
+        val visibility = DocumentVisibility.current()
+        sql.append(" ").append(visibility.predicate("application_id"))
 
         sql.append(" ORDER BY created_at DESC")
         sql.append(" LIMIT :limit OFFSET :offset")
@@ -61,6 +64,7 @@ class ListGenerationJobsHandler(
             .bind("tenantId", query.tenantId)
             .bind("limit", query.limit)
             .bind("offset", query.offset)
+            .let(visibility::bindTo)
 
         if (query.status != null) {
             q.bind("status", query.status.name)

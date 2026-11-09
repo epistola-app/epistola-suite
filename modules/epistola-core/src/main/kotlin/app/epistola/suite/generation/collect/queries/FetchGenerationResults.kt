@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.generation.collect.domain.EmitsInFlight
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
 import app.epistola.suite.mediator.Query
@@ -88,6 +89,9 @@ class FetchGenerationResultsHandler(
         if (query.partitions.isEmpty()) return FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
 
         val partitionList = query.partitions.toIntArray()
+        // A restricted application drains only its own results (ADR 0054, #749); its cursors still
+        // advance only over what it was given.
+        val visibility = DocumentVisibility.current()
         // Read cursors and fetch rows in one transaction so a concurrent ack
         // doesn't move the cursor between the two reads (would skip rows).
         val rawRows = jdbi.inTransaction<List<GenerationResultRow>?, Exception> { handle ->
@@ -127,6 +131,7 @@ class FetchGenerationResultsHandler(
                 WHERE r.tenant_key = :tenantKey
                   AND r.sequence > c.cur
                   AND r.sequence <= :upTo
+                  ${visibility.predicate("r.application_id")}
                 ORDER BY r.sequence
                 LIMIT :limit
                 """,
@@ -135,6 +140,7 @@ class FetchGenerationResultsHandler(
                 .bindArray("partitions", Int::class.javaObjectType, *partitionList.toTypedArray())
                 .bindArray("cursors", Long::class.javaObjectType, *cursorList.toTypedArray())
                 .bind("upTo", upTo)
+                .let(visibility::bindTo)
                 // Read limit + 1 so we can compute hasMore cheaply: if the over-read
                 // returned an extra row, we know more exist; trim it before returning.
                 .bind("limit", query.limit + 1)

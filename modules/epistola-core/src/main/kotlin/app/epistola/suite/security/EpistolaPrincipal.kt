@@ -4,6 +4,7 @@
 
 package app.epistola.suite.security
 
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import java.io.Serializable
@@ -36,11 +37,23 @@ data class EpistolaPrincipal(
     val globalRoles: Set<TenantRole> = emptySet(),
     val platformRoles: Set<PlatformRole> = emptySet(),
     val currentTenantId: TenantKey?, // Can be set per-request via tenant selector
+    /**
+     * The application this principal acts for (ADR 0054); null for a person, a bearer token or the
+     * demo shared secret. Added without bumping [serialVersionUID]: a new nullable field is a
+     * compatible change, and sessions stored before it read back with null.
+     */
+    val application: PrincipalApplication? = null,
 ) : Serializable {
 
     companion object {
         private const val serialVersionUID: Long = 5L
     }
+
+    /**
+     * The application whose documents alone this principal may see, or null when it sees every
+     * document of the tenant: people, callers without an application, and applications marked so.
+     */
+    fun documentsRestrictedTo(): ApplicationKey? = application?.takeUnless { it.seesAllDocuments }?.id
 
     /**
      * Human-readable label for signed-in UI chrome.
@@ -106,4 +119,14 @@ data class EpistolaPrincipal(
      * Get the effective tenant ID (current or first membership if current is null).
      */
     fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.keys.firstOrNull()
+}
+
+/** The application an [EpistolaPrincipal] acts for, as its credential resolved it. */
+data class PrincipalApplication(
+    val id: ApplicationKey,
+    val seesAllDocuments: Boolean,
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
 }

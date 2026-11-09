@@ -4,9 +4,12 @@
 
 package app.epistola.suite.apikeys
 
+import app.epistola.suite.applications.tenantRolesFromSqlArray
 import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.time.EpistolaClock
 import java.sql.ResultSet
@@ -44,6 +47,12 @@ data class ApiKey(
      * [app.epistola.suite.apikeys.commands.CreateApiKey] always set an explicit subset.
      */
     val roles: Set<TenantRole> = TenantRole.entries.toSet(),
+    /**
+     * The application this key proves (ADR 0054), with what it sees. Null for a revoked key whose
+     * application was deleted, or one created by a release before applications: such a key acts
+     * with its own [roles] and sees every document of the tenant, as keys did before.
+     */
+    val application: PrincipalApplication? = null,
 ) {
     fun isExpired(now: Instant = EpistolaClock.instant()): Boolean = expiresAt != null && now.isAfter(expiresAt)
 
@@ -69,13 +78,23 @@ internal fun ResultSet.toApiKey(withDisplayName: Boolean): ApiKey = ApiKey(
     revokedAt = getObject("revoked_at", java.time.OffsetDateTime::class.java)?.toInstant(),
     revokedBy = getString("revoked_by")?.let { UserKey.of(it) },
     createdByDisplayName = if (withDisplayName) getString("created_by_display_name") else null,
-    roles = rolesFromSqlArray(getArray("roles")),
+    roles = tenantRolesFromSqlArray(getArray("roles")),
+    application = getString("application_id")?.let {
+        PrincipalApplication(ApplicationKey.of(it), seesAllDocuments = getBoolean("application_sees_all_documents"))
+    },
 )
 
-private fun rolesFromSqlArray(array: java.sql.Array?): Set<TenantRole> = ((array?.array as? Array<*>)?.toList() ?: emptyList())
-    .filterIsInstance<String>()
-    .mapNotNull { runCatching { TenantRole.valueOf(it) }.getOrNull() }
-    .toSet()
+/**
+ * The key columns [toApiKey] reads, aliased from `api_keys k LEFT JOIN applications a`. A key of an
+ * application acts with the application's roles, which are its source of truth; the key's own copy
+ * is read only for a key without one.
+ */
+internal const val API_KEY_COLUMNS = """
+    k.id, k.tenant_key, k.name, k.key_prefix, k.enabled, k.created_at,
+    k.last_used_at, k.expires_at, k.created_by, k.revoked_at, k.revoked_by,
+    COALESCE(a.roles, k.roles) AS roles,
+    a.id AS application_id, a.sees_all_documents AS application_sees_all_documents
+"""
 
 /**
  * Returned once when creating a new API key.

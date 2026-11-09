@@ -436,6 +436,24 @@ value class ApiKeyKey(@JsonValue override val value: UUID) : UuidKey<ApiKeyKey> 
 }
 
 /**
+ * Typed key for an application: a calling system in one tenant (ADR 0054). UUIDv7, never reused.
+ */
+@JvmInline
+value class ApplicationKey(@JsonValue override val value: UUID) : UuidKey<ApplicationKey> {
+    companion object {
+        fun generate(): ApplicationKey = ApplicationKey(UUIDv7.generate())
+        fun of(value: UUID): ApplicationKey = ApplicationKey(value)
+        fun of(value: String): ApplicationKey = ApplicationKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): ApplicationKey = ApplicationKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
  * Typed key for User entities.
  */
 @JvmInline

@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -52,6 +53,7 @@ class GetDocumentHandler(
 ) : QueryHandler<GetDocument, Document?> {
 
     override fun handle(query: GetDocument): Document? = jdbi.withHandle<Document?, Exception> { handle ->
+        val visibility = DocumentVisibility.current()
         handle.createQuery(
             """
             SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key, release_version, draft_id, draft_label,
@@ -60,10 +62,12 @@ class GetDocumentHandler(
             FROM documents
             WHERE id = :documentId
               AND tenant_key = :tenantId
+              ${visibility.predicate("application_id")}
             """,
         )
             .bind("documentId", query.documentId)
             .bind("tenantId", query.tenantId)
+            .let(visibility::bindTo)
             .map { rs, _ ->
                 Document(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),

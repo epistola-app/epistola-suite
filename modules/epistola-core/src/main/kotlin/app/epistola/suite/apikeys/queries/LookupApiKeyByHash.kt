@@ -4,6 +4,7 @@
 
 package app.epistola.suite.apikeys.queries
 
+import app.epistola.suite.apikeys.API_KEY_COLUMNS
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.toApiKey
 import app.epistola.suite.mediator.Query
@@ -30,10 +31,10 @@ class LookupApiKeyByHashHandler(
     override fun handle(query: LookupApiKeyByHash): ApiKey? = jdbi.withHandle<ApiKey?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, name, key_prefix, enabled, created_at,
-                   last_used_at, expires_at, created_by, revoked_at, revoked_by, roles
-            FROM api_keys
-            WHERE key_hash = :keyHash
+            SELECT $API_KEY_COLUMNS
+            FROM api_keys k
+            LEFT JOIN applications a ON a.id = k.application_id
+            WHERE k.key_hash = :keyHash
             """,
         )
             .bind("keyHash", query.keyHash)
