@@ -56,7 +56,11 @@ class SupportRequestSyncGate(
      * [canSendNow], and [feedback] is exchanged under the consent in force: what is said or added
      * about feedback sent before a withdrawal, or synced by the retired hub, stays here.
      */
-    fun mayExchange(supportRequest: SupportRequest): Boolean = canSendNow() && IsSupportRequestExchangedUnderConsent(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey))).query()
+    fun mayExchange(supportRequest: SupportRequest): Boolean {
+        // With the connection that handles it (Epistola support's while none does), as the request view reads it.
+        val connectionId = supportRequest.handlerConnection ?: REQUESTS_CONNECTION
+        return canSendNow(connectionId) && IsSupportRequestExchangedUnderConsent(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), connectionId).query()
+    }
 }
 
 /**

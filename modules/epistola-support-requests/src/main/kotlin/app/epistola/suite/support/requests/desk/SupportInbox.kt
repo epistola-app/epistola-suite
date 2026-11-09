@@ -20,7 +20,7 @@ import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.consent.consentInForce
-import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
+import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.jdbi.v3.core.mapper.RowMapper
@@ -211,7 +211,7 @@ data class GetSupportInboxRequest(
 @Component
 class GetSupportInboxRequestHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
 ) : QueryHandler<GetSupportInboxRequest, SupportInboxRequest?> {
     override fun handle(query: GetSupportInboxRequest): SupportInboxRequest? = jdbi.withHandleUnchecked { handle ->
         val request = handle.createQuery("$SELECT_SUPPORT_REQUEST WHERE f.tenant_key = :tenant AND f.id = :id")

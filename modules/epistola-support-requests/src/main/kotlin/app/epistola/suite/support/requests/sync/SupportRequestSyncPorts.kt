@@ -5,6 +5,7 @@
 package app.epistola.suite.support.requests.sync
 
 import app.epistola.suite.support.connection.SupportConnectionRegistry
+import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.TokenSupportConnection
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.requests.adapters.RestSupportRequestSyncAdapter
@@ -37,6 +38,9 @@ class SupportRequestSyncPorts(
         val connection = registry.find(connectionId) as? TokenSupportConnection ?: return null
         return built.computeIfAbsent(connectionId) { RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi) }
     }
+
+    /** The installation selected support requests for connection [connectionId] (another than Epistola support's). */
+    fun selectsRequests(connectionId: UUID): Boolean = registry.find(connectionId)?.isSelected(SupportScope.REQUESTS) == true
 
     /** Every connection's port, Epistola support's first, with its connection id. */
     fun all(): List<Pair<UUID, SupportRequestSyncPort>> = listOf(REQUESTS_CONNECTION to discovered) +
