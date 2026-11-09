@@ -197,6 +197,15 @@ page has a "Sharing with …" panel for every other connection that offers somet
 for Epistola support; Platform → Epistola support has the preset for every tenant per connection. One
 connection's choice never changes another's.
 
+**Support requests over a partner.** Who handles new support requests (Platform → Epistola support)
+can be any connection the installation selected support requests for, and the support desk can pass a
+request on to any of them. A request goes to such a connection while the tenant shares support
+requests with it; when it is handed over, everything it holds so far goes along, except internal notes.
+Afterwards a reply or screenshot goes there when it is written while the tenant still shares with that
+connection: what is written while it does not never goes there, also once it shares again. Replies,
+status and priority come back from every connection the suite can reach, each with its own position in
+its changes feed; only the connection that handles a request sets its status and priority.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its

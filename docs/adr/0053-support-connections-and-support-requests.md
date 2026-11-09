@@ -248,6 +248,13 @@ can open requests through the same protocol.
      (`GrantSupportRequestSyncConsent(tenant, connection)` and the rest); the tenant's Support page
      and the platform page have a panel per connection besides Epistola support. Sending still goes
      over Epistola support's connection only (3c2).
+   - **3c2, built:** support requests sent and polled per connection. Who handles new requests and
+     the desk's pass-on take any connection selected for support requests. For a connection other
+     than Epistola support's, a request goes while the tenant shares with it, with what it held, and
+     an item goes when it has a row in that connection's ledger (`support_request_delivered_items`
+     without `remote_id`/`sent_at`), written while the tenant shared with it; a withdrawal drops the
+     unsent rows. Epistola support's connection keeps reading the grant an item was written under. A
+     port per connection (`SupportRequestSyncPorts`), a round and a poll per connection.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred
