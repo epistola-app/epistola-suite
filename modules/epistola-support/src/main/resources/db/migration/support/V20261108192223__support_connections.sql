@@ -34,6 +34,9 @@ CREATE TABLE support_connections (
 
 -- One connection comes from the product domain's discovery document.
 CREATE UNIQUE INDEX uq_support_connections_discovered ON support_connections (source) WHERE source = 'DISCOVERED';
+-- A configured connection is named by its endpoint: the configuration that names it again at the next
+-- start finds it, and nodes starting together cannot create it twice.
+CREATE UNIQUE INDEX uq_support_connections_configured_endpoint ON support_connections (endpoint) WHERE source = 'CONFIGURED';
 
 COMMENT ON TABLE support_connections IS
     'Parties the installation shares with (ADR 0053): registration, status, selected services and contact per connection.';

@@ -84,6 +84,38 @@
       (List<InstallationSharingView>), defaultsEditing, defaultsChosen (key -> value after a refused
       save), defaultsNotice, defaultsError.
     */-->
+    <!--/* The other support connections, such as a partner's (ADR 0053): signed in with a token they issued. */-->
+    <section th:fragment="connections" th:if="${!#lists.isEmpty(connections)}" id="support-connections" class="ep-panel detail-section" data-testid="support-connections">
+        <div class="detail-section-header"><h2>Other support connections</h2></div>
+        <div class="detail-section-body">
+            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
+                Parties besides Epistola support that this installation shares with, such as a partner. They come from
+                the installation's configuration (<code>epistola.support.connections</code>).
+            </p>
+            <table class="ep-table">
+                <thead>
+                    <tr><th>Connection</th><th>State</th><th>Services granted</th><th>Services used</th><th>Last checked</th></tr>
+                </thead>
+                <tbody>
+                    <tr th:each="c : ${connections}" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
+                        <td><strong th:text="${c.name}">Partner</strong><div class="text-muted text-sm" th:text="${c.endpoint}">https://desk.partner.example</div></td>
+                        <td>
+                            <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
+                            <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning" th:title="${c.lastError}">Unreachable</span>
+                            <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error" th:title="${c.reason}">Refused</span>
+                            <span th:if="${c.standing.name() == 'NOT_CHECKED'}" class="badge badge-muted">Not checked yet</span>
+                            <div class="text-muted text-sm" th:if="${c.standing.name() == 'REFUSED'}" th:text="${c.reason}">the token was refused</div>
+                            <div class="text-muted text-sm" th:if="${c.lastError != null}" th:text="${c.lastError}">unreachable</div>
+                        </td>
+                        <td th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</td>
+                        <td th:text="${#lists.isEmpty(c.selected)} ? 'None' : ${#strings.listJoin(c.selected, ', ')}">requests</td>
+                        <td th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-09 10:00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
         <div class="detail-section-header">
             <h2>Setup for every tenant</h2>
@@ -410,6 +442,8 @@
         <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
         <th:block th:replace="~{support/platform :: defaults}"></th:block>
+
+        <th:block th:replace="~{support/platform :: connections}"></th:block>
 
         <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
         <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">

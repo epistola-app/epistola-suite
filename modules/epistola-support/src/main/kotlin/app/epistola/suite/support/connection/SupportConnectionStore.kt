@@ -33,6 +33,9 @@ data class StoredSupportCredentials(
     val registeredAt: Instant? = null,
 )
 
+/** The token of a [SupportConnectionAuth.BEARER_TOKEN] connection, as stored (encrypted). */
+data class StoredBearerToken(val token: String)
+
 /** What a stored status says the connection is; maps onto [SupportConnectionState]. */
 enum class StoredConnectionState {
     PENDING,
@@ -179,6 +182,26 @@ open class SupportConnectionStore(
     }
 
     fun saveCredentials(credentials: StoredSupportCredentials) = write("credentials = :value", cipher.encrypt(objectMapper.writeValueAsString(credentials)))
+
+    /**
+     * The token a [SupportConnectionAuth.BEARER_TOKEN] connection signs in with, or null when none is
+     * set. Kept encrypted in the same column as a registration, so credential rotation covers it.
+     *
+     * @throws UnreadableSupportCredentialsException when it exists but cannot be decrypted or read.
+     */
+    fun bearerToken(): String? {
+        val envelope = column("credentials") ?: return null
+        return try {
+            objectMapper.readValue(cipher.decrypt(envelope), StoredBearerToken::class.java).token
+        } catch (e: EncryptionException) {
+            throw UnreadableSupportCredentialsException(e)
+        } catch (e: JacksonException) {
+            throw UnreadableSupportCredentialsException(e)
+        }
+    }
+
+    /** Sets the token a [SupportConnectionAuth.BEARER_TOKEN] connection signs in with. */
+    fun saveBearerToken(token: String) = write("credentials = :value", cipher.encrypt(objectMapper.writeValueAsString(StoredBearerToken(token))))
 
     fun status(): StoredSupportStatus? = json("status", StoredSupportStatus::class.java)
 

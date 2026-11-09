@@ -157,6 +157,36 @@ tenant tag, when not stripped, names a confidential tenant by its reference. Log
 switched off separately (`epistola.support.telemetry.logs`,
 `.metrics`), or both with Helm `support.telemetry.enabled`.
 
+## Other support connections
+
+Besides Epistola support, the installation can share with further parties, such as a partner that
+hosts the suite for its clients or supports a client who hosts it (ADR 0053). Each is a **support
+connection** of its own, signed in with a token that party issued; no registration and no claim code.
+They come from the configuration, independent of `epistola.support.enabled`, so an installation can
+connect to its partner alone:
+
+```yaml
+epistola:
+  support:
+    connections:
+      - name: Acme Partner
+        endpoint: https://desk.partner.example/epistola
+        token: ${ACME_SUPPORT_TOKEN}
+        services: [requests, usage]
+```
+
+In Helm, `support.connections` takes the same entries with `tokenSecret: { name, key }` instead of the
+token. The endpoint names the connection: the same endpoint at the next start is the same
+connection, with the name and token from the configuration. An entry removed from the configuration
+leaves the connection in the installation.
+
+The suite checks each connection every `epistola.support.check-interval` with
+`GET {endpoint}/api/v1/connection`: the answer says whether it is active and which services it grants.
+A service is used over a connection when it is listed in `services` and granted. A `401` reads as a
+refused token; an unreachable connection keeps its services but uses none until a check reaches it
+again. Platform → Epistola support lists every connection with its state, the services granted and
+those used.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its

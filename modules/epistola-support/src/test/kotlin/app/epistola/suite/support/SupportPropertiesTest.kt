@@ -12,6 +12,20 @@ import java.net.URI
 /** The support connection's settings are refused at startup when they cannot work. */
 class SupportPropertiesTest {
     @Test
+    fun `a configured connection needs a name, a token and an https endpoint, named once`() {
+        fun connection(name: String = "Partner", endpoint: String = "https://desk.partner.example/", token: String = "t") = SupportProperties.Connection(name, endpoint, token, listOf("requests"))
+
+        assertThat(SupportProperties(connections = listOf(connection())).connections.single().baseUrl).isEqualTo("https://desk.partner.example")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection(name = " "))) }.hasMessageContaining("connections[0].name")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection(token = ""))) }.hasMessageContaining("connections[0].token")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection(endpoint = "desk.partner.example"))) }.hasMessageContaining("connections[0].endpoint")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection(endpoint = "http://desk.partner.example"))) }.hasMessageContaining("plaintext")
+        assertThat(SupportProperties(allowHttp = true, connections = listOf(connection(endpoint = "http://localhost:9000"))).connections).hasSize(1)
+        assertThatThrownBy { SupportProperties(connections = listOf(connection(), connection(name = "Again", endpoint = "https://desk.partner.example"))) }.hasMessageContaining("twice")
+        assertThat(connection().toString()).`as`("never the token").doesNotContain("token=")
+    }
+
+    @Test
     fun `a usage backlog under an hour stops startup`() {
         assertThatThrownBy { SupportProperties(usage = SupportProperties.Usage(backlog = java.time.Duration.ofMinutes(30))) }
             .isInstanceOf(IllegalArgumentException::class.java)

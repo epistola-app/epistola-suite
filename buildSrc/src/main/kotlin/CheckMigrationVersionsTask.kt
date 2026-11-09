@@ -71,6 +71,14 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                         "Unreleased when edited. Dropped the retyping of catalog_resource_aliases rows, " +
                             "a table removed from V20260905090000 before any release shipped it.",
                 ),
+            "modules/epistola-support/src/main/resources/db/migration/support/V20261108192223__support_connections.sql" to
+                ReviewedModification(
+                    sha256 = "f62beea43fb116f97a1e3000816bc4e8caa4333f19122ebcdc1176d5de54b1e0",
+                    reason =
+                        "Unreleased when edited. The support connections table grew with ADR 0053 step 3 " +
+                            "(partner connections: the configured endpoint, privacy per connection, connections " +
+                            "added in the UI) before any release shipped it.",
+                ),
         )
 
     @TaskAction

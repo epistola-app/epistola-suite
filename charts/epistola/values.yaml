@@ -377,6 +377,17 @@ support:
     # off, all (every catalog) or marked (only the catalogs a tenant marks).
     mirror: ""
 
+  # Further support connections besides Epistola support, such as a partner's (ADR 0053), each signed
+  # in with a token that party issued. Independent of `enabled`: an installation can connect to its
+  # partner alone. The endpoint names a connection: the same endpoint after an upgrade is the same
+  # connection. Removing an entry leaves the connection in the installation (it may hold requests).
+  # Rendered as EPISTOLA_SUPPORT_CONNECTIONS_<n>_*; the token comes from a Secret, never from values.
+  #   connections:
+  #     - name: Acme Partner
+  #       endpoint: https://desk.partner.example/epistola
+  #       services: [requests, usage]
+  #       tokenSecret: { name: acme-support-token, key: token }
+  connections: []
   # Usage for billing.
   usage:
     # How far back hours missed while the installation or the support service was down are still sent

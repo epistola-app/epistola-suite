@@ -246,6 +246,22 @@ spec:
                    runtime by NodeIdentity (hostname → pod name), giving each
                    pod a distinct id automatically. */}}
             {{- end }}
+            {{- /* Further support connections, such as a partner's (ADR 0053), each signed in with a
+                   token from a Secret. Independent of support.enabled: an installation can connect
+                   to its partner alone. */}}
+            {{- range $i, $c := .Values.support.connections }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_NAME
+              value: {{ required "support.connections[].name is required" $c.name | quote }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_ENDPOINT
+              value: {{ required "support.connections[].endpoint is required" $c.endpoint | quote }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_SERVICES
+              value: {{ join "," ($c.services | default list) | quote }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "support.connections[].tokenSecret.name is required" $c.tokenSecret.name | quote }}
+                  key: {{ $c.tokenSecret.key | default "token" | quote }}
+            {{- end }}
 
             {{- /* Parsed-font cache bounds; empty keeps the application defaults */}}
             {{- with .Values.generation.fontCache.maxSize }}

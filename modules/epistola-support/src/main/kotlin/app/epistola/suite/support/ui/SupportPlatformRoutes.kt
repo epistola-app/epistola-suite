@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.CheckSupportConnection
 import app.epistola.suite.support.connection.DisconnectSupportConnection
 import app.epistola.suite.support.connection.GetSupportConnectionOverview
+import app.epistola.suite.support.connection.ListSupportConnections
 import app.epistola.suite.support.connection.RegisterSupportConnection
 import app.epistola.suite.support.connection.RegisterSupportConnectionAgain
 import app.epistola.suite.support.connection.SaveSupportServices
@@ -78,6 +79,7 @@ class SupportPlatformHandler(
         "checking" to work.isRunning(WORK_KEY)
         "privacy" to GetSupportPrivacy().query()
         "defaults" to sharing.installationViews()
+        "connections" to ListSupportConnections().query()
         "panels" to panelViews()
     }
 
@@ -177,6 +179,8 @@ class SupportPlatformHandler(
                 "offerLocalOnly" to offerLocalOnly
                 "privacy" to GetSupportPrivacy().query()
                 "defaults" to sharing.installationViews()
+                "connections" to ListSupportConnections().query()
+                "connections" to ListSupportConnections().query()
                 "panels" to panelViews()
             }
             onFullPage { redirect("/platform/support") }

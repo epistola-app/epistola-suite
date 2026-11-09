@@ -349,6 +349,18 @@ class FakeSupportServer : AutoCloseable {
         }
     }
 
+    /**
+     * Acts as a partner that signs the installation in with a token it issued (ADR 0053): [token]
+     * belongs to an active connection that grants [scopes], with no registration and no OAuth.
+     * Returns the connection's client id.
+     */
+    fun issuePartnerToken(token: String, scopes: Set<String>): String {
+        val clientId = "partner_%020d".format(counter.incrementAndGet())
+        registrations[clientId] = Registration(clientId, null, "", "", claimCode = "", claimCodeExpiresAt = now(), status = "ACTIVE", scopes = scopes)
+        issuedTokens[token] = clientId to scopes
+        return clientId
+    }
+
     /** Declines [clientId]: it still gets tokens without scope, and reads DECLINED. */
     fun decline(clientId: String = latestRegistration.clientId) {
         registrations.getValue(clientId).apply {
