@@ -96,6 +96,8 @@ data class TenantSharingView(
     val decidedBy: String?,
     val decidedAt: OffsetDateTime?,
     val withheld: Map<String, String> = emptyMap(),
+    /** How the choice stands now, when it is not simply in effect: shared, but nothing can be sent yet, and why. */
+    val notice: String? = null,
 ) {
     /** The label of [value]. */
     val label: String get() = section.choices.firstOrNull { it.value == value }?.label ?: value

@@ -1,130 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
-        <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Support request sharing',
-            pageDescription='Whether support requests submitted in this tenant may go to Epistola support, what is sent, and to whom.'
-        )}"></div>
-
-        <section class="ep-panel form-section" data-testid="support-request-sharing-what">
-            <h2>What is sent</h2>
-            <div th:replace="~{support-requests/sharing :: statement}"></div>
-        </section>
-
-        <th:block th:replace="~{support-requests/sharing :: consent}"></th:block>
-    </th:block>
-
-    <!--/* The consent panel: swapped in place by giving or withdrawing consent. */-->
-    <section th:fragment="consent" id="support-request-sharing-consent" class="ep-panel form-section"
-             data-testid="support-request-sharing-consent" th:with="s=${settings}, c=${settings.connection.name()}">
-        <h2>Consent</h2>
-
-        <div class="alert alert-info" th:if="${notice != null}" role="status" data-testid="support-request-sharing-notice"
-             th:text="${notice}">Consent given.</div>
-
-        <p data-testid="support-request-sharing-recipient">
-            <th:block th:if="${c == 'READY'}">
-                Support requests go to the Epistola support service at
-                <code th:text="${s.supportService}">https://support.epistola.app</code>, run by <span>Epistola Nederland B.V.</span>,
-                which has activated this installation.
-            </th:block>
-            <th:block th:unless="${c == 'READY'}">
-                Support requests would go to the Epistola support service, run by <span>Epistola Nederland B.V.</span>
-            </th:block>
-        </p>
-
-        <p data-testid="support-request-sharing-state">
-            <th:block th:if="${s.sendsSupportRequest}">
-                <span class="badge badge-success">Sent</span>
-                This tenant consented: its support requests can go to Epistola support.
-            </th:block>
-            <th:block th:if="${s.consentedButWaiting}">
-                <span class="badge badge-warning">Consented, not sent</span>
-                This tenant consented, but the installation cannot send support requests now (see below). They are sent once it can.
-            </th:block>
-            <th:block th:unless="${s.consent.inForce}">
-                <span class="badge badge-muted">Not sent</span>
-                This tenant has not consented: its support requests stay in this installation.
-            </th:block>
-        </p>
-
-        <table class="ep-table" data-testid="support-request-sharing-details">
-            <tbody>
-                <tr th:if="${s.consent.consentedAt != null}">
-                    <th scope="row">Consent given</th>
-                    <td data-testid="support-request-sharing-consented">
-                        <span th:text="${#temporals.format(s.consent.consentedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-05 14:02 UTC</span>
-                        <span th:if="${s.consent.consentedBy != null}" th:text="'by ' + ${s.consent.consentedBy}">by Jan</span>
-                    </td>
-                </tr>
-                <tr th:if="${s.consent.withdrawnAt != null}">
-                    <th scope="row">Consent withdrawn</th>
-                    <td data-testid="support-request-sharing-withdrawn">
-                        <span th:text="${#temporals.format(s.consent.withdrawnAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 09:00 UTC</span>
-                        <span th:if="${s.consent.withdrawnBy != null}" th:text="'by ' + ${s.consent.withdrawnBy}">by Jan</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-
-        <p th:if="${c == 'READY' and s.unreachable and s.consent.inForce}" data-testid="support-request-sharing-unreachable">
-            The Epistola support service cannot be reached at the moment. Support requests wait in this installation and are
-            sent once the service answers again; nothing is lost.
-        </p>
-
-        <p th:if="${s.notAllowed}" data-testid="support-request-sharing-not-allowed">
-            This installation does not allow sharing support requests with Epistola. An installation administrator decides this
-            under Platform → Epistola support.
-        </p>
-
-        <!--/* Why consent cannot be given now: one sentence per reason, and where to fix it. */-->
-        <th:block th:unless="${c == 'READY'}">
-            <p th:if="${c == 'OFF'}" data-testid="support-request-sharing-withheld-off">
-                This installation does not connect to Epistola support, so nothing can be sent. An installation
-                administrator can turn the support connection on.
-            </p>
-            <p th:if="${c == 'NOT_CONNECTED'}" data-testid="support-request-sharing-withheld-not-connected">
-                This installation is not connected to Epistola support. An installation administrator sees why under
-                Platform → Epistola support.
-            </p>
-            <p th:if="${c == 'PENDING'}" data-testid="support-request-sharing-withheld-pending">
-                This installation waits for Epistola to activate it for your organisation. Until then it is not known who
-                would receive the support requests, so nothing is sent yet. An installation administrator finds the claim code to
-                send to Epistola under Platform → Epistola support.
-            </p>
-            <p th:if="${c == 'NOT_SELECTED'}" data-testid="support-request-sharing-withheld-not-selected">
-                This installation does not use the support request service: an installation administrator has not selected it
-                under Platform → Epistola support, so nothing can be sent.
-            </p>
-            <p th:if="${c == 'PAUSED'}" data-testid="support-request-sharing-paused">
-                <span class="badge badge-warning">Paused by Epistola</span>
-                <th:block th:if="${s.pause.until != null}">until <span th:text="${#temporals.format(s.pause.until, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-20</span>:</th:block>
-                <th:block th:if="${s.pause.until == null}">until Epistola resumes it:</th:block>
-                “<span th:text="${s.pause.reason}">Planned maintenance</span>”. Support requests written meanwhile stay here and are
-                sent once the pause ends.
-            </p>
-            <p th:if="${c == 'NO_SUPPORT_REQUEST_SERVICE'}" data-testid="support-request-sharing-withheld-no-service">
-                Epistola has not granted this installation the support request service, so nothing can be sent. Ask Epistola
-                support to grant it.
-            </p>
-        </th:block>
-
-        <p class="text-muted">
-            Consent applies to support requests submitted from the moment it is given. Requests submitted before that stay in
-            this installation, also after consent is given. Withdrawing stops everything not sent yet; what Epistola
-            already received stays there. Giving consent again carries on with support requests Epistola already received:
-            what is written about it from then on is sent, and what was written while sharing was off never is.
-        </p>
-
-        <p data-testid="support-request-sharing-where">
-            Whether this tenant shares support requests is set on the
-            <a th:href="@{'/tenants/' + ${tenantId} + '/support'}" data-testid="support-request-sharing-support-link">Support page</a>,
-            together with everything else it shares with Epistola<th:block th:if="${s.consent.followsDefault}">; it now
-            follows the installation's setup</th:block>.
-        </p>
-    </section>
-    <!--/* What is sent with a tenant's consent: here, on the tenant's Support page and with the installation default. */-->
+    <!--/* What is sent with a tenant's consent: on the tenant's Support page and with the installation preset. */-->
     <div th:fragment="statement" data-testid="support-request-sharing-statement">
         <p>
             Support requests always stay in this installation. With this tenant's consent, a support request also goes to
@@ -145,6 +22,12 @@
             The tenant's key goes with it. Epistola support may reply with comments and status changes, which appear
             on the support requests here. The name of who submitted an item is not sent: it goes as a reference, the same for
             every request of one person, so Epistola can tell that requests come from one person, never who.
+        </p>
+        <p class="text-muted" data-testid="support-request-sharing-timing">
+            Consent applies to support requests submitted from the moment it is given. Requests submitted before that stay in
+            this installation, also after consent is given. Withdrawing stops everything not sent yet; what Epistola
+            already received stays there. Giving consent again carries on with support requests Epistola already received:
+            what is written about it from then on is sent, and what was written while sharing was off never is.
         </p>
     </div>
 </body>

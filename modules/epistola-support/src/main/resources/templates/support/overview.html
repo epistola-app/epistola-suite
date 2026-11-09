@@ -185,6 +185,8 @@
                         <th scope="row" style="text-align:left;width:10rem" th:text="${v.section.title}">Support requests</th>
                         <td>
                             <span th:text="${v.label}">Share support requests with Epistola support</span>
+                            <p class="form-hint" style="margin: 0;" th:if="${v.notice != null}" th:text="${v.notice}"
+                               th:attr="data-testid='support-sharing-notice-' + ${v.section.key}">Not sent yet.</p>
                             <div th:if="${v.section.key == 'mirror' and v.value != 'OFF'}">
                                 <a th:href="@{'/tenants/' + ${tenantId} + '/support/mirror'}" data-testid="support-sharing-catalogs">Manage catalogs</a>
                             </div>
@@ -216,6 +218,8 @@
                 <fieldset th:each="v : ${cs.views}" class="form-group">
                     <legend th:text="${v.section.title}">Support requests</legend>
                     <p class="text-muted text-sm" th:text="${v.followsPreset} ? 'Follows the installation\'s setup.' : 'Chosen for this tenant' + (${v.decidedBy} ? ' by ' + ${v.decidedBy} : '') + '.'">Follows the installation's setup.</p>
+                    <p class="form-hint" th:if="${v.notice != null}" th:text="${v.notice}"
+                       th:attr="data-testid='support-connection-sharing-notice-' + ${v.section.key}">Not sent yet.</p>
                     <label class="ep-row ep-gap-3" th:each="c : ${v.section.choices}">
                         <input type="radio" th:name="${v.section.key} + '.choice'" th:value="${c.value}" th:checked="${v.value == c.value}"
                                th:disabled="${v.withheld.containsKey(c.value)}">
