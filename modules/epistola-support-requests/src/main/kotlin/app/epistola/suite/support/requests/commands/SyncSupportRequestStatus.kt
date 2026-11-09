@@ -12,6 +12,7 @@ import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
+import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -49,12 +50,21 @@ class SyncSupportRequestStatusHandler(
             .bind("id", command.id.key.value)
             .bind("status", command.status.name)
             .execute()
-        // The handler's status wins: a local change still waiting to be sent is settled, not sent back
-        // later as if this installation had made Epistola's change.
-        handle.createUpdate("UPDATE support_request_deliveries SET status_unsent = FALSE WHERE tenant_key = :tenantKey AND request_id = :id AND status_unsent")
-            .bind("tenantKey", command.id.tenantKey)
-            .bind("id", command.id.key.value)
-            .execute()
+        // The handler's status wins: a local change still waiting to be sent to it is settled, not sent
+        // back later as if this installation had made its change; the other connections attached to
+        // the request are told (ADR 0053 step 3).
+        if (rows > 0) {
+            handle.createUpdate(markStatusUnsentSql(connectionSql(command.connectionId)))
+                .bind("tenantKey", command.id.tenantKey)
+                .bind("id", command.id.key.value)
+                .execute()
+        } else {
+            handle.createUpdate("UPDATE support_request_deliveries SET status_unsent = FALSE WHERE tenant_key = :tenantKey AND request_id = :id AND connection_id = :connection AND status_unsent")
+                .bind("tenantKey", command.id.tenantKey)
+                .bind("id", command.id.key.value)
+                .bind("connection", command.connectionId)
+                .execute()
+        }
         rows > 0
     }
 }

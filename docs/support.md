@@ -209,6 +209,13 @@ connection: what is written while it does not never goes there, also once it sha
 status and priority come back from every connection the suite can reach, each with its own position in
 its changes feed; only the connection that handles a request sets its status and priority.
 
+**Attaching a connection.** On a request's page the support desk can attach a further connection
+besides the one (or the inbox) that handles it, such as a partner consulting Epistola support. An
+attached connection gets the request and everything written on it except internal notes, shaped by its
+own privacy; its replies appear in the request and go on to the other parties; it does not set status
+or priority, but hears every change of them. It can be attached as a request can be passed on to it (the
+tenant shares with it), and detached: nothing more goes there, and what it already has stays.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its

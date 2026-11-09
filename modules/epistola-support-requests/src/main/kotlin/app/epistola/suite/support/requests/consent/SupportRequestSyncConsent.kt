@@ -175,3 +175,24 @@ internal fun exchangedWithConnection(requestAlias: String, connectionId: UUID): 
 } else {
     consentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
 }
+
+/** [exchangedWith] for a statement that writes, reading the consent `FOR SHARE`. */
+internal fun exchangedWithLockedRow(requestAlias: String, deliveryAlias: String): String = """
+    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${exchangedUnderLockedConsent(requestAlias)})
+     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND ${lockedConsentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")}))
+"""
+
+/**
+ * Marks [requestAlias]'s new status as still to send to every connection it is delivered to and
+ * exchanged with, except [except] (where the change came from, an SQL expression or `NULL`): a change
+ * made while a connection is not shared with is never sent there. Binds `tenantKey` and `id`.
+ */
+internal fun markStatusUnsentSql(except: String = "NULL"): String = """
+    UPDATE support_request_deliveries d
+    SET status_unsent = (d.connection_id IS DISTINCT FROM $except AND ${exchangedWithLockedRow("f", "d")}),
+        next_attempt_at = NULL, status_attempts = 0
+    FROM support_requests f
+    WHERE f.tenant_key = d.tenant_key AND f.id = d.request_id
+      AND d.tenant_key = :tenantKey AND d.request_id = :id
+      AND d.remote_ref IS NOT NULL
+"""

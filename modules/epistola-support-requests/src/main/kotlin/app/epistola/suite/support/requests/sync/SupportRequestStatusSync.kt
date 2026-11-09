@@ -19,6 +19,7 @@ import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedWithConnection
+import app.epistola.suite.support.requests.selectSupportRequest
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -43,7 +44,7 @@ class ListUnsentSupportRequestStatusesHandler(private val jdbi: Jdbi) : QueryHan
         handle.createQuery(
             """
             SELECT r.*, d2.status_attempts AS status_sync_attempts
-            FROM ($SELECT_SUPPORT_REQUEST
+            FROM (${selectSupportRequest(connectionSql(query.connectionId))}
                   WHERE d.status_unsent
                     AND d.state = :synced AND d.remote_ref IS NOT NULL
                     AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= :now)

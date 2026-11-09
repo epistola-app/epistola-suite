@@ -19,13 +19,19 @@ import app.epistola.suite.support.connection.TokenSupportConnection
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
+import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
+import app.epistola.suite.support.requests.desk.AddSupportDeskMessage
+import app.epistola.suite.support.requests.desk.AttachSupportConnection
+import app.epistola.suite.support.requests.desk.DetachSupportConnection
 import app.epistola.suite.support.requests.desk.EscalateSupportRequest
 import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
+import app.epistola.suite.support.requests.desk.SetSupportDeskStatus
 import app.epistola.suite.support.requests.desk.SetSupportRequestHandling
+import app.epistola.suite.support.requests.desk.SupportRequestNotEscalatedException
 import app.epistola.suite.support.requests.queries.GetSupportRequestComments
 import app.epistola.suite.support.requests.sync.SupportRequestPollScheduler
 import app.epistola.suite.support.requests.sync.SupportRequestSyncScheduler
@@ -34,6 +40,7 @@ import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -192,6 +199,54 @@ class SupportRequestPartnerConnectionIntegrationTest : IntegrationTestBase() {
 
         assertThat(sentPaths()).contains("/api/v2/requests/${references.reference(tenant)}/${id.key.value}")
         assertThat(sentPaths()).anyMatch { it.endsWith("/messages/${earlier.value}") }
+    }
+
+    private fun bodiesTo(path: String): List<String> = partner.requests.filter { it.method == "PUT" && it.path.startsWith(path) }.map { it.bodyText }
+
+    @Test
+    fun `a partner attached to a request the inbox handles gets everything but notes, and only the inbox sets the status`() {
+        val tenant = createTenant("Partner Attached").id
+        val id = submit(tenant)
+        share(tenant)
+
+        withMediator { AttachSupportConnection(tenant, id.key, partnerId).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+        assertThat(sentPaths()).contains("/api/v2/requests/${references.reference(tenant)}/${id.key.value}")
+
+        val reply = withMediator { AddSupportDeskMessage(tenant, id.key, "From the desk", note = false).execute() }
+        val note = withMediator { AddSupportDeskMessage(tenant, id.key, "Only for the desk", note = true).execute() }
+        withMediator { SetSupportDeskStatus(tenant, id.key, SupportRequestStatus.IN_PROGRESS).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+
+        assertThat(sentPaths()).anyMatch { it.endsWith("/messages/$reply") }.noneMatch { it.endsWith("/messages/$note") }
+        assertThat(bodiesTo("/api/v2/requests/pr-${id.key.value}/messages/")).anyMatch { it.contains("IN_PROGRESS") }
+
+        feed += """{"sequence":1,"requestId":"pr-${id.key.value}","tenantKey":"${references.reference(tenant)}","suiteRequestId":"${id.key.value}","occurredAt":"2026-11-09T12:00:00Z","type":"MESSAGE","message":{"messageId":"partner-attached-1","kind":"REPLY","authorName":"Partner desk","authorEmail":null,"body":"Seen it before"}}"""
+        poll.pollForUpdates()
+        assertThat(withMediator { GetSupportRequestComments(id).query() }.map { it.body }).contains("Seen it before")
+        val status = jdbi.withHandle<String, Exception> { it.createQuery("SELECT status FROM support_requests WHERE id = :id").bind("id", id.key.value).mapTo(String::class.java).one() }
+        assertThat(status).`as`("the inbox handles it").isEqualTo("IN_PROGRESS")
+    }
+
+    @Test
+    fun `a detached partner gets nothing more, and one the tenant does not share with is refused`() {
+        val tenant = createTenant("Partner Detached").id
+        val id = submit(tenant)
+        assertThatThrownBy { withMediator { AttachSupportConnection(tenant, id.key, partnerId).execute() } }
+            .isInstanceOf(SupportRequestNotEscalatedException::class.java)
+
+        share(tenant)
+        withMediator { AttachSupportConnection(tenant, id.key, partnerId).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+        withMediator { DetachSupportConnection(tenant, id.key, partnerId).execute() }
+        val after = withMediator { AddSupportDeskMessage(tenant, id.key, "After detaching", note = false).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+
+        assertThat(sentPaths()).noneMatch { it.endsWith("/messages/$after") }
     }
 
     companion object {
