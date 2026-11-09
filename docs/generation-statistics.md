@@ -38,6 +38,11 @@ while statistics are off (`epistola.statistics.enabled=false`) or the roll-up is
 `GetGenerationStatistics` (`DOCUMENT_VIEW`) returns a tenant's figures per month or per day. The
 Generation page shows each month, and the last 30 days by day.
 
+`GetGenerationReadings` (`SystemInternal`) returns every tenant's figures for one hour with its running
+totals, and whether the statistics hold that whole hour yet; usage reporting to Epistola support reads
+it ([Epistola support](support.md#usage)). The hour must still be kept by the hour
+(`hourly-retention`).
+
 ## Configuration
 
 | Property                                     | Default | Effect                                                     |

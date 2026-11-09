@@ -78,8 +78,98 @@
     </section>
 
     <!--/*
+      The preset of what every tenant shares with Epistola: one row per TenantSharingSection, as a
+      summary, or with defaultsEditing as a form. It applies at once to every tenant without a choice of
+      its own, recorded as this administrator's consent on their behalf. Model: defaults
+      (List<InstallationSharingView>), defaultsEditing, defaultsChosen (key -> value after a refused
+      save), defaultsNotice, defaultsError.
+    */-->
+    <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
+        <div class="detail-section-header">
+            <h2>Setup for every tenant</h2>
+            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing}" data-testid="support-defaults-change"
+                    th:attr="hx-get=@{/platform/support/defaults/edit}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
+        </div>
+        <div class="detail-section-body ep-stack">
+            <div class="alert alert-success" th:if="${defaultsNotice != null}" role="status" data-testid="support-defaults-notice"
+                 th:text="${defaultsNotice}">Saved.</div>
+            <p class="text-muted text-sm" style="margin: 0;">
+                Tenants that have not set up sharing themselves use this, and so do tenants created later. You agree on
+                their behalf; a tenant administrator can still change it for their own tenant on its Support page.
+            </p>
+
+            <th:block th:unless="${defaultsEditing}">
+                <dl class="description-list" data-testid="support-defaults-summary">
+                    <th:block th:each="view : ${defaults}">
+                        <dt th:text="${view.section.title}">Support requests</dt>
+                        <dd th:attr="data-section=${view.section.key}">
+                            <span th:if="${view.notAllowed}" data-testid="support-defaults-not-allowed">Not allowed: no tenant shares it</span>
+                            <span th:if="${view.required}" data-testid="support-defaults-required">Required: every tenant shares it, without a choice</span>
+                            <span th:if="${view.restriction == null and view.isSet}" th:text="${view.label}">Share support requests with Epistola support</span>
+                            <span th:if="${view.restriction == null and !view.isSet}" class="text-muted"
+                                  th:text="${view.section.offersNoPreset} ? 'Not set: each tenant sets it up' : 'Not set: not shared until set'">Not set</span>
+                            <span th:if="${view.restriction == null and view.isSet}" class="text-muted text-xs" style="display: block;"
+                                  th:text="(${view.fromConfiguration} ? 'From the configuration' : 'Set by ' + (${view.setBy} ?: 'a removed user')) + ' on ' + ${#temporals.format(view.setAt, 'yyyy-MM-dd', 'UTC')}">set by an administrator</span>
+                        </dd>
+                    </th:block>
+                </dl>
+                <p class="text-muted text-sm" style="margin: 0;" th:if="${defaults.?[fromConfiguration].size() > 0}" data-testid="support-defaults-from-configuration">
+                    Parts come from the installation's configuration (Helm <code>support.tenantDefaults</code>); changing them here replaces them.
+                </p>
+            </th:block>
+
+            <form th:if="${defaultsEditing}" th:attr="hx-post=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML"
+                  th:action="@{/platform/support/defaults}" method="post" class="ep-stack" data-testid="support-defaults-form">
+                <div class="alert alert-error" th:if="${defaultsError != null}" role="alert" data-testid="support-defaults-error" th:text="${defaultsError}">Agree first.</div>
+                <fieldset th:each="view : ${defaults}" class="form-group"
+                          style="border: 0; border-top: 1px solid var(--ep-border-color); padding: var(--ep-space-4) 0 0; margin: 0;"
+                          th:attr="data-testid='sharing-default-' + ${view.section.key}"
+                          th:with="selected=${defaultsChosen[view.section.key] ?: view.formValue}">
+                    <legend class="ep-label" style="font-size: var(--ep-text-base); padding: 0;" th:text="${view.section.title}">Support requests</legend>
+                    <p class="form-hint" style="margin-top: 0;" th:text="${view.section.summary}">What is shared.</p>
+                    <div class="ep-stack" style="gap: var(--ep-space-2);">
+                        <label class="ep-row" style="gap: var(--ep-space-2);" th:if="${view.section.offersNoPreset}">
+                            <input type="radio" th:name="${view.field}" value="NONE" th:checked="${selected == 'NONE'}"
+                                   th:attr="data-testid='sharing-default-' + ${view.section.key} + '-none'">
+                            <span>No preset: each tenant sets it up itself</span>
+                        </label>
+                        <label class="ep-row" style="gap: var(--ep-space-2);" th:each="c : ${view.section.choices}">
+                            <input type="radio" th:name="${view.field}" th:value="${c.value}" th:checked="${selected == c.value}"
+                                   th:attr="data-testid='sharing-default-' + ${view.section.key} + '-' + ${#strings.toLowerCase(c.value)}">
+                            <span th:text="${c.label}">Share</span>
+                        </label>
+                        <label class="ep-row" style="gap: var(--ep-space-2);" th:if="${view.section.offersRequired}">
+                            <input type="radio" th:name="${view.field}" value="REQUIRED" th:checked="${selected == 'REQUIRED'}"
+                                   th:attr="data-testid='sharing-default-' + ${view.section.key} + '-required'">
+                            <span>Required: every tenant shares this, without a choice, and its Support page does not show it</span>
+                        </label>
+                        <label class="ep-row" style="gap: var(--ep-space-2);">
+                            <input type="radio" th:name="${view.field}" value="NOT_ALLOWED" th:checked="${selected == 'NOT_ALLOWED'}"
+                                   th:attr="data-testid='sharing-default-' + ${view.section.key} + '-not-allowed'">
+                            <span>Not allowed: no tenant may share this, and choices already made are withdrawn</span>
+                        </label>
+                    </div>
+                    <details style="margin-top: var(--ep-space-2);">
+                        <summary class="text-sm" style="cursor: pointer;">What a tenant agrees to share</summary>
+                        <div class="text-sm" style="margin-top: var(--ep-space-2);"><div th:replace="~{__${view.section.statementFragment}__}"></div></div>
+                    </details>
+                </fieldset>
+                <label class="ep-row text-sm" style="gap: var(--ep-space-2); border-top: 1px solid var(--ep-border-color); padding-top: var(--ep-space-4);">
+                    <input type="checkbox" name="agree" value="true" data-testid="support-defaults-agree">
+                    <span>I agree on behalf of every tenant that uses this setup to share what is chosen above</span>
+                </label>
+                <div class="ep-row">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-defaults-save">Save setup for every tenant</button>
+                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-defaults-cancel"
+                            th:attr="hx-get=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!--/*
       Everything about the connection, swapped in place by its actions: the connection, the services,
-      privacy (which swaps itself) and disconnecting, last.
+      privacy and the setup for every tenant (which swap themselves) and disconnecting, last.
     */-->
     <div th:fragment="connection" id="support-connection" data-testid="support-connection"
          th:with="o=${overview}, s=${overview.state}, kind=${overview.state.class.simpleName}">
@@ -190,7 +280,7 @@
                     <p data-testid="support-disconnected">
                         Disconnected<th:block th:if="${s.by != null}"> by <span th:text="${s.by}">Admin</span></th:block>
                         on <span th:text="${#temporals.format(s.at, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 21:00 UTC</span>.
-                        Nothing is sent to Epistola support.
+                        Nothing is sent to Epistola support, and every tenant's choice of what to share was cleared.
                         <th:block th:if="${s.outcome.name() == 'CONFIRMED'}">Epistola support ended the registration.</th:block>
                         <th:block th:if="${s.outcome.name() == 'ALREADY_GONE'}">Epistola support no longer accepted the registration, so there was nothing to end there.</th:block>
                         <th:block th:if="${s.outcome.name() == 'LOCAL_ONLY'}">It was removed here only, so Epistola support keeps the registration and what it holds of this installation until it removes them; ask them to.</th:block>
@@ -316,13 +406,16 @@
 
         <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
+        <th:block th:replace="~{support/platform :: defaults}"></th:block>
+
         <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
             <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
             <div class="detail-section-body ep-stack">
                 <p data-testid="support-disconnect-explained">
                     Ends this installation's connection with Epistola support: Epistola support ends the registration, and here
-                    nothing is sent any more and the registration is forgotten. Feedback stays in this installation. To connect
-                    again, register; Epistola then activates the installation again.
+                    nothing is sent any more, the registration is forgotten, and every tenant's choice of what to share and the
+                    setup for every tenant are cleared. Feedback stays in this installation. To connect again, register;
+                    Epistola then activates the installation again.
                 </p>
                 <div class="ep-row">
                     <form th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
@@ -330,7 +423,7 @@
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect"
                                 data-confirm-submit
                                 data-confirm-submit-title="Disconnect from Epistola support"
-                                data-confirm-submit-message="Epistola support ends this installation's registration, and this installation forgets it. Connecting again needs a new activation by Epistola."
+                                data-confirm-submit-message="Epistola support ends this installation's registration, and this installation forgets it. Every tenant's choice of what to share is cleared here. Connecting again needs a new activation by Epistola."
                                 data-confirm-submit-label="Disconnect">Disconnect</button>
                     </form>
                     <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
@@ -339,7 +432,7 @@
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect-local"
                                 data-confirm-submit
                                 data-confirm-submit-title="Remove here only"
-                                data-confirm-submit-message="This installation forgets the connection without telling Epistola support, which keeps the registration and what it holds until Epistola removes them."
+                                data-confirm-submit-message="This installation forgets the connection without telling Epistola support, which keeps the registration and what it holds until Epistola removes them. Every tenant's choice of what to share is cleared here."
                                 data-confirm-submit-label="Remove here only">Remove here only</button>
                     </form>
                 </div>

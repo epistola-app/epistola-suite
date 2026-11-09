@@ -11,6 +11,12 @@ import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
+import app.epistola.suite.support.sharing.GetSharingRestrictions
+import app.epistola.suite.support.sharing.SetSharingRestriction
+import app.epistola.suite.support.sharing.SharingRestriction
+import app.epistola.suite.support.usage.GetUsageChoice
+import app.epistola.suite.support.usage.SetUsageChoice
+import app.epistola.suite.support.usage.USAGE_SECTION
 import app.epistola.suite.testing.FakeSupportFault
 import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
@@ -31,10 +37,10 @@ import org.springframework.util.LinkedMultiValueMap
 
 /**
  * An installation administrator disconnects from Epistola support on the platform page: the service
- * is told, the registration forgotten, and the check does not register again by itself although
- * auto-register is on. Against a stand-in service.
+ * is told, the registration forgotten, every tenant's choice cleared, and the check does not
+ * register again by itself although auto-register is on. Against a stand-in service.
  */
-@Isolated("Disconnecting ends the installation-wide support registration")
+@Isolated("Disconnecting clears the sharing choices of every tenant in the database")
 class SupportDisconnectHtmxTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
@@ -70,17 +76,24 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `disconnecting ends the registration at Epistola and forgets its key`() {
+    fun `disconnecting ends the registration at Epistola, forgets its key and clears every tenant's choice`() {
+        val tenant = createTenant("Disconnect Clears").id
+        withMediator {
+            SetUsageChoice(tenant, share = true).execute()
+            SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute()
+        }
         val clientId = support.latestRegistration.clientId
 
         val panel = post("/platform/support/disconnect")
 
-        assertThat(panel).contains("Disconnected. Epistola support ended this installation").doesNotContain("every tenant").contains("data-testid=\"support-disconnected\"")
+        assertThat(panel).contains("Disconnected. Epistola support ended this installation").contains("choice of what to share was cleared").contains("data-testid=\"support-disconnected\"")
             .contains("data-testid=\"support-register\"").doesNotContain("data-testid=\"support-disconnect\"")
         assertThat(support.registrations.getValue(clientId).status).isEqualTo("DISCONNECTED")
         val state = connection.status().state as SupportConnectionState.Disconnected
         assertThat(state.outcome).isEqualTo(SupportDisconnectOutcome.CONFIRMED)
         assertThat(store.credentials()).`as`("the key is forgotten").isNull()
+        assertThat(withMediator { GetUsageChoice(tenant).query() }.share).`as`("no choice is left").isNull()
+        assertThat(withMediator { GetSharingRestrictions().query() }.of(USAGE_SECTION)).`as`("nor Required: registering again asks again").isNull()
     }
 
     @Test

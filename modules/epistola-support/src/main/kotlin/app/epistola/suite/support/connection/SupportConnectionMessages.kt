@@ -11,12 +11,15 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.sharing.SetSharingRestriction
+import app.epistola.suite.support.sharing.TenantSharingSection
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.validate
@@ -290,7 +293,9 @@ class RegisterSupportConnectionAgainHandler(
 
 /**
  * Ends this installation's connection with Epistola support, as an installation administrator
- * asked: the support service ends the registration and this installation forgets it.
+ * asked: the support service ends the registration, this installation forgets it, and every
+ * tenant's sharing choice and the installation's preset are cleared, so registering again asks
+ * everyone again.
  * [localOnly] skips telling the service, for when it cannot be reached. Talks to the support
  * service, so it runs outside a database transaction.
  */
@@ -308,6 +313,7 @@ data class SupportDisconnected(val outcome: SupportDisconnectOutcome, val status
 class DisconnectSupportConnectionHandler(
     private val connection: DefaultSupportConnection,
     private val disconnector: SupportDisconnector,
+    private val sections: List<TenantSharingSection>,
 ) : CommandHandler<DisconnectSupportConnection, SupportDisconnected> {
     /**
      * @throws SupportUnavailableException when the support service could not be told; nothing changed then.
@@ -315,6 +321,10 @@ class DisconnectSupportConnectionHandler(
      */
     override fun handle(command: DisconnectSupportConnection): SupportDisconnected {
         val outcome = disconnector.disconnect(command.localOnly, SecurityContext.currentOrNull()?.displayName)
+        // After the registration is gone: nothing is sent any more, whatever the order of the rest.
+        sections.sortedBy { it.order }.forEach { it.forgetAll() }
+        // Required and Not allowed too: registering again asks the administrator again, as everyone else.
+        sections.forEach { SetSharingRestriction(it.key, null).execute() }
         return SupportDisconnected(outcome, connection.status())
     }
 }

@@ -149,4 +149,19 @@ class GenerationStatisticsIntegrationTest : IntegrationTestBase() {
 
         assertThat(statistics(tenant).previews).isZero()
     }
+
+    @Test
+    fun `readings carry each tenant's hour and its running totals, and say when the hour is complete`() {
+        val tenant = generating("Statistics Readings", documents = 2)
+        rollup.rollUp()
+        val hour = EpistolaClock.instant().truncatedTo(java.time.temporal.ChronoUnit.HOURS)
+
+        val readings = withMediator { GetGenerationReadings(hour).query() }
+
+        val reading = readings.readings.single { it.tenantKey == tenant }
+        assertThat(reading.completed).isEqualTo(2)
+        assertThat(reading.completedTotal).isEqualTo(2)
+        // Completeness follows the database's clock (the results' created_at); an hour still to come is not complete.
+        assertThat(withMediator { GetGenerationReadings(java.time.Instant.parse("2999-01-01T00:00:00Z")).query() }.complete).isFalse()
+    }
 }

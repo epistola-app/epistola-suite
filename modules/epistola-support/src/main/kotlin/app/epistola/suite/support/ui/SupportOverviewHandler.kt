@@ -19,10 +19,12 @@ import org.springframework.web.servlet.function.ServerResponse
  * Support → Overview for a tenant: whether the installation is connected to Epistola support, and
  * the tenant's own support settings pages — the other items of the Support nav group. Installation
  * details (claim code, last error) are on `/platform/support`, for installation administrators.
- * Reads stored state only; the page never calls the support service.
+ * It is the one place a tenant sets what it shares with Epistola ([SupportSharingHandler]): a setup
+ * wizard while nothing is set up, the installation preset or its own choice otherwise. Reads stored
+ * state only; the page never calls the support service.
  */
 @Component
-class SupportOverviewHandler(private val references: TenantReferences) {
+class SupportOverviewHandler(private val references: TenantReferences, private val sharing: SupportSharingHandler) {
     fun overview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val summary = GetTenantSupportSummary(tenantId.key).query()
@@ -35,6 +37,10 @@ class SupportOverviewHandler(private val references: TenantReferences) {
             "summary" to summary
             // A confidential tenant names itself to Epistola support by its reference; the connection off, it has nothing to name.
             "tenantReference" to references.takeIf { summary.connection != TenantSupportConnection.OFF && it.confidential() }?.reference(tenantId.key)
+            sharing.overview(tenantId.key).let { overview ->
+                "sharing" to overview
+                "wizard" to overview?.takeIf { it.offersSetup }?.let { sharing.startWizard(it) }
+            }
         }
     }
 }
