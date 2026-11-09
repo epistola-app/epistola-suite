@@ -470,6 +470,14 @@
             }
           }
         },
+        "usage": {
+          "type": "object",
+          "description": "Usage for billing.",
+          "additionalProperties": false,
+          "properties": {
+            "backlog": { "type": "string", "pattern": "^$|^[0-9]+(ms|s|m|h|d)$", "description": "How far back hours missed while the installation or the support service was down are still sent, as a duration such as 72h; at least an hour. Empty: 72h." }
+          }
+        },
         "requests": {
           "type": "object",
           "description": "Support requests (ADR 0053).",

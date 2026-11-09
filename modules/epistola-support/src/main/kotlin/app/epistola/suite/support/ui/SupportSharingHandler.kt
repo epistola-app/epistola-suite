@@ -248,6 +248,10 @@ class SupportSharingHandler(
         if (shares && form.field("agree") != "true") {
             return defaultsPanel(request, editing = true, chosen = chosen, error = "To share anything, agree on behalf of the tenants that use this setup.")
         }
+        // A choice the form withholds (it was disabled, or became unavailable after the form opened) is refused with its reason.
+        installationViews().firstNotNullOfOrNull { view -> view.withheld[chosen[view.section.key]] }?.let { reason ->
+            return defaultsPanel(request, editing = true, chosen = chosen, error = reason)
+        }
         val restrictions = GetSharingRestrictions().query()
         val notices = sections.mapNotNull { section ->
             val current = restrictions.of(section.key)

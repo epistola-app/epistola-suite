@@ -209,6 +209,10 @@ spec:
             - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.support.usage.backlog }}
+            - name: EPISTOLA_SUPPORT_USAGE_BACKLOG
+              value: {{ . | quote }}
+            {{- end }}
             {{- /* Who handles new support requests; an administrator's saved choice wins. */}}
             {{- with .Values.support.requests.handledBy }}
             - name: EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY

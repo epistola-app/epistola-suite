@@ -32,9 +32,12 @@
   a partner's (ADR 0053): `name`, `endpoint` (https), `services` and `tokenSecret` (a Secret holding
   the token that party issued). Rendered as `EPISTOLA_SUPPORT_CONNECTIONS_<n>_*`, independent of
   `support.enabled`, so an installation can connect to its partner alone.
+- **`support.usage.backlog`** sets how far back hours missed while the installation or the support
+  service was down are still reported for billing once both are back, as a duration (renders
+  `EPISTOLA_SUPPORT_USAGE_BACKLOG`). Empty (the default) keeps the suite's 72h.
 
 - **`support.requests.handledBy`**: who handles new support requests until an installation
-  administrator saves a choice under Platform → Support requests: `inbox` (the default: the
+  administrator saves a choice under Platform → Epistola support: `inbox` (the default: the
   installation's own support desk) or `epistola` (new requests go to Epistola support, as before),
   rendered as `EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY`. Set `epistola` to keep sending new requests to
   Epistola support on upgrade.
