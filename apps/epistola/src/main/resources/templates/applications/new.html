@@ -44,7 +44,7 @@
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
                 <label class="ep-label">Roles</label>
-                <span class="form-hint">Every API key of this application acts with exactly these tenant roles. Grant the least it needs; they cannot be changed later.</span>
+                <span class="form-hint">Every API key of this application acts with exactly these tenant roles. Grant the least it needs; you can change them later.</span>
                 <div class="ep-stack application-role-options" data-testid="application-roles">
                     <label class="role-option" th:each="opt : ${roleOptions}">
                         <input type="checkbox" class="ep-checkbox" name="roles" th:value="${opt.value}"

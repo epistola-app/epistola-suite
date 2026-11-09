@@ -548,10 +548,10 @@ API key authentication allows machine-to-machine access to the REST API without 
 
 Applications are managed per tenant under **Operations → Applications** (`/tenants/{tenantId}/applications`):
 
-- **Create an application:** name it, pick its **roles** (`content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and choose whether it **sees every document of the tenant**. Leave that off for an integration. Roles are fixed at creation.
+- **Create an application:** name it, pick its **roles** (`content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and choose whether it **sees every document of the tenant**. Leave that off for an integration.
 - **Create a key** on the application's page: name it and optionally set an expiration date. The key acts with the application's roles. The plaintext key is shown **exactly once** — store it immediately.
 - **Rotate** by creating the new key before revoking the old: ownership of documents stays with the application, and so does its collect position — the new key carries on where the old one stopped.
-- **Edit** an application's name and description from its page; its keys and documents are untouched.
+- **Edit** an application's name, description and roles from its page. Every key acts with the new roles at once; you can add only roles you hold yourself, and remove any. Its keys and documents are untouched.
 - **Narrow** an application from its page: switch it to its own documents only.
 - **Give it the unattributed documents** — the tenant's documents that record no application (see below). One application per tenant owns them; giving them to another takes them from it.
 - **Delete** an application once all its keys are revoked. Its documents stay, reachable only by callers that see every document.

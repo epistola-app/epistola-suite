@@ -94,6 +94,54 @@ class ApplicationCommandsIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `changing an application's roles applies to its keys at once`() {
+        val tenant = createTenant("Apps").id
+        withMediator {
+            val created = createApiKey(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER))
+            val app = created.apiKey.application!!.id
+            val hash = apiKeyService.hashKey(created.plaintextKey)
+            assertThat(LookupApiKeyByHash(hash).query()!!.roles).containsExactly(TenantRole.CONTENT_VIEWER)
+
+            val roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR)
+            assertThat(UpdateApplication(tenant, app, "Case system", null, seesAllDocuments = true, roles = roles).execute()).isTrue
+            assertThat(GetApplication(tenant, app).query()!!.roles).containsExactlyInAnyOrderElementsOf(roles)
+            assertThat(apiKeyLookupRoles(created.plaintextKey)).containsExactlyInAnyOrderElementsOf(roles)
+
+            UpdateApplication(tenant, app, "Renamed", null, seesAllDocuments = true).execute()
+            assertThat(GetApplication(tenant, app).query()!!.roles).`as`("roles left out are kept").containsExactlyInAnyOrderElementsOf(roles)
+        }
+    }
+
+    @Test
+    fun `an editor may remove a role they do not hold, but not add one`() {
+        val tenant = createTenant("Apps").id
+        val app = withMediator {
+            CreateApplication(tenant, "Publisher", roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_PUBLISHER)).execute()
+        }
+        val administrator = EpistolaPrincipal(
+            userId = UserKey.of(UUID.randomUUID()),
+            externalId = "admin",
+            email = "admin@example.org",
+            displayName = "Admin",
+            tenantMemberships = mapOf(tenant to setOf(TenantRole.TENANT_ADMINISTRATOR, TenantRole.CONTENT_VIEWER)),
+            currentTenantId = tenant,
+        )
+        runAs(administrator) {
+            assertThat(UpdateApplication(tenant, app.id, "Publisher", null, false, roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_PUBLISHER)).execute())
+                .`as`("keeping a role they do not hold is no grant").isTrue
+            assertThatThrownBy {
+                UpdateApplication(tenant, app.id, "Publisher", null, false, roles = setOf(TenantRole.CONTENT_PUBLISHER, TenantRole.DOCUMENT_GENERATOR)).execute()
+            }.isInstanceOf(ValidationException::class.java).hasMessageContaining("DOCUMENT_GENERATOR")
+            assertThat(UpdateApplication(tenant, app.id, "Publisher", null, false, roles = setOf(TenantRole.CONTENT_VIEWER)).execute()).isTrue
+        }
+        assertThat(withMediator { GetApplication(tenant, app.id).query() }!!.roles).containsExactly(TenantRole.CONTENT_VIEWER)
+        assertThatThrownBy { UpdateApplication(tenant, app.id, "Publisher", null, false, roles = emptySet()) }
+            .isInstanceOf(ValidationException::class.java)
+    }
+
+    private fun apiKeyLookupRoles(plaintext: String) = LookupApiKeyByHash(apiKeyService.hashKey(plaintext)).query()!!.roles
+
+    @Test
     fun `an application is deleted only once its keys are revoked`() {
         val tenant = createTenant("Apps").id
         withMediator {

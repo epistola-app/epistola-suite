@@ -148,16 +148,42 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
         assertThat(get("/tenants/$tenant/applications/${app.id}/edit").body)
             .`as`("opened at its URL, the page embeds the edit dialog").contains("id=\"edit-application-dialog\"")
 
-        val refused = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to " ")
+        val refused = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to " ", "roles" to "CONTENT_VIEWER")
         assertThat(refused.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
         assertThat(refused.headers.getFirst("HX-Retarget")).isEqualTo("#edit-application-form")
 
-        val saved = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to "Zaaksysteem", "description" to "Permit letters")
+        val saved = post(
+            "/tenants/$tenant/applications/${app.id}/edit",
+            htmx = true,
+            "name" to "Zaaksysteem",
+            "description" to "Permit letters",
+            "roles" to "CONTENT_VIEWER",
+        )
         assertThat(saved.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/$tenant/applications/${app.id}")
         val renamed = withMediator { GetApplication(tenant, app.id).query() }!!
         assertThat(renamed.name).isEqualTo("Zaaksysteem")
         assertThat(renamed.description).isEqualTo("Permit letters")
         assertThat(renamed.seesAllDocuments).`as`("what it sees is untouched").isFalse
+    }
+
+    @Test
+    fun `an application's roles are changed in the edit dialog, offering only what the editor may grant or it holds`() {
+        val tenant = createTenant("Apps edit roles").id
+        val app = withMediator {
+            CreateApplication(tenant, "Publisher", roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_PUBLISHER)).execute()
+        }
+        val editor = "TENANT_ADMINISTRATOR,CONTENT_VIEWER"
+        val dialog = get("/tenants/$tenant/applications/${app.id}/edit", htmx = true, roles = editor).body!!
+        assertThat(dialog).contains("value=\"CONTENT_PUBLISHER\"", "value=\"CONTENT_VIEWER\"", "value=\"TENANT_ADMINISTRATOR\"")
+        assertThat(dialog).`as`("a role neither held by the editor nor by the application is not offered").doesNotContain("value=\"DOCUMENT_GENERATOR\"")
+
+        val empty = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to "Publisher", roles = editor)
+        assertThat(empty.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(empty.body).contains("Select at least one role")
+
+        val saved = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to "Publisher", "roles" to "CONTENT_VIEWER", roles = editor)
+        assertThat(saved.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/$tenant/applications/${app.id}")
+        assertThat(withMediator { GetApplication(tenant, app.id).query() }!!.roles).containsExactly(TenantRole.CONTENT_VIEWER)
     }
 
     @Test

@@ -153,17 +153,21 @@ class ApplicationHandler {
         requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
         val application = application(request) ?: return ServerResponse.notFound().build()
         return request.htmx {
-            fragment("applications/edit", "dialog") { keyFormModel(tenantKey, application) }
+            fragment("applications/edit", "dialog") { editModel(tenantKey, application, selectedRoles = null) }
             onFullPage {
                 page("applications/detail") {
                     detailModel(tenantKey, application)
+                    editModel(tenantKey, application, selectedRoles = null)
                     "openDialog" to EDIT_DIALOG
                 }
             }
         }
     }
 
-    /** Renames the application or changes its description; its keys and documents stay as they are. */
+    /**
+     * Renames the application, changes its description, or its roles — which every one of its keys
+     * acts with from then on. Its keys and documents stay as they are.
+     */
     fun edit(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
@@ -176,10 +180,13 @@ class ApplicationHandler {
             }
             field("description") { maxLength(MAX_APPLICATION_DESCRIPTION_LENGTH) }
         }
+        val selectedRoleNames = request.params()["roles"].orEmpty()
+        val roles = selectedRoleNames.mapNotNull { name -> runCatching { TenantRole.valueOf(name) }.getOrNull() }.toSet()
         val errors = form.errors.toMutableMap()
+        if (roles.isEmpty()) errors["roles"] = "Select at least one role"
         if (errors.isEmpty()) {
             try {
-                UpdateApplication(tenantKey, application.id, form["name"], form["description"], application.seesAllDocuments).execute()
+                UpdateApplication(tenantKey, application.id, form["name"], form["description"], application.seesAllDocuments, roles).execute()
             } catch (e: ValidationException) {
                 errors[e.field] = e.message
             }
@@ -193,10 +200,11 @@ class ApplicationHandler {
                     fragmentName = "edit-form",
                     formTarget = "#edit-application-form",
                     formData = formData,
-                ) { keyFormModel(tenantKey, application) }
+                ) { editModel(tenantKey, application, selectedRoleNames) }
                 onFullPage {
                     page(422, "applications/detail") {
                         detailModel(tenantKey, application)
+                        editModel(tenantKey, application, selectedRoleNames)
                         "openDialog" to EDIT_DIALOG
                         "formData" to formData.formData
                         "errors" to errors
@@ -376,6 +384,18 @@ class ApplicationHandler {
         "app" to application
         "apiKeys" to ListApiKeys(tenantKey, applicationId).query().filter { it.enabled }
         "canCreateKey" to (application != null && (application.roles - grantableRoles(tenantKey)).isEmpty())
+    }
+
+    /**
+     * The edit dialog's model. Its role options are those the editor may grant plus those the
+     * application already has: a held role can be removed even by an editor who could not add it.
+     */
+    private fun ModelBuilder.editModel(tenantKey: TenantKey, application: Application, selectedRoles: Collection<String>?) {
+        val offered = grantableRoles(tenantKey).map { it.name }.toSet() + application.roles.map { it.name }
+        "tenantId" to tenantKey
+        "app" to application
+        "roleOptions" to ROLE_OPTIONS.filter { it.value in offered }
+        "selectedRoles" to (selectedRoles ?: application.roles.map { it.name })
     }
 
     private fun ModelBuilder.keyFormModel(tenantKey: TenantKey, application: Application) {

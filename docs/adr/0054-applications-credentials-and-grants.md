@@ -49,7 +49,9 @@ same application.
 that the caller is its application, and acts with the application's roles. The upgrade moves each
 key's roles to its application and drops `api_keys.roles`, so an installation cannot be rolled back
 past it to a release that reads roles from the key (a migration since 2.0.0-beta.1 already rules
-that out). Roles are set when the application is created and are not edited in step 1.
+that out). An administrator edits an application's roles on its page; every key acts with the new
+roles at once. They may add only roles they hold in the tenant, as when creating it, and may remove
+any, since removing one only narrows.
 
 ### 2. Every generation request records its application
 
