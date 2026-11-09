@@ -94,9 +94,9 @@
             </p>
             <p th:if="${#lists.isEmpty(connections)}" class="text-muted" data-testid="support-connections-empty">No other support connections yet. Add one below.</p>
             <div th:each="c : ${connections}" class="form-section" style="margin-bottom: var(--ep-space-4);" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
-                <div class="ep-row ep-gap-3">
+                <div class="ep-row ep-row-wrap ep-gap-3">
                     <strong th:text="${c.name}">Partner</strong>
-                    <span class="text-muted text-sm" th:text="${c.endpoint}">https://desk.partner.example</span>
+                    <span class="text-muted text-sm" style="overflow-wrap: anywhere;" th:text="${c.endpoint}">https://desk.partner.example</span>
                     <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
                     <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning">Unreachable</span>
                     <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error">Refused</span>
@@ -110,7 +110,7 @@
                 </div>
                 <form th:action="@{/platform/support/connections/{id}(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-edit">
                     <label class="form-group">Name <input type="text" name="name" class="ep-input ep-input-sm" maxlength="100" th:value="${c.name}" required></label>
-                    <fieldset class="ep-row ep-gap-3">
+                    <fieldset class="ep-row ep-row-wrap ep-gap-3">
                         <legend class="text-sm">Services used</legend>
                         <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
                     </fieldset>
@@ -153,7 +153,7 @@
                 <label class="form-group">Endpoint <input type="text" name="endpoint" class="ep-input" maxlength="2000" required placeholder="https://desk.partner.example/epistola"
                        th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}"></label>
                 <label class="form-group">Token <input type="password" name="token" class="ep-input" maxlength="4096" autocomplete="off" required></label>
-                <fieldset class="ep-row ep-gap-3">
+                <fieldset class="ep-row ep-row-wrap ep-gap-3">
                     <legend class="text-sm">Services to use</legend>
                     <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${pre != null and #lists.contains(pre.services, sv)}"> <span th:text="${sv}">requests</span></label>
                 </fieldset>
