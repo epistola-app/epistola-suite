@@ -226,6 +226,26 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `while tenants are confidential the preset offers no catalog sharing, and saving one says why`() {
+        withMediator { app.epistola.suite.support.connection.SaveSupportServices(setOf("usage", "mirror")).execute() }
+        support.activate(scopes = setOf("usage", "mirror"))
+        connection.checkNow()
+        withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        try {
+            val form = get("/platform/support/defaults/edit", htmx = true)
+            assertThat(Regex("<input[^>]*data-testid=\"sharing-default-mirror-all\"[^>]*>").find(form)!!.value).contains("disabled")
+            assertThat(form).contains("keeps its tenants confidential to Epistola")
+
+            val refused = post("/platform/support/defaults", mapOf("mirror.default" to "ALL", "usage.default" to "NONE", "agree" to "true"))
+
+            assertThat(refused).contains("data-testid=\"support-defaults-error\"").contains("keeps its tenants confidential to Epistola").contains("data-testid=\"support-defaults-form\"")
+            assertThat(withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorDefault().query() }.isSet).`as`("nothing saved").isFalse()
+        } finally {
+            withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        }
+    }
+
+    @Test
     fun `with the mirror selected, the wizard asks catalogs then usage, and saves both`() {
         withMediator { app.epistola.suite.support.connection.SaveSupportServices(setOf("usage", "mirror")).execute() }
         support.activate(scopes = setOf("usage", "mirror"))
