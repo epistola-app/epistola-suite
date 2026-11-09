@@ -213,9 +213,12 @@
                         </label>
                         <label class="ep-row" style="gap: var(--ep-space-2);" th:each="c : ${view.section.choices}">
                             <input type="radio" th:name="${view.field}" th:value="${c.value}" th:checked="${selected == c.value}"
+                                   th:disabled="${view.withheld.containsKey(c.value)}"
                                    th:attr="data-testid='sharing-default-' + ${view.section.key} + '-' + ${#strings.toLowerCase(c.value)}">
                             <span th:text="${c.label}">Share</span>
                         </label>
+                        <p class="form-hint" style="margin: 0;" th:each="r : ${#sets.toSet(view.withheld.values())}" th:text="${r}"
+                           th:attr="data-testid='sharing-default-' + ${view.section.key} + '-withheld'">Not available.</p>
                         <label class="ep-row" style="gap: var(--ep-space-2);" th:if="${view.section.offersRequired}">
                             <input type="radio" th:name="${view.field}" value="REQUIRED" th:checked="${selected == 'REQUIRED'}"
                                    th:attr="data-testid='sharing-default-' + ${view.section.key} + '-required'">

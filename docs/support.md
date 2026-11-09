@@ -127,7 +127,10 @@ document deleted right after it was generated still counts.
 **When it is sent.** Once an hour, at a moment within the first ten minutes past the hour, chosen at
 random once per installation and kept (`app_metadata`, `support.usage.report-moment`), for the hour
 before. It waits until the statistics hold that whole hour, a few minutes at most. Hours missed while
-the installation or the support service was down are sent when both are back, up to 72 of them. One
+the installation or the support service was down are sent when both are back, up to 72 of them
+(`epistola.support.usage.backlog`, Helm `support.usage.backlog`, at least an hour, and never further
+back than the statistics keep hours). Which hours went out (`support_usage_reports`) is kept only as
+long as a round can look back, plus a day. One
 node sends at a time, never one whose clock is off.
 
 **What is sent.** For every tenant that shares usage and has used anything: the hour's figures and its
