@@ -14,20 +14,25 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.validate
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 import java.security.SecureRandom
 import java.time.OffsetDateTime
 import java.util.Base64
 import java.util.HexFormat
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -63,7 +68,10 @@ enum class TelemetryDetail {
 /**
  * The installation's privacy settings for Epistola support.
  *
- * @property fromConfiguration nobody saved them: they come from `epistola.support.privacy.*` (or its defaults).
+ * @property fromConfiguration nobody saved them: they come from `epistola.support.privacy.*` (or its
+ *   defaults), or for another connection from its entry in `epistola.support.connections`.
+ * @property followsInstallation for a connection other than Epistola support: nothing is set for it,
+ *   so the installation's settings apply.
  */
 data class SupportPrivacySettings(
     val tenantIdentity: TenantIdentity,
@@ -71,6 +79,7 @@ data class SupportPrivacySettings(
     val fromConfiguration: Boolean,
     val setBy: String? = null,
     val setAt: OffsetDateTime? = null,
+    val followsInstallation: Boolean = false,
 ) {
     val confidential: Boolean get() = tenantIdentity == TenantIdentity.CONFIDENTIAL
     val pseudonymised: Boolean get() = telemetry == TelemetryDetail.PSEUDONYMISED
@@ -89,13 +98,32 @@ data class StoredSupportPrivacy(
  * The privacy settings in force, cached for the hot paths that need them on every log line and every
  * export (they cannot dispatch through the mediator from a logging thread). Saved settings win over
  * the configuration; every node re-reads them every [REFRESH_SECONDS] seconds, the node that saves at once.
+ *
+ * Every support connection has its own (ADR 0053 §1): Epistola support's are the installation's
+ * ([current]); another connection's ([forConnection]) are what an administrator saved for it, else its
+ * entry in `epistola.support.connections`, else the installation's.
  */
 @Component
 class SupportPrivacy(
     private val metadata: AppMetadataService,
     private val properties: SupportProperties,
+    private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
 ) {
     @Volatile private var cached: SupportPrivacySettings? = null
+
+    /** Every other connection's settings, as last read; a connection not in it follows [current]. */
+    @Volatile private var perConnection: Map<UUID, SupportPrivacySettings> = emptyMap()
+
+    /**
+     * [connectionId]'s settings, without touching the database. Epistola support's are [current];
+     * another connection read nowhere yet follows [current] too, the strictest before the first read.
+     */
+    fun forConnection(connectionId: UUID): SupportPrivacySettings = if (connectionId == SupportConnections.DISCOVERED_ID) {
+        current()
+    } else {
+        perConnection[connectionId] ?: current().copy(fromConfiguration = false, setBy = null, setAt = null, followsInstallation = true)
+    }
 
     /**
      * The settings in force, without touching the database: it is asked on every forwarded log line,
@@ -135,12 +163,59 @@ class SupportPrivacy(
             )
         }
         cached = settings
+        readConnections(settings)?.let { perConnection = it }
         return settings
+    }
+
+    /** Every other connection's settings given the [installation]'s; null when they cannot be read, which keeps the last. */
+    private fun readConnections(installation: SupportPrivacySettings): Map<UUID, SupportPrivacySettings>? = try {
+        jdbi.withHandle<Map<UUID, SupportPrivacySettings>, Exception> { handle ->
+            handle.createQuery("SELECT id, endpoint, privacy::text AS privacy FROM support_connections WHERE source <> 'DISCOVERED'")
+                .map { rs, _ ->
+                    val id = rs.getObject("id", UUID::class.java)
+                    val saved = rs.getString("privacy")?.let { objectMapper.readValue(it, StoredSupportPrivacy::class.java) }
+                    val configured = properties.connections.firstOrNull { it.baseUrl == rs.getString("endpoint")?.trimEnd('/') }
+                    id to when {
+                        saved != null -> SupportPrivacySettings(
+                            TenantIdentity.parse(saved.tenantIdentity) ?: TenantIdentity.CONFIDENTIAL,
+                            TelemetryDetail.parse(saved.telemetry) ?: TelemetryDetail.PSEUDONYMISED,
+                            fromConfiguration = false,
+                            setBy = saved.setBy,
+                            setAt = saved.setAt,
+                        )
+
+                        configured != null && (configured.tenantIdentity.isNotBlank() || configured.telemetry.isNotBlank()) -> SupportPrivacySettings(
+                            TenantIdentity.parse(configured.tenantIdentity) ?: installation.tenantIdentity,
+                            TelemetryDetail.parse(configured.telemetry) ?: installation.telemetry,
+                            fromConfiguration = true,
+                        )
+
+                        else -> installation.copy(fromConfiguration = false, setBy = null, setAt = null, followsInstallation = true)
+                    }
+                }
+                .list()
+                .toMap()
+        }
+    } catch (e: RuntimeException) {
+        log.warn("Support connection privacy settings could not be read; keeping the settings last read: {}", e.message)
+        null
     }
 
     internal fun save(stored: StoredSupportPrivacy): SupportPrivacySettings {
         metadata.setAs(KEY, stored)
         return refresh()
+    }
+
+    /** Saves [connectionId]'s settings (another connection than Epistola support's) and applies them on this node at once. */
+    internal fun saveFor(connectionId: UUID, stored: StoredSupportPrivacy): SupportPrivacySettings {
+        validate("connectionId", connectionId != SupportConnections.DISCOVERED_ID) { "Epistola support's privacy is the installation's" }
+        val updated = jdbi.withHandle<Int, Exception> { handle ->
+            handle.createUpdate("UPDATE support_connections SET privacy = :value::jsonb, version = version + 1, updated_at = NOW() WHERE id = :id")
+                .bind("id", connectionId).bind("value", objectMapper.writeValueAsString(stored)).execute()
+        }
+        if (updated == 0) throw SupportConnectionNotFoundException(connectionId)
+        refresh()
+        return forConnection(connectionId)
     }
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -212,6 +287,12 @@ class TenantReferences(
 
     fun onWire(tenantKey: TenantKey): String = onWire(tenantKey.value)
 
+    /** Tenants are confidential to [connectionId] now. */
+    fun confidential(connectionId: UUID): Boolean = privacy.forConnection(connectionId).confidential
+
+    /** What is sent to [connectionId] for [tenantKey]: its key when tenants are named to it, its reference when confidential. */
+    fun onWire(tenantKey: String, connectionId: UUID): String = if (confidential(connectionId)) reference(tenantKey) else tenantKey
+
     private fun secret(): ByteArray = secret ?: synchronized(this) {
         secret ?: run {
             val generated = ByteArray(32).also { SecureRandom().nextBytes(it) }
@@ -277,4 +358,31 @@ class SetSupportPrivacyHandler(
         if (saved.confidential && (!before.confidential || before.fromConfiguration)) listeners.orderedStream().forEach { it.becameConfidential() }
         return saved
     }
+}
+
+/** No support connection has [connectionId]. */
+class SupportConnectionNotFoundException(val connectionId: UUID) : RuntimeException("No support connection $connectionId")
+
+/**
+ * Saves the privacy of support connection [connectionId], another than Epistola support's (ADR 0053
+ * §1): what it learns of tenants and how much telemetry carries over it. Every node applies it within
+ * [SupportPrivacy.REFRESH_SECONDS] seconds.
+ */
+data class SetSupportConnectionPrivacy(
+    val connectionId: UUID,
+    val tenantIdentity: TenantIdentity,
+    val telemetry: TelemetryDetail,
+) : Command<SupportPrivacySettings>,
+    RequiresPlatformRole {
+    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
+}
+
+@Component
+class SetSupportConnectionPrivacyHandler(
+    private val privacy: SupportPrivacy,
+) : CommandHandler<SetSupportConnectionPrivacy, SupportPrivacySettings> {
+    override fun handle(command: SetSupportConnectionPrivacy): SupportPrivacySettings = privacy.saveFor(
+        command.connectionId,
+        StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
+    )
 }

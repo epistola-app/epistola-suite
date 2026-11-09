@@ -187,6 +187,13 @@ refused token; an unreachable connection keeps its services but uses none until 
 again. Platform → Epistola support lists every connection with its state, the services granted and
 those used.
 
+**Privacy per connection.** Each connection has its own privacy: whether tenants are named or
+confidential to it, and how much telemetry carries over it. Epistola support's are the installation's
+(above). Another connection's are what an administrator saves in its row on the platform page, else its
+entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`, `telemetry`), else the installation's,
+following them when they change. A confidential tenant has one reference for every connection, so
+Epistola and a partner can talk about it by the same reference.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its

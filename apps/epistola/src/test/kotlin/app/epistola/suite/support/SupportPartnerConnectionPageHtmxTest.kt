@@ -42,6 +42,30 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
             .contains("Connected")
     }
 
+    @Autowired
+    private lateinit var registry: app.epistola.suite.support.connection.SupportConnectionRegistry
+
+    private fun post(path: String, form: Map<String, String>) = restTemplate.postForEntity(
+        path,
+        org.springframework.http.HttpEntity(
+            org.springframework.util.LinkedMultiValueMap<String, String>().apply { form.forEach { (k, v) -> add(k, v) } },
+            org.springframework.http.HttpHeaders().apply { contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED },
+        ),
+        String::class.java,
+    )
+
+    @Test
+    fun `an administrator sets what the partner learns of tenants, and an unknown value is refused`() {
+        val id = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
+        val path = "/platform/support/connections/$id/privacy"
+
+        val saved = post(path, mapOf("tenantIdentity" to "NAMED", "telemetry" to "PSEUDONYMISED"))
+
+        assertThat(saved.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(saved.body).contains("data-testid=\"support-connection-privacy-source\"").contains("Set by")
+        assertThat(post(path, mapOf("tenantIdentity" to "ANONYMOUS", "telemetry" to "FULL")).statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
     companion object {
         private const val TOKEN = "partner-page-token"
 

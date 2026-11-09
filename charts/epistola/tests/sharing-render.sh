@@ -144,7 +144,9 @@ echo "sharing render: ok"
 # Partner connections render on their own, without support.enabled, with the token from a Secret.
 partners="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
   --set 'support.connections[0].name=Acme Partner' --set 'support.connections[0].endpoint=https://desk.acme.example' \
-  --set 'support.connections[0].services={requests,usage}' --set 'support.connections[0].tokenSecret.name=acme-token')"
+  --set 'support.connections[0].services={requests,usage}' --set 'support.connections[0].tokenSecret.name=acme-token' \
+  --set 'support.connections[0].tenantIdentity=named')"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_TENANT_IDENTITY named
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_NAME "Acme Partner"
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ENDPOINT "https://desk.acme.example"
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_SERVICES "requests,usage"

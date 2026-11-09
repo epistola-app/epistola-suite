@@ -23,6 +23,8 @@ class SupportPropertiesTest {
         assertThat(SupportProperties(allowHttp = true, connections = listOf(connection(endpoint = "http://localhost:9000"))).connections).hasSize(1)
         assertThatThrownBy { SupportProperties(connections = listOf(connection(), connection(name = "Again", endpoint = "https://desk.partner.example"))) }.hasMessageContaining("twice")
         assertThat(connection().toString()).`as`("never the token").doesNotContain("token=")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection().copy(tenantIdentity = "anonymous"))) }.hasMessageContaining("tenant-identity")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection().copy(telemetry = "some"))) }.hasMessageContaining("telemetry")
     }
 
     @Test

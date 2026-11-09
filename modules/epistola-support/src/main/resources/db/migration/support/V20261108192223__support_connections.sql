@@ -24,6 +24,7 @@ CREATE TABLE support_connections (
     status       JSONB,
     services     JSONB,
     contact      JSONB,
+    privacy      JSONB,
     refusals     JSONB       NOT NULL DEFAULT '{}'::jsonb,
     node_clocks  JSONB       NOT NULL DEFAULT '{}'::jsonb,
     version      BIGINT      NOT NULL DEFAULT 0,
@@ -52,6 +53,8 @@ COMMENT ON COLUMN support_connections.refusals IS
     'Per service, the version at which the service answered insufficient_scope: a token asked for later is newer news.';
 COMMENT ON COLUMN support_connections.node_clocks IS
     'Per node id, a clock error the service reported for that node, stamped by the database clock.';
+COMMENT ON COLUMN support_connections.privacy IS
+    'What this connection learns of tenants and how much telemetry carries, as an administrator saved it; NULL: the configuration, else the installation''s settings. Not used for the discovered connection, whose settings are the installation''s (app_metadata support.privacy).';
 COMMENT ON COLUMN support_connections.version IS
     'Raised by every write to the row: a node that finds it unchanged knows its copy is current.';
 

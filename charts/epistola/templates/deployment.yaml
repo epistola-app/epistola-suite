@@ -256,6 +256,14 @@ spec:
               value: {{ required "support.connections[].endpoint is required" $c.endpoint | quote }}
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_SERVICES
               value: {{ join "," ($c.services | default list) | quote }}
+            {{- with $c.tenantIdentity }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TENANT_IDENTITY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $c.telemetry }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TELEMETRY
+              value: {{ . | quote }}
+            {{- end }}
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TOKEN
               valueFrom:
                 secretKeyRef:

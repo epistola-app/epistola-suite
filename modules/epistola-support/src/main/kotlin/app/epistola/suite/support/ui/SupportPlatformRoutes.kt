@@ -6,6 +6,7 @@ package app.epistola.suite.support.ui
 
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.CheckSupportConnection
@@ -24,6 +25,10 @@ import app.epistola.suite.support.connection.SupportRegistrationNotAllowedExcept
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.support.connection.SupportWorkAttempt
 import app.epistola.suite.support.privacy.GetSupportPrivacy
+import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
+import app.epistola.suite.support.privacy.SupportConnectionNotFoundException
+import app.epistola.suite.support.privacy.TelemetryDetail
+import app.epistola.suite.support.privacy.TenantIdentity
 import app.epistola.suite.validation.ValidationException
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -33,6 +38,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 import java.time.Duration
+import java.util.UUID
 
 /**
  * `/platform/support` — the installation's connection to Epistola support: its state, the claim
@@ -52,6 +58,7 @@ class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
             POST("/register-again", handler::registerAgain)
             POST("/disconnect", handler::disconnect)
             POST("/services", handler::saveServices)
+            POST("/connections/{connectionId}/privacy", handler::saveConnectionPrivacy)
         }
     }
 }
@@ -159,6 +166,19 @@ class SupportPlatformHandler(
     private fun Outcome.notice(done: (SupportConnectionStatus) -> String?): String? = when (this) {
         is Outcome.Done -> done(status)
         is Outcome.Notice -> text
+    }
+
+    /** Saves one other connection's privacy (ADR 0053 §1); a value it does not know is refused. */
+    fun saveConnectionPrivacy(request: ServerRequest): ServerResponse {
+        val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
+        val identity = request.param("tenantIdentity").orElse("").let(TenantIdentity::parse) ?: return ServerResponse.badRequest().build()
+        val telemetry = request.param("telemetry").orElse("").let(TelemetryDetail::parse) ?: return ServerResponse.badRequest().build()
+        return try {
+            SetSupportConnectionPrivacy(id, identity, telemetry).execute()
+            redirect("/platform/support#support-connections")
+        } catch (_: SupportConnectionNotFoundException) {
+            ServerResponse.notFound().build()
+        }
     }
 
     /** Saves the selected services; no network I/O, so it works while the support service is down. */
