@@ -54,6 +54,32 @@
                data-testid="desk-escalation-blocked" th:text="${view.escalationBlocked}">Cannot be passed on.</p>
         </section>
 
+        <!--/* Connections attached besides the handler (ADR 0053): they get everything but notes, and their replies come back. */-->
+        <section class="ep-panel form-section" style="margin-bottom: var(--ep-space-6);" data-testid="desk-attached"
+                 th:if="${!#lists.isEmpty(view.attached) or view.canAttach}">
+            <h3 style="margin-bottom: var(--ep-space-2);">Also on this request</h3>
+            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
+                Attached connections get the request and everything written on it except internal notes, and their replies
+                appear here. Only the handler sets the status and priority.
+            </p>
+            <ul th:if="${!#lists.isEmpty(view.attached)}" style="margin-bottom: var(--ep-space-3);">
+                <li th:each="a : ${view.attached}" class="ep-row ep-gap-3" data-testid="desk-attached-connection">
+                    <span th:text="${a.name}">Acme partner</span>
+                    <span class="text-muted text-sm" th:text="${a.state.name() == 'SYNCED'} ? 'Has the request' : 'Sending'">Has the request</span>
+                    <form th:action="${base + '/detach'}" method="post">
+                        <input type="hidden" name="connection" th:value="${a.connectionId}">
+                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-detach">Detach</button>
+                    </form>
+                </li>
+            </ul>
+            <form th:if="${view.canAttach}" th:action="${base + '/attach'}" method="post" class="ep-row ep-gap-3">
+                <select name="connection" class="ep-select ep-select-sm form-control-auto" aria-label="Attach" data-testid="desk-attach-select">
+                    <option th:each="t : ${view.attachTargets}" th:value="${t.connectionId}" th:text="${t.name}">Epistola support</option>
+                </select>
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-attach">Attach</button>
+            </form>
+        </section>
+
         <div class="card" style="margin-bottom: var(--ep-space-6);">
             <div class="card-content">
                 <h3 style="margin-bottom: var(--ep-space-3);">Description</h3>

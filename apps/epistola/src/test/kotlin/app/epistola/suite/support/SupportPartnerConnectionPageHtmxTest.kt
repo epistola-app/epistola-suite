@@ -101,6 +101,28 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         withMediator { app.epistola.suite.support.requests.consent.ClearSupportRequestSharingDefault(id).execute() }
     }
 
+    @Test
+    fun `the support desk attaches the partner to a request the inbox handles`() {
+        val tenant = createTenant("Partner Attach Page")
+        val connectionId = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
+        val author = app.epistola.suite.common.ids.UserKey.of("00000000-0000-0000-0000-a77ac4000001")
+        ensureUser(author, "partner-attach-page", "partner-attach-page@epistola.test", "Attach Page")
+        withMediator { app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent(tenant.id, connectionId).execute() }
+        val request = app.epistola.suite.common.ids.SupportRequestId(app.epistola.suite.common.ids.SupportRequestKey.generate(), app.epistola.suite.common.ids.TenantId(tenant.id))
+        withMediator {
+            app.epistola.suite.support.requests.commands.CreateSupportRequest(
+                request, "Attach me", "Blank page", app.epistola.suite.support.requests.SupportRequestCategory.BUG,
+                app.epistola.suite.support.requests.SupportRequestPriority.MEDIUM, null, null, null, author,
+            ).execute()
+        }
+        val page = "/platform/support-requests/${tenant.id.value}/${request.key.value}"
+        assertThat(restTemplate.getForEntity(page, String::class.java).body).contains("data-testid=\"desk-attach\"")
+
+        val attached = post("$page/attach", mapOf("connection" to connectionId.toString()))
+
+        assertThat(attached.body).contains("data-testid=\"desk-attached-connection\"").contains("Acme Partner")
+    }
+
     companion object {
         private const val TOKEN = "partner-page-token"
 

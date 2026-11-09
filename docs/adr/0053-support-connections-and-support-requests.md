@@ -136,7 +136,8 @@ who operates and supports the installation:
 - A setting per installation says who handles new requests; an inbox can pass everything on at once,
   which is the pilot's behaviour.
 - **Escalation happens in the suite**: from the inbox, or the handler asks for it through the
-  protocol. The request then goes to the next connection shaped by that connection's privacy profile,
+  protocol. It hands a request on, or **attaches** a further connection besides the handler, which then
+  gets everything but internal notes while the handler alone sets status and priority (rollout 3c3). The request then goes to the next connection shaped by that connection's privacy profile,
   and its replies come back to the suite.
 - **A connection answers only whoever handed it the request.** Epistola's replies to an escalated
   request reach the partner, never the partner's client directly.
@@ -255,6 +256,12 @@ can open requests through the same protocol.
      without `remote_id`/`sent_at`), written while the tenant shared with it; a withdrawal drops the
      unsent rows. Epistola support's connection keeps reading the grant an item was written under. A
      port per connection (`SupportRequestSyncPorts`), a round and a poll per connection.
+   - **3c3, built:** attaching. Escalation is not only handing a request on: the desk can attach a
+     connection besides the handler (`AttachSupportConnection`, `DetachSupportConnection`), a delivery
+     of its own. Every party gets everything but internal notes: a reply from one connection goes into
+     the others' ledgers (and carries the grant Epistola support's connection reads), a status the
+     handler sets is marked unsent for every other delivery the tenant shares with, and only the
+     handler's status and priority are applied.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

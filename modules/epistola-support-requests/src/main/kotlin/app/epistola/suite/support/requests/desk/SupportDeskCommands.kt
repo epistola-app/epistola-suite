@@ -217,3 +217,87 @@ private fun requireHandledHere(handle: Handle, tenant: TenantKey, request: Suppo
 }
 
 private class Holder(val handler: UUID?)
+
+/**
+ * The desk attaches [connectionId] to a request besides the connection or inbox that handles it (ADR
+ * 0053 step 3): it gets the request and everything written on it but internal notes, shaped by its
+ * privacy, and its replies come back here; the handler alone sets status and priority. Allowed as
+ * passing a request on is: Epistola support's connection when the request was submitted while shared
+ * and is shared now, another while the tenant shares with it now, and then what the request holds goes
+ * along. Refused, with the reason, otherwise.
+ */
+data class AttachSupportConnection(
+    val tenant: TenantKey,
+    val request: SupportRequestKey,
+    val connectionId: UUID,
+) : Command<Unit>,
+    RequiresPlatformRole {
+    override val platformRole = SUPPORT_DESK_ROLE
+}
+
+@Component
+class AttachSupportConnectionHandler(
+    private val jdbi: Jdbi,
+    private val port: SupportRequestSyncPorts,
+    private val kick: SupportRequestSyncKick,
+) : CommandHandler<AttachSupportConnection, Unit> {
+    override fun handle(command: AttachSupportConnection) {
+        jdbi.inTransaction<Unit, Exception> { handle ->
+            val handler = requireRequest(handle, command.tenant, command.request)
+            if (handler == command.connectionId) throw SupportRequestNotEscalatedException("That support connection handles this request already.")
+            val target = choices(handle, port).firstOrNull { it.connectionId == command.connectionId }
+                ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
+            val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
+                "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
+            } else {
+                lockedConsentInForce(":tenant", connectionSql(target.connectionId))
+            }
+            val attached = handle.createUpdate(
+                """
+                INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
+                SELECT f.tenant_key, f.id, :connection, :pending
+                FROM support_requests f
+                WHERE f.tenant_key = :tenant AND f.id = :request AND $exchanged
+                ON CONFLICT (tenant_key, request_id, connection_id) DO NOTHING
+                """,
+            )
+                .bind("tenant", command.tenant)
+                .bind("request", command.request.value)
+                .bind("connection", target.connectionId)
+                .bind("pending", SyncStatus.PENDING.name)
+                .execute()
+            if (attached == 0) {
+                throw SupportRequestNotEscalatedException("The tenant does not share support requests with ${target.name}, or it is on this request already.")
+            }
+            SupportRequestLedger.recordHistory(handle, command.tenant, command.request.value, target.connectionId)
+        }
+        kick.kick()
+    }
+}
+
+/**
+ * The desk detaches [connectionId] from a request it is attached to (not its handler): nothing more
+ * goes there, what was still to go stays here, and its replies are no longer taken. What it has keeps.
+ */
+data class DetachSupportConnection(
+    val tenant: TenantKey,
+    val request: SupportRequestKey,
+    val connectionId: UUID,
+) : Command<Boolean>,
+    RequiresPlatformRole {
+    override val platformRole = SUPPORT_DESK_ROLE
+}
+
+@Component
+class DetachSupportConnectionHandler(private val jdbi: Jdbi) : CommandHandler<DetachSupportConnection, Boolean> {
+    override fun handle(command: DetachSupportConnection): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
+        val handler = requireRequest(handle, command.tenant, command.request)
+        if (handler == command.connectionId) throw SupportRequestHandledElsewhereException(command.tenant, command.request)
+        handle.createUpdate(
+            "DELETE FROM support_request_delivered_items WHERE tenant_key = :tenant AND request_id = :request AND connection_id = :connection AND remote_id IS NULL AND sent_at IS NULL",
+        )
+            .bind("tenant", command.tenant).bind("request", command.request.value).bind("connection", command.connectionId).execute()
+        handle.createUpdate("DELETE FROM support_request_deliveries WHERE tenant_key = :tenant AND request_id = :request AND connection_id = :connection")
+            .bind("tenant", command.tenant).bind("request", command.request.value).bind("connection", command.connectionId).execute() > 0
+    }
+}

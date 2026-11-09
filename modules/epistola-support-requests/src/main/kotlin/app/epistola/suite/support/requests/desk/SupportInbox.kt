@@ -19,6 +19,9 @@ import app.epistola.suite.support.requests.SupportRequestAssetContent
 import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
+import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.consentInForce
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Jdbi
@@ -176,6 +179,14 @@ data class SupportDeskAsset(val id: SupportRequestAssetKey, val filename: String
 data class SupportEscalationTarget(val connectionId: UUID, val name: String)
 
 /**
+ * A connection attached to a request besides its handler (ADR 0053 step 3): it gets everything but
+ * internal notes, and its replies come back; it does not set status or priority.
+ *
+ * @property state its delivery's sync state: whether it has the request yet.
+ */
+data class SupportAttachedConnection(val connectionId: UUID, val name: String, val state: SyncStatus)
+
+/**
  * The desk's view of one request: the request, its replies and notes in the order they were written,
  * its screenshots, and whether it can be passed on.
  *
@@ -191,7 +202,14 @@ data class SupportInboxRequest(
     val assets: List<SupportDeskAsset>,
     val escalationTargets: List<SupportEscalationTarget>,
     val escalationBlocked: String?,
+    /** The connections attached besides the handler. */
+    val attached: List<SupportAttachedConnection> = emptyList(),
+    /** The connections that can be attached now: they take support requests, the tenant shares with them, and they are not on it yet. */
+    val attachTargets: List<SupportEscalationTarget> = emptyList(),
 ) {
+    /** Another connection can be attached now. */
+    val canAttach: Boolean get() = attachTargets.isNotEmpty()
+
     /** The inbox handles it, so the desk sets its status and priority. */
     val deskSetsStatus: Boolean get() = request.handledHere
 
@@ -265,13 +283,36 @@ class GetSupportInboxRequestHandler(
             .map { rs, _ -> SupportDeskAsset(SupportRequestAssetKey.of(rs.getObject("id", UUID::class.java)), rs.getString("filename")) }
             .list()
         val targets = choices(handle, port).map { SupportEscalationTarget(it.connectionId, it.name) }
+        // Who it can go to now: Epistola support's connection when it was submitted while shared and is
+        // shared now, as before; another connection while the tenant shares with it (ADR 0053 step 3).
+        val eligible = targets.filter { target ->
+            if (target.connectionId == REQUESTS_CONNECTION) {
+                facts.submittedUnderGrant && facts.sharingNow
+            } else {
+                handle.createQuery("SELECT ${consentInForce(":tenant", connectionSql(target.connectionId))}").bind("tenant", query.tenant).mapTo(Boolean::class.java).one()
+            }
+        }
         val blocked = when {
             !request.handledHere -> null
             targets.isEmpty() -> "No support connection takes support requests now: connect to Epistola support on the platform's Epistola support page."
-            !facts.submittedUnderGrant -> "${facts.tenantName} did not share support requests when this one was submitted, so it stays in this installation."
-            !facts.sharingNow -> "${facts.tenantName} does not share support requests now; its tenant administrator can change that on its Support page."
-            else -> null
+            eligible.isNotEmpty() -> null
+            targets.none { it.connectionId != REQUESTS_CONNECTION } && !facts.submittedUnderGrant -> "${facts.tenantName} did not share support requests when this one was submitted, so it stays in this installation."
+            else -> "${facts.tenantName} does not share support requests now; its tenant administrator can change that on its Support page."
         }
+        val attached = handle.createQuery(
+            """
+            SELECT d.connection_id, sc.name, d.state FROM support_request_deliveries d
+            JOIN support_connections sc ON sc.id = d.connection_id
+            JOIN support_requests f ON f.tenant_key = d.tenant_key AND f.id = d.request_id
+            WHERE d.tenant_key = :tenant AND d.request_id = :id AND d.connection_id IS DISTINCT FROM f.handler_connection
+            ORDER BY d.created_at, d.connection_id
+            """,
+        )
+            .bind("tenant", query.tenant)
+            .bind("id", query.request.value)
+            .map { rs, _ -> SupportAttachedConnection(rs.getObject("connection_id", UUID::class.java), rs.getString("name"), SyncStatus.valueOf(rs.getString("state"))) }
+            .list()
+        val onIt = attached.map { it.connectionId }.toSet() + listOfNotNull(request.handlerConnection)
         SupportInboxRequest(
             request = request,
             tenantName = facts.tenantName,
@@ -279,8 +320,10 @@ class GetSupportInboxRequestHandler(
             handlerName = facts.handlerName,
             messages = messages,
             assets = assets,
-            escalationTargets = if (request.handledHere && blocked == null) targets else emptyList(),
+            escalationTargets = if (request.handledHere && blocked == null) eligible.filter { it.connectionId !in onIt } else emptyList(),
             escalationBlocked = blocked,
+            attached = attached,
+            attachTargets = eligible.filter { it.connectionId !in onIt },
         )
     }
 

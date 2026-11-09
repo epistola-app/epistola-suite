@@ -16,6 +16,8 @@ import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.commands.AddSupportRequestAsset
 import app.epistola.suite.support.requests.desk.AddSupportDeskMessage
+import app.epistola.suite.support.requests.desk.AttachSupportConnection
+import app.epistola.suite.support.requests.desk.DetachSupportConnection
 import app.epistola.suite.support.requests.desk.EscalateSupportRequest
 import app.epistola.suite.support.requests.desk.GetSupportDeskAssetContent
 import app.epistola.suite.support.requests.desk.GetSupportDeskHandling
@@ -55,6 +57,8 @@ class SupportDeskRoutes(private val handler: SupportDeskHandler) {
             POST("/{tenantKey}/{requestId}/status", handler::setStatus)
             POST("/{tenantKey}/{requestId}/priority", handler::setPriority)
             POST("/{tenantKey}/{requestId}/escalate", handler::escalate)
+            POST("/{tenantKey}/{requestId}/attach", handler::attach)
+            POST("/{tenantKey}/{requestId}/detach", handler::detach)
             GET("/{tenantKey}/{requestId}/assets/{assetId}", handler::assetContent)
         }
     }
@@ -127,6 +131,32 @@ class SupportDeskHandler {
             detailPage(request, e.reason)
         } catch (_: SupportRequestHandledElsewhereException) {
             detailPage(request, "A support connection handles this request already.")
+        }
+    }
+
+    /** Attaches another connection besides the handler; refused with the reason in words. */
+    fun attach(request: ServerRequest): ServerResponse {
+        val (tenant, key) = ids(request) ?: return ServerResponse.badRequest().build()
+        val connection = request.param("connection").orElse("").let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: return ServerResponse.badRequest().build()
+        return try {
+            AttachSupportConnection(tenant, key, connection).execute()
+            redirect(detailPath(tenant, key))
+        } catch (e: SupportRequestNotEscalatedException) {
+            detailPage(request, e.reason)
+        }
+    }
+
+    /** Detaches a connection attached besides the handler. */
+    fun detach(request: ServerRequest): ServerResponse {
+        val (tenant, key) = ids(request) ?: return ServerResponse.badRequest().build()
+        val connection = request.param("connection").orElse("").let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: return ServerResponse.badRequest().build()
+        return try {
+            DetachSupportConnection(tenant, key, connection).execute()
+            redirect(detailPath(tenant, key))
+        } catch (_: SupportRequestHandledElsewhereException) {
+            detailPage(request, "That connection handles this request; it cannot be detached.")
         }
     }
 
