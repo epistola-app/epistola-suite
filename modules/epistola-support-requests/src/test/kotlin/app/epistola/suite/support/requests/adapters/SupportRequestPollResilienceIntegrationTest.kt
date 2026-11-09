@@ -304,11 +304,14 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
         val supportRequest = synced(sharingTenant("Feedback Poll Slow"))
         reply(supportRequest, 10)
         feed.pageDelayMillis = 700
+        val before = feed.asked.size
 
-        val took = measureTimeMillis { poll.pollForUpdates() }
+        poll.pollForUpdates()
 
-        // The budget is checked between pages: it ends a round at most one call past it.
-        assertThat(took).isLessThan(ROUND_BUDGET_MS + READ_TIMEOUT_MS)
+        // The budget is checked between pages: it ends a round at most one call past it. Counted in
+        // calls, not in wall-clock time, which a busy machine stretches with the work between pages.
+        val calls = feed.asked.size - before
+        assertThat(calls).`as`("calls in the round").isBetween(1, (ROUND_BUDGET_MS / 700 + 2).toInt())
         val first = applied(supportRequest)
         assertThat(first).`as`("not all of it in one round").hasSizeLessThan(10).isNotEmpty
         // Every page but the last of the round is acknowledged; the last comes again and is not applied twice.
