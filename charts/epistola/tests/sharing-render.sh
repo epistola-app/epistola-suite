@@ -50,7 +50,8 @@ mirror="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=fal
   --set exchange.endpoint=https://exchange.internal \
   --set support.enabled=true --set support.endpoint=https://support.internal \
   --set support.installation.companyName=Acme --set support.installation.adminEmail=ops@acme.example \
-  --set support.installation.environment=test)"
+  --set support.installation.environment=test \
+  --set support.usage.backlog=48h)"
 expect "${mirror}" EPISTOLA_PRODUCTDOMAIN staging.epistola.app
 expect "${mirror}" EPISTOLA_VERSIONCHECK_ENDPOINT "https://mirror.example/releases.json"
 expect "${mirror}" EPISTOLA_INSTALLATIONCHECK_ENDPOINT "https://mirror.example/installation/{id}.json"
@@ -156,5 +157,11 @@ fi
 if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.connections[0].name=X' \
   --set 'support.connections[0].endpoint=http://plain.example' --set 'support.connections[0].tokenSecret.name=s' >/dev/null 2>&1; then
   echo "Expected a plaintext partner endpoint to be refused" >&2
+  exit 1
+fi
+# The usage backlog renders when set, and is left to the suite's default otherwise.
+expect "${mirror}" EPISTOLA_SUPPORT_USAGE_BACKLOG 48h
+if grep -q -- "- name: EPISTOLA_SUPPORT_USAGE_BACKLOG$" <<<"${defaults}"; then
+  echo "Expected EPISTOLA_SUPPORT_USAGE_BACKLOG not to be rendered by default" >&2
   exit 1
 fi

@@ -11,6 +11,7 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.statistics.GenerationReadings
 import app.epistola.suite.statistics.GetGenerationReadings
 import app.epistola.suite.statistics.StatisticsProperties
+import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.isInsufficientScope
@@ -41,7 +42,8 @@ data class UsageReportRound(val sent: List<Instant>, val stoppedBecause: String?
  * spread over those minutes). Each finished UTC hour is sent once, with a reading for every tenant that shares usage (all of
  * them while usage is Required, none while it is not allowed): its figures for the hour and its running
  * totals, from core's generation statistics, once they hold the whole hour. Epistola bills from the totals, so an hour that is never sent loses nothing; hours missed
- * while the installation was down are sent when it is back, at most [BACKLOG] of them.
+ * while the installation was down are sent when it is back, as far back as `epistola.support.usage.backlog`
+ * ([backlog]). Which hours went out is kept only as long as a round can look back ([KEPT_BEYOND_BACKLOG] more).
  *
  * One node reports at a time (a database advisory lock); the service replaces an hour's report anyway.
  */
@@ -54,6 +56,7 @@ class UsageReporter(
     private val metadata: AppMetadataService,
     private val mediator: Mediator,
     private val statistics: StatisticsProperties,
+    private val properties: SupportProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -146,7 +149,9 @@ class UsageReporter(
     private fun round(required: Boolean): UsageReportRound {
         val now = EpistolaClock.instant()
         val current = now.truncatedTo(ChronoUnit.HOURS)
-        val first = maxOf(current.minus(backlog(statistics.hourlyRetention)), reportingSince(now))
+        val backlog = backlog(properties.usage.backlog, statistics.hourlyRetention)
+        forgetHoursBefore(current.minus(backlog).minus(KEPT_BEYOND_BACKLOG))
+        val first = maxOf(current.minus(backlog), reportingSince(now))
         val sent = mutableListOf<Instant>()
         for (hour in hoursToReport(first, current)) {
             val readings = MediatorContext.runWithMediator(mediator) { GetGenerationReadings(hour).query() }
@@ -182,6 +187,16 @@ class UsageReporter(
             sent += hour
         }
         return UsageReportRound(sent)
+    }
+
+    /** Forgets which hours before [before] went out: no round looks back that far. */
+    private fun forgetHoursBefore(before: Instant) {
+        jdbi.useHandle<Exception> {
+            it.createUpdate("DELETE FROM support_usage_reports WHERE connection_id = :connection AND hour < :before")
+                .bind("connection", connection.id)
+                .bind("before", before.atOffset(ZoneOffset.UTC))
+                .execute()
+        }
     }
 
     /** Records [hour] as done, sent or skipped: it is not tried again. */
@@ -252,14 +267,18 @@ class UsageReporter(
         const val SINCE_KEY = "support.usage.reporting-since"
         const val STATISTICS_BEHIND = "the generation statistics do not hold the whole hour yet"
 
-        /** Hours missed while the installation was down are sent when it is back, this far back at most. */
-        val BACKLOG: Duration = Duration.ofHours(72)
+        /**
+         * Which hours went out is kept this long past the backlog, then forgotten: no round looks
+         * back further, and a node whose clock runs behind still finds what it needs.
+         */
+        val KEPT_BEYOND_BACKLOG: Duration = Duration.ofDays(1)
 
         /**
-         * How far back hours are reported: [BACKLOG], but never an hour the generation statistics no
-         * longer keep by the hour (`epistola.statistics.hourly-retention`), which would read as empty.
+         * How far back hours are reported: the [configured] backlog (`epistola.support.usage.backlog`),
+         * but never an hour the generation statistics no longer keep by the hour
+         * (`epistola.statistics.hourly-retention`), which would read as empty.
          */
-        fun backlog(hourlyRetention: Duration): Duration = minOf(BACKLOG, hourlyRetention.minusHours(1))
+        fun backlog(configured: Duration, hourlyRetention: Duration): Duration = minOf(configured, hourlyRetention.minusHours(1))
 
         /** How long the next round waits after one that could not send everything. */
         val RETRY_AFTER: Duration = Duration.ofMinutes(5)
