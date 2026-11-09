@@ -39,6 +39,7 @@ import java.time.Duration
  *   installation administrator saves a preset under Platform → Epistola support ([TenantDefaults]).
  * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
  *   installation administrator saves them under Platform → Epistola support ([Privacy]).
+ * @property usage how usage for billing is reported ([Usage]).
  */
 @ConfigurationProperties(prefix = "epistola.support")
 data class SupportProperties(
@@ -52,6 +53,7 @@ data class SupportProperties(
     val services: List<String> = emptyList(),
     val tenantDefaults: TenantDefaults = TenantDefaults(),
     val privacy: Privacy = Privacy(),
+    val usage: Usage = Usage(),
 ) {
     init {
         require(endpoint.isBlank() || configuredIssuer != null) {
@@ -61,7 +63,21 @@ data class SupportProperties(
             "epistola.support.endpoint '$endpoint' is plaintext http; use https, or set epistola.support.allow-http=true for a local support service"
         }
         require(!checkInterval.isNegative && !checkInterval.isZero) { "epistola.support.check-interval must be positive" }
+        require(usage.backlog >= Duration.ofHours(1)) { "epistola.support.usage.backlog must be at least an hour" }
     }
+
+    /**
+     * `epistola.support.usage` (Helm `support.usage`).
+     *
+     * @property backlog how far back hours missed while the installation was down (or the support
+     *   service unreachable) are still sent once it is back; 72 hours by default. Never further than
+     *   the generation statistics keep hours (`epistola.statistics.hourly-retention`), as an hour no
+     *   longer kept would read as empty. Hours older than that are not sent: the running totals of the
+     *   next report carry what they held, so nothing is lost for billing.
+     */
+    data class Usage(
+        val backlog: Duration = Duration.ofHours(72),
+    )
 
     /**
      * A preset of what tenants share, from the deployment configuration (Helm

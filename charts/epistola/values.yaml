@@ -377,6 +377,14 @@ support:
     # off, all (every catalog) or marked (only the catalogs a tenant marks).
     mirror: ""
 
+  # Usage for billing.
+  usage:
+    # How far back hours missed while the installation or the support service was down are still sent
+    # once both are back, as a duration (e.g. 72h). Never further than the generation statistics keep
+    # hours. Older hours are not sent; the running totals of the next report carry them. Empty: the
+    # suite's default, 72h. Rendered as EPISTOLA_SUPPORT_USAGE_BACKLOG.
+    backlog: ""
+
   # Support requests (ADR 0053).
   requests:
     # Who handles new support requests until an installation administrator saves a choice under
