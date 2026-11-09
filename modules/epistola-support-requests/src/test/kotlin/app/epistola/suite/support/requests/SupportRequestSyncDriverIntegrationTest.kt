@@ -436,6 +436,8 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
                 createdBy = testUserKey,
             ).execute()
         }
+        // The immediate push runs in the background: wait until it has failed before the hub goes away.
+        backgroundWork.awaitIdle()
         assertThat(withMediator { GetSupportRequest(supportRequestId).query()!! }.syncStatus).isEqualTo(SyncStatus.PENDING)
 
         // Hub unreachable: even after many sweeps the item is never attempted, so it stays PENDING

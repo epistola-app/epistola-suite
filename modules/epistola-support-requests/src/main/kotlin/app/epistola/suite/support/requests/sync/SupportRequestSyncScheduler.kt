@@ -27,8 +27,10 @@ import app.epistola.suite.support.requests.commands.RecordSupportRequestCommentS
 import app.epistola.suite.support.requests.commands.RecordSupportRequestSyncFailure
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestCommentExternalRef
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncRef
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestAssetContent
+import app.epistola.suite.support.requests.queries.GetSupportRequestDelivered
 import app.epistola.suite.support.requests.queries.ListPendingSyncSupportRequest
 import app.epistola.suite.support.requests.queries.ListUnsyncedComments
 import app.epistola.suite.support.requests.queries.ListUnsyncedSupportRequestAssets
@@ -68,7 +70,7 @@ import java.time.Duration
     matchIfMissing = false,
 )
 class SupportRequestSyncScheduler(
-    private val supportRequestSyncPort: SupportRequestSyncPort,
+    private val ports: SupportRequestSyncPorts,
     private val gate: SupportRequestSyncGate,
     private val mediator: Mediator,
     private val properties: SupportRequestSyncProperties,
@@ -98,23 +100,24 @@ class SupportRequestSyncScheduler(
     /** One round, on the calling thread. */
     fun retryPendingSync() {
         MediatorContext.runWithMediator(mediator) {
-            // Not wired, no `feedback` scope, or the service known unreachable: skip the whole round.
-            if (!gate.canSendNow()) {
+            // No connection takes support requests now (not wired, not granted, known unreachable): skip the whole round.
+            if (ports.all().none { (id, _) -> gate.canSendNow(id) }) {
                 log.debug("Feedback sync cannot send now; skipping the retry sweep")
                 return@runWithMediator
             }
             // One node at a time: a round elsewhere sends what this one would. Waits for it (its budget
             // plus the call under way) rather than skipping, so what changed here is not left for the sweep.
             val ran = roundLock.runExclusively(Duration.ofMillis(2 * properties.roundBudgetMs)) {
-                // Again, after the wait: the round before may have ended with the scope refused or the
-                // service found down, which this node knows by now.
-                if (!gate.canSendNow()) {
-                    log.debug("Feedback sync cannot send now after waiting for the round lock; skipping this round")
-                    return@runExclusively
-                }
                 val round = Round(System.nanoTime() + properties.roundBudgetMs * 1_000_000)
-                // Feedback first, so its assets and comments can follow in the same round.
-                retryPendingSupportRequest(round) && retryPendingAssets(round) && retryPendingComments(round) && retryUnsentStatuses(round)
+                // Every connection in turn, within one budget. Again, after the wait: the round before
+                // may have ended with a scope refused or a connection found down.
+                for ((connectionId, port) in ports.all()) {
+                    if (!gate.canSendNow(connectionId)) continue
+                    round.connectionId = connectionId
+                    // Requests first, so their assets and comments can follow in the same round.
+                    val goOn = retryPendingSupportRequest(round, port) && retryPendingAssets(round, port) && retryPendingComments(round, port) && retryUnsentStatuses(round, port)
+                    if (!goOn && round.spent()) break
+                }
             }
             if (!ran) log.debug("Feedback sync round still running on another node; the next sweep sends what is left")
         }
@@ -123,6 +126,16 @@ class SupportRequestSyncScheduler(
     /** One round's budget and its server errors in a row. */
     private inner class Round(private val deadline: Long) {
         private var serverErrors = 0
+
+        /** The connection this part of the round sends to. */
+        var connectionId: java.util.UUID = REQUESTS_CONNECTION
+            set(value) {
+                field = value
+                serverErrors = 0
+            }
+
+        /** The budget is spent: no connection goes on. */
+        fun spent(): Boolean = System.nanoTime() >= deadline
 
         /**
          * Asked before every item. False once the budget is spent, and once the connection no longer
@@ -135,7 +148,7 @@ class SupportRequestSyncScheduler(
                 log.debug("Feedback sync round budget spent; the rest waits for the next round")
                 return false
             }
-            if (!gate.canSendNow()) {
+            if (!gate.canSendNow(connectionId)) {
                 log.debug("Feedback sync can no longer send (service deselected, not granted, or unreachable); ending this round")
                 return false
             }
@@ -175,22 +188,22 @@ class SupportRequestSyncScheduler(
     }
 
     /** @return false when the round should stop. */
-    private fun retryPendingSupportRequest(round: Round): Boolean {
-        val pending = ListPendingSyncSupportRequest(limit = 20).query()
+    private fun retryPendingSupportRequest(round: Round, port: SupportRequestSyncPort): Boolean {
+        val pending = ListPendingSyncSupportRequest(limit = 20, connectionId = round.connectionId).query()
         for (supportRequest in pending) {
             if (!round.mayGoOn()) return false
             val proceed = SecurityContext.runWithPrincipal(supportRequestSystemPrincipal(supportRequest.tenantKey)) {
                 val supportRequestId = SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey))
-                if (!stillToSend(OutboundSupportRequestItem.Submission(supportRequestId))) return@runWithPrincipal true
+                if (!stillToSend(OutboundSupportRequestItem.Submission(supportRequestId), round.connectionId)) return@runWithPrincipal true
                 try {
-                    syncSupportRequest(supportRequest)
+                    syncSupportRequest(supportRequest, port, round.connectionId)
                     syncAttempts("success").increment()
                     round.succeeded()
                     true
                 } catch (e: Exception) {
                     round.failed("feedback ${supportRequest.id}", e, supportRequest.syncAttempts) { count, next ->
                         // Guarded: a withdrawal while the call was on its way keeps the feedback stopped.
-                        RecordSupportRequestSyncFailure(supportRequestId, next, count).execute()
+                        RecordSupportRequestSyncFailure(supportRequestId, next, count, round.connectionId).execute()
                     }
                 }
             }
@@ -200,24 +213,24 @@ class SupportRequestSyncScheduler(
     }
 
     /** @return false when the round should stop. */
-    private fun retryPendingAssets(round: Round): Boolean {
-        val pending = ListUnsyncedSupportRequestAssets(limit = 20).query()
+    private fun retryPendingAssets(round: Round, port: SupportRequestSyncPort): Boolean {
+        val pending = ListUnsyncedSupportRequestAssets(limit = 20, connectionId = round.connectionId).query()
         for (asset in pending) {
             if (!round.mayGoOn()) return false
             val proceed = SecurityContext.runWithPrincipal(supportRequestSystemPrincipal(asset.tenantKey)) {
-                val supportRequest = GetSupportRequest(SupportRequestId(asset.assetId.supportRequestKey, TenantId(asset.tenantKey))).query()
+                val supportRequest = GetSupportRequestDelivered(SupportRequestId(asset.assetId.supportRequestKey, TenantId(asset.tenantKey)), round.connectionId).query()
                     ?: return@runWithPrincipal true
                 val content = GetSupportRequestAssetContent(asset.assetId).query() ?: return@runWithPrincipal true
-                if (!stillToSend(OutboundSupportRequestItem.Asset(asset.assetId))) return@runWithPrincipal true
+                if (!stillToSend(OutboundSupportRequestItem.Asset(asset.assetId), round.connectionId)) return@runWithPrincipal true
                 try {
-                    supportRequestSyncPort.uploadAsset(supportRequest, asset.assetId.key, content)
-                    MarkSupportRequestAssetSynced(asset.assetId).execute()
+                    port.uploadAsset(supportRequest, asset.assetId.key, content)
+                    MarkSupportRequestAssetSynced(asset.assetId, round.connectionId).execute()
                     round.succeeded()
                     log.info("Sent asset {} of feedback {} to Epistola support", asset.id, supportRequest.id)
                     true
                 } catch (e: Exception) {
                     round.failed("asset ${asset.id} of feedback ${supportRequest.id}", e, asset.syncAttempts) { count, next ->
-                        RecordSupportRequestAssetSyncFailure(asset.assetId, next, count).execute()
+                        RecordSupportRequestAssetSyncFailure(asset.assetId, next, count, round.connectionId).execute()
                     }
                 }
             }
@@ -233,29 +246,29 @@ class SupportRequestSyncScheduler(
         .register(meterRegistry)
 
     /** @return false when the round should stop. */
-    private fun retryPendingComments(round: Round): Boolean {
-        val pending = ListUnsyncedComments(limit = 50).query()
+    private fun retryPendingComments(round: Round, port: SupportRequestSyncPort): Boolean {
+        val pending = ListUnsyncedComments(limit = 50, connectionId = round.connectionId).query()
         for ((groupKey, comments) in pending.groupBy { it.tenantKey to it.requestId }) {
             val (tenantKey, supportRequestKey) = groupKey
             // GetSupportRequest is tenant-scoped (RequiresPermission); bind a system principal.
             val proceed = SecurityContext.runWithPrincipal(supportRequestSystemPrincipal(tenantKey)) {
                 val supportRequestId = SupportRequestId(supportRequestKey, TenantId(tenantKey))
-                val supportRequest = GetSupportRequest(supportRequestId).query() ?: return@runWithPrincipal true
+                val supportRequest = GetSupportRequestDelivered(supportRequestId, round.connectionId).query() ?: return@runWithPrincipal true
                 if (supportRequest.syncStatus != SyncStatus.SYNCED || supportRequest.externalRef == null) {
                     return@runWithPrincipal true
                 }
                 for (comment in comments) {
                     if (!round.mayGoOn()) return@runWithPrincipal false
                     val commentId = SupportRequestCommentId(comment.id, supportRequestId)
-                    if (!stillToSend(OutboundSupportRequestItem.Comment(commentId))) continue
+                    if (!stillToSend(OutboundSupportRequestItem.Comment(commentId), round.connectionId)) continue
                     try {
-                        val ref = supportRequestSyncPort.addComment(supportRequest, comment)
-                        UpdateSupportRequestCommentExternalRef(id = commentId, externalCommentId = ref.externalCommentId).execute()
+                        val ref = port.addComment(supportRequest, comment)
+                        UpdateSupportRequestCommentExternalRef(id = commentId, externalCommentId = ref.externalCommentId, connectionId = round.connectionId).execute()
                         round.succeeded()
                         log.info("Sent comment {} of feedback {}", comment.id, supportRequest.id)
                     } catch (e: Exception) {
                         val goOn = round.failed("comment ${comment.id}", e, comment.syncAttempts) { count, next ->
-                            RecordSupportRequestCommentSyncFailure(commentId, next, count).execute()
+                            RecordSupportRequestCommentSyncFailure(commentId, next, count, round.connectionId).execute()
                         }
                         if (!goOn) return@runWithPrincipal false
                     }
@@ -268,21 +281,21 @@ class SupportRequestSyncScheduler(
     }
 
     /** Statuses changed here after the feedback reached the service. @return false when the round should stop. */
-    private fun retryUnsentStatuses(round: Round): Boolean {
-        for ((supportRequest, attempts) in ListUnsentSupportRequestStatuses(limit = 20).query()) {
+    private fun retryUnsentStatuses(round: Round, port: SupportRequestSyncPort): Boolean {
+        for ((supportRequest, attempts) in ListUnsentSupportRequestStatuses(limit = 20, connectionId = round.connectionId).query()) {
             if (!round.mayGoOn()) return false
             val supportRequestId = SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey))
             val proceed = SecurityContext.runWithPrincipal(supportRequestSystemPrincipal(supportRequest.tenantKey)) {
-                if (!stillToSend(OutboundSupportRequestItem.Status(supportRequestId, supportRequest.status))) return@runWithPrincipal true
+                if (!stillToSend(OutboundSupportRequestItem.Status(supportRequestId, supportRequest.status), round.connectionId)) return@runWithPrincipal true
                 try {
-                    supportRequestSyncPort.updateStatus(supportRequest, supportRequest.status)
-                    RecordSupportRequestStatusSync(supportRequestId, sent = supportRequest.status).execute()
+                    port.updateStatus(supportRequest, supportRequest.status)
+                    RecordSupportRequestStatusSync(supportRequestId, sent = supportRequest.status, connectionId = round.connectionId).execute()
                     round.succeeded()
                     log.info("Sent status {} of feedback {}", supportRequest.status, supportRequest.id)
                     true
                 } catch (e: Exception) {
                     round.failed("the status of feedback ${supportRequest.id}", e, attempts) { count, next ->
-                        RecordSupportRequestStatusSync(supportRequestId, sent = null, nextAttemptAt = next, countAttempt = count).execute()
+                        RecordSupportRequestStatusSync(supportRequestId, sent = null, nextAttemptAt = next, countAttempt = count, connectionId = round.connectionId).execute()
                     }
                 }
             }
@@ -295,13 +308,13 @@ class SupportRequestSyncScheduler(
      * Re-reads [item] right before its call: a withdrawal that landed while the round worked through
      * its batch stops what it has not started. A call already on its way still completes.
      */
-    private fun stillToSend(item: OutboundSupportRequestItem): Boolean = IsSupportRequestItemStillToSend(item).query().also {
+    private fun stillToSend(item: OutboundSupportRequestItem, connectionId: java.util.UUID): Boolean = IsSupportRequestItemStillToSend(item, connectionId).query().also {
         if (!it) log.debug("Not sending {}: no longer to be sent (consent withdrawn meanwhile)", item)
     }
 
-    private fun syncSupportRequest(supportRequest: SupportRequest) {
+    private fun syncSupportRequest(supportRequest: SupportRequest, port: SupportRequestSyncPort, connectionId: java.util.UUID) {
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey))
-        val syncResult = supportRequestSyncPort.createTicket(supportRequest)
+        val syncResult = port.createTicket(supportRequest)
 
         // The ticket carries feedback.status as listed; a change made meanwhile is left unsent.
         UpdateSupportRequestSyncRef(
@@ -309,6 +322,7 @@ class SupportRequestSyncScheduler(
             externalRef = syncResult.externalRef,
             externalUrl = syncResult.externalUrl,
             sentStatus = supportRequest.status,
+            connectionId = connectionId,
         ).execute()
 
         log.info("Successfully synced feedback {} to external ticket {}", supportRequest.id, syncResult.externalRef)
