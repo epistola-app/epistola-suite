@@ -38,6 +38,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import tools.jackson.databind.ObjectMapper
+import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 
 /**
@@ -210,7 +212,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     fun `a moment stored outside the first ten minutes is chosen again`() {
         // A moment from before the window was narrowed.
         metadata.setAs(UsageReporter.MOMENT_KEY, mapOf("minute" to 51, "second" to 31))
-        val fresh = UsageReporter(connection, jdbi, references, objectMapper, metadata, mediator, StatisticsProperties())
+        val fresh = UsageReporter(connection, jdbi, references, objectMapper, metadata, mediator, StatisticsProperties(), app.epistola.suite.support.SupportProperties())
 
         assertThat(fresh.reportMoment()).isLessThan(java.time.Duration.ofMinutes(10))
         assertThat(metadata.get(UsageReporter.MOMENT_KEY)!!.get("minute").asInt()).isLessThan(10)
@@ -227,6 +229,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
             registry.add("epistola.support.endpoint") { support.baseUrl }
             registry.add("epistola.support.allow-http") { "true" }
             registry.add("epistola.support.services") { "usage" }
+            registry.add("epistola.support.usage.backlog") { "48h" }
         }
 
         @JvmStatic
@@ -282,9 +285,28 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
         support.clearFaults()
     }
 
+    private fun reportedHours(): List<Instant> = jdbi.withHandle<List<Instant>, Exception> {
+        it.createQuery("SELECT hour FROM support_usage_reports ORDER BY hour").map { rs, _ -> rs.getObject("hour", OffsetDateTime::class.java).toInstant() }.list()
+    }
+
+    @Test
+    fun `which hours went out is kept only as long as a round can look back, and a day more`() {
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
+        EpistolaClock.withInstant(hour.plusSeconds(30)) { reporter.report() }
+        EpistolaClock.withInstant(hour.plus(1, ChronoUnit.HOURS).plusSeconds(30)) { reporter.report() }
+        assertThat(reportedHours()).containsExactly(hour.minus(1, ChronoUnit.HOURS), hour)
+
+        // The backlog (configured as 48 hours here) and a day later: the earlier hour is out of reach of any round, the later one just not.
+        val later = hour.plus(java.time.Duration.ofHours(48)).plus(UsageReporter.KEPT_BEYOND_BACKLOG)
+        EpistolaClock.withInstant(later.plusSeconds(30)) { reporter.report() }
+
+        assertThat(reportedHours()).`as`("hours a round can no longer reach are forgotten").doesNotContain(hour.minus(1, ChronoUnit.HOURS)).contains(hour)
+    }
+
     @Test
     fun `the backlog never reaches hours the statistics no longer keep by the hour`() {
-        assertThat(UsageReporter.backlog(hourlyRetention = java.time.Duration.ofDays(7))).isEqualTo(UsageReporter.BACKLOG)
-        assertThat(UsageReporter.backlog(hourlyRetention = java.time.Duration.ofDays(1))).isEqualTo(java.time.Duration.ofHours(23))
+        assertThat(UsageReporter.backlog(java.time.Duration.ofHours(72), hourlyRetention = java.time.Duration.ofDays(7))).isEqualTo(java.time.Duration.ofHours(72))
+        assertThat(UsageReporter.backlog(java.time.Duration.ofHours(72), hourlyRetention = java.time.Duration.ofDays(1))).isEqualTo(java.time.Duration.ofHours(23))
     }
 }
