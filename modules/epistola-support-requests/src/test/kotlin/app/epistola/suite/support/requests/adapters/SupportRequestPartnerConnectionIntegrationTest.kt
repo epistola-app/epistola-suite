@@ -249,6 +249,33 @@ class SupportRequestPartnerConnectionIntegrationTest : IntegrationTestBase() {
         assertThat(sentPaths()).noneMatch { it.endsWith("/messages/$after") }
     }
 
+    @Test
+    fun `what the suite sends a partner is what the published partner spec describes`() {
+        val tenant = createTenant("Partner Spec").id
+        share(tenant)
+        withMediator { SetSupportRequestHandling(partnerId).execute() }
+        val id = submit(tenant)
+        withMediator { AddSupportRequestComment(SupportRequestCommentId(SupportRequestCommentKey.generate(), id), "And a reply", "Partner Requests", null).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+        poll.pollForUpdates()
+
+        val validator = com.atlassian.oai.validator.OpenApiInteractionValidator
+            .createForSpecificationUrl(java.nio.file.Path.of("../../docs/support-partner-api.yaml").toAbsolutePath().normalize().toUri().toString())
+            .withBasePathOverride("/")
+            .build()
+        val sent = partner.requests.filter { it.path.startsWith("/api/") }
+        assertThat(sent.map { it.method to it.path.substringBeforeLast('/') }).`as`("the create, the reply and the poll").hasSizeGreaterThanOrEqualTo(3)
+        val problems = sent.flatMap { r ->
+            val request = com.atlassian.oai.validator.model.SimpleRequest.Builder(com.atlassian.oai.validator.model.Request.Method.valueOf(r.method), r.path).apply {
+                r.bearerToken?.let { withAuthorization("Bearer $it") }
+                if (r.body.isNotEmpty()) withContentType("application/json").withBody(r.bodyText)
+            }.build()
+            validator.validateRequest(request).messages.filter { it.level.name == "ERROR" }.map { "${r.method} ${r.path}: ${it.message}" }
+        }
+        assertThat(problems).isEmpty()
+    }
+
     companion object {
         private const val TOKEN = "partner-requests-token"
 

@@ -274,6 +274,10 @@ can open requests through the same protocol.
      (with an optional `reason`): the installation attaches the connection the asking one
      `escalates_to` (configuration `escalates-to`, or the platform page), as its desk would, and tells
      the desk in an internal note, which also says why when it cannot.
+   - **3g, built:** the published partner spec, `docs/support-partner-api.yaml`: the support
+     protocol's operations a partner implements (`SupportPartnerSpecTest` holds them equal to
+     `docs/support-api.yaml`), with the partner's own ids as strings and its discovery document; the
+     suite's requests to a partner are validated against it. `docs/support-partners.md` is the guide.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred
