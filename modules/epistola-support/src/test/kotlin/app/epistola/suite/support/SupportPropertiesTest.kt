@@ -28,6 +28,14 @@ class SupportPropertiesTest {
     }
 
     @Test
+    fun `a usage backlog under an hour stops startup`() {
+        assertThatThrownBy { SupportProperties(usage = SupportProperties.Usage(backlog = java.time.Duration.ofMinutes(30))) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("epistola.support.usage.backlog")
+        assertThat(SupportProperties().usage.backlog).isEqualTo(java.time.Duration.ofHours(72))
+    }
+
+    @Test
     fun `an https endpoint is taken as the issuer`() {
         assertThat(SupportProperties(endpoint = "https://support.example/").configuredIssuer).isEqualTo(URI("https://support.example"))
     }
