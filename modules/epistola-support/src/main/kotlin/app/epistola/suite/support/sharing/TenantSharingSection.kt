@@ -115,6 +115,8 @@ data class InstallationSharingView(
     val setBy: String?,
     val setAt: OffsetDateTime?,
     val restriction: SharingRestriction? = null,
+    /** Choices the installation cannot preset now, each with why (the catalog mirror while tenants are confidential). */
+    val withheld: Map<String, String> = emptyMap(),
 ) {
     val label: String get() = section.choices.firstOrNull { it.value == value }?.label ?: value
 
