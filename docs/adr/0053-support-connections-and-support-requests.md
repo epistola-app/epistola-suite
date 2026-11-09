@@ -60,17 +60,19 @@ party that has no such access, such as a partner supporting a client who hosts t
 **Epistola is not a kind of connection.** Whatever seemed to set it apart is either something the
 other side offers or something the installation configures:
 
-| What looked Epistola-only    | What it is                    | Where it lives                                 |
-| ---------------------------- | ----------------------------- | ---------------------------------------------- |
-| found through product domain | where the endpoint comes from | `source`: discovered or configured             |
-| registration and activation  | a capability of the server    | its discovery document; a partner may offer it |
-| signed key or token          | how the suite signs in        | `auth`                                         |
-| catalog mirror               | a service one side offers     | `scopesSupported`, like every service          |
-| second line                  | an escalation order           | `escalates_to`, per connection                 |
-| confidential by default      | a starting point              | the preset (below)                             |
+| What looked Epistola-only    | What it is                 | Where it lives                                 |
+| ---------------------------- | -------------------------- | ---------------------------------------------- |
+| found through product domain | a default endpoint         | `endpoint`; empty means the product default    |
+| registration and activation  | a capability of the server | its discovery document; a partner may offer it |
+| signed key or token          | how the suite signs in     | `auth`                                         |
+| catalog mirror               | a service one side offers  | `scopesSupported`, like every service          |
+| second line                  | an escalation order        | `escalates_to`, per connection                 |
+| confidential by default      | a starting point           | the preset (below)                             |
 
 So the code has no Epistola branch, every connection gets the same tested behaviour, and the
-published protocol is the whole contract. An installation without an Epistola contract can connect
+published protocol is the whole contract. Epistola's connection is simply the one a fresh
+installation starts with; nothing identifies it but its settings (amended 2026-11-09: the first
+build still singled it out by a fixed id and a `source` column; step 3i, #1361, removes both). An installation without an Epistola contract can connect
 to its partner with everything the protocol offers.
 
 The privacy shaping happens **in the suite, per connection**, whoever receives the data.
@@ -278,6 +280,26 @@ can open requests through the same protocol.
      protocol's operations a partner implements (`SupportPartnerSpecTest` holds them equal to
      `docs/support-api.yaml`), with the partner's own ids as strings and its discovery document; the
      suite's requests to a partner are validated against it. `docs/support-partners.md` is the guide.
+   - **3h, built:** one place for what a tenant shares. The read-only Support request sharing page
+     goes; the Support page says, per connection, why support requests a tenant shares are not sent
+     yet.
+   - **3i, planned (#1361): Epistola's connection like any other** (§1, amended 2026-11-09). Steps 1–3 still
+     single it out: a fixed id (`SupportConnections.DISCOVERED_ID`, used as `REQUESTS_CONNECTION` and
+     `MIRROR_CONNECTION`), a `source` column (`DISCOVERED` / `CONFIGURED`), and behaviour only it has.
+     Each becomes a property every connection has:
+     - **identity**: no fixed id and no `source`; the endpoint has a default (the product domain's
+       discovery, or `epistola.support.endpoint`), and a fresh installation starts with that one
+       connection, which can be removed like any other;
+     - **signing in**: `auth` alone (`PRIVATE_KEY_JWT` registers, `BEARER_TOKEN` uses a token), so a
+       partner running the support service can register too;
+     - **telemetry and the catalog mirror**: services, sent to every connection that grants them,
+       each with its own privacy checks, as requests and usage already are;
+     - **what may be sent**: one ledger (`support_request_delivered_items`) for every connection;
+       Epistola's per-item grant (`sync_consent_id`) goes;
+     - **escalation**: `escalates_to` names a connection; the configuration keyword `epistola` goes;
+     - **the platform page**: one list of connections.
+
+     While no release has shipped the connections table, its migration is edited in place; after that, a forward migration does it.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred
