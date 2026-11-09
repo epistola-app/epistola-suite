@@ -382,6 +382,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val available = restTemplate.exchange("$catalog/available-releases", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
         assertThat(available.statusCode).describedAs(available.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<Any>>(available.body!!, "$.available")).isEmpty()
+        assertThat(JsonPath.read<Int>(available.body!!, "$.page.total")).`as`("paged like every list").isEqualTo(0)
+        assertThat(JsonPath.read<Int>(available.body!!, "$.page.number")).isEqualTo(0)
 
         val response = restTemplate.exchange("$catalog/available-releases/$installed/install", HttpMethod.POST, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
 

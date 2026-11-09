@@ -21,6 +21,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.common.PageRequest
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,9 +43,14 @@ import java.io.ByteArrayInputStream
  * the resources it added, modified or removed against that one and whether the releases it pins
  * are here. Nothing is installed by reading it; the source is asked, so it may fail with
  * [CatalogSourceUnavailableException].
+ *
+ * [page] answers one page of them (the REST list); null, all of them (the upgrade page, MCP). The
+ * versions come from the source, not the database, so they are counted and cut here, and only the
+ * page's releases are fetched and described.
  */
 data class ListAvailableCatalogReleases(
     val catalog: CatalogId,
+    val page: PageRequest? = null,
 ) : Query<AvailableCatalogReleases>,
     RequiresPermission {
     override val tenantKey: TenantKey get() = catalog.tenantKey
@@ -52,7 +58,14 @@ data class ListAvailableCatalogReleases(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-data class AvailableCatalogReleases(val registry: String, val namespace: String, val catalogKey: CatalogKey, val available: List<AvailableRelease>)
+/** The releases available, or one page of them; [total] counts them all. */
+data class AvailableCatalogReleases(
+    val registry: String,
+    val namespace: String,
+    val catalogKey: CatalogKey,
+    val available: List<AvailableRelease>,
+    val total: Int = available.size,
+)
 
 /**
  * @property comparedTo the closest installed release numbered below it; null when there is none,
@@ -85,10 +98,11 @@ class ListAvailableCatalogReleasesHandler(
         val catalog = GetCatalog(query.catalog).query() ?: throw CatalogNotFoundException(query.catalogKey)
         val source = sources.sourceOf(catalog)
         val installed = ListCatalogReleaseSummaries(query.catalog).query().map { it.version }.toSet()
-        val available = source.offered(catalog).filter { it !in installed }
+        val versions = source.offered(catalog).filter { it !in installed }
             .sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it) })
-            .map { version -> archives.describe(catalog.catalogId, version, source.archive(catalog, version), installed) }
-        return AvailableCatalogReleases(catalog.registry, catalog.namespace, catalog.id, available)
+        val wanted = query.page?.let { versions.drop(it.offset).take(it.limit) } ?: versions
+        val available = wanted.map { version -> archives.describe(catalog.catalogId, version, source.archive(catalog, version), installed) }
+        return AvailableCatalogReleases(catalog.registry, catalog.namespace, catalog.id, available, total = versions.size)
     }
 }
 

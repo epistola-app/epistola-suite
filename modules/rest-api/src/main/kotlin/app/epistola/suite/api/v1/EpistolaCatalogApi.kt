@@ -162,16 +162,18 @@ class EpistolaCatalogApi(
 
     /**
      * Every release the catalog's source offers that the tenant lacks, older lines included, each
-     * against the closest installed release below it (contract `listAvailableCatalogReleases`).
+     * against the closest installed release below it, one page of them (contract `listAvailableCatalogReleases`).
      */
     override fun listAvailableCatalogReleases(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
+        page: Int,
+        size: Int,
     ): ResponseEntity<AvailableCatalogReleasesDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val listed = ListAvailableCatalogReleases(catalog.catalogId).query()
+        val listed = ListAvailableCatalogReleases(catalog.catalogId, Pagination.requestOf(page, size)).query()
         return ResponseEntity.ok(
             AvailableCatalogReleasesDto(
                 registry = listed.registry,
@@ -185,6 +187,7 @@ class EpistolaCatalogApi(
                         dependencies = release.dependencies.map { AvailableReleaseDependencyDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, version = it.releaseVersion, present = it.present) },
                     )
                 },
+                page = Pagination.pageMeta(page, size, listed.total.toLong()),
             ),
         )
     }
