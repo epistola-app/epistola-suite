@@ -14,12 +14,11 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The [SupportRequestSyncPort] of every support connection (ADR 0053 step 3): Epistola support's is
  * the port bean (the REST adapter, or a stand-in), another connection's a REST adapter over that
- * connection, built once and kept. The protocol is the same for every connection; which endpoint and
+ * connection, built when used. The protocol is the same for every connection; which endpoint and
  * which privacy is the connection's.
  */
 @Component
@@ -30,13 +29,15 @@ class SupportRequestSyncPorts(
     private val references: TenantReferences,
     private val jdbi: Jdbi,
 ) {
-    private val built = ConcurrentHashMap<UUID, SupportRequestSyncPort>()
-
-    /** [connectionId]'s port; null for a connection that does not exist or that this version cannot send to. */
+    /**
+     * [connectionId]'s port; null for a connection that does not exist or that this version cannot send to.
+     * Built per call, not kept: the adapter holds nothing but the connection, so a removed connection
+     * leaves nothing behind.
+     */
     fun port(connectionId: UUID): SupportRequestSyncPort? {
         if (connectionId == REQUESTS_CONNECTION) return discovered
         val connection = registry.find(connectionId) as? TokenSupportConnection ?: return null
-        return built.computeIfAbsent(connectionId) { RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi) }
+        return RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi)
     }
 
     /** The installation selected support requests for connection [connectionId] (another than Epistola support's). */
