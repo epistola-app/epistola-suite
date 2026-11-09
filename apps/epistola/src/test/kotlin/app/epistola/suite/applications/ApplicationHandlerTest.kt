@@ -138,6 +138,55 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an application is renamed from its page, and a blank name is refused in the dialog`() {
+        val tenant = createTenant("Apps rename").id
+        val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }
+        assertThat(get("/tenants/$tenant/applications/${app.id}").body).contains("data-testid=\"application-edit-open\"")
+        assertThat(get("/tenants/$tenant/applications/${app.id}/edit", htmx = true).body)
+            .contains("id=\"edit-application-dialog\"", "value=\"Case system\"")
+        assertThat(get("/tenants/$tenant/applications/${app.id}/edit").body)
+            .`as`("opened at its URL, the page embeds the edit dialog").contains("id=\"edit-application-dialog\"")
+
+        val refused = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to " ")
+        assertThat(refused.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(refused.headers.getFirst("HX-Retarget")).isEqualTo("#edit-application-form")
+
+        val saved = post("/tenants/$tenant/applications/${app.id}/edit", htmx = true, "name" to "Zaaksysteem", "description" to "Permit letters")
+        assertThat(saved.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/$tenant/applications/${app.id}")
+        val renamed = withMediator { GetApplication(tenant, app.id).query() }!!
+        assertThat(renamed.name).isEqualTo("Zaaksysteem")
+        assertThat(renamed.description).isEqualTo("Permit letters")
+        assertThat(renamed.seesAllDocuments).`as`("what it sees is untouched").isFalse
+    }
+
+    @Test
+    fun `a narrowed application is given the unattributed documents, taking them from their owner`() {
+        val tenant = createTenant("Apps unattributed").id
+        val (case, registry) = withMediator {
+            CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() to
+                CreateApplication(tenant, "Registry", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
+        }
+        post("/tenants/$tenant/applications/${case.id}/unattributed-documents", htmx = false, "owns" to "true")
+        assertThat(withMediator { GetApplication(tenant, case.id).query() }!!.ownsUnattributedDocuments).isTrue
+        assertThat(get("/tenants/$tenant/applications/${case.id}").body).contains("Owns unattributed documents", "Give them up")
+
+        val registryPage = get("/tenants/$tenant/applications/${registry.id}").body!!
+        assertThat(registryPage).`as`("names the current owner").contains("They belong to", "Case system")
+
+        post("/tenants/$tenant/applications/${registry.id}/unattributed-documents", htmx = false, "owns" to "true")
+        assertThat(withMediator { ListApplications(tenant).query() }.filter { it.ownsUnattributedDocuments }.map { it.id })
+            .containsExactly(registry.id)
+    }
+
+    @Test
+    fun `an application that sees every document is not offered the unattributed documents`() {
+        val tenant = createTenant("Apps unattributed wide").id
+        val legacy = withMediator { CreateApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }
+        assertThat(get("/tenants/$tenant/applications/${legacy.apiKey.application!!.id}").body)
+            .doesNotContain("data-testid=\"application-unattributed-toggle\"")
+    }
+
+    @Test
     fun `delete is offered only once every key is revoked`() {
         val tenant = createTenant("Apps delete").id
         val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }

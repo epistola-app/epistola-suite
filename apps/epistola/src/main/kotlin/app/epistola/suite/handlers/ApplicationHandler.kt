@@ -11,6 +11,7 @@ import app.epistola.suite.applications.Application
 import app.epistola.suite.applications.MAX_APPLICATION_DESCRIPTION_LENGTH
 import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.commands.DeleteApplication
+import app.epistola.suite.applications.commands.SetUnattributedDocumentsOwner
 import app.epistola.suite.applications.commands.UpdateApplication
 import app.epistola.suite.applications.queries.GetApplication
 import app.epistola.suite.applications.queries.ListApplications
@@ -147,6 +148,83 @@ class ApplicationHandler {
         return redirect(detailUrl(tenantKey, application.id))
     }
 
+    fun editForm(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
+        val application = application(request) ?: return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment("applications/edit", "dialog") { keyFormModel(tenantKey, application) }
+            onFullPage {
+                page("applications/detail") {
+                    detailModel(tenantKey, application)
+                    "openDialog" to EDIT_DIALOG
+                }
+            }
+        }
+    }
+
+    /** Renames the application or changes its description; its keys and documents stay as they are. */
+    fun edit(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
+        val application = application(request) ?: return ServerResponse.notFound().build()
+
+        val form = request.form {
+            field("name") {
+                required()
+                maxLength(100)
+            }
+            field("description") { maxLength(MAX_APPLICATION_DESCRIPTION_LENGTH) }
+        }
+        val errors = form.errors.toMutableMap()
+        if (errors.isEmpty()) {
+            try {
+                UpdateApplication(tenantKey, application.id, form["name"], form["description"], application.seesAllDocuments).execute()
+            } catch (e: ValidationException) {
+                errors[e.field] = e.message
+            }
+        }
+
+        if (errors.isNotEmpty()) {
+            val formData = FormData(form.formData, errors)
+            return request.htmx {
+                dialogFieldErrors(
+                    template = "applications/edit",
+                    fragmentName = "edit-form",
+                    formTarget = "#edit-application-form",
+                    formData = formData,
+                ) { keyFormModel(tenantKey, application) }
+                onFullPage {
+                    page(422, "applications/detail") {
+                        detailModel(tenantKey, application)
+                        "openDialog" to EDIT_DIALOG
+                        "formData" to formData.formData
+                        "errors" to errors
+                    }
+                }
+            }
+        }
+
+        val detailUrl = detailUrl(tenantKey, application.id)
+        return request.htmx {
+            dialogRedirect(detailUrl)
+            onFullPage { redirect(detailUrl) }
+        }
+    }
+
+    /**
+     * Makes the application the owner of the tenant's unattributed documents (taking them from the
+     * previous owner), or stops it being their owner.
+     */
+    fun updateUnattributedDocuments(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
+        val application = application(request) ?: return ServerResponse.notFound().build()
+        val owns = request.param("owns").map { it == "true" }.orElse(false)
+        SetUnattributedDocumentsOwner(tenantKey, application.id, owns).execute()
+        return redirect(detailUrl(tenantKey, application.id))
+    }
+
     fun delete(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
@@ -164,7 +242,7 @@ class ApplicationHandler {
             onFullPage {
                 page("applications/detail") {
                     detailModel(tenantKey, application)
-                    "openDialog" to true
+                    "openDialog" to NEW_KEY_DIALOG
                 }
             }
         }
@@ -201,7 +279,7 @@ class ApplicationHandler {
                 onFullPage {
                     page(422, "applications/detail") {
                         detailModel(tenantKey, application)
-                        "openDialog" to true
+                        "openDialog" to NEW_KEY_DIALOG
                         "formData" to formData.formData
                         "errors" to errors
                     }
@@ -285,6 +363,10 @@ class ApplicationHandler {
         "pageTitle" to "${application.name} - Applications - Epistola"
         "app" to application
         "roleLabels" to ROLE_LABELS
+        // Who owns the tenant's unattributed documents, when another application does: making
+        // this one the owner takes them from it, and the page says so.
+        "unattributedOwner" to ListApplications(tenantKey).query()
+            .firstOrNull { it.ownsUnattributedDocuments && it.id != application.id }
         keyListModel(tenantKey, application.id)
     }
 
@@ -334,6 +416,10 @@ class ApplicationHandler {
     }
 
     companion object {
+        /** The dialogs the application page embeds when opened directly at their URL. */
+        private const val NEW_KEY_DIALOG = "applications/new-key"
+        private const val EDIT_DIALOG = "applications/edit"
+
         // Order mirrors the privilege ladder. Viewer is pre-checked so the narrowest scope is the
         // default; administration is offered but never pre-selected.
         val ROLE_OPTIONS = listOf(

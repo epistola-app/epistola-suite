@@ -80,7 +80,11 @@ internal fun ResultSet.toApiKey(withDisplayName: Boolean): ApiKey = ApiKey(
     createdByDisplayName = if (withDisplayName) getString("created_by_display_name") else null,
     roles = tenantRolesFromSqlArray(getArray("roles")),
     application = getString("application_id")?.let {
-        PrincipalApplication(ApplicationKey.of(it), seesAllDocuments = getBoolean("application_sees_all_documents"))
+        PrincipalApplication(
+            ApplicationKey.of(it),
+            seesAllDocuments = getBoolean("application_sees_all_documents"),
+            ownsUnattributedDocuments = getBoolean("application_owns_unattributed_documents"),
+        )
     },
 )
 
@@ -93,7 +97,8 @@ internal const val API_KEY_COLUMNS = """
     k.id, k.tenant_key, k.name, k.key_prefix, k.enabled, k.created_at,
     k.last_used_at, k.expires_at, k.created_by, k.revoked_at, k.revoked_by,
     COALESCE(a.roles, k.roles) AS roles,
-    a.id AS application_id, a.sees_all_documents AS application_sees_all_documents
+    a.id AS application_id, a.sees_all_documents AS application_sees_all_documents,
+    a.owns_unattributed_documents AS application_owns_unattributed_documents
 """
 
 /**

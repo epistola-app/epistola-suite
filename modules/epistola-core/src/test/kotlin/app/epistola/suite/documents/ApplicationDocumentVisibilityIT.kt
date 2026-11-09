@@ -128,6 +128,28 @@ class ApplicationDocumentVisibilityIT : IntegrationTestBase() {
             }
     }
 
+    @Test
+    fun `the owner of unattributed documents also sees those requested without an application`() = scenario {
+        given { documentSetup() }
+            .whenever { setup -> generated(setup) }
+            .then { setup, world ->
+                val tenant = setup.tenant.id
+                val owner = principal(tenant, "Owner", seesAll = false, ownsUnattributed = true)
+                runAs(owner) {
+                    assertThat(ListGenerationJobs(tenant).query().map { it.id }).containsExactly(world.personRequest.id)
+                    assertThat(CountDocuments(tenant).query()).isEqualTo(1)
+                    assertThat(fetchAll(tenant).map { it.requestId }).containsExactly(world.personRequest.id)
+                    assertThat(GetDocumentMetadata(tenant, world.documentOf(world.personRequest)).query()).isNotNull
+                    assertThat(GetDocumentMetadata(tenant, world.documentOf(world.caseRequest)).query())
+                        .`as`("another application's document stays hidden from the owner").isNull()
+                }
+                runAs(world.caseSystem) {
+                    assertThat(GetDocumentMetadata(tenant, world.documentOf(world.personRequest)).query())
+                        .`as`("a restricted application that does not own them does not see them").isNull()
+                }
+            }
+    }
+
     private data class World(
         val caseSystem: EpistolaPrincipal,
         val tenantWide: EpistolaPrincipal,
@@ -156,7 +178,7 @@ class ApplicationDocumentVisibilityIT : IntegrationTestBase() {
     }
 
     /** A caller authenticated as a new application of [tenant], with every role. */
-    private fun principal(tenant: TenantKey, name: String, seesAll: Boolean): EpistolaPrincipal {
+    private fun principal(tenant: TenantKey, name: String, seesAll: Boolean, ownsUnattributed: Boolean = false): EpistolaPrincipal {
         val application: ApplicationKey = withMediator {
             CreateApplication(tenantKey = tenant, name = name, roles = TenantRole.entries.toSet(), seesAllDocuments = seesAll).execute().id
         }
@@ -168,7 +190,7 @@ class ApplicationDocumentVisibilityIT : IntegrationTestBase() {
             displayName = name,
             tenantMemberships = mapOf(tenant to TenantRole.entries.toSet()),
             currentTenantId = tenant,
-            application = PrincipalApplication(application, seesAllDocuments = seesAll),
+            application = PrincipalApplication(application, seesAllDocuments = seesAll, ownsUnattributedDocuments = ownsUnattributed),
         )
     }
 

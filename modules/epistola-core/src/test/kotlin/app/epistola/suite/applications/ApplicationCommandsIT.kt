@@ -11,6 +11,7 @@ import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
 import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.commands.DeleteApplication
+import app.epistola.suite.applications.commands.SetUnattributedDocumentsOwner
 import app.epistola.suite.applications.commands.UpdateApplication
 import app.epistola.suite.applications.queries.GetApplication
 import app.epistola.suite.applications.queries.ListApplications
@@ -83,6 +84,35 @@ class ApplicationCommandsIT : IntegrationTestBase() {
             assertThat(UpdateApplication(tenant, app, "Case system", "Our case system", seesAllDocuments = false).execute()).isTrue
             assertThat(LookupApiKeyByHash(hash).query()!!.application!!.seesAllDocuments).isFalse
             assertThat(GetApplication(tenant, app).query()!!.name).isEqualTo("Case system")
+        }
+    }
+
+    @Test
+    fun `one application of a tenant owns the unattributed documents, and its keys carry it`() {
+        val tenant = createTenant("Apps").id
+        val other = createTenant("Other").id
+        withMediator {
+            val case = CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
+            val registry = CreateApplication(tenant, "Registry", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
+            val elsewhere = CreateApplication(other, "Elsewhere", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
+            val key = CreateApiKey(tenant, "case", applicationId = case.id).execute()
+            val hash = apiKeyService.hashKey(key.plaintextKey)
+
+            assertThat(SetUnattributedDocumentsOwner(tenant, case.id, owns = true).execute()).isTrue
+            assertThat(SetUnattributedDocumentsOwner(other, elsewhere.id, owns = true).execute()).isTrue
+            assertThat(LookupApiKeyByHash(hash).query()!!.application!!.ownsUnattributedDocuments).isTrue
+
+            assertThat(SetUnattributedDocumentsOwner(tenant, registry.id, owns = true).execute()).isTrue
+            assertThat(ListApplications(tenant).query().filter { it.ownsUnattributedDocuments }.map { it.id })
+                .`as`("making another the owner takes them from the first").containsExactly(registry.id)
+            assertThat(LookupApiKeyByHash(hash).query()!!.application!!.ownsUnattributedDocuments).isFalse
+            assertThat(GetApplication(other, elsewhere.id).query()!!.ownsUnattributedDocuments)
+                .`as`("another tenant's owner is untouched").isTrue
+
+            assertThat(SetUnattributedDocumentsOwner(tenant, registry.id, owns = false).execute()).isTrue
+            assertThat(ListApplications(tenant).query().none { it.ownsUnattributedDocuments }).isTrue
+            assertThat(SetUnattributedDocumentsOwner(other, case.id, owns = true).execute())
+                .`as`("another tenant's application is not found").isFalse
         }
     }
 

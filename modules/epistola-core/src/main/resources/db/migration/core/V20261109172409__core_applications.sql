@@ -14,6 +14,7 @@ CREATE TABLE applications (
     description        VARCHAR(500),
     roles              VARCHAR(30)[] NOT NULL,
     sees_all_documents BOOLEAN NOT NULL DEFAULT false,
+    owns_unattributed_documents BOOLEAN NOT NULL DEFAULT false,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by         UUID REFERENCES users(id) ON DELETE SET NULL,
     UNIQUE (tenant_key, id)
@@ -21,10 +22,17 @@ CREATE TABLE applications (
 
 CREATE INDEX idx_applications_tenant_key ON applications(tenant_key);
 
+-- Rows that record no application: everything written before applications, and what a caller
+-- without one (a bearer token) requests. One application per tenant may own them, so a narrowed
+-- application keeps the documents it asked for before the upgrade.
+CREATE UNIQUE INDEX uq_applications_owns_unattributed_documents
+    ON applications(tenant_key) WHERE owns_unattributed_documents;
+
 COMMENT ON TABLE applications IS 'A calling system in one tenant (ADR 0054). Owns its API keys and the documents it requested.';
 COMMENT ON COLUMN applications.id IS 'UUIDv7, never reused, so a later application cannot inherit the documents of a deleted one';
 COMMENT ON COLUMN applications.roles IS 'Tenant roles the application acts with. Its API keys carry a copy in api_keys.roles.';
 COMMENT ON COLUMN applications.sees_all_documents IS 'True: sees every document of the tenant, as before applications existed. False: only the documents it requested.';
+COMMENT ON COLUMN applications.owns_unattributed_documents IS 'Also owns the requests, documents and results that record no application: written before applications existed, or requested by a caller without one. At most one per tenant.';
 
 -- A key belongs to an application of its own tenant. Deleting an application is allowed once its
 -- keys are revoked; the revoked keys keep their row and lose the link.
@@ -37,13 +45,20 @@ COMMENT ON COLUMN api_keys.application_id IS 'The application this key proves. N
 
 -- Every key that is not revoked becomes an application of its own: its name, its roles, seeing
 -- every document. Exactly what the key could do and see before. The application takes the key's
--- id, which is free in this table and keeps the pair recognisable.
+-- id, which is free in this table and keeps the pair recognisable. Collect cursors move from the key
+-- to the application, and consumer_partition_cursors.consumer_id holds the key's id: with the same
+-- id, every existing cursor already belongs to its application and nothing is re-delivered.
 INSERT INTO applications (id, tenant_key, name, roles, sees_all_documents, created_at, created_by)
 SELECT id, tenant_key, name, roles, true, created_at, created_by
 FROM api_keys
 WHERE revoked_at IS NULL;
 
 UPDATE api_keys SET application_id = id WHERE revoked_at IS NULL;
+
+-- A tenant with a single key: its application asked for every earlier document, so it owns the
+-- unattributed rows. With several keys nothing tells them apart; an administrator chooses the owner.
+UPDATE applications a SET owns_unattributed_documents = true
+WHERE (SELECT COUNT(*) FROM applications o WHERE o.tenant_key = a.tenant_key) = 1;
 
 -- Ownership of the generation pipeline. No foreign key: these tables are partitioned and high
 -- volume, and a document outlives a deleted application.

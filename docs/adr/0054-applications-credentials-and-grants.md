@@ -67,8 +67,11 @@ These callers **see every document of the tenant**, as everyone does today:
 - a person signed in to the UI (the UI shows counts and recent jobs, not document content);
 - a bearer token or the demo shared secret, which have no application.
 
-Rows without an application — written before this change, or by a caller without one — are seen only
-by the callers in that list.
+Rows without an application — **unattributed** rows, written before this change or requested by a
+caller without one — are seen by the callers in that list, and by **one application per tenant
+chosen as their owner**. That is how a narrowed application keeps the documents it asked for before
+the upgrade. Its owner also sees what a bearer token requests, until step 2 gives such callers an
+application of their own.
 
 The predicate is bound into the SQL of each query from the principal (`ADR 0048`, section 2: lists
 are filtered in the database), not applied to the rows afterwards.
@@ -80,6 +83,16 @@ the key, with the key's roles, marked as seeing every document. Two keys in one 
 integrations as far as the data shows, and merging them would widen one key's roles to the other's.
 An administrator then narrows each application by switching off "sees every document", adds keys to
 it and revokes old ones.
+
+A tenant with exactly one key — the usual case — makes that key's application the owner of the
+unattributed rows, so it keeps everything it asked for before. With several keys nothing tells their
+documents apart, and an administrator chooses the owner.
+
+**Collect cursors belong to the application.** The cursor's `consumer_id` is the application's id, so
+a new key carries on where the old one stopped. The upgrade gives each application its key's id,
+so every existing cursor already belongs to its application and nothing is delivered twice. This
+is also why the upgrade does not merge a tenant's keys into one application: two systems behind
+one cursor would each receive only part of the results.
 
 A key with no application — a revoked one, or one inserted by an older release after a rollback —
 authenticates, if it still can, as before: its own roles, every document of the tenant.
@@ -126,11 +139,11 @@ resource attributes exist (ADR 0048, delivery step 3). No grant table is added u
 - **Three tables gain a nullable column** (`document_generation_requests`, `documents`,
   `generation_results`), partitioned and high volume; each restricted query gains a predicate.
 - **Rows from before the upgrade are not backfilled.** Nothing recorded who submitted them, so they
-  have no application. Narrowing a migrated application therefore also hides its own older
-  documents and results from it; they stay reachable by callers that see every document.
-- **Collect cursors stay per key.** `consumer_id` is still the key's id, so a rotated key starts from
-  the oldest result its application still holds. Moving cursors to the application is a follow-up,
-  and must keep two keys of one tenant-wide application apart.
+  keep no application, and no partitioned, high-volume table is rewritten during the upgrade. The
+  tenant's owner of unattributed rows sees them; with several keys and no owner chosen, a narrowed
+  application loses sight of its own older documents until an administrator chooses one.
+- **Two keys of one application share its cursors.** Two systems must therefore be two
+  applications; giving a second system a key of the first would split the first one's results.
 - **Deleting an application is possible once its keys are revoked.** Its documents stay, seen only by
   tenant-wide callers; the id is never reused, so no later application inherits them.
 - **Credentials are managed in the UI only**, as API keys are today; neither REST nor MCP manages

@@ -45,7 +45,8 @@ import java.util.UUID
 /**
  * #749 over HTTP, through the real API-key filter: two calling applications of one tenant each
  * collect, list and download only what they requested, and a key from before applications — an
- * application that sees every document — still sees everything (ADR 0054).
+ * application that sees every document — still sees everything (ADR 0054). Collect cursors are the
+ * application's, so a rotated key carries on where the old one stopped.
  */
 @Import(
     TestcontainersConfiguration::class,
@@ -111,15 +112,49 @@ class ApplicationIsolationApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(caseDocuments, "$.items[*].documentId")).containsExactly(caseResults.getValue(caseRequest))
     }
 
+    @Test
+    fun `a new key of an application carries on where the old one stopped collecting`() {
+        val tenant = tenantWithRelease()
+        val (oldKey, newKey) = withMediator {
+            val case = CreateApplication(tenant, "Case system", roles = setOf(TenantRole.DOCUMENT_GENERATOR)).execute()
+            CreateApiKey(tenant, "case-2025", applicationId = case.id).execute().plaintextKey to
+                CreateApiKey(tenant, "case-2026", applicationId = case.id).execute().plaintextKey
+        }
+        // One node throughout: a second node of the same consumer would take half the partitions.
+        val node = "node-${UUID.randomUUID()}"
+
+        val first = generate(tenant, oldKey)
+        assertThat(drainGenerationJobs(tenant)).isEqualTo(1)
+        val firstPage = collectPage(tenant, oldKey, node)
+        assertThat(firstPage.results.keys).containsExactly(first)
+        assertThat(collectPage(tenant, oldKey, node, acknowledgeUpTo = firstPage.lastSequence).results)
+            .`as`("acknowledged").isEmpty()
+
+        val second = generate(tenant, newKey)
+        assertThat(drainGenerationJobs(tenant)).isEqualTo(1)
+        assertThat(collectPage(tenant, newKey, node).results.keys)
+            .`as`("the new key does not re-read what the old one acknowledged").containsExactly(second)
+    }
+
     /** Request ids to document ids, from one collect poll. */
-    private fun collect(tenant: TenantKey, key: String): Map<String, String> {
-        val response = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/generation/collect", key, "{}") {
+    private fun collect(tenant: TenantKey, key: String): Map<String, String> = collectPage(tenant, key, "node-${UUID.randomUUID()}").results
+
+    private data class CollectPage(val results: Map<String, String>, val lastSequence: Long?)
+
+    private fun collectPage(tenant: TenantKey, key: String, node: String, acknowledgeUpTo: Long? = null): CollectPage {
+        val body = if (acknowledgeUpTo == null) "{}" else """{"acknowledgeUpTo":$acknowledgeUpTo}"""
+        val response = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/generation/collect", key, body) {
             set(HttpHeaders.ACCEPT_ENCODING, "identity")
+            set("X-EP-Node-Id", node)
         }
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
-        return response.body!!.trimEnd('\n').split("\n")
-            .filterNot { "\"_meta\"" in it }
-            .associate { JsonPath.read<String>(it, "$.requestId") to JsonPath.read<String>(it, "$.documentId") }
+        val lines = response.body!!.trimEnd('\n').split("\n")
+        val meta = lines.single { "\"_meta\"" in it }
+        return CollectPage(
+            results = lines.filterNot { it == meta }
+                .associate { JsonPath.read<String>(it, "$.requestId") to JsonPath.read<String>(it, "$.documentId") },
+            lastSequence = JsonPath.read<Number?>(meta, "$.lastSequence")?.toLong(),
+        )
     }
 
     private fun generate(tenant: TenantKey, key: String): String {

@@ -53,7 +53,13 @@ data class EpistolaPrincipal(
      * The application whose documents alone this principal may see, or null when it sees every
      * document of the tenant: people, callers without an application, and applications marked so.
      */
-    fun documentsRestrictedTo(): ApplicationKey? = application?.takeUnless { it.seesAllDocuments }?.id
+    fun documentsRestrictedTo(): PrincipalApplication? = application?.takeUnless { it.seesAllDocuments }
+
+    /**
+     * Whose collect cursors this principal reads and advances: its application, so a rotated key
+     * carries on where the old one stopped (ADR 0054). A caller without one keeps its own id.
+     */
+    fun collectConsumerId(): String = (application?.id?.value ?: userId.value).toString()
 
     /**
      * Human-readable label for signed-in UI chrome.
@@ -121,10 +127,17 @@ data class EpistolaPrincipal(
     fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.keys.firstOrNull()
 }
 
-/** The application an [EpistolaPrincipal] acts for, as its credential resolved it. */
+/**
+ * The application an [EpistolaPrincipal] acts for, as its credential resolved it.
+ *
+ * @property ownsUnattributedDocuments Also owns the requests, documents and results that record no
+ *   application: those from before applications existed, and those a caller without one (a bearer
+ *   token) requests (ADR 0054). At most one application per tenant.
+ */
 data class PrincipalApplication(
     val id: ApplicationKey,
     val seesAllDocuments: Boolean,
+    val ownsUnattributedDocuments: Boolean = false,
 ) : Serializable {
     companion object {
         private const val serialVersionUID: Long = 1L

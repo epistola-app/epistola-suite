@@ -66,6 +66,7 @@ class CreateApplicationHandler(
             description = command.description?.trim()?.takeIf { it.isNotEmpty() },
             roles = command.roles,
             seesAllDocuments = command.seesAllDocuments,
+            ownsUnattributedDocuments = false,
             createdAt = EpistolaClock.instant(),
             createdBy = currentUserIdOrNull(),
         )

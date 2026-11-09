@@ -275,8 +275,10 @@
                     <div class="consumer-identity">
                         <div class="consumer-name" th:text="${consumer.label}">Consumer</div>
                         <div class="consumer-meta-line">
-                            <code class="consumer-key" th:text="${consumer.keyPrefix}">epk_xxxx</code>
-                            <span class="consumer-meta-sep">·</span>
+                            <th:block th:if="${consumer.keyPrefix != null}">
+                                <code class="consumer-key" th:text="${consumer.keyPrefix}">epk_xxxx</code>
+                                <span class="consumer-meta-sep">·</span>
+                            </th:block>
                             <span th:text="${consumer.authMethod}">API key</span>
                         </div>
                     </div>

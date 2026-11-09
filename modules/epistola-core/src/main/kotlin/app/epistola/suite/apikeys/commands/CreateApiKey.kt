@@ -100,7 +100,7 @@ class CreateApiKeyHandler(
             expiresAt = command.expiresAt,
             createdBy = command.createdBy,
             roles = application.roles,
-            application = PrincipalApplication(application.id, application.seesAllDocuments),
+            application = PrincipalApplication(application.id, application.seesAllDocuments, application.ownsUnattributedDocuments),
         )
 
         jdbi.useHandle<Exception> { handle ->

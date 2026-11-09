@@ -18,6 +18,9 @@ import java.time.OffsetDateTime
  * @property roles The tenant roles the application acts with; each of its keys carries a copy.
  * @property seesAllDocuments True: sees every document of the tenant, as callers did before
  *   applications existed. False: only the documents it requested.
+ * @property ownsUnattributedDocuments Also owns the requests, documents and results that record no
+ *   application: those from before applications existed, and those a caller without one (a bearer
+ *   token) requests (ADR 0054). At most one application per tenant.
  * @property activeKeyCount Keys that are not revoked; set by the listing queries.
  */
 data class Application(
@@ -27,6 +30,7 @@ data class Application(
     val description: String?,
     val roles: Set<TenantRole>,
     val seesAllDocuments: Boolean,
+    val ownsUnattributedDocuments: Boolean,
     val createdAt: Instant,
     val createdBy: UserKey?,
     val createdByDisplayName: String? = null,
@@ -38,7 +42,7 @@ const val MAX_APPLICATION_DESCRIPTION_LENGTH = 500
 
 /** The columns every application query selects, aliased from `applications a`. */
 internal const val APPLICATION_COLUMNS = """
-    a.id, a.tenant_key, a.name, a.description, a.roles, a.sees_all_documents, a.created_at, a.created_by,
+    a.id, a.tenant_key, a.name, a.description, a.roles, a.sees_all_documents, a.owns_unattributed_documents, a.created_at, a.created_by,
     COALESCE(u.display_name, u.email) AS created_by_display_name,
     (SELECT COUNT(*) FROM api_keys k WHERE k.application_id = a.id AND k.revoked_at IS NULL) AS active_key_count
 """
@@ -56,6 +60,7 @@ internal fun ResultSet.toApplication(): Application = Application(
     description = getString("description"),
     roles = tenantRolesFromSqlArray(getArray("roles")),
     seesAllDocuments = getBoolean("sees_all_documents"),
+    ownsUnattributedDocuments = getBoolean("owns_unattributed_documents"),
     createdAt = getObject("created_at", OffsetDateTime::class.java).toInstant(),
     createdBy = getString("created_by")?.let { UserKey.of(it) },
     createdByDisplayName = getString("created_by_display_name"),

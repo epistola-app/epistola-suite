@@ -6,7 +6,8 @@
             pageTitle=${app.name},
             backLinkHref=@{/tenants/{tenantId}/applications(tenantId=${tenantId})},
             backLinkLabel='Applications',
-            pageDescription=${app.description != null ? app.description : 'A system that calls this tenant through the REST API.'}
+            pageDescription=${app.description != null ? app.description : 'A system that calls this tenant through the REST API.'},
+            actions=${auth.has('CREDENTIALS_MANAGE')} ? ~{::application-actions} : null
         )}"></div>
 
         <div class="ep-panel detail-section" data-testid="application-roles">
@@ -39,6 +40,31 @@
                     <input type="hidden" name="seesAllDocuments" th:value="${!app.seesAllDocuments}">
                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="application-documents-toggle"
                             th:text="${app.seesAllDocuments} ? 'Only its own documents' : 'Every document'">Only its own documents</button>
+                </form>
+            </div>
+            <!--/* Unattributed documents record no application: requested before applications existed, or by a
+                 caller without one. One application of the tenant may own them; it matters only once narrowed. */-->
+            <div class="detail-section-body ep-row" th:unless="${app.seesAllDocuments}"
+                 style="justify-content: space-between; gap: var(--ep-space-4); border-top: 1px solid var(--ep-border-color);"
+                 data-testid="application-unattributed">
+                <p style="margin: 0;" th:if="${app.ownsUnattributedDocuments}">
+                    <span class="badge badge-outline">Owns unattributed documents</span>
+                    Also sees the documents that record no application: those requested before applications existed,
+                    and those requested with a bearer token.
+                </p>
+                <p style="margin: 0;" th:unless="${app.ownsUnattributedDocuments}">
+                    Documents that record no application — requested before applications existed, or with a bearer
+                    token — are not shown to it.
+                    <th:block th:if="${unattributedOwner != null}">
+                        They belong to <a th:href="@{/tenants/{t}/applications/{a}(t=${tenantId},a=${unattributedOwner.id})}"
+                                          th:text="${unattributedOwner.name}">Case system</a>; giving them to this application takes them from it.
+                    </th:block>
+                </p>
+                <form th:if="${auth.has('CREDENTIALS_MANAGE')}" method="post"
+                      th:action="@{/tenants/{t}/applications/{a}/unattributed-documents(t=${tenantId},a=${app.id})}">
+                    <input type="hidden" name="owns" th:value="${!app.ownsUnattributedDocuments}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="application-unattributed-toggle"
+                            th:text="${app.ownsUnattributedDocuments} ? 'Give them up' : 'Give it unattributed documents'">Give it unattributed documents</button>
                 </form>
             </div>
         </div>
@@ -145,8 +171,8 @@
         </div>
 
         <div id="dialog-mount" data-dialog-mount>
-            <th:block th:if="${openDialog}">
-                <th:block th:replace="~{applications/new-key :: dialog}"></th:block>
+            <th:block th:if="${openDialog != null}">
+                <th:block th:replace="~{${openDialog} :: dialog}"></th:block>
             </th:block>
         </div>
 
@@ -158,5 +184,15 @@
             }
         </style>
     </th:block>
+
+<th:block th:fragment="application-actions">
+    <button type="button" class="ep-btn ep-btn-outline"
+            th:hx-get="@{/tenants/{t}/applications/{a}/edit(t=${tenantId},a=${app.id})}"
+            hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+            data-testid="application-edit-open">
+        <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon')}" />
+        Edit
+    </button>
+</th:block>
 </body>
 </html>

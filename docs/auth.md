@@ -550,8 +550,10 @@ Applications are managed per tenant under **Operations → Applications** (`/ten
 
 - **Create an application:** name it, pick its **roles** (`content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and choose whether it **sees every document of the tenant**. Leave that off for an integration. Roles are fixed at creation.
 - **Create a key** on the application's page: name it and optionally set an expiration date. The key acts with the application's roles. The plaintext key is shown **exactly once** — store it immediately.
-- **Rotate** by creating the new key before revoking the old: ownership of documents stays with the application.
+- **Rotate** by creating the new key before revoking the old: ownership of documents stays with the application, and so does its collect position — the new key carries on where the old one stopped.
+- **Edit** an application's name and description from its page; its keys and documents are untouched.
 - **Narrow** an application from its page: switch it to its own documents only.
+- **Give it the unattributed documents** — the tenant's documents that record no application (see below). One application per tenant owns them; giving them to another takes them from it.
 - **Delete** an application once all its keys are revoked. Its documents stay, reachable only by callers that see every document.
 
 `/tenants/{tenantId}/api-keys` redirects to the applications page.
@@ -563,11 +565,20 @@ the collect result copy it. A caller whose application does **not** see every do
 its own: the collect feed, job listing and status, cancelling, document listing, download and delete.
 Another application's document is a 404, as another tenant's is. These callers see every document of
 the tenant: an application marked so, a person signed in to the UI, a bearer token and the demo shared
-secret. Documents requested without an application are seen only by them.
+secret.
+
+Documents that record no application — requested before applications existed, or by a caller without
+one, such as a bearer token — are **unattributed**. Besides the callers above, they are seen by the
+one application of the tenant chosen as their owner.
+
+Collect cursors belong to the application: all its keys read and acknowledge one position, so two
+systems must be two applications, not two keys of one.
 
 On the upgrade to applications, every key that was not revoked became an application of its own,
-named after the key, with its roles, **seeing every document** — so integrations keep working as
-before until an administrator narrows them.
+named after the key and with the key's id, with its roles, **seeing every document** — so integrations
+keep working as before until an administrator narrows them, and each key's collect position became
+its application's. In a tenant with a single key, that key's application owns the unattributed
+documents; with several, an administrator chooses the owner.
 
 Keys are **non-personal accounts (NPAs)** — the key itself becomes the actor identity for audit trails.
 

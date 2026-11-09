@@ -2541,6 +2541,7 @@ PARTITION BY RANGE (created_at)
 + CREATE INDEX idx_api_keys_application_id ON public.api_keys USING btree (application_id) WHERE (application_id IS NOT NULL)
 + CREATE INDEX idx_applications_tenant_key ON public.applications USING btree (tenant_key)
 + CREATE INDEX idx_generation_results_application ON ONLY public.generation_results USING btree (application_id, partition, sequence) WHERE (application_id IS NOT NULL)
++ CREATE UNIQUE INDEX uq_applications_owns_unattributed_documents ON public.applications USING btree (tenant_key) WHERE owns_unattributed_documents
 + CREATE TABLE public.api_keys (
     application_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -2563,6 +2564,7 @@ PARTITION BY RANGE (created_at)
     description character varying(500),
     id uuid NOT NULL,
     name character varying(100) NOT NULL,
+    owns_unattributed_documents boolean DEFAULT false NOT NULL,
     roles character varying(30)[] NOT NULL,
     sees_all_documents boolean DEFAULT false NOT NULL,
     tenant_key public.tenant_key NOT NULL
