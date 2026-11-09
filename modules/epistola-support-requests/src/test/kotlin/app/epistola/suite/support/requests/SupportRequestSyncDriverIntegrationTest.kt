@@ -771,7 +771,11 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val supportRequest = createSyncedSupportRequest(tenant)
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
         recording.failUpdateStatus = true
+        // The change is sent in the background, here later than the command returns.
+        recording.beforeSend = { outbound, _ -> if (outbound == RecordingSupportRequestSyncPort.Outbound.STATUS) Thread.sleep(300) }
         withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
+        // Waited for while sending still fails, so the status stays waiting to be sent.
+        backgroundWork.awaitIdle()
         recording.failUpdateStatus = false
         recording.statusUpdates.clear()
         recording.pages.addLast(

@@ -117,10 +117,18 @@ class SupportTelemetryOutageLoggingTest {
     /** What the leg logged about export outcomes so far: its WARN, its DEBUGs and its INFO. */
     private fun outcomes() = events().count { it.loggerName.startsWith(OWN_PACKAGE) && it.formattedMessage.contains("export") }
 
-    /** Exports finish on the exporter's own thread; waits for the [n]th outcome, at most a few seconds. */
-    private fun awaitOutcomes(n: Int) {
-        val until = System.nanoTime() + Duration.ofSeconds(5).toNanos()
-        while (outcomes() < n && System.nanoTime() < until) Thread.sleep(20)
+    /**
+     * Flushes with [flush] until the [n]th outcome is logged, at most [OUTCOME_WAIT]. Once is not
+     * enough: OpenTelemetry's batch processor drops a flush asked for in the moment the previous one
+     * is completing (it answers with that one's result), and the record then waits for the next
+     * flush. A flush with nothing queued exports nothing, so flushing again adds no outcome.
+     */
+    private fun flushUntilOutcomes(n: Int, flush: () -> Unit) {
+        val until = System.nanoTime() + OUTCOME_WAIT.toNanos()
+        while (outcomes() < n && System.nanoTime() < until) {
+            flush()
+            Thread.sleep(20)
+        }
     }
 
     private fun recovered() = own(Level.INFO).any { it.formattedMessage.contains("again") }
@@ -155,8 +163,7 @@ class SupportTelemetryOutageLoggingTest {
 
         repeat(3) {
             appLogger.warn("during the outage {}", it)
-            leg.flush()
-            awaitOutcomes(it + 1)
+            flushUntilOutcomes(it + 1) { leg.flush() }
         }
 
         assertLoggedOneOutage(outage)
@@ -205,5 +212,8 @@ class SupportTelemetryOutageLoggingTest {
 
         /** How long the logs leg may take to get an export through once the outage ends. */
         val RECOVERY_WAIT: Duration = Duration.ofSeconds(30)
+
+        /** How long one export's outcome may take on a busy machine. */
+        val OUTCOME_WAIT: Duration = Duration.ofSeconds(30)
     }
 }
