@@ -13,6 +13,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.exchangedUnderLockedConsent
+import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -68,16 +69,8 @@ class UpdateSupportRequestStatusHandler(
         // change made while it is exchanged under the consent in force. A change made while sharing
         // is off is never sent, also once consent is given again. A request still on its way is
         // marked by UpdateSupportRequestSyncRef if this changed it.
-        handle.createUpdate(
-            """
-            UPDATE support_request_deliveries d
-            SET status_unsent = ${exchangedUnderLockedConsent("f")}, next_attempt_at = NULL, status_attempts = 0
-            FROM support_requests f
-            WHERE f.tenant_key = d.tenant_key AND f.id = d.request_id
-              AND d.tenant_key = :tenantKey AND d.request_id = :id AND d.connection_id = $REQUESTS_CONNECTION_SQL
-              AND d.remote_ref IS NOT NULL
-            """,
-        )
+        // Every connection the request is delivered to, each as its consent says (ADR 0053 step 3).
+        handle.createUpdate(markStatusUnsentSql())
             .bind("tenantKey", command.id.tenantKey)
             .bind("id", command.id.key.value)
             .execute()

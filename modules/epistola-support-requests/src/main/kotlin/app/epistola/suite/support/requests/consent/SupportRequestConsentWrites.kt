@@ -124,7 +124,7 @@ internal object SupportRequestConsentWrites {
         handle.createUpdate(
             """
             UPDATE support_request_messages c SET sync_consent_id = NULL
-            WHERE c.tenant_key IN (<tenants>) AND c.kind = 'REPLY' AND c.from_connection IS NULL AND c.sync_consent_id IS NOT NULL
+            WHERE c.tenant_key IN (<tenants>) AND c.kind = 'REPLY' AND c.from_connection IS DISTINCT FROM $connection AND c.sync_consent_id IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM support_request_delivered_items dm
                               WHERE dm.tenant_key = c.tenant_key AND dm.request_id = c.request_id AND dm.item_id = c.id
                                 AND dm.connection_id = $connection AND dm.remote_id IS NOT NULL)

@@ -19,6 +19,7 @@ import app.epistola.suite.support.requests.consent.SupportRequestLedger
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.lockedConsentInForce
 import app.epistola.suite.support.requests.consent.lockedConsentInForceId
+import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import app.epistola.suite.support.requests.sync.SupportRequestSyncKick
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Handle
@@ -98,13 +99,16 @@ data class SetSupportDeskStatus(
 class SetSupportDeskStatusHandler(private val jdbi: Jdbi) : CommandHandler<SetSupportDeskStatus, Boolean> {
     override fun handle(command: SetSupportDeskStatus): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
         requireHandledHere(handle, command.tenant, command.request)
-        handle.createUpdate(
+        val changed = handle.createUpdate(
             "UPDATE support_requests SET status = :status, updated_at = NOW() WHERE tenant_key = :tenant AND id = :request AND handler_connection IS NULL AND status <> :status",
         )
             .bind("tenant", command.tenant)
             .bind("request", command.request.value)
             .bind("status", command.status.name)
             .execute() > 0
+        // The connections attached to the request are told (ADR 0053 step 3).
+        if (changed) handle.createUpdate(markStatusUnsentSql()).bind("tenantKey", command.tenant).bind("id", command.request.value).execute()
+        changed
     }
 }
 

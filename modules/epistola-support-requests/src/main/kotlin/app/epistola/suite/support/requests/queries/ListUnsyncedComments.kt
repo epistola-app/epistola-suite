@@ -52,7 +52,7 @@ class ListUnsyncedCommentsHandler(
             JOIN support_request_deliveries d ON d.tenant_key = c.tenant_key AND d.request_id = c.request_id
                 AND d.connection_id = ${connectionSql(query.connectionId)}
             WHERE c.kind = 'REPLY'
-              AND c.from_connection IS NULL
+              AND c.from_connection IS DISTINCT FROM d.connection_id
               AND dm.remote_id IS NULL
               AND d.state = :syncStatus
               AND d.remote_ref IS NOT NULL

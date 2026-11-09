@@ -15,7 +15,9 @@ import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.SupportRequestLedger
 import app.epistola.suite.support.requests.consent.connectionSql
+import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -40,13 +42,18 @@ class SyncSupportRequestCommentHandler(
     override fun handle(command: SyncSupportRequestComment): SupportRequestComment? = jdbi.withHandleUnchecked { handle ->
         // A reply from the connection, under its id for it: one that arrives again is stored once.
         val commentKey = SupportRequestCommentKey.generate()
+        // Each party gets what the others write (ADR 0053 step 3): a reply from another connection
+        // carries the grant Epistola support's connection reads while the tenant shares with it; one
+        // from Epistola support itself never goes back there.
+        val grant = if (command.connectionId == REQUESTS_CONNECTION) "NULL" else lockedConsentInForceId(":tenantKey")
         val inserted = handle.createUpdate(
             """
             INSERT INTO support_request_messages (
-                tenant_key, request_id, id, kind, body, author_name, author_email, from_connection, remote_id, created_at
+                tenant_key, request_id, id, kind, body, author_name, author_email, from_connection, remote_id, created_at, sync_consent_id
             )
             VALUES (
-                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, ${connectionSql(command.connectionId)}, :externalCommentId, NOW()
+                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, ${connectionSql(command.connectionId)}, :externalCommentId, NOW(),
+                $grant
             )
             ON CONFLICT (tenant_key, from_connection, remote_id) WHERE remote_id IS NOT NULL DO NOTHING
             """,
@@ -60,6 +67,8 @@ class SyncSupportRequestCommentHandler(
             .bind("externalCommentId", command.externalCommentId)
             .execute()
         if (inserted == 0) return@withHandleUnchecked null
+        // And it goes to every other connection the request is delivered to that the tenant shares with.
+        SupportRequestLedger.recordItem(handle, command.tenantKey, command.supportRequestId.value, commentKey.value, fromConnection = command.connectionId)
         handle.createQuery("$SELECT_SUPPORT_REQUEST_REPLY WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id")
             .bind("tenantKey", command.tenantKey)
             .bind("feedbackId", command.supportRequestId.value)

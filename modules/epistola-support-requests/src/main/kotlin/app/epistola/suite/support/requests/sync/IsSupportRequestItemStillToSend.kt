@@ -97,7 +97,7 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                                LEFT JOIN support_request_delivered_items dm ON dm.tenant_key = c.tenant_key AND dm.request_id = c.request_id
                                    AND dm.item_id = c.id AND dm.connection_id = d.connection_id
                                WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id
-                                 AND c.kind = 'REPLY' AND c.from_connection IS NULL
+                                 AND c.kind = 'REPLY' AND c.from_connection IS DISTINCT FROM d.connection_id
                                  AND dm.remote_id IS NULL
                                  AND ${mayGoTo("c", "dm", "d")}
                                  AND ${exchangedWith("f", "d")})
