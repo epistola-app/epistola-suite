@@ -42,6 +42,10 @@
                     </tr>
                 </tbody>
             </table>
+            <p class="text-muted text-sm" th:if="${tenantReference != null}" data-testid="support-tenant-reference">
+                This installation keeps its tenants confidential: Epistola knows this tenant only as
+                <code th:text="${tenantReference}">t-3f9a…</code>.
+            </p>
         </section>
 
         <!--/* The tenant's support pages: the Support nav group's other items, contributed by their modules. */-->

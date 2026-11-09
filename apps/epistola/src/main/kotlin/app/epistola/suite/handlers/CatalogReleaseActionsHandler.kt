@@ -296,7 +296,7 @@ class CatalogReleaseActionsHandler {
                     e.behind.joinToString { "v$it" } + ", which it is behind.",
             )
         } catch (e: Exception) {
-            logger.warn("Failed to release catalog: ${e.message}", e)
+            logger.warn("Failed to release catalog: {}", e.message, e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
         }
     }

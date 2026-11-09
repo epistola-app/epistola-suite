@@ -8,6 +8,8 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.GetTenantSupportSummary
+import app.epistola.suite.support.connection.TenantSupportConnection
+import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -20,7 +22,7 @@ import org.springframework.web.servlet.function.ServerResponse
  * Reads stored state only; the page never calls the support service.
  */
 @Component
-class SupportOverviewHandler {
+class SupportOverviewHandler(private val references: TenantReferences) {
     fun overview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val summary = GetTenantSupportSummary(tenantId.key).query()
@@ -31,6 +33,8 @@ class SupportOverviewHandler {
             "tenant" to tenant
             "tenantId" to tenantId.key
             "summary" to summary
+            // A confidential tenant names itself to Epistola support by its reference; the connection off, it has nothing to name.
+            "tenantReference" to references.takeIf { summary.connection != TenantSupportConnection.OFF && it.confidential() }?.reference(tenantId.key)
         }
     }
 }

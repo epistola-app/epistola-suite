@@ -4,17 +4,16 @@
 
 ### Changed
 
-- **Breaking: `support.hub.*` and `support.telemetry` are removed; the support connection takes
-  `support.endpoint`.** From Epistola 2.0 the installation connects to the Epistola support service
+- **Breaking: `support.hub.*` is removed; the support connection takes `support.endpoint`.** From Epistola 2.0 the installation connects to the Epistola support service
   over HTTPS with OAuth client credentials instead of the gRPC hub. `support.endpoint` is the
   service's URL and renders `EPISTOLA_SUPPORT_ENDPOINT`; leave it empty to find the service through
-  `productDomain`. `EPISTOLA_SUPPORT_HUB_ENDPOINT` and `EPISTOLA_SUPPORT_TELEMETRY_ENABLED` are no
-  longer rendered, and the schema refuses `support.hub`, so a values file that still sets it fails
+  `productDomain`. `EPISTOLA_SUPPORT_HUB_ENDPOINT` is no longer rendered, and the schema refuses `support.hub`, so a values file that still sets it fails
   instead of being ignored: delete `support.hub.endpoint`, and set `support.endpoint` only if you
   used a self-hosted hub. The schema accepts only an `https:` URL there, since plaintext is a
   local-development setting the chart does not expose. After upgrading, an installation with
   `support.enabled` registers again and shows a claim code under Platform → Epistola support to send
-  to Epistola support (docs/support-protocol.md).
+  to Epistola support (docs/support-protocol.md). `support.telemetry.enabled` stays, and now
+  forwards to the support service while Epistola grants the `telemetry` scope, instead of to the hub.
 
 - **`appVersion` is pinned in the chart, `1.5.0`.** Publishing a chart used to set it to the newest
   app release, so a chart patch could move an installation to a new app major. It is now chosen when
@@ -28,6 +27,11 @@
   the application port. A scrape configured explicitly for port `4000` must move to `4040`.
 
 ### Added
+
+- **`support.privacy.tenantIdentity` and `support.privacy.telemetry`**: what Epistola sees of the
+  tenants (`confidential`, the default, or `named`) and how much telemetry carries (`pseudonymised`,
+  the default, or `full`), rendered as `EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY` and
+  `EPISTOLA_SUPPORT_PRIVACY_TELEMETRY` when set. An installation administrator's saved settings win.
 
 - **`support.autoRegister` — let the installation register with Epistola support on its own.** From
   Epistola 2.0, an installation with `support.enabled` registers only when an installation

@@ -22,6 +22,9 @@ epistola-contract = "2.0.0-beta.4"
 nimbus-jose-jwt = "10.10"
 # Checks the stand-in support service against docs/support-api.yaml (tests only).
 swagger-request-validator = "2.46.1"
+# Test only: decodes the OTLP payloads the support telemetry leg sends. The version Micrometer's
+# OTLP registry ships with (outside the Spring Boot BOM).
+otlp-proto = "1.10.0-alpha"
 epistola-exchange-client = "0.1.1"
 aws-sdk = "2.57.8"
 guava = "33.7.2-jre"
@@ -62,6 +65,7 @@ epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-spring
 epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 swagger-request-validator = { module = "com.atlassian.oai:swagger-request-validator-core", version.ref = "swagger-request-validator" }
+otlp-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", version.ref = "otlp-proto" }
 epistola-exchange-client = { module = "app.epistola.exchange:client", version.ref = "epistola-exchange-client" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }

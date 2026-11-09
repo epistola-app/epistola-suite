@@ -11,8 +11,9 @@ your own OpenTelemetry pipeline.
 > document-generation business meters, for the operator's own attribution.
 > Exports: scrape `/actuator/prometheus`, or attach an OpenTelemetry Java agent
 > (bring-your-own — the app's own OTLP export stays off so the agent owns that
-> leg with no double export). Forwarding to Epistola support is a separate
-> leg — see [Support leg](#support-leg).
+> leg with no double export). Forwarding to the **Epistola support service** is a
+> separate leg that runs only while Epistola grants the installation `telemetry` —
+> see [Support service leg](#support-service-leg).
 
 ## Identity tags (on every meter)
 
@@ -356,8 +357,34 @@ This matters because `GrafanaAlertRuleGroup.spec.folderRef`/`folderUID` are
 the folder anchor never needs to change, so upgrades never hit the immutability
 wall (and the display `title` can still be renamed freely).
 
-## Support leg
+## Support service leg
 
-Forwarding metrics to Epistola support is not part of this release: the gRPC hub leg was removed
-with the hub ([ADR 0050](adr/0050-support-connection.md)), and its replacement over the support
-connection's `telemetry` scope ([Epistola support](support.md)) lands separately.
+When the installation is connected to the **Epistola support service**
+([`support-protocol.md`](support-protocol.md)), `modules/epistola-support-telemetry`
+pushes every application meter to it. It is the suite's own, isolated leg: separate from a
+bring-your-own agent and from Spring Boot's `management.otlp.metrics.export`, which keep
+working beside it and never see the support token. [ADR 0050](adr/0050-support-connection.md) §8 records
+why it is OTLP/HTTP, installation-wide and gated by the granted scope.
+
+- **Transport.** OTLP/HTTP, binary protobuf, gzip: `POST {epistola_otlp_endpoint}/v1/metrics`,
+  every `epistola.support.telemetry.metric-step` (default 60 s), with **delta** temporality.
+  `Authorization: Bearer` carries the token the node already holds; a rotated token is used
+  from the next publish on.
+- **Gate.** Each publish is sent only while Epistola grants the `telemetry` scope and the node
+  knows the endpoint and holds a token; otherwise that step is dropped. A grant or a withdrawal
+  takes effect without a restart, and with delta temporality nothing builds up meanwhile.
+- **What is sent.** Every meter of the app (the JVM, HTTP, database pool and `epistola.*`
+  meters), with the resource attributes `service.name`, `service.instance.id` (the node id),
+  `service.version`, `deployment.environment` and `epistola.installation.id`. These come from the
+  suite, never from the customer's `OTEL_*` environment. The per-tenant `tenant` tag is
+  **stripped** by default (`strip-tenant-tag-from-metrics`), and the `template` tag always,
+  before aggregation; Prometheus and Boot's own OTLP export keep both. Boot's `management.metrics.*` filters and histogram settings do not apply to
+  this leg.
+- **Wiring.** The registry is a `SupportTelemetryMeterRegistry`, a composite around a private
+  `OtlpMeterRegistry`, so it joins Boot's primary composite and receives every app meter. It
+  never exposes a bean of type `OtlpMeterRegistry`, `OtlpMetricsSender` or `OtlpConfig`: any of
+  those would switch off Boot's own OTLP export.
+- **Switches.** `epistola.support.telemetry.enabled` (default `true`, Helm
+  `support.telemetry.enabled`) and `epistola.support.telemetry.metrics` (default `true`). They
+  default to on because nothing is sent unless Epistola granted `telemetry`; set either to
+  `false` to opt out locally whatever Epistola grants.

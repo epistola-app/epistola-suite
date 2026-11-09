@@ -421,6 +421,21 @@ epistola:
     # Deadline for one whole call to the support service, request and answer (a request body adds a
     # second per 512 KiB). No call runs on a request or scheduler thread (docs/support-protocol.md, "Reliability").
     read-timeout: 30s
+    # What Epistola sees of the tenants and how much telemetry carries, until an installation
+    # administrator saves them under Platform → Epistola support (docs/support.md, "Privacy").
+    privacy:
+      tenant-identity: confidential # confidential (each tenant as a reference) or named
+      telemetry: pseudonymised # pseudonymised (log messages without their values) or full
+    # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
+    # support service. On by default when the support connection is on: the real gate is the
+    # `telemetry` service being selected (above) and granted by Epistola. Set `enabled: false` to opt out. Separate from any
+    # bring-your-own OpenTelemetry agent / management.otlp.* self-export leg (no double export).
+    telemetry:
+      enabled: true
+      logs: true
+      metrics: true
+      log-level: INFO # Minimum level forwarded
+      strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
 
   # Installation identity, sent when the installation registers with the support service so
   # Epistola staff recognise it; blank fields are left out. Override per environment via

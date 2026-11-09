@@ -125,7 +125,7 @@ class CatalogImportHandler {
             // unrecognised — the migrator rejected it before binding. Render the
             // actionable remediation message inline, so the operator knows whether to upgrade
             // this instance or re-export from a current source.
-            logger.warn("Import blocked by catalog wire-format version: ${e.message}")
+            logger.warn("Import blocked by catalog wire-format version: {}", e.message)
             val title = when (e) {
                 is CatalogSchemaTooNewException -> "Import blocked: catalog format is too new"
                 is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
@@ -143,7 +143,7 @@ class CatalogImportHandler {
         } catch (e: ReleaseRenderingDefaultsTooNewException) {
             // The release renders with defaults a newer Epistola has: the same remediation as a wire
             // format that is too new.
-            logger.warn("Import blocked by rendering defaults version: ${e.message}")
+            logger.warn("Import blocked by rendering defaults version: {}", e.message)
             fragmentOrPage(
                 request,
                 "catalogs/import",
@@ -186,7 +186,7 @@ class CatalogImportHandler {
                 ),
             )
         } catch (e: Exception) {
-            logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
+            logger.warn("Failed to import catalog from ZIP: {}", e.message, e)
             importError(request, e.message ?: "Failed to import catalog")
         }
     }

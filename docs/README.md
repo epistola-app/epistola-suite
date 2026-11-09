@@ -134,7 +134,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Audit log](audit-log.md)                                  | Current  | The PII-free, append-only record of who did and read what.               |
 | [Version check](version-check.md)                          | Current  | The default-on daily release and support check, and how to disable it.   |
 | [Data shared with Epistola](outbound-traffic.md)           | Current  | What an installation shares, every outbound call, the support badge.     |
-| [Epistola support](support.md)                             | Alpha    | Connecting to Epistola support: applying, services, disconnecting.       |
+| [Epistola support](support.md)                             | Alpha    | Connecting to Epistola support: applying, services, privacy, telemetry.  |
 | [Support service protocol](support-protocol.md)            | Alpha    | How an installation registers with Epistola support, tokens, services.   |
 | [SBOM](sbom.md)                                            | Current  | CycloneDX SBOM generation for backend and frontend, and scanning it.     |
 | [Load testing](loadtesting.md)                             | Current  | The embedded load-test feature for measuring installation capacity.      |

@@ -71,6 +71,10 @@ dependencies {
     // Feedback feature — full domain + UI, kept in this installation. Pulls in the feedback domain.
     implementation(project(":modules:epistola-support-feedback"))
 
+    // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to the support
+    // service when the installation holds the telemetry scope.
+    implementation(project(":modules:epistola-support-telemetry"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)
@@ -131,6 +135,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
     testImplementation("org.springframework.boot:spring-boot-starter-opentelemetry-test")
+    // The support telemetry test publishes the OTLP registries on demand.
+    testImplementation("io.micrometer:micrometer-registry-otlp")
     testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-authorization-server-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-client-test")
