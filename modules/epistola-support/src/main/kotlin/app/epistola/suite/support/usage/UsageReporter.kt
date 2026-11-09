@@ -68,7 +68,7 @@ class UsageReporter(
 
     @Volatile private var moment: Duration? = null
 
-    /** One reporter per connection, kept: each its own back-off, position and lock (ADR 0053 step 3). */
+    /** One reporter per connection usage goes to, kept while it does: each its own back-off, position and lock (ADR 0053 step 3). */
     private val reporters = java.util.concurrent.ConcurrentHashMap<UUID, ConnectionReporter>()
 
     private fun reporterFor(connection: SupportConnection): ConnectionReporter = reporters.compute(connection.id) { _, existing ->
@@ -292,7 +292,10 @@ class UsageReporter(
     fun tick() {
         val now = EpistolaClock.instant()
         if (now.isBefore(now.truncatedTo(ChronoUnit.HOURS).plus(reportMoment()))) return
-        connections().forEach { reporterFor(it).tick(now) }
+        val current = connections()
+        // A connection removed or no longer taking usage leaves no reporter behind.
+        reporters.keys.retainAll(current.map { it.id }.toSet())
+        current.forEach { reporterFor(it).tick(now) }
     }
 
     /** Counts and sends every finished hour not reported yet to Epistola support, oldest first. */
