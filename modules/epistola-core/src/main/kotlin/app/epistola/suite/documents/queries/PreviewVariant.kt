@@ -60,7 +60,10 @@ data class PreviewVariant(
     RequiresPermission {
     val tenantId: TenantKey get() = catalog.tenantKey
     val catalogKey: CatalogKey get() = catalog.key
-    override val permission get() = Permission.DOCUMENT_GENERATE
+
+    // Previewing content is reviewing it: the caller brings the data and nothing is stored, so whoever
+    // may view the template may preview it. Generating documents is a separate duty.
+    override val permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId
 }
 
