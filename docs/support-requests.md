@@ -77,8 +77,7 @@ requests, or the desk passed it on; see [The support desk](#the-support-desk)), 
 1. the support connection is on (`epistola.support.enabled=true`) and Epistola has activated the
    installation and granted it the `requests` scope, and an installation administrator selected the
    support request service (Platform → Epistola support, or `epistola.support.services`);
-2. the tenant consented, under Support → Support request sharing (`/tenants/{t}/support/request-sharing`,
-   `INTEGRATIONS_MANAGE`).
+2. the tenant consented, on its Support page (`/tenants/{t}/support`, `INTEGRATIONS_MANAGE`).
 
 `SupportRequestSyncGate` is the one place that checks this before any call; every driver asks it.
 
@@ -129,14 +128,15 @@ cannot: the connection is off, not connected, waiting to be activated, or withou
 **Not allowed.** An installation administrator can make sharing support requests **not allowed** under
 Platform → Epistola support (`SetSharingRestriction`, ADR 0052 §5). That withdraws every tenant's
 consent at once, its own choice included, and stops what waits to be sent; `GrantSupportRequestSyncConsent`
-then refuses, and the Support page and the Support request sharing page say why and who decides. Support requests
+then refuses, and the Support page says why and who decides. Support requests
 cannot be made Required: sending tenant content needs the tenant's own opt-in.
 
 **Where a tenant sets it.** The tenant's **Support** page is the one place (`SupportSharingHandler`,
 with one `TenantSharingSection` per module): a **setup wizard** while nothing is set up (introduction,
 support requests, catalogs, agree on the tenant's behalf), and afterwards who set it up and what is shared,
-with **Change**, which reopens the wizard with the choices filled in. The Support request sharing page only
-shows the state and points there.
+with **Change**, which reopens the wizard with the choices filled in. While a tenant shares support requests
+that cannot be sent yet (the connection waits to be activated, is paused or unreachable, or does not grant
+the service), the Support page says why under that choice, for each connection.
 
 **The installation's setup.** An installation administrator can set it up for every tenant under
 Platform → Epistola support (Change, then agree on the tenants' behalf when the setup shares

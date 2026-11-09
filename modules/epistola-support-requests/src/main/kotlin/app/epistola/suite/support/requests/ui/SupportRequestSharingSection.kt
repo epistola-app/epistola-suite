@@ -13,11 +13,13 @@ import app.epistola.suite.support.requests.consent.ClearSupportRequestSharingDef
 import app.epistola.suite.support.requests.consent.FollowSupportRequestSharingDefault
 import app.epistola.suite.support.requests.consent.ForgetSupportRequestSharing
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingDefault
-import app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent
+import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_SECTION
 import app.epistola.suite.support.requests.consent.SetSupportRequestSharingDefault
+import app.epistola.suite.support.requests.consent.SupportRequestSharingConnection
+import app.epistola.suite.support.requests.consent.SupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
 import app.epistola.suite.support.sharing.InstallationSharingView
 import app.epistola.suite.support.sharing.NO_PRESET
@@ -48,14 +50,37 @@ class SupportRequestSharingSection(private val registry: SupportConnectionRegist
     )
 
     override fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView {
-        val consent = GetSupportRequestSyncConsent(tenantKey, connectionId).query()
+        val settings = GetSupportRequestSharingSettings(tenantKey, connectionId).query()
+        val consent = settings.consent
         return TenantSharingView(
             section = this,
             value = if (consent.inForce) SHARE else NO,
             followsPreset = consent.followsDefault,
             decidedBy = if (consent.inForce) consent.consentedBy else consent.withdrawnBy,
             decidedAt = if (consent.inForce) consent.consentedAt else consent.withdrawnAt,
+            notice = if (consent.inForce) waiting(settings) else null,
         )
+    }
+
+    /** Why support requests the tenant shares are not sent now, or null while they are. They wait here; nothing is lost. */
+    private fun waiting(settings: SupportRequestSharingSettings): String? = when (settings.connection) {
+        SupportRequestSharingConnection.READY ->
+            if (settings.unreachable) "The connection cannot be reached now. Support requests wait here and are sent once it answers again; nothing is lost." else null
+
+        SupportRequestSharingConnection.OFF -> "Not sent: this installation's support connection is off. An installation administrator can turn it on."
+
+        SupportRequestSharingConnection.NOT_CONNECTED -> "Not sent: this installation is not connected. An installation administrator sees why under Platform → Epistola support."
+
+        SupportRequestSharingConnection.PENDING -> "Not sent yet: the connection waits to be activated for your organisation. Support requests go once it is."
+
+        SupportRequestSharingConnection.NOT_SELECTED -> "Not sent: an installation administrator has not selected the support request service for this connection."
+
+        SupportRequestSharingConnection.NO_SUPPORT_REQUEST_SERVICE -> "Not sent: the connection does not grant this installation the support request service."
+
+        SupportRequestSharingConnection.PAUSED -> {
+            val until = settings.pause?.until?.let { " until " + java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(java.time.ZoneOffset.UTC).format(it) } ?: ""
+            "Paused by the connection$until: “${settings.pause?.reason.orEmpty()}”. Support requests wait here and are sent once the pause ends."
+        }
     }
 
     override fun installationView(connectionId: UUID): InstallationSharingView {
