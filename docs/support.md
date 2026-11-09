@@ -176,7 +176,14 @@ epistola:
 ```
 
 In Helm, `support.connections` takes the same entries with `tokenSecret: { name, key }` instead of the
-token. The endpoint names the connection: the same endpoint at the next start is the same
+token.
+
+An installation administrator can also add one under Platform → Epistola support → Other support
+connections: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
+`support` object with `name`, `endpoint`, `services`, and optionally `tenantIdentity` and `telemetry`),
+or fill in the endpoint by hand, and enter the token the other side issued. Each connection there can be
+renamed, have its services and token changed, and be removed: requests it handled return to the support
+desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
 connection, with the name and token from the configuration. An entry removed from the configuration
 leaves the connection in the installation.
 

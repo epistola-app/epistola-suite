@@ -85,49 +85,82 @@
       save), defaultsNotice, defaultsError.
     */-->
     <!--/* The other support connections, such as a partner's (ADR 0053): signed in with a token they issued. */-->
-    <section th:fragment="connections" th:if="${!#lists.isEmpty(connections)}" id="support-connections" class="ep-panel detail-section" data-testid="support-connections">
+    <section th:fragment="connections" id="support-connections" class="ep-panel detail-section" data-testid="support-connections">
         <div class="detail-section-header"><h2>Other support connections</h2></div>
         <div class="detail-section-body">
             <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                Parties besides Epistola support that this installation shares with, such as a partner. They come from
-                the installation's configuration (<code>epistola.support.connections</code>).
+                Parties besides Epistola support that this installation shares with, such as a partner. Each signs this
+                installation in with a token it issued.
             </p>
-            <table class="ep-table">
-                <thead>
-                    <tr><th>Connection</th><th>State</th><th>Services granted</th><th>Services used</th><th>Last checked</th><th>Privacy</th></tr>
-                </thead>
-                <tbody>
-                    <tr th:each="c : ${connections}" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
-                        <td><strong th:text="${c.name}">Partner</strong><div class="text-muted text-sm" th:text="${c.endpoint}">https://desk.partner.example</div></td>
-                        <td>
-                            <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
-                            <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning" th:title="${c.lastError}">Unreachable</span>
-                            <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error" th:title="${c.reason}">Refused</span>
-                            <span th:if="${c.standing.name() == 'NOT_CHECKED'}" class="badge badge-muted">Not checked yet</span>
-                            <div class="text-muted text-sm" th:if="${c.standing.name() == 'REFUSED'}" th:text="${c.reason}">the token was refused</div>
-                            <div class="text-muted text-sm" th:if="${c.lastError != null}" th:text="${c.lastError}">unreachable</div>
-                        </td>
-                        <td th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</td>
-                        <td th:text="${#lists.isEmpty(c.selected)} ? 'None' : ${#strings.listJoin(c.selected, ', ')}">requests</td>
-                        <td th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-09 10:00</td>
-                        <td>
-                            <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" data-testid="support-connection-privacy">
-                                <select name="tenantIdentity" class="ep-select ep-select-sm form-control-auto" aria-label="What this connection learns of tenants">
-                                    <option value="CONFIDENTIAL" th:selected="${c.privacy.tenantIdentity.name() == 'CONFIDENTIAL'}">Tenants confidential</option>
-                                    <option value="NAMED" th:selected="${c.privacy.tenantIdentity.name() == 'NAMED'}">Tenants named</option>
-                                </select>
-                                <select name="telemetry" class="ep-select ep-select-sm form-control-auto" aria-label="How much telemetry carries">
-                                    <option value="PSEUDONYMISED" th:selected="${c.privacy.telemetry.name() == 'PSEUDONYMISED'}">Telemetry pseudonymised</option>
-                                    <option value="FULL" th:selected="${c.privacy.telemetry.name() == 'FULL'}">Telemetry full</option>
-                                </select>
-                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Save</button>
-                            </form>
-                            <div class="text-muted text-sm" data-testid="support-connection-privacy-source"
-                                 th:text="${c.privacy.followsInstallation} ? 'As the installation\'s settings' : (${c.privacy.fromConfiguration} ? 'From the configuration' : 'Set by ' + (${c.privacy.setBy} ?: 'a removed user'))">As the installation's settings</div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <p th:if="${#lists.isEmpty(connections)}" class="text-muted" data-testid="support-connections-empty">No other support connections yet. Add one below.</p>
+            <div th:each="c : ${connections}" class="form-section" style="margin-bottom: var(--ep-space-4);" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
+                <div class="ep-row ep-row-wrap ep-gap-3">
+                    <strong th:text="${c.name}">Partner</strong>
+                    <span class="text-muted text-sm" style="overflow-wrap: anywhere;" th:text="${c.endpoint}">https://desk.partner.example</span>
+                    <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
+                    <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning">Unreachable</span>
+                    <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error">Refused</span>
+                    <span th:if="${c.standing.name() == 'NOT_CHECKED'}" class="badge badge-muted">Not checked yet</span>
+                </div>
+                <div class="text-muted text-sm" th:if="${c.standing.name() == 'REFUSED'}" th:text="${c.reason}">the token was refused</div>
+                <div class="text-muted text-sm" th:if="${c.lastError != null}" th:text="${c.lastError}">unreachable</div>
+                <div class="text-muted text-sm">
+                    Services granted: <span th:text="${#lists.isEmpty(c.granted)} ? 'none' : ${#strings.listJoin(c.granted, ', ')}">requests</span>.
+                    Last checked: <span th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'not yet'">2026-11-09 10:00</span>.
+                </div>
+                <form th:action="@{/platform/support/connections/{id}(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-edit">
+                    <label class="form-group">Name <input type="text" name="name" class="ep-input ep-input-sm" maxlength="100" th:value="${c.name}" required></label>
+                    <fieldset class="ep-row ep-row-wrap ep-gap-3">
+                        <legend class="text-sm">Services used</legend>
+                        <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
+                    </fieldset>
+                    <label class="form-group">New token <input type="password" name="token" class="ep-input ep-input-sm" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it"></label>
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-save">Save</button>
+                </form>
+                <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-privacy">
+                    <select name="tenantIdentity" class="ep-select ep-select-sm form-control-auto" aria-label="What this connection learns of tenants">
+                        <option value="CONFIDENTIAL" th:selected="${c.privacy.tenantIdentity.name() == 'CONFIDENTIAL'}">Tenants confidential</option>
+                        <option value="NAMED" th:selected="${c.privacy.tenantIdentity.name() == 'NAMED'}">Tenants named</option>
+                    </select>
+                    <select name="telemetry" class="ep-select ep-select-sm form-control-auto" aria-label="How much telemetry carries">
+                        <option value="PSEUDONYMISED" th:selected="${c.privacy.telemetry.name() == 'PSEUDONYMISED'}">Telemetry pseudonymised</option>
+                        <option value="FULL" th:selected="${c.privacy.telemetry.name() == 'FULL'}">Telemetry full</option>
+                    </select>
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Save privacy</button>
+                    <span class="text-muted text-sm" data-testid="support-connection-privacy-source"
+                          th:text="${c.privacy.followsInstallation} ? 'As the installation\'s settings' : (${c.privacy.fromConfiguration} ? 'From the configuration' : 'Set by ' + (${c.privacy.setBy} ?: 'a removed user'))">As the installation's settings</span>
+                </form>
+                <form th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post" style="margin-top: var(--ep-space-2);">
+                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-remove"
+                            data-confirm-submit data-confirm-submit-title="Remove connection"
+                            th:attr="data-confirm-submit-message=|Requests ${c.name} handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.|"
+                            data-confirm-submit-label="Remove" data-confirm-submit-class="ep-btn-primary">Remove</button>
+                </form>
+            </div>
+
+            <h3 style="margin-top: var(--ep-space-4);">Add a connection</h3>
+            <div class="alert alert-error" role="alert" th:if="${addError != null}" data-testid="support-connection-add-error" th:text="${addError}">The token is required.</div>
+            <form th:action="@{/platform/support/connections/lookup}" method="post" class="ep-row ep-row-wrap ep-gap-3" data-testid="support-connection-lookup">
+                <label class="form-group">Domain <input type="text" name="domain" class="ep-input ep-input-sm" maxlength="253" placeholder="partner.example"
+                       th:value="${addForm != null ? addForm.get('domain') : ''}"></label>
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-lookup-submit">Look up</button>
+            </form>
+            <p class="text-muted text-sm">Fills in what the domain publishes for connecting to it. Without it, fill in the endpoint yourself.</p>
+            <form th:action="@{/platform/support/connections}" method="post" class="form-section" data-testid="support-connection-add"
+                  th:with="pre=${addPreset}">
+                <label class="form-group">Name <input type="text" name="name" class="ep-input" maxlength="100" required
+                       th:value="${pre != null ? pre.name : (addForm != null ? addForm.get('name') : '')}"></label>
+                <label class="form-group">Endpoint <input type="text" name="endpoint" class="ep-input" maxlength="2000" required placeholder="https://desk.partner.example/epistola"
+                       th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}"></label>
+                <label class="form-group">Token <input type="password" name="token" class="ep-input" maxlength="4096" autocomplete="off" required></label>
+                <fieldset class="ep-row ep-row-wrap ep-gap-3">
+                    <legend class="text-sm">Services to use</legend>
+                    <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${pre != null and #lists.contains(pre.services, sv)}"> <span th:text="${sv}">requests</span></label>
+                </fieldset>
+                <input type="hidden" name="tenantIdentity" th:if="${pre != null and pre.tenantIdentity != null}" th:value="${pre.tenantIdentity.name()}">
+                <input type="hidden" name="telemetry" th:if="${pre != null and pre.telemetry != null}" th:value="${pre.telemetry.name()}">
+                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-connection-add-submit">Add connection</button>
+            </form>
         </div>
     </section>
 

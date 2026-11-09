@@ -68,8 +68,9 @@ class SupportConnectionRegistry(
  * Puts the connections of `epistola.support.connections` into `support_connections` at startup: a new
  * endpoint becomes a connection, a known one gets its name and token from the configuration again.
  * The endpoint is the connection's identity, unique among configured connections, so nodes starting
- * together cannot create one twice. A connection the configuration no longer names is left as it is:
- * it may handle requests, and an administrator removes it.
+ * together cannot create one twice. Once an administrator saved a connection (`from_configuration`
+ * FALSE), the configuration leaves it alone. A connection the configuration no longer names is left as
+ * it is: it may handle requests, and an administrator removes it.
  */
 @Component
 class ConfiguredSupportConnections(
@@ -85,10 +86,11 @@ class ConfiguredSupportConnections(
             val id = jdbi.withHandle<UUID, Exception> { handle ->
                 handle.createQuery(
                     """
-                    INSERT INTO support_connections (id, name, source, endpoint, auth)
-                    VALUES (:id, :name, 'CONFIGURED', :endpoint, 'BEARER_TOKEN')
+                    INSERT INTO support_connections (id, name, source, endpoint, auth, from_configuration)
+                    VALUES (:id, :name, 'CONFIGURED', :endpoint, 'BEARER_TOKEN', TRUE)
                     ON CONFLICT (endpoint) WHERE source = 'CONFIGURED'
                     DO UPDATE SET name = EXCLUDED.name, auth = EXCLUDED.auth, updated_at = NOW()
+                    WHERE support_connections.from_configuration
                     RETURNING id
                     """,
                 )
@@ -96,8 +98,9 @@ class ConfiguredSupportConnections(
                     .bind("name", configured.name.trim())
                     .bind("endpoint", configured.baseUrl)
                     .mapTo(UUID::class.java)
-                    .one()
-            }
+                    .findOne()
+                    .orElse(null)
+            } ?: return@forEach
             val store = connections.store(id)
             if (runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
             log.info("Support connection {} configured at {}", configured.name, configured.baseUrl)
