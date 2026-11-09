@@ -123,6 +123,17 @@ class SupportTelemetryOutageLoggingTest {
         while (outcomes() < n && System.nanoTime() < until) Thread.sleep(20)
     }
 
+    private fun recovered() = own(Level.INFO).any { it.formattedMessage.contains("again") }
+
+    /** Sends with [send] until an export reaches the service again, at most [RECOVERY_WAIT]. */
+    private fun awaitRecovery(send: () -> Unit) {
+        val until = System.nanoTime() + RECOVERY_WAIT.toNanos()
+        while (!recovered() && System.nanoTime() < until) {
+            send()
+            Thread.sleep(50)
+        }
+    }
+
     private fun assertLoggedOneOutage(outage: Outage) {
         val all = events()
         assertThat(all.filter { it.level.isGreaterOrEqual(Level.ERROR) }).`as`("nothing at ERROR for an optional, lossy dependency").isEmpty()
@@ -152,11 +163,13 @@ class SupportTelemetryOutageLoggingTest {
         assertThat(own(Level.INFO).filter { it.formattedMessage.contains("again") }).isEmpty()
 
         endOutage()
-        repeat(2) {
-            appLogger.warn("after the outage {}", it)
+        // The first export after the outage may take a while on a busy machine (for REFUSED it goes to
+        // a new endpoint, with a new client): keep sending until one reaches the service, and only then
+        // look at what was logged.
+        awaitRecovery {
+            appLogger.warn("after the outage")
             leg.flush()
         }
-        awaitOutcomes(4)
 
         assertThat(own(Level.INFO).filter { it.formattedMessage.contains("again") }).`as`("one INFO when it recovers").hasSize(1)
         assertThat(own(Level.WARN)).hasSize(1)
@@ -189,5 +202,8 @@ class SupportTelemetryOutageLoggingTest {
 
     private companion object {
         const val OWN_PACKAGE = "app.epistola.suite.support.telemetry"
+
+        /** How long the logs leg may take to get an export through once the outage ends. */
+        val RECOVERY_WAIT: Duration = Duration.ofSeconds(30)
     }
 }
