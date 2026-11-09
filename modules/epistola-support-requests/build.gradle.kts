@@ -53,6 +53,8 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
+    // The requests sent to a partner are checked against docs/support-partner-api.yaml.
+    testImplementation(libs.swagger.request.validator)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

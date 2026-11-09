@@ -356,7 +356,7 @@ class FakeSupportServer : AutoCloseable {
      */
     fun issuePartnerToken(token: String, scopes: Set<String>): String {
         val clientId = "partner_%020d".format(counter.incrementAndGet())
-        registrations[clientId] = Registration(clientId, null, "", "", claimCode = "", claimCodeExpiresAt = now(), status = "ACTIVE", scopes = scopes)
+        registrations[clientId] = Registration(clientId, java.util.UUID.nameUUIDFromBytes(clientId.toByteArray()).toString(), "", "", claimCode = "", claimCodeExpiresAt = now(), status = "ACTIVE", scopes = scopes)
         issuedTokens[token] = clientId to scopes
         return clientId
     }
