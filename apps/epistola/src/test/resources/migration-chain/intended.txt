@@ -2068,6 +2068,7 @@ $$
     version bigint DEFAULT 0 NOT NULL
 )
 + CREATE UNIQUE INDEX uq_support_connections_discovered ON public.support_connections USING btree (source) WHERE ((source)::text = 'DISCOVERED'::text)
++ CREATE UNIQUE INDEX uq_support_connections_configured_endpoint ON public.support_connections USING btree (endpoint) WHERE ((source)::text = 'CONFIGURED'::text)
 + row support_connections: {"auth":"PRIVATE_KEY_JWT","contact":null,"created_at":"<now>","credentials":null,"endpoint":null,"escalates_to":null,"handles_new_requests":false,"id":"@cb11915e2a1e","name":"Epistola support","node_clocks":{},"refusals":{},"services":null,"source":"DISCOVERED","status":null,"updated_at":"<now>","version":0}
 
 # Added after the chain: what tenants share per support connection, and the usage hours reported

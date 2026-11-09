@@ -39,6 +39,9 @@ import java.time.Duration
  *   installation administrator saves a preset under Platform → Epistola support ([TenantDefaults]).
  * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
  *   installation administrator saves them under Platform → Epistola support ([Privacy]).
+ * @property connections further support connections, such as a partner's, that the suite signs in
+ *   to with a token the other side issued ([Connection]; ADR 0053). Independent of [enabled], which
+ *   is the connection to Epistola support: an installation can connect to its partner alone.
  */
 @ConfigurationProperties(prefix = "epistola.support")
 data class SupportProperties(
@@ -52,6 +55,7 @@ data class SupportProperties(
     val services: List<String> = emptyList(),
     val tenantDefaults: TenantDefaults = TenantDefaults(),
     val privacy: Privacy = Privacy(),
+    val connections: List<Connection> = emptyList(),
 ) {
     init {
         require(endpoint.isBlank() || configuredIssuer != null) {
@@ -61,6 +65,38 @@ data class SupportProperties(
             "epistola.support.endpoint '$endpoint' is plaintext http; use https, or set epistola.support.allow-http=true for a local support service"
         }
         require(!checkInterval.isNegative && !checkInterval.isZero) { "epistola.support.check-interval must be positive" }
+        connections.forEachIndexed { i, c ->
+            require(c.name.isNotBlank()) { "epistola.support.connections[$i].name is required" }
+            require(c.token.isNotBlank()) { "epistola.support.connections[$i].token is required" }
+            val url = runCatching { URI(c.endpoint.trim()) }.getOrNull()?.takeIf { it.isAbsolute && it.host != null && it.scheme in setOf("https", "http") }
+            requireNotNull(url) { "epistola.support.connections[$i].endpoint must be an absolute http(s) URL; got '${c.endpoint}'" }
+            require(allowHttp || url.scheme == "https") { "epistola.support.connections[$i].endpoint '${c.endpoint}' is plaintext http; use https, or set epistola.support.allow-http=true locally" }
+        }
+        require(connections.map { it.baseUrl }.distinct().size == connections.size) { "epistola.support.connections names an endpoint twice" }
+    }
+
+    /**
+     * One entry of `epistola.support.connections` (Helm `support.connections`): a connection the suite
+     * signs in to with a token the other side issued. The configuration sets it until an installation
+     * administrator saves it, and an endpoint names it: the same endpoint at the next start is the same
+     * connection.
+     *
+     * @property name what the platform page and the support desk call it.
+     * @property endpoint its base URL; the paths are those of the published protocol under it.
+     * @property token the bearer token it issued; from a secret, never in a values file.
+     * @property services the services to use over it (`requests`, `usage`), as far as it grants them.
+     */
+    data class Connection(
+        val name: String = "",
+        val endpoint: String = "",
+        val token: String = "",
+        val services: List<String> = emptyList(),
+    ) {
+        /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
+        val baseUrl: String get() = endpoint.trim().trimEnd('/')
+
+        /** Never the token. */
+        override fun toString(): String = "Connection(name=$name, endpoint=$endpoint, services=$services)"
     }
 
     /**

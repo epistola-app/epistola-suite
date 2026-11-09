@@ -234,6 +234,11 @@ can open requests through the same protocol.
      `authorRef`; while tenants are confidential a reply carries the reference alone. The support
      service shows staff the reference and that person's other requests.
 3. Partner connections: requests and usage, the published spec, token sign-in.
+   - **3a, built:** connections signed in with a token the other side issued
+     (`SupportConnectionAuth.BEARER_TOKEN`), from `epistola.support.connections` (Helm
+     `support.connections`, the token from a Secret), named by their endpoint, checked with
+     `GET {endpoint}/api/v1/connection`, listed on the platform page. Independent of
+     `epistola.support.enabled`.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

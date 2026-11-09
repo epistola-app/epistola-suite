@@ -447,6 +447,29 @@
             "mirror": { "type": "string", "enum": ["", "off", "all", "marked"], "description": "Catalog mirror: off, all (every catalog) or marked (only the catalogs a tenant marks)." }
           }
         },
+        "connections": {
+          "type": "array",
+          "description": "Further support connections besides Epistola support, such as a partner's, each signed in with a token from a Secret.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "endpoint", "tokenSecret"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "description": "What the platform page and the support desk call it." },
+              "endpoint": { "type": "string", "pattern": "^https://", "description": "Its base URL; the published protocol's paths are under it." },
+              "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage), as far as it grants them." },
+              "tokenSecret": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "description": "The Secret holding the token it issued." },
+                  "key": { "type": "string", "description": "The key in that Secret. Default: token." }
+                }
+              }
+            }
+          }
+        },
         "requests": {
           "type": "object",
           "description": "Support requests (ADR 0053).",

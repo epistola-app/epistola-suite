@@ -28,6 +28,11 @@
 
 ### Added
 
+- **`support.connections`** declares further support connections besides Epistola support, such as
+  a partner's (ADR 0053): `name`, `endpoint` (https), `services` and `tokenSecret` (a Secret holding
+  the token that party issued). Rendered as `EPISTOLA_SUPPORT_CONNECTIONS_<n>_*`, independent of
+  `support.enabled`, so an installation can connect to its partner alone.
+
 - **`support.requests.handledBy`**: who handles new support requests until an installation
   administrator saves a choice under Platform → Support requests: `inbox` (the default: the
   installation's own support desk) or `epistola` (new requests go to Epistola support, as before),

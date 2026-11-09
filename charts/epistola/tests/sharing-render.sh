@@ -139,3 +139,20 @@ reject "the old support.hub.discoveryUrl key" --set support.hub.discoveryUrl=htt
 reject "the old support.hub.endpoint key" --set support.hub.endpoint=hub.internal:443
 
 echo "sharing render: ok"
+
+# Partner connections render on their own, without support.enabled, with the token from a Secret.
+partners="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set 'support.connections[0].name=Acme Partner' --set 'support.connections[0].endpoint=https://desk.acme.example' \
+  --set 'support.connections[0].services={requests,usage}' --set 'support.connections[0].tokenSecret.name=acme-token')"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_NAME "Acme Partner"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ENDPOINT "https://desk.acme.example"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_SERVICES "requests,usage"
+if ! grep -A3 -- "- name: EPISTOLA_SUPPORT_CONNECTIONS_0_TOKEN$" <<<"${partners}" | grep -q "name: \"acme-token\""; then
+  echo "Expected EPISTOLA_SUPPORT_CONNECTIONS_0_TOKEN from Secret acme-token" >&2
+  exit 1
+fi
+if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.connections[0].name=X' \
+  --set 'support.connections[0].endpoint=http://plain.example' --set 'support.connections[0].tokenSecret.name=s' >/dev/null 2>&1; then
+  echo "Expected a plaintext partner endpoint to be refused" >&2
+  exit 1
+fi
