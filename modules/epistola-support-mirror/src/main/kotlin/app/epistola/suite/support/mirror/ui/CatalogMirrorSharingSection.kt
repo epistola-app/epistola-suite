@@ -21,6 +21,7 @@ import app.epistola.suite.support.mirror.MIRROR_CONNECTION
 import app.epistola.suite.support.mirror.OptInCatalogMirror
 import app.epistola.suite.support.mirror.OptOutCatalogMirror
 import app.epistola.suite.support.mirror.SetCatalogMirrorDefault
+import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.sharing.InstallationSharingView
 import app.epistola.suite.support.sharing.NO_PRESET
 import app.epistola.suite.support.sharing.SharingChoice
@@ -35,7 +36,10 @@ import java.util.UUID
  * catalogs are marked is set per catalog on the Catalog mirror page.
  */
 @Component
-class CatalogMirrorSharingSection(private val connection: SupportConnection) : TenantSharingSection {
+class CatalogMirrorSharingSection(
+    private val connection: SupportConnection,
+    private val privacy: SupportPrivacy,
+) : TenantSharingSection {
     override val key = "mirror"
     override val order = 20
     override val title = "Catalogs"
@@ -80,7 +84,14 @@ class CatalogMirrorSharingSection(private val connection: SupportConnection) : T
     override fun installationView(connectionId: UUID): InstallationSharingView {
         onlyMirrorConnection(connectionId)
         val default = GetCatalogMirrorDefault().query()
-        return InstallationSharingView(this, default.isSet, default.choice.name, default.fromConfiguration, default.setBy, default.setAt)
+        // A preset that shares catalogs is refused while tenants are confidential (SetCatalogMirrorDefault), so it is not offered.
+        val withheld = if (privacy.current().confidential) {
+            val reason = "Not available: this installation keeps its tenants confidential to Epistola, and a shared release would name the organisation."
+            choices.filter { it.shares }.associate { it.value to reason }
+        } else {
+            emptyMap()
+        }
+        return InstallationSharingView(this, default.isSet, default.choice.name, default.fromConfiguration, default.setBy, default.setAt, withheld = withheld)
     }
 
     override fun applyOwn(tenantKey: TenantKey, value: String, connectionId: UUID) {
