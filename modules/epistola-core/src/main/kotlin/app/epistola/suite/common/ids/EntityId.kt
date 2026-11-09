@@ -212,15 +212,15 @@ class ApiKeyId(key: ApiKeyKey, tenantId: TenantId) : EntityId<ApiKeyKey, UUID, T
     val tenantKey = tenantId.key
 }
 
-class FeedbackId(key: FeedbackKey, tenantId: TenantId) : EntityId<FeedbackKey, UUID, TenantId>(key, tenantId) {
+class SupportRequestId(key: SupportRequestKey, tenantId: TenantId) : EntityId<SupportRequestKey, UUID, TenantId>(key, tenantId) {
     override val type = "feedback"
     val tenantKey = tenantId.key
 }
 
-class FeedbackCommentId(key: FeedbackCommentKey, feedbackId: FeedbackId) : EntityId<FeedbackCommentKey, UUID, FeedbackId>(key, feedbackId) {
+class SupportRequestCommentId(key: SupportRequestCommentKey, supportRequestId: SupportRequestId) : EntityId<SupportRequestCommentKey, UUID, SupportRequestId>(key, supportRequestId) {
     override val type = "feedback-comment"
-    val feedbackKey = feedbackId.key
-    val tenantKey = feedbackId.tenantKey
+    val supportRequestKey = supportRequestId.key
+    val tenantKey = supportRequestId.tenantKey
 }
 
 class QualityFindingId(key: QualityFindingKey, tenantId: TenantId) : EntityId<QualityFindingKey, UUID, TenantId>(key, tenantId) {
@@ -237,8 +237,8 @@ class QualityFindingCommentId(
     val tenantKey = findingId.tenantKey
 }
 
-class FeedbackAssetId(key: FeedbackAssetKey, feedbackId: FeedbackId) : EntityId<FeedbackAssetKey, UUID, FeedbackId>(key, feedbackId) {
+class SupportRequestAssetId(key: SupportRequestAssetKey, supportRequestId: SupportRequestId) : EntityId<SupportRequestAssetKey, UUID, SupportRequestId>(key, supportRequestId) {
     override val type = "feedback-asset"
-    val feedbackKey = feedbackId.key
-    val tenantKey = feedbackId.tenantKey
+    val supportRequestKey = supportRequestId.key
+    val tenantKey = supportRequestId.tenantKey
 }

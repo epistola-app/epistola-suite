@@ -83,7 +83,7 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
         page = context.newPage()
         // Install the HTMX activity bookkeeper before any page script runs (and on
         // every subsequent navigation/swap) so htmxSettle() can observe in-flight
-        // requests. Same addInitScript technique FeedbackScreenshotUiTest uses.
+        // requests. Same addInitScript technique SupportRequestScreenshotUiTest uses.
         page.addInitScript(PlaywrightHtmxSupport.HTMX_BOOKKEEPER_SCRIPT)
         // ADR 0010: a blocked script under the strict CSP fails silently (console
         // error only) — collect violations and fail the test in closePage() so a

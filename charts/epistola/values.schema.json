@@ -443,6 +443,7 @@
           "description": "What every tenant shares with Epistola until a tenant chooses otherwise; applied at startup only while no installation administrator has saved a setup. Empty: each tenant sets itself up.",
           "additionalProperties": false,
           "properties": {
+            "requests": { "type": "string", "enum": ["", "share", "no"], "description": "share: support requests go to Epistola support; no: they stay in the installation." },
             "mirror": { "type": "string", "enum": ["", "off", "all", "marked"], "description": "Catalog mirror: off, all (every catalog) or marked (only the catalogs a tenant marks)." }
           }
         },

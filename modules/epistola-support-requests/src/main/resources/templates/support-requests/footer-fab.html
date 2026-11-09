@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Feedback FAB + console capture, contributed into the shell footer when feedback is enabled. -->
+    <th:block th:fragment="fab">
+        <script th:src="@{/support-requests/support-request-capture.js}"></script>
+        <script type="module" th:src="@{/support-requests/support-requests.js}"></script>
+        <!-- Fresh on every (boosted) render: feedback.js picks it up and (re)mounts the FAB. -->
+        <div hidden data-support-request-fab th:attr="data-tenant-id=${tenantId}"></div>
+    </th:block>
+</body>
+</html>

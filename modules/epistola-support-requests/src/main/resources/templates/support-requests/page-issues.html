@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="support-request-popover-header" th:data-support-request-count="${#lists.size(supportRequestItems)}">
+            <span class="support-request-popover-title">Support requests for this page</span>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/support/requests/submit-form(tenantId=${tenantId})}"
+                    hx-target="#support-request-fab-dialog-content"
+                    hx-swap="innerHTML"
+                    data-open-dialog="support-request-fab-dialog">
+                New
+            </button>
+        </div>
+
+        <div th:if="${#lists.isEmpty(supportRequestItems)}" class="support-request-popover-empty">
+            No support requests for this page
+        </div>
+
+        <ul th:if="${!#lists.isEmpty(supportRequestItems)}" class="support-request-popover-list">
+            <li th:each="item : ${supportRequestItems}" class="support-request-popover-item">
+                <a th:href="@{/tenants/{tenantId}/support/requests/{id}(tenantId=${tenantId},id=${item.id})}"
+                   class="support-request-popover-item-title"
+                   th:text="${item.title}">Title</a>
+                <div class="support-request-popover-item-meta">
+                    <th:block th:insert="~{support-requests/fragments/badges :: status-badge(${item.status})}" />
+                    <th:block th:insert="~{support-requests/fragments/badges :: priority-badge(${item.priority})}" />
+                </div>
+            </li>
+        </ul>
+    </th:block>
+</body>
+</html>

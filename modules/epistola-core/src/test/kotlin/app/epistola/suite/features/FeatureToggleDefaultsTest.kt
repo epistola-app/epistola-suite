@@ -18,6 +18,6 @@ class FeatureToggleDefaultsTest {
 
     @Test
     fun `feedback is freely usable and defaults on`() {
-        assertThat(service().defaultFor(KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
+        assertThat(service().defaultFor(KnownFeatures.SUPPORT_REQUESTS)).isTrue()
     }
 }

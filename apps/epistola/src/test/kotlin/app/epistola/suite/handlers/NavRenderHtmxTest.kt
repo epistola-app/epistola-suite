@@ -97,21 +97,21 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant("Nav No Support")
         // feedback defaults on (freely usable), so disable it to leave the Support group empty.
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = false).execute()
         }
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).doesNotContain("nav-dropdown-support")
         // The feedback footer FAB is also contributed via the footer SPI, so it disappears too.
-        assertThat(body).doesNotContain("feedback-capture.js")
+        assertThat(body).doesNotContain("support-request-capture.js")
     }
 
     @Test
     fun `support group shows the enabled feature, and no overview while the support connection is off`() {
         val tenant = createTenant("Nav Support On")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_REQUESTS, enabled = true).execute()
         }
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
@@ -119,14 +119,14 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("nav-dropdown-support")
         // Overview is for tenant administrators while the connection is on (SupportPlatformPageHtmxTest).
         assertThat(body).doesNotContain("href=\"/tenants/${tenant.id.value}/support\"")
-        assertThat(body).contains("/tenants/${tenant.id.value}/feedback")
+        assertThat(body).contains("/tenants/${tenant.id.value}/support/requests")
         // Backups and Upgrading were withdrawn: no items of theirs.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/backups")
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/upgrading")
         // Feedback is a stable feature, so its nav item carries no maturity badge.
         assertThat(body).doesNotContain("badge badge-beta", "badge badge-alpha")
         // The feedback module also contributes the footer FAB via the footer SPI.
-        assertThat(body).contains("feedback-capture.js")
+        assertThat(body).contains("support-request-capture.js")
     }
 
     @Test

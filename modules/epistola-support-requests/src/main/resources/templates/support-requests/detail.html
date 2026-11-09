@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+
+        <div id="support-request-content">
+            <th:block th:fragment="support-request-content">
+                <div th:replace="~{epistola-web/page-header :: page-header(
+                    pageTitle=${supportRequest.title},
+                    backLinkHref=@{/tenants/{tenantId}/support/requests(tenantId=${tenantId})},
+                    backLinkLabel='Support requests',
+                    actions=~{::support-request-detail-actions}
+                )}"></div>
+
+                <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">
+                    <th:block th:insert="~{support-requests/fragments/badges :: status-badge(${supportRequest.status})}" />
+                    <th:block th:insert="~{support-requests/fragments/badges :: category-badge(${supportRequest.category})}" />
+                    <th:block th:insert="~{support-requests/fragments/badges :: priority-badge(${supportRequest.priority})}" />
+                    <span data-testid="support-request-requested-priority"
+                          th:if="${supportRequest.requestedPriority != null and supportRequest.requestedPriority != supportRequest.priority}"
+                          style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                          th:text="|Requested: ${#labels.of(supportRequest.requestedPriority)}|">Requested: Medium</span>
+                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">Submitted
+                          <span th:text="${#temporals.format(supportRequest.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${supportRequest.createdAt}">2026-01-01</span></span>
+                </div>
+
+                <!-- Description -->
+                <div class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Description</h3>
+                        <div style="white-space: pre-wrap;" th:text="${supportRequest.description}">Description text</div>
+                    </div>
+                </div>
+
+                <!-- Source URL -->
+                <div th:if="${supportRequest.sourceUrl != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Source URL</h3>
+                        <code style="font-size: var(--ep-text-sm); word-break: break-all;" th:text="${supportRequest.sourceUrl}">https://example.com</code>
+                    </div>
+                </div>
+
+                <!-- Screenshots -->
+                <div th:if="${!#lists.isEmpty(assets)}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);" th:text="${#lists.size(assets) == 1} ? 'Screenshot' : 'Screenshots'">Screenshot</h3>
+                        <div th:each="asset : ${assets}" style="margin-bottom: var(--ep-space-3);">
+                            <img th:src="@{/tenants/{tenantId}/support/requests/{requestId}/assets/{assetId}/content(tenantId=${tenantId},supportRequestId=${supportRequest.id},assetId=${asset.id})}"
+                                 alt="Screenshot"
+                                 style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Metadata -->
+                <div th:if="${supportRequest.metadata != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Client information</h3>
+                        <pre style="font-size: var(--ep-text-xs); max-height: 200px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                             th:text="${supportRequest.metadata}">Metadata</pre>
+                    </div>
+                </div>
+
+                <!-- Console logs -->
+                <div th:if="${supportRequest.consoleLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Console logs</h3>
+                        <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                             th:text="${supportRequest.consoleLogs}">Console output</pre>
+                    </div>
+                </div>
+
+                <!-- Server log of the submitter's recent requests -->
+                <div th:if="${supportRequest.serverLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);" data-testid="support-request-server-logs">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Server log</h3>
+                        <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                             th:text="${supportRequest.serverLogs}">Server log</pre>
+                    </div>
+                </div>
+
+                <!-- Comments section -->
+                <div id="comments-section">
+                    <th:block th:fragment="comments-section">
+                        <h3 style="margin-bottom: var(--ep-space-4);">
+                            Comments
+                            <span style="color: var(--ep-muted-foreground); font-weight: normal;"
+                                  th:text="'(' + ${#lists.size(comments)} + ')'"></span>
+                        </h3>
+
+                        <div th:if="${#lists.isEmpty(comments)}" style="color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-4);">
+                            No comments yet.
+                        </div>
+
+                        <div th:each="comment : ${comments}" class="card" style="margin-bottom: var(--ep-space-3);">
+                            <div class="card-content">
+                                <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-2);">
+                                    <span style="font-weight: 500;">
+                                        <span th:text="${comment.authorName}">Author</span>
+                                        <span th:if="${comment.source.name() == 'GITHUB'}" class="badge badge-outline" style="margin-left: var(--ep-space-2);">GitHub</span>
+                                    </span>
+                                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                                          th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${comment.createdAt}">2026-01-01</span>
+                                </div>
+                                <div style="white-space: pre-wrap;" th:text="${comment.body}">Comment text</div>
+                            </div>
+                        </div>
+
+                        <!-- Add comment form -->
+                        <form hx-post th:hx-post="@{/tenants/{tenantId}/support/requests/{id}/comments(tenantId=${tenantId},id=${supportRequest.id})}"
+                              hx-target="#comments-section"
+                              hx-swap="innerHTML"
+                              style="margin-top: var(--ep-space-4);">
+                            <div th:replace="~{epistola-web/form-error :: form-error(id='add-comment-error')}"></div>
+                            <div class="form-group">
+                                <textarea name="body" class="ep-textarea" rows="3"
+                                           required placeholder="Add a comment..."></textarea>
+                            </div>
+                            <div class="form-actions" style="margin-top: var(--ep-space-2);">
+                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add comment</button>
+                            </div>
+                        </form>
+                    </th:block>
+                </div>
+            </th:block>
+        </div>
+    </th:block>
+    <th:block th:fragment="support-request-detail-actions">
+        <form th:if="${mayManageSupportRequest}"
+              hx-post th:hx-post="@{/tenants/{tenantId}/support/requests/{id}/status(tenantId=${tenantId},id=${supportRequest.id})}"
+              hx-target="#support-request-content"
+              hx-swap="innerHTML"
+              class="ep-row">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='update-status-error')}"></div>
+            <select name="status" class="ep-select ep-select-sm form-control-auto">
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
+                        th:selected="${supportRequest.status.name() == s.name()}">STATUS</option>
+            </select>
+            <button type="submit" class="ep-btn ep-btn-outline">Update status</button>
+        </form>
+    </th:block>
+
+</body>
+</html>

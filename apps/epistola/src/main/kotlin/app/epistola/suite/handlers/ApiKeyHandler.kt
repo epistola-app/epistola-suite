@@ -235,7 +235,7 @@ class ApiKeyHandler {
             RoleOption(
                 TenantRole.TENANT_ADMINISTRATOR.name,
                 "Administrator",
-                "Tenant settings, integrations, API keys, feedback, catalogs, logs and the audit trail.",
+                "Tenant settings, integrations, API keys, support requests, catalogs, logs and the audit trail.",
                 defaultChecked = false,
             ),
         )

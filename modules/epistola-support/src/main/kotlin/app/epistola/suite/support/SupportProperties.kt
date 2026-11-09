@@ -70,16 +70,24 @@ data class SupportProperties(
      * a choice of its own, and to new tenants, as consent given by whoever configured the
      * installation. Blank (the default): no preset, and every tenant sets itself up.
      *
+     * @property requests support requests: `share` or `no`.
      * @property mirror `off`, `all` (every catalog) or `marked` (the catalogs a tenant marks).
      */
     data class TenantDefaults(
+        val requests: String = "",
         val mirror: String = "",
     ) {
         init {
+            require(requests.isBlank() || requests.trim().lowercase() in setOf("share", "no")) {
+                "epistola.support.tenant-defaults.requests must be share or no; got '$requests'"
+            }
             require(mirror.isBlank() || mirror.trim().lowercase() in setOf("off", "all", "marked")) {
                 "epistola.support.tenant-defaults.mirror must be off, all or marked; got '$mirror'"
             }
         }
+
+        /** True to share support requests, false not to, null when not configured. */
+        val requestsShare: Boolean? get() = requests.trim().lowercase().takeIf { it.isNotEmpty() }?.let { it == "share" }
 
         /** The mirror preset in lower case, or null when not configured. */
         val mirrorChoice: String? get() = mirror.trim().lowercase().takeIf { it.isNotEmpty() }

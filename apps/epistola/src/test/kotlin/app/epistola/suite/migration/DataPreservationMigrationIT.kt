@@ -370,9 +370,15 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'stencil-parameters'"))
                 .describedAs("retired stencil-parameters toggle rows must be deleted")
                 .isEqualTo("0")
-            assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'support-feedback'"))
-                .describedAs("unrelated feature-toggle rows must survive the scoped delete")
+            assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'support-requests'"))
+                .describedAs("unrelated feature-toggle rows must survive the scoped delete, under the key support-feedback became")
                 .isEqualTo("1")
+
+            // Feedback was alpha: it is not moved into support requests, which start empty, but its rows stay.
+            assertThat(one("SELECT count(*)::text FROM feedback")).describedAs("feedback rows are kept").isEqualTo("2")
+            assertThat(one("SELECT count(*)::text FROM feedback_comments")).describedAs("feedback comments are kept").isEqualTo("2")
+            assertThat(one("SELECT count(*)::text FROM feedback_assets")).describedAs("feedback screenshots are kept").isEqualTo("1")
+            assertThat(one("SELECT count(*)::text FROM support_requests")).describedAs("support requests start empty").isEqualTo("0")
 
             // Consumer transport housekeeping is intentionally removed from historical audit
             // partitions, including failures; unrelated audit history remains untouched.
@@ -506,6 +512,22 @@ class DataPreservationMigrationIT {
             INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
             VALUES ('$TENANT', 'stencil-parameters', true),
                    ('$TENANT', 'support-feedback', false);
+
+            -- Feedback as RC1 stored it: one item sent to the retired hub, with a comment, a reply and a
+            -- screenshot, and one never sent. Feedback was alpha: the support-requests migration does not
+            -- move it, and leaves it where it is (ADR 0053).
+            INSERT INTO users (id, external_id, email, display_name, provider)
+            VALUES ('00000000-0000-0000-0000-00000000f501', 'rc1-feedback-author', 'author@rc1.test', 'RC1 Author', 'LOCAL');
+            INSERT INTO feedback (tenant_key, id, title, description, category, status, priority, created_by, external_ref, external_url, sync_status, created_at)
+            VALUES ('$TENANT', '00000000-0000-0000-0000-00000000f511', 'Sent item', 'The preview spins', 'BUG', 'OPEN', 'HIGH',
+                    '00000000-0000-0000-0000-00000000f501', 'remote-511', 'https://support.test/511', 'SYNCED', '2026-06-23 10:00:00+00'),
+                   ('$TENANT', '00000000-0000-0000-0000-00000000f512', 'Local item', 'Only here', 'QUESTION', 'OPEN', 'LOW',
+                    '00000000-0000-0000-0000-00000000f501', NULL, NULL, 'NOT_CONFIGURED', '2026-06-23 11:00:00+00');
+            INSERT INTO feedback_comments (tenant_key, feedback_id, id, body, author_name, author_email, source, external_comment_id, created_at)
+            VALUES ('$TENANT', '00000000-0000-0000-0000-00000000f511', '00000000-0000-0000-0000-00000000f521', 'Still broken', 'RC1 Author', 'author@rc1.test', 'LOCAL', 'remote-c-521', '2026-06-23 10:05:00+00'),
+                   ('$TENANT', '00000000-0000-0000-0000-00000000f511', '00000000-0000-0000-0000-00000000f522', 'Fixed in 1.0.1', 'Epistola support', NULL, 'EXTERNAL', 'remote-c-522', '2026-06-23 10:10:00+00');
+            INSERT INTO feedback_assets (tenant_key, feedback_id, id, content, content_type, filename, created_at)
+            VALUES ('$TENANT', '00000000-0000-0000-0000-00000000f511', '00000000-0000-0000-0000-00000000f531', '\x89504e47', 'image/png', 'shot.png', '2026-06-23 10:01:00+00');
 
             -- audit_log is partitioned, while this migration-only fixture does not start the
             -- partition scheduler. Create the historical partition explicitly so the scoped

@@ -13,12 +13,14 @@ their migrations, under:
 <module>/src/main/resources/db/migration/<module>/VYYYYMMDDHHMMSS__<module>_<desc>.sql
 ```
 
-| Module                              | Subfolder                | Owns                                                                  |
-| ----------------------------------- | ------------------------ | --------------------------------------------------------------------- |
-| `modules/epistola-core`             | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …) |
-| `modules/epistola-audit`            | `db/migration/audit/`    | `audit_log`                                                           |
-| `modules/epistola-support-feedback` | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`                    |
-| `modules/loadtest`                  | `db/migration/loadtest/` | `load_test_runs`                                                      |
+| Module                              | Subfolder                                                                       | Owns                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `modules/epistola-core`             | `db/migration/core/`                                                            | Everything except the tables below (tenants, templates, documents, …)             |
+| `modules/epistola-audit`            | `db/migration/audit/`                                                           | `audit_log`                                                                       |
+| `modules/epistola-support`          | `db/migration/support/`                                                         | `support_connections`, `support_sharing_*`, `support_usage_reports`               |
+| `modules/epistola-support-requests` | `db/migration/support-requests/`, and `db/migration/feedback/` (released, kept) | `support_request*`; the unused `feedback`, `feedback_comments`, `feedback_assets` |
+| `modules/epistola-support-mirror`   | `db/migration/support-mirror/`                                                  | `support_mirror_*`                                                                |
+| `modules/loadtest`                  | `db/migration/loadtest/`                                                        | `load_test_runs`                                                                  |
 
 There is one **global Flyway namespace**: at application runtime every module's
 `src/main/resources` is merged onto one classpath, so `apps/epistola` sees all

@@ -881,7 +881,7 @@
      stretched to the row height. The severity icon is positioned absolutely
      instead (below) so the sentence stays one flowing paragraph.
      `--ep-alert-inline-pad` is the horizontal padding, exposed so an app surface
-     can widen it (feedback.css uses 1.5rem on the app) while the icon offset and
+     can widen it (support-requests.css uses 1.5rem on the app) while the icon offset and
      the column reserved for it follow. */
   .alert {
     --ep-alert-inline-pad: var(--ep-space-4);

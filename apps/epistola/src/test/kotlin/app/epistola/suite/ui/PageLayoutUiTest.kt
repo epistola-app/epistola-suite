@@ -117,13 +117,13 @@ class PageLayoutUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `at the end of a page the feedback button sits below the content, not on it`() {
+    fun `at the end of a page the support request button sits below the content, not on it`() {
         val tenant = createTenant("Feedback Button Layout")
         // Short enough that the tenant home scrolls, so the button floats over content until the end.
         page.setViewportSize(1280, 480)
 
         gotoAndReady("/tenants/${tenant.id}")
-        val fab = page.locator("#feedback-fab")
+        val fab = page.locator("#support-request-fab")
         assertThat(fab).isVisible()
         page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
 

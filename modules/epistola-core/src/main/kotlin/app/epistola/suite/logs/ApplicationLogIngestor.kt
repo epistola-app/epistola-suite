@@ -229,10 +229,10 @@ class ApplicationLogIngestor(
                 """
                 INSERT INTO application_log
                     (id, occurred_at, level, logger, message, thread, instance_id,
-                     tenant_key, trace_id, span_id, exception, attributes)
+                     tenant_key, trace_id, span_id, exception, attributes, message_pattern, user_id)
                 VALUES
                     (:id, :occurredAt, :level, :logger, :message, :thread, :instanceId,
-                     :tenantKey, :traceId, :spanId, :exception, CAST(:attributes AS JSONB))
+                     :tenantKey, :traceId, :spanId, :exception, CAST(:attributes AS JSONB), :messagePattern, :userId)
                 """,
             )
             for (record in records) {
@@ -249,6 +249,8 @@ class ApplicationLogIngestor(
                     .bind("spanId", record.spanId)
                     .bind("exception", record.exception)
                     .bind("attributes", record.attributes?.let { objectMapper.writeValueAsString(it) })
+                    .bind("messagePattern", record.messagePattern)
+                    .bind("userId", record.userId)
                     .add()
             }
             batch.execute()

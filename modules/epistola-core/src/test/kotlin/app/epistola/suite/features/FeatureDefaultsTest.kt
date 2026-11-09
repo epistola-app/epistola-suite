@@ -17,7 +17,7 @@ class FeatureDefaultsTest {
 
     @Test
     fun `feedback is freely usable and defaults on here`() {
-        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
+        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.SUPPORT_REQUESTS))
     }
 
     @Test

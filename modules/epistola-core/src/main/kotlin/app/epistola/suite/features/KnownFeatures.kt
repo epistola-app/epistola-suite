@@ -7,7 +7,7 @@ package app.epistola.suite.features
 import app.epistola.suite.common.ids.FeatureKey
 
 object KnownFeatures {
-    val SUPPORT_FEEDBACK = FeatureKey.of("support-feedback")
+    val SUPPORT_REQUESTS = FeatureKey.of("support-requests")
 
     /**
      * Quality checks — the findings ledger, its report, and the editor panel.
@@ -45,7 +45,7 @@ object KnownFeatures {
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
     val all: List<FeatureKey> = listOf(
-        SUPPORT_FEEDBACK,
+        SUPPORT_REQUESTS,
         QUALITY,
         AI_CHAT,
         EDITOR_WALKTHROUGH,
@@ -77,10 +77,11 @@ object KnownFeatures {
     )
 
     val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
-        SUPPORT_FEEDBACK to FeatureMetadata(
-            "Feedback",
-            // True with and without the support connection: feedback is always kept here.
-            "Lets people report feedback from any page, under Support → Feedback. It is kept in this installation.",
+        SUPPORT_REQUESTS to FeatureMetadata(
+            "Support requests",
+            // True with and without the support connection: requests are always kept here, and only sent on with it.
+            "Lets people send a support request from any page, under Support → Support requests. It is kept in this installation, " +
+                "and sent to Epistola when the installation is connected to Epistola support and the tenant shares it.",
         ),
         QUALITY to FeatureMetadata(
             "Quality",

@@ -68,8 +68,9 @@ dependencies {
     // Support module: the connection to the Epistola support service (off by default)
     implementation(project(":modules:epistola-support"))
 
-    // Feedback feature — full domain + UI, kept in this installation. Pulls in the feedback domain.
-    implementation(project(":modules:epistola-support-feedback"))
+    // Support requests — full domain + UI (freely usable; sending them to Epistola needs the support
+    // connection and each tenant's consent). Pulls in the support request domain.
+    implementation(project(":modules:epistola-support-requests"))
 
     // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to the support
     // service when the installation holds the telemetry scope.

@@ -13,7 +13,7 @@ Feature toggles use a **two-tier resolution** model:
 
 When checking whether a feature is enabled, the system first looks for a tenant-specific override. If none exists, it falls back to the global default. If neither is configured, the feature defaults to disabled.
 
-**No feature is gated on the support connection.** Feedback is freely usable locally and keeps a
+**No feature is gated on the support connection.** Support requests are freely usable locally and keep a
 plain `FeatureDefaults` default of **on**, whether or not the installation is connected to the
 Epistola support service. What the support service grants (its OAuth scopes, see
 [`support-protocol.md`](support-protocol.md)) decides only what is _sent_ to Epistola, not what is
@@ -140,7 +140,7 @@ rule in `components.css`.
 
 | Key                   | Description                                                           | Stage  | Default |
 | --------------------- | --------------------------------------------------------------------- | ------ | ------- |
-| `support-feedback`    | Support → Feedback (kept in this installation)                        | Stable | `true`  |
+| `support-requests`    | Support → Support requests (sent on with the connection and consent)  | Stable | `true`  |
 | `quality`             | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
 | `ai-chat`             | AI chat panel in the template editor                                  | Alpha  | `false` |
 | `editor-walkthrough`  | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `true`  |

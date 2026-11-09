@@ -201,6 +201,10 @@ spec:
               value: {{ join "," . | quote }}
             {{- end }}
             {{- /* A preset of what tenants share; an administrator's saved setup wins. */}}
+            {{- with .Values.support.tenantDefaults.requests }}
+            - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_REQUESTS
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.support.tenantDefaults.mirror }}
             - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR
               value: {{ . | quote }}

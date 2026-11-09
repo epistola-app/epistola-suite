@@ -13,7 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "epistola.features")
 data class FeatureDefaults(
-    val supportFeedback: Boolean = true,
+    val supportRequests: Boolean = true,
     /**
      * Quality checks. Like feedback this is **not** hub-gated — the ledger, its in-process sources,
      * and the report all work with the support tier off. Off while the feature is
@@ -42,7 +42,7 @@ data class FeatureDefaults(
     val catalogInstalling: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
-        KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
+        KnownFeatures.SUPPORT_REQUESTS -> supportRequests
         KnownFeatures.QUALITY -> quality
         KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough

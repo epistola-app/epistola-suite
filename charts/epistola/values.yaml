@@ -372,6 +372,8 @@ support:
   # as agreed on the tenants' behalf by whoever configures the installation. Empty (the default): no
   # preset, and each tenant sets itself up. Rendered as EPISTOLA_SUPPORT_TENANT_DEFAULTS_*.
   tenantDefaults:
+    # Support requests: share or no.
+    requests: ""
     # off, all (every catalog) or marked (only the catalogs a tenant marks).
     mirror: ""
 

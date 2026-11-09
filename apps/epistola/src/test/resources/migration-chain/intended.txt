@@ -2177,3 +2177,152 @@ $$
     synced_catalogs jsonb DEFAULT '[]'::jsonb NOT NULL,
     tenant_key public.tenant_key NOT NULL
 )
+
+# Added after the chain: a log line keeps its message pattern and the user its request ran for (V20261108211824),
+# and support requests replace feedback, whose tables stay (V20261108213145).
+- CREATE TABLE public.application_log (
+    attributes jsonb,
+    exception text,
+    id uuid NOT NULL,
+    instance_id text NOT NULL,
+    level text NOT NULL,
+    logger text NOT NULL,
+    message text NOT NULL,
+    occurred_at timestamp with time zone NOT NULL,
+    span_id text,
+    tenant_key public.tenant_key,
+    thread text,
+    trace_id text
+)
++ ALTER SEQUENCE public.support_request_messages_seq_seq OWNED BY public.support_request_messages.seq
++ ALTER TABLE ONLY public.support_request_assets
+    ADD CONSTRAINT fk_support_request_assets_request FOREIGN KEY (tenant_key, request_id) REFERENCES public.support_requests(tenant_key, id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_assets
+    ADD CONSTRAINT support_request_assets_pkey PRIMARY KEY (tenant_key, request_id, id)
++ ALTER TABLE ONLY public.support_request_delivered_items
+    ADD CONSTRAINT fk_support_request_delivered_items_request FOREIGN KEY (tenant_key, request_id) REFERENCES public.support_requests(tenant_key, id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_delivered_items
+    ADD CONSTRAINT support_request_delivered_items_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_delivered_items
+    ADD CONSTRAINT support_request_delivered_items_pkey PRIMARY KEY (tenant_key, request_id, item_id, connection_id)
++ ALTER TABLE ONLY public.support_request_deliveries
+    ADD CONSTRAINT fk_support_request_deliveries_request FOREIGN KEY (tenant_key, request_id) REFERENCES public.support_requests(tenant_key, id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_deliveries
+    ADD CONSTRAINT support_request_deliveries_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_deliveries
+    ADD CONSTRAINT support_request_deliveries_pkey PRIMARY KEY (tenant_key, request_id, connection_id)
++ ALTER TABLE ONLY public.support_request_messages
+    ADD CONSTRAINT fk_support_request_messages_request FOREIGN KEY (tenant_key, request_id) REFERENCES public.support_requests(tenant_key, id) ON DELETE CASCADE
++ ALTER TABLE ONLY public.support_request_messages
+    ADD CONSTRAINT support_request_messages_from_connection_fkey FOREIGN KEY (from_connection) REFERENCES public.support_connections(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_request_messages
+    ADD CONSTRAINT support_request_messages_pkey PRIMARY KEY (tenant_key, request_id, id)
++ ALTER TABLE ONLY public.support_request_messages
+    ADD CONSTRAINT support_request_messages_seq_key UNIQUE (seq)
++ ALTER TABLE ONLY public.support_request_messages ALTER COLUMN seq SET DEFAULT nextval('public.support_request_messages_seq_seq'::regclass)
++ ALTER TABLE ONLY public.support_requests
+    ADD CONSTRAINT support_requests_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
++ ALTER TABLE ONLY public.support_requests
+    ADD CONSTRAINT support_requests_pkey PRIMARY KEY (tenant_key, id)
++ ALTER TABLE ONLY public.support_requests
+    ADD CONSTRAINT support_requests_tenant_key_fkey FOREIGN KEY (tenant_key) REFERENCES public.tenants(id) ON DELETE CASCADE
++ CREATE INDEX idx_application_log_trace ON public.application_log USING btree (trace_id) WHERE (trace_id IS NOT NULL)
++ CREATE INDEX idx_support_request_deliveries_remote ON public.support_request_deliveries USING btree (connection_id, tenant_key, remote_ref) WHERE (remote_ref IS NOT NULL)
++ CREATE INDEX idx_support_request_deliveries_waiting ON public.support_request_deliveries USING btree (connection_id, state) WHERE ((state)::text <> 'SYNCED'::text)
++ CREATE INDEX idx_support_requests_created_at ON public.support_requests USING btree (tenant_key, created_at DESC)
++ CREATE INDEX idx_support_requests_created_by ON public.support_requests USING btree (tenant_key, created_by)
++ CREATE INDEX idx_support_requests_status ON public.support_requests USING btree (tenant_key, status)
++ CREATE SEQUENCE public.support_request_messages_seq_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
++ CREATE TABLE public.application_log (
+    attributes jsonb,
+    exception text,
+    id uuid NOT NULL,
+    instance_id text NOT NULL,
+    level text NOT NULL,
+    logger text NOT NULL,
+    message text NOT NULL,
+    message_pattern text,
+    occurred_at timestamp with time zone NOT NULL,
+    span_id text,
+    tenant_key public.tenant_key,
+    thread text,
+    trace_id text,
+    user_id uuid
+)
++ CREATE TABLE public.support_request_assets (
+    content bytea NOT NULL,
+    content_type character varying(100) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    filename character varying(255),
+    id uuid NOT NULL,
+    request_id uuid NOT NULL,
+    sync_consent_id uuid,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.support_request_delivered_items (
+    attempts integer DEFAULT 0 NOT NULL,
+    connection_id uuid NOT NULL,
+    item_id uuid NOT NULL,
+    next_attempt_at timestamp with time zone,
+    remote_id text,
+    request_id uuid NOT NULL,
+    sent_at timestamp with time zone,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.support_request_deliveries (
+    CONSTRAINT chk_support_request_deliveries_state CHECK (((state)::text = ANY ((ARRAY['PENDING'::character varying, 'SYNCED'::character varying, 'FAILED'::character varying])::text[]))),
+    attempts integer DEFAULT 0 NOT NULL,
+    connection_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    next_attempt_at timestamp with time zone,
+    remote_ref text,
+    remote_url text,
+    request_id uuid NOT NULL,
+    state character varying(16) NOT NULL,
+    status_attempts integer DEFAULT 0 NOT NULL,
+    status_unsent boolean DEFAULT false NOT NULL,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.support_request_messages (
+    CONSTRAINT chk_support_request_messages_kind CHECK (((kind)::text = ANY ((ARRAY['QUESTION'::character varying, 'REPLY'::character varying, 'STATUS'::character varying])::text[]))),
+    author_email text,
+    author_name text DEFAULT ''::text NOT NULL,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    from_connection uuid,
+    id uuid NOT NULL,
+    kind character varying(16) NOT NULL,
+    remote_id text,
+    request_id uuid NOT NULL,
+    seq bigint NOT NULL,
+    sync_consent_id uuid,
+    tenant_key public.tenant_key NOT NULL
+)
++ CREATE TABLE public.support_requests (
+    category character varying(30) NOT NULL,
+    console_logs text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid NOT NULL,
+    id uuid NOT NULL,
+    metadata jsonb,
+    priority character varying(30) DEFAULT 'MEDIUM'::character varying NOT NULL,
+    requested_priority character varying(30) NOT NULL,
+    server_logs text,
+    source_url text,
+    status character varying(30) DEFAULT 'OPEN'::character varying NOT NULL,
+    sync_consent_id uuid,
+    tenant_key public.tenant_key NOT NULL,
+    title text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+)
++ CREATE TRIGGER trg_support_requests_updated_at BEFORE UPDATE ON public.support_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()
++ CREATE UNIQUE INDEX uq_support_request_messages_remote ON public.support_request_messages USING btree (tenant_key, from_connection, remote_id) WHERE (remote_id IS NOT NULL)
+
+# The feedback toggle is renamed with the feature (V20261108213332): a tenant's override keeps applying.
+- row feature_toggles: {"enabled":false,"feature_key":"support-feedback","tenant_key":"preserve-tenant"}
++ row feature_toggles: {"enabled":false,"feature_key":"support-requests","tenant_key":"preserve-tenant"}
