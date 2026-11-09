@@ -26,6 +26,7 @@ import app.epistola.suite.support.connection.SupportConnectionPreset
 import app.epistola.suite.support.connection.SupportConnectionPresetUnavailableException
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
 import app.epistola.suite.support.connection.SupportRegistrationNotAllowedException
 import app.epistola.suite.support.connection.SupportScope
@@ -86,6 +87,7 @@ class SupportPlatformHandler(
     private val work: SupportBackgroundWork,
     private val sharing: SupportSharingHandler,
     panels: List<SupportPlatformPanel>,
+    private val supportConnections: SupportConnections,
 ) {
     private val panels = panels.sortedBy { it.order }
 
@@ -108,6 +110,7 @@ class SupportPlatformHandler(
         "addError" to addError
         "addForm" to addForm
         "serviceNames" to SupportScope.entries.map { it.value }
+        "allConnections" to supportConnections.all()
         "pageTitle" to "Epistola support - Epistola"
         "platformPage" to "Epistola support"
         "overview" to GetSupportConnectionOverview().query()
@@ -247,7 +250,15 @@ class SupportPlatformHandler(
     fun updateConnection(request: ServerRequest): ServerResponse {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
         return try {
-            UpdateSupportConnection(id, request.param("name").orElse(""), request.params()["services"].orEmpty(), request.param("token").orElse(null)).execute()
+            val escalatesTo = request.param("escalatesTo").orElse("").takeIf { it.isNotBlank() }?.let { runCatching { UUID.fromString(it) }.getOrNull() ?: return ServerResponse.badRequest().build() }
+            UpdateSupportConnection(
+                id,
+                request.param("name").orElse(""),
+                request.params()["services"].orEmpty(),
+                request.param("token").orElse(null),
+                escalatesTo = escalatesTo,
+                changeEscalation = request.param("escalatesTo").isPresent,
+            ).execute()
             redirect("/platform/support#support-connections")
         } catch (e: ValidationException) {
             page(request, addError = e.message, status = 422)

@@ -45,6 +45,8 @@ data class SupportConnectionListing(
     val checkedAt: Instant?,
     val lastError: String?,
     val privacy: SupportPrivacySettings,
+    /** The connection it escalates to when it asks; null: none. */
+    val escalatesTo: UUID? = null,
 )
 
 /** The installation's support connections besides Epistola support, oldest first. No network I/O. */
@@ -78,6 +80,7 @@ class ListSupportConnectionsHandler(
             checkedAt = status.checkedAt,
             lastError = status.lastError,
             privacy = privacy.forConnection(connection.id),
+            escalatesTo = connections.find(connection.id)?.escalatesTo,
         )
     }
 }

@@ -33,7 +33,9 @@
   the token that party issued). Rendered as `EPISTOLA_SUPPORT_CONNECTIONS_<n>_*`, independent of
   `support.enabled`, so an installation can connect to its partner alone.
   Each entry may set `tenantIdentity` (`named`, `confidential`) and `telemetry` (`pseudonymised`,
-  `full`); left out, the connection follows the installation's privacy settings.
+  `full`); left out, the connection follows the installation's privacy settings. `escalatesTo`
+  (`epistola`, or another entry's endpoint) names the connection it escalates to when it asks the
+  installation to.
 
 - **`support.usage.backlog`** sets how far back hours missed while the installation or the support
   service was down are still reported for billing once both are back, as a duration (renders

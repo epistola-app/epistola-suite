@@ -145,7 +145,8 @@ echo "sharing render: ok"
 partners="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
   --set 'support.connections[0].name=Acme Partner' --set 'support.connections[0].endpoint=https://desk.acme.example' \
   --set 'support.connections[0].services={requests,usage}' --set 'support.connections[0].tokenSecret.name=acme-token' \
-  --set 'support.connections[0].tenantIdentity=named')"
+  --set 'support.connections[0].tenantIdentity=named' --set 'support.connections[0].escalatesTo=epistola')"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ESCALATES_TO epistola
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_TENANT_IDENTITY named
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_NAME "Acme Partner"
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ENDPOINT "https://desk.acme.example"

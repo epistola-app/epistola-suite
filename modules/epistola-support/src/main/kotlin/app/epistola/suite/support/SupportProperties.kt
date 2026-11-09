@@ -77,6 +77,12 @@ data class SupportProperties(
             require(allowHttp || url.scheme == "https") { "epistola.support.connections[$i].endpoint '${c.endpoint}' is plaintext http; use https, or set epistola.support.allow-http=true locally" }
         }
         require(connections.map { it.baseUrl }.distinct().size == connections.size) { "epistola.support.connections names an endpoint twice" }
+        connections.forEachIndexed { i, c ->
+            val to = c.escalatesTo.trim().trimEnd('/')
+            require(to.isEmpty() || to == ESCALATES_TO_EPISTOLA || (to != c.baseUrl && connections.any { it.baseUrl == to })) {
+                "epistola.support.connections[$i].escalates-to must be '$ESCALATES_TO_EPISTOLA', another connection's endpoint, or empty; got '${c.escalatesTo}'"
+            }
+        }
         require(usage.backlog >= Duration.ofHours(1)) { "epistola.support.usage.backlog must be at least an hour" }
     }
 
@@ -93,6 +99,8 @@ data class SupportProperties(
      * @property tenantIdentity what it learns of tenants, `named` or `confidential`; blank: the
      *   installation's setting ([Privacy]), until an administrator saves one for this connection.
      * @property telemetry how much telemetry carries over it, `pseudonymised` or `full`; blank likewise.
+     * @property escalatesTo the connection it escalates to when it asks the suite to (ADR 0053 §4):
+     *   `epistola` for Epistola support, another entry's endpoint, or blank for none.
      */
     data class Connection(
         val name: String = "",
@@ -101,6 +109,7 @@ data class SupportProperties(
         val services: List<String> = emptyList(),
         val tenantIdentity: String = "",
         val telemetry: String = "",
+        val escalatesTo: String = "",
     ) {
         /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
         val baseUrl: String get() = endpoint.trim().trimEnd('/')
@@ -185,3 +194,6 @@ data class SupportProperties(
             runCatching { URI(value) }.getOrNull()?.takeIf { (it.scheme == "https" || it.scheme == "http") && it.host != null && it.userInfo == null }
         }
 }
+
+/** `epistola.support.connections[].escalates-to` naming Epistola support's connection. */
+const val ESCALATES_TO_EPISTOLA = "epistola"

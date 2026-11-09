@@ -270,6 +270,10 @@ can open requests through the same protocol.
      preset (the `support` object) or by hand, with the token entered there; rename, change services
      or token, remove. `support_connections.from_configuration` marks what the configuration owns, so
      what an administrator saved is left alone at the next start.
+   - **3f, built:** escalation a connection asks for. The changes feed has a change type `ESCALATION`
+     (with an optional `reason`): the installation attaches the connection the asking one
+     `escalates_to` (configuration `escalates-to`, or the platform page), as its desk would, and tells
+     the desk in an internal note, which also says why when it cannot.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

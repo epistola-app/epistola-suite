@@ -49,6 +49,18 @@ sealed class ExternalUpdate {
         override val occurredAt: Instant,
         val newPriority: SupportRequestPriority,
     ) : ExternalUpdate()
+
+    /**
+     * The connection asks the suite to escalate the request (ADR 0053 §4): attach the connection it
+     * escalates to. [reason] is what its staff wrote, if anything.
+     */
+    data class EscalationRequest(
+        override val seq: Long,
+        override val tenantKey: TenantKey,
+        override val externalRef: String,
+        override val occurredAt: Instant,
+        val reason: String?,
+    ) : ExternalUpdate()
 }
 
 /**

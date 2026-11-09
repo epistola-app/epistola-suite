@@ -115,6 +115,13 @@
                         <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
                     </fieldset>
                     <label class="form-group">New token <input type="password" name="token" class="ep-input ep-input-sm" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it"></label>
+                    <label class="form-group">Escalates to
+                        <select name="escalatesTo" class="ep-select ep-select-sm form-control-auto" data-testid="support-connection-escalates-to">
+                            <option value="" th:selected="${c.escalatesTo == null}">No one</option>
+                            <option th:each="o : ${allConnections}" th:if="${o.id != c.id}" th:value="${o.id}" th:text="${o.name}"
+                                    th:selected="${c.escalatesTo != null and c.escalatesTo == o.id}">Epistola support</option>
+                        </select>
+                    </label>
                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-save">Save</button>
                 </form>
                 <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-privacy">

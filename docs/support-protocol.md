@@ -506,12 +506,26 @@ documents (`/generation/collect`):
       "occurredAt": "…",
       "type": "PRIORITY",
       "priority": "LOW"
+    },
+    {
+      "sequence": 44,
+      "requestId": "0193…",
+      "tenantKey": "acme",
+      "suiteRequestId": "…",
+      "occurredAt": "…",
+      "type": "ESCALATION",
+      "reason": "Looks like a product bug"
     }
   ],
   "hasMore": false,
-  "lastSequence": 43
+  "lastSequence": 44
 }
 ```
+
+`ESCALATION` asks the installation to escalate the request (ADR 0053 §4): it attaches the connection
+the asking one escalates to, as its support desk would, while the tenant shares support requests with
+that connection, and tells its desk in an internal note; when that cannot be done, the note says why.
+The asking connection keeps the request; it learns of the other party's replies as of any reply.
 
 Requests that start elsewhere (a support portal) will arrive here as their own change type; an
 installation skips types it does not know and still acknowledges them.

@@ -188,6 +188,9 @@ data class UpdateSupportConnection(
     val name: String,
     val services: List<String>,
     val token: String? = null,
+    /** The connection it escalates to (ADR 0053 §4), when [changeEscalation]; null: none. */
+    val escalatesTo: UUID? = null,
+    val changeEscalation: Boolean = false,
 ) : Command<Unit>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -214,6 +217,13 @@ class UpdateSupportConnectionHandler(
         val store = connections.store(command.connectionId)
         store.saveServices(StoredSupportServices(SupportScope.normalize(command.services), EpistolaClock.instant(), SecurityContext.current().displayName))
         command.token?.trim()?.takeIf { it.isNotEmpty() }?.let { store.saveBearerToken(it) }
+        if (command.changeEscalation) {
+            validate("escalatesTo", command.escalatesTo != command.connectionId) { "A connection cannot escalate to itself" }
+            jdbi.useHandle<Exception> { handle ->
+                handle.createUpdate("UPDATE support_connections SET escalates_to = (SELECT id FROM support_connections WHERE id = :to) WHERE id = :id")
+                    .bind("id", command.connectionId).bind("to", command.escalatesTo).execute()
+            }
+        }
     }
 }
 
