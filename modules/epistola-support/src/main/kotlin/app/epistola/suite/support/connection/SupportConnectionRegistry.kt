@@ -22,14 +22,15 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Every support connection of the installation, live (ADR 0053): the discovered one
- * ([DefaultSupportConnection], the bean other modules inject as [SupportConnection]) and every
+ * Every support connection of the installation, live (ADR 0053): the discovered one (the
+ * [SupportConnection] bean every module injects, [DefaultSupportConnection]) and every
  * [SupportConnectionAuth.BEARER_TOKEN] connection in `support_connections`. A connection is built once
  * per id and kept; a connection added since is picked up at the next read of the rows.
  */
 @Component
 class SupportConnectionRegistry(
-    private val discovered: DefaultSupportConnection,
+    /** The discovered connection as every service injects it ([DefaultSupportConnection] in production). */
+    private val discovered: SupportConnection,
     private val connections: SupportConnections,
     private val supportHttp: SupportHttp,
     private val properties: SupportProperties,

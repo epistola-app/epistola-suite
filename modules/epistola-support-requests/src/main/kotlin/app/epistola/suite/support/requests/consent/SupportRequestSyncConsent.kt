@@ -50,41 +50,43 @@ data class SupportRequestSyncConsentWithdrawal(
 )
 
 /**
- * The support connection feedback is sent over (ADR 0053). Feedback goes over one connection until
- * support requests have a delivery per connection (ADR 0053, rollout step 2); every consent and
- * default row it reads or writes is that connection's.
+ * The connection support requests went over before they had one per connection: Epistola support's.
+ * What reads or writes a tenant's consent takes the connection; this is its default (ADR 0053 step 3).
  */
 internal val REQUESTS_CONNECTION: UUID = SupportConnections.DISCOVERED_ID
 
 /** [REQUESTS_CONNECTION] as an SQL literal, for the predicates below, which are built into other statements. */
-internal val REQUESTS_CONNECTION_SQL = "'$REQUESTS_CONNECTION'::uuid"
+internal val REQUESTS_CONNECTION_SQL = connectionSql(REQUESTS_CONNECTION)
 
-/** SQL that reads one tenant's [SupportRequestSyncConsent] row with the names of who changed it. */
+/** Connection [id] as an SQL literal, for the predicates below; a column such as `d.connection_id` works as well. */
+internal fun connectionSql(id: UUID): String = "'$id'::uuid"
+
+/** SQL that reads one tenant's [SupportRequestSyncConsent] row with the names of who changed it; binds `tenantKey` and `connectionId`. */
 internal val SELECT_SUPPORT_REQUEST_SYNC_CONSENT = """
     SELECT c.tenant_key, c.given_at AS consented_at, cu.display_name AS consented_by,
            c.withdrawn_at, wu.display_name AS withdrawn_by, c.follows_default
     FROM support_sharing_choice c
     LEFT JOIN users cu ON cu.id = c.given_by
     LEFT JOIN users wu ON wu.id = c.withdrawn_by
-    WHERE c.connection_id = $REQUESTS_CONNECTION_SQL AND c.section = '$REQUESTS_SECTION' AND c.tenant_key = :tenantKey
+    WHERE c.connection_id = :connectionId AND c.section = '$REQUESTS_SECTION' AND c.tenant_key = :tenantKey
 """
 
 /**
  * SQL predicate, for a query with the tenant's key in [tenantKeyColumn], that the tenant's consent
  * is in force. The sync sweeps filter on it in SQL so they never load what they may not send.
  */
-internal fun consentInForce(tenantKeyColumn: String): String = """
+internal fun consentInForce(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     EXISTS (SELECT 1 FROM support_sharing_choice fsc
-            WHERE fsc.connection_id = $REQUESTS_CONNECTION_SQL AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
+            WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
 """
 
 /**
  * SQL expression: the `grant_id` of [tenantKeyColumn]'s consent in force (one grant), or NULL.
  * What `support_requests.sync_consent_id` is set to when feedback is submitted.
  */
-internal fun consentInForceId(tenantKeyColumn: String): String = """
+internal fun consentInForceId(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     (SELECT fsc.grant_id FROM support_sharing_choice fsc
-     WHERE fsc.connection_id = $REQUESTS_CONNECTION_SQL AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
+     WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
 """
 
 /**
@@ -94,10 +96,10 @@ internal fun consentInForceId(tenantKeyColumn: String): String = """
  * without consent, or synced by the retired hub, is not: its comments, status changes and assets stay
  * in the installation. A comment or an asset also needs [createdUnderConsent].
  */
-internal fun exchangedUnderConsent(supportRequestAlias: String): String = """
+internal fun exchangedUnderConsent(supportRequestAlias: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     ($supportRequestAlias.sync_consent_id IS NOT NULL
      AND EXISTS (SELECT 1 FROM support_sharing_choice fsc
-                 WHERE fsc.connection_id = $REQUESTS_CONNECTION_SQL AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $supportRequestAlias.tenant_key AND fsc.withdrawn_at IS NULL))
+                 WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $supportRequestAlias.tenant_key AND fsc.withdrawn_at IS NULL))
 """
 
 /**
@@ -116,20 +118,20 @@ internal fun createdUnderConsent(alias: String): String = "$alias.sync_consent_i
  * still in force and the withdrawal's statements miss its uncommitted row: it would be sent once
  * consent is given again. Not for queries, which may run read-only.
  */
-internal fun lockedConsentInForce(tenantKeyColumn: String): String = """
+internal fun lockedConsentInForce(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     EXISTS (SELECT 1 FROM support_sharing_choice fsc
-            WHERE fsc.connection_id = $REQUESTS_CONNECTION_SQL AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
+            WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
             FOR SHARE)
 """
 
 /** [consentInForceId] for a statement that writes, locking as [lockedConsentInForce] does. */
-internal fun lockedConsentInForceId(tenantKeyColumn: String): String = """
+internal fun lockedConsentInForceId(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     (SELECT fsc.grant_id FROM support_sharing_choice fsc
-     WHERE fsc.connection_id = $REQUESTS_CONNECTION_SQL AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
+     WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
      FOR SHARE)
 """
 
 /** [exchangedUnderConsent] for a statement that writes, locking as [lockedConsentInForce] does. */
-internal fun exchangedUnderLockedConsent(supportRequestAlias: String): String = """
-    ($supportRequestAlias.sync_consent_id IS NOT NULL AND ${lockedConsentInForce("$supportRequestAlias.tenant_key")})
+internal fun exchangedUnderLockedConsent(supportRequestAlias: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
+    ($supportRequestAlias.sync_consent_id IS NOT NULL AND ${lockedConsentInForce("$supportRequestAlias.tenant_key", connection)})
 """

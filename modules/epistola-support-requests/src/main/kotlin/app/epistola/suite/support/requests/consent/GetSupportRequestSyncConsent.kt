@@ -11,13 +11,16 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.support.connection.SupportConnections
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /** The tenant's consent to send feedback to Epistola support, for its settings page. */
 data class GetSupportRequestSyncConsent(
     override val tenantKey: TenantKey,
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Query<SupportRequestSyncConsent>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -27,7 +30,7 @@ data class GetSupportRequestSyncConsent(
 class GetSupportRequestSyncConsentHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetSupportRequestSyncConsent, SupportRequestSyncConsent> {
-    override fun handle(query: GetSupportRequestSyncConsent): SupportRequestSyncConsent = readConsent(jdbi, query.tenantKey)
+    override fun handle(query: GetSupportRequestSyncConsent): SupportRequestSyncConsent = readConsent(jdbi, query.tenantKey, query.connectionId)
 }
 
 /**
@@ -36,6 +39,7 @@ class GetSupportRequestSyncConsentHandler(
  */
 data class IsSupportRequestSyncConsentInForce(
     val tenantKey: TenantKey,
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Query<Boolean>,
     SystemInternal
 
@@ -43,7 +47,7 @@ data class IsSupportRequestSyncConsentInForce(
 class IsSupportRequestSyncConsentInForceHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<IsSupportRequestSyncConsentInForce, Boolean> {
-    override fun handle(query: IsSupportRequestSyncConsentInForce): Boolean = readConsent(jdbi, query.tenantKey).inForce
+    override fun handle(query: IsSupportRequestSyncConsentInForce): Boolean = readConsent(jdbi, query.tenantKey, query.connectionId).inForce
 }
 
 /**
@@ -52,6 +56,7 @@ class IsSupportRequestSyncConsentInForceHandler(
  */
 data class IsSupportRequestExchangedUnderConsent(
     val id: SupportRequestId,
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Query<Boolean>,
     SystemInternal
 
@@ -60,7 +65,7 @@ class IsSupportRequestExchangedUnderConsentHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<IsSupportRequestExchangedUnderConsent, Boolean> {
     override fun handle(query: IsSupportRequestExchangedUnderConsent): Boolean = jdbi.withHandleUnchecked { handle ->
-        handle.createQuery("SELECT EXISTS (SELECT 1 FROM support_requests f WHERE f.tenant_key = :tenantKey AND f.id = :id AND ${exchangedUnderConsent("f")})")
+        handle.createQuery("SELECT EXISTS (SELECT 1 FROM support_requests f WHERE f.tenant_key = :tenantKey AND f.id = :id AND ${exchangedUnderConsent("f", connectionSql(query.connectionId))})")
             .bind("tenantKey", query.id.tenantKey)
             .bind("id", query.id.key.value)
             .mapTo(Boolean::class.java)
@@ -68,9 +73,10 @@ class IsSupportRequestExchangedUnderConsentHandler(
     }
 }
 
-private fun readConsent(jdbi: Jdbi, tenantKey: TenantKey): SupportRequestSyncConsent = jdbi.withHandleUnchecked { handle ->
+private fun readConsent(jdbi: Jdbi, tenantKey: TenantKey, connectionId: UUID): SupportRequestSyncConsent = jdbi.withHandleUnchecked { handle ->
     handle.createQuery(SELECT_SUPPORT_REQUEST_SYNC_CONSENT)
         .bind("tenantKey", tenantKey)
+        .bind("connectionId", connectionId)
         .mapTo(SupportRequestSyncConsent::class.java)
         .findOne()
         .orElse(SupportRequestSyncConsent.none(tenantKey))

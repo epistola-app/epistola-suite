@@ -5,6 +5,8 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.TokenSupportConnectionCheckScheduler
 import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
@@ -45,11 +47,14 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var registry: app.epistola.suite.support.connection.SupportConnectionRegistry
 
-    private fun post(path: String, form: Map<String, String>) = restTemplate.postForEntity(
+    private fun post(path: String, form: Map<String, String>, htmx: Boolean = false) = restTemplate.postForEntity(
         path,
         org.springframework.http.HttpEntity(
             org.springframework.util.LinkedMultiValueMap<String, String>().apply { form.forEach { (k, v) -> add(k, v) } },
-            org.springframework.http.HttpHeaders().apply { contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED },
+            org.springframework.http.HttpHeaders().apply {
+                contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED
+                if (htmx) set("HX-Request", "true")
+            },
         ),
         String::class.java,
     )
@@ -64,6 +69,36 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         assertThat(saved.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(saved.body).contains("data-testid=\"support-connection-privacy-source\"").contains("Set by")
         assertThat(post(path, mapOf("tenantIdentity" to "ANONYMOUS", "telemetry" to "FULL")).statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
+    @Test
+    fun `a tenant shares support requests with the partner from its Support page, agreeing on its behalf`() {
+        val tenant = createTenant("Partner Sharing Page")
+        val id = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
+
+        val page = restTemplate.getForEntity("/tenants/${tenant.id.value}/support", String::class.java).body!!
+        assertThat(page).contains("data-testid=\"support-connection-sharing\"").contains("Sharing with Acme Partner")
+
+        val path = "/tenants/${tenant.id.value}/support/connections/$id/sharing"
+        val refused = post(path, mapOf("requests.choice" to "SHARE"), htmx = true)
+        assertThat(refused.body).contains("data-testid=\"support-connection-sharing-error\"")
+        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id, id).query() }.inForce).isFalse()
+
+        post(path, mapOf("requests.choice" to "SHARE", "agree" to "true"))
+
+        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id, id).query() }.inForce).isTrue()
+        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id).query() }.inForce).`as`("not with Epistola").isFalse()
+    }
+
+    @Test
+    fun `an installation administrator sets the partner's preset for every tenant`() {
+        val id = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
+        assertThat(restTemplate.getForEntity("/platform/support", String::class.java).body).contains("data-testid=\"support-connection-presets\"")
+
+        post("/platform/support/connections/$id/defaults", mapOf("requests.default" to "SHARE", "agree" to "true"))
+
+        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSharingDefault(id).query() }.share).isTrue()
+        withMediator { app.epistola.suite.support.requests.consent.ClearSupportRequestSharingDefault(id).execute() }
     }
 
     companion object {

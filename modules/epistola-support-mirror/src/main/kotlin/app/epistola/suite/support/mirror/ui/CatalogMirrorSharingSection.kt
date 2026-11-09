@@ -51,8 +51,8 @@ class CatalogMirrorSharingSection(
         SharingChoice(CatalogMirrorDefaultChoice.OFF.name, "Do not share catalogs", shares = false),
     )
 
-    /** Asked only once the installation selected the mirror under Services. */
-    override fun offered(connectionId: UUID): Boolean = connection.isSelected(SupportScope.MIRROR)
+    /** Asked only once the installation selected the mirror under Services, and over Epistola support's connection only: the mirror is a service Epistola offers. */
+    override fun offered(connectionId: UUID): Boolean = connectionId == MIRROR_CONNECTION && connection.isSelected(SupportScope.MIRROR)
 
     override fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView {
         onlyMirrorConnection(connectionId)

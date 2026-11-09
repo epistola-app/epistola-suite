@@ -10,11 +10,13 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Withdraws the tenant's consent: from now on nothing of its feedback is sent to Epistola support,
@@ -36,6 +38,8 @@ import org.springframework.stereotype.Component
  */
 data class WithdrawSupportRequestSyncConsent(
     override val tenantKey: TenantKey,
+    /** The connection the tenant stops sharing support requests with. */
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Command<SupportRequestSyncConsentWithdrawal>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -46,9 +50,10 @@ class WithdrawSupportRequestSyncConsentHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<WithdrawSupportRequestSyncConsent, SupportRequestSyncConsentWithdrawal> {
     override fun handle(command: WithdrawSupportRequestSyncConsent): SupportRequestSyncConsentWithdrawal = jdbi.withHandleUnchecked { handle ->
-        val stopped = SupportRequestConsentWrites.withdrawOwn(handle, command.tenantKey, SecurityContext.current().userId.value, EpistolaClock.offsetDateTime())
+        val stopped = SupportRequestConsentWrites.withdrawOwn(handle, command.tenantKey, SecurityContext.current().userId.value, EpistolaClock.offsetDateTime(), command.connectionId)
         val consent = handle.createQuery(SELECT_SUPPORT_REQUEST_SYNC_CONSENT)
             .bind("tenantKey", command.tenantKey)
+            .bind("connectionId", command.connectionId)
             .mapTo(SupportRequestSyncConsent::class.java)
             .findOne()
             .orElse(SupportRequestSyncConsent.none(command.tenantKey))

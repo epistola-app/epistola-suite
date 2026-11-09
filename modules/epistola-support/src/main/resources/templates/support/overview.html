@@ -48,7 +48,7 @@
             </p>
         </section>
 
-        <th:block th:unless="${summary.connection.name() == 'OFF'}">
+        <th:block th:if="${summary.connection.name() != 'OFF' or !#lists.isEmpty(connectionSharing)}">
             <div th:replace="~{support/overview :: sharing}"></div>
         </th:block>
 
@@ -77,6 +77,9 @@
     <section th:fragment="sharing" id="support-sharing" class="ep-panel form-section" data-testid="support-sharing">
         <div class="alert alert-info" th:if="${sharingNotice != null}" role="status" data-testid="support-sharing-notice"
              th:text="${sharingNotice}">Epistola support is set up for Acme.</div>
+
+        <!--/* Epistola support's part only while that connection is on: a partner-only installation shows its partners alone. */-->
+        <th:block th:unless="${epistolaOff}">
 
         <th:block th:if="${sharing == null}">
             <h2>Sharing with Epistola</h2>
@@ -199,6 +202,40 @@
                 </form>
             </div>
         </th:block>
+
+        </th:block>
+
+        <!--/* What the tenant shares with each other support connection, such as a partner (ADR 0053). */-->
+        <div th:each="cs : ${connectionSharing}" class="form-section" style="margin-top: var(--ep-space-6);"
+             data-testid="support-connection-sharing" th:attr="data-connection=${cs.connectionId}">
+            <h3 th:text="|Sharing with ${cs.name}|">Sharing with a partner</h3>
+            <div class="alert alert-error" role="alert" th:if="${connectionErrorId != null and connectionErrorId == cs.connectionId}"
+                 data-testid="support-connection-sharing-error" th:text="${connectionError}">Tick that you agree.</div>
+            <form th:attr="hx-post=@{'/tenants/' + ${tenantId} + '/support/connections/' + ${cs.connectionId} + '/sharing'}" hx-target="#support-sharing" hx-swap="outerHTML"
+                  th:action="@{'/tenants/' + ${tenantId} + '/support/connections/' + ${cs.connectionId} + '/sharing'}" method="post">
+                <fieldset th:each="v : ${cs.views}" class="form-group">
+                    <legend th:text="${v.section.title}">Support requests</legend>
+                    <p class="text-muted text-sm" th:text="${v.followsPreset} ? 'Follows the installation\'s setup.' : 'Chosen for this tenant' + (${v.decidedBy} ? ' by ' + ${v.decidedBy} : '') + '.'">Follows the installation's setup.</p>
+                    <label class="ep-row ep-gap-3" th:each="c : ${v.section.choices}">
+                        <input type="radio" th:name="${v.section.key} + '.choice'" th:value="${c.value}" th:checked="${v.value == c.value}"
+                               th:disabled="${v.withheld.containsKey(c.value)}">
+                        <span th:text="${c.label}">Share support requests</span>
+                        <span class="text-muted text-sm" th:if="${v.withheld.containsKey(c.value)}" th:text="${v.withheld.get(c.value)}">Not allowed.</span>
+                    </label>
+                </fieldset>
+                <label class="ep-row ep-gap-3">
+                    <input type="checkbox" name="agree" value="true">
+                    <span th:text="|To share anything, I agree on behalf of this tenant to share it with ${cs.name}.|">I agree.</span>
+                </label>
+                <div class="ep-row ep-gap-3" style="margin-top: var(--ep-space-3);">
+                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="support-connection-sharing-save">Save</button>
+                </div>
+            </form>
+            <form th:if="${cs.ownChoice}" th:attr="hx-post=@{'/tenants/' + ${tenantId} + '/support/connections/' + ${cs.connectionId} + '/use-preset'}" hx-target="#support-sharing" hx-swap="outerHTML"
+                  th:action="@{'/tenants/' + ${tenantId} + '/support/connections/' + ${cs.connectionId} + '/use-preset'}" method="post" style="margin-top: var(--ep-space-2);">
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-sharing-use-preset">Use the installation's setup</button>
+            </form>
+        </div>
     </section>
 </body>
 </html>

@@ -87,6 +87,8 @@ class SupportPlatformHandler(
         "privacy" to GetSupportPrivacy().query()
         "defaults" to sharing.installationViews()
         "connections" to ListSupportConnections().query()
+        "connectionPresets" to sharing.connectionPresets()
+        "presetError" to request.param("presetError").orElse(null)
         "panels" to panelViews()
     }
 
@@ -200,6 +202,7 @@ class SupportPlatformHandler(
                 "privacy" to GetSupportPrivacy().query()
                 "defaults" to sharing.installationViews()
                 "connections" to ListSupportConnections().query()
+                "connectionPresets" to sharing.connectionPresets()
                 "connections" to ListSupportConnections().query()
                 "panels" to panelViews()
             }

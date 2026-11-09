@@ -6,6 +6,7 @@ package app.epistola.suite.support.ui
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -13,6 +14,9 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePlatformRole
+import app.epistola.suite.support.connection.SupportConnectionRegistry
+import app.epistola.suite.support.connection.SupportConnectionState
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.sharing.GetSharingRestrictions
 import app.epistola.suite.support.sharing.InstallationSharingView
 import app.epistola.suite.support.sharing.NOT_ALLOWED
@@ -33,6 +37,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /** Where a tenant stands with what it shares with Epistola. */
 enum class TenantSharingState {
@@ -93,6 +98,29 @@ data class TenantSharingOverview(
 }
 
 /**
+ * What a tenant shares with one support connection other than Epistola support (ADR 0053), for its
+ * Support page: the sections that connection offers, each with the tenant's choice in force.
+ *
+ * @property canManage the viewer may change it ([Permission.INTEGRATIONS_MANAGE]).
+ */
+data class TenantConnectionSharing(
+    val connectionId: UUID,
+    val name: String,
+    val views: List<TenantSharingView>,
+    val canManage: Boolean,
+) {
+    /** The tenant chose itself for at least one section; it can go back to the installation's setup. */
+    val ownChoice: Boolean get() = views.any { !it.followsPreset }
+}
+
+/** The installation's preset for one support connection other than Epistola support, for `/platform/support`. */
+data class ConnectionSharingPreset(
+    val connectionId: UUID,
+    val name: String,
+    val views: List<InstallationSharingView>,
+)
+
+/**
  * The setup wizard: an introduction, one step per [TenantSharingSection], and a review with the
  * agreement. The choices travel along as hidden fields; nothing is saved before "Finish setup".
  *
@@ -134,6 +162,8 @@ data class TenantSharingWizard(
 @Component
 class SupportSharingHandler(
     sections: List<TenantSharingSection>,
+    private val registry: SupportConnectionRegistry,
+    private val connections: SupportConnections,
 ) {
     private val sections = sections.sortedBy { it.order }
 
@@ -157,6 +187,82 @@ class SupportSharingHandler(
 
     /** Every section's installation preset and restriction, for `/platform/support`. */
     fun installationViews(restrictions: SharingRestrictionsResult = GetSharingRestrictions().query()): List<InstallationSharingView> = sections.map { it.installationView().copy(restriction = restrictions.of(it.key)) }
+
+    /**
+     * What [tenantKey] shares with each support connection other than Epistola support that offers
+     * anything; empty when none does, or when the viewer may not manage it.
+     */
+    fun connectionSharing(tenantKey: TenantKey): List<TenantConnectionSharing> {
+        if (!canManage(tenantKey)) return emptyList()
+        return registry.tokenConnections().mapNotNull { connection ->
+            val restrictions = GetSharingRestrictions(connection.id).query()
+            val views = sections.filter { restrictions.of(it.key) != SharingRestriction.REQUIRED && it.offered(connection.id) }.map { section ->
+                val view = section.tenantView(tenantKey, connection.id)
+                if (restrictions.of(section.key) != SharingRestriction.NOT_ALLOWED) {
+                    view
+                } else {
+                    view.copy(withheld = view.withheld + section.choices.filter { it.shares }.associate { it.value to SharingRestrictions.NOT_ALLOWED_REASON })
+                }
+            }
+            views.takeIf { it.isNotEmpty() }?.let { TenantConnectionSharing(connection.id, nameOf(connection.id), it, canManage = true) }
+        }
+    }
+
+    /** The installation's preset for each support connection other than Epistola support, for `/platform/support`. */
+    fun connectionPresets(): List<ConnectionSharingPreset> = registry.tokenConnections().mapNotNull { connection ->
+        val restrictions = GetSharingRestrictions(connection.id).query()
+        val views = sections.filter { it.offered(connection.id) }.map { it.installationView(connection.id).copy(restriction = restrictions.of(it.key)) }
+        views.takeIf { it.isNotEmpty() }?.let { ConnectionSharingPreset(connection.id, nameOf(connection.id), it) }
+    }
+
+    private fun nameOf(connectionId: UUID): String = connections.find(connectionId)?.name ?: connectionId.toString()
+
+    /**
+     * Saves what the tenant shares with one support connection, as its own choice. Sharing anything is
+     * agreed on the tenant's behalf (`agree=true`), as in the setup; a choice withheld now is refused.
+     */
+    fun saveConnectionSharing(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        val connectionId = connectionIdOf(request) ?: return ServerResponse.badRequest().build()
+        val sharing = connectionSharing(tenantKey).firstOrNull { it.connectionId == connectionId } ?: return sharingPanel(request, null)
+        val form = request.params()
+        val chosen = sharing.views.mapNotNull { v -> form.field("${v.section.key}.choice")?.takeIf { c -> v.section.choices.any { it.value == c } }?.let { v to it } }
+        chosen.firstNotNullOfOrNull { (v, c) -> v.withheld[c] }?.let { return sharingPanel(request, null, connectionError = connectionId to it) }
+        val shares = chosen.any { (v, c) -> v.section.choices.any { it.value == c && it.shares } }
+        if (shares && form.field("agree") != "true") {
+            return sharingPanel(request, null, connectionError = connectionId to "Tick that you agree on behalf of the tenant to share with ${sharing.name}.")
+        }
+        chosen.forEach { (v, c) -> v.section.applyOwn(tenantKey, c, connectionId) }
+        return sharingPanel(request, "Saved what this tenant shares with ${sharing.name}.")
+    }
+
+    /** The tenant drops its own choices for one support connection and follows the installation's preset there. */
+    fun useConnectionPreset(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        val connectionId = connectionIdOf(request) ?: return ServerResponse.badRequest().build()
+        val sharing = connectionSharing(tenantKey).firstOrNull { it.connectionId == connectionId } ?: return sharingPanel(request, null)
+        sharing.views.forEach { it.section.followPreset(tenantKey, connectionId) }
+        return sharingPanel(request, "This tenant uses the installation's setup for ${sharing.name} again.")
+    }
+
+    /** Saves the installation's preset for one support connection, as [saveInstallation] does for Epistola support. */
+    fun saveConnectionPreset(request: ServerRequest): ServerResponse {
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        val connectionId = connectionIdOf(request) ?: return ServerResponse.badRequest().build()
+        if (registry.tokenConnections().none { it.id == connectionId }) return ServerResponse.notFound().build()
+        val form = request.params()
+        val offered = sections.filter { it.offered(connectionId) }
+        val chosen = offered.associate { it.key to form.field("${it.key}.default").orEmpty() }
+        val shares = offered.any { section -> chosen[section.key] == REQUIRED || section.choices.any { it.value == chosen[section.key] && it.shares } }
+        if (shares && form.field("agree") != "true") return redirect("/platform/support?presetError=$connectionId#support-connection-presets")
+        applyPreset(chosen, form, connectionId, offered)
+        return redirect("/platform/support#support-connection-presets")
+    }
+
+    /** Epistola support's connection is off: the panel shows the other connections alone. */
+    private fun epistolaOff(): Boolean = registry.find(SupportConnections.DISCOVERED_ID)?.status()?.state == SupportConnectionState.Disabled
+
+    private fun connectionIdOf(request: ServerRequest): UUID? = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull()
 
     /** The wizard's first step for [overview]: empty while nothing is set up, the choices in force when changing. */
     fun startWizard(overview: TenantSharingOverview): TenantSharingWizard = TenantSharingWizard(
@@ -252,8 +358,14 @@ class SupportSharingHandler(
         installationViews().firstNotNullOfOrNull { view -> view.withheld[chosen[view.section.key]] }?.let { reason ->
             return defaultsPanel(request, editing = true, chosen = chosen, error = reason)
         }
-        val restrictions = GetSharingRestrictions().query()
-        val notices = sections.mapNotNull { section ->
+        val notices = applyPreset(chosen, form, SupportConnections.DISCOVERED_ID)
+        return defaultsPanel(request, editing = false, notice = if (notices.isEmpty()) "Nothing changed." else "Saved. " + notices.joinToString(" "))
+    }
+
+    /** Applies the [chosen] preset and restrictions of every section for [connectionId]; what changed, one notice per section. */
+    private fun applyPreset(chosen: Map<String, String>, form: Map<String, List<String>>, connectionId: UUID, among: List<TenantSharingSection> = sections): List<String> {
+        val restrictions = GetSharingRestrictions(connectionId).query()
+        return among.mapNotNull { section ->
             val current = restrictions.of(section.key)
             val wanted = when (chosen[section.key]) {
                 NOT_ALLOWED -> SharingRestriction.NOT_ALLOWED
@@ -264,22 +376,21 @@ class SupportSharingHandler(
                 wanted != null && wanted == current -> null
 
                 wanted == SharingRestriction.NOT_ALLOWED -> {
-                    SetSharingRestriction(section.key, wanted).execute()
+                    SetSharingRestriction(section.key, wanted, connectionId).execute()
                     "${section.title}: not allowed; no tenant shares it."
                 }
 
                 wanted == SharingRestriction.REQUIRED -> {
-                    SetSharingRestriction(section.key, wanted).execute()
+                    SetSharingRestriction(section.key, wanted, connectionId).execute()
                     "${section.title}: required for every tenant."
                 }
 
                 else -> {
-                    if (current != null) SetSharingRestriction(section.key, null).execute()
-                    section.saveInstallation(form) ?: if (current != null) "${section.title}: a choice for tenants again." else null
+                    if (current != null) SetSharingRestriction(section.key, null, connectionId).execute()
+                    section.saveInstallation(form, connectionId) ?: if (current != null) "${section.title}: a choice for tenants again." else null
                 }
             }
         }
-        return defaultsPanel(request, editing = false, notice = if (notices.isEmpty()) "Nothing changed." else "Saved. " + notices.joinToString(" "))
     }
 
     private fun defaultsPanel(request: ServerRequest, editing: Boolean, chosen: Map<String, String> = emptyMap(), notice: String? = null, error: String? = null): ServerResponse = request.htmx {
@@ -293,7 +404,7 @@ class SupportSharingHandler(
         onFullPage { redirect("/platform/support") }
     }
 
-    private fun sharingPanel(request: ServerRequest, notice: String?): ServerResponse {
+    private fun sharingPanel(request: ServerRequest, notice: String?, connectionError: Pair<UUID, String>? = null): ServerResponse {
         val tenantKey = request.tenantId().key
         val overview = overview(tenantKey)
         return request.htmx {
@@ -302,6 +413,10 @@ class SupportSharingHandler(
                 "sharing" to overview
                 "wizard" to overview?.takeIf { it.offersSetup }?.let { startWizard(it) }
                 "sharingNotice" to notice
+                "connectionSharing" to connectionSharing(tenantKey)
+                "epistolaOff" to epistolaOff()
+                "connectionErrorId" to connectionError?.first
+                "connectionError" to connectionError?.second
             }
             onFullPage { redirect("/tenants/${tenantKey.value}/support") }
         }
@@ -315,6 +430,8 @@ class SupportSharingHandler(
                 "sharing" to overview(tenantKey)
                 "wizard" to wizard
                 "sharingNotice" to null
+                "connectionSharing" to connectionSharing(tenantKey)
+                "epistolaOff" to epistolaOff()
             }
             onFullPage { redirect("/tenants/${tenantKey.value}/support") }
         }
@@ -332,7 +449,10 @@ class SupportSharingRoutes(private val handler: SupportSharingHandler) {
             GET("/setup", handler::setup)
             POST("/setup", handler::step)
             POST("/use-preset", handler::usePreset)
+            POST("/connections/{connectionId}/sharing", handler::saveConnectionSharing)
+            POST("/connections/{connectionId}/use-preset", handler::useConnectionPreset)
         }
+        POST("/platform/support/connections/{connectionId}/defaults", handler::saveConnectionPreset)
         GET("/platform/support/defaults", handler::installationPanel)
         GET("/platform/support/defaults/edit", handler::editInstallation)
         POST("/platform/support/defaults", handler::saveInstallation)

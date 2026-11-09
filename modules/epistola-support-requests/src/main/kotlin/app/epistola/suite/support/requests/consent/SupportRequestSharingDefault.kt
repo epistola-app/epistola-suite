@@ -18,6 +18,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.sharing.SharingRestrictions
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.time.EpistolaClock
@@ -57,15 +58,16 @@ data class SupportRequestSharingDefault(
 }
 
 /** The installation's default for feedback sharing, for the platform page and every tenant's settings. */
-class GetSupportRequestSharingDefault :
-    Query<SupportRequestSharingDefault>,
+data class GetSupportRequestSharingDefault(
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+) : Query<SupportRequestSharingDefault>,
     RequiresAuthentication
 
 @Component
 class GetSupportRequestSharingDefaultHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetSupportRequestSharingDefault, SupportRequestSharingDefault> {
-    override fun handle(query: GetSupportRequestSharingDefault): SupportRequestSharingDefault = jdbi.withHandleUnchecked { readDefault(it) }
+    override fun handle(query: GetSupportRequestSharingDefault): SupportRequestSharingDefault = jdbi.withHandleUnchecked { readDefault(it, query.connectionId) }
 }
 
 /** What setting the default did: the default as it now stands, and how many tenants it changed. */
@@ -78,6 +80,7 @@ data class SupportRequestSharingDefaultResult(val default: SupportRequestSharing
  */
 data class SetSupportRequestSharingDefault(
     val share: Boolean,
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Command<SupportRequestSharingDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -88,8 +91,8 @@ class SetSupportRequestSharingDefaultHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetSupportRequestSharingDefault, SupportRequestSharingDefaultResult> {
     override fun handle(command: SetSupportRequestSharingDefault): SupportRequestSharingDefaultResult = jdbi.withHandleUnchecked { handle ->
-        val changed = setSupportRequestDefault(handle, command.share, SecurityContext.current().userId.value, fromConfiguration = false)
-        SupportRequestSharingDefaultResult(readDefault(handle), changed)
+        val changed = setSupportRequestDefault(handle, command.share, SecurityContext.current().userId.value, fromConfiguration = false, connectionId = command.connectionId)
+        SupportRequestSharingDefaultResult(readDefault(handle, command.connectionId), changed)
     }
 }
 
@@ -97,8 +100,9 @@ class SetSupportRequestSharingDefaultHandler(
  * Removes the installation preset: every tenant that followed it stops sharing, exactly as by its
  * own withdrawal, and has to set itself up (its Support page shows the setup wizard again).
  */
-class ClearSupportRequestSharingDefault :
-    Command<SupportRequestSharingDefaultResult>,
+data class ClearSupportRequestSharingDefault(
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+) : Command<SupportRequestSharingDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
@@ -108,8 +112,8 @@ class ClearSupportRequestSharingDefaultHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<ClearSupportRequestSharingDefault, SupportRequestSharingDefaultResult> {
     override fun handle(command: ClearSupportRequestSharingDefault): SupportRequestSharingDefaultResult = jdbi.withHandleUnchecked { handle ->
-        val stopped = withdrawForFollowers(handle, EpistolaClock.offsetDateTime(), SecurityContext.current().userId.value)
-        handle.createUpdate("DELETE FROM support_sharing_default WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION'").execute()
+        val stopped = withdrawForFollowers(handle, EpistolaClock.offsetDateTime(), SecurityContext.current().userId.value, command.connectionId)
+        handle.createUpdate("DELETE FROM support_sharing_default WHERE connection_id = :connectionId AND section = '$REQUESTS_SECTION'").bind("connectionId", command.connectionId).execute()
         SupportRequestSharingDefaultResult(SupportRequestSharingDefault.NONE, stopped)
     }
 }
@@ -120,13 +124,13 @@ class ClearSupportRequestSharingDefaultHandler(
  *
  * @return the tenants it changed.
  */
-internal fun setSupportRequestDefault(handle: Handle, share: Boolean, userId: UUID?, fromConfiguration: Boolean): Int {
-    if (share) SharingRestrictions.requireAllowed(handle, REQUESTS_SECTION, REQUESTS_CONNECTION)
+internal fun setSupportRequestDefault(handle: Handle, share: Boolean, userId: UUID?, fromConfiguration: Boolean, connectionId: UUID = REQUESTS_CONNECTION): Int {
+    if (share) SharingRestrictions.requireAllowed(handle, REQUESTS_SECTION, connectionId)
     val now = EpistolaClock.offsetDateTime()
     handle.createUpdate(
         """
         INSERT INTO support_sharing_default (connection_id, section, share, set_at, set_by, from_configuration)
-        VALUES ($REQUESTS_CONNECTION_SQL, '$REQUESTS_SECTION', :share, :now, (SELECT id FROM users WHERE id = :userId), :fromConfiguration)
+        VALUES (${connectionSql(connectionId)}, '$REQUESTS_SECTION', :share, :now, (SELECT id FROM users WHERE id = :userId), :fromConfiguration)
         ON CONFLICT (connection_id, section) DO UPDATE SET
             share = EXCLUDED.share, set_at = EXCLUDED.set_at, set_by = EXCLUDED.set_by, from_configuration = EXCLUDED.from_configuration
         """,
@@ -136,17 +140,17 @@ internal fun setSupportRequestDefault(handle: Handle, share: Boolean, userId: UU
         .bind("userId", userId)
         .bind("fromConfiguration", fromConfiguration)
         .execute()
-    return if (share) shareForFollowers(handle, now, userId) else withdrawForFollowers(handle, now, userId)
+    return if (share) shareForFollowers(handle, now, userId, connectionId) else withdrawForFollowers(handle, now, userId, connectionId)
 }
 
 /** Gives consent for every tenant without a row, and again for followers whose consent is withdrawn. */
-private fun shareForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?): Int {
+private fun shareForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?, connectionId: UUID): Int {
     val added = handle.createUpdate(
         """
         INSERT INTO support_sharing_choice (connection_id, section, tenant_key, given_at, given_by, follows_default)
-        SELECT $REQUESTS_CONNECTION_SQL, '$REQUESTS_SECTION', t.id, :now, (SELECT id FROM users WHERE id = :userId), TRUE
+        SELECT ${connectionSql(connectionId)}, '$REQUESTS_SECTION', t.id, :now, (SELECT id FROM users WHERE id = :userId), TRUE
         FROM tenants t
-        WHERE NOT EXISTS (SELECT 1 FROM support_sharing_choice c WHERE c.connection_id = $REQUESTS_CONNECTION_SQL AND c.section = '$REQUESTS_SECTION' AND c.tenant_key = t.id)
+        WHERE NOT EXISTS (SELECT 1 FROM support_sharing_choice c WHERE c.connection_id = ${connectionSql(connectionId)} AND c.section = '$REQUESTS_SECTION' AND c.tenant_key = t.id)
         """,
     )
         .bind("now", now)
@@ -157,7 +161,7 @@ private fun shareForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?
         UPDATE support_sharing_choice
         SET grant_id = gen_random_uuid(), given_at = :now, given_by = (SELECT id FROM users WHERE id = :userId),
             withdrawn_at = NULL, withdrawn_by = NULL
-        WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION' AND follows_default AND withdrawn_at IS NOT NULL
+        WHERE connection_id = ${connectionSql(connectionId)} AND section = '$REQUESTS_SECTION' AND follows_default AND withdrawn_at IS NOT NULL
         """,
     )
         .bind("now", now)
@@ -167,12 +171,12 @@ private fun shareForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?
 }
 
 /** Withdraws the consent of followers in force, locking their rows first, and stops what waits. */
-private fun withdrawForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?): Int {
+private fun withdrawForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?, connectionId: UUID): Int {
     val withdrawn = handle.createQuery(
         """
         UPDATE support_sharing_choice
         SET withdrawn_at = :now, withdrawn_by = (SELECT id FROM users WHERE id = :userId)
-        WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION' AND follows_default AND withdrawn_at IS NULL
+        WHERE connection_id = ${connectionSql(connectionId)} AND section = '$REQUESTS_SECTION' AND follows_default AND withdrawn_at IS NULL
         RETURNING tenant_key
         """,
     )
@@ -181,7 +185,7 @@ private fun withdrawForFollowers(handle: Handle, now: OffsetDateTime, userId: UU
         .mapTo(String::class.java)
         .list()
         .map(TenantKey::of)
-    SupportRequestConsentWrites.stopWaiting(handle, withdrawn)
+    SupportRequestConsentWrites.stopWaiting(handle, withdrawn, connectionId)
     return withdrawn.size
 }
 
@@ -238,6 +242,7 @@ class ApplyConfiguredSupportRequestSharingDefault(
  */
 data class FollowSupportRequestSharingDefault(
     override val tenantKey: TenantKey,
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Command<SupportRequestSyncConsent>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -248,9 +253,10 @@ class FollowSupportRequestSharingDefaultHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<FollowSupportRequestSharingDefault, SupportRequestSyncConsent> {
     override fun handle(command: FollowSupportRequestSharingDefault): SupportRequestSyncConsent = jdbi.withHandleUnchecked { handle ->
-        applyDefault(handle, command.tenantKey)
+        applyDefault(handle, command.tenantKey, command.connectionId)
         handle.createQuery(SELECT_SUPPORT_REQUEST_SYNC_CONSENT)
             .bind("tenantKey", command.tenantKey)
+            .bind("connectionId", command.connectionId)
             .mapTo(SupportRequestSyncConsent::class.java)
             .findOne()
             .orElse(SupportRequestSyncConsent.none(command.tenantKey))
@@ -258,8 +264,9 @@ class FollowSupportRequestSharingDefaultHandler(
 }
 
 /**
- * A new tenant follows the installation default from the start, in the transaction that creates it,
- * so feedback written in its first minutes is already shared when the default says so.
+ * A new tenant follows the installation default of every connection that has one from the start, in
+ * the transaction that creates it, so a request written in its first minutes is already shared when
+ * the default says so.
  */
 @Component
 class ApplySupportRequestSharingDefaultToNewTenant(
@@ -268,7 +275,11 @@ class ApplySupportRequestSharingDefaultToNewTenant(
     override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: CreateTenant, result: Any?) {
-        jdbi.withHandleUnchecked { handle -> applyDefault(handle, event.id) }
+        jdbi.withHandleUnchecked { handle ->
+            handle.createQuery("SELECT connection_id FROM support_sharing_default WHERE section = '$REQUESTS_SECTION' ORDER BY connection_id")
+                .mapTo(UUID::class.java).list()
+                .forEach { connectionId -> applyDefault(handle, event.id, connectionId) }
+        }
     }
 }
 
@@ -276,15 +287,15 @@ class ApplySupportRequestSharingDefaultToNewTenant(
  * Makes [tenantKey] follow the default as it stands now: given by, or withdrawn by, the administrator
  * who set it, so the record says whose decision it was.
  */
-private fun applyDefault(handle: Handle, tenantKey: TenantKey) {
-    val row = handle.createQuery("SELECT share, set_by FROM support_sharing_default WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION'")
+private fun applyDefault(handle: Handle, tenantKey: TenantKey, connectionId: UUID) {
+    val row = handle.createQuery("SELECT share, set_by FROM support_sharing_default WHERE connection_id = ${connectionSql(connectionId)} AND section = '$REQUESTS_SECTION'")
         .map { rs, _ -> rs.getBoolean("share") to rs.getObject("set_by", UUID::class.java) }
         .findOne()
         .orElse(false to null)
     val (share, setBy) = row
     val now = EpistolaClock.offsetDateTime()
     if (share) {
-        SupportRequestConsentWrites.grant(handle, tenantKey, setBy, now, followsDefault = true)
+        SupportRequestConsentWrites.grant(handle, tenantKey, setBy, now, followsDefault = true, connectionId = connectionId)
     } else {
         val withdrawn = handle.createUpdate(
             """
@@ -292,22 +303,22 @@ private fun applyDefault(handle: Handle, tenantKey: TenantKey) {
             SET follows_default = TRUE,
                 withdrawn_by = CASE WHEN withdrawn_at IS NULL THEN CAST(:setBy AS UUID) ELSE withdrawn_by END,
                 withdrawn_at = COALESCE(withdrawn_at, :now)
-            WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION' AND tenant_key = :tenantKey
+            WHERE connection_id = ${connectionSql(connectionId)} AND section = '$REQUESTS_SECTION' AND tenant_key = :tenantKey
             """,
         )
             .bind("tenantKey", tenantKey)
             .bind("setBy", setBy)
             .bind("now", now)
             .execute()
-        if (withdrawn > 0) SupportRequestConsentWrites.stopWaiting(handle, listOf(tenantKey))
+        if (withdrawn > 0) SupportRequestConsentWrites.stopWaiting(handle, listOf(tenantKey), connectionId)
     }
 }
 
-private fun readDefault(handle: Handle): SupportRequestSharingDefault = handle.createQuery(
+private fun readDefault(handle: Handle, connectionId: UUID): SupportRequestSharingDefault = handle.createQuery(
     """
     SELECT d.share, d.set_at, u.display_name AS set_by, d.from_configuration
     FROM support_sharing_default d LEFT JOIN users u ON u.id = d.set_by
-    WHERE d.connection_id = $REQUESTS_CONNECTION_SQL AND d.section = '$REQUESTS_SECTION'
+    WHERE d.connection_id = ${connectionSql(connectionId)} AND d.section = '$REQUESTS_SECTION'
     """,
 )
     .map { rs, _ ->

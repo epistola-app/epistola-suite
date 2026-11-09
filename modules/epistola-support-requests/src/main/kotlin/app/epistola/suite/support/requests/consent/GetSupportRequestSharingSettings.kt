@@ -10,15 +10,18 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.support.connection.SupportConnection
+import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnectionState
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportPause
 import app.epistola.suite.support.connection.SupportScope
+import app.epistola.suite.support.privacy.SupportConnectionNotFoundException
 import app.epistola.suite.support.sharing.GetSharingRestrictions
 import app.epistola.suite.support.sharing.SharingRestriction
 import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 import java.net.URI
+import java.util.UUID
 
 /** Whether the installation's support connection takes feedback, as a tenant administrator is told. */
 enum class SupportRequestSharingConnection {
@@ -85,6 +88,8 @@ data class SupportRequestSharingSettings(
 /** Reads [SupportRequestSharingSettings]. No network I/O: the connection state is cached. */
 data class GetSupportRequestSharingSettings(
     override val tenantKey: TenantKey,
+    /** The connection the tenant would share support requests with. */
+    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
 ) : Query<SupportRequestSharingSettings>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -92,9 +97,10 @@ data class GetSupportRequestSharingSettings(
 
 @Component
 class GetSupportRequestSharingSettingsHandler(
-    private val connection: SupportConnection,
+    private val registry: SupportConnectionRegistry,
 ) : QueryHandler<GetSupportRequestSharingSettings, SupportRequestSharingSettings> {
     override fun handle(query: GetSupportRequestSharingSettings): SupportRequestSharingSettings {
+        val connection = registry.find(query.connectionId) ?: throw SupportConnectionNotFoundException(query.connectionId)
         val status = connection.status()
         val state = status.state
         val sharing = when (state) {
@@ -114,13 +120,13 @@ class GetSupportRequestSharingSettingsHandler(
         }
         return SupportRequestSharingSettings(
             tenantKey = query.tenantKey,
-            consent = GetSupportRequestSyncConsent(query.tenantKey).query(),
+            consent = GetSupportRequestSyncConsent(query.tenantKey, query.connectionId).query(),
             connection = sharing,
             supportService = status.issuer,
             pause = (state as? SupportConnectionState.Active)?.let { pausedNow(it) }?.takeIf { sharing == SupportRequestSharingConnection.PAUSED },
             unreachable = status.lastError != null,
-            installationDefault = GetSupportRequestSharingDefault().query(),
-            notAllowed = GetSharingRestrictions(REQUESTS_CONNECTION).query().of(REQUESTS_SECTION) == SharingRestriction.NOT_ALLOWED,
+            installationDefault = GetSupportRequestSharingDefault(query.connectionId).query(),
+            notAllowed = GetSharingRestrictions(query.connectionId).query().of(REQUESTS_SECTION) == SharingRestriction.NOT_ALLOWED,
         )
     }
 

@@ -41,6 +41,8 @@ class SupportOverviewHandler(private val references: TenantReferences, private v
                 "sharing" to overview
                 "wizard" to overview?.takeIf { it.offersSetup }?.let { sharing.startWizard(it) }
             }
+            "connectionSharing" to sharing.connectionSharing(tenantId.key)
+            "epistolaOff" to (summary.connection == TenantSupportConnection.OFF)
         }
     }
 }
