@@ -542,17 +542,34 @@ data class EpistolaPrincipal(
 
 ## API Key Authentication
 
-API key authentication allows machine-to-machine access to the REST API without a browser login. Each key is scoped to a single tenant **and to a chosen subset of that tenant's roles** (least privilege) — see [`authorization.md`](authorization.md#api-keys-are-least-privilege).
+API key authentication allows machine-to-machine access to the REST API without a browser login. Every key belongs to an **application** — a calling system in one tenant — and acts with that application's roles (least privilege) — see [`authorization.md`](authorization.md#api-keys-are-least-privilege) and [ADR 0054](adr/0054-applications-credentials-and-grants.md).
 
-### Managing API Keys
+### Applications
 
-API keys are managed per-tenant via the web UI at `/tenants/{tenantId}/api-keys`:
+Applications are managed per tenant under **Operations → Applications** (`/tenants/{tenantId}/applications`):
 
-- **Create:** Name the key, pick its **scope** (the tenant roles it authenticates as — `content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
-- **List:** View all active keys with name, prefix, creation date, last used, and expiration.
-- **Revoke:** Delete a key to immediately invalidate it.
+- **Create an application:** name it, pick its **roles** (`content-viewer` is the default, administration is never pre-selected, and only roles you hold yourself are offered), and choose whether it **sees every document of the tenant**. Leave that off for an integration. Roles are fixed at creation.
+- **Create a key** on the application's page: name it and optionally set an expiration date. The key acts with the application's roles. The plaintext key is shown **exactly once** — store it immediately.
+- **Rotate** by creating the new key before revoking the old: ownership of documents stays with the application.
+- **Narrow** an application from its page: switch it to its own documents only.
+- **Delete** an application once all its keys are revoked. Its documents stay, reachable only by callers that see every document.
 
-Keys are created as **non-personal accounts (NPAs)** — the key itself becomes the actor identity for audit trails.
+`/tenants/{tenantId}/api-keys` redirects to the applications page.
+
+### Which documents a caller sees
+
+Every generation request records the application of the key that submitted it, and the document and
+the collect result copy it. A caller whose application does **not** see every document is shown only
+its own: the collect feed, job listing and status, cancelling, document listing, download and delete.
+Another application's document is a 404, as another tenant's is. These callers see every document of
+the tenant: an application marked so, a person signed in to the UI, a bearer token and the demo shared
+secret. Documents requested without an application are seen only by them.
+
+On the upgrade to applications, every key that was not revoked became an application of its own,
+named after the key, with its roles, **seeing every document** — so integrations keep working as
+before until an administrator narrows them.
+
+Keys are **non-personal accounts (NPAs)** — the key itself becomes the actor identity for audit trails.
 
 ### Using an API Key
 

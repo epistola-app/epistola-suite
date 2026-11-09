@@ -19,12 +19,11 @@ import org.springframework.stereotype.Component
 
 /** One application of the tenant, or null when the tenant has none by that id. */
 data class GetApplication(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
     val id: ApplicationKey,
 ) : Query<Application?>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
-    override val tenantKey get() = tenantId
 }
 
 @Component
@@ -41,7 +40,7 @@ class GetApplicationHandler(
             """,
         )
             .bind("id", query.id)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantKey)
             .map { rs, _ -> rs.toApplication() }
             .findOne()
             .orElse(null)

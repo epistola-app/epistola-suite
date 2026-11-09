@@ -23,12 +23,11 @@ import org.springframework.stereotype.Component
  * Returns false when the tenant has no such application; refuses one with a key still in use.
  */
 data class DeleteApplication(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
     val id: ApplicationKey,
 ) : Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
-    override val tenantKey get() = tenantId
 }
 
 @Component
@@ -41,7 +40,7 @@ class DeleteApplicationHandler(
         // check and then fails instead of slipping in between the count and the delete.
         val exists = handle.createQuery("SELECT 1 FROM applications WHERE id = :id AND tenant_key = :tenantId FOR UPDATE")
             .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("tenantId", command.tenantKey)
             .mapTo<Int>()
             .findOne()
             .isPresent
@@ -57,7 +56,7 @@ class DeleteApplicationHandler(
 
         handle.createUpdate("DELETE FROM applications WHERE id = :id AND tenant_key = :tenantId")
             .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("tenantId", command.tenantKey)
             .execute() > 0
     }
 }

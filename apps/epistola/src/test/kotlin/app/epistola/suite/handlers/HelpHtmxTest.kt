@@ -59,7 +59,7 @@ class HelpHtmxTest : BaseIntegrationTest() {
             "/tenants/$t/catalogs",
             "/tenants/$t/environments",
             "/tenants/$t/generation-history",
-            "/tenants/$t/api-keys",
+            "/tenants/$t/applications",
         )
         assertThat(placesWithoutLink(body)).isEmpty()
         assertThat(body.substringAfter("data-testid=\"ws-crumb-section\"").substringBefore("</span>")).endsWith(">Help")
@@ -75,7 +75,7 @@ class HelpHtmxTest : BaseIntegrationTest() {
 
         assertThat(placesWithoutLink(body)).contains("API key", "Generation").doesNotContain("All catalogs", "Environments")
         assertThat(placeLinks(body)).contains("/tenants/$t/catalogs", "/tenants/$t/environments")
-            .doesNotContain("/tenants/$t/api-keys", "/tenants/$t/generation-history")
+            .doesNotContain("/tenants/$t/applications", "/tenants/$t/generation-history")
     }
 
     @Test

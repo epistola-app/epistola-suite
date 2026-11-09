@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Applications',
+            pageDescription='The systems that call this tenant through the REST API. An application holds the roles its API keys act with, and owns the documents it requests.',
+            actions=~{::application-list-actions}
+        )}"></div>
+
+        <div th:if="${#lists.isEmpty(applications)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No applications</div>
+            <div class="empty-state-description">Add an application for each system that calls this tenant, then create an API key for it.</div>
+            <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('CREDENTIALS_MANAGE')}"
+                    th:hx-get="@{/tenants/{tenantId}/applications/new(tenantId=${tenantId})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                    data-testid="application-create-open"
+                    style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                New application
+            </button>
+        </div>
+
+        <div th:if="${!#lists.isEmpty(applications)}"
+             class="ep-table-scroll" role="region" aria-label="Applications table" tabindex="0"
+             data-testid="fixed-table-scroll">
+        <table class="ep-table ep-table-fixed">
+            <colgroup>
+                <col style="width: 24%" /><!-- Name -->
+                <col style="width: 30%" /><!-- Roles -->
+                <col style="width: 22%" /><!-- Documents -->
+                <col style="width: 10%" /><!-- Keys -->
+                <col style="width: 14%" /><!-- Created -->
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Roles</th>
+                    <th>Documents</th>
+                    <th>Active keys</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="app : ${applications}" data-testid="application-row" th:data-application-name="${app.name}">
+                    <td th:title="${app.name}" style="font-weight: 500;">
+                        <a th:href="@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})}" th:text="${app.name}">Case system</a>
+                    </td>
+                    <td class="cell-wrap">
+                        <span class="application-roles">
+                            <span class="badge badge-outline"
+                                  th:each="role : ${app.roles}"
+                                  th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
+                        </span>
+                    </td>
+                    <td th:text="${app.seesAllDocuments} ? 'Every document' : 'Only its own'">Only its own</td>
+                    <td th:text="${app.activeKeyCount}">1</td>
+                    <td th:text="${#temporals.format(app.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${app.createdAt}"></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+
+        <!-- Dialog mount: the create dialog is swapped in by the trigger and opened by
+             static/js/behaviors.js; on direct navigation to /new it is embedded here
+             (openDialog=true). The guard wraps the th:replace on an outer element —
+             see docs/dialog-forms.md. -->
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{applications/new :: dialog}"></th:block>
+            </th:block>
+        </div>
+
+        <style>
+            .application-roles {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+        </style>
+    </th:block>
+    <th:block th:fragment="application-list-actions">
+        <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('CREDENTIALS_MANAGE')}"
+                th:hx-get="@{/tenants/{tenantId}/applications/new(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="application-create-open-action">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New application
+        </button>
+    </th:block>
+
+</body>
+</html>

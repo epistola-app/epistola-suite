@@ -125,6 +125,9 @@ resource attributes exist (ADR 0048, delivery step 3). No grant table is added u
   starts when an administrator creates an application, or narrows a migrated one.
 - **Three tables gain a nullable column** (`document_generation_requests`, `documents`,
   `generation_results`), partitioned and high volume; each restricted query gains a predicate.
+- **Rows from before the upgrade are not backfilled.** Nothing recorded who submitted them, so they
+  have no application. Narrowing a migrated application therefore also hides its own older
+  documents and results from it; they stay reachable by callers that see every document.
 - **Collect cursors stay per key.** `consumer_id` is still the key's id, so a rotated key starts from
   the oldest result its application still holds. Moving cursors to the application is a follow-up,
   and must keep two keys of one tenant-wide application apart.

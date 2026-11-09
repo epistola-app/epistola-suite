@@ -158,7 +158,7 @@ class ApplicationDocumentVisibilityIT : IntegrationTestBase() {
     /** A caller authenticated as a new application of [tenant], with every role. */
     private fun principal(tenant: TenantKey, name: String, seesAll: Boolean): EpistolaPrincipal {
         val application: ApplicationKey = withMediator {
-            CreateApplication(tenantId = tenant, name = name, roles = TenantRole.entries.toSet(), seesAllDocuments = seesAll).execute().id
+            CreateApplication(tenantKey = tenant, name = name, roles = TenantRole.entries.toSet(), seesAllDocuments = seesAll).execute().id
         }
         val userId = UserKey.of(UUID.randomUUID())
         return EpistolaPrincipal(

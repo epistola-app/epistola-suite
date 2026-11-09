@@ -63,7 +63,8 @@ class InputMaxLengthTest {
         name("$base/catalogs/new.html", "catalogName"),
         name("$base/templates/detail/variants.html", "title"),
         name("$base/templates/detail.html", "edit-variant-title"),
-        name("$base/api-keys/new.html", "name"),
+        name("$base/applications/new.html", "name"),
+        name("$base/applications/new-key.html", "name"),
         name("$base/fonts/new.html", "name"),
         // The "template variant is different" case from #633: slug needs both bounds.
         Target(

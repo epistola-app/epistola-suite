@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  * documents it requested unless [seesAllDocuments].
  */
 data class CreateApplication(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
     val name: String,
     val description: String? = null,
     val roles: Set<TenantRole>,
@@ -34,7 +34,6 @@ data class CreateApplication(
 ) : Command<Application>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
-    override val tenantKey get() = tenantId
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
@@ -55,14 +54,14 @@ class CreateApplicationHandler(
         // An application may act only with roles its creator holds in the tenant: roles do not
         // inherit, and creating credentials is an administrator's permission, so without this an
         // administrator who does not publish could create an application that does.
-        val ungrantable = command.roles - SecurityContext.current().rolesFor(command.tenantId)
+        val ungrantable = command.roles - SecurityContext.current().rolesFor(command.tenantKey)
         validate("roles", ungrantable.isEmpty()) {
             "You can only grant roles you hold in this tenant: ${ungrantable.sortedBy { it.ordinal }.joinToString { it.name }}"
         }
 
         val application = Application(
             id = ApplicationKey.generate(),
-            tenantKey = command.tenantId,
+            tenantKey = command.tenantKey,
             name = command.name.trim(),
             description = command.description?.trim()?.takeIf { it.isNotEmpty() },
             roles = command.roles,

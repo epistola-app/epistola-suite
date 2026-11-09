@@ -18,11 +18,10 @@ import org.springframework.stereotype.Component
 
 /** The tenant's applications, by name. A tenant has a handful, so the list is not paged. */
 data class ListApplications(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
 ) : Query<List<Application>>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
-    override val tenantKey get() = tenantId
 }
 
 @Component
@@ -39,7 +38,7 @@ class ListApplicationsHandler(
             ORDER BY lower(a.name), a.id
             """,
         )
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantKey)
             .map { rs, _ -> rs.toApplication() }
             .list()
     }

@@ -86,7 +86,7 @@
                     </li>
                     <li th:attr="data-done=${gettingStarted.hasDocument}">
                         Make a document: try one on the environment's page, or
-                        <a th:href="@{/tenants/{t}/api-keys(t=${tenant.id})}">create an API key</a> for your application.
+                        <a th:href="@{/tenants/{t}/applications(t=${tenant.id})}">add your application and create an API key</a> for it.
                         <span th:if="${gettingStarted.hasDocument}" class="badge badge-success">Done</span>
                     </li>
                 </ol>

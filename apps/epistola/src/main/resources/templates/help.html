@@ -10,7 +10,7 @@
                        catalogsHref=@{/tenants/{t}/catalogs(t=${t})},
                        environmentsHref=@{/tenants/{t}/environments(t=${t})},
                        generationHref=@{/tenants/{t}/generation-history(t=${t})},
-                       apiKeysHref=@{/tenants/{t}/api-keys(t=${t})},
+                       apiKeysHref=@{/tenants/{t}/applications(t=${t})},
                        homeHref=@{/tenants/{t}(t=${t})},
                        mayCatalogs=${auth.has('CATALOG_VIEW')},
                        mayDocuments=${auth.has('DOCUMENT_VIEW')},

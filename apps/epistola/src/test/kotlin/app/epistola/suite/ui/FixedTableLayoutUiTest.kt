@@ -15,15 +15,15 @@ class FixedTableLayoutUiTest : BasePlaywrightTest() {
     @Test
     fun `fixed list table contains horizontal overflow and keeps actions usable on a narrow viewport`() {
         val tenant = createTenant("Fixed Table Layout")
-        withMediator {
+        val application = withMediator {
             CreateApiKey(
                 tenantId = tenant.id,
                 name = "Responsive integration key",
-            ).execute()
+            ).execute().apiKey.application!!.id
         }
         page.setViewportSize(640, 720)
 
-        gotoAndReady("/tenants/${tenant.id}/api-keys")
+        gotoAndReady("/tenants/${tenant.id}/applications/$application")
         page.htmxSettle()
 
         val scroller = page.locator("[data-testid='fixed-table-scroll']")

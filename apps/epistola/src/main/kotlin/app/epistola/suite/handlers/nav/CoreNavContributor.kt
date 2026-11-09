@@ -59,7 +59,7 @@ class CoreNavContributor : NavContributor {
         }
         // The Audit item is contributed by the epistola-audit module's AuditNavContributor.
         if (context.hasPermission(Permission.CREDENTIALS_MANAGE)) {
-            add(NavItem("operations", "api-keys", "API keys", "api-keys", 40))
+            add(NavItem("operations", "applications", "Applications", "applications", 40))
         }
 
         // Settings — managers only

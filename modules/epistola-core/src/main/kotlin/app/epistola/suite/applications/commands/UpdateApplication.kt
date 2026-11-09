@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
  * Returns false when the tenant has no such application.
  */
 data class UpdateApplication(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
     val id: ApplicationKey,
     val name: String,
     val description: String?,
@@ -33,7 +33,6 @@ data class UpdateApplication(
 ) : Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
-    override val tenantKey get() = tenantId
 
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
@@ -60,7 +59,7 @@ class UpdateApplicationHandler(
                 """,
             )
                 .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("tenantId", command.tenantKey)
                 .bind("name", command.name.trim())
                 .bind("description", command.description?.trim()?.takeIf { it.isNotEmpty() })
                 .bind("seesAllDocuments", command.seesAllDocuments)

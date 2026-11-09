@@ -75,6 +75,27 @@ Decided and closed:
 
 ## Touched
 
+### Applications own their keys and the documents they request (9 November; branch `feat/tenant-applications`, #749)
+
+ADR 0054, step 1 of three (step 2 machine OAuth, step 3 delegated OAuth for MCP). The user chose
+applications per tenant, users keep seeing every document, resource limits prepared but not built.
+
+| What                                                                                                                                                                                  | Where                                                                                                          | Coverage                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `applications` table; every non-revoked key becomes a tenant-wide application with its id, name and roles; `application_id` on requests, documents and results; partial collect index | `V20261109172409__core_applications.sql`                                                                       | ✅ `ApplicationsMigrationTest`, `TwoZeroChainEquivalenceIT`                                                      |
+| Create, update (visibility), delete (only without active keys), get, list applications; a key takes its application's roles, or gets a tenant-wide application of its own             | `applications/`, `CreateApiKey`, `LookupApiKeyByHash`, `ListApiKeys`                                           | ✅ `ApplicationCommandsIT` (7), `ApiKeyIntegrationTest`                                                          |
+| The principal carries its application; requests are stamped from it; collect, jobs, cancel, document list, metadata, download and delete filter on it in SQL                          | `EpistolaPrincipal`, `ApiKeyAuthenticationFilter`, `DocumentVisibility`, document and collect queries/commands | ✅ `ApplicationDocumentVisibilityIT` (4; 3 fail without the filter), `ApplicationIsolationApiIT` (fails without) |
+| Applications page, application page with keys, narrowing, delete; `/api-keys` redirects; nav item renamed; help page links                                                            | `ApplicationHandler`, `ApplicationRoutes`, `templates/applications/*`                                          | ✅ `ApplicationHandlerTest` (9), `HelpHtmxTest`, guards                                                          |
+| Demo key belongs to a demo application                                                                                                                                                | `DemoLoader`                                                                                                   | ✅ demo suite (43)                                                                                               |
+
+Noticed, not touched:
+
+- Collect cursors are still per key (`consumer_id` = key id), so a rotated key re-reads its application's retained results. Moving them to the application must keep two keys of one tenant-wide application apart (ADR 0054, consequences).
+- Rows from before the upgrade have no application; narrowing a migrated application hides its own older documents from it.
+- An application cannot be renamed in the UI yet (`UpdateApplication` supports it), and its roles are fixed at creation, as a key's were.
+- No REST or MCP surface manages applications; credentials stay UI-only, as before.
+- `ApiKeyAuthCache` is per node: narrowing applies at once on the node that handled it and within the cache TTL (60 s) elsewhere, the same as a revoke.
+
 ### The rollback guard on 2.0, with an off switch (5 November; branch `feat/schema-rollback-compatibility`, #1123)
 
 | What                                                                                                                                                        | Where                                                                         | Coverage                                                           |

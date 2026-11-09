@@ -70,7 +70,7 @@ class CreateApiKeyHandler(
                 ?: throw ValidationException("applicationId", "No such application in this tenant")
         } else {
             CreateApplication(
-                tenantId = command.tenantId,
+                tenantKey = command.tenantId,
                 name = command.name,
                 roles = command.roles ?: TenantRole.entries.toSet(),
                 seesAllDocuments = true,
