@@ -417,7 +417,14 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
         testClock.advanceBy(Duration.ofSeconds(1))
         assertThat(otherNode.hasScope(SupportScope.MIRROR)).isTrue()
 
+        // The service takes longer to answer than a caller waits for another thread's token request (250 ms).
+        support.tokenResponse = {
+            Thread.sleep(600)
+            null
+        }
         assertThat(otherNode.cachedAccessToken()).`as`("not the token that lacks the mirror").isNotEqualTo(withoutMirror)
+        // Reading it started a renewal in the background, which holds the token lock until it is done.
+        otherNode.awaitTokenRenewal()
         assertThat(support.issuedTokens.getValue(otherNode.accessToken()).second).`as`("a new one carries it").contains("mirror")
     }
 
