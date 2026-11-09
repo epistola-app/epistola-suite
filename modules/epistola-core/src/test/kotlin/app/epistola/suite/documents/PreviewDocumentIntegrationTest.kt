@@ -92,6 +92,35 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
             assertThat(pdfBytes).isNotEmpty()
         }
+
+        @Test
+        fun `whoever may view a template may preview it, without permission to generate documents`() {
+            val tenant = createTenant("Viewer Preview Tenant")
+            val templateId = TemplateId(app.epistola.suite.common.ids.TemplateKey.of("viewer-preview"), CatalogId.default(TenantId(tenant.id)))
+            withMediator {
+                app.epistola.suite.templates.commands.CreateDocumentTemplate(id = templateId, name = "Viewer Template", catalogVersion = null).execute()
+            }
+            val viewer = app.epistola.suite.security.EpistolaPrincipal(
+                userId = app.epistola.suite.common.ids.UserKey.of("00000000-0000-0000-0000-0000000000a1"),
+                externalId = "preview-viewer",
+                email = "preview-viewer@example.com",
+                displayName = "Preview Viewer",
+                tenantMemberships = mapOf(tenant.id to setOf(app.epistola.suite.security.TenantRole.CONTENT_VIEWER)),
+                currentTenantId = null,
+            )
+
+            val pdfBytes = runAs(viewer) {
+                PreviewVariant(
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
+                    templateId = templateId.key,
+                    variantId = app.epistola.suite.common.ids.VariantKey.INITIAL,
+                    data = emptyData(),
+                    catalogVersion = null,
+                ).query()
+            }
+
+            assertThat(pdfBytes).isNotEmpty()
+        }
     }
 
     @Nested
