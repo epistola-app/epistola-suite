@@ -45,11 +45,11 @@ application holds any number of them, so a key is rotated by adding the new one 
 old, and ownership does not move. The OAuth client of step 2 is another kind of credential on the
 same application.
 
-**The roles live on the application.** A key created for an application carries a copy of the
-application's roles (`api_keys.roles`), so a rollback to a release that reads roles from the key
-still grants exactly what it granted before. Roles are set when the application is created and are
-not edited in step 1, as a key's are not today; editing them comes with step 2 and must then update
-the copies.
+**The roles live on the application, and only there.** A key has no roles of its own: it proves
+that the caller is its application, and acts with the application's roles. The upgrade moves each
+key's roles to its application and drops `api_keys.roles`, so an installation cannot be rolled back
+past it to a release that reads roles from the key (a migration since 2.0.0-beta.1 already rules
+that out). Roles are set when the application is created and are not edited in step 1.
 
 ### 2. Every generation request records its application
 
@@ -94,8 +94,8 @@ so every existing cursor already belongs to its application and nothing is deliv
 is also why the upgrade does not merge a tenant's keys into one application: two systems behind
 one cursor would each receive only part of the results.
 
-A key with no application — a revoked one, or one inserted by an older release after a rollback —
-authenticates, if it still can, as before: its own roles, every document of the tenant.
+A key with no application — one revoked before the upgrade, or whose application was deleted after
+its revocation — does not authenticate: it has no roles to act with.
 
 ### 4. Room for resource limits, not built yet
 
@@ -134,7 +134,8 @@ resource attributes exist (ADR 0048, delivery step 3). No grant table is added u
 
 ## Consequences
 
-- **Additive for integrations.** No contract change; existing keys see what they saw. Isolation
+- **Additive for integrations, not for rollback.** No contract change; existing keys see what they
+  saw. The upgrade cannot be rolled back, since the key's roles now live only on its application. Isolation
   starts when an administrator creates an application, or narrows a migrated one.
 - **Three tables gain a nullable column** (`document_generation_requests`, `documents`,
   `generation_results`), partitioned and high volume; each restricted query gains a predicate.

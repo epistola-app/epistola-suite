@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.createApiKey
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -36,7 +37,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         name: String,
         enabled: Boolean = true,
     ): UUID = withMediator {
-        val created = CreateApiKey(tenantId = tenantKey, name = name).execute()
+        val created = createApiKey(tenantKey, name)
         if (!enabled) RevokeApiKey(tenantId = tenantKey, id = created.apiKey.id).execute()
         created.apiKey.application!!.id.value
     }

@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateId
@@ -22,6 +21,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.withRequiredDataExample
@@ -222,7 +222,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("st-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Stencil API Tenant")
-        val created = CreateApiKey(tenantId = tenantKey, name = "st-it").execute()
+        val created = createApiKey(tenantKey, "st-it")
         tenantKey to created.plaintextKey
     }
 

@@ -171,7 +171,7 @@ Before 2.0 the suite sent three types of its own (`permission-denied`, `access-d
 ## API keys are least-privilege
 
 `api/security/ApiKeyAuthenticationFilter.kt` builds the request principal from the **roles of the
-key's application** (`applications.roles`; the key keeps a copy in `api_keys.roles`), not the full
+key's application** (`applications.roles`; a key has no roles of its own), not the full
 role set, and carries the application so queries can limit the documents it sees
 ([ADR 0054](adr/0054-applications-credentials-and-grants.md)). An application is created in the UI
 (`/tenants/{tenant}/applications`) where the operator picks its roles — `CONTENT_VIEWER` is

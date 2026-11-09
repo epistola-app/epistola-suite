@@ -5,7 +5,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
@@ -25,6 +24,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -94,7 +94,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     @Test
     fun `a moved theme's old REST address is not found`() {
         val tenant = tenant("Theme REST after move")
-        val key = withMediator { CreateApiKey(tenantId = tenant, name = "relocation-it").execute() }.plaintextKey
+        val key = withMediator { createApiKey(tenant, "relocation-it") }.plaintextKey
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), "Brand", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(shared))
 
@@ -106,7 +106,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     @Test
     fun `a REST write through a moved template's old address is not found, and changes nothing`() {
         val tenant = tenant("Template REST write after move")
-        val key = withMediator { CreateApiKey(tenantId = tenant, name = "relocation-it").execute() }.plaintextKey
+        val key = withMediator { createApiKey(tenant, "relocation-it") }.plaintextKey
         withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice", catalogVersion = null).execute() }
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, letters.value, "invoice").movedTo(shared))
 

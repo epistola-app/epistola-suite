@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -29,6 +28,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -1691,7 +1691,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Template Tenant")
-        val created = CreateApiKey(tenantId = tenantKey, name = "tmpl-it").execute()
+        val created = createApiKey(tenantKey, "tmpl-it")
         tenantKey to created.plaintextKey
     }
 
@@ -1699,11 +1699,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     private fun seedTenantAndViewerKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Template Tenant")
-        val created = CreateApiKey(
-            tenantId = tenantKey,
-            name = "tmpl-it-viewer",
-            roles = setOf(TenantRole.CONTENT_VIEWER),
-        ).execute()
+        val created = createApiKey(tenantKey, "tmpl-it-viewer", roles = setOf(TenantRole.CONTENT_VIEWER))
         tenantKey to created.plaintextKey
     }
 

@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
+import app.epistola.suite.testing.createApiKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -128,7 +129,7 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
     @Test
     fun `an application is narrowed to its own documents from its page`() {
         val tenant = createTenant("Apps narrow").id
-        val legacy = withMediator { CreateApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }
+        val legacy = withMediator { createApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)) }
         val app = legacy.apiKey.application!!.id
         assertThat(get("/tenants/$tenant/applications/$app").body).contains("Every document")
 
@@ -181,7 +182,7 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
     @Test
     fun `an application that sees every document is not offered the unattributed documents`() {
         val tenant = createTenant("Apps unattributed wide").id
-        val legacy = withMediator { CreateApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }
+        val legacy = withMediator { createApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)) }
         assertThat(get("/tenants/$tenant/applications/${legacy.apiKey.application!!.id}").body)
             .doesNotContain("data-testid=\"application-unattributed-toggle\"")
     }

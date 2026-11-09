@@ -13,4 +13,5 @@ lists, downloads and deletes only its own results; another application's are not
 every existing key becomes an application of its own that still sees every document, so integrations
 keep working unchanged until an administrator narrows them on the application's page. Documents from
 before the upgrade belong to the application of a tenant's only key; with several keys, an
-administrator chooses which application owns them.
+administrator chooses which application owns them. A key no longer carries roles of its own: it acts with its application's, so this upgrade cannot
+be rolled back.

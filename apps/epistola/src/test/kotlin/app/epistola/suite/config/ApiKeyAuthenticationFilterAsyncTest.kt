@@ -9,10 +9,12 @@ import app.epistola.suite.api.security.ApiKeyAuthenticationToken
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PrincipalApplication
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import jakarta.servlet.DispatcherType
 import jakarta.servlet.FilterChain
@@ -106,6 +108,7 @@ class ApiKeyAuthenticationFilterAsyncTest {
         lastUsedAt = null,
         expiresAt = null,
         createdBy = null,
+        application = PrincipalApplication(ApplicationKey.generate(), seesAllDocuments = true),
     )
 
     /**

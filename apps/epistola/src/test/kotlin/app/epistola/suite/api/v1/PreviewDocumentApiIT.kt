@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -24,6 +23,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import com.jayway.jsonpath.JsonPath
@@ -236,7 +236,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("pv-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Preview API Tenant")
-        val created = CreateApiKey(tenantId = tenantKey, name = "pv-it").execute()
+        val created = createApiKey(tenantKey, "pv-it")
         tenantKey to created.plaintextKey
     }
 

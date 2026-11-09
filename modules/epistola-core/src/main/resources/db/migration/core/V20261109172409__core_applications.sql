@@ -30,7 +30,7 @@ CREATE UNIQUE INDEX uq_applications_owns_unattributed_documents
 
 COMMENT ON TABLE applications IS 'A calling system in one tenant (ADR 0054). Owns its API keys and the documents it requested.';
 COMMENT ON COLUMN applications.id IS 'UUIDv7, never reused, so a later application cannot inherit the documents of a deleted one';
-COMMENT ON COLUMN applications.roles IS 'Tenant roles the application acts with. Its API keys carry a copy in api_keys.roles.';
+COMMENT ON COLUMN applications.roles IS 'Tenant roles the application acts with, and so every one of its API keys.';
 COMMENT ON COLUMN applications.sees_all_documents IS 'True: sees every document of the tenant, as before applications existed. False: only the documents it requested.';
 COMMENT ON COLUMN applications.owns_unattributed_documents IS 'Also owns the requests, documents and results that record no application: written before applications existed, or requested by a caller without one. At most one per tenant.';
 

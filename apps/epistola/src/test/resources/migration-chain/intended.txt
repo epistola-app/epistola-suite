@@ -2337,7 +2337,8 @@ $$
 + CREATE UNIQUE INDEX uq_support_connections_handles_new_requests ON public.support_connections USING btree (handles_new_requests) WHERE handles_new_requests
 
 # Added after the chain: applications own their API keys and the documents they request, and the
-# generation pipeline records which application asked (V20261109172409, ADR 0054).
+# generation pipeline records which application asked (V20261109172409, ADR 0054); a key has no roles
+# of its own any more (V20261109201256).
 - CREATE TABLE public.api_keys (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
@@ -2555,7 +2556,6 @@ PARTITION BY RANGE (created_at)
     name character varying(100) NOT NULL,
     revoked_at timestamp with time zone,
     revoked_by uuid,
-    roles character varying(30)[] NOT NULL,
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.applications (

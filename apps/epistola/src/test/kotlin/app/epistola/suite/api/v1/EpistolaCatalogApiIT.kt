@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
@@ -36,6 +35,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -550,7 +550,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ca-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Catalog API Tenant")
-        val created = CreateApiKey(tenantId = tenantKey, name = "ca-it").execute()
+        val created = createApiKey(tenantKey, "ca-it")
         tenantKey to created.plaintextKey
     }
 }

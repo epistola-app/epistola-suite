@@ -22,6 +22,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -50,34 +51,10 @@ class ApplicationCommandsIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `a key created without an application gets a tenant-wide one of its own, as the upgrade does`() {
-        val tenant = createTenant("Apps").id
-        withMediator {
-            val created = CreateApiKey(tenant, "Legacy integration", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
-
-            val application = ListApplications(tenant).query().single()
-            assertThat(application.name).isEqualTo("Legacy integration")
-            assertThat(application.roles).containsExactly(TenantRole.CONTENT_VIEWER)
-            assertThat(application.seesAllDocuments).isTrue
-            assertThat(created.apiKey.application).isEqualTo(PrincipalApplication(application.id, seesAllDocuments = true))
-        }
-    }
-
-    @Test
-    fun `a key of an application cannot name its own roles`() {
-        val tenant = createTenant("Apps").id
-        withMediator {
-            val app = CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
-            assertThatThrownBy { CreateApiKey(tenant, "k", roles = TenantRole.entries.toSet(), applicationId = app.id).execute() }
-                .isInstanceOf(ValidationException::class.java)
-        }
-    }
-
-    @Test
     fun `narrowing an application applies to its keys at once`() {
         val tenant = createTenant("Apps").id
         withMediator {
-            val created = CreateApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER)).execute()
+            val created = createApiKey(tenant, "Legacy", roles = setOf(TenantRole.CONTENT_VIEWER))
             val app = created.apiKey.application!!.id
             val hash = apiKeyService.hashKey(created.plaintextKey)
 
@@ -128,7 +105,10 @@ class ApplicationCommandsIT : IntegrationTestBase() {
             RevokeApiKey(tenant, key.apiKey.id).execute()
             assertThat(DeleteApplication(tenant, app.id).execute()).isTrue
             assertThat(GetApplication(tenant, app.id).query()).isNull()
-            assertThat(ListApiKeys(tenant).query().single().application).`as`("the revoked key stays, unlinked").isNull()
+            val revoked = ListApiKeys(tenant).query().single()
+            assertThat(revoked.application).`as`("the revoked key stays, unlinked").isNull()
+            assertThat(revoked.roles).`as`("a key has no roles of its own").isEmpty()
+            assertThat(revoked.isUsable()).isFalse
         }
     }
 

@@ -41,22 +41,22 @@ data class ApiKey(
      */
     val createdByDisplayName: String? = null,
     /**
-     * Least-privilege scope: the tenant roles this key authenticates as. The auth
-     * filter grants exactly these for the key's tenant. Defaults to all roles only
-     * as a convenience for in-code/test/demo construction — keys created through
-     * [app.epistola.suite.apikeys.commands.CreateApiKey] always set an explicit subset.
+     * The tenant roles this key authenticates as: its application's (ADR 0054). A key has no roles
+     * of its own. The auth filter grants exactly these for the key's tenant. Defaults to all roles
+     * only as a convenience for in-code construction; a key read from the database carries its
+     * application's.
      */
     val roles: Set<TenantRole> = TenantRole.entries.toSet(),
     /**
-     * The application this key proves (ADR 0054), with what it sees. Null for a revoked key whose
-     * application was deleted, or one created by a release before applications: such a key acts
-     * with its own [roles] and sees every document of the tenant, as keys did before.
+     * The application this key proves (ADR 0054), with what it sees. Null only for a revoked key
+     * whose application was deleted, or one revoked before applications existed.
      */
     val application: PrincipalApplication? = null,
 ) {
     fun isExpired(now: Instant = EpistolaClock.instant()): Boolean = expiresAt != null && now.isAfter(expiresAt)
 
-    fun isUsable(): Boolean = enabled && !isExpired()
+    /** Enabled, not expired, and proving an application — a key without one has nothing to act as. */
+    fun isUsable(): Boolean = enabled && !isExpired() && application != null
 }
 
 /**
@@ -89,14 +89,13 @@ internal fun ResultSet.toApiKey(withDisplayName: Boolean): ApiKey = ApiKey(
 )
 
 /**
- * The key columns [toApiKey] reads, aliased from `api_keys k LEFT JOIN applications a`. A key of an
- * application acts with the application's roles, which are its source of truth; the key's own copy
- * is read only for a key without one.
+ * The key columns [toApiKey] reads, aliased from `api_keys k LEFT JOIN applications a`. A key acts
+ * with its application's roles; one without an application has none.
  */
 internal const val API_KEY_COLUMNS = """
     k.id, k.tenant_key, k.name, k.key_prefix, k.enabled, k.created_at,
     k.last_used_at, k.expires_at, k.created_by, k.revoked_at, k.revoked_by,
-    COALESCE(a.roles, k.roles) AS roles,
+    a.roles AS roles,
     a.id AS application_id, a.sees_all_documents AS application_sees_all_documents,
     a.owns_unattributed_documents AS application_owns_unattributed_documents
 """

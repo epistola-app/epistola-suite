@@ -4,12 +4,12 @@
 
 package app.epistola.suite.demo
 
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.assertj.core.api.Assertions.assertThat
@@ -114,7 +114,7 @@ class DemoSharedSecretEndToEndIT : IntegrationTestBase() {
         // The headline compatibility question: adding a filter ahead of ApiKeyAuthenticationFilter
         // must leave ordinary key auth exactly as it was.
         val key = withMediator {
-            CreateApiKey(tenantId = targetTenant.id, name = "Regression key").execute()
+            createApiKey(targetTenant.id, "Regression key")
         }
 
         val response = getTenant("ApiKey ${key.plaintextKey}")
@@ -128,7 +128,7 @@ class DemoSharedSecretEndToEndIT : IntegrationTestBase() {
         // And must not be quietly elevated by sharing a chain with an all-tenant credential.
         val otherTenant = createTenant("Some Other Tenant")
         val key = withMediator {
-            CreateApiKey(tenantId = otherTenant.id, name = "Other tenant key").execute()
+            createApiKey(otherTenant.id, "Other tenant key")
         }
 
         val response = restTemplate.exchange(

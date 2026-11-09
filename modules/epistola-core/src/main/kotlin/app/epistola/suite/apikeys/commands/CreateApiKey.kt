@@ -7,7 +7,6 @@ package app.epistola.suite.apikeys.commands
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.ApiKeyWithSecret
-import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.queries.GetApplication
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.ApplicationKey
@@ -15,13 +14,11 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SecurityContext
-import app.epistola.suite.security.TenantRole
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.ValidationException
@@ -31,20 +28,16 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 /**
- * Create an API key: a credential of an application (ADR 0054).
- *
- * With [applicationId] the key acts with that application's roles, and [roles] must be left out.
- * Without one, the key gets an application of its own, named after it, with [roles] (all of them
- * when left out), that sees every document of the tenant: what every key was before applications,
- * and what the upgrade made of each existing key. The UI always names an application.
+ * Create an API key: a credential of [applicationId] (ADR 0054). The key has no roles of its own; it
+ * acts with its application's, and sees what the application sees. Rotating means creating the new
+ * key on the same application and revoking the old one, so who owns the documents does not change.
  */
 data class CreateApiKey(
     val tenantId: TenantKey,
     val name: String,
-    val roles: Set<TenantRole>? = null,
+    val applicationId: ApplicationKey,
     val expiresAt: Instant? = null,
     val createdBy: UserKey? = null,
-    val applicationId: ApplicationKey? = null,
 ) : Command<ApiKeyWithSecret>,
     RequiresPermission {
     override val permission get() = Permission.CREDENTIALS_MANAGE
@@ -53,8 +46,6 @@ data class CreateApiKey(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
-        validate("roles", roles == null || roles.isNotEmpty()) { "Select at least one role" }
-        validate("roles", applicationId == null || roles == null) { "A key acts with its application's roles" }
     }
 }
 
@@ -65,17 +56,8 @@ class CreateApiKeyHandler(
 ) : CommandHandler<CreateApiKey, ApiKeyWithSecret> {
 
     override fun handle(command: CreateApiKey): ApiKeyWithSecret {
-        val application = if (command.applicationId != null) {
-            GetApplication(command.tenantId, command.applicationId).query()
-                ?: throw ValidationException("applicationId", "No such application in this tenant")
-        } else {
-            CreateApplication(
-                tenantKey = command.tenantId,
-                name = command.name,
-                roles = command.roles ?: TenantRole.entries.toSet(),
-                seesAllDocuments = true,
-            ).execute()
-        }
+        val application = GetApplication(command.tenantId, command.applicationId).query()
+            ?: throw ValidationException("applicationId", "No such application in this tenant")
 
         // A key may carry only roles its creator holds in the tenant. Roles do not inherit, and
         // creating keys is an administrator's permission, so without this an administrator who
@@ -104,14 +86,12 @@ class CreateApiKeyHandler(
         )
 
         jdbi.useHandle<Exception> { handle ->
-            // The roles are a copy of the application's, so a release before applications, which
-            // reads them from the key, still grants exactly these after a rollback.
             handle.createUpdate(
                 """
                 INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled,
-                                      created_at, expires_at, created_by, roles, application_id)
+                                      created_at, expires_at, created_by, application_id)
                 VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
-                        :createdAt, :expiresAt, :createdBy, :roles::varchar[], :applicationId)
+                        :createdAt, :expiresAt, :createdBy, :applicationId)
                 """,
             )
                 .bind("id", apiKey.id)
@@ -123,7 +103,6 @@ class CreateApiKeyHandler(
                 .bind("createdAt", apiKey.createdAt)
                 .bind("expiresAt", apiKey.expiresAt)
                 .bind("createdBy", apiKey.createdBy?.value)
-                .bind("roles", apiKey.roles.map { it.name }.toTypedArray())
                 .bind("applicationId", application.id)
                 .execute()
         }

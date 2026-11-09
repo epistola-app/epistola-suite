@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -29,6 +28,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.testCatalog
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -121,7 +121,7 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
         ).execute()
         MarkCatalogReady(testCatalog(tenantKey, letters), catalogVersion = null).execute()
         ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0", catalogVersion = null).execute()
-        tenantKey to CreateApiKey(tenantId = tenantKey, name = "rab-it").execute().plaintextKey
+        tenantKey to createApiKey(tenantKey, "rab-it").plaintextKey
     }
 
     private fun headers(apiKey: String): HttpHeaders = HttpHeaders().apply {

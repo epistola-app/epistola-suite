@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -91,7 +92,7 @@ class NameLengthValidationTest {
         "CreateVariant.title" to { s -> CreateVariant(variantId, title = s, description = null, catalogVersion = null) },
         "UpdateVariant.title" to { s -> UpdateVariant(variantId, title = s, attributes = emptyMap(), catalogVersion = null) },
         "ImportFont.name" to { s -> ImportFont(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "myfont", name = s, kind = "sans", catalogVersion = null) },
-        "CreateApiKey.name" to { s -> CreateApiKey(tenantKey, s) },
+        "CreateApiKey.name" to { s -> CreateApiKey(tenantKey, s, applicationId = ApplicationKey.generate()) },
         // URL-sourced so only the displayName length can fail (INLINE would also require entries).
         "CreateCodeList.displayName" to { s ->
             CreateCodeList(codeListId, displayName = s, sourceType = CodeListSource.URL, sourceUrl = "https://example.com/codes.json", catalogVersion = null)

@@ -5,13 +5,13 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -333,7 +333,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("smoke-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Smoke Tenant")
-        val created = CreateApiKey(tenantId = tenantKey, name = "smoke").execute()
+        val created = createApiKey(tenantKey, "smoke")
         tenantKey to created.plaintextKey
     }
 

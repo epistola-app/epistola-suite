@@ -133,6 +133,11 @@ class ApiKeyAuthenticationFilter(
             val reason = if (!apiKey.enabled) {
                 authCounter("disabled").increment()
                 "API key is disabled"
+            } else if (apiKey.application == null) {
+                // Only a revoked key lacks an application, and a revoked key is disabled; this is
+                // the guard should one ever slip through: without an application it has no roles.
+                authCounter("disabled").increment()
+                "API key is disabled"
             } else {
                 authCounter("expired").increment()
                 "API key has expired"

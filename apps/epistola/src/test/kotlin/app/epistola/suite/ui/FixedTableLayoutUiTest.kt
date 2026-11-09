@@ -4,8 +4,8 @@
 
 package app.epistola.suite.ui
 
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.createApiKey
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import org.assertj.core.api.Assertions.assertThat as assertThatValue
@@ -16,10 +16,7 @@ class FixedTableLayoutUiTest : BasePlaywrightTest() {
     fun `fixed list table contains horizontal overflow and keeps actions usable on a narrow viewport`() {
         val tenant = createTenant("Fixed Table Layout")
         val application = withMediator {
-            CreateApiKey(
-                tenantId = tenant.id,
-                name = "Responsive integration key",
-            ).execute().apiKey.application!!.id
+            createApiKey(tenant.id, "Responsive integration key").apiKey.application!!.id
         }
         page.setViewportSize(640, 720)
 

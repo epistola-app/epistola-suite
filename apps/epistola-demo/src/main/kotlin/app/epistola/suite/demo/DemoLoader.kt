@@ -282,9 +282,9 @@ class DemoLoader(
             .update()
         jdbcClient.sql(
             """
-            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, roles, application_id)
-            VALUES (?, ?, ?, ?, ?, true, NOW(), ARRAY[$rolesLiteral]::varchar[], ?)
-            ON CONFLICT (id) DO UPDATE SET roles = ARRAY[$rolesLiteral]::varchar[], application_id = EXCLUDED.application_id
+            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, application_id)
+            VALUES (?, ?, ?, ?, ?, true, NOW(), ?)
+            ON CONFLICT (id) DO UPDATE SET application_id = EXCLUDED.application_id
             """,
         )
             .param(id)

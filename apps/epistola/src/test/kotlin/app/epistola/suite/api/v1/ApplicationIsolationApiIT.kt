@@ -22,6 +22,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
@@ -82,7 +83,7 @@ class ApplicationIsolationApiIT : IntegrationTestBase() {
                 CreateApiKey(tenant, "case", applicationId = case.id).execute().plaintextKey,
                 CreateApiKey(tenant, "registry", applicationId = registry.id).execute().plaintextKey,
                 // As every key was before applications, and as the upgrade leaves each existing one.
-                CreateApiKey(tenant, "legacy", roles = roles).execute().plaintextKey,
+                createApiKey(tenant, "legacy", roles = roles).plaintextKey,
             )
         }
 

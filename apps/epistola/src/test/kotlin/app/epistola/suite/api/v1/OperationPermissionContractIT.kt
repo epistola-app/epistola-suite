@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
@@ -41,6 +40,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
@@ -321,7 +321,7 @@ class OperationPermissionContractIT : IntegrationTestBase() {
         // A release to merge from, publish and deploy; the next version stays the draft the operations change.
         MarkCatalogReady(catalog, catalogVersion = null).execute()
         ReleaseCatalogDraft(catalog = catalog, version = "1.0.0", catalogVersion = null).execute()
-        val created = CreateApiKey(tenantId = tenantKey, name = "permission-it", roles = roles).execute()
+        val created = createApiKey(tenantKey, "permission-it", roles = roles)
         Seeded(tenantKey, CatalogApiPaths.namespace(tenantKey)) to created.plaintextKey
     }
 
