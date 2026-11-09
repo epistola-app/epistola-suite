@@ -44,6 +44,26 @@ class SupportTelemetryLogsTest {
         sink.close()
     }
 
+    /**
+     * Flushes until [done] holds, at most [FLUSH_WAIT]. Once is not enough after an earlier flush:
+     * OpenTelemetry's batch processor drops a flush asked for in the moment the previous one is
+     * completing (it answers with that one's result), and the record then waits for the next flush.
+     */
+    private fun SupportTelemetryLogs.flushUntil(done: () -> Boolean) {
+        val until = System.nanoTime() + FLUSH_WAIT.toNanos()
+        while (!done() && System.nanoTime() < until) {
+            flush()
+            Thread.sleep(20)
+        }
+    }
+
+    /** A flush that exports what is queued now, also when it follows another ([flushUntil] for why). */
+    private fun SupportTelemetryLogs.flushQueued() {
+        flush()
+        Thread.sleep(50)
+        flush()
+    }
+
     private fun bodies(): List<String> = sink.logRequests.flatMap { request ->
         OtlpSink.logs(request).resourceLogsList.flatMap { it.scopeLogsList }.flatMap { it.logRecordsList }.map { it.body.stringValue }
     }
@@ -88,7 +108,7 @@ class SupportTelemetryLogsTest {
         connection.grant()
         leg.refreshGate()
         logger.warn("after the grant")
-        leg.flush()
+        leg.flushUntil { bodies().isNotEmpty() }
 
         assertThat(leg.isForwarding()).isTrue()
         assertThat(bodies()).containsExactly("after the grant")
@@ -170,7 +190,7 @@ class SupportTelemetryLogsTest {
 
         connection.token = "tok-2"
         logger.warn("second")
-        leg.flush()
+        leg.flushUntil { sink.logRequests.size >= 2 }
 
         assertThat(sink.logRequests.map { it.header("Authorization") }).containsExactly("Bearer tok-1", "Bearer tok-2")
     }
@@ -186,12 +206,12 @@ class SupportTelemetryLogsTest {
 
         connection.otlp = sink.otlpEndpoint
         logger.warn("no token yet")
-        leg.flush()
+        leg.flushQueued()
         assertThat(sink.server.requests).isEmpty()
 
         connection.token = "tok-1"
         logger.warn("both known")
-        leg.flush()
+        leg.flushUntil { bodies().isNotEmpty() }
 
         assertThat(bodies()).containsExactly("both known")
     }
@@ -244,5 +264,10 @@ class SupportTelemetryLogsTest {
         val took = kotlin.system.measureTimeMillis { leg.stop() }
 
         assertThat(took).isLessThan(2_000)
+    }
+
+    private companion object {
+        /** How long an export may take on a busy machine. */
+        val FLUSH_WAIT: Duration = Duration.ofSeconds(30)
     }
 }
