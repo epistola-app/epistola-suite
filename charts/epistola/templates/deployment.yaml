@@ -260,6 +260,10 @@ spec:
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TENANT_IDENTITY
               value: {{ . | quote }}
             {{- end }}
+            {{- with $c.escalatesTo }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_ESCALATES_TO
+              value: {{ . | quote }}
+            {{- end }}
             {{- with $c.telemetry }}
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TELEMETRY
               value: {{ . | quote }}

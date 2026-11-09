@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
@@ -242,36 +243,106 @@ class AttachSupportConnectionHandler(
     private val kick: SupportRequestSyncKick,
 ) : CommandHandler<AttachSupportConnection, Unit> {
     override fun handle(command: AttachSupportConnection) {
-        jdbi.inTransaction<Unit, Exception> { handle ->
-            val handler = requireRequest(handle, command.tenant, command.request)
-            if (handler == command.connectionId) throw SupportRequestNotEscalatedException("That support connection handles this request already.")
-            val target = choices(handle, port).firstOrNull { it.connectionId == command.connectionId }
-                ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
-            val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
-                "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
-            } else {
-                lockedConsentInForce(":tenant", connectionSql(target.connectionId))
-            }
-            val attached = handle.createUpdate(
-                """
-                INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
-                SELECT f.tenant_key, f.id, :connection, :pending
-                FROM support_requests f
-                WHERE f.tenant_key = :tenant AND f.id = :request AND $exchanged
-                ON CONFLICT (tenant_key, request_id, connection_id) DO NOTHING
-                """,
-            )
-                .bind("tenant", command.tenant)
-                .bind("request", command.request.value)
-                .bind("connection", target.connectionId)
-                .bind("pending", SyncStatus.PENDING.name)
-                .execute()
-            if (attached == 0) {
-                throw SupportRequestNotEscalatedException("The tenant does not share support requests with ${target.name}, or it is on this request already.")
-            }
-            SupportRequestLedger.recordHistory(handle, command.tenant, command.request.value, target.connectionId)
-        }
+        jdbi.inTransaction<Unit, Exception> { handle -> attachConnection(handle, port, command.tenant, command.request, command.connectionId) }
         kick.kick()
+    }
+}
+
+/**
+ * Attaches [connectionId] to [request] besides its handler, as [AttachSupportConnection] does: allowed as
+ * passing it on is, with what the request holds; [SupportRequestNotEscalatedException] with the reason
+ * otherwise. For the desk and for an escalation a connection asked for.
+ */
+internal fun attachConnection(handle: Handle, ports: SupportRequestSyncPorts, tenant: TenantKey, request: SupportRequestKey, connectionId: UUID) {
+    val handler = requireRequest(handle, tenant, request)
+    if (handler == connectionId) throw SupportRequestNotEscalatedException("That support connection handles this request already.")
+    val target = choices(handle, ports).firstOrNull { it.connectionId == connectionId }
+        ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
+    val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
+        "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
+    } else {
+        lockedConsentInForce(":tenant", connectionSql(target.connectionId))
+    }
+    val attached = handle.createUpdate(
+        """
+        INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
+        SELECT f.tenant_key, f.id, :connection, :pending
+        FROM support_requests f
+        WHERE f.tenant_key = :tenant AND f.id = :request AND $exchanged
+        ON CONFLICT (tenant_key, request_id, connection_id) DO NOTHING
+        """,
+    )
+        .bind("tenant", tenant)
+        .bind("request", request.value)
+        .bind("connection", target.connectionId)
+        .bind("pending", SyncStatus.PENDING.name)
+        .execute()
+    if (attached == 0) {
+        throw SupportRequestNotEscalatedException("The tenant does not share support requests with ${target.name}, or it is on this request already.")
+    }
+    SupportRequestLedger.recordHistory(handle, tenant, request.value, target.connectionId)
+}
+
+/**
+ * Connection [fromConnection] asked, through the protocol, to escalate [request] (ADR 0053 §4): the
+ * connection it escalates to (`support_connections.escalates_to`) is attached, as the desk would. When
+ * that cannot be done, an internal note says why, so the desk can act. Run by the poll, as the system.
+ *
+ * @return the connection attached; null when none was.
+ */
+data class EscalateFromConnection(
+    val tenant: TenantKey,
+    val request: SupportRequestKey,
+    val fromConnection: UUID,
+    val reason: String?,
+) : Command<UUID?>,
+    // The poll applies what a connection sent; no person asks for it.
+    SystemInternal
+
+@Component
+class EscalateFromConnectionHandler(
+    private val jdbi: Jdbi,
+    private val port: SupportRequestSyncPorts,
+    private val kick: SupportRequestSyncKick,
+) : CommandHandler<EscalateFromConnection, UUID?> {
+    override fun handle(command: EscalateFromConnection): UUID? {
+        val attached = jdbi.inTransaction<UUID?, Exception> { handle ->
+            val (fromName, target) = handle.createQuery(
+                "SELECT c.name, c.escalates_to, t.name AS target_name FROM support_connections c LEFT JOIN support_connections t ON t.id = c.escalates_to WHERE c.id = :id",
+            )
+                .bind("id", command.fromConnection)
+                .map { rs, _ -> rs.getString("name") to rs.getObject("escalates_to", UUID::class.java)?.let { it to rs.getString("target_name") } }
+                .findOne()
+                .orElse(null) ?: return@inTransaction null
+            val asked = "$fromName asked to escalate this request" + (command.reason?.takeIf { it.isNotBlank() }?.let { ": ${it.trim()}" } ?: ".")
+            if (target == null) {
+                note(handle, command, fromName, "$asked No connection is set for $fromName to escalate to; pass it on or attach one here.")
+                return@inTransaction null
+            }
+            try {
+                attachConnection(handle, port, command.tenant, command.request, target.first)
+                note(handle, command, fromName, "$asked It went to ${target.second} as well.")
+                target.first
+            } catch (e: SupportRequestNotEscalatedException) {
+                note(handle, command, fromName, "$asked It could not go to ${target.second}: ${e.reason}")
+                null
+            }
+        }
+        if (attached != null) kick.kick()
+        return attached
+    }
+
+    /** An internal note only the desk sees, written in the connection's name. */
+    private fun note(handle: Handle, command: EscalateFromConnection, fromName: String, body: String) {
+        handle.createUpdate(
+            "INSERT INTO support_request_messages (tenant_key, request_id, id, kind, body, author_name, created_at) VALUES (:tenant, :request, :id, 'NOTE', :body, :author, NOW())",
+        )
+            .bind("tenant", command.tenant)
+            .bind("request", command.request.value)
+            .bind("id", UUIDv7.generate())
+            .bind("body", body)
+            .bind("author", fromName)
+            .execute()
     }
 }
 

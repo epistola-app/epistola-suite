@@ -22,6 +22,7 @@ import app.epistola.suite.support.requests.commands.SyncSupportRequestComment
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
 import app.epistola.suite.support.requests.commands.SyncSupportRequestStatus
 import app.epistola.suite.support.requests.consent.IsSupportRequestSyncConsentInForce
+import app.epistola.suite.support.requests.desk.EscalateFromConnection
 import app.epistola.suite.support.requests.queries.GetSupportRequestByExternalRef
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -196,6 +197,11 @@ class SupportRequestPollScheduler(
                 // SyncSupportRequestStatus (not UpdateSupportRequestStatus) so this does not bounce back out.
                 SyncSupportRequestStatus(id = supportRequestId, status = update.newStatus, connectionId = connectionId).execute()
                 log.debug("Updated feedback {} status to {}", supportRequestId.key, update.newStatus)
+            }
+
+            is ExternalUpdate.EscalationRequest -> {
+                EscalateFromConnection(tenantKey, supportRequestId.key, connectionId, update.reason).execute()
+                log.debug("Connection {} asked to escalate support request {}", connectionId, supportRequestId.key)
             }
 
             is ExternalUpdate.PriorityChange -> {

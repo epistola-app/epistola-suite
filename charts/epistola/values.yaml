@@ -391,6 +391,9 @@ support:
   #       # (pseudonymised or full); left out: the installation's privacy settings. An
   #       # administrator's choice under Platform → Epistola support wins.
   #       tenantIdentity: named
+  #       # The connection it escalates to when it asks the installation to (epistola, another
+  #       # entry's endpoint); left out: no one, and the support desk decides.
+  #       escalatesTo: epistola
   connections: []
   # Usage for billing.
   usage:

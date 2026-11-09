@@ -10,6 +10,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.support.ESCALATES_TO_EPISTOLA
 import app.epistola.suite.support.SupportProperties
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -104,6 +105,27 @@ class ConfiguredSupportConnections(
             val store = connections.store(id)
             if (runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
             log.info("Support connection {} configured at {}", configured.name, configured.baseUrl)
+        }
+        // Where each escalates to, once all exist: Epistola support's connection or another configured one.
+        properties.connections.forEach { configured ->
+            val to = configured.escalatesTo.trim().trimEnd('/')
+            jdbi.useHandle<Exception> { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE support_connections c SET escalates_to = CASE
+                        WHEN :to = '' THEN NULL
+                        WHEN :to = :epistola THEN CAST(:discovered AS UUID)
+                        ELSE (SELECT t.id FROM support_connections t WHERE t.source = 'CONFIGURED' AND t.endpoint = :to)
+                    END
+                    WHERE c.source = 'CONFIGURED' AND c.endpoint = :endpoint AND c.from_configuration
+                    """,
+                )
+                    .bind("to", to)
+                    .bind("epistola", ESCALATES_TO_EPISTOLA)
+                    .bind("discovered", SupportConnections.DISCOVERED_ID)
+                    .bind("endpoint", configured.baseUrl)
+                    .execute()
+            }
         }
     }
 }

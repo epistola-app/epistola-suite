@@ -230,6 +230,8 @@ class RestSupportRequestSyncAdapter(
                 ExternalUpdate.PriorityChange(seq = seq, tenantKey = tenantKey, externalRef = remoteId, occurredAt = occurredAt, newPriority = priority)
             }
 
+            "ESCALATION" -> ExternalUpdate.EscalationRequest(seq = seq, tenantKey = tenantKey, externalRef = remoteId, occurredAt = occurredAt, reason = node.text("reason"))
+
             else -> {
                 log.debug("Skipping support request change {} of a type this suite does not know: {}", seq, node.text("type"))
                 null

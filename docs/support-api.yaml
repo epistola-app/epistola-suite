@@ -466,7 +466,13 @@ components:
               tenantKey: { type: string }
               suiteRequestId: { type: string, format: uuid }
               occurredAt: { type: string, format: date-time }
-              type: { type: string, enum: [MESSAGE, STATUS, PRIORITY] }
+              type: { type: string, enum: [MESSAGE, STATUS, PRIORITY, ESCALATION] }
+              reason:
+                {
+                  type: string,
+                  nullable: true,
+                  description: "ESCALATION only: what the connection's staff wrote when asking the installation to escalate.",
+                }
               message:
                 type: object
                 required: [messageId, kind, authorName, body]

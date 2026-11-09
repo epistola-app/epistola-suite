@@ -460,6 +460,7 @@
               "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage), as far as it grants them." },
               "tenantIdentity": { "type": "string", "enum": ["", "named", "confidential"], "description": "What it learns of tenants. Empty: the installation's setting." },
               "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "How much telemetry carries over it. Empty: the installation's setting." },
+              "escalatesTo": { "type": "string", "description": "The connection it escalates to when it asks: epistola, another entry's endpoint, or empty for none." },
               "tokenSecret": {
                 "type": "object",
                 "additionalProperties": false,

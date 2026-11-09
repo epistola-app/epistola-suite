@@ -36,6 +36,16 @@ class SupportPropertiesTest {
     }
 
     @Test
+    fun `a connection escalates to Epistola support, another connection, or no one`() {
+        fun connection(endpoint: String, escalatesTo: String = "") = SupportProperties.Connection("P", endpoint, "t", escalatesTo = escalatesTo)
+
+        assertThat(SupportProperties(connections = listOf(connection("https://a.example", "epistola"))).connections).hasSize(1)
+        assertThat(SupportProperties(connections = listOf(connection("https://a.example", "https://b.example/"), connection("https://b.example"))).connections).hasSize(2)
+        assertThatThrownBy { SupportProperties(connections = listOf(connection("https://a.example", "https://elsewhere.example"))) }.hasMessageContaining("escalates-to")
+        assertThatThrownBy { SupportProperties(connections = listOf(connection("https://a.example", "https://a.example"))) }.hasMessageContaining("escalates-to")
+    }
+
+    @Test
     fun `an https endpoint is taken as the issuer`() {
         assertThat(SupportProperties(endpoint = "https://support.example/").configuredIssuer).isEqualTo(URI("https://support.example"))
     }
