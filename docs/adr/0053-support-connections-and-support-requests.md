@@ -243,6 +243,11 @@ can open requests through the same protocol.
      (`app_metadata` `support.privacy`); another connection's is `support_connections.privacy` as an
      administrator saved it, else its configuration, else the installation's.
      `TenantReferences.onWire(tenant, connection)` says what a connection is sent for a tenant.
+   - **3c1, built:** sharing per connection. A tenant's consent for support requests, the installation
+     default and the restriction are read and written per connection
+     (`GrantSupportRequestSyncConsent(tenant, connection)` and the rest); the tenant's Support page
+     and the platform page have a panel per connection besides Epistola support. Sending still goes
+     over Epistola support's connection only (3c2).
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

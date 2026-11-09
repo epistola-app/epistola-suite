@@ -131,6 +131,37 @@
         </div>
     </section>
 
+    <!--/* The installation's preset per other support connection: what tenants share with it until they choose. */-->
+    <section th:fragment="connection-presets" th:if="${connectionPresets != null and !#lists.isEmpty(connectionPresets)}" id="support-connection-presets"
+             class="ep-panel detail-section" data-testid="support-connection-presets">
+        <div class="detail-section-header"><h2>Setup for every tenant, per connection</h2></div>
+        <div class="detail-section-body">
+            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
+                What tenants share with each other support connection until a tenant chooses itself on its Support page.
+            </p>
+            <form th:each="cp : ${connectionPresets}" th:action="@{/platform/support/connections/{id}/defaults(id=${cp.connectionId})}" method="post"
+                  class="form-section" data-testid="support-connection-preset" th:attr="data-connection=${cp.connectionId}">
+                <h3 th:text="${cp.name}">Partner</h3>
+                <div class="alert alert-error" role="alert" th:if="${presetError != null and presetError == cp.connectionId.toString()}"
+                     data-testid="support-connection-preset-error">To share anything, agree on behalf of the tenants that use this setup.</div>
+                <div class="form-group" th:each="v : ${cp.views}">
+                    <label th:for="|${cp.connectionId}-${v.section.key}|" th:text="${v.section.title}">Support requests</label>
+                    <select class="ep-select ep-select-sm form-control-auto" th:id="|${cp.connectionId}-${v.section.key}|" th:name="${v.section.key} + '.default'">
+                        <option value="NONE" th:selected="${v.formValue == 'NONE'}">No preset: each tenant chooses</option>
+                        <option th:each="c : ${v.section.choices}" th:value="${c.value}" th:text="${c.label}" th:selected="${v.formValue == c.value}">Share support requests</option>
+                        <option th:if="${v.section.offersRequired}" value="REQUIRED" th:selected="${v.formValue == 'REQUIRED'}">Required for every tenant</option>
+                        <option value="NOT_ALLOWED" th:selected="${v.formValue == 'NOT_ALLOWED'}">Not allowed</option>
+                    </select>
+                </div>
+                <label class="ep-row ep-gap-3">
+                    <input type="checkbox" name="agree" value="true">
+                    <span th:text="|To share anything, I agree on behalf of the tenants that use this setup to share it with ${cp.name}.|">I agree.</span>
+                </label>
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2);" data-testid="support-connection-preset-save">Save</button>
+            </form>
+        </div>
+    </section>
+
     <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
         <div class="detail-section-header">
             <h2>Setup for every tenant</h2>
@@ -456,6 +487,8 @@
         <th:block th:replace="~{support/platform :: defaults}"></th:block>
 
         <th:block th:replace="~{support/platform :: connections}"></th:block>
+
+        <th:block th:replace="~{support/platform :: connection-presets}"></th:block>
 
         <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
         <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">

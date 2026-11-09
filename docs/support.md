@@ -191,6 +191,12 @@ entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`, `telemetry`), 
 following them when they change. A confidential tenant has one reference for every connection, so
 Epistola and a partner can talk about it by the same reference.
 
+**Sharing per connection.** What a tenant shares is set per connection too: its consent for support
+requests, the installation's preset and the restriction (Not allowed, Required). A tenant's Support
+page has a "Sharing with …" panel for every other connection that offers something, next to the setup
+for Epistola support; Platform → Epistola support has the preset for every tenant per connection. One
+connection's choice never changes another's.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its

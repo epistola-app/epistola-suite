@@ -204,8 +204,8 @@ class UsageSharingSection(private val connection: SupportConnection) : TenantSha
     override val offersNoPreset = false
     override val offersRequired = true
 
-    /** Asked only once the installation selected usage under Services. */
-    override fun offered(connectionId: UUID): Boolean = connection.isSelected(SupportScope.USAGE)
+    /** Asked only once the installation selected usage under Services, over Epistola support's connection until usage is reported per connection (ADR 0053 step 3d). */
+    override fun offered(connectionId: UUID): Boolean = connectionId == connection.id && connection.isSelected(SupportScope.USAGE)
 
     override fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView {
         val choice = GetUsageChoice(tenantKey, connectionId).query()
