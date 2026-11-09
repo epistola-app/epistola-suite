@@ -14,10 +14,13 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
+import app.epistola.suite.support.requests.consent.SupportRequestLedger
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.lockedConsentInForce
 import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import app.epistola.suite.support.requests.sync.SupportRequestSyncKick
-import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
+import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -74,6 +77,8 @@ class AddSupportDeskMessageHandler(
             .bind("authorEmail", principal.email)
             .bind("authorId", principal.userId.value)
             .execute()
+        // A reply goes to every other connection the request is delivered to that the tenant shares with now; a note never.
+        if (!command.note) SupportRequestLedger.recordItem(handle, command.tenant, command.request.value, id)
         if (!command.note) kick.kick()
         id
     }
@@ -146,7 +151,7 @@ data class EscalateSupportRequest(
 @Component
 class EscalateSupportRequestHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
     private val kick: SupportRequestSyncKick,
 ) : CommandHandler<EscalateSupportRequest, Unit> {
     override fun handle(command: EscalateSupportRequest) {
@@ -154,14 +159,21 @@ class EscalateSupportRequestHandler(
             requireHandledHere(handle, command.tenant, command.request)
             val target = choices(handle, port).firstOrNull { it.connectionId == command.connectionId }
                 ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
-            // The tenant's consent is read locked, as on every write that may be sent.
+            // The tenant's consent is read locked, as on every write that may be sent. Epistola support's
+            // connection: shared when it was submitted and now; another connection: shared now, and
+            // then what the request holds goes along (ADR 0053 step 3).
+            val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
+                "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
+            } else {
+                lockedConsentInForce(":tenant", connectionSql(target.connectionId))
+            }
             val delivered = handle.createUpdate(
                 """
                 INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
                 SELECT f.tenant_key, f.id, :connection, :pending
                 FROM support_requests f
                 WHERE f.tenant_key = :tenant AND f.id = :request AND f.handler_connection IS NULL
-                  AND f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}
+                  AND $exchanged
                 ON CONFLICT (tenant_key, request_id, connection_id) DO NOTHING
                 """,
             )
@@ -180,6 +192,7 @@ class EscalateSupportRequestHandler(
                 .bind("request", command.request.value)
                 .bind("connection", target.connectionId)
                 .execute()
+            SupportRequestLedger.recordHistory(handle, command.tenant, command.request.value, target.connectionId)
         }
         kick.kick()
     }

@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.support.requests.SupportRequestAsset
+import app.epistola.suite.support.requests.consent.SupportRequestLedger
 import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -118,5 +119,7 @@ class AddSupportRequestAssetHandler(
             .bind("filename", command.filename)
             .mapTo(SupportRequestAsset::class.java)
             .one()
+            // It goes to every other connection the request is delivered to that the tenant shares with now.
+            .also { SupportRequestLedger.recordItem(handle, command.id.tenantKey, command.id.supportRequestKey.value, command.id.key.value) }
     }
 }

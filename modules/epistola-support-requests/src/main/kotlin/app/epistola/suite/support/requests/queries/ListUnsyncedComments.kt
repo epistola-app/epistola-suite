@@ -11,13 +11,19 @@ import app.epistola.suite.support.requests.CommentSource
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.createdUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
+import app.epistola.suite.support.requests.consent.exchangedWith
+import app.epistola.suite.support.requests.consent.mayGoTo
+import app.epistola.suite.support.requests.selectSupportRequestReply
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Local comments that were authored in the suite ([CommentSource.LOCAL]) but never made it to
@@ -29,6 +35,8 @@ import org.springframework.stereotype.Component
  */
 data class ListUnsyncedComments(
     val limit: Int = 50,
+    /** The connection to send to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Query<List<SupportRequestComment>>,
     SystemInternal
 
@@ -39,18 +47,18 @@ class ListUnsyncedCommentsHandler(
     override fun handle(query: ListUnsyncedComments): List<SupportRequestComment> = jdbi.withHandleUnchecked { handle ->
         handle.createQuery(
             """
-            $SELECT_SUPPORT_REQUEST_REPLY
+            ${selectSupportRequestReply(connectionSql(query.connectionId))}
             JOIN support_requests f ON f.tenant_key = c.tenant_key AND f.id = c.request_id
             JOIN support_request_deliveries d ON d.tenant_key = c.tenant_key AND d.request_id = c.request_id
-                AND d.connection_id = $REQUESTS_CONNECTION_SQL
+                AND d.connection_id = ${connectionSql(query.connectionId)}
             WHERE c.kind = 'REPLY'
               AND c.from_connection IS NULL
               AND dm.remote_id IS NULL
               AND d.state = :syncStatus
               AND d.remote_ref IS NOT NULL
               AND (dm.next_attempt_at IS NULL OR dm.next_attempt_at <= :now)
-              AND ${exchangedUnderConsent("f")}
-              AND ${createdUnderConsent("c")}
+              AND ${exchangedWith("f", "d")}
+              AND ${mayGoTo("c", "dm", "d")}
             ORDER BY c.seq ASC
             LIMIT :limit
             """,

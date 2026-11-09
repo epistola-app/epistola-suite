@@ -47,7 +47,7 @@ import org.springframework.stereotype.Component
     matchIfMissing = true,
 )
 class SupportRequestPollScheduler(
-    private val supportRequestSyncPort: SupportRequestSyncPort,
+    private val ports: SupportRequestSyncPorts,
     private val gate: SupportRequestSyncGate,
     private val mediator: Mediator,
     private val properties: SupportRequestSyncProperties,
@@ -79,13 +79,20 @@ class SupportRequestPollScheduler(
     }
 
     /** One round; true when it found changes. */
-    fun pollForUpdates(): Boolean = MediatorContext.runWithMediator(mediator) { drainUpdates() }
+    fun pollForUpdates(): Boolean = MediatorContext.runWithMediator(mediator) {
+        // Every connection in turn, each with its own position (ADR 0053 step 3).
+        var found = false
+        for ((connectionId, port) in ports.all()) {
+            if (drainUpdates(connectionId, port)) found = true
+        }
+        found
+    }
 
-    private fun drainUpdates(): Boolean {
-        // Not wired, no `feedback` scope, or the service known unreachable: skip the poll rather
+    private fun drainUpdates(connectionId: java.util.UUID, supportRequestSyncPort: SupportRequestSyncPort): Boolean {
+        // Not wired, no `requests` scope, or the connection known unreachable: skip its poll rather
         // than fail the fetch.
-        if (!gate.canSendNow()) {
-            log.debug("Feedback sync cannot reach the support service now; skipping the poll")
+        if (!gate.canSendNow(connectionId)) {
+            log.debug("Support requests cannot be fetched from connection {} now; skipping its poll", connectionId)
             return false
         }
 
@@ -115,7 +122,7 @@ class SupportRequestPollScheduler(
             var lastProcessed: Long? = null
             for (update in page.updates) {
                 try {
-                    processUpdate(update.tenantKey, update)
+                    processUpdate(update.tenantKey, update, connectionId)
                     lastProcessed = update.seq
                 } catch (e: Exception) {
                     log.error(
@@ -126,7 +133,7 @@ class SupportRequestPollScheduler(
                         e.message,
                     )
                     // Acknowledge only what was handled before it, so it comes again next cycle.
-                    lastProcessed?.let { acknowledgeOnly(it) }
+                    lastProcessed?.let { acknowledgeOnly(it, supportRequestSyncPort) }
                     return true
                 }
             }
@@ -138,12 +145,12 @@ class SupportRequestPollScheduler(
         }
         // Handled but not yet acknowledged (the feed ran out, or the run its budget or page limit):
         // acknowledged now, so a replay never applies an older change over a newer one made here.
-        acknowledge?.let { acknowledgeOnly(it) }
+        acknowledge?.let { acknowledgeOnly(it, supportRequestSyncPort) }
         return found
     }
 
     /** Acknowledges [sequence] and leaves what the call brings for the next cycle. */
-    private fun acknowledgeOnly(sequence: Long) {
+    private fun acknowledgeOnly(sequence: Long, supportRequestSyncPort: SupportRequestSyncPort) {
         try {
             supportRequestSyncPort.fetchUpdates(sequence)
         } catch (e: Exception) {
@@ -152,21 +159,21 @@ class SupportRequestPollScheduler(
         }
     }
 
-    private fun processUpdate(tenantKey: TenantKey, update: ExternalUpdate) {
+    private fun processUpdate(tenantKey: TenantKey, update: ExternalUpdate, connectionId: java.util.UUID) {
         // The poll runs on a scheduler thread with no HTTP principal; the inbound commands
         // are tenant-scoped (RequiresPermission), so bind a system principal for the tenant.
         SecurityContext.runWithPrincipal(supportRequestSystemPrincipal(tenantKey)) {
-            applyUpdate(tenantKey, update)
+            applyUpdate(tenantKey, update, connectionId)
         }
     }
 
-    private fun applyUpdate(tenantKey: TenantKey, update: ExternalUpdate) {
-        // A tenant that withdrew its consent no longer takes replies from Epistola either.
-        if (!IsSupportRequestSyncConsentInForce(tenantKey).query()) {
+    private fun applyUpdate(tenantKey: TenantKey, update: ExternalUpdate, connectionId: java.util.UUID) {
+        // A tenant that withdrew its consent no longer takes replies from that connection either.
+        if (!IsSupportRequestSyncConsentInForce(tenantKey, connectionId).query()) {
             log.debug("Skipping feedback update seq {}: tenant {} has no consent in force", update.seq, tenantKey)
             return
         }
-        val supportRequestId = GetSupportRequestByExternalRef(tenantKey, update.externalRef).query() ?: run {
+        val supportRequestId = GetSupportRequestByExternalRef(tenantKey, update.externalRef, connectionId).query() ?: run {
             log.debug("No feedback found for external ref {} in tenant {}", update.externalRef, tenantKey)
             return
         }
@@ -180,18 +187,19 @@ class SupportRequestPollScheduler(
                     authorName = update.authorName,
                     authorEmail = update.authorEmail,
                     externalCommentId = update.externalCommentId,
+                    connectionId = connectionId,
                 ).execute()
                 log.debug("Synced comment {} for feedback {}", update.externalCommentId, supportRequestId.key)
             }
 
             is ExternalUpdate.StatusChange -> {
                 // SyncSupportRequestStatus (not UpdateSupportRequestStatus) so this does not bounce back out.
-                SyncSupportRequestStatus(id = supportRequestId, status = update.newStatus).execute()
+                SyncSupportRequestStatus(id = supportRequestId, status = update.newStatus, connectionId = connectionId).execute()
                 log.debug("Updated feedback {} status to {}", supportRequestId.key, update.newStatus)
             }
 
             is ExternalUpdate.PriorityChange -> {
-                SyncSupportRequestPriority(id = supportRequestId, priority = update.newPriority).execute()
+                SyncSupportRequestPriority(id = supportRequestId, priority = update.newPriority, connectionId = connectionId).execute()
                 log.debug("Updated support request {} priority to {}", supportRequestId.key, update.newPriority)
             }
         }

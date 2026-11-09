@@ -8,15 +8,21 @@ import app.epistola.suite.common.ids.SupportRequestAssetId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
+import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /** Marks an asset as sent to the support service, so it is not sent again. */
 data class MarkSupportRequestAssetSynced(
     val id: SupportRequestAssetId,
+    /** The connection it was sent to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -28,7 +34,7 @@ class MarkSupportRequestAssetSyncedHandler(
         handle.createUpdate(
             """
             INSERT INTO support_request_delivered_items (tenant_key, request_id, item_id, connection_id, sent_at)
-            SELECT a.tenant_key, a.request_id, a.id, $REQUESTS_CONNECTION_SQL, :now
+            SELECT a.tenant_key, a.request_id, a.id, ${connectionSql(command.connectionId)}, :now
             FROM support_request_assets a
             WHERE a.tenant_key = :tenantKey AND a.request_id = :feedbackId AND a.id = :id
             ON CONFLICT (tenant_key, request_id, item_id, connection_id) DO UPDATE SET sent_at = EXCLUDED.sent_at
@@ -51,6 +57,8 @@ data class RecordSupportRequestAssetSyncFailure(
     val id: SupportRequestAssetId,
     val nextAttemptAt: java.time.OffsetDateTime? = null,
     val countAttempt: Boolean = true,
+    /** The connection it was sent to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -62,7 +70,7 @@ class RecordSupportRequestAssetSyncFailureHandler(
         handle.createUpdate(
             """
             INSERT INTO support_request_delivered_items (tenant_key, request_id, item_id, connection_id, attempts, next_attempt_at)
-            SELECT a.tenant_key, a.request_id, a.id, $REQUESTS_CONNECTION_SQL, :count, :nextAttemptAt
+            SELECT a.tenant_key, a.request_id, a.id, ${connectionSql(command.connectionId)}, :count, :nextAttemptAt
             FROM support_request_assets a
             WHERE a.tenant_key = :tenantKey AND a.request_id = :feedbackId AND a.id = :id
             ON CONFLICT (tenant_key, request_id, item_id, connection_id) DO UPDATE

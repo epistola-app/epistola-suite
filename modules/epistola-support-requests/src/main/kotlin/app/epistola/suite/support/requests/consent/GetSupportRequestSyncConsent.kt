@@ -65,7 +65,7 @@ class IsSupportRequestExchangedUnderConsentHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<IsSupportRequestExchangedUnderConsent, Boolean> {
     override fun handle(query: IsSupportRequestExchangedUnderConsent): Boolean = jdbi.withHandleUnchecked { handle ->
-        handle.createQuery("SELECT EXISTS (SELECT 1 FROM support_requests f WHERE f.tenant_key = :tenantKey AND f.id = :id AND ${exchangedUnderConsent("f", connectionSql(query.connectionId))})")
+        handle.createQuery("SELECT EXISTS (SELECT 1 FROM support_requests f WHERE f.tenant_key = :tenantKey AND f.id = :id AND ${exchangedWithConnection("f", query.connectionId)})")
             .bind("tenantKey", query.id.tenantKey)
             .bind("id", query.id.key.value)
             .mapTo(Boolean::class.java)

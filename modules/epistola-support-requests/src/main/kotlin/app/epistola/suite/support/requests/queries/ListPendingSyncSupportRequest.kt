@@ -10,11 +10,16 @@ import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
+import app.epistola.suite.support.requests.consent.exchangedWith
+import app.epistola.suite.support.requests.selectSupportRequest
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Feedback still waiting to be sent and due (its back-off over), oldest first, of tenants whose
@@ -23,6 +28,8 @@ import org.springframework.stereotype.Component
  */
 data class ListPendingSyncSupportRequest(
     val limit: Int = 50,
+    /** The connection to send to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Query<List<SupportRequest>>,
     SystemInternal {
     companion object {
@@ -38,10 +45,10 @@ class ListPendingSyncSupportRequestHandler(
     override fun handle(query: ListPendingSyncSupportRequest): List<SupportRequest> = jdbi.withHandleUnchecked { handle ->
         handle.createQuery(
             """
-            $SELECT_SUPPORT_REQUEST
+            ${selectSupportRequest(connectionSql(query.connectionId))}
             WHERE d.state IN (:pending, :failed)
               AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= :now)
-              AND ${exchangedUnderConsent("f")}
+              AND ${exchangedWith("f", "d")}
             ORDER BY f.created_at ASC
             LIMIT :limit
             """,

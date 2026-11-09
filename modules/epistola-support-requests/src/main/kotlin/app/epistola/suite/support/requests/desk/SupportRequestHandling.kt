@@ -13,7 +13,7 @@ import app.epistola.suite.metadata.getAs
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
+import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -114,7 +114,7 @@ class GetSupportRequestHandling :
 @Component
 class GetSupportRequestHandlingHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
     private val policy: SupportRequestHandlingPolicy,
 ) : QueryHandler<GetSupportRequestHandling, SupportRequestHandling> {
     override fun handle(query: GetSupportRequestHandling): SupportRequestHandling = jdbi.withHandleUnchecked { readHandling(it, port, policy) }
@@ -130,7 +130,7 @@ class GetSupportDeskHandling :
 @Component
 class GetSupportDeskHandlingHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
     private val policy: SupportRequestHandlingPolicy,
 ) : QueryHandler<GetSupportDeskHandling, SupportRequestHandling> {
     override fun handle(query: GetSupportDeskHandling): SupportRequestHandling = jdbi.withHandleUnchecked { readHandling(it, port, policy) }
@@ -150,7 +150,7 @@ data class SetSupportRequestHandling(
 @Component
 class SetSupportRequestHandlingHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
     private val policy: SupportRequestHandlingPolicy,
 ) : CommandHandler<SetSupportRequestHandling, SupportRequestHandling> {
     override fun handle(command: SetSupportRequestHandling): SupportRequestHandling = jdbi.inTransaction<SupportRequestHandling, Exception> { handle ->
@@ -177,7 +177,7 @@ class ResetSupportRequestHandling :
 @Component
 class ResetSupportRequestHandlingHandler(
     private val jdbi: Jdbi,
-    private val port: SupportRequestSyncPort,
+    private val port: SupportRequestSyncPorts,
     private val policy: SupportRequestHandlingPolicy,
 ) : CommandHandler<ResetSupportRequestHandling, SupportRequestHandling> {
     override fun handle(command: ResetSupportRequestHandling): SupportRequestHandling = jdbi.inTransaction<SupportRequestHandling, Exception> { handle ->
@@ -188,21 +188,22 @@ class ResetSupportRequestHandlingHandler(
 }
 
 /**
- * The connections support requests can be handed to: the one requests are sent over
- * ([REQUESTS_CONNECTION]) while a sync target is wired. More come with partner connections.
+ * The connections support requests can be handed to (ADR 0053 step 3): Epistola support's while its
+ * port is wired, and every other connection the installation selected support requests for.
  */
-internal fun choices(handle: Handle, port: SupportRequestSyncPort): List<SupportRequestHandlerChoice> {
-    if (!port.isEnabled()) return emptyList()
-    return handle.createQuery("SELECT id, name FROM support_connections WHERE id = :id")
-        .bind("id", REQUESTS_CONNECTION)
+internal fun choices(handle: Handle, ports: SupportRequestSyncPorts): List<SupportRequestHandlerChoice> {
+    val ids = ports.all().filter { (id, p) -> p.isEnabled() && (id == REQUESTS_CONNECTION || ports.selectsRequests(id)) }.map { it.first }
+    if (ids.isEmpty()) return emptyList()
+    return handle.createQuery("SELECT id, name FROM support_connections WHERE id IN (<ids>) ORDER BY source = 'DISCOVERED' DESC, created_at, id")
+        .bindList("ids", ids)
         .map { rs, _ -> SupportRequestHandlerChoice(rs.getObject("id", UUID::class.java), rs.getString("name")) }
         .list()
 }
 
-private fun readHandling(handle: Handle, port: SupportRequestSyncPort, policy: SupportRequestHandlingPolicy): SupportRequestHandling {
+private fun readHandling(handle: Handle, port: SupportRequestSyncPorts, policy: SupportRequestHandlingPolicy): SupportRequestHandling {
     // Where new requests actually go: a connection only while something sends over it and it exists,
     // as CreateSupportRequest decides; otherwise they stay in this inbox.
-    val name = policy.connectionForNewRequests()?.takeIf { port.isEnabled() }?.let {
+    val name = policy.connectionForNewRequests()?.takeIf { port.port(it)?.isEnabled() == true }?.let {
         handle.createQuery("SELECT name FROM support_connections WHERE id = :id").bind("id", it).mapTo(String::class.java).findOne().orElse(null)
     }
     val id = if (name != null) policy.connectionForNewRequests() else null

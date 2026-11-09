@@ -66,7 +66,7 @@ class RestSupportRequestSyncAdapter(
     override fun isReady(): Boolean = connection.hasScope(SupportScope.REQUESTS)
 
     override fun createTicket(supportRequest: SupportRequest): SyncResult {
-        val wireKey = references?.onWire(supportRequest.tenantKey) ?: supportRequest.tenantKey.value
+        val wireKey = references?.onWire(supportRequest.tenantKey.value, connection.id) ?: supportRequest.tenantKey.value
         // Confidential tenants (ADR 0052 §1): the tenant's paths in what the browser recorded name the reference instead.
         val hide = { text: String -> confidentialPaths(text, supportRequest.tenantKey.value, wireKey) }
         val body = objectMapper.createObjectNode().apply {
@@ -126,7 +126,7 @@ class RestSupportRequestSyncAdapter(
     override fun addComment(supportRequest: SupportRequest, comment: SupportRequestComment): ExternalCommentRef {
         val authorRef = comment.authorId?.let { id -> references?.personReference(id) }
         // While tenants are confidential, the author goes as a person reference only (ADR 0053 §3).
-        val confidential = references?.confidential() == true
+        val confidential = references?.confidential(connection.id) == true
         val body = objectMapper.createObjectNode().apply {
             put("kind", "REPLY")
             authorRef?.let { put("authorRef", it) }

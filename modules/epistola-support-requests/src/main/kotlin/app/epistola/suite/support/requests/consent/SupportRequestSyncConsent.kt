@@ -135,3 +135,43 @@ internal fun lockedConsentInForceId(tenantKeyColumn: String, connection: String 
 internal fun exchangedUnderLockedConsent(supportRequestAlias: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
     ($supportRequestAlias.sync_consent_id IS NOT NULL AND ${lockedConsentInForce("$supportRequestAlias.tenant_key", connection)})
 """
+
+/**
+ * SQL predicate: the request aliased [requestAlias] is exchanged with the connection of its delivery
+ * [deliveryAlias] (ADR 0053 step 3). Epistola support's connection as before
+ * ([exchangedUnderConsent]); another connection while the tenant shares support requests with it: the
+ * request was handed to it then, with what it held.
+ */
+internal fun exchangedWith(requestAlias: String, deliveryAlias: String): String = """
+    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${exchangedUnderConsent(requestAlias)})
+     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND ${consentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")}))
+"""
+
+/**
+ * SQL predicate: the message or asset aliased [itemAlias] may go to the connection of the delivery
+ * [deliveryAlias], its ledger row for that connection aliased [ledgerAlias] (a LEFT JOIN of
+ * `support_request_delivered_items`). Epistola support's connection: written under consent, as before
+ * ([createdUnderConsent]). Another connection: its ledger row exists, written while the tenant shared
+ * with that connection ([SupportRequestLedger]).
+ */
+internal fun mayGoTo(itemAlias: String, ledgerAlias: String, deliveryAlias: String): String = """
+    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${createdUnderConsent(itemAlias)})
+     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND $ledgerAlias.item_id IS NOT NULL))
+"""
+
+/**
+ * SQL predicate, for a statement that writes: the request aliased [requestAlias] is exchanged with
+ * connection [connectionId], reading the consent `FOR SHARE` ([exchangedWith] for one connection).
+ */
+internal fun exchangedWithLocked(requestAlias: String, connectionId: UUID): String = if (connectionId == REQUESTS_CONNECTION) {
+    exchangedUnderLockedConsent(requestAlias)
+} else {
+    lockedConsentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
+}
+
+/** [exchangedWith] for one connection, for a query. */
+internal fun exchangedWithConnection(requestAlias: String, connectionId: UUID): String = if (connectionId == REQUESTS_CONNECTION) {
+    exchangedUnderConsent(requestAlias)
+} else {
+    consentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
+}
