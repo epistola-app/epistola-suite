@@ -9,10 +9,13 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Applies a status change received from the external sync target (the hub) to the local
@@ -25,6 +28,8 @@ import org.springframework.stereotype.Component
 data class SyncSupportRequestStatus(
     val id: SupportRequestId,
     val status: SupportRequestStatus,
+    /** The connection it came over; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -37,7 +42,7 @@ class SyncSupportRequestStatusHandler(
             """
             UPDATE support_requests
             SET status = :status, updated_at = NOW()
-            WHERE tenant_key = :tenantKey AND id = :id AND handler_connection = $REQUESTS_CONNECTION_SQL AND status <> :status
+            WHERE tenant_key = :tenantKey AND id = :id AND handler_connection = ${connectionSql(command.connectionId)} AND status <> :status
             """,
         )
             .bind("tenantKey", command.id.tenantKey)

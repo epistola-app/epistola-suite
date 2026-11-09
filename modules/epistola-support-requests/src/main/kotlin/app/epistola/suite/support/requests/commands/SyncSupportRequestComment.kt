@@ -13,10 +13,13 @@ import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.CommentSource
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class SyncSupportRequestComment(
     val tenantKey: TenantKey,
@@ -25,6 +28,8 @@ data class SyncSupportRequestComment(
     val authorName: String,
     val authorEmail: String?,
     val externalCommentId: String,
+    /** The connection it came over; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<SupportRequestComment?>,
     SystemInternal
 
@@ -41,7 +46,7 @@ class SyncSupportRequestCommentHandler(
                 tenant_key, request_id, id, kind, body, author_name, author_email, from_connection, remote_id, created_at
             )
             VALUES (
-                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, $REQUESTS_CONNECTION_SQL, :externalCommentId, NOW()
+                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, ${connectionSql(command.connectionId)}, :externalCommentId, NOW()
             )
             ON CONFLICT (tenant_key, from_connection, remote_id) WHERE remote_id IS NOT NULL DO NOTHING
             """,
