@@ -42,6 +42,7 @@ import java.time.Duration
  * @property connections further support connections, such as a partner's, that the suite signs in
  *   to with a token the other side issued ([Connection]; ADR 0053). Independent of [enabled], which
  *   is the connection to Epistola support: an installation can connect to its partner alone.
+ * @property usage how usage for billing is reported ([Usage]).
  */
 @ConfigurationProperties(prefix = "epistola.support")
 data class SupportProperties(
@@ -56,6 +57,7 @@ data class SupportProperties(
     val tenantDefaults: TenantDefaults = TenantDefaults(),
     val privacy: Privacy = Privacy(),
     val connections: List<Connection> = emptyList(),
+    val usage: Usage = Usage(),
 ) {
     init {
         require(endpoint.isBlank() || configuredIssuer != null) {
@@ -75,6 +77,7 @@ data class SupportProperties(
             require(allowHttp || url.scheme == "https") { "epistola.support.connections[$i].endpoint '${c.endpoint}' is plaintext http; use https, or set epistola.support.allow-http=true locally" }
         }
         require(connections.map { it.baseUrl }.distinct().size == connections.size) { "epistola.support.connections names an endpoint twice" }
+        require(usage.backlog >= Duration.ofHours(1)) { "epistola.support.usage.backlog must be at least an hour" }
     }
 
     /**
@@ -105,6 +108,19 @@ data class SupportProperties(
         /** Never the token. */
         override fun toString(): String = "Connection(name=$name, endpoint=$endpoint, services=$services)"
     }
+
+    /**
+     * `epistola.support.usage` (Helm `support.usage`).
+     *
+     * @property backlog how far back hours missed while the installation was down (or the support
+     *   service unreachable) are still sent once it is back; 72 hours by default. Never further than
+     *   the generation statistics keep hours (`epistola.statistics.hourly-retention`), as an hour no
+     *   longer kept would read as empty. Hours older than that are not sent: the running totals of the
+     *   next report carry what they held, so nothing is lost for billing.
+     */
+    data class Usage(
+        val backlog: Duration = Duration.ofHours(72),
+    )
 
     /**
      * A preset of what tenants share, from the deployment configuration (Helm
