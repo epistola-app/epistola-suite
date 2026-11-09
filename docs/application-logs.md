@@ -41,7 +41,7 @@ Table `application_log` (migration `core/V20260612053608__core_application_log.s
 | `thread`      | producing thread name (nullable)                             |
 | `instance_id` | `NodeIdentity.nodeId` — which instance produced the event    |
 | `tenant_key`  | tenant the event was for; **NULL** for system/background     |
-| `trace_id`    | from MDC, when present                                       |
+| `trace_id`    | from MDC, when present; also on work a request hands off     |
 | `span_id`     | from MDC, when present                                       |
 | `exception`   | rendered stack trace, when the event carried a throwable     |
 | `attributes`  | remaining MDC as JSONB (excludes trace/span, promoted above) |

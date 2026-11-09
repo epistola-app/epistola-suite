@@ -17,7 +17,8 @@ import org.slf4j.MDC
  * The tenant is not here: it has one source, the principal (`tenant_id`, `tenant_key`; see
  * `docs/application-logs.md`).
  *
- * MDC is per thread and a virtual thread does not inherit it, so work handed off through
+ * The request's [TRACE_ID] and [SPAN_ID] travel along too. MDC is per thread and a virtual thread does
+ * not inherit it, so work handed off through
  * [MediatorContext.runnable] or [MediatorContext.callable] carries these values across ([capture]).
  */
 internal object DispatchMdc {
@@ -25,7 +26,11 @@ internal object DispatchMdc {
     const val QUERY: String = "query"
     const val CATALOG: String = "catalog"
 
-    private val keys = listOf(COMMAND, QUERY, CATALOG)
+    /** The request's trace and span, as the OpenTelemetry bridge puts them in the MDC; carried along, never set here. */
+    const val TRACE_ID: String = "traceId"
+    const val SPAN_ID: String = "spanId"
+
+    private val keys = listOf(COMMAND, QUERY, CATALOG, TRACE_ID, SPAN_ID)
 
     /** Runs [block] with [message]'s values in the MDC under [kind] ([COMMAND] or [QUERY]). */
     fun <R> around(kind: String, name: String, message: Any, block: () -> R): R {

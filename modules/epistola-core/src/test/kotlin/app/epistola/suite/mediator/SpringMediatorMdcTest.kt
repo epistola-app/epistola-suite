@@ -111,9 +111,20 @@ class SpringMediatorMdcTest {
         assertThat(mediator.send(HandOff(1)).values).containsEntry(DispatchMdc.COMMAND, "HandOff")
     }
 
+    @Test
+    fun `work handed to a virtual thread keeps the trace and span of the request that handed it off`() {
+        // As the OpenTelemetry bridge puts them in the MDC for every request.
+        MDC.put("traceId", "4bf92f3577b34da6a3ce929d0e0e4736")
+        MDC.put("spanId", "00f067aa0ba902b7")
+
+        val seen = mediator.send(HandOff(2)).values
+
+        assertThat(seen).containsEntry("traceId", "4bf92f3577b34da6a3ce929d0e0e4736").containsEntry("spanId", "00f067aa0ba902b7")
+    }
+
     private companion object {
         val ref = CatalogReleaseRef(CatalogId("local", CatalogKey.of("letters"), TenantId(TenantKey.of("acme"))), DraftRef.Next)
 
-        fun seen() = Seen(listOf(DispatchMdc.COMMAND, DispatchMdc.QUERY, DispatchMdc.CATALOG).associateWith { MDC.get(it) })
+        fun seen() = Seen(listOf(DispatchMdc.COMMAND, DispatchMdc.QUERY, DispatchMdc.CATALOG, "traceId", "spanId").associateWith { MDC.get(it) })
     }
 }
