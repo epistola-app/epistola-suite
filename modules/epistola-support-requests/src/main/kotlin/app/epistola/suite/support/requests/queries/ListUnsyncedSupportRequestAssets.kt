@@ -14,9 +14,13 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.createdUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
+import app.epistola.suite.support.requests.consent.exchangedWith
+import app.epistola.suite.support.requests.consent.mayGoTo
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -42,6 +46,8 @@ data class UnsyncedSupportRequestAsset(
  */
 data class ListUnsyncedSupportRequestAssets(
     val limit: Int = 20,
+    /** The connection to send to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Query<List<UnsyncedSupportRequestAsset>>,
     SystemInternal
 
@@ -56,15 +62,15 @@ class ListUnsyncedSupportRequestAssetsHandler(
             FROM support_request_assets a
             JOIN support_requests f ON f.tenant_key = a.tenant_key AND f.id = a.request_id
             JOIN support_request_deliveries d ON d.tenant_key = a.tenant_key AND d.request_id = a.request_id
-                AND d.connection_id = $REQUESTS_CONNECTION_SQL
+                AND d.connection_id = ${connectionSql(query.connectionId)}
             LEFT JOIN support_request_delivered_items da ON da.tenant_key = a.tenant_key AND da.request_id = a.request_id
                 AND da.item_id = a.id AND da.connection_id = d.connection_id
             WHERE da.sent_at IS NULL
               AND (da.next_attempt_at IS NULL OR da.next_attempt_at <= :now)
               AND d.state = :synced
               AND d.remote_ref IS NOT NULL
-              AND ${exchangedUnderConsent("f")}
-              AND ${createdUnderConsent("a")}
+              AND ${exchangedWith("f", "d")}
+              AND ${mayGoTo("a", "da", "d")}
             ORDER BY a.created_at ASC
             LIMIT :limit
             """,

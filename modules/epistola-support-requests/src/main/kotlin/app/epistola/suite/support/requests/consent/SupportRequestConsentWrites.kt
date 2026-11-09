@@ -115,10 +115,12 @@ internal object SupportRequestConsentWrites {
         )
             .bindList("tenants", keys)
             .execute()
-        // A message's and a screenshot's grant is the one connection's they were first exchanged
-        // over; another connection's withdrawal leaves it. What goes to which connection per item
-        // comes with requests over several connections (ADR 0053 step 3c).
-        if (connectionId != REQUESTS_CONNECTION) return stopped
+        // Another connection reads its ledger, not an item's grant: what was still to go there stays
+        // here, and the grant Epistola support's connection reads is left as it is.
+        if (connectionId != REQUESTS_CONNECTION) {
+            SupportRequestLedger.forgetUnsent(handle, tenantKeys, connectionId)
+            return stopped
+        }
         handle.createUpdate(
             """
             UPDATE support_request_messages c SET sync_consent_id = NULL

@@ -14,13 +14,17 @@ import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
+import app.epistola.suite.support.requests.consent.exchangedWithConnection
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /** Feedback whose status waits to be sent, and how often in a row the service refused it ([attempts]). */
 data class UnsentSupportRequestStatus(val supportRequest: SupportRequest, val attempts: Int)
@@ -29,7 +33,7 @@ data class UnsentSupportRequestStatus(val supportRequest: SupportRequest, val at
  * Feedback at Epistola support whose status was changed here and not sent yet, and is due (its
  * back-off over), oldest change first; only feedback exchanged under the consent in force.
  */
-data class ListUnsentSupportRequestStatuses(val limit: Int = 20) :
+data class ListUnsentSupportRequestStatuses(val limit: Int = 20, val connectionId: UUID = REQUESTS_CONNECTION) :
     Query<List<UnsentSupportRequestStatus>>,
     SystemInternal
 
@@ -43,9 +47,9 @@ class ListUnsentSupportRequestStatusesHandler(private val jdbi: Jdbi) : QueryHan
                   WHERE d.status_unsent
                     AND d.state = :synced AND d.remote_ref IS NOT NULL
                     AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= :now)
-                    AND ${exchangedUnderConsent("f")}) r
+                    AND ${exchangedWithConnection("f", query.connectionId)}) r
             JOIN support_request_deliveries d2 ON d2.tenant_key = r.tenant_key AND d2.request_id = r.id
-                AND d2.connection_id = $REQUESTS_CONNECTION_SQL
+                AND d2.connection_id = ${connectionSql(query.connectionId)}
             ORDER BY r.updated_at ASC
             LIMIT :limit
             """,
@@ -71,6 +75,8 @@ data class RecordSupportRequestStatusSync(
     val sent: SupportRequestStatus?,
     val nextAttemptAt: OffsetDateTime? = null,
     val countAttempt: Boolean = false,
+    /** The connection it was sent to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -83,7 +89,7 @@ class RecordSupportRequestStatusSyncHandler(private val jdbi: Jdbi) : CommandHan
                 UPDATE support_request_deliveries d SET status_unsent = FALSE, next_attempt_at = NULL, status_attempts = 0
                 FROM support_requests f
                 WHERE f.tenant_key = d.tenant_key AND f.id = d.request_id
-                  AND d.tenant_key = :tenantKey AND d.request_id = :id AND d.connection_id = $REQUESTS_CONNECTION_SQL
+                  AND d.tenant_key = :tenantKey AND d.request_id = :id AND d.connection_id = ${connectionSql(command.connectionId)}
                   AND f.status = :status
                 """,
             ).bind("status", command.sent.name)
@@ -92,7 +98,7 @@ class RecordSupportRequestStatusSyncHandler(private val jdbi: Jdbi) : CommandHan
                 """
                 UPDATE support_request_deliveries SET next_attempt_at = :next,
                     status_attempts = status_attempts + CASE WHEN :count THEN 1 ELSE 0 END
-                WHERE tenant_key = :tenantKey AND request_id = :id AND connection_id = $REQUESTS_CONNECTION_SQL AND status_unsent
+                WHERE tenant_key = :tenantKey AND request_id = :id AND connection_id = ${connectionSql(command.connectionId)} AND status_unsent
                 """,
             ).bind("next", command.nextAttemptAt).bind("count", command.countAttempt)
         }

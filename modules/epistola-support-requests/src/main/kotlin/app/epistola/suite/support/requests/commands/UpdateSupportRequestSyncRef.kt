@@ -10,11 +10,15 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedUnderLockedConsent
+import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Records that the support service took the feedback, with the status it was sent with
@@ -28,6 +32,8 @@ data class UpdateSupportRequestSyncRef(
     val externalRef: String,
     val externalUrl: String,
     val sentStatus: SupportRequestStatus,
+    /** The connection it was sent to; Epistola support's by default. */
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -39,8 +45,8 @@ class UpdateSupportRequestSyncRefHandler(
         val rows = handle.createUpdate(
             """
             INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state, remote_ref, remote_url, status_unsent)
-            SELECT f.tenant_key, f.id, $REQUESTS_CONNECTION_SQL, :syncStatus, :externalRef, :externalUrl,
-                   (f.status <> :sentStatus AND ${exchangedUnderLockedConsent("f")})
+            SELECT f.tenant_key, f.id, ${connectionSql(command.connectionId)}, :syncStatus, :externalRef, :externalUrl,
+                   (f.status <> :sentStatus AND ${exchangedWithLocked("f", command.connectionId)})
             FROM support_requests f
             WHERE f.tenant_key = :tenantKey AND f.id = :id
             ON CONFLICT (tenant_key, request_id, connection_id) DO UPDATE

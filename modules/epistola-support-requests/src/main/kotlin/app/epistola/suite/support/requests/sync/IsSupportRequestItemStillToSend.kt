@@ -12,12 +12,17 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
+import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.createdUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedUnderConsent
+import app.epistola.suite.support.requests.consent.exchangedWith
+import app.epistola.suite.support.requests.consent.mayGoTo
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /** One item the retry sweep sends to Epistola support. */
 sealed interface OutboundSupportRequestItem {
@@ -35,27 +40,29 @@ sealed interface OutboundSupportRequestItem {
 }
 
 /**
- * Whether [item] may still be sent, read right before its call: the sweep lists a batch, and a
- * withdrawal that lands while it works through it stops what it has not started yet. The same
- * predicates as the sweep's lists (`exchangedUnderConsent`, `createdUnderConsent`), for one row.
+ * Whether [item] may still be sent to connection [connectionId], read right before its call: the sweep
+ * lists a batch, and a withdrawal that lands while it works through it stops what it has not started
+ * yet. The same predicates as the sweep's lists (`exchangedWith`, `mayGoTo`), for one row.
  */
 data class IsSupportRequestItemStillToSend(
     val item: OutboundSupportRequestItem,
+    val connectionId: UUID = REQUESTS_CONNECTION,
 ) : Query<Boolean>,
     SystemInternal
 
 @Component
 class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHandler<IsSupportRequestItemStillToSend, Boolean> {
     override fun handle(query: IsSupportRequestItemStillToSend): Boolean = jdbi.withHandleUnchecked { handle ->
+        val connection = connectionSql(query.connectionId)
         when (val item = query.item) {
             is OutboundSupportRequestItem.Submission -> handle.createQuery(
                 """
                 SELECT EXISTS (SELECT 1 FROM support_requests f
                                JOIN support_request_deliveries d ON d.tenant_key = f.tenant_key AND d.request_id = f.id
-                                   AND d.connection_id = $REQUESTS_CONNECTION_SQL
+                                   AND d.connection_id = $connection
                                WHERE f.tenant_key = :tenantKey AND f.id = :feedbackId
                                  AND d.state IN (:pending, :failed)
-                                 AND ${exchangedUnderConsent("f")})
+                                 AND ${exchangedWith("f", "d")})
                 """,
             )
                 .bind("tenantKey", item.id.tenantKey)
@@ -67,12 +74,14 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                 """
                 SELECT EXISTS (SELECT 1 FROM support_request_assets a
                                JOIN support_requests f ON f.tenant_key = a.tenant_key AND f.id = a.request_id
+                               JOIN support_request_deliveries d ON d.tenant_key = a.tenant_key AND d.request_id = a.request_id
+                                   AND d.connection_id = $connection
+                               LEFT JOIN support_request_delivered_items da ON da.tenant_key = a.tenant_key AND da.request_id = a.request_id
+                                   AND da.item_id = a.id AND da.connection_id = d.connection_id
                                WHERE a.tenant_key = :tenantKey AND a.request_id = :feedbackId AND a.id = :id
-                                 AND NOT EXISTS (SELECT 1 FROM support_request_delivered_items da
-                                                 WHERE da.tenant_key = a.tenant_key AND da.request_id = a.request_id AND da.item_id = a.id
-                                                   AND da.connection_id = $REQUESTS_CONNECTION_SQL AND da.sent_at IS NOT NULL)
-                                 AND ${createdUnderConsent("a")}
-                                 AND ${exchangedUnderConsent("f")})
+                                 AND da.sent_at IS NULL
+                                 AND ${mayGoTo("a", "da", "d")}
+                                 AND ${exchangedWith("f", "d")})
                 """,
             )
                 .bind("tenantKey", item.id.tenantKey)
@@ -83,13 +92,15 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                 """
                 SELECT EXISTS (SELECT 1 FROM support_request_messages c
                                JOIN support_requests f ON f.tenant_key = c.tenant_key AND f.id = c.request_id
+                               JOIN support_request_deliveries d ON d.tenant_key = c.tenant_key AND d.request_id = c.request_id
+                                   AND d.connection_id = $connection
+                               LEFT JOIN support_request_delivered_items dm ON dm.tenant_key = c.tenant_key AND dm.request_id = c.request_id
+                                   AND dm.item_id = c.id AND dm.connection_id = d.connection_id
                                WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id
                                  AND c.kind = 'REPLY' AND c.from_connection IS NULL
-                                 AND NOT EXISTS (SELECT 1 FROM support_request_delivered_items dm
-                                                 WHERE dm.tenant_key = c.tenant_key AND dm.request_id = c.request_id AND dm.item_id = c.id
-                                                   AND dm.connection_id = $REQUESTS_CONNECTION_SQL AND dm.remote_id IS NOT NULL)
-                                 AND ${createdUnderConsent("c")}
-                                 AND ${exchangedUnderConsent("f")})
+                                 AND dm.remote_id IS NULL
+                                 AND ${mayGoTo("c", "dm", "d")}
+                                 AND ${exchangedWith("f", "d")})
                 """,
             )
                 .bind("tenantKey", item.id.tenantKey)
@@ -100,10 +111,10 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                 """
                 SELECT EXISTS (SELECT 1 FROM support_requests f
                                JOIN support_request_deliveries d ON d.tenant_key = f.tenant_key AND d.request_id = f.id
-                                   AND d.connection_id = $REQUESTS_CONNECTION_SQL
+                                   AND d.connection_id = $connection
                                WHERE f.tenant_key = :tenantKey AND f.id = :feedbackId
                                  AND d.status_unsent AND f.status = :status
-                                 AND ${exchangedUnderConsent("f")})
+                                 AND ${exchangedWith("f", "d")})
                 """,
             )
                 .bind("tenantKey", item.id.tenantKey)
