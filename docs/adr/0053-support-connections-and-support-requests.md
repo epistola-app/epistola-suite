@@ -262,6 +262,10 @@ can open requests through the same protocol.
      the others' ledgers (and carries the grant Epistola support's connection reads), a status the
      handler sets is marked unsent for every other delivery the tenant shares with, and only the
      handler's status and priority are applied.
+   - **3d, built:** usage per connection. `UsageReporter` keeps one reporter per connection usage is
+     selected for, each with its own back-off, `support_usage_reports` rows, reporting-since key and
+     advisory lock (Epistola support's keep theirs), naming tenants as that connection's privacy says;
+     the usage sharing section is offered per connection.
 4. The support portal on Epistola's website, with Authentik.
 
 ## Deferred

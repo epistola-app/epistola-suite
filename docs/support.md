@@ -216,6 +216,11 @@ own privacy; its replies appear in the request and go on to the other parties; i
 or priority, but hears every change of them. It can be attached as a request can be passed on to it (the
 tenant shares with it), and detached: nothing more goes there, and what it already has stays.
 
+**Usage over a partner.** Usage is reported to every connection the installation selected `usage` for,
+each on its own: the hours it has had, its back-off, where its reporting started and its lock are its
+own, and each tenant is named as that connection's privacy says. Whether tenants share usage with a
+connection is set per connection, as every service is (above); Epistola support's reporting is as before.
+
 ## Disconnecting
 
 **Disconnect**, under the danger zone on the platform page, ends the registration at Epistola: its
