@@ -32,7 +32,7 @@
             <dl class="description-list" th:unless="${privacyEditing}" data-testid="support-privacy-summary">
                 <dt>Tenants</dt>
                 <dd data-testid="support-privacy-tenants">
-                    <th:block th:if="${p.confidential}">Confidential: Epistola sees each tenant as a reference, never its name.</th:block>
+                    <th:block th:if="${p.confidential}">Confidential: Epistola sees each tenant as a reference, never its name, and the catalog mirror is not available.</th:block>
                     <th:block th:unless="${p.confidential}">Named: Epistola sees each tenant's key.</th:block>
                 </dd>
                 <dt>Telemetry</dt>
@@ -50,7 +50,7 @@
                     <legend class="ep-label" style="padding: 0;">What Epistola sees of your tenants</legend>
                     <label class="ep-row" style="gap: var(--ep-space-2);">
                         <input type="radio" name="tenantIdentity" value="CONFIDENTIAL" th:checked="${p.confidential}" data-testid="support-privacy-confidential">
-                        <span>Confidential: each tenant as a reference that only this installation can trace back.</span>
+                        <span>Confidential: each tenant as a reference that only this installation can trace back. The catalog mirror stops, and what it holds is withdrawn.</span>
                     </label>
                     <label class="ep-row" style="gap: var(--ep-space-2);">
                         <input type="radio" name="tenantIdentity" value="NAMED" th:checked="${!p.confidential}" data-testid="support-privacy-named">

@@ -366,12 +366,21 @@ support:
   # on it.
   services: []
 
+  # What every tenant shares with Epistola until a tenant administrator chooses otherwise on its
+  # Support page, so tenants skip the setup wizard. Applied at startup only while no installation
+  # administrator has saved a setup under Platform → Epistola support (which then wins), and recorded
+  # as agreed on the tenants' behalf by whoever configures the installation. Empty (the default): no
+  # preset, and each tenant sets itself up. Rendered as EPISTOLA_SUPPORT_TENANT_DEFAULTS_*.
+  tenantDefaults:
+    # off, all (every catalog) or marked (only the catalogs a tenant marks).
+    mirror: ""
+
   # What Epistola sees of the tenants and how much telemetry carries (ADR 0052), until an
   # installation administrator saves them under Platform → Epistola support (which then wins).
   # Rendered as EPISTOLA_SUPPORT_PRIVACY_*.
   privacy:
-    # confidential (each tenant as a reference only this installation can trace back) or named
-    # (tenant keys as they are). Empty: the suite's default, confidential.
+    # confidential (each tenant as a reference only this installation can trace back; no catalog
+    # mirror) or named (tenant keys as they are). Empty: the suite's default, confidential.
     tenantIdentity: ""
     # pseudonymised (log messages without their values, errors without their message) or full.
     # Empty: the suite's default, pseudonymised.
@@ -401,6 +410,14 @@ support:
   # nothing is shipped until both. Set to false to opt out. The endpoint
   # comes from the support service's metadata — nothing to configure here.
   telemetry:
+    enabled: true
+
+  # The catalog mirror (docs/catalog-mirror.md): a custody copy at Epistola of the releases tenants
+  # chose to share. Nothing is sent until the `mirror` service is selected (support.services or
+  # Platform → Epistola support), Epistola grants it, and a tenant opts in.
+  # false turns it off for the whole installation: nothing is sent, but what tenants stopped
+  # sharing is still withdrawn (deleted at Epistola).
+  mirror:
     enabled: true
 
   # NOTE: node id is intentionally NOT a chart value. It must differ per pod, but a

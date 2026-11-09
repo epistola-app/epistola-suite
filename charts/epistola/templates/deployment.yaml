@@ -200,6 +200,11 @@ spec:
             - name: EPISTOLA_SUPPORT_SERVICES
               value: {{ join "," . | quote }}
             {{- end }}
+            {{- /* A preset of what tenants share; an administrator's saved setup wins. */}}
+            {{- with .Values.support.tenantDefaults.mirror }}
+            - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR
+              value: {{ . | quote }}
+            {{- end }}
             {{- /* What Epistola sees of the tenants; an administrator's saved settings win. */}}
             {{- with .Values.support.privacy.tenantIdentity }}
             - name: EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY
@@ -218,6 +223,10 @@ spec:
                    ships. Rendered as the value so it can be opted out. */}}
             - name: EPISTOLA_SUPPORT_TELEMETRY_ENABLED
               value: {{ .Values.support.telemetry.enabled | quote }}
+            {{- /* The catalog mirror: the `mirror` scope and each tenant's opt-in gate it;
+                   false turns it off for the whole installation (withdrawals still run). */}}
+            - name: EPISTOLA_SUPPORT_MIRROR_ENABLED
+              value: {{ .Values.support.mirror.enabled | quote }}
             {{- /* No node-id env is injected. A chart value lives on the
                    Deployment, so it is identical for every replica and could
                    never provide per-pod identity. Node identity is resolved at

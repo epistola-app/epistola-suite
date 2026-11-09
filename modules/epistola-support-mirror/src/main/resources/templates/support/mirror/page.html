@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Catalog mirror',
+            pageDescription='Which released catalogs this tenant shares with Epistola, so Epistola can check them against new suite versions before it releases one.'
+        )}"></div>
+
+        <th:block th:replace="~{support/mirror/page :: mirror}"></th:block>
+    </th:block>
+
+    <!--/* The whole panel: every action on the page swaps it in place. */-->
+    <div th:fragment="mirror" id="catalog-mirror" data-testid="catalog-mirror"
+         th:with="s=${settings}, a=${settings.availability.name()}, base=@{'/tenants/' + ${tenantId} + '/support/mirror'}">
+
+        <div class="alert alert-info" th:if="${notice != null}" role="status" data-testid="mirror-notice" th:text="${notice}">Saved.</div>
+
+        <section class="ep-panel form-section" data-testid="mirror-availability">
+            <h2>Connection</h2>
+            <p th:if="${a == 'AVAILABLE'}" data-testid="mirror-availability-state">
+                <span class="badge badge-success">Available</span>
+                This installation is connected to Epistola support, which keeps a catalog mirror for it.
+            </p>
+            <p th:if="${a == 'SUPPORT_OFF'}" data-testid="mirror-availability-state">
+                <span class="badge badge-muted">Support off</span>
+                This installation does not connect to Epistola support, so nothing is shared. An installation
+                administrator can turn the support connection on.
+            </p>
+            <p th:if="${a == 'MIRROR_OFF'}" data-testid="mirror-availability-state">
+                <span class="badge badge-muted">Mirror off</span>
+                This installation does not keep a catalog mirror (<code>epistola.support.mirror.enabled=false</code>),
+                so nothing is shared. An installation administrator can turn it on.
+            </p>
+            <p th:if="${a == 'CONFIDENTIAL'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Confidential</span>
+                This installation keeps its tenants confidential to Epistola. A shared release holds the templates
+                themselves, which would name the organisation, so catalogs are not shared. An installation
+                administrator decides this under Platform &rarr; Epistola support.
+            </p>
+            <p th:if="${a == 'NOT_ALLOWED'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Not allowed</span>
+                This installation does not allow sharing catalogs with Epistola, so nothing is shared. An installation
+                administrator decides this under Platform &rarr; Epistola support.
+            </p>
+            <p th:if="${a == 'NOT_CONNECTED'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Not connected</span>
+                This installation is not connected to Epistola support yet, so nothing is shared now. An installation
+                administrator sees why under Platform &rarr; Epistola support.
+            </p>
+            <p th:if="${a == 'PENDING'}" data-testid="mirror-availability-state">
+                <span class="badge badge-info">Pending</span>
+                This installation waits for Epistola to activate it. Nothing is shared until then; a choice made here takes
+                effect once Epistola grants the catalog mirror.
+            </p>
+            <p th:if="${a == 'NOT_SELECTED'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Not selected</span>
+                This installation does not use the catalog mirror: an installation administrator has not selected it
+                under Platform &rarr; Epistola support, so nothing is shared now. A choice made here takes effect once
+                it is selected and Epistola grants it.
+            </p>
+            <p th:if="${a == 'PAUSED'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Paused by Epistola</span>
+                <th:block th:if="${s.pause.until != null}">until <span th:text="${#temporals.format(s.pause.until, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-20</span>:</th:block>
+                <th:block th:if="${s.pause.until == null}">until Epistola resumes it:</th:block>
+                “<span th:text="${s.pause.reason}">Planned maintenance</span>”. Nothing is shared meanwhile; the first sync
+                after the pause sends what changed.
+            </p>
+            <p th:if="${a == 'NOT_GRANTED'}" data-testid="mirror-availability-state">
+                <span class="badge badge-warning">Not granted</span>
+                Epistola has not granted the catalog mirror to this installation, so nothing is shared now. A choice made
+                here takes effect once it does.
+            </p>
+        </section>
+
+        <section class="ep-panel form-section" data-testid="mirror-consent" th:with="c=${s.consent}">
+            <h2>Sharing</h2>
+
+            <th:block th:if="${s.sharing}">
+                <p data-testid="mirror-consent-state">
+                    <span class="badge badge-success">Sharing</span>
+                    <span th:if="${c.shareByDefault}">This tenant shares every catalog, including new ones, unless a catalog is marked never to be shared.</span>
+                    <span th:unless="${c.shareByDefault}">This tenant shares only the catalogs marked to share.</span>
+                </p>
+                <p class="text-muted" data-testid="mirror-consent-record">
+                    Agreed by <span th:text="${c.optedInBy != null} ? ${c.optedInBy} : 'an unknown user'">Jane</span>
+                    on <span th:text="${#temporals.format(c.optedInAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 10:00 UTC</span>
+                    (statement of <span th:text="${c.consentVersion}">2026-11-06</span>).
+                </p>
+            </th:block>
+
+            <p th:if="${c != null and !c.sharing and c.withdrawalPending}" data-testid="mirror-consent-state">
+                <span class="badge badge-warning">Stopped</span>
+                This tenant stopped sharing on <span th:text="${#temporals.format(c.optedOutAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06</span>.
+                Epistola deletes what it holds of this tenant at the next sync.
+            </p>
+            <p th:if="${c != null and !c.sharing and !c.withdrawalPending and c.optedInAt == null}" data-testid="mirror-consent-state">
+                <span class="badge badge-muted">Not sharing</span>
+                This tenant does not share catalogs with Epistola.
+            </p>
+            <p th:if="${c != null and !c.sharing and !c.withdrawalPending and c.optedInAt != null}" data-testid="mirror-consent-state">
+                <span class="badge badge-muted">Not sharing</span>
+                This tenant stopped sharing. Epistola confirmed on
+                <span th:text="${#temporals.format(c.withdrawalConfirmedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06</span>
+                that it holds nothing of it any more.
+            </p>
+            <p th:if="${c == null}" data-testid="mirror-consent-state">
+                <span class="badge badge-muted">Not sharing</span>
+                This tenant does not share catalogs with Epistola.
+            </p>
+
+            <p data-testid="mirror-where">
+                Whether this tenant shares catalogs is set on the
+                <a th:href="@{'/tenants/' + ${tenantId} + '/support'}" data-testid="mirror-support-link">Support page</a>,
+                together with everything else it shares with Epistola<th:block th:if="${s.followsDefault}">; it now
+                follows the installation's setup</th:block>. Which catalogs are shared is set below.
+            </p>
+        </section>
+
+        <section class="ep-panel form-section" data-testid="mirror-round" th:if="${s.consent != null}" th:with="r=${s.round}">
+            <h2>Last sync</h2>
+            <table class="ep-table" th:if="${r != null and r.lastAttemptAt != null}">
+                <tbody>
+                    <tr>
+                        <th scope="row">Last successful sync</th>
+                        <td data-testid="mirror-last-success"
+                            th:text="${r.lastSuccessAt != null} ? ${#temporals.format(r.lastSuccessAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-06 10:00 UTC</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Releases shared</th>
+                        <td data-testid="mirror-bindings-sent" th:text="${r.bindingsSent}">12</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Uploaded in the last sync</th>
+                        <td data-testid="mirror-uploaded" th:text="${r.releasesUploaded}">2</td>
+                    </tr>
+                    <tr th:if="${r.lastError != null}">
+                        <th scope="row">Last problem</th>
+                        <td data-testid="mirror-last-error" th:text="${r.lastError}">The support service could not be reached</td>
+                    </tr>
+                    <tr th:if="${r.nextAttemptAt != null}">
+                        <th scope="row">Next attempt</th>
+                        <td th:text="${#temporals.format(r.nextAttemptAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC'">2026-11-06 11:00 UTC</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p th:if="${r == null or r.lastAttemptAt == null}" class="text-muted" data-testid="mirror-never-synced">Not synced yet.</p>
+            <p th:if="${r != null and r.syncRequestedAt != null}" class="text-muted" data-testid="mirror-sync-requested">A sync was requested and runs in the background.</p>
+
+            <form th:if="${s.canSyncNow}" th:attr="hx-post=${base + '/sync'}" hx-target="#catalog-mirror" hx-swap="outerHTML"
+                  th:action="${base + '/sync'}" method="post">
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="mirror-sync-now">Sync now</button>
+            </form>
+            <p th:if="${s.syncWithheldReason != null}" class="text-muted" data-testid="mirror-sync-withheld" th:text="${s.syncWithheldReason}">
+                Syncing is possible once Epistola has granted the catalog mirror to this installation.
+            </p>
+        </section>
+
+        <section class="ep-panel form-section" data-testid="mirror-catalogs">
+            <h2>Catalogs</h2>
+            <p class="text-muted" th:if="${s.catalogs.isEmpty()}" data-testid="mirror-no-catalogs">This tenant has no catalogs.</p>
+            <div class="ep-table-scroll" role="region" aria-label="Catalogs" tabindex="0" th:unless="${s.catalogs.isEmpty()}">
+            <table class="ep-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Catalog</th>
+                        <th scope="col">Shared</th>
+                        <th scope="col">Policy</th>
+                        <th scope="col">Releases</th>
+                        <th scope="col">Last synced</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="e : ${s.catalogs}" th:attr="data-catalog=${e.address}" data-testid="mirror-catalog">
+                        <td>
+                            <strong th:text="${e.name}">Letters</strong>
+                            <div class="text-muted"><code th:text="${e.registry + '/' + e.address}">local/default/letters</code></div>
+                        </td>
+                        <td>
+                            <span class="badge" data-testid="mirror-catalog-sharing" th:attr="data-sharing=${e.sharing.name()}"
+                                  th:classappend="${e.sharing.name() == 'SHARED'} ? 'badge-success' : 'badge-muted'"
+                                  th:text="${e.sharing.label}">Shared</span>
+                            <div class="text-muted" th:if="${e.withheldReleases > 0}" data-testid="mirror-catalog-withheld"
+                                 th:text="${e.withheldReleases == 1 ? '1 release is' : e.withheldReleases + ' releases are'} + ' not sent: it depends on ' + ${#strings.listJoin(e.withheldBecause, ', ')} + ', never shared.'">
+                                1 release is not sent: it depends on default/secret, never shared.</div>
+                            <div class="text-muted" th:if="${e.sentAsDependency > 0}" data-testid="mirror-catalog-as-dependency"
+                                 th:text="${e.sentAsDependency == 1 ? '1 release is' : e.sentAsDependency + ' releases are'} + ' sent because a shared release depends on it.'">
+                                1 release is sent because a shared release depends on it.</div>
+                        </td>
+                        <td>
+                            <form th:if="${s.canSetPolicy(e)}" th:attr="hx-post=${base + '/policy'}" hx-target="#catalog-mirror" hx-swap="outerHTML"
+                                  th:action="${base + '/policy'}" method="post" class="ep-row">
+                                <input type="hidden" name="namespace" th:value="${e.catalog.namespace}">
+                                <input type="hidden" name="key" th:value="${e.key}">
+                                <select name="policy" class="ep-select" th:attr="aria-label='Policy of ' + ${e.address}" data-testid="mirror-catalog-policy">
+                                    <option th:each="p : ${s.policyOptions(e)}" th:value="${p.name()}" th:text="${p.label}"
+                                            th:selected="${p == e.policy}">Share</option>
+                                </select>
+                                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" th:attr="aria-label='Save the policy of ' + ${e.address}">Save</button>
+                            </form>
+                            <span th:unless="${s.canSetPolicy(e)}" th:text="${e.policy.label}">Share</span>
+                        </td>
+                        <td th:text="${e.releases}">3</td>
+                        <td th:text="${e.lastSyncedAt != null} ? ${#temporals.format(e.lastSyncedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : '—'">—</td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+            <div class="ep-row" th:if="${s.hasPrevious or s.hasNext}">
+                <a th:if="${s.hasPrevious}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?offset=' + s.previousOffset}">Previous</a>
+                <a th:if="${s.hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?offset=' + s.nextOffset}">Next</a>
+            </div>
+        </section>
+    </div>
+    <!--/* What sharing sends: on the tenant's setup and with the installation preset. */-->
+        <div th:fragment="statement" data-testid="mirror-statement">
+            <p>
+                For each catalog this tenant shares, this installation sends Epistola the catalog's released
+                versions: their full content, including images, fonts and other assets; the catalog's name and
+                its version numbers; and to which environments each release is deployed, and whether those are
+                production environments. With each release it also sends every release it depends on, from
+                other catalogs too, because Epistola cannot render a release without them. A release that
+                depends on a catalog marked "Never share" is not sent at all.
+            </p>
+            <p>
+                The system catalog and catalogs Epistola supplies with the suite are shared like any other.
+                Content Epistola already holds is not uploaded again. Drafts and draft deployments are never
+                sent, nor generated documents and the data they were made from.
+            </p>
+            <p>
+                Epistola uses the copy only to check these releases against new suite versions before it releases
+                one. When a catalog stops being shared, or this tenant stops sharing, Epistola deletes what it
+                holds of it at the next sync.
+            </p>
+        </div>
+</body>
+</html>
