@@ -377,6 +377,15 @@ support:
     # off, all (every catalog) or marked (only the catalogs a tenant marks).
     mirror: ""
 
+  # Support requests (ADR 0053).
+  requests:
+    # Who handles new support requests until an installation administrator saves a choice under
+    # Platform → Epistola support (which then wins): inbox (the installation's own support desk, which
+    # passes requests on) or epistola (new requests go to Epistola support, as in the pilot). Requests
+    # already passed on stay where they are. Empty: the suite's default, inbox. Rendered as
+    # EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY.
+    handledBy: ""
+
   # What Epistola sees of the tenants and how much telemetry carries (ADR 0052), until an
   # installation administrator saves them under Platform → Epistola support (which then wins).
   # Rendered as EPISTOLA_SUPPORT_PRIVACY_*.

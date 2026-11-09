@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* Platform page: one support request as the support desk sees it (ADR 0053 §3–4). */-->
+    <div th:fragment="content" th:with="req=${view.request},base=@{/platform/support-requests/{tenant}/{id}(tenant=${req.tenantKey},id=${req.id})}">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${req.title},
+            backLinkHref=@{/platform/support-requests},
+            backLinkLabel='Support requests'
+        )}"></div>
+
+        <div th:if="${error != null}" class="alert alert-error" role="alert" data-testid="desk-error" th:text="${error}">Error</div>
+
+        <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">
+            <th:block th:insert="~{support-requests/fragments/badges :: status-badge(${req.status})}" />
+            <th:block th:insert="~{support-requests/fragments/badges :: category-badge(${req.category})}" />
+            <th:block th:insert="~{support-requests/fragments/badges :: priority-badge(${req.priority})}" />
+            <span th:if="${req.requestedPriority != null and req.requestedPriority != req.priority}"
+                  style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                  th:text="|Requested: ${#labels.of(req.requestedPriority)}|">Requested: Medium</span>
+            <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                  th:text="|${view.tenantName} · ${view.createdByName != null ? view.createdByName : 'unknown user'}|">Acme · Alice</span>
+            <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">Submitted
+                <span th:text="${#temporals.format(req.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${req.createdAt}">2026-01-01</span></span>
+        </div>
+
+        <!-- Who handles it, and what the desk may do about that -->
+        <section class="ep-panel form-section" style="margin-bottom: var(--ep-space-6);" data-testid="desk-handler">
+            <p th:if="${view.deskSetsStatus}" style="margin-bottom: var(--ep-space-3);">This inbox handles this request.</p>
+            <p th:unless="${view.deskSetsStatus}" data-testid="desk-handled-elsewhere"
+               th:text="|${view.handlerName} handles this request: its status and priority come from there.|">Epistola support handles this request.</p>
+
+            <div th:if="${view.deskSetsStatus}" class="ep-row ep-row-wrap ep-gap-3">
+                <form th:action="${base + '/status'}" method="post" class="ep-row ep-gap-3">
+                    <select name="status" class="ep-select ep-select-sm form-control-auto" aria-label="Status" data-testid="desk-status-select">
+                        <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}" th:selected="${req.status.name() == s.name()}">Open</option>
+                    </select>
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-status-save">Set status</button>
+                </form>
+                <form th:action="${base + '/priority'}" method="post" class="ep-row ep-gap-3">
+                    <select name="priority" class="ep-select ep-select-sm form-control-auto" aria-label="Priority" data-testid="desk-priority-select">
+                        <option th:each="p : ${priorities}" th:value="${p.name()}" th:text="${#labels.of(p)}" th:selected="${req.priority.name() == p.name()}">Medium</option>
+                    </select>
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-priority-save">Set priority</button>
+                </form>
+                <form th:if="${view.canEscalate}" th:action="${base + '/escalate'}" method="post" class="ep-row ep-gap-3">
+                    <select name="connection" class="ep-select ep-select-sm form-control-auto" aria-label="Pass on to" data-testid="desk-escalate-select">
+                        <option th:each="t : ${view.escalationTargets}" th:value="${t.connectionId}" th:text="${t.name}">Epistola support</option>
+                    </select>
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-escalate">Pass on</button>
+                </form>
+            </div>
+            <p th:if="${view.deskSetsStatus and view.escalationBlocked != null}" class="text-muted text-sm" style="margin-top: var(--ep-space-2);"
+               data-testid="desk-escalation-blocked" th:text="${view.escalationBlocked}">Cannot be passed on.</p>
+        </section>
+
+        <div class="card" style="margin-bottom: var(--ep-space-6);">
+            <div class="card-content">
+                <h3 style="margin-bottom: var(--ep-space-3);">Description</h3>
+                <div style="white-space: pre-wrap;" th:text="${req.description}">Description text</div>
+            </div>
+        </div>
+
+        <div th:if="${req.sourceUrl != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+            <div class="card-content">
+                <h3 style="margin-bottom: var(--ep-space-3);">Source URL</h3>
+                <code style="font-size: var(--ep-text-sm); word-break: break-all;" th:text="${req.sourceUrl}">https://example.com</code>
+            </div>
+        </div>
+
+        <div th:if="${!#lists.isEmpty(view.assets)}" class="card" style="margin-bottom: var(--ep-space-6);">
+            <div class="card-content">
+                <h3 style="margin-bottom: var(--ep-space-3);" th:text="${#lists.size(view.assets) == 1} ? 'Screenshot' : 'Screenshots'">Screenshot</h3>
+                <div th:each="asset : ${view.assets}" style="margin-bottom: var(--ep-space-3);">
+                    <img th:src="${base + '/assets/' + asset.id}" alt="Screenshot"
+                         style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${req.consoleLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+            <div class="card-content">
+                <h3 style="margin-bottom: var(--ep-space-3);">Console logs</h3>
+                <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                     th:text="${req.consoleLogs}">Console output</pre>
+            </div>
+        </div>
+
+        <div th:if="${req.serverLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+            <div class="card-content">
+                <h3 style="margin-bottom: var(--ep-space-3);">Server log</h3>
+                <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                     th:text="${req.serverLogs}">Server log</pre>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: var(--ep-space-4);">Conversation</h3>
+        <div th:if="${#lists.isEmpty(view.messages)}" style="color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-4);">No replies or notes yet.</div>
+        <div th:each="m : ${view.messages}" class="card" style="margin-bottom: var(--ep-space-3);"
+             th:attr="data-testid=${m.note} ? 'desk-note' : 'desk-reply'">
+            <div class="card-content">
+                <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-2);">
+                    <span style="font-weight: 500;">
+                        <span th:text="${m.authorName}">Author</span>
+                        <span th:if="${m.note}" class="badge badge-outline" style="margin-left: var(--ep-space-2);">Internal note</span>
+                        <span th:if="${m.fromConnectionName != null}" class="badge badge-outline" style="margin-left: var(--ep-space-2);" th:text="${m.fromConnectionName}">Epistola support</span>
+                    </span>
+                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                          th:text="${#temporals.format(m.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${m.createdAt}">2026-01-01</span>
+                </div>
+                <div style="white-space: pre-wrap;" th:text="${m.body}">Message</div>
+            </div>
+        </div>
+
+        <form th:action="${base + '/messages'}" method="post" style="margin-top: var(--ep-space-4);" data-testid="desk-message-form">
+            <div class="form-group">
+                <label class="ep-label" for="desk-message-body">Reply or note</label>
+                <textarea id="desk-message-body" name="body" class="ep-textarea" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label class="ep-row ep-gap-3">
+                    <input type="checkbox" name="note" value="true" class="ep-checkbox" data-testid="desk-message-note">
+                    Internal note: only the support desk sees it, and it is never sent anywhere
+                </label>
+            </div>
+            <div class="form-actions" style="margin-top: var(--ep-space-2);">
+                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="desk-message-send">Add</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

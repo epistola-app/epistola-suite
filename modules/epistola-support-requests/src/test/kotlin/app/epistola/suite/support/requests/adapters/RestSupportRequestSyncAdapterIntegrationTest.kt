@@ -231,6 +231,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
             source = CommentSource.LOCAL,
             externalCommentId = null,
             createdAt = CREATED_AT,
+            authorId = UserKey.of("00000000-0000-0000-0000-feedbac00096").value,
         )
 
         val sent = synced()
@@ -243,6 +244,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
         assertThat(body.path("kind").stringValue()).isEqualTo("REPLY")
         assertThat(body.path("authorName").stringValue()).isEqualTo("Jan Jansen")
         assertThat(body.path("authorEmail").stringValue()).isEqualTo("jan@voorbeeld.nl")
+        assertThat(body.path("authorRef").stringValue()).`as`("named tenants: the name, and the reference too").matches("p-[0-9a-f]{16}")
         assertThat(body.path("body").stringValue()).isEqualTo("Still broken")
         assertThat(body.path("createdAt").stringValue()).isEqualTo("2026-11-05T13:59:00Z")
         val statusRequest = support.requests.last { it.path.startsWith("/api/v2/requests/0193-fb/messages/") }
@@ -251,6 +253,57 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
         port.updateStatus(sent, SupportRequestStatus.CLOSED)
         assertThat(support.requests.last { it.path.startsWith("/api/v2/requests/0193-fb/messages/") }.path)
             .`as`("a repeat of the same change is the same message").isEqualTo(statusRequest.path)
+    }
+
+    @Test
+    fun `a request names who submitted it by a person reference, the same for every request of that person`() {
+        val first = supportRequest()
+        val second = supportRequest()
+        val other = supportRequest().copy(createdBy = UserKey.of("00000000-0000-0000-0000-feedbac00094"))
+
+        listOf(first, second, other).forEach { port.createTicket(it) }
+
+        val sent = listOf(first, second, other).map { r -> support.requests.last { it.method == "PUT" && it.path.endsWith("/$TENANT/${r.id.value}") }.json() }
+        val refs = sent.map { it.path("requesterRef").stringValue() }
+        assertThat(refs[0]).matches("p-[0-9a-f]{16}").isEqualTo(refs[1]).isNotEqualTo(refs[2])
+        assertThat(refs[0]).isEqualTo(references.personReference(first.createdBy.value))
+            .isNotEqualTo(references.reference(first.createdBy.value.toString()))
+        assertThat(sent[0].toString()).doesNotContain("00000000-0000-0000-0000-feedbac00093")
+    }
+
+    @Test
+    fun `with confidential tenants a reply names its author by a person reference only`() {
+        val author = UserKey.of("00000000-0000-0000-0000-feedbac00095")
+        val comment = SupportRequestComment(
+            id = SupportRequestCommentKey.generate(),
+            requestId = SupportRequestKey.generate(),
+            tenantKey = TENANT,
+            body = "Still broken",
+            authorName = "Jan Jansen",
+            authorEmail = "jan@voorbeeld.nl",
+            source = CommentSource.LOCAL,
+            externalCommentId = null,
+            createdAt = CREATED_AT,
+            authorId = author.value,
+        )
+        val anonymous = comment.copy(id = SupportRequestCommentKey.generate(), authorId = null)
+        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
+        try {
+            port.addComment(synced(), comment)
+            port.addComment(synced(), anonymous)
+
+            val body = support.requests.single { it.path.endsWith("/messages/${comment.id.value}") }.json()
+            assertThat(body.path("authorRef").stringValue()).isEqualTo(references.personReference(author.value))
+            assertThat(body.has("authorName")).isFalse()
+            assertThat(body.has("authorEmail")).isFalse()
+            assertThat(body.toString()).doesNotContain("Jan Jansen").doesNotContain("voorbeeld")
+            val withoutAuthor = support.requests.single { it.path.endsWith("/messages/${anonymous.id.value}") }.json()
+            assertThat(withoutAuthor.path("authorName").stringValue()).isEqualTo(RestSupportRequestSyncAdapter.ANONYMOUS_AUTHOR)
+            assertThat(withoutAuthor.has("authorRef")).isFalse()
+        } finally {
+            jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+            privacy.refresh()
+        }
     }
 
     @Test

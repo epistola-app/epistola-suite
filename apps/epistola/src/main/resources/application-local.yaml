@@ -79,6 +79,7 @@ epistola:
         platform-roles:
           - TENANT_MANAGER
           - INSTALLATION_ADMINISTRATOR
+          - SUPPORT_DESK
       - username: user@local
         password: user
         display-name: Local User

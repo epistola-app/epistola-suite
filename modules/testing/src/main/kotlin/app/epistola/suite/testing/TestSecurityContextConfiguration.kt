@@ -26,6 +26,12 @@ import org.springframework.web.filter.OncePerRequestFilter
 const val TEST_TENANT_ROLES_HEADER = "X-Test-Tenant-Roles"
 
 /**
+ * Narrows the test principal's platform roles to the comma-separated [PlatformRole] names given (empty:
+ * none), keeping its tenant roles: drives a platform page as someone with only some of them.
+ */
+const val TEST_PLATFORM_ROLES_HEADER = "X-Test-Platform-Roles"
+
+/**
  * Request header that makes this request's principal a member of the named tenants only
  * (comma-separated keys), with every tenant role there and no global or platform role: an
  * ordinary user, as a local or OIDC sign-in makes one. Lets a test see what such a user sees.
@@ -66,7 +72,7 @@ class TestSecurityContextConfiguration {
             displayName = TestPrincipalUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
-            platformRoles = setOf(PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR),
+            platformRoles = setOf(PlatformRole.TENANT_MANAGER, PlatformRole.INSTALLATION_ADMINISTRATOR, PlatformRole.SUPPORT_DESK),
             currentTenantId = null,
         )
 
@@ -83,6 +89,10 @@ class TestSecurityContextConfiguration {
                     platformRoles = emptySet(),
                     currentTenantId = tenants.firstOrNull(),
                 )
+            }
+            request.getHeader(TEST_PLATFORM_ROLES_HEADER)?.let { header ->
+                val roles = header.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { PlatformRole.valueOf(it) }.toSet()
+                return testPrincipal.copy(platformRoles = roles)
             }
             val header = request.getHeader(TEST_TENANT_ROLES_HEADER) ?: return testPrincipal
             val roles = header.split(',')

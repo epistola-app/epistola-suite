@@ -20,7 +20,7 @@ class PermissionTest {
             Permission.STENCIL_VIEW,
             Permission.REFERENCE_VIEW,
             Permission.CATALOG_VIEW,
-            Permission.FEEDBACK_SUBMIT,
+            Permission.SUPPORT_REQUEST_SUBMIT,
         )
         // Reviewing content is not reading its output (ADR 0048): documents carry personal data.
         assertThat(permissions).doesNotContain(Permission.DOCUMENT_VIEW)
@@ -77,7 +77,7 @@ class PermissionTest {
             Permission.TENANT_SETTINGS,
             Permission.INTEGRATIONS_MANAGE,
             Permission.CREDENTIALS_MANAGE,
-            Permission.FEEDBACK_MANAGE,
+            Permission.SUPPORT_REQUEST_HANDLE,
             Permission.CATALOG_MANAGE,
             Permission.DIAGNOSTICS_VIEW,
             Permission.DIAGNOSTICS_MANAGE,

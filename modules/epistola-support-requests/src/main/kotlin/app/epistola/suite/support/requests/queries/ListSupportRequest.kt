@@ -24,7 +24,7 @@ data class ListSupportRequest(
     val sourceUrl: String? = null,
 ) : Query<List<SupportRequestSummary>>,
     RequiresPermission {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
 }
 
 @Component
@@ -35,7 +35,7 @@ class ListSupportRequestHandler(
         val conditions = mutableListOf("f.tenant_key = :tenantKey")
         // Someone who does not manage support requests sees only their own: as for opening one.
         val principal = SecurityContext.current()
-        val ownOnly = !principal.hasPermission(query.tenantKey, Permission.FEEDBACK_MANAGE)
+        val ownOnly = !principal.hasPermission(query.tenantKey, Permission.SUPPORT_REQUEST_HANDLE)
         if (ownOnly) conditions.add("f.created_by = :caller")
         if (query.status != null) {
             conditions.add("f.status = :status")

@@ -187,15 +187,15 @@ parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-an
 `x-authorization`). Nothing is migrated: roles come from your identity provider and API keys, so
 review them there before or with the upgrade.
 
-| Change                                                                                   | What to do                                                                                  |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `content-viewer` no longer reads generated documents; `document-generator` does          | Give the new `document-reader` role to people who read documents without generating them    |
-| An API key scoped to Viewer alone can no longer read documents                           | Add the Document reader (or Generator) scope to a key that fetches documents                |
-| Site banner, data sharing and forgetting cluster nodes need `installation-administrator` | Give the new platform role to whoever runs the installation; `tenant-manager` keeps tenants |
-| Exchange connection and quality providers need `INTEGRATIONS_MANAGE`                     | Nothing: `tenant-administrator` grants it                                                   |
-| Load tests need `DIAGNOSTICS_MANAGE` to start, `DIAGNOSTICS_VIEW` to read                | Nothing for administrators; generators no longer start them                                 |
-| Feedback needs `FEEDBACK_SUBMIT` (viewer) and `FEEDBACK_MANAGE` (administrator)          | Nothing: the roles grant them                                                               |
-| `platform-observer` now reads diagnostics and the audit trail in every tenant            | Check who holds it                                                                          |
+| Change                                                                                               | What to do                                                                                  |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `content-viewer` no longer reads generated documents; `document-generator` does                      | Give the new `document-reader` role to people who read documents without generating them    |
+| An API key scoped to Viewer alone can no longer read documents                                       | Add the Document reader (or Generator) scope to a key that fetches documents                |
+| Site banner, data sharing and forgetting cluster nodes need `installation-administrator`             | Give the new platform role to whoever runs the installation; `tenant-manager` keeps tenants |
+| Exchange connection and quality providers need `INTEGRATIONS_MANAGE`                                 | Nothing: `tenant-administrator` grants it                                                   |
+| Load tests need `DIAGNOSTICS_MANAGE` to start, `DIAGNOSTICS_VIEW` to read                            | Nothing for administrators; generators no longer start them                                 |
+| Support requests need `SUPPORT_REQUEST_SUBMIT` (viewer) and `SUPPORT_REQUEST_HANDLE` (administrator) | Nothing: the roles grant them                                                               |
+| `platform-observer` now reads diagnostics and the audit trail in every tenant                        | Check who holds it                                                                          |
 
 A refused REST request answers `https://epistola.app/errors/forbidden` with `requiredPermission`,
 `tenantKey` or `requiredPlatformRole`, permissions named as the contract names them

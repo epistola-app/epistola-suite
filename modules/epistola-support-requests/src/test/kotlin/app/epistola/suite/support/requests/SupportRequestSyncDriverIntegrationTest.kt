@@ -32,7 +32,9 @@ import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncRef
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncStatus
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
+import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
+import app.epistola.suite.support.requests.desk.GetSupportRequestHandling
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestComments
 import app.epistola.suite.support.requests.queries.ListPendingSyncSupportRequest
@@ -91,6 +93,8 @@ import java.util.concurrent.TimeUnit
         "epistola.support.requests.sync.retry-interval-ms=3600000",
         "epistola.support.requests.sync.polling.enabled=true",
         "epistola.support.requests.sync.polling.interval-ms=3600000",
+        // These tests are about sending: Epistola handles new requests, as configured.
+        "epistola.support.requests.handled-by=epistola",
     ],
 )
 class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
@@ -222,6 +226,18 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `with the configuration handing new requests to Epistola, a new request goes there and the desk says where that comes from`() {
+        val handling = withMediator { GetSupportRequestHandling().query() }
+        assertThat(handling.fromConfiguration).isTrue()
+        assertThat(handling.connectionId).isEqualTo(REQUESTS_CONNECTION)
+
+        val supportRequest = createSyncedSupportRequest(createTenant("Driver Configured"))
+
+        assertThat(supportRequest.handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(recording.createdTickets.map { it.id }).contains(supportRequest.id)
+    }
+
+    @Test
     fun `creating support request pushes to the support service and stores the external ref`() {
         val tenant = createTenant("Driver Push")
         val supportRequest = createSyncedSupportRequest(tenant)
@@ -280,13 +296,13 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         withMediator {
             UpdateSupportRequestStatus(
                 id = SupportRequestId(supportRequest.id, TenantId(tenant.id)),
-                status = SupportRequestStatus.RESOLVED,
+                status = SupportRequestStatus.CLOSED,
             ).execute()
         }
         // Sent by a round started in the background.
         backgroundWork.awaitIdle()
 
-        assertThat(recording.statusUpdates.map { it.second }).contains(SupportRequestStatus.RESOLVED)
+        assertThat(recording.statusUpdates.map { it.second }).contains(SupportRequestStatus.CLOSED)
     }
 
     @Test
@@ -833,9 +849,9 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }).`as`("changed while withdrawn: never sent").isEmpty()
         assertThat(withMediator { ListUnsentSupportRequestStatuses(limit = 10_000).query() }.map { it.supportRequest.id }).doesNotContain(supportRequest.id)
 
-        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.RESOLVED).execute() }
+        withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.OPEN).execute() }
         backgroundWork.awaitIdle()
-        assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }.map { it.second }).`as`("changed after the new grant: sent").containsExactly(SupportRequestStatus.RESOLVED)
+        assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }.map { it.second }).`as`("changed after the new grant: sent").containsExactly(SupportRequestStatus.OPEN)
     }
 
     @Test

@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Support request sharing',
-            pageDescription='Whether supportRequest submitted in this tenant is sent to Epistola support, what is sent, and to whom.'
+            pageDescription='Whether support requests submitted in this tenant may go to Epistola support, what is sent, and to whom.'
         )}"></div>
 
         <section class="ep-panel form-section" data-testid="support-request-sharing-what">
@@ -37,7 +37,7 @@
         <p data-testid="support-request-sharing-state">
             <th:block th:if="${s.sendsSupportRequest}">
                 <span class="badge badge-success">Sent</span>
-                This tenant consented: new support requests are sent to Epistola support.
+                This tenant consented: its support requests can go to Epistola support.
             </th:block>
             <th:block th:if="${s.consentedButWaiting}">
                 <span class="badge badge-warning">Consented, not sent</span>
@@ -127,8 +127,9 @@
     <!--/* What is sent with a tenant's consent: here, on the tenant's Support page and with the installation default. */-->
     <div th:fragment="statement" data-testid="support-request-sharing-statement">
         <p>
-            Support requests always stay in this installation. With this tenant's consent, each new support request is also
-            sent to Epistola support, with:
+            Support requests always stay in this installation. With this tenant's consent, a support request also goes to
+            Epistola support: at once when this installation hands new requests to Epistola support, or when its support
+            desk passes one on. What is sent:
         </p>
         <ul data-testid="support-request-sharing-fields">
             <li>its title and description;</li>
@@ -137,11 +138,13 @@
             <li>the browser console log of that page (its last 100 entries);</li>
             <li>browser metadata: application version, browser, language, platform, window and screen size;</li>
             <li>the screenshot, when one was taken;</li>
-            <li>comments added to it later, with the name and email address of whoever wrote them, and status changes.</li>
+            <li>comments added to it later, and status changes. While this installation keeps its tenants confidential, whoever
+                wrote a comment goes as a reference only; otherwise with their name and email address.</li>
         </ul>
         <p>
             The tenant's key goes with it. Epistola support may reply with comments and status changes, which appear
-            on the support requests here. The name of who submitted an item is not sent.
+            on the support requests here. The name of who submitted an item is not sent: it goes as a reference, the same for
+            every request of one person, so Epistola can tell that requests come from one person, never who.
         </p>
     </div>
 </body>

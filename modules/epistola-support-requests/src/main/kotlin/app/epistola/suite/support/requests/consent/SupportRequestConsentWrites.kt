@@ -95,6 +95,17 @@ internal object SupportRequestConsentWrites {
             .bind("pending", SyncStatus.PENDING.name)
             .bind("failed", SyncStatus.FAILED.name)
             .execute()
+        // Never sent, so the connection does not handle them: the installation's inbox does again.
+        handle.createUpdate(
+            """
+            UPDATE support_requests f SET handler_connection = NULL
+            WHERE f.tenant_key IN (<tenants>) AND f.handler_connection = $REQUESTS_CONNECTION_SQL
+              AND NOT EXISTS (SELECT 1 FROM support_request_deliveries d
+                              WHERE d.tenant_key = f.tenant_key AND d.request_id = f.id AND d.connection_id = $REQUESTS_CONNECTION_SQL)
+            """,
+        )
+            .bindList("tenants", keys)
+            .execute()
         handle.createUpdate(
             "UPDATE support_request_deliveries SET status_unsent = FALSE, status_attempts = 0 " +
                 "WHERE connection_id = $REQUESTS_CONNECTION_SQL AND tenant_key IN (<tenants>) AND status_unsent",

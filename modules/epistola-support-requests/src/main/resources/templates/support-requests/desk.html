@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* Platform page: the support desk's inbox across tenants (ADR 0053 §3–4). */-->
+    <div th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Support requests',
+            pageDescription='Support requests from every tenant of this installation. Handle them here, or pass them on to a support connection.'
+        )}"></div>
+
+        <!-- Who handles new requests: set by an installation administrator on the Epistola support page. -->
+        <section class="ep-panel form-section" style="margin-bottom: var(--ep-space-6);" data-testid="desk-handling">
+            <p data-testid="desk-handling-current"
+               th:text="${handling.handledHere} ? 'New support requests are handled here, in this inbox.' : |New support requests are passed on to ${handling.connectionName}.|">
+                New support requests are handled here, in this inbox.
+            </p>
+            <p class="text-muted text-sm">
+                Requests already passed on stay with the connection that handles them. An installation administrator
+                changes this on the Epistola support page.
+            </p>
+        </section>
+
+        <!-- Filters: shown while there is something to filter, or a filter is active, so it can be cleared. -->
+        <form th:if="${inboxPage.total > 0 or filtered}" method="get" th:action="@{/platform/support-requests}"
+              class="ep-filters ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-4);" data-testid="desk-filters">
+            <select name="status" class="ep-select ep-select-sm form-control-auto" aria-label="Status">
+                <option value="">All statuses</option>
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
+                        th:selected="${selectedStatus != null and selectedStatus.name() == s.name()}">Open</option>
+            </select>
+            <select name="priority" class="ep-select ep-select-sm form-control-auto" aria-label="Priority">
+                <option value="">All priorities</option>
+                <option th:each="p : ${priorities}" th:value="${p.name()}" th:text="${#labels.of(p)}"
+                        th:selected="${selectedPriority != null and selectedPriority.name() == p.name()}">Medium</option>
+            </select>
+            <select name="tenant" class="ep-select ep-select-sm form-control-auto" aria-label="Tenant">
+                <option value="">All tenants</option>
+                <option th:each="t : ${tenants}" th:value="${t.key}" th:text="${t.name}"
+                        th:selected="${selectedTenant != null and selectedTenant == t.key}">Acme</option>
+            </select>
+            <select name="handler" class="ep-select ep-select-sm form-control-auto" aria-label="Handled by">
+                <option value="ALL" th:selected="${selectedHandler.name() == 'ALL'}">Handled anywhere</option>
+                <option value="HERE" th:selected="${selectedHandler.name() == 'HERE'}">Handled here</option>
+                <option value="ELSEWHERE" th:selected="${selectedHandler.name() == 'ELSEWHERE'}">Passed on</option>
+            </select>
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="desk-filter">Filter</button>
+            <a th:if="${filtered}" th:href="@{/platform/support-requests}" class="ep-btn ep-btn-ghost ep-btn-sm">Clear filters</a>
+        </form>
+
+        <div th:if="${inboxPage.total == 0}" class="empty-state" data-testid="desk-empty">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title" th:text="${filtered} ? 'No support requests match these filters' : 'No support requests yet'">No support requests yet</div>
+            <div class="empty-state-description" th:unless="${filtered}">Requests people send from any tenant appear here.</div>
+        </div>
+
+        <div th:if="${inboxPage.total > 0}" class="ep-table-scroll" role="region" aria-label="Support requests" tabindex="0">
+            <table class="ep-table" data-testid="desk-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Tenant</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Handled by</th>
+                        <th>Submitted by</th>
+                        <th>Replies</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="item : ${inboxPage.items}" data-testid="desk-row">
+                        <td>
+                            <a th:href="@{/platform/support-requests/{tenant}/{id}(tenant=${item.tenantKey},id=${item.id})}"
+                               style="font-weight: 500;" th:text="${item.title}">Title</a>
+                        </td>
+                        <td th:text="${item.tenantName}">Acme</td>
+                        <td><th:block th:insert="~{support-requests/fragments/badges :: status-badge(${item.status})}" /></td>
+                        <td><th:block th:insert="~{support-requests/fragments/badges :: priority-badge(${item.priority})}" /></td>
+                        <td th:text="${item.handlerName != null} ? ${item.handlerName} : 'This inbox'">This inbox</td>
+                        <td th:text="${item.createdByName != null} ? ${item.createdByName} : '—'">User</td>
+                        <td th:text="${item.replyCount}">0</td>
+                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${item.createdAt}">2026-01-01</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <nav th:if="${inboxPage.total > pageSize}" class="ep-pagination" aria-label="Support requests pagination" data-testid="desk-pagination">
+            <a th:if="${offset > 0}" class="ep-btn ep-btn-ghost ep-btn-sm"
+               th:href="@{/platform/support-requests(status=${selectedStatus},priority=${selectedPriority},tenant=${selectedTenant},handler=${selectedHandler},offset=${previousOffset})}">Previous</a>
+            <span th:unless="${offset > 0}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Previous</span>
+            <span class="ep-pagination-info" th:text="|${offset + 1}–${offset + #lists.size(inboxPage.items)} of ${inboxPage.total}|">1–50 of 120</span>
+            <a th:if="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm"
+               th:href="@{/platform/support-requests(status=${selectedStatus},priority=${selectedPriority},tenant=${selectedTenant},handler=${selectedHandler},offset=${nextOffset})}">Next</a>
+            <span th:unless="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Next</span>
+        </nav>
+    </div>
+</body>
+</html>

@@ -97,7 +97,7 @@ All Epistola groups live under a single root group:
 - `document-generator` — generate documents, and read the documents generated
 - `document-reader` — read generated documents without generating
 - `content-publisher` — release catalogs, deploy releases to environments, edit quality profiles
-- `tenant-administrator` — tenant settings, integrations, API keys, feedback, catalog management, diagnostics and audit (does **not** include publish)
+- `tenant-administrator` — tenant settings, integrations, API keys, support requests, catalog management, diagnostics and audit (does **not** include publish)
 
 **Platform roles**:
 
@@ -109,14 +109,14 @@ All Epistola groups live under a single root group:
 
 Tenant roles map to fine-grained permissions in application code (not in Keycloak). See [`authorization.md`](authorization.md) for the full permission catalog.
 
-| Role                   | Permissions                                                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-viewer`       | `TEMPLATE_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `FEEDBACK_SUBMIT`                                                          |
-| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                                                             |
-| `document-generator`   | `DOCUMENT_GENERATE`, `DOCUMENT_VIEW`                                                                                                                        |
-| `document-reader`      | `DOCUMENT_VIEW`                                                                                                                                             |
-| `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`, `QUALITY_EDIT`                                                                                  |
-| `tenant-administrator` | `TENANT_SETTINGS`, `INTEGRATIONS_MANAGE`, `CREDENTIALS_MANAGE`, `FEEDBACK_MANAGE`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `DIAGNOSTICS_MANAGE`, `AUDIT_VIEW` |
+| Role                   | Permissions                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content-viewer`       | `TEMPLATE_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `SUPPORT_REQUEST_SUBMIT`                                                          |
+| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                                                                    |
+| `document-generator`   | `DOCUMENT_GENERATE`, `DOCUMENT_VIEW`                                                                                                                               |
+| `document-reader`      | `DOCUMENT_VIEW`                                                                                                                                                    |
+| `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`, `QUALITY_EDIT`                                                                                         |
+| `tenant-administrator` | `TENANT_SETTINGS`, `INTEGRATIONS_MANAGE`, `CREDENTIALS_MANAGE`, `SUPPORT_REQUEST_HANDLE`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `DIAGNOSTICS_MANAGE`, `AUDIT_VIEW` |
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 

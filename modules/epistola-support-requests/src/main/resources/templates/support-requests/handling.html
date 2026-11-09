@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* On the Epistola support page (SupportPlatformPanel): who handles new support requests. `model` is a SupportRequestHandling. */-->
+    <section th:fragment="handling" id="support-request-handling" class="ep-panel detail-section" data-testid="support-request-handling"
+             th:with="handling=${model}">
+        <div class="detail-section-header"><h2>New support requests</h2></div>
+        <div class="detail-section-body">
+            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
+                Who handles the support requests tenants submit from now on. Requests already passed on stay with the
+                connection that handles them. The support desk works the requests handled here.
+            </p>
+            <form th:action="@{/platform/support/request-handling}" method="post" class="ep-row ep-row-wrap ep-gap-3">
+                <select name="connection" class="ep-select ep-select-sm form-control-auto" aria-label="Who handles new support requests" data-testid="request-handling-select">
+                    <option value="" th:selected="${handling.handledHere}">Handled here, by the support desk</option>
+                    <option th:each="choice : ${handling.choices}" th:value="${choice.connectionId}"
+                            th:selected="${choice.connectionId == handling.connectionId}"
+                            th:text="|Passed on to ${choice.name}|">Passed on to Epistola support</option>
+                </select>
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="request-handling-save">Save</button>
+            </form>
+            <p th:if="${handling.fromConfiguration}" class="text-muted text-sm" style="margin-top: var(--ep-space-2);" data-testid="request-handling-from-configuration">
+                Set by this installation's configuration until you save a choice here.
+            </p>
+            <form th:unless="${handling.fromConfiguration}" th:action="@{/platform/support/request-handling/reset}" method="post" style="margin-top: var(--ep-space-2);">
+                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="request-handling-reset">Follow the configuration</button>
+            </form>
+            <p th:if="${#lists.isEmpty(handling.choices)}" class="text-muted text-sm" style="margin-top: var(--ep-space-2);" data-testid="request-handling-no-connection">
+                No support connection takes support requests yet. Once this installation is connected and uses the
+                requests service, they can be passed on to Epistola support.
+            </p>
+        </div>
+    </section>
+</body>
+</html>

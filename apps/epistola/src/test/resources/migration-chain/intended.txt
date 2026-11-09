@@ -2056,6 +2056,7 @@ $$
     credentials text,
     endpoint text,
     escalates_to uuid,
+    handles_new_requests boolean DEFAULT false NOT NULL,
     id uuid NOT NULL,
     name text NOT NULL,
     node_clocks jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -2067,7 +2068,7 @@ $$
     version bigint DEFAULT 0 NOT NULL
 )
 + CREATE UNIQUE INDEX uq_support_connections_discovered ON public.support_connections USING btree (source) WHERE ((source)::text = 'DISCOVERED'::text)
-+ row support_connections: {"auth":"PRIVATE_KEY_JWT","contact":null,"created_at":"<now>","credentials":null,"endpoint":null,"escalates_to":null,"id":"@d5a34a0f4c48","name":"Epistola support","node_clocks":{},"refusals":{},"services":null,"source":"DISCOVERED","status":null,"updated_at":"<now>","version":0}
++ row support_connections: {"auth":"PRIVATE_KEY_JWT","contact":null,"created_at":"<now>","credentials":null,"endpoint":null,"escalates_to":null,"handles_new_requests":false,"id":"@cb11915e2a1e","name":"Epistola support","node_clocks":{},"refusals":{},"services":null,"source":"DISCOVERED","status":null,"updated_at":"<now>","version":0}
 
 # Added after the chain: what tenants share per support connection, and the usage hours reported
 # (V20261108202810, V20261108202811).
@@ -2289,8 +2290,9 @@ $$
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.support_request_messages (
-    CONSTRAINT chk_support_request_messages_kind CHECK (((kind)::text = ANY ((ARRAY['QUESTION'::character varying, 'REPLY'::character varying, 'STATUS'::character varying])::text[]))),
+    CONSTRAINT chk_support_request_messages_kind CHECK (((kind)::text = ANY ((ARRAY['QUESTION'::character varying, 'REPLY'::character varying, 'STATUS'::character varying, 'NOTE'::character varying])::text[]))),
     author_email text,
+    author_id uuid,
     author_name text DEFAULT ''::text NOT NULL,
     body text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -2308,6 +2310,7 @@ $$
     console_logs text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid NOT NULL,
+    handler_connection uuid,
     id uuid NOT NULL,
     metadata jsonb,
     priority character varying(30) DEFAULT 'MEDIUM'::character varying NOT NULL,
@@ -2326,3 +2329,12 @@ $$
 # The feedback toggle is renamed with the feature (V20261108213332): a tenant's override keeps applying.
 - row feature_toggles: {"enabled":false,"feature_key":"support-feedback","tenant_key":"preserve-tenant"}
 + row feature_toggles: {"enabled":false,"feature_key":"support-requests","tenant_key":"preserve-tenant"}
+
+# Added after the chain: the installation's support desk: a handler per request, notes, message authors
+# (V20261108215636), and the connection that handles new requests (V20261108215634).
++ ALTER TABLE ONLY public.support_request_messages
+    ADD CONSTRAINT support_request_messages_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE SET NULL
++ ALTER TABLE ONLY public.support_requests
+    ADD CONSTRAINT support_requests_handler_connection_fkey FOREIGN KEY (handler_connection) REFERENCES public.support_connections(id) ON DELETE SET NULL
++ CREATE INDEX idx_support_requests_inbox ON public.support_requests USING btree (status, created_at DESC)
++ CREATE UNIQUE INDEX uq_support_connections_handles_new_requests ON public.support_connections USING btree (handles_new_requests) WHERE handles_new_requests

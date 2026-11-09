@@ -193,11 +193,11 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                 val tenant = createTenant("Filter Status")
                 val fb = createTestSupportRequest(tenant, "Open Bug")
                 val fbId = SupportRequestId(fb.id, TenantId(tenant.id))
-                UpdateSupportRequestStatus(id = fbId, status = SupportRequestStatus.RESOLVED).execute()
+                UpdateSupportRequestStatus(id = fbId, status = SupportRequestStatus.CLOSED).execute()
                 createTestSupportRequest(tenant, "Still Open")
 
                 val openItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.OPEN).query()
-                val resolvedItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.RESOLVED).query()
+                val resolvedItems = ListSupportRequest(tenantKey = tenant.id, status = SupportRequestStatus.CLOSED).query()
 
                 assertThat(openItems).hasSize(1)
                 assertThat(openItems[0].title).isEqualTo("Still Open")
@@ -248,9 +248,11 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                     body = "This is a comment",
                     authorName = "Test User",
                     authorEmail = "test@example.com",
+                    authorId = testUserKey,
                 ).execute()
 
                 assertThat(comment.body).isEqualTo("This is a comment")
+                assertThat(comment.authorId).`as`("who wrote it, for the person reference").isEqualTo(testUserKey.value)
                 assertThat(comment.source).isEqualTo(CommentSource.LOCAL)
 
                 val comments = GetSupportRequestComments(supportRequestId).query()

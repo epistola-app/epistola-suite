@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
+import app.epistola.suite.support.requests.desk.SetSupportDeskPriority
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.ListSupportRequest
 import org.assertj.core.api.Assertions.assertThat
@@ -198,8 +199,42 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
         val detail = { restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}", String::class.java).body!! }
         assertThat(detail()).doesNotContain("support-request-requested-priority")
 
-        withMediator { SyncSupportRequestPriority(SupportRequestId(request.id, TenantId(tenant)), SupportRequestPriority.CRITICAL).execute() }
+        withMediator { SetSupportDeskPriority(tenant, request.id, SupportRequestPriority.CRITICAL).execute() }
 
         assertThat(detail()).contains("data-testid=\"support-request-requested-priority\"").contains("Requested: ")
+    }
+
+    private fun setStatus(tenant: TenantKey, request: SupportRequestKey, status: String) = restTemplate.postForEntity(
+        "/tenants/${tenant.value}/support/requests/${request.value}/status",
+        HttpEntity(
+            LinkedMultiValueMap<String, String>().apply { add("status", status) },
+            HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_FORM_URLENCODED
+                set("HX-Request", "true")
+            },
+        ),
+        String::class.java,
+    )
+
+    @Test
+    fun `a tenant closes its request and reopens it, also one the handler resolved, and sets no other status`() {
+        val tenant = createTenant("Close Reopen").id
+        assertThat(submit(tenant, "To close", emptyMap()).statusCode.is2xxSuccessful).isTrue()
+        val request = submitted(tenant, "To close")
+        val detail = restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}", String::class.java).body!!
+        assertThat(detail).contains("data-testid=\"support-request-close\"").doesNotContain("data-testid=\"support-request-reopen\"")
+            .doesNotContain("Update status")
+
+        val closed = setStatus(tenant, request.id, "CLOSED")
+        assertThat(closed.body).contains("data-testid=\"support-request-reopen\"").doesNotContain("data-testid=\"support-request-close\"")
+
+        assertThat(setStatus(tenant, request.id, "RESOLVED").statusCode.value()).`as`("the handler's status").isEqualTo(400)
+        assertThat(withMediator { GetSupportRequest(SupportRequestId(request.id, TenantId(tenant))).query()!!.status }).isEqualTo(SupportRequestStatus.CLOSED)
+
+        withMediator { app.epistola.suite.support.requests.desk.SetSupportDeskStatus(tenant, request.id, SupportRequestStatus.RESOLVED).execute() }
+        val resolved = restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}", String::class.java).body!!
+        assertThat(resolved).contains("data-testid=\"support-request-reopen\"").contains("data-testid=\"support-request-close\"")
+        setStatus(tenant, request.id, "OPEN")
+        assertThat(withMediator { GetSupportRequest(SupportRequestId(request.id, TenantId(tenant))).query()!!.status }).isEqualTo(SupportRequestStatus.OPEN)
     }
 }

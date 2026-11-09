@@ -131,12 +131,12 @@
               hx-target="#support-request-content"
               hx-swap="innerHTML"
               class="ep-row">
+            <!--/* The tenant closes or reopens its request, whoever handles it; the handler sets every other status (ADR 0053). */-->
             <div th:replace="~{epistola-web/form-error :: form-error(id='update-status-error')}"></div>
-            <select name="status" class="ep-select ep-select-sm form-control-auto">
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
-                        th:selected="${supportRequest.status.name() == s.name()}">STATUS</option>
-            </select>
-            <button type="submit" class="ep-btn ep-btn-outline">Update status</button>
+            <button th:if="${supportRequest.status.name() != 'CLOSED'}" type="submit" name="status" value="CLOSED"
+                    class="ep-btn ep-btn-outline" data-testid="support-request-close">Close request</button>
+            <button th:if="${supportRequest.status.name() == 'CLOSED' or supportRequest.status.name() == 'RESOLVED'}" type="submit" name="status" value="OPEN"
+                    class="ep-btn ep-btn-outline" data-testid="support-request-reopen">Reopen request</button>
         </form>
     </th:block>
 

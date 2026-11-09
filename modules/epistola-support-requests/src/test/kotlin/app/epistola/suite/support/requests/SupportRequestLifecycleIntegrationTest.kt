@@ -16,12 +16,15 @@ import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestStatus
+import app.epistola.suite.support.requests.desk.SetSupportDeskPriority
+import app.epistola.suite.support.requests.desk.SetSupportDeskStatus
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestComments
 import app.epistola.suite.support.requests.queries.ListSupportRequest
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -61,14 +64,14 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `support request walks the full status lifecycle`() {
+    fun `a tenant closes its request and reopens it`() {
         withMediator {
             val tenant = createTenant("Feedback Lifecycle")
             val created = createSupportRequest(tenant)
             val supportRequestId = SupportRequestId(created.id, TenantId(tenant.id))
             assertThat(created.status).isEqualTo(SupportRequestStatus.OPEN)
 
-            for (status in listOf(SupportRequestStatus.IN_PROGRESS, SupportRequestStatus.RESOLVED, SupportRequestStatus.CLOSED)) {
+            for (status in listOf(SupportRequestStatus.CLOSED, SupportRequestStatus.OPEN)) {
                 val updated = UpdateSupportRequestStatus(id = supportRequestId, status = status).execute()
                 assertThat(updated).isTrue()
                 assertThat(GetSupportRequest(supportRequestId).query()!!.status).isEqualTo(status)
@@ -80,12 +83,36 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a tenant sets no status but closed or open, which the handler sets`() {
+        val tenant = createTenant("Feedback Lifecycle Handler Status")
+        val id = SupportRequestId(createSupportRequest(tenant).id, TenantId(tenant.id))
+
+        for (status in listOf(SupportRequestStatus.IN_PROGRESS, SupportRequestStatus.RESOLVED)) {
+            assertThatThrownBy { UpdateSupportRequestStatus(id, status) }.`as`("$status").isInstanceOf(IllegalArgumentException::class.java)
+        }
+    }
+
+    @Test
+    fun `a request the handler resolved is reopened by the tenant, one it works on is not`() {
+        val tenant = createTenant("Feedback Lifecycle Reopen")
+        val id = SupportRequestId(createSupportRequest(tenant).id, TenantId(tenant.id))
+
+        withMediator { SetSupportDeskStatus(tenant.id, id.key, SupportRequestStatus.IN_PROGRESS).execute() }
+        assertThat(withMediator { UpdateSupportRequestStatus(id, SupportRequestStatus.OPEN).execute() }).`as`("in progress").isFalse()
+        assertThat(withMediator { GetSupportRequest(id).query()!!.status }).isEqualTo(SupportRequestStatus.IN_PROGRESS)
+
+        withMediator { SetSupportDeskStatus(tenant.id, id.key, SupportRequestStatus.RESOLVED).execute() }
+        assertThat(withMediator { UpdateSupportRequestStatus(id, SupportRequestStatus.OPEN).execute() }).`as`("resolved").isTrue()
+        assertThat(withMediator { GetSupportRequest(id).query()!!.status }).isEqualTo(SupportRequestStatus.OPEN)
+    }
+
+    @Test
     fun `UpdateSupportRequestStatus returns false for unknown support request`() {
         withMediator {
             val tenant = createTenant("Feedback Status Missing")
             val missingId = SupportRequestId(SupportRequestKey.generate(), TenantId(tenant.id))
 
-            val updated = UpdateSupportRequestStatus(id = missingId, status = SupportRequestStatus.RESOLVED).execute()
+            val updated = UpdateSupportRequestStatus(id = missingId, status = SupportRequestStatus.CLOSED).execute()
 
             assertThat(updated).isFalse()
         }
@@ -144,15 +171,15 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
                 sourceUrl = "https://app.example.com/tenants/acme/templates?tab=drafts",
             )
             createSupportRequest(tenant, "Different page", sourceUrl = "https://app.example.com/tenants/acme/themes")
-            val resolved = createSupportRequest(tenant, "Resolved on the templates page")
+            val resolved = createSupportRequest(tenant, "Closed on the templates page")
             UpdateSupportRequestStatus(
                 id = SupportRequestId(resolved.id, TenantId(tenant.id)),
-                status = SupportRequestStatus.RESOLVED,
+                status = SupportRequestStatus.CLOSED,
             ).execute()
 
             val items = ListSupportRequest(tenantKey = tenant.id, sourceUrl = "/tenants/acme/templates").query()
 
-            // Path matching includes the query-string variant; the resolved item and the other page are hidden.
+            // Path matching includes the query-string variant; the closed item and the other page are hidden.
             assertThat(items.map { it.id }).containsExactlyInAnyOrder(onPage.id, withQuery.id)
         }
     }
@@ -165,8 +192,10 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
         assertThat(created.requestedPriority).isEqualTo(SupportRequestPriority.MEDIUM)
         assertThat(created.priority).`as`("the priority starts as the requested one").isEqualTo(SupportRequestPriority.MEDIUM)
 
-        val changed = withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.HIGH).execute() }
-        val again = withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.HIGH).execute() }
+        // The inbox handles it: the desk sets the priority, and a connection's is not applied.
+        assertThat(withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.LOW).execute() }).`as`("not from a connection").isFalse()
+        val changed = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
+        val again = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
 
         assertThat(changed).isTrue()
         assertThat(again).`as`("an unchanged priority writes nothing").isFalse()

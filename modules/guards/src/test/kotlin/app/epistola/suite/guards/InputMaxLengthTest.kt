@@ -151,6 +151,7 @@ class InputMaxLengthTest {
         "loadtest/new.html#testData" to "JSON test data",
         "quality/manual-form.html#manual-message" to "no server limit",
         "support-requests/detail.html#body" to "no server limit",
+        "support-requests/desk-detail.html#desk-message-body" to "no server limit",
         "support-requests/submit-form.html#fb-title" to "no server limit",
         "support-requests/submit-form.html#fb-description" to "no server limit",
     )

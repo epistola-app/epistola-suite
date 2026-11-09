@@ -209,6 +209,11 @@ spec:
             - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR
               value: {{ . | quote }}
             {{- end }}
+            {{- /* Who handles new support requests; an administrator's saved choice wins. */}}
+            {{- with .Values.support.requests.handledBy }}
+            - name: EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY
+              value: {{ . | quote }}
+            {{- end }}
             {{- /* What Epistola sees of the tenants; an administrator's saved settings win. */}}
             {{- with .Values.support.privacy.tenantIdentity }}
             - name: EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY

@@ -291,7 +291,8 @@ tenant from `epistola.auth.local-users`.
 Platform roles (`PlatformRole`, from `/epistola/platform/{role}` groups or `platform-roles` of a
 local user) apply across tenants. `INSTALLATION_ADMINISTRATOR` sets the site banner, forgets
 cluster nodes and reviews what the installation shares with Epistola; `TENANT_MANAGER` creates and
-deletes tenants. A tenant is created with a name and an ID only; its catalogs start under `local`.
+deletes tenants; `SUPPORT_DESK` (group `/epistola/platform/support-desk`) works the support desk,
+Platform → Support requests. A tenant is created with a name and an ID only; its catalogs start under `local`.
 
 The **namespaces** a tenant holds (ADR 0034, section 3, and its amendment of 2026-11-03) are the
 tenant's own to manage, not the platform's: its administrator (`INTEGRATIONS_MANAGE`, the

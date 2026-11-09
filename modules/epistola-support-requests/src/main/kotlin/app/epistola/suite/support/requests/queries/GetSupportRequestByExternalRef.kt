@@ -22,7 +22,7 @@ data class GetSupportRequestByExternalRef(
     val externalRef: String,
 ) : Query<SupportRequestId?>,
     RequiresPermission {
-    override val permission get() = Permission.FEEDBACK_SUBMIT
+    override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT
 }
 
 @Component

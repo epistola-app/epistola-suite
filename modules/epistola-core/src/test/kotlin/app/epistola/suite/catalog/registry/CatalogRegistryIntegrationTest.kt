@@ -260,6 +260,27 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the releases available are listed one page at a time, lowest first, and counted in full`() {
+        val r = released("reg-paged")
+        withMediator {
+            PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
+            InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-paged", "1.0.0").execute()
+        }
+        for (version in listOf("1.1.0", "1.2.0", "1.3.0")) {
+            releaseNext(r, version, "Brand $version")
+            withMediator { PublishReleaseToRegistry(testCatalog(r.a, r.catalog), version, "local").execute() }
+        }
+
+        withMediator {
+            val second = ListAvailableCatalogReleases(testCatalog(r.b, r.catalog), app.epistola.suite.common.PageRequest(limit = 2, offset = 2)).query()
+            assertThat(second.available.map { it.releaseVersion }).containsExactly("1.3.0")
+            assertThat(second.total).isEqualTo(3)
+            assertThat(ListAvailableCatalogReleases(testCatalog(r.b, r.catalog)).query().available.map { it.releaseVersion })
+                .`as`("without a page, all of them").containsExactly("1.1.0", "1.2.0", "1.3.0")
+        }
+    }
+
+    @Test
     fun `a registry behind Basic authentication is used with its credentials, and refuses without them`() {
         val r = released("reg-secured")
         withMediator {

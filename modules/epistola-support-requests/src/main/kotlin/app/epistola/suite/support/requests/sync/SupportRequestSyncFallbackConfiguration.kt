@@ -4,6 +4,7 @@
 
 package app.epistola.suite.support.requests.sync
 
+import app.epistola.suite.support.requests.desk.SupportRequestHandlingProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -22,7 +23,7 @@ import org.springframework.context.annotation.Configuration
  * Also registers [SupportRequestSyncProperties] so generic sync settings are always available.
  */
 @Configuration
-@EnableConfigurationProperties(SupportRequestSyncProperties::class)
+@EnableConfigurationProperties(SupportRequestSyncProperties::class, SupportRequestHandlingProperties::class)
 class SupportRequestSyncFallbackConfiguration {
 
     @Bean

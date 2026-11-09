@@ -80,6 +80,8 @@ class RestSupportRequestSyncAdapter(
             fitConsoleLogs(supportRequest.serverLogs?.let { confidentialText(it, supportRequest.tenantKey.value, wireKey) })?.let { put("serverLogs", it) }
             fitMetadata(supportRequest.metadata?.let(hide))?.let { put("metadata", it) }
             put("createdAt", supportRequest.createdAt.toInstant().toString())
+            // Who submitted it, as a person reference: never the name or address (ADR 0053 §3).
+            references?.let { put("requesterRef", it.personReference(supportRequest.createdBy.value)) }
         }
         val requests = requestsEndpoint()
         val response = call("sending support request ${supportRequest.id}") {
@@ -122,10 +124,18 @@ class RestSupportRequestSyncAdapter(
     }
 
     override fun addComment(supportRequest: SupportRequest, comment: SupportRequestComment): ExternalCommentRef {
+        val authorRef = comment.authorId?.let { id -> references?.personReference(id) }
+        // While tenants are confidential, the author goes as a person reference only (ADR 0053 §3).
+        val confidential = references?.confidential() == true
         val body = objectMapper.createObjectNode().apply {
             put("kind", "REPLY")
-            put("authorName", fitChars(comment.authorName, MAX_AUTHOR_NAME_CHARS))
-            comment.authorEmail?.takeIf { it.length <= MAX_AUTHOR_EMAIL_CHARS }?.let { put("authorEmail", it) }
+            authorRef?.let { put("authorRef", it) }
+            if (!confidential) {
+                put("authorName", fitChars(comment.authorName, MAX_AUTHOR_NAME_CHARS))
+                comment.authorEmail?.takeIf { it.length <= MAX_AUTHOR_EMAIL_CHARS }?.let { put("authorEmail", it) }
+            } else if (authorRef == null) {
+                put("authorName", ANONYMOUS_AUTHOR)
+            }
             put("body", fitText(comment.body))
             put("createdAt", comment.createdAt.toInstant().toString())
         }
@@ -364,6 +374,9 @@ class RestSupportRequestSyncAdapter(
 
         /** `sourceUrl` is at most 4096 characters. */
         const val MAX_SOURCE_URL_CHARS = 4096
+
+        /** The author of a reply sent while tenants are confidential when it has no person to refer to. */
+        const val ANONYMOUS_AUTHOR = "Someone in this installation"
 
         /** A comment's `authorName` is at most 200 characters, its `authorEmail` at most 320. */
         const val MAX_AUTHOR_NAME_CHARS = 200
