@@ -5,7 +5,8 @@
     <div class="regular">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Support connections',
-            pageDescription='The parties this installation shares with, such as Epistola support or a partner: whether each is active, which services it grants, and what tenants share with it.'
+            pageDescription='The parties this installation shares with, such as Epistola support or a partner: whether each is active, which services it grants, and what tenants share with it.',
+            actions=~{::support-connection-actions}
         )}"></div>
 
         <p>
@@ -13,8 +14,6 @@
         </p>
 
         <th:block th:replace="~{support/platform :: connections}"></th:block>
-
-        <th:block th:replace="~{support/platform :: add-connection}"></th:block>
 
         <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
@@ -26,7 +25,21 @@
         <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
             <th:block th:replace="~{__${panel.fragment}__}"></th:block>
         </th:block>
+
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{support/connection-new :: dialog}"></th:block>
+            </th:block>
+        </div>
     </div>
+    </th:block>
+
+    <th:block th:fragment="support-connection-actions">
+        <button type="button" class="ep-btn ep-btn-primary" th:hx-get="@{/platform/support/connections/new}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true" data-testid="support-connection-add-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            Add connection
+        </button>
     </th:block>
 
 
@@ -110,18 +123,18 @@
             <div th:if="${#lists.isEmpty(connections)}" class="empty-state" data-testid="support-connections-empty">
                 <div class="empty-state-title">No support connections yet</div>
                 <div class="empty-state-description">
-                    Add one below. With <code>epistola.support.enabled=true</code> (Helm: <code>support.enabled</code>)
+                    Add one with Add connection. With <code>epistola.support.enabled=true</code> (Helm: <code>support.enabled</code>)
                     Epistola support's is added at the next start.
                 </div>
             </div>
             <div th:unless="${#lists.isEmpty(connections)}" class="ep-table-scroll" role="region" aria-label="Support connections" tabindex="0">
                 <table class="ep-table ep-table-fixed">
                     <colgroup>
-                        <col style="width: 34%" />
-                        <col style="width: 16%" />
+                        <col style="width: 30%" />
+                        <col style="width: 12%" />
                         <col style="width: 18%" />
-                        <col style="width: 16%" />
-                        <col style="width: 16%" />
+                        <col style="width: 18%" />
+                        <col style="width: 22%" />
                     </colgroup>
                     <thead>
                         <tr>
@@ -164,57 +177,6 @@
         </th:block>
     </th:block>
 
-    <!--/* Adding a connection: from what a domain publishes, or by hand. */-->
-    <section th:fragment="add-connection" id="support-connection-add" class="ep-panel detail-section" data-testid="support-connection-add-panel">
-        <div class="detail-section-header"><h2>Add a connection</h2></div>
-        <div class="detail-section-body ep-stack">
-            <div class="alert alert-error" role="alert" th:if="${addError != null}" data-testid="support-connection-add-error" th:text="${addError}">The token is required.</div>
-            <form th:action="@{/platform/support/connections/lookup}" method="post" class="ep-stack" data-testid="support-connection-lookup">
-                <div class="form-group">
-                    <label class="ep-label" for="support-add-domain">Look up a domain</label>
-                    <div class="ep-row ep-gap-2">
-                        <input class="ep-input" id="support-add-domain" type="text" name="domain" maxlength="253" placeholder="partner.example"
-                               th:value="${addForm != null ? addForm.get('domain') : ''}">
-                        <button type="submit" class="ep-btn ep-btn-outline" data-testid="support-connection-lookup-submit">Look up</button>
-                    </div>
-                    <span class="form-hint">Fills in what the domain publishes for connecting to it. Without it, fill in the fields below yourself.</span>
-                </div>
-            </form>
-            <form th:action="@{/platform/support/connections}" method="post" class="ep-stack" data-testid="support-connection-add"
-                  th:with="pre=${addPreset}">
-                <div class="form-group">
-                    <label class="ep-label" for="support-add-name">Name</label>
-                    <input class="ep-input" id="support-add-name" type="text" name="name" maxlength="100" required
-                           th:value="${pre != null ? pre.name : (addForm != null ? addForm.get('name') : '')}">
-                </div>
-                <div class="form-group">
-                    <label class="ep-label" for="support-add-endpoint">Endpoint</label>
-                    <input class="ep-input" id="support-add-endpoint" type="text" name="endpoint" maxlength="2000" required placeholder="https://desk.partner.example/epistola"
-                           th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}">
-                </div>
-                <fieldset class="form-group" data-testid="support-connection-add-auth">
-                    <legend class="ep-label">How this installation signs in</legend>
-                    <label class="ep-row ep-gap-2"><input type="radio" name="auth" value="BEARER_TOKEN" checked> With a token the other side issued</label>
-                    <label class="ep-row ep-gap-2"><input type="radio" name="auth" value="PRIVATE_KEY_JWT"> By registering with this installation's own key</label>
-                </fieldset>
-                <div class="form-group">
-                    <label class="ep-label" for="support-add-token">Token</label>
-                    <input class="ep-input" id="support-add-token" type="password" name="token" maxlength="4096" autocomplete="off">
-                    <span class="form-hint">Only for a connection that signs in with a token. One that registers is registered from its own page once added.</span>
-                </div>
-                <fieldset class="form-group">
-                    <legend class="ep-label">Services to use</legend>
-                    <div class="ep-row ep-row-wrap ep-gap-4">
-                        <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-2"><input type="checkbox" name="services" th:value="${sv}" th:checked="${pre != null and #lists.contains(pre.services, sv)}"> <span th:text="${sv}">requests</span></label>
-                    </div>
-                </fieldset>
-                <input type="hidden" name="tenantIdentity" th:if="${pre != null and pre.tenantIdentity != null}" th:value="${pre.tenantIdentity.name()}">
-                <input type="hidden" name="telemetry" th:if="${pre != null and pre.telemetry != null}" th:value="${pre.telemetry.name()}">
-                <div><button type="submit" class="ep-btn ep-btn-primary" data-testid="support-connection-add-submit">Add connection</button></div>
-            </form>
-        </div>
-    </section>
-
     <!--/* One connection's settings, privacy and removal, on its own page. Model: c (SupportConnectionListing), allConnections, serviceNames. */-->
     <th:block th:fragment="connection-settings">
         <section class="ep-panel detail-section" data-testid="support-connection-settings">
@@ -225,12 +187,12 @@
                         <label class="ep-label" for="support-edit-name">Name</label>
                         <input class="ep-input" id="support-edit-name" type="text" name="name" maxlength="100" th:value="${c.name}" required>
                     </div>
-                    <fieldset class="form-group" th:unless="${c.registers}">
-                        <legend class="ep-label">Services used</legend>
+                    <div class="form-group" th:unless="${c.registers}" role="group" aria-labelledby="support-edit-services-label">
+                        <span class="ep-label" id="support-edit-services-label">Services used</span>
                         <div class="ep-row ep-row-wrap ep-gap-4">
                             <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-2"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
                         </div>
-                    </fieldset>
+                    </div>
                     <!--/* A connection that registers selects its services in its Services panel; they are kept as they are. */-->
                     <input th:if="${c.registers}" th:each="sv : ${c.selected}" type="hidden" name="services" th:value="${sv}">
                     <div class="form-group" th:unless="${c.registers}">
@@ -300,12 +262,12 @@
             </p>
             <form th:each="cp : ${connectionPresets}" th:action="@{/platform/support/connections/{id}/defaults(id=${cp.connectionId})}" method="post"
                   class="form-section" data-testid="support-connection-preset" th:attr="data-connection=${cp.connectionId}">
-                <h3 th:text="${cp.name}">Partner</h3>
+                <h3 style="font-size: var(--ep-text-base); margin: 0 0 var(--ep-space-2);" th:text="${cp.name}">Partner</h3>
                 <div class="alert alert-error" role="alert" th:if="${presetError != null and presetError == cp.connectionId.toString()}"
                      data-testid="support-connection-preset-error">To share anything, agree on behalf of the tenants that use this setup.</div>
                 <div class="form-group" th:each="v : ${cp.views}">
-                    <label th:for="|${cp.connectionId}-${v.section.key}|" th:text="${v.section.title}">Support requests</label>
-                    <select class="ep-select ep-select-sm form-control-auto" th:id="|${cp.connectionId}-${v.section.key}|" th:name="${v.section.key} + '.default'">
+                    <label class="ep-label" th:for="|${cp.connectionId}-${v.section.key}|" th:text="${v.section.title}">Support requests</label>
+                    <select class="ep-select form-control-auto" th:id="|${cp.connectionId}-${v.section.key}|" th:name="${v.section.key} + '.default'">
                         <option value="NONE" th:selected="${v.formValue == 'NONE'}">No preset: each tenant chooses</option>
                         <option th:each="c : ${v.section.choices}" th:value="${c.value}" th:text="${c.label}" th:selected="${v.formValue == c.value}">Share support requests</option>
                         <option th:if="${v.section.offersRequired}" value="REQUIRED" th:selected="${v.formValue == 'REQUIRED'}">Required for every tenant</option>

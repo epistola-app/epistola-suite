@@ -17,6 +17,27 @@
             <th:block th:replace="~{support/platform :: connection}"></th:block>
         </th:block>
 
+        <!--/* A connection that signs in with a token: how it stood at the last check. */-->
+        <section th:unless="${c.registers}" class="ep-panel detail-section" data-testid="support-token-connection">
+            <div class="detail-section-header">
+                <h2>Connection</h2>
+                <span th:insert="~{support/platform :: connection-state(${c})}"></span>
+            </div>
+            <div class="detail-section-body">
+                <dl class="description-list">
+                    <dt>Endpoint</dt>
+                    <dd><code th:text="${c.endpoint}">https://desk.partner.example</code></dd>
+                    <dt>Services granted</dt>
+                    <dd th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</dd>
+                    <dt>Last check</dt>
+                    <dd th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm:ss', 'UTC')} + ' UTC' : 'Not checked yet'">2026-11-10 09:00:00 UTC</dd>
+                    <dt th:if="${c.reason != null or c.lastError != null}">Last error</dt>
+                    <dd th:if="${c.reason != null or c.lastError != null}" th:text="${c.lastError ?: c.reason}">the token was refused</dd>
+                </dl>
+                <p class="text-muted text-sm" style="margin-bottom: 0;">It is checked every few minutes with the token it issued: whether it is active, and which services it grants.</p>
+            </div>
+        </section>
+
         <th:block th:replace="~{support/platform :: connection-settings}"></th:block>
     </div>
     </th:block>

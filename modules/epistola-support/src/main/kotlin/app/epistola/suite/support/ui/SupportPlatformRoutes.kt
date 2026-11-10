@@ -64,6 +64,7 @@ class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
     fun supportPlatformRouterFunction(): RouterFunction<ServerResponse> = router {
         "/platform/support".nest {
             GET("", handler::show)
+            GET("/connections/new", handler::newConnection)
             GET("/connections/{connectionId}", handler::detail)
             GET("/connections/{connectionId}/connection", handler::panel)
             POST("/connections/{connectionId}/check", handler::check)
@@ -103,27 +104,23 @@ class SupportPlatformHandler(
      * The page, with what the Add connection form shows: the [preset] looked up, or an [addError] with
      * the values given ([addForm]), answered with [status].
      */
-    private fun page(
-        request: ServerRequest,
-        preset: SupportConnectionPreset? = null,
-        addError: String? = null,
-        addForm: Map<String, String> = emptyMap(),
-        status: Int = 200,
-    ): ServerResponse = ServerResponse.status(status).page("support/platform") {
-        "addPreset" to preset
-        "addError" to addError
-        "addForm" to addForm
-        "serviceNames" to SupportScope.entries.map { it.value }
-        "allConnections" to supportConnections.all()
-        "pageTitle" to "Support connections - Epistola"
-        "platformPage" to "Support connections"
-        "privacy" to GetSupportPrivacy().query()
-        "defaults" to sharing.installationViews()
-        "connections" to ListSupportConnections().query()
-        "connectionPresets" to sharing.connectionPresets()
-        "presetError" to request.param("presetError").orElse(null)
-        "panels" to panelViews()
+    private fun page(request: ServerRequest, status: Int = 200): ServerResponse = ServerResponse.status(status).page("support/platform") {
+        listModel(request).forEach { (k, v) -> k to v }
     }
+
+    /** What the list page shows. */
+    private fun listModel(request: ServerRequest): Map<String, Any?> = mapOf(
+        "serviceNames" to SupportScope.entries.map { it.value },
+        "allConnections" to supportConnections.all(),
+        "pageTitle" to "Support connections - Epistola",
+        "platformPage" to "Support connections",
+        "privacy" to GetSupportPrivacy().query(),
+        "defaults" to sharing.installationViews(),
+        "connections" to ListSupportConnections().query(),
+        "connectionPresets" to sharing.connectionPresets(),
+        "presetError" to request.param("presetError").orElse(null),
+        "panels" to panelViews(),
+    )
 
     /**
      * The page of one connection (ADR 0053 §1): its settings, privacy and removal, and for one that
@@ -246,23 +243,61 @@ class SupportPlatformHandler(
         }
     }
 
-    /** Looks up the preset a domain publishes and fills the Add connection form with it. */
-    fun lookUpConnection(request: ServerRequest): ServerResponse {
-        val domain = request.param("domain").orElse("").trim()
-        if (domain.isEmpty()) return page(request, addError = "Enter the domain of the party to connect to.", status = 422)
-        return try {
-            page(request, preset = DiscoverSupportConnectionPreset(domain).query())
-        } catch (e: SupportConnectionPresetUnavailableException) {
-            page(request, addError = e.reason, addForm = mapOf("domain" to domain), status = 422)
+    /** The Add connection dialog (docs/dialog-forms.md): alone for the page's action, on the page for a direct visit. */
+    fun newConnection(request: ServerRequest): ServerResponse = request.htmx {
+        fragment("support/connection-new", "dialog") { "serviceNames" to SupportScope.entries.map { it.value } }
+        onFullPage {
+            page("support/platform") {
+                listModel(request).forEach { (k, v) -> k to v }
+                "openDialog" to true
+            }
         }
     }
 
-    /** Adds a connection from the form: from a preset or filled in by hand. */
+    /** Looks up the preset a domain publishes and fills the Add connection form with it, in place. */
+    fun lookUpConnection(request: ServerRequest): ServerResponse {
+        val domain = request.param("domain").orElse("").trim()
+        if (domain.isEmpty()) return addFailed(request, "Enter the domain of the party to connect to.", mapOf("domain" to domain))
+        val preset = try {
+            DiscoverSupportConnectionPreset(domain).query()
+        } catch (e: SupportConnectionPresetUnavailableException) {
+            return addFailed(request, e.reason, mapOf("domain" to domain))
+        }
+        return request.htmx {
+            fragment("support/connection-new", "connection-form") {
+                "serviceNames" to SupportScope.entries.map { it.value }
+                "addPreset" to preset
+                "addForm" to mapOf(Pair("domain", domain))
+            }
+            onFullPage {
+                page("support/platform") {
+                    listModel(request).forEach { (k, v) -> k to v }
+                    "openDialog" to true
+                    "addPreset" to preset
+                }
+            }
+        }
+    }
+
+    /** The dialog's error slot says [message] and the form keeps what was entered; a full page shows the dialog again. */
+    private fun addFailed(request: ServerRequest, message: String, form: Map<String, String>): ServerResponse = request.htmx {
+        dialogFormError("add-connection-error", message)
+        onFullPage {
+            page(422, "support/platform") {
+                listModel(request).forEach { (k, v) -> k to v }
+                "openDialog" to true
+                "addError" to message
+                "addForm" to form
+            }
+        }
+    }
+
+    /** Adds a connection from the dialog: from a preset or filled in by hand; then its page. */
     fun addConnection(request: ServerRequest): ServerResponse {
-        val form = listOf("name", "endpoint", "token", "tenantIdentity", "telemetry").associateWith { request.param(it).orElse("").trim() }
+        val form = listOf("name", "endpoint", "token", "tenantIdentity", "telemetry", "auth", "domain").associateWith { request.param(it).orElse("").trim() }
         val services = request.params()["services"].orEmpty()
         return try {
-            AddSupportConnection(
+            val id = AddSupportConnection(
                 name = form.getValue("name"),
                 endpoint = form.getValue("endpoint"),
                 token = form.getValue("token"),
@@ -271,11 +306,14 @@ class SupportPlatformHandler(
                 telemetry = TelemetryDetail.parse(form.getValue("telemetry")),
                 auth = request.param("auth").orElse("").let { v -> SupportConnectionAuth.entries.firstOrNull { it.name == v } } ?: SupportConnectionAuth.BEARER_TOKEN,
             ).execute()
-            redirect("/platform/support#support-connections")
+            request.htmx {
+                dialogLocation("/platform/support/connections/$id")
+                onFullPage { redirect("/platform/support/connections/$id") }
+            }
         } catch (e: ValidationException) {
-            page(request, addError = e.message, addForm = form - "token", status = 422)
+            addFailed(request, e.message, form - "token")
         } catch (e: SupportConnectionExistsException) {
-            page(request, addError = "A connection to ${e.endpoint} exists already.", addForm = form - "token", status = 422)
+            addFailed(request, "A connection to ${e.endpoint} exists already.", form - "token")
         }
     }
 
@@ -293,8 +331,8 @@ class SupportPlatformHandler(
                 changeEscalation = request.param("escalatesTo").isPresent,
             ).execute()
             redirect("/platform/support/connections/$id")
-        } catch (e: ValidationException) {
-            page(request, addError = e.message, status = 422)
+        } catch (_: ValidationException) {
+            redirect("/platform/support/connections/$id")
         } catch (_: SupportConnectionNotFoundException) {
             ServerResponse.notFound().build()
         }
