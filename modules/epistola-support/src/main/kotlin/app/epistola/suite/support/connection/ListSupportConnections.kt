@@ -51,12 +51,14 @@ data class SupportConnectionListing(
     val auth: SupportConnectionAuth = SupportConnectionAuth.BEARER_TOKEN,
     /** Where it stands, as [SupportConnectionState]'s name (`Pending`, `Active`, …). */
     val state: String = "Unregistered",
+    /** It holds a registration through OAuth the other side knows, which a disconnect ends first. */
+    val holdsRegistration: Boolean = false,
 ) {
     /** It registers through OAuth (RFC 7591, private_key_jwt): its registration is on a page of its own. */
     val registers: Boolean get() = auth == SupportConnectionAuth.PRIVATE_KEY_JWT
 
     /** It can be removed now: not while it is registered through OAuth, which a disconnect ends first. */
-    val canRemove: Boolean get() = !(registers && state in setOf("Pending", "Active", "Refused"))
+    val canRemove: Boolean get() = !holdsRegistration
 }
 
 /** The installation's support connections, oldest first. No network I/O. */
@@ -94,6 +96,7 @@ class ListSupportConnectionsHandler(
             escalatesTo = record.escalatesTo,
             auth = record.auth,
             state = state.javaClass.simpleName,
+            holdsRegistration = connections.holdsRegistration(record.id),
         )
     }
 }

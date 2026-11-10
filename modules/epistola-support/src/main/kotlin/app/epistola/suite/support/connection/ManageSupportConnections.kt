@@ -252,22 +252,29 @@ data class RemoveSupportConnection(
 @Component
 class RemoveSupportConnectionHandler(
     private val jdbi: Jdbi,
-    private val registry: SupportConnectionRegistry,
+    private val connections: SupportConnections,
 ) : CommandHandler<RemoveSupportConnection, Boolean> {
     /** @throws SupportConnectionStillRegisteredException while it is registered through OAuth. */
     override fun handle(command: RemoveSupportConnection): Boolean {
-        // Removing would leave the registration, and what the other side holds, at the other side: disconnect first.
-        registry.registering(command.connectionId)?.takeIf { stillRegistered(it.status().state) }?.let {
-            throw SupportConnectionStillRegisteredException(command.connectionId)
-        }
+        // Removing would leave the registration, and what the other side holds, at the other side:
+        // disconnect first. Read from the row, not the live state: a connection that is off (Epistola
+        // support's while epistola.support.enabled is false) still holds its registration.
+        if (connections.holdsRegistration(command.connectionId)) throw SupportConnectionStillRegisteredException(command.connectionId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createUpdate("DELETE FROM support_connections WHERE id = :id").bind("id", command.connectionId).execute() > 0
         }
     }
 }
 
-/** Registered through OAuth registration, so the other side holds a registration a disconnect ends. */
-internal fun stillRegistered(state: SupportConnectionState): Boolean = state is SupportConnectionState.Pending || state is SupportConnectionState.Active || state is SupportConnectionState.Refused
+/**
+ * Connection [id] registers through OAuth and holds a registration the other side knows (pending, active
+ * or refused), which a disconnect ends. Read from its row, whether the connection is on or not.
+ */
+internal fun SupportConnections.holdsRegistration(id: UUID): Boolean {
+    if (find(id)?.auth != SupportConnectionAuth.PRIVATE_KEY_JWT) return false
+    val store = store(id)
+    return store.credentials()?.clientId != null && store.status()?.state != StoredConnectionState.DISCONNECTED
+}
 
 /** A connection still registered through OAuth is disconnected before it is removed. */
 class SupportConnectionStillRegisteredException(val connectionId: UUID) : RuntimeException("Support connection $connectionId is still registered: disconnect it before removing it")
