@@ -713,7 +713,7 @@ class DefaultSupportConnection(
             log.info("Support connection: registration {} was never activated and the support service no longer knows it (its claim code expired, or staff removed it); registering again with a new key", clientId)
             register(serviceMetadata, null, replacedExpiredAt = now)
         } else {
-            log.info("Support connection: registration {} was never activated and the support service no longer knows it (its claim code expired, or staff removed it); an installation administrator can register again under Platform → Epistola support", clientId)
+            log.info("Support connection: registration {} was never activated and the support service no longer knows it (its claim code expired, or staff removed it); an installation administrator can register again under Platform → Support connections", clientId)
             store.saveStatus(
                 StoredSupportStatus(
                     issuer = serviceMetadata.issuer.toString(),

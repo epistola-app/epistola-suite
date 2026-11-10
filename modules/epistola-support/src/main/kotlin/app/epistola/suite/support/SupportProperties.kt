@@ -26,7 +26,7 @@ import java.time.Duration
  * @property autoRegister let the scheduled check register this installation on its own, and
  *   register it again at once when a registration expires before it is activated. Off by default:
  *   nothing leaves the installation until an installation administrator presses "Register" under
- *   Platform → Epistola support.
+ *   Platform → Support connections.
  * @property checkInterval how often one node refreshes the status (and registers, with [autoRegister]).
  * @property connectTimeout connect timeout for every call to the support service.
  * @property readTimeout the deadline for one whole call to the support service, from sending the
@@ -37,9 +37,9 @@ import java.time.Duration
  *   is used until someone chooses. A name this version does not know is kept and logged, never an
  *   error, so a configuration that names a retired or a newer service still starts.
  * @property tenantDefaults what tenants share with Epistola until a tenant chooses itself, until an
- *   installation administrator saves a preset under Platform → Epistola support ([TenantDefaults]).
+ *   installation administrator saves a preset under Platform → Support connections ([TenantDefaults]).
  * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
- *   installation administrator saves them under Platform → Epistola support ([Privacy]).
+ *   installation administrator saves them under Platform → Support connections ([Privacy]).
  * @property connections further support connections, such as a partner's, that the suite signs in
  *   to with a token the other side issued ([Connection]; ADR 0053). Independent of [enabled], which
  *   is the connection to Epistola support: an installation can connect to its partner alone.
@@ -164,7 +164,7 @@ data class SupportProperties(
 
     /**
      * What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2), until an
-     * installation administrator saves them under Platform → Epistola support. Helm
+     * installation administrator saves them under Platform → Support connections. Helm
      * `support.privacy.tenantIdentity` / `support.privacy.telemetry`.
      *
      * @property tenantIdentity `confidential` (the default: every tenant as a reference) or `named`.

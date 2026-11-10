@@ -20,7 +20,7 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
 /**
- * Platform → Epistola support with a partner connection from the configuration (ADR 0053 step 3) and
+ * Platform → Support connections with a partner connection from the configuration (ADR 0053 step 3) and
  * no connection to Epistola support: an installation can connect to its partner alone.
  */
 class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {

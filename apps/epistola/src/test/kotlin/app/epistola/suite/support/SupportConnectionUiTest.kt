@@ -72,10 +72,14 @@ class SupportConnectionUiTest : BasePlaywrightTest() {
 
     private fun notice(): Locator = panel.getByTestId("support-notice")
 
+    /** The list of connections, then the page of the connection epistola.support.* configures, through its row's link. */
     private fun openPlatformPage() {
         gotoAndReady("/platform/support")
+        page.locator("[data-connection='${connection.id}']").getByTestId("support-connection-open").click()
         assertThat(panel).isVisible()
     }
+
+    private fun sideways(): Int = (page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth") as Number).toInt()
 
     private fun clickInPanel(testId: String) {
         panel.getByTestId(testId).click()
@@ -254,11 +258,13 @@ class SupportConnectionUiTest : BasePlaywrightTest() {
         connection.checkNow()
 
         page.setViewportSize(390, 844)
-        openPlatformPage()
+        gotoAndReady("/platform/support")
+        assertThat(page.getByTestId("support-connections")).isVisible()
+        assertThatValue(sideways()).`as`("/platform/support scrolls sideways").isLessThanOrEqualTo(0)
 
+        openPlatformPage()
         assertThat(panel.getByTestId("support-services")).isVisible()
-        val sideways = (page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth") as Number).toInt()
-        assertThatValue(sideways).`as`("/platform/support scrolls sideways by $sideways px").isLessThanOrEqualTo(0)
+        assertThatValue(sideways()).`as`("the connection's page scrolls sideways").isLessThanOrEqualTo(0)
     }
 
     companion object {

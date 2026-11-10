@@ -65,7 +65,7 @@ enum class TenantReconcileResult {
     /**
      * The support service refused this installation's registration (`invalid_client`), or no longer
      * knows it: nothing is the tenant's or a release's fault, so nothing is recorded, and the round
-     * stops. Platform → Epistola support shows the refusal.
+     * stops. Platform → Support connections shows the refusal.
      */
     REFUSED,
 }

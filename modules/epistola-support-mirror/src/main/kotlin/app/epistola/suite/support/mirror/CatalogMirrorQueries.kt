@@ -210,7 +210,7 @@ data class CatalogMirrorSettings(
             availability == CatalogMirrorAvailability.NOT_ALLOWED -> "Nothing syncs: this installation does not allow sharing catalogs with Epistola."
             availability == CatalogMirrorAvailability.NOT_CONNECTED -> "Syncing is possible once this installation is connected to Epistola support."
             availability == CatalogMirrorAvailability.PENDING -> "Syncing is possible once Epistola has activated this installation."
-            availability == CatalogMirrorAvailability.NOT_SELECTED -> "Syncing is possible once an installation administrator selects the catalog mirror under Platform → Epistola support."
+            availability == CatalogMirrorAvailability.NOT_SELECTED -> "Syncing is possible once an installation administrator selects the catalog mirror under Platform → Support connections."
             availability == CatalogMirrorAvailability.NOT_GRANTED -> "Syncing is possible once Epistola has granted the catalog mirror to this installation."
             availability == CatalogMirrorAvailability.PAUSED -> "Epistola paused the catalog mirror; syncing resumes once the pause ends."
             else -> "Nothing to sync: this tenant does not share catalogs, and Epistola holds nothing of it."

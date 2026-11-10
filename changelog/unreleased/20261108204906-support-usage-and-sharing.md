@@ -14,7 +14,7 @@ missed hours, and reports from one node at a time, never from one whose clock is
 
 What a tenant shares is set in one place: the tenant's Support page, with a setup wizard while nothing
 is set up and afterwards what is shared, by whom, with Change. Under **Setup for every tenant** on
-Platform → Epistola support, an installation administrator sets usage to Required (every tenant, not
+Platform → Support connections, an installation administrator sets usage to Required (every tenant, not
 shown on tenants' pages), on or off by default, or **not allowed**, which withdraws every tenant's
 choice. A default that shares asks the administrator to agree on the tenants' behalf. A service the
 installation has not selected is not offered to tenants. Disconnecting from Epistola support clears

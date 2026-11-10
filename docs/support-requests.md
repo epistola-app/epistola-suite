@@ -52,7 +52,7 @@ tenant's own Support requests page shows that tenant's requests only.
   page, whoever handles it (`UpdateSupportRequestStatus` takes only `CLOSED` and `OPEN`); for a
   request a connection handles, that change is sent there.
 - **Who handles new requests.** The inbox by default. An installation administrator chooses on
-  Platform → Epistola support (`/platform/support`, the panel **New support requests**, which
+  Platform → Support connections (`/platform/support`, the panel **New support requests**, which
   `epistola-support-requests` adds through the `SupportPlatformPanel` SPI; `SetSupportRequestHandling`, stored as `support_connections.handles_new_requests` and
   marked saved in `app_metadata` key `support.requests.handling-saved`); until then the configuration
   applies (`epistola.support.requests.handled-by`, Helm `support.requests.handledBy`: `inbox` or
@@ -76,7 +76,7 @@ requests, or the desk passed it on; see [The support desk](#the-support-desk)), 
 
 1. the support connection is on (`epistola.support.enabled=true`) and Epistola has activated the
    installation and granted it the `requests` scope, and an installation administrator selected the
-   support request service (Platform → Epistola support, or `epistola.support.services`);
+   support request service (Platform → Support connections, or `epistola.support.services`);
 2. the tenant consented, on its Support page (`/tenants/{t}/support`, `INTEGRATIONS_MANAGE`).
 
 `SupportRequestSyncGate` is the one place that checks this before any call; every driver asks it.
@@ -126,7 +126,7 @@ cannot: the connection is off, not connected, waiting to be activated, or withou
 ### Consent
 
 **Not allowed.** An installation administrator can make sharing support requests **not allowed** under
-Platform → Epistola support (`SetSharingRestriction`, ADR 0052 §5). That withdraws every tenant's
+Platform → Support connections (`SetSharingRestriction`, ADR 0052 §5). That withdraws every tenant's
 consent at once, its own choice included, and stops what waits to be sent; `GrantSupportRequestSyncConsent`
 then refuses, and the Support page says why and who decides. Support requests
 cannot be made Required: sending tenant content needs the tenant's own opt-in.
@@ -139,7 +139,7 @@ that cannot be sent yet (the connection waits to be activated, is paused or unre
 the service), the Support page says why under that choice, for each connection.
 
 **The installation's setup.** An installation administrator can set it up for every tenant under
-Platform → Epistola support (Change, then agree on the tenants' behalf when the setup shares
+Platform → Support connections (Change, then agree on the tenants' behalf when the setup shares
 anything) (`SetSupportRequestSharingDefault`, `ClearSupportRequestSharingDefault`,
 `INSTALLATION_ADMINISTRATOR`), or the deployment can (`epistola.support.tenant-defaults.requests`,
 Helm `support.tenantDefaults.requests`, applied at startup only while none is saved). Tenants that
@@ -182,7 +182,7 @@ themselves up.
 - **Giving consent again** carries on with requests Epistola already received: comments, screenshots
   and status changes made from then on are sent, and replies from then on are applied again. What was
   written or changed while sharing was off is never sent, and requests submitted then stay local.
-- **Disconnecting** the installation (Platform → Epistola support, `DisconnectSupportConnection`)
+- **Disconnecting** the installation (Platform → Support connections, `DisconnectSupportConnection`)
   forgets every tenant's choice and the installation's setup (`ForgetSupportRequestSharing`): what waits
   to be sent stops as on a withdrawal, and after registering again every tenant sets itself up
   again. The requests stay here. Epistola support keeps what it holds for a retention period after

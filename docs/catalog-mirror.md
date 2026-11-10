@@ -26,7 +26,7 @@ All of these must hold:
 
 1. The installation is connected to Epistola support (`epistola.support.enabled=true`, see
    [Support service protocol](support-protocol.md)), an installation administrator selected the
-   catalog mirror under Platform → Epistola support (or `epistola.support.services`), and Epistola
+   catalog mirror under Platform → Support connections (or `epistola.support.services`), and Epistola
    has granted it the `mirror` scope. The tenant page says which of these is missing.
 2. The installation keeps a mirror: `epistola.support.mirror.enabled` (default `true`).
 3. A tenant administrator opted the tenant in, on **Support → Catalog mirror**.
@@ -58,7 +58,7 @@ and to which version of that statement.
 **Where a tenant sets it.** The choice is a step of the setup wizard on the tenant's **Support**
 page, the one place a tenant sets what it shares ([Epistola support](support.md#what-each-tenant-shares)); this page shows the
 state, points there, and keeps the per-catalog policies and Sync now. An installation administrator
-can set it up for every tenant under Platform → Epistola support (`SetCatalogMirrorDefault`:
+can set it up for every tenant under Platform → Support connections (`SetCatalogMirrorDefault`:
 do not share, share every catalog, or only those a tenant marks; `ClearCatalogMirrorDefault`), or the
 deployment can (`epistola.support.tenant-defaults.mirror`, Helm `support.tenantDefaults.mirror`:
 `off`, `all` or `marked`, applied at startup only while none is saved). It applies to every tenant
@@ -162,7 +162,7 @@ mirror is deselected, or Epistola has revoked the scope, the suite cannot reach 
 withdrawal stays pending (the page keeps showing **Stopped**) and runs once the connection and the
 scope are back. A revocation the service refuses with `403 insufficient_scope` stops the round at
 once and counts no failure against the tenant. An installation administrator who
-**disconnects** the installation (Platform → Epistola support) ends it at once: the support service
+**disconnects** the installation (Platform → Support connections) ends it at once: the support service
 deletes everything its mirror holds of the installation, and the suite forgets every tenant's
 choice, the setup for every tenant and where each tenant's reconcile stood
 (`ForgetCatalogMirrorSharing`); each catalog's own policy stays. Deleting what the mirror holds for
