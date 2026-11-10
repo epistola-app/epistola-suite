@@ -1208,7 +1208,11 @@ import takes the same path; none names a type.
 - **A lower number than the catalog's highest release, or a next release with changes of its own**
   (`NextVersionChanges`; everything a next release without a base holds counts as its own): the
   release is recorded beside the others from its archive, and the next release stays, behind it, to
-  be merged.
+  be merged. A next release without a base that holds what the release holds is not one: it loses
+  nothing by moving (`NextVersionChanges.hasChangesOver`), and a dependency it declares unpinned
+  (chosen when released) holds whichever release of that catalog the release pins. That is a catalog
+  of an installation upgraded from 1.x receiving the release that another installation, upgraded
+  from the same content, cut.
 - **Otherwise the next release moves to it** (a fast-forward): its content is replaced by the
   archive's, resources the release no longer has are removed (a cross-catalog use of one refuses the
   import first), the release is recorded, and everything it put in place is marked ready. A resource

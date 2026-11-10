@@ -44,8 +44,10 @@ import tools.jackson.databind.ObjectMapper
  * - A catalog the tenant does not have is created as the archive names it, with [sourceUrl] as its
  *   source, holding that release; its next version is on it.
  * - For a catalog the tenant has, a release below its highest, or any while its next version has
- *   changes of its own, is recorded beside the others: the next version stays, behind it, to be
- *   merged. Otherwise the next version moves to it (a fast-forward).
+ *   changes of its own that moving to it would lose
+ *   ([app.epistola.suite.catalog.releases.NextVersionChanges.hasChangesOver]), is
+ *   recorded beside the others: the next version stays, behind it, to be merged. Otherwise the next
+ *   version moves to it (a fast-forward).
  * - The releases it pins must be present, with the fingerprints they were pinned with
  *   ([CatalogImportDependenciesMissingException]).
  *
@@ -367,10 +369,10 @@ class ImportCatalogZipHandler(
         val highest = existing?.latestReleaseVersion?.let(SemVer::parseOrNull)
         val incoming = SemVer.parseOrNull(version)
         // Recorded beside the others (contract `installCatalogRelease`): a release below the highest
-        // one, or any while the next version has changes of its own (ADR 0032), is recorded from the
-        // archive as published; the next version stays, behind it.
+        // one, or any while the next version has changes of its own (ADR 0032) that moving to it
+        // would lose, is recorded from the archive as published; the next version stays, behind it.
         val older = highest != null && incoming != null && incoming < highest
-        if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChanges(catalog))) {
+        if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChangesOver(catalog, publishedContent(manifest, bound, parsed.entries)))) {
             RecordInstalledRelease(
                 catalog,
                 published = publishedContent(manifest, bound, parsed.entries),

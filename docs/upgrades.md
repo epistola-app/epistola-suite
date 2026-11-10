@@ -172,6 +172,11 @@ that outage, and tell the teams whose applications request documents.
    `deployCatalogRelease`. Until an environment has a release deployed, a generation request for it is
    refused, and the tenant home names it. A release that renders with releases of other catalogs
    (the system catalog, a shared catalog) uses them implicitly; they need not be deployed.
+   **Several installations** (test, acceptance, production) upgrade one by one. Release on the
+   first, then import those releases on the others instead of releasing there: an imported
+   release moves a catalog's next draft to it when the draft holds the same content, so the
+   numbers and content stay the same everywhere. A catalog whose 1.x content differs on that
+   installation keeps its draft, and its page offers to merge the release.
 5. **Resubmit** what failed in the queue:
 
    ```sql
