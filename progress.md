@@ -104,6 +104,45 @@ Noticed, not touched:
 - `docs/upgrades.md` says releasing refuses a dependency with no release; the dialog releases it
   along instead.
 
+### Moving releases between installations, test → acc (10 November)
+
+Three 2.0 installations side by side: "test" (the upgraded 1.5.1 above), a fresh 2.0 "acc", and an
+"acc" upgraded from the same 1.5.1 dump; plus a 1.5.1 "acc". Releases exported from test in the UI
+(plain and with dependencies), imported in the UI and over REST, deployed in the UI and over REST.
+
+- ✅ Export works for a non-admin publisher; a fat export carries the dependency (not the system
+  catalog, which every installation has). Import is admin-only (no control, page 403).
+- ✅ Fresh acc: missing dependency refused with 409 `release-dependencies-missing`, nothing written;
+  re-importing the same release is a no-op; fingerprints identical on all three installations;
+  **28/28 letters pixel-identical to test** on both accs. Importing does not change what production
+  serves; a deployed newer release is served while `versionRange` keeps the older one.
+- ✅ 1.5.1 refuses a 2.0 archive cleanly (400 `catalog-schema-too-new`). A 1.5.1 export imports into
+  2.0 once registry + namespace are named (400 says so without them).
+- ✅ Fixed (branch `fix/catalog-delete-needs-manage`, not pushed): the catalogs list offered
+  **Delete** to publishers, who got a 422; now gated on `CATALOG_MANAGE`. `CatalogDeletePermissionHtmxTest`
+  fails before, passes after.
+
+Noticed, not touched:
+
+- **Upgraded acc never fast-forwards.** The 1.x upgrade leaves each catalog's next release without a
+  base; `NextVersionChanges` counts everything in a baseless next release as its own changes, so
+  every release imported from test is recorded beside it, and the draft page says "N changes not
+  published" and asks to merge, also when its content equals the release. Publishing there would
+  release the 1.x content again. A merge does not give it a base, so it repeats on every import.
+  Workaround verified: "Discard all changes" once per catalog (next release restarts from the latest
+  release), after which imports fast-forward. `docs/upgrades.md` says nothing about upgrading
+  several installations. Fresh acc fast-forwards fine.
+- **A 1.x export loses a stencil instance's own content on import into 2.0.** The in-place upgrade
+  (`TemplateContentV8`) inlines an instance whose content differs from its pinned stencil version;
+  the v7 → v8 archive path keeps the stencil reference, so 2.0 renders the stencil's text and the
+  instance's copy (stored, dead) is ignored, without a notice. Sittard
+  `kennisgeving-informele-klachtbehandeling`: "contact op met INVULLEN Elena Petrovic" in 1.x and
+  after the upgrade, "contact op met Elena Petrovic" after export/import.
+- A fresh 2.0 tenant's own catalogs are in `local/default`, an upgraded one's in `local/<tenant>`;
+  importing an upgraded test's catalogs into a fresh acc tenant gives two catalogs called "Default".
+- `GET /api/tenants/{unknown}/catalogs` answers 200 with an empty list instead of 404.
+- 1.5.1 REST import answers 500 when `catalogType`/`authoredMode` are missing (1.x only).
+
 ### Four findings of the 2.0 security review (10 November; branch `fix/review-authz-authn-files`)
 
 - **Registry publish checks the namespace grant.** `PublishReleaseToRegistry` refuses a catalog
