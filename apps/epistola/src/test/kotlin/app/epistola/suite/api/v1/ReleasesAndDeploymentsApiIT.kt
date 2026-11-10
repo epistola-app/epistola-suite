@@ -39,6 +39,7 @@ import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -186,6 +187,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val version = withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
             ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
@@ -331,6 +333,8 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     private fun tenantWithTwoReleases(): Pair<TenantKey, String> = withMediator {
         val tenant = TenantKey.of("rel-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenant, "Release Tenant")
+        // A catalog depending on nothing, so its releases and deployments are only its own.
+        withoutSystemCatalog(CatalogId.default(TenantId(tenant)))
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         val variant = variant(tenant)
         CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()

@@ -28,7 +28,9 @@ import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -152,8 +154,9 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             }
         }
         // Every tenant gets the system catalog, whose installed release can be deployed. Deleting it
-        // leaves the tenant with nothing deployable.
+        // leaves the tenant with nothing deployable; the default catalog pins it, so that goes first.
         withMediator {
+            withoutSystemCatalog(CatalogId.default(TenantId(tenant.id)))
             ListDeployableReleases(tenant.id).query().forEach { DeleteCatalogRelease(testCatalog(tenant.id, it.catalogKey), it.version).execute() }
         }
 

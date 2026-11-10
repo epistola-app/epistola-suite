@@ -20,7 +20,9 @@ import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.system.systemCatalog
+import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -95,6 +97,20 @@ class SystemCatalogDeclarationTest : IntegrationTestBase() {
             VisibleCatalog(testCatalog(tenant, shared), CatalogReleaseRef(testCatalog(tenant, shared), DraftRef.Released("1.0.0"))),
             VisibleCatalog(testCatalog(tenant, other), CatalogReleaseRef(testCatalog(tenant, other), DraftRef.Id(draftKey))),
         )
+    }
+
+    @Test
+    fun `a font face is read at the release a catalog declares`() {
+        val tenant = createTenant("face-at-release").id
+        val visible = withMediator {
+            CreateCatalog(tenant, letters, "Letters").execute()
+            ListVisibleCatalogs(testCatalog(tenant, letters), catalogVersion = null).query().catalogs.single { it.catalog == systemCatalog(tenant) }
+        }
+
+        val bytes = withMediator { GetFontVariantContent(systemCatalog(tenant), FontKey.of("inter"), 400, false, catalogVersion = visible.version).query() }
+
+        assertThat(visible.version?.draft).isEqualTo(DraftRef.Released(systemRelease(tenant)))
+        assertThat(bytes).isNotNull().hasSizeGreaterThan(10_000)
     }
 
     @Test

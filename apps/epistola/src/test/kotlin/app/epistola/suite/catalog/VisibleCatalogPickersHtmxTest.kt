@@ -30,6 +30,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import tools.jackson.databind.ObjectMapper
 
@@ -73,8 +76,9 @@ class VisibleCatalogPickersHtmxTest : BaseIntegrationTest() {
         UpdateCatalogDependencies(testCatalog(tenant, letters), current + added, catalogVersion = null).execute()
     }
 
-    private fun get(path: String): String {
-        val response = restTemplate.getForEntity(path, String::class.java)
+    private fun get(path: String, htmx: Boolean = false): String {
+        val headers = HttpHeaders().apply { if (htmx) set("HX-Request", "true") }
+        val response = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         return response.body!!
     }
@@ -136,7 +140,7 @@ class VisibleCatalogPickersHtmxTest : BaseIntegrationTest() {
         val tenant = setUp("default-theme-picker")
         declare(tenant, plus = true)
 
-        val page = get("/tenants/${tenant.value}/catalogs/${testCatalog(tenant, letters).address}/theme-settings")
+        val page = get("/tenants/${tenant.value}/catalogs/${testCatalog(tenant, letters).address}/theme-settings", htmx = true)
 
         assertThat(page).contains("Shared brand (shared)")
         assertThat(page).contains("(system)")

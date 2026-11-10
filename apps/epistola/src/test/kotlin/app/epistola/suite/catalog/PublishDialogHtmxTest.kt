@@ -39,6 +39,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -75,6 +76,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
                 tenant = tenant(name)
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
+                    withoutSystemCatalog(testCatalog(tenant.id, letters))
                     CreateCodeList(
                         id = codeList(tenant),
                         displayName = "Languages",
@@ -231,6 +233,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     private fun usingSharedTheme(tenant: Tenant, publishShared: Boolean = true) = withMediator {
         val shared = CatalogKey.of("shared")
         CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant.id, shared))
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand", catalogVersion = null).execute()
         if (publishShared) mediator.releaseNext(testCatalog(TenantId(tenant.id), shared))
         val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))

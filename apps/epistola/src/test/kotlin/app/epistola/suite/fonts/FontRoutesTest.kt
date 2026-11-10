@@ -5,6 +5,9 @@
 package app.epistola.suite.fonts
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.system.systemCatalog
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -66,8 +69,10 @@ class FontRoutesTest : BaseIntegrationTest() {
             assertThat(inter["css"]["family"].asString()).isEqualTo("epistola-system-inter")
             val regularFace = inter["css"]["faces"].values()
                 .first { it["weight"].asInt() == 400 && !it["italic"].asBoolean() }
+            // Served from the system release the default catalog declares, which is what it renders with.
+            val release = withMediator { GetCatalog(systemCatalog(testTenant.id)).query()!!.latestReleaseVersion }
             assertThat(regularFace["url"].asString())
-                .isEqualTo("/tenants/${testTenant.id}/catalogs/epistola/system/fonts/inter/400/false/content")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/epistola/system@$release/fonts/inter/400/false/content")
         }
     }
 

@@ -29,6 +29,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -63,7 +64,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                 tenant = tenant(name)
                 withMediator {
                     CreateCatalog(tenant.id, shared, "Shared").execute()
+                    withoutSystemCatalog(testCatalog(tenant.id, shared))
                     CreateCatalog(tenant.id, letters, "Letters").execute()
+                    withoutSystemCatalog(testCatalog(tenant.id, letters))
                     val sharedId = testCatalog(TenantId(tenant.id), shared)
                     CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", catalogVersion = null).execute()
                     CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand", catalogVersion = null).execute()
