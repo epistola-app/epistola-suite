@@ -112,7 +112,9 @@ later; deduplicating across customers is not done.
 - **Epistola's own catalogs are shared like any other** (amended 2026-11-06): the system catalog and
   catalogs bundled with the suite take a policy and go when shared or depended on. The service holds
   release content once for all installations, keyed by content hash, and asks only for what it
-  lacks, so content Epistola already has is not uploaded again.
+  lacks, so content Epistola already has is not uploaded again. They cannot be marked `NEVER`
+  (amended 2026-11-10): every new catalog depends on the system catalog, so withholding it would
+  keep nearly every release home while protecting nothing of the tenant's own.
 - **Releases only.** Drafts are not sent. Sharing a catalog's drafts can be added later as an option.
 
 ### 5. Amendment to ADR 0034 §7: custody is not publication

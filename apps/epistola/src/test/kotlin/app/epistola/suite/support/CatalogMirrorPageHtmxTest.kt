@@ -6,6 +6,7 @@ package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -112,6 +113,22 @@ class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
             .isEqualTo(CatalogMirrorSharing.SHARED)
         // Pending: syncing waits for Epistola to activate the installation, and says so.
         assertThat(marked).contains("data-testid=\"mirror-sync-withheld\"").contains("once Epistola has activated this installation")
+    }
+
+    @Test
+    fun `the system catalog offers no never share, says why, and a forced one is refused`() {
+        val tenant = tenantWithCatalog("Mirror page supplied")
+        val system = testCatalog(tenant, SYSTEM_CATALOG_KEY.value)
+        val address = "${system.namespace}/${SYSTEM_CATALOG_KEY.value}"
+        withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
+        val body = page(tenant)
+
+        assertThat(row(body, address)).doesNotContain("value=\"NEVER\"").contains("data-testid=\"mirror-catalog-supplied\"")
+        assertThat(row(body, "${testCatalog(tenant, "letters").namespace}/letters")).contains("value=\"NEVER\"").doesNotContain("mirror-catalog-supplied")
+
+        val forced = post(tenant, "policy", mapOf("namespace" to system.namespace, "key" to SYSTEM_CATALOG_KEY.value, "policy" to "NEVER"))
+
+        assertThat(forced).contains("Epistola supplies this catalog").doesNotContain("Saved the policy of $address.")
     }
 
     @Test

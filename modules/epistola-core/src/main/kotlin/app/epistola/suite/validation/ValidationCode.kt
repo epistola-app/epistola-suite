@@ -93,6 +93,12 @@ enum class ValidationCode(val wire: String) {
      */
     CATALOG_NOT_DECLARED("CATALOG_NOT_DECLARED"),
 
+    /**
+     * A catalog Epistola supplies (the system catalog, a bundled one) cannot be marked never to be
+     * shared with a catalog mirror: every release that depends on it would stay home (ADR 0051).
+     */
+    SUPPLIED_CATALOG_NOT_WITHHELD("SUPPLIED_CATALOG_NOT_WITHHELD"),
+
     // Ready marks (contract ADR 0002).
     CATALOG_RESOURCES_NOT_READY("CATALOG_RESOURCES_NOT_READY"),
 

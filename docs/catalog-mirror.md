@@ -67,7 +67,8 @@ configuration's) opt-in to the current statement (`follows_default`); turning it
 withdraws those tenants at the next round.
 
 Each catalog then has a policy: **Tenant's choice** (the default: inherit the choice above),
-**Share** or **Never share**. Received and installed catalogs take a policy like any other.
+**Share** or **Never share**. Received and installed catalogs take a policy like any other; the
+catalogs Epistola supplies cannot be marked Never share (see [What is sent](#what-is-sent)).
 
 Tightening is easy, loosening is not:
 
@@ -94,8 +95,10 @@ shared itself. The page says so on that catalog ("sent because a shared release 
 **"Never share" wins.** A release that depends, directly or further down, on a release of a catalog
 marked "Never share" is not sent at all; the page names the catalog that holds it back.
 
-**Epistola's own catalogs** (the system catalog and catalogs bundled with the suite) take a policy and
-are shared like any other. Their content is usually held already, so it is seldom uploaded.
+**Epistola's own catalogs** (the system catalog and catalogs bundled with the suite) are shared like
+any other, but cannot be marked "Never share": every new catalog depends on the system catalog, so
+withholding it would keep nearly every release home, and it holds nothing of the tenant's own. Their
+content is usually held already, so it is seldom uploaded.
 
 Never sent:
 

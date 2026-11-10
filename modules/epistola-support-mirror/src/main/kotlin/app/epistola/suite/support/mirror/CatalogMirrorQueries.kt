@@ -4,6 +4,7 @@
 
 package app.epistola.suite.support.mirror
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -129,6 +130,8 @@ data class CatalogMirrorEntry(
     val withheldBecause: List<String> = emptyList(),
     /** Its releases sent although it is not shared itself, because a shared release depends on them. */
     val sentAsDependency: Int = 0,
+    /** Epistola supplies it (the system catalog, a bundled one): it is never withheld. */
+    val suppliedByEpistola: Boolean = false,
 ) {
     val address: String get() = "${catalog.namespace}/${catalog.key.value}"
 
@@ -220,8 +223,16 @@ data class CatalogMirrorSettings(
     val policyChoices: List<CatalogMirrorPolicy>
         get() = CatalogMirrorPolicy.entries.filter { if (it == CatalogMirrorPolicy.NEVER) canWithhold else canChangeSharing }
 
-    /** The policies the viewer can pick between for [entry]: its own, and the ones they may set. */
-    fun policyOptions(entry: CatalogMirrorEntry): List<CatalogMirrorPolicy> = CatalogMirrorPolicy.entries.filter { it == entry.policy || it in policyChoices }
+    /**
+     * The policies the viewer can pick between for [entry]: its own, and the ones they may set. A
+     * catalog Epistola supplies offers no [CatalogMirrorPolicy.NEVER] ([withholdingRefusedReason]).
+     */
+    fun policyOptions(entry: CatalogMirrorEntry): List<CatalogMirrorPolicy> = CatalogMirrorPolicy.entries.filter {
+        it == entry.policy || (it in policyChoices && !(it == CatalogMirrorPolicy.NEVER && entry.suppliedByEpistola))
+    }
+
+    /** Why [entry] offers a viewer who may withhold no "Never share": Epistola supplies it. Null otherwise. */
+    fun withholdingRefusedReason(entry: CatalogMirrorEntry): String? = CatalogMirrorPolicy.SUPPLIED_NOT_WITHHELD_REASON.takeIf { canWithhold && entry.suppliedByEpistola && entry.policy != CatalogMirrorPolicy.NEVER }
 
     /** Whether the viewer can change [entry]'s policy to anything else. */
     fun canSetPolicy(entry: CatalogMirrorEntry): Boolean = policyOptions(entry).any { it != entry.policy }
@@ -274,6 +285,7 @@ class GetCatalogMirrorSettingsHandler(
         val catalogs = handle.createQuery(
             """
             SELECT c.catalog_id, c.namespace, c.catalog_key, c.registry, c.name,
+                   COALESCE(starts_with(c.source_url, :classpath), FALSE) AS supplied,
                    p.policy,
                    COALESCE(s.synced_catalogs @> jsonb_build_array(CAST(c.catalog_id AS TEXT)), FALSE) AS synced,
                    (SELECT count(*) FROM catalog_versions v
@@ -291,6 +303,7 @@ class GetCatalogMirrorSettingsHandler(
             .bind("t", query.tenantKey.value)
             .bind("limit", query.pageLimit)
             .bind("offset", query.pageOffset)
+            .bind("classpath", Catalog.CLASSPATH_SOURCE)
             .map { rs, _ ->
                 total = rs.getInt("total")
                 rs.getObject("catalog_id", UUID::class.java) to entry(rs, query.tenantKey, consent, round)
@@ -437,6 +450,7 @@ class GetCatalogMirrorSettingsHandler(
             sharing = sharing,
             releases = rs.getInt("releases"),
             lastSyncedAt = lastSyncedAt,
+            suppliedByEpistola = rs.getBoolean("supplied"),
         )
     }
 }

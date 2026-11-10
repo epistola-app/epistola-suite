@@ -48,6 +48,13 @@ enum class CatalogMirrorPolicy(val label: String) {
     INHERIT("Tenant's choice"),
     SHARE("Share"),
     NEVER("Never share"),
+    ;
+
+    companion object {
+        /** Why a catalog Epistola supplies offers no [NEVER] (`SetCatalogMirrorPolicy` refuses it). */
+        const val SUPPLIED_NOT_WITHHELD_REASON =
+            "Epistola supplies this catalog, so it cannot be marked never to be shared: the releases that depend on it would not be sent."
+    }
 }
 
 /** Whether one catalog's releases go to the mirror, and if not, why not. */

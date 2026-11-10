@@ -137,4 +137,24 @@ class CatalogMirrorRulesTest {
         assertThat(base.canSetPolicy(entry)).isFalse()
         assertThat(base.copy(canChangeSharing = true).policyOptions(entry)).containsExactly(CatalogMirrorPolicy.INHERIT, CatalogMirrorPolicy.SHARE, CatalogMirrorPolicy.NEVER)
     }
+
+    @Test
+    fun `a catalog Epistola supplies offers no never share, and says why`() {
+        val system = CatalogMirrorEntry(
+            catalog = CatalogId("epistola", CatalogKey.of("system"), TenantId(TenantKey.of("acme"))),
+            registry = "local",
+            name = "System",
+            policy = CatalogMirrorPolicy.INHERIT,
+            sharing = CatalogMirrorSharing.SHARED,
+            releases = 1,
+            lastSyncedAt = null,
+            suppliedByEpistola = true,
+        )
+        val settings = CatalogMirrorSettings(TenantKey.of("acme"), CatalogMirrorAvailability.AVAILABLE, null, null, listOf(system), 1, 0, 50, canChangeSharing = true, canWithhold = true, connectionId = java.util.UUID.fromString("01900000-0000-7000-8000-000000000001"))
+
+        assertThat(settings.policyOptions(system)).containsExactly(CatalogMirrorPolicy.INHERIT, CatalogMirrorPolicy.SHARE)
+        assertThat(settings.withholdingRefusedReason(system)).contains("Epistola supplies this catalog")
+        assertThat(settings.withholdingRefusedReason(system.copy(suppliedByEpistola = false))).isNull()
+        assertThat(settings.copy(canWithhold = false).withholdingRefusedReason(system)).`as`("nothing withheld from a viewer who may not withhold").isNull()
+    }
 }
