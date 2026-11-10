@@ -96,13 +96,14 @@ All Epistola groups live under a single root group:
 - `content-author` — create/edit templates, themes, stencils, reference data (attributes, code lists, fonts)
 - `document-generator` — generate documents, and read the documents generated
 - `document-reader` — read generated documents without generating
-- `content-publisher` — release catalogs, deploy releases to environments, edit quality profiles
+- `content-publisher` — release catalogs, deploy releases to environments, publish to Exchange, edit quality profiles
 - `tenant-administrator` — tenant settings, integrations, API keys, support requests, catalog management, diagnostics and audit (does **not** include publish)
 
 **Platform roles**:
 
 - `tenant-manager` — create and delete tenants, and grant them namespaces
-- `installation-administrator` — installation state: cluster maintenance, the site banner, data sharing
+- `installation-administrator` — installation state: cluster maintenance, the site banner, what is shared with Epistola, support connections and who handles new support requests
+- `support-desk` — the support desk: every tenant's support requests, their replies and internal notes; nothing in any tenant
 - `platform-observer` — diagnostics and the audit trail in every tenant, read-only
 
 ### Permissions

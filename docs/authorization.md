@@ -92,12 +92,12 @@ Authorization is enforced in **one place**: the mediator. Every `Command`/`Query
 one of the `Authorized` markers in `security/Authorized.kt`, and `SpringMediator.enforceAuthorization()`
 checks it before the handler runs:
 
-| Marker                   | Meaning                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| `RequiresPermission`     | Requires `permission` within `tenantKey` (checks tenant access + permission). |
-| `RequiresPlatformRole`   | Requires a `PlatformRole` (e.g. `TENANT_MANAGER`).                            |
-| `RequiresAuthentication` | Any authenticated user (tenant access checked if also `TenantScoped`).        |
-| `SystemInternal`         | Bypasses checks — login flows, background jobs, hub sync.                     |
+| Marker                   | Meaning                                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `RequiresPermission`     | Requires `permission` within `tenantKey` (checks tenant access + permission).                                           |
+| `RequiresPlatformRole`   | Requires a `PlatformRole` (e.g. `TENANT_MANAGER`).                                                                      |
+| `RequiresAuthentication` | Any authenticated user (tenant access checked if also `TenantScoped`).                                                  |
+| `SystemInternal`         | Bypasses checks — login flows, background jobs, and what a page renders around its data (feature toggles, editability). |
 
 A message that declares **nothing** is rejected at runtime (`must implement Authorized`). The
 build-time `AuthorizationCoverageTest` additionally asserts every concrete command/query implements
@@ -126,6 +126,12 @@ REST controllers, MCP tools, and most UI handlers are thin and flow through the 
 inherit this single check. A few UI handlers add an explicit `requirePermission(...)` when their
 backing query is only `RequiresAuthentication` and the page needs tighter gating. UI **visibility**
 (nav/footer via `UiRequestContext.hasPermission`) is defense-in-depth, not the enforcement boundary.
+
+A page's data never comes from a `SystemInternal` read: such reads pass for anyone signed in, so the
+data behind them is gated by nothing but the menu. They are for what a page renders around its data —
+feature toggles, whether a catalog is editable, a nav badge. A page that must show data no message
+of the right permission reads gets that message, or its handler checks the permission first
+(unenforced).
 
 ## What a denied API caller receives
 

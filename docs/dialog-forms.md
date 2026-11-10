@@ -243,11 +243,11 @@ only those:
 > cover the JSON one, `FontDialogHandlerHtmxTest` / `ImageDialogHandlerHtmxTest`
 > the dialog one.
 
-> **Auth deviation (fonts/images).** Unlike the E9 convention above, the
-> font/image handlers currently gate **nothing** (there is no `FONT_EDIT` /
-> `ASSET_EDIT` permission), so their triggers are not `th:if`-hidden and the GET/
-> POST are not `requirePermission`-guarded. This mirrors the pre-conversion
-> behavior; revisit if a per-surface permission is introduced.
+> **Auth (fonts/images).** The font and image handlers call no
+> `requirePermission` of their own: their commands carry the permission and the
+> mediator enforces it — `REFERENCE_EDIT` for fonts, `TEMPLATE_EDIT` for images.
+> The triggers are hidden on the same permissions (`fonts/list.html`,
+> `images/list.html`) and on whether the catalog can be changed here.
 
 ## Verification boundary
 
