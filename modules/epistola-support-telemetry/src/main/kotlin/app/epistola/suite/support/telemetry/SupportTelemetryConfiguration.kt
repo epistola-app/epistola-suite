@@ -8,9 +8,6 @@ import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.support.SupportProperties
-import app.epistola.suite.support.connection.SupportConnection
-import app.epistola.suite.support.privacy.SupportPrivacy
-import app.epistola.suite.support.privacy.TenantReferences
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -21,13 +18,12 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
 
 /**
- * The telemetry leg to the support service, when the support connection and
- * `epistola.support.telemetry.enabled` are on. Whether anything is sent is decided per export by
- * the `telemetry` scope Epistola grants. The logs leg is [SupportTelemetryLogs].
+ * The telemetry leg to the support connections, while `epistola.support.telemetry.enabled` is on.
+ * Whether anything is sent, and where, is decided per export by each connection's `telemetry` grant
+ * (ADR 0053 §1). The logs leg is [SupportTelemetryLogs].
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(TelemetryProperties::class)
-@ConditionalOnBooleanProperty("epistola.support.enabled")
 @ConditionalOnBooleanProperty(name = ["epistola.support.telemetry.enabled"], matchIfMissing = true)
 class SupportTelemetryConfiguration {
     /**
@@ -55,19 +51,12 @@ class SupportTelemetryConfiguration {
     fun supportTelemetryMeterRegistry(
         properties: TelemetryProperties,
         supportProperties: SupportProperties,
-        connection: SupportConnection,
+        targets: SupportTelemetryTargets,
         resource: TelemetryResource,
-        privacy: ObjectProvider<SupportPrivacy>,
-        references: ObjectProvider<TenantReferences>,
     ): SupportTelemetryMeterRegistry = SupportTelemetryMeterRegistry.create(
         properties,
-        SupportOtlpTarget(connection),
+        targets,
         resource,
         supportProperties.connectTimeout,
-        rewrite = { data ->
-            // Without the settings, the strictest apply.
-            val settings = privacy.ifAvailable?.current() ?: SupportPrivacy.STRICTEST
-            MetricsPrivacy.apply(data, TelemetryPrivacy.of(settings, references.ifAvailable), settings.confidential)
-        },
     )
 }

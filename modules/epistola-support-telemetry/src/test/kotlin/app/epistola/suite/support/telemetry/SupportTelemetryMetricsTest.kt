@@ -186,7 +186,7 @@ class SupportTelemetryMetricsTest {
         val sent = mutableListOf<OtlpMetricsSender.Request>()
         val target = SupportOtlpTarget(connection)
         val sender = ScopeGatedOtlpMetricsSender(target) { sent += it }
-        val config = SupportOtlpConfig(step, target, testResource())
+        val config = SupportOtlpConfig(step, testResource())
         connection.grant()
         connection.otlp = null
 
@@ -209,14 +209,40 @@ class SupportTelemetryMetricsTest {
     @Test
     fun `the OTLP settings come from the suite, not from OTEL environment defaults`() {
         connection.grant()
-        val config = SupportOtlpConfig(step, SupportOtlpTarget(connection), testResource())
+        val config = SupportOtlpConfig(step, testResource())
 
-        assertThat(config.url()).isEqualTo("${sink.otlpEndpoint}/v1/metrics")
-        assertThat(config.headers()).containsExactlyEntriesOf(mapOf("Authorization" to "Bearer tok-1"))
+        // The sender addresses each connection itself; the registry's own address is never sent to.
+        assertThat(config.url()).isEqualTo(SupportOtlpConfig.PLACEHOLDER_URL)
+        assertThat(config.headers()).isEmpty()
         assertThat(config.resourceAttributes()).containsEntry("service.name", "epistola-suite")
         assertThat(config.aggregationTemporality()).isEqualTo(io.micrometer.registry.otlp.AggregationTemporality.DELTA)
         assertThat(config.compressionMode()).isEqualTo(io.micrometer.registry.otlp.CompressionMode.GZIP)
         assertThat(config.step()).isEqualTo(step)
+    }
+
+    @Test
+    fun `a publish goes to every connection that grants telemetry, rewritten for each, and one failing holds back no other`() {
+        val sent = mutableListOf<OtlpMetricsSender.Request>()
+        val epistola = FakeSupportConnection(otlp = java.net.URI("https://epistola.example/otlp"), token = "e")
+        val partner = FakeSupportConnection(otlp = java.net.URI("https://partner.example/otlp"), token = "p", id = java.util.UUID.fromString("01900000-0000-7000-8000-0000000000aa"))
+        val pending = FakeSupportConnection(otlp = java.net.URI("https://pending.example/otlp"), token = "x", id = java.util.UUID.fromString("01900000-0000-7000-8000-0000000000bb"))
+        epistola.grant()
+        partner.grant()
+        val targets = listOf(
+            SupportOtlpTarget(epistola, metricsRewrite = { byteArrayOf(1) }),
+            SupportOtlpTarget(partner, metricsRewrite = { byteArrayOf(2) }),
+            SupportOtlpTarget(pending),
+        )
+        val sender = ScopeGatedOtlpMetricsSender({ targets }) { request ->
+            if (request.address.orEmpty().startsWith("https://epistola.example")) throw java.io.IOException("unreachable")
+            sent += request
+        }
+
+        sender.send(OtlpMetricsSender.Request.builder(byteArrayOf(0)).address(SupportOtlpConfig.PLACEHOLDER_URL).build())
+
+        assertThat(sent.map { it.address }).containsExactly("https://partner.example/otlp/v1/metrics")
+        assertThat(sent.single().metricsData).containsExactly(2)
+        assertThat(sent.single().headers).containsEntry("Authorization", "Bearer p")
     }
 
     private companion object {

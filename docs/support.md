@@ -149,8 +149,12 @@ The first report is each tenant's starting point; billing starts with the growth
 
 ## Telemetry
 
-With `telemetry` selected and granted, log lines at `epistola.support.telemetry.log-level` (INFO) and
-above, and the metrics, go to the support service over OTLP, shaped by the privacy settings above.
+Telemetry is a service like any other (ADR 0053): log lines at `epistola.support.telemetry.log-level`
+(INFO) and above, and the metrics, go over OTLP to every support connection that has `telemetry`
+selected and granted, each through its own queue and shaped by that connection's privacy settings, so
+one that is slow or withdraws holds back no other. Epistola support's OTLP endpoint comes from its
+metadata; another connection's is `{endpoint}/otlp`. While no connection is selected for telemetry the
+installation aggregates nothing for it.
 Every resource names the installation; the support service refuses a report that names another one
 than its token's. Metrics never carry the `template` tag (a template id is the tenant's content); a
 tenant tag, when not stripped, names a confidential tenant by its reference. Logs and metrics can be

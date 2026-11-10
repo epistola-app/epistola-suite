@@ -7,6 +7,7 @@ package app.epistola.suite.support.telemetry
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.testing.FakeSupportRequest
@@ -25,6 +26,7 @@ class FakeSupportConnection(
     @Volatile var otlp: URI? = null,
     @Volatile var token: String? = "tok-1",
     @Volatile var scopes: Set<SupportScope> = emptySet(),
+    override val id: java.util.UUID = SupportConnections.DISCOVERED_ID,
 ) : SupportConnection {
     fun grant() {
         scopes = setOf(SupportScope.TELEMETRY)
