@@ -4,7 +4,15 @@
 
 package app.epistola.suite.support.connection
 
+import app.epistola.suite.installation.InstallationProperties
+import app.epistola.suite.installation.InstallationService
+import app.epistola.suite.observability.NodeIdentity
+import app.epistola.suite.productdomain.ProductDiscovery
 import app.epistola.suite.support.SupportProperties
+import org.springframework.beans.factory.ObjectProvider
+import org.springframework.boot.info.BuildProperties
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import java.net.URI
 
 /**
@@ -41,4 +49,32 @@ data class RegisteringConnectionSettings(
          */
         fun forEndpoint(endpoint: URI) = RegisteringConnectionSettings(enabled = true, issuer = endpoint, configuredServices = emptyList(), autoRegister = false)
     }
+}
+
+/** Epistola support's connection, configured by `epistola.support.*`: the [DefaultSupportConnection] bean every module injects. */
+@Configuration(proxyBeanMethods = false)
+class DefaultSupportConnectionConfiguration {
+    @Bean
+    fun defaultSupportConnection(
+        properties: SupportProperties,
+        store: SupportConnectionStore,
+        client: SupportServiceClient,
+        productDiscovery: ProductDiscovery,
+        installations: InstallationService,
+        installation: InstallationProperties,
+        nodeIdentity: NodeIdentity,
+        buildProperties: ObjectProvider<BuildProperties>,
+        supportHttp: SupportHttp,
+    ): DefaultSupportConnection = DefaultSupportConnection(
+        properties,
+        RegisteringConnectionSettings.of(properties),
+        store,
+        client,
+        productDiscovery,
+        installations,
+        installation,
+        nodeIdentity,
+        buildProperties.ifAvailable,
+        supportHttp,
+    )
 }

@@ -500,6 +500,7 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
     /** A second connection over the same rows: another node of the installation. */
     private fun anotherNode(store: SupportConnectionStore = SupportConnectionStore(jdbi, cipher, objectMapper, SupportConnections.DISCOVERED_ID)) = DefaultSupportConnection(
         properties,
+        RegisteringConnectionSettings.of(properties),
         store,
         serviceClient,
         productDiscovery,

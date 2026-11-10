@@ -13,12 +13,10 @@ import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.time.EpistolaClock
 import com.nimbusds.jose.jwk.ECKey
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpRequestInterceptor
 import org.springframework.http.client.ClientHttpResponse
-import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.client.RestClient
@@ -67,8 +65,7 @@ import kotlin.concurrent.withLock
  * - **Saving a selection** drops this node's token, so nothing is sent with a token that does not
  *   carry what was selected; the next call, or the token refresh, asks for one with the new selection.
  */
-@Component
-class DefaultSupportConnection internal constructor(
+class DefaultSupportConnection(
     private val properties: SupportProperties,
     /** What this connection is configured with: Epistola support's from `epistola.support.*`, another's from its row. */
     internal val settings: RegisteringConnectionSettings,
@@ -81,19 +78,6 @@ class DefaultSupportConnection internal constructor(
     private val buildProperties: BuildProperties?,
     private val supportHttp: SupportHttp,
 ) : SupportConnection {
-    /** Epistola support's connection, configured by `epistola.support.*`: the bean every module injects. */
-    @Autowired
-    constructor(
-        properties: SupportProperties,
-        store: SupportConnectionStore,
-        client: SupportServiceClient,
-        productDiscovery: ProductDiscovery,
-        installations: InstallationService,
-        installation: InstallationProperties,
-        nodeIdentity: NodeIdentity,
-        buildProperties: BuildProperties?,
-        supportHttp: SupportHttp,
-    ) : this(properties, RegisteringConnectionSettings.of(properties), store, client, productDiscovery, installations, installation, nodeIdentity, buildProperties, supportHttp)
 
     private val log = LoggerFactory.getLogger(javaClass)
 
