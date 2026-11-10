@@ -256,7 +256,7 @@ class ApplyConfiguredCatalogMirrorDefault(
     fun apply() {
         privacy.read() ?: return
         if (properties.enabled) {
-            choiceOf(properties.tenantDefaults)?.let { choice -> connections.configuredId()?.let { applyFor(it, choice, APPLIED_KEY) } }
+            choiceOf(properties.tenantDefaults)?.let { choice -> connections.configuredId()?.let { applyFor(it, choice, "$APPLIED_KEY.$it") } }
         }
         properties.connections.forEach { entry ->
             val choice = choiceOf(entry.tenantDefaults) ?: return@forEach
@@ -304,7 +304,7 @@ class ApplyConfiguredCatalogMirrorDefault(
     }
 
     companion object {
-        /** The configured preset last applied (`app_metadata`), so it is applied once per value. */
+        /** The configured preset last applied per connection (`app_metadata`, `<key>.<connection id>`), so it is applied once per value and connection. */
         const val APPLIED_KEY = "support.mirror.configured-default-applied"
     }
 }

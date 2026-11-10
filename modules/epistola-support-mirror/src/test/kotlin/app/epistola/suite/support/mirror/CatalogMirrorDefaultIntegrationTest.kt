@@ -35,7 +35,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     fun resetDefault() {
         withMediator { ClearCatalogMirrorDefault(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         // Which configured preset was applied is bookkeeping no command writes or clears.
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", ApplyConfiguredCatalogMirrorDefault.APPLIED_KEY).execute() }
+        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key LIKE :key").bind("key", "${ApplyConfiguredCatalogMirrorDefault.APPLIED_KEY}%").execute() }
     }
 
     @Autowired
@@ -154,6 +154,21 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     private lateinit var objectMapper: tools.jackson.databind.ObjectMapper
 
     private val namedConfiguration = SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(mirror = "all"), privacy = SupportProperties.Privacy(tenantIdentity = "named"))
+
+    @Test
+    fun `Epistola support's connection, removed and stored again, gets its configured preset again`() {
+        val first = withMediator { EnsureConfiguredSupportConnection().execute() }
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, privacy, supportConnections).apply()
+        assertThat(withMediator { GetCatalogMirrorDefault(connectionId = first).query() }.choice).isEqualTo(CatalogMirrorDefaultChoice.ALL)
+
+        withMediator { app.epistola.suite.support.connection.RemoveSupportConnection(first).execute() }
+        val again = withMediator { EnsureConfiguredSupportConnection().execute() }
+        // The next start, with the same configuration.
+        ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, privacy, supportConnections).apply()
+
+        assertThat(again).isNotEqualTo(first)
+        assertThat(withMediator { GetCatalogMirrorDefault(connectionId = again).query() }.choice).`as`("the new connection's preset").isEqualTo(CatalogMirrorDefaultChoice.ALL)
+    }
 
     @Test
     fun `a configured preset an administrator cleared is not applied again at the next start`() {
