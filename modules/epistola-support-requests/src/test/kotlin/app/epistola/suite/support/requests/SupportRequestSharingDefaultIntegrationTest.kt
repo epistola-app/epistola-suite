@@ -46,7 +46,7 @@ class SupportRequestSharingDefaultIntegrationTest : IntegrationTestBase() {
     fun resetDefault() {
         withMediator { ClearSupportRequestSharingDefault(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         // Which configured preset was applied is bookkeeping no command writes or clears.
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", ApplyConfiguredSupportRequestSharingDefault.APPLIED_KEY).execute() }
+        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key LIKE :key").bind("key", "${ApplyConfiguredSupportRequestSharingDefault.APPLIED_KEY}%").execute() }
     }
 
     @Autowired

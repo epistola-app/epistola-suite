@@ -13,6 +13,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.Isolated
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -23,12 +24,16 @@ import org.springframework.test.context.DynamicPropertySource
  * registers at its own endpoint when an administrator asks, is checked and gets its own tokens, and
  * leaves Epistola support's connection as it is.
  */
+@Isolated("Removes and stores again the connection epistola.support.* configures")
 class RegisteringSupportConnectionIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var registry: SupportConnectionRegistry
 
     @Autowired
     private lateinit var checks: TokenSupportConnectionCheckScheduler
+
+    @Autowired
+    private lateinit var connections: SupportConnections
 
     @Test
     fun `a connection added to register with the installation's key registers at its endpoint, and is checked and used`() {
@@ -63,6 +68,21 @@ class RegisteringSupportConnectionIntegrationTest : IntegrationTestBase() {
         withMediator { DisconnectSupportConnection(connectionId = id).execute() }
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Disconnected::class.java)
         assertThat(withMediator { RemoveSupportConnection(id).execute() }).`as`("removed once disconnected").isTrue()
+    }
+
+    @Test
+    fun `a token connection at Epistola support's endpoint is not taken for the connection epistola support configures`() {
+        val configured = withMediator { EnsureConfiguredSupportConnection().execute() }
+        withMediator { RemoveSupportConnection(configured).execute() }
+        val token = withMediator { AddSupportConnection("Token at the same endpoint", epistola.baseUrl, token = "t", services = emptyList()).execute() }
+        try {
+            assertThat(connections.configuredId()).`as`("only a connection that registers is Epistola support's").isNull()
+            assertThat(connections.configuredStore().exists()).`as`("so its registration is never written into the token connection").isFalse()
+            assertThat(registry.find(token)).isInstanceOf(TokenSupportConnection::class.java)
+        } finally {
+            withMediator { RemoveSupportConnection(token).execute() }
+            withMediator { EnsureConfiguredSupportConnection().execute() }
+        }
     }
 
     companion object {

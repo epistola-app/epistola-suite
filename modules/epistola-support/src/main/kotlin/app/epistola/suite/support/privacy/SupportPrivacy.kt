@@ -115,10 +115,11 @@ class SupportPrivacy(
 
     /**
      * [connectionId]'s settings, without touching the database: what an administrator saved for it,
-     * else its configuration entry's, else the installation's ([current]), which a connection read
-     * nowhere yet follows too, the strictest before the first read.
+     * else its configuration entry's, else the configured default ([current]). A connection this node
+     * has not read yet (added on another node since its last read) gets the strictest until the next
+     * read: what it may learn is never more than what it was given.
      */
-    fun forConnection(connectionId: UUID): SupportPrivacySettings = perConnection[connectionId] ?: current().copy(followsInstallation = true)
+    fun forConnection(connectionId: UUID): SupportPrivacySettings = perConnection[connectionId] ?: STRICTEST
 
     /** The configured default (`epistola.support.privacy.*`) every connection without settings of its own follows. */
     fun current(): SupportPrivacySettings = cached ?: STRICTEST

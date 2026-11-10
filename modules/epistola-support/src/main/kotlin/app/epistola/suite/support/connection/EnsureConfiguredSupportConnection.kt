@@ -8,6 +8,7 @@ import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.support.privacy.SupportPrivacy
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -28,11 +29,13 @@ class EnsureConfiguredSupportConnection :
 class EnsureConfiguredSupportConnectionHandler(
     private val jdbi: Jdbi,
     private val connections: SupportConnections,
+    private val privacy: SupportPrivacy,
 ) : CommandHandler<EnsureConfiguredSupportConnection, UUID> {
     override fun handle(command: EnsureConfiguredSupportConnection): UUID {
         val endpoint = connections.configuredEndpoint().toString()
-        return jdbi.withHandle<UUID, Exception> { handle ->
-            handle.createUpdate(
+        var stored = false
+        return jdbi.withHandle<UUID?, Exception> { handle ->
+            stored = handle.createUpdate(
                 """
                 INSERT INTO support_connections (id, name, endpoint, auth, from_configuration)
                 VALUES (:id, :name, :endpoint, 'PRIVATE_KEY_JWT', TRUE)
@@ -42,9 +45,13 @@ class EnsureConfiguredSupportConnectionHandler(
                 .bind("id", UUIDv7.generate())
                 .bind("name", NAME)
                 .bind("endpoint", endpoint)
-                .execute()
-            handle.createQuery("SELECT id FROM support_connections WHERE endpoint = :endpoint").bind("endpoint", endpoint).mapTo(UUID::class.java).one()
-        }
+                .execute() > 0
+            handle.createQuery("SELECT id FROM support_connections WHERE endpoint = :endpoint AND auth = 'PRIVATE_KEY_JWT'")
+                .bind("endpoint", endpoint).mapTo(UUID::class.java).findOne().orElse(null)
+        }?.also {
+            // This node knows the new connection's privacy at once; the others at their next read.
+            if (stored) privacy.refresh()
+        } ?: throw SupportEndpointTakenException(endpoint)
     }
 
     companion object {
@@ -52,3 +59,6 @@ class EnsureConfiguredSupportConnectionHandler(
         const val NAME = "Epistola support"
     }
 }
+
+/** The configured endpoint is taken by a connection that signs in otherwise (a token): Epistola support's cannot be stored there. */
+class SupportEndpointTakenException(val endpoint: String) : RuntimeException("A support connection at $endpoint signs in with a token, so the connection epistola.support.* configures is not stored there")
