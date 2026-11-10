@@ -101,7 +101,7 @@
                     by its attributes instead of its key.
                 </p>
                 <p class="form-hint" th:if="${mayCreateApiKey}">
-                    The key needs the Generator role: <a th:href="@{/tenants/{t}/api-keys(t=${tenantId})}">create one under API keys</a>.
+                    The key needs the Generator role: <a th:href="@{/tenants/{t}/applications(t=${tenantId})}">create one under Applications</a>.
                 </p>
                 <p class="form-hint" th:unless="${mayCreateApiKey}">
                     The key needs the Generator role; a tenant administrator creates it under API keys.

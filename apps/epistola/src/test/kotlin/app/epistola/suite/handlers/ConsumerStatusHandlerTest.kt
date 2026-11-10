@@ -5,9 +5,9 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.createApiKey
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -28,9 +28,9 @@ class ConsumerStatusHandlerTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    /** Seeds an API key (the consumer identity) via the command path; returns its id for linking nodes. */
+    /** Seeds an API key via the command path; returns the consumer id it collects under, its application's (ADR 0054). */
     private fun seedApiKey(tenant: Tenant, name: String): UUID = withMediator {
-        CreateApiKey(tenantId = tenant.id, name = name).execute().apiKey.id.value
+        createApiKey(tenant.id, name).apiKey.application!!.id.value
     }
 
     private fun seedNode(tenant: Tenant, consumerId: UUID, nodeId: String, partitions: List<Int>) {

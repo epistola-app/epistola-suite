@@ -6,10 +6,13 @@ package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
+import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.createApiKey
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -23,8 +26,9 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     /**
-     * Seeds an API key (the consumer identity) through the command path and returns its id for
-     * linking nodes/cursors. A disabled key is created then revoked — exercising the real lifecycle
+     * Seeds an API key through the command path and returns the consumer id it collects under —
+     * its application's, which a key without one gets of its own (ADR 0054) — for linking
+     * nodes/cursors. A disabled key is created then revoked — exercising the real lifecycle
      * instead of writing api_keys rows directly, so this fixture tracks schema/validation changes
      * (e.g. it didn't need touching when the roles column was added).
      */
@@ -33,9 +37,9 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         name: String,
         enabled: Boolean = true,
     ): UUID = withMediator {
-        val created = CreateApiKey(tenantId = tenantKey, name = name).execute()
+        val created = createApiKey(tenantKey, name)
         if (!enabled) RevokeApiKey(tenantId = tenantKey, id = created.apiKey.id).execute()
-        created.apiKey.id.value
+        created.apiKey.application!!.id.value
     }
 
     private fun seedNode(
@@ -199,6 +203,35 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         val report = withMediator { ListConsumerStatus(tenant.id).query() }
 
         assertThat(report.consumers.single().enabled).isFalse
+    }
+
+    @Test
+    fun `the keys of one application are one consumer, enabled while one of them is`() {
+        val tenant = createTenant("Rotation Tenant")
+        val application = withMediator {
+            CreateApplication(tenant.id, "Case system", null, setOf(TenantRole.DOCUMENT_GENERATOR)).execute()
+        }
+        val (old, new) = withMediator {
+            val old = CreateApiKey(tenantId = tenant.id, name = "Old", applicationId = application.id).execute()
+            val new = CreateApiKey(tenantId = tenant.id, name = "New", applicationId = application.id).execute()
+            old to new
+        }
+        seedNode(tenant.id, application.id.value, "node-a", listOf(0), now())
+
+        val rotating = withMediator { ListConsumerStatus(tenant.id).query() }.consumers.single()
+        assertThat(rotating.consumerId).isEqualTo(application.id.value.toString())
+        assertThat(rotating.label).isEqualTo("Case system")
+        assertThat(rotating.keyPrefix).isIn(old.apiKey.keyPrefix, new.apiKey.keyPrefix)
+        assertThat(rotating.nodes.map { it.nodeId }).containsExactly("node-a")
+        assertThat(rotating.enabled).isTrue
+
+        withMediator {
+            RevokeApiKey(tenantId = tenant.id, id = old.apiKey.id).execute()
+            RevokeApiKey(tenantId = tenant.id, id = new.apiKey.id).execute()
+        }
+        val revoked = withMediator { ListConsumerStatus(tenant.id).query() }.consumers.single()
+        assertThat(revoked.enabled).isFalse
+        assertThat(revoked.keyPrefix).isNull()
     }
 
     @Test

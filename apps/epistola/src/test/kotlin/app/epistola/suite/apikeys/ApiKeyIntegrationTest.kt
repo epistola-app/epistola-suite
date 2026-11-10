@@ -5,17 +5,19 @@
 package app.epistola.suite.apikeys
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -38,7 +40,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         }
 
         whenever {
-            created = CreateApiKey(tenantId = tenant.id, name = "CI/CD Pipeline").execute()
+            created = createApiKey(tenant.id, "CI/CD Pipeline")
         }
 
         then {
@@ -67,7 +69,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         }
 
         whenever {
-            created = CreateApiKey(tenantId = tenant.id, name = "To Revoke").execute()
+            created = createApiKey(tenant.id, "To Revoke")
             // revokedBy left null here because no users-table row exists for the test
             // principal in this lightweight fixture; the per-user audit is covered by
             // ApiKeyHandlerTest which seeds the user.
@@ -93,8 +95,8 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         }
 
         whenever {
-            CreateApiKey(tenantId = tenant.id, name = "Key 1").execute()
-            CreateApiKey(tenantId = tenant.id, name = "Key 2").execute()
+            createApiKey(tenant.id, "Key 1")
+            createApiKey(tenant.id, "Key 2")
             keys = ListApiKeys(tenantId = tenant.id).query()
         }
 
@@ -114,11 +116,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         }
 
         whenever {
-            created = CreateApiKey(
-                tenantId = tenant.id,
-                name = "Generate-only integration",
-                roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR),
-            ).execute()
+            created = createApiKey(tenant.id, "Generate-only integration", roles = setOf(TenantRole.CONTENT_VIEWER, TenantRole.DOCUMENT_GENERATOR))
         }
 
         then {
@@ -158,7 +156,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
         assertThatThrownBy {
             runAs(administrator) {
-                CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+                createApiKey(tenant.id, "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER))
             }
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("CONTENT_PUBLISHER")
@@ -172,7 +170,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         val administrator = member(tenant.id, setOf(TenantRole.TENANT_ADMINISTRATOR, TenantRole.CONTENT_PUBLISHER))
 
         val created = runAs(administrator) {
-            CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+            createApiKey(tenant.id, "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER))
         }
 
         assertThat(created.apiKey.roles).containsExactly(TenantRole.CONTENT_PUBLISHER)
@@ -188,29 +186,10 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         )
 
         val created = runAs(administrator) {
-            CreateApiKey(tenantId = tenant.id, name = "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER)).execute()
+            createApiKey(tenant.id, "Publisher key", roles = setOf(TenantRole.CONTENT_PUBLISHER))
         }
 
         assertThat(created.apiKey.roles).containsExactly(TenantRole.CONTENT_PUBLISHER)
-    }
-
-    @Test
-    fun `create API key without explicit roles defaults to the full tenant role set`() = fixture {
-        lateinit var tenant: Tenant
-        lateinit var created: ApiKeyWithSecret
-
-        given {
-            tenant = tenant("Default Scope")
-        }
-
-        whenever {
-            created = CreateApiKey(tenantId = tenant.id, name = "Legacy-style key").execute()
-        }
-
-        then {
-            val reloaded = LookupApiKeyByHash(apiKeyService.hashKey(created.plaintextKey)).query()
-            assertThat(reloaded!!.roles).containsExactlyInAnyOrderElementsOf(TenantRole.entries)
-        }
     }
 
     @Test
@@ -226,6 +205,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
             lastUsedAt = null,
             expiresAt = null,
             createdBy = null,
+            application = PrincipalApplication(ApplicationKey.generate(), seesAllDocuments = true),
         )
         assertThat(activeKey.isExpired()).isFalse()
         assertThat(activeKey.isUsable()).isTrue()
@@ -241,5 +221,8 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         val futureExpiryKey = activeKey.copy(expiresAt = now.plusSeconds(86400))
         assertThat(futureExpiryKey.isExpired()).isFalse()
         assertThat(futureExpiryKey.isUsable()).isTrue()
+
+        val withoutApplication = activeKey.copy(application = null)
+        assertThat(withoutApplication.isUsable()).`as`("a key without an application has no roles to act with").isFalse()
     }
 }

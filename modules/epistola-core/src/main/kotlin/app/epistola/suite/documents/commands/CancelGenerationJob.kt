@@ -6,6 +6,7 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
@@ -42,6 +43,9 @@ class CancelGenerationJobHandler(
     override fun handle(command: CancelGenerationJob): Boolean {
         logger.info("Cancelling generation job {} for tenant {}", command.requestId, command.tenantId)
 
+        // Another application's job is not found, as another tenant's is (ADR 0054). The check
+        // below guards the update: both run in this transaction.
+        val visibility = DocumentVisibility.current()
         return jdbi.inTransaction<Boolean, Exception> { handle ->
             // 1. Verify request exists and belongs to tenant, and can be cancelled
             val status = handle.createQuery(
@@ -49,10 +53,12 @@ class CancelGenerationJobHandler(
                 SELECT status
                 FROM document_generation_requests
                 WHERE id = :requestId AND tenant_key = :tenantId
+                ${visibility.predicate("application_id")}
                 """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
+                .let(visibility::bindTo)
                 .mapTo(String::class.java)
                 .findOne()
                 .orElse(null)
@@ -79,10 +85,12 @@ class CancelGenerationJobHandler(
                 WHERE id = :requestId
                   AND tenant_key = :tenantId
                   AND status IN ('PENDING', 'IN_PROGRESS')
+                  ${visibility.predicate("application_id")}
                 """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
+                .let(visibility::bindTo)
                 .bind("status", RequestStatus.CANCELLED.name)
                 .execute()
 

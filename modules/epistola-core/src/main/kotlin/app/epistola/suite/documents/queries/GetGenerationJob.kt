@@ -6,6 +6,7 @@ package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -47,6 +48,7 @@ class GetGenerationJobHandler(
 ) : QueryHandler<GetGenerationJob, GenerationJobResult?> {
 
     override fun handle(query: GetGenerationJob): GenerationJobResult? = jdbi.withHandle<GenerationJobResult?, Exception> { handle ->
+        val visibility = DocumentVisibility.current()
         // Get request with all data (in flattened structure, request IS the item)
         val request = handle.createQuery(
             """
@@ -56,10 +58,12 @@ class GetGenerationJobHandler(
             FROM document_generation_requests
             WHERE id = :requestId
               AND tenant_key = :tenantId
+              ${visibility.predicate("application_id")}
             """,
         )
             .bind("requestId", query.requestId)
             .bind("tenantId", query.tenantId)
+            .let(visibility::bindTo)
             .mapTo<DocumentGenerationRequest>()
             .findOne()
             .orElse(null) ?: return@withHandle null

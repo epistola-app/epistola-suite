@@ -150,11 +150,11 @@ Rendered by the editor bundle (`modules/editor`), not by a Thymeleaf template.
 
 ### API Keys
 
-| `data-testid`    | Attached to                                                      | Covers                           |
-| ---------------- | ---------------------------------------------------------------- | -------------------------------- |
-| `api-key-row`    | `<tr>` in `api-keys/list.html` (paired with `data-api-key-name`) | API key list rows                |
-| `api-key-delete` | Delete button on `api-keys/list.html`                            | Revoking an API key              |
-| `api-key-name`   | `<dd>` for the key name on `api-keys/created.html`               | Verifying the created key's name |
+| `data-testid`    | Attached to                                                            | Covers                           |
+| ---------------- | ---------------------------------------------------------------------- | -------------------------------- |
+| `api-key-row`    | `<tr>` in `applications/detail.html` (paired with `data-api-key-name`) | API key list rows                |
+| `api-key-delete` | Revoke button on `applications/detail.html`                            | Revoking an API key              |
+| `api-key-name`   | `<dd>` for the key name on `applications/key-created.html`             | Verifying the created key's name |
 
 ---
 

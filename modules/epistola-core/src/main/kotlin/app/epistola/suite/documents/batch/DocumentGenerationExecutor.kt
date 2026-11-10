@@ -395,7 +395,7 @@ class DocumentGenerationExecutor(
                 INSERT INTO documents (
                     id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version, draft_id, draft_label, catalog_version_id,
                     template_resource_id, filename, correlation_id, content_type, size_bytes,
-                    created_at, created_by
+                    created_at, created_by, application_id
                 )
                 VALUES (
                     :id, :tenantId, :catalogKey,
@@ -405,7 +405,9 @@ class DocumentGenerationExecutor(
                     :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId),
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,
-                    :createdAt, :createdBy
+                    :createdAt, :createdBy,
+                    -- The application that submitted the request owns the document (ADR 0054).
+                    (SELECT application_id FROM document_generation_requests WHERE id = :requestId)
                 )
                 """,
             )

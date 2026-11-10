@@ -63,7 +63,7 @@ class EpistolaSystemApi : SystemApi {
         val partitions = if (tenantKey != null && nodeId != null) {
             val assignment = TouchConsumerNode(
                 tenantId = tenantKey,
-                consumerId = principal.userId.value.toString(),
+                consumerId = principal.collectConsumerId(),
                 nodeId = nodeId,
             ).execute()
             WirePartitionAssignment(

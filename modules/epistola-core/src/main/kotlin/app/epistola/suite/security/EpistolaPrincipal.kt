@@ -4,6 +4,7 @@
 
 package app.epistola.suite.security
 
+import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import java.io.Serializable
@@ -36,11 +37,29 @@ data class EpistolaPrincipal(
     val globalRoles: Set<TenantRole> = emptySet(),
     val platformRoles: Set<PlatformRole> = emptySet(),
     val currentTenantId: TenantKey?, // Can be set per-request via tenant selector
+    /**
+     * The application this principal acts for (ADR 0054); null for a person, a bearer token or the
+     * demo shared secret. Added without bumping [serialVersionUID]: a new nullable field is a
+     * compatible change, and sessions stored before it read back with null.
+     */
+    val application: PrincipalApplication? = null,
 ) : Serializable {
 
     companion object {
         private const val serialVersionUID: Long = 5L
     }
+
+    /**
+     * The application whose documents alone this principal may see, or null when it sees every
+     * document of the tenant: people, callers without an application, and applications marked so.
+     */
+    fun documentsRestrictedTo(): PrincipalApplication? = application?.takeUnless { it.seesAllDocuments }
+
+    /**
+     * Whose collect cursors this principal reads and advances: its application, so a rotated key
+     * carries on where the old one stopped (ADR 0054). A caller without one keeps its own id.
+     */
+    fun collectConsumerId(): String = (application?.id?.value ?: userId.value).toString()
 
     /**
      * Human-readable label for signed-in UI chrome.
@@ -106,4 +125,21 @@ data class EpistolaPrincipal(
      * Get the effective tenant ID (current or first membership if current is null).
      */
     fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.keys.firstOrNull()
+}
+
+/**
+ * The application an [EpistolaPrincipal] acts for, as its credential resolved it.
+ *
+ * @property ownsUnattributedDocuments Also owns the requests, documents and results that record no
+ *   application: those from before applications existed, and those a caller without one (a bearer
+ *   token) requests (ADR 0054). At most one application per tenant.
+ */
+data class PrincipalApplication(
+    val id: ApplicationKey,
+    val seesAllDocuments: Boolean,
+    val ownsUnattributedDocuments: Boolean = false,
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
 }

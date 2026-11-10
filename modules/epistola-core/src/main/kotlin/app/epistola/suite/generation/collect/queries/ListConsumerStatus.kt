@@ -17,9 +17,10 @@ import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
 
 /**
- * Snapshot of every API-key consumer for a tenant + the nodes currently
- * polling under each key + a coarse summary of how far each consumer has
- * acknowledged across its partitions.
+ * Snapshot of every consumer for a tenant — each application, whose keys share
+ * its cursors, and any key without one — + the nodes currently polling under
+ * each + a coarse summary of how far each consumer has acknowledged across its
+ * partitions.
  *
  * Powers the read-only `/tenants/{tenantId}/consumers` operations page.
  * One request per page render (and one per HTMX auto-refresh tick) — the
@@ -53,7 +54,8 @@ data class ConsumerStatusTotals(
 data class ConsumerStatus(
     val consumerId: String,
     val label: String,
-    val keyPrefix: String,
+    /** The newest active key's prefix; null for an application without one. */
+    val keyPrefix: String?,
     val authMethod: String,
     val enabled: Boolean,
     val lastUsedAt: OffsetDateTime?,
@@ -163,21 +165,39 @@ class ListConsumerStatusHandler(
 
             val rows = handle.createQuery(
                 """
-                SELECT ak.id::text          AS consumer_id,
-                       ak.name              AS consumer_label,
-                       ak.key_prefix        AS key_prefix,
-                       ak.enabled           AS enabled,
-                       ak.last_used_at      AS last_used_at,
+                WITH consumers AS (
+                    -- A consumer is an application: its keys share its cursors (ADR 0054). The
+                    -- prefix shown is its newest active key's; it is enabled while one is usable.
+                    SELECT a.id::text AS consumer_id,
+                           a.name     AS consumer_label,
+                           (SELECT k.key_prefix FROM api_keys k
+                             WHERE k.application_id = a.id AND k.revoked_at IS NULL
+                             ORDER BY k.created_at DESC LIMIT 1) AS key_prefix,
+                           EXISTS (SELECT 1 FROM api_keys k
+                                    WHERE k.application_id = a.id AND k.enabled AND k.revoked_at IS NULL) AS enabled,
+                           (SELECT MAX(k.last_used_at) FROM api_keys k WHERE k.application_id = a.id) AS last_used_at
+                    FROM applications a
+                    WHERE a.tenant_key = :tenantKey
+                    UNION ALL
+                    -- A key without an application still collects under its own id.
+                    SELECT k.id::text, k.name, k.key_prefix, k.enabled, k.last_used_at
+                    FROM api_keys k
+                    WHERE k.tenant_key = :tenantKey AND k.application_id IS NULL
+                )
+                SELECT c.consumer_id,
+                       c.consumer_label,
+                       c.key_prefix,
+                       c.enabled,
+                       c.last_used_at,
                        cna.node_id          AS node_id,
                        cna.partitions::text AS partitions_json,
                        cna.last_seen_at     AS last_seen_at
-                FROM api_keys ak
+                FROM consumers c
                 LEFT JOIN consumer_node_assignments cna
-                       ON cna.tenant_key = ak.tenant_key
-                      AND cna.consumer_id = ak.id::text
+                       ON cna.tenant_key = :tenantKey
+                      AND cna.consumer_id = c.consumer_id
                       AND cna.last_seen_at > :visibleSince
-                WHERE ak.tenant_key = :tenantKey
-                ORDER BY ak.name, cna.last_seen_at DESC NULLS LAST
+                ORDER BY c.consumer_label, cna.last_seen_at DESC NULLS LAST
                 """,
             )
                 .bind("tenantKey", query.tenantId)
@@ -289,7 +309,7 @@ class ListConsumerStatusHandler(
     private data class ConsumerNodeRow(
         val consumerId: String,
         val label: String,
-        val keyPrefix: String,
+        val keyPrefix: String?,
         val enabled: Boolean,
         val lastUsedAt: OffsetDateTime?,
         val nodeId: String?,

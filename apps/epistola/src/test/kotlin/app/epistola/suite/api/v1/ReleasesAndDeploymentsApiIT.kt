@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
@@ -34,6 +33,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
@@ -337,7 +337,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
         mediator.publishAndRelease(variant)
         mediator.releaseNext(variant.templateId.catalogId)
-        tenant to CreateApiKey(tenantId = tenant, name = "rel-it").execute().plaintextKey
+        tenant to createApiKey(tenant, "rel-it").plaintextKey
     }
 
     private fun variant(tenant: TenantKey) = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant))))

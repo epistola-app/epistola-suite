@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    The create-application dialog, rendered off ApplicationHandler:
+      - `dialog` — swapped into #dialog-mount by the trigger, or embedded in the list page for
+        direct navigation (openDialog=true).
+      - `application-form` — re-rendered in place on field errors (dialogFieldErrors).
+    On success the browser navigates to the new application's page, where its first key is made.
+
+    Model: `tenantId`, `roleOptions`; on error `formData`/`errors`/`selectedRoles`/`seesAllDocuments`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-application-dialog',
+            title='New application',
+            closeUrl=@{/tenants/{tenantId}/applications(tenantId=${tenantId})},
+            content=~{::application-form})}"></div>
+    </th:block>
+
+    <form th:fragment="application-form" id="create-application-form"
+          method="post" th:action="@{/tenants/{tenantId}/applications(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/applications(tenantId=${tenantId})}"
+          hx-target="#create-application-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-application-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="name">Name</label>
+                <input type="text" id="name" name="name" class="ep-input"
+                       required maxlength="100"
+                       placeholder="e.g. Case system"
+                       th:value="${formData?.name}"
+                       autofocus>
+                <span class="form-hint">The system that calls this tenant. Max 100 characters.</span>
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('description')} ? 'error' : ''">
+                <label class="ep-label" for="description">Description (optional)</label>
+                <input type="text" id="description" name="description" class="ep-input"
+                       maxlength="500"
+                       placeholder="e.g. Sends letters for permit applications"
+                       th:value="${formData?.description}">
+                <span class="form-error" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('roles')} ? 'error' : ''">
+                <label class="ep-label">Roles</label>
+                <span class="form-hint">Every API key of this application acts with exactly these tenant roles. Grant the least it needs; you can change them later.</span>
+                <div class="ep-stack application-role-options" data-testid="application-roles">
+                    <label class="role-option" th:each="opt : ${roleOptions}">
+                        <input type="checkbox" class="ep-checkbox" name="roles" th:value="${opt.value}"
+                               th:checked="${selectedRoles != null ? selectedRoles.contains(opt.value) : opt.defaultChecked}">
+                        <span class="role-option-text">
+                            <strong th:text="${opt.label}">Viewer</strong>
+                            <span class="role-option-desc" th:text="${opt.description}">description</span>
+                        </span>
+                    </label>
+                </div>
+                <span class="form-error" th:if="${errors?.containsKey('roles')}" th:text="${errors.roles}"></span>
+            </div>
+            <div class="form-group">
+                <label class="role-option">
+                    <input type="checkbox" class="ep-checkbox" name="seesAllDocuments" value="true"
+                           data-testid="application-sees-all"
+                           th:checked="${seesAllDocuments == true}">
+                    <span class="role-option-text">
+                        <strong>Sees every document of the tenant</strong>
+                        <span class="role-option-desc">Leave off for an integration: it then receives only the documents it requested itself.</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-application-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create application</button>
+        </div>
+
+        <style>
+            #create-application-form .role-option {
+                display: flex;
+                align-items: flex-start;
+                gap: var(--ep-space-2);
+                cursor: pointer;
+            }
+            #create-application-form .ep-checkbox {
+                flex: 0 0 1rem;
+                margin-top: 0.15rem;
+            }
+            #create-application-form .role-option-text {
+                display: flex;
+                flex-direction: column;
+                font-size: var(--ep-text-sm);
+            }
+            #create-application-form .role-option-desc {
+                color: var(--ep-muted-foreground);
+                font-size: var(--ep-text-xs);
+            }
+        </style>
+    </form>
+</body>
+</html>

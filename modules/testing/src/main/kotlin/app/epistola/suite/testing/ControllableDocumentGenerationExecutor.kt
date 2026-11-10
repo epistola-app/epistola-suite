@@ -121,7 +121,7 @@ class ControllableDocumentGenerationExecutor(
                 INSERT INTO documents (
                     id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version,
                     filename, correlation_id, content_type, size_bytes,
-                    created_at, created_by
+                    created_at, created_by, application_id
                 )
                 VALUES (
                     :id, :tenantId, :catalogKey,
@@ -129,7 +129,8 @@ class ControllableDocumentGenerationExecutor(
                     (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
                     :templateId, :variantId, :versionId, :releaseVersion,
                     :filename, :correlationId, :contentType, :sizeBytes,
-                    NOW(), :createdBy
+                    NOW(), :createdBy,
+                    (SELECT application_id FROM document_generation_requests WHERE id = :requestId)
                 )
                 """,
             )
@@ -145,6 +146,7 @@ class ControllableDocumentGenerationExecutor(
                 .bind("contentType", contentType)
                 .bind("sizeBytes", sizeBytes)
                 .bind("createdBy", currentUserIdOrNull()?.value)
+                .bind("requestId", request.id)
                 .execute()
         }
 

@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
@@ -29,6 +28,7 @@ import app.epistola.suite.testing.SharedFakeExchange
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -195,6 +195,6 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("xreg-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenantKey, "Exchange Registry Tenant")
-        tenantKey to CreateApiKey(tenantId = tenantKey, name = "exchange-registry-it").execute().plaintextKey
+        tenantKey to createApiKey(tenantKey, "exchange-registry-it").plaintextKey
     }
 }

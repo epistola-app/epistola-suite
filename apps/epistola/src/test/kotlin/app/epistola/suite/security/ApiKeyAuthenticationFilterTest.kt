@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.queries.GetUserByExternalId
@@ -130,7 +131,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Revoked")
-                val created = CreateApiKey(tenantId = tenant.id, name = "Will Revoke").execute()
+                val created = createApiKey(tenant.id, "Will Revoke")
                 plaintextKey = created.plaintextKey
                 RevokeApiKey(tenantId = tenant.id, id = created.apiKey.id).execute()
             }
@@ -154,11 +155,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Expired")
-                val created = CreateApiKey(
-                    tenantId = tenant.id,
-                    name = "Already Expired",
-                    expiresAt = EpistolaClock.instant().minusSeconds(3600),
-                ).execute()
+                val created = createApiKey(tenant.id, "Already Expired", expiresAt = EpistolaClock.instant().minusSeconds(3600))
                 plaintextKey = created.plaintextKey
             }
 
@@ -184,7 +181,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Valid")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Valid Key").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Valid Key").plaintextKey
             }
 
             whenever {
@@ -208,7 +205,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Lowercase Authorization")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Lowercase").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Lowercase").plaintextKey
             }
 
             whenever {
@@ -229,7 +226,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Legacy")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Legacy").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Legacy").plaintextKey
             }
 
             whenever {
@@ -251,7 +248,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Tenant Membership")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Membership").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Membership").plaintextKey
             }
 
             whenever {
@@ -274,7 +271,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter NPA")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "My Integration").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "My Integration").plaintextKey
             }
 
             whenever {
@@ -299,7 +296,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Audit Identity")
-                val created = CreateApiKey(tenantId = tenant.id, name = "Audit Integration").execute()
+                val created = createApiKey(tenant.id, "Audit Integration")
                 plaintextKey = created.plaintextKey
                 apiKeyId = created.apiKey.id
             }
@@ -331,11 +328,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Future Expiry")
-                plaintextKey = CreateApiKey(
-                    tenantId = tenant.id,
-                    name = "Future",
-                    expiresAt = EpistolaClock.instant().plusSeconds(86400),
-                ).execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Future", expiresAt = EpistolaClock.instant().plusSeconds(86400)).plaintextKey
             }
 
             whenever {
@@ -365,7 +358,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
             given {
                 tenant = tenant("Filter Disabled Globally")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Disabled Globally").execute().plaintextKey
+                plaintextKey = createApiKey(tenant.id, "Disabled Globally").plaintextKey
             }
 
             whenever {

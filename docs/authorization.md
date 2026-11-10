@@ -170,19 +170,23 @@ Before 2.0 the suite sent three types of its own (`permission-denied`, `access-d
 
 ## API keys are least-privilege
 
-`api/security/ApiKeyAuthenticationFilter.kt` builds the request principal from the **roles stored
-on the key** (`api_keys.roles`), not the full role set. A key is created via the UI
-(`/tenants/{tenant}/api-keys`) where the operator picks the scope — `CONTENT_VIEWER` is pre-checked
-so the narrowest scope is the default. So a read-only or generate-only integration key is expressible,
-and MCP sessions inherit the key's scope automatically.
+`api/security/ApiKeyAuthenticationFilter.kt` builds the request principal from the **roles of the
+key's application** (`applications.roles`; a key has no roles of its own), not the full
+role set, and carries the application so queries can limit the documents it sees
+([ADR 0054](adr/0054-applications-credentials-and-grants.md)). An application is created in the UI
+(`/tenants/{tenant}/applications`) where the operator picks its roles — `CONTENT_VIEWER` is
+pre-checked so the narrowest scope is the default. So a read-only or generate-only integration is
+expressible, and MCP sessions inherit the key's scope automatically.
 
 Administration (`TENANT_ADMINISTRATOR`) is offered but never
 pre-selected — keys stay least-privilege unless deliberately escalated. The `CreateApiKey` command
-requires a non-empty scope; its Kotlin default of "all roles" exists only as a convenience for
-tests/fixtures (and the deterministic demo key), never for keys created through the UI.
+requires the application the key belongs to and takes no roles; tests that want a key with certain
+roles create an application with them first (the `createApiKey` fixture in `modules/testing`).
 
-A key's scope never exceeds its creator's roles in that tenant: `CreateApiKey` refuses any role the
-creator does not hold (tenant and global roles together), and the create dialog offers only those.
+A key's scope never exceeds its creator's roles in that tenant: `CreateApplication` and
+`CreateApiKey` refuse any role the creator does not hold (tenant and global roles together), the
+create dialog offers only those, and an application's page withholds "New API key" from an
+administrator who lacks one of its roles.
 Without it, the administrator who may create keys could mint one that publishes, defeating the split
 between administering a tenant and publishing its content.
 

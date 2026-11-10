@@ -6,6 +6,7 @@ package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -42,8 +43,11 @@ class CountDocumentsHandler(
             sql.append(" AND correlation_id = :correlationId")
         }
         sql.append(query.catalog.sql)
+        val visibility = DocumentVisibility.current()
+        sql.append(" ").append(visibility.predicate("application_id"))
         val q = handle.createQuery(sql.toString()).bind("tenantId", query.tenantId)
         query.catalog.bindTo(q)
+        visibility.bindTo(q)
         if (query.templateId != null) {
             q.bind("templateId", query.templateId)
         }

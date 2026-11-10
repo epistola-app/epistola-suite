@@ -6,7 +6,6 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.api.v1.CollectSmokeSecurityConfig
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -40,6 +39,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -256,7 +256,7 @@ class McpToolPermissionIT : IntegrationTestBase() {
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenantKey)), "Test").execute()
         MarkCatalogReady(catalog, catalogVersion = null).execute()
         ReleaseCatalogDraft(catalog = catalog, version = "1.0.0", catalogVersion = null).execute()
-        CreateApiKey(tenantId = tenantKey, name = "mcp-permission-it", roles = roles).execute().plaintextKey
+        createApiKey(tenantKey, "mcp-permission-it", roles = roles).plaintextKey
     }
 
     /**

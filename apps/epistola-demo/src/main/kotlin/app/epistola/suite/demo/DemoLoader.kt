@@ -267,18 +267,32 @@ class DemoLoader(
         // On conflict we re-assert the full scope so a pre-existing demo row (e.g. backfilled to the
         // migration's CONTENT_VIEWER default) self-heals back to all roles.
         val rolesLiteral = TenantRole.entries.joinToString(",") { "'${it.name}'" }
+        val id = java.util.UUID.fromString(DEMO_API_KEY_ID)
+        // The key belongs to an application of its own (ADR 0054), sharing its id as the upgrade
+        // does for existing keys, and seeing every document like the shared secret does.
         jdbcClient.sql(
             """
-            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, roles)
-            VALUES (?, ?, ?, ?, ?, true, NOW(), ARRAY[$rolesLiteral]::varchar[])
-            ON CONFLICT (id) DO UPDATE SET roles = ARRAY[$rolesLiteral]::varchar[]
+            INSERT INTO applications (id, tenant_key, name, description, roles, sees_all_documents, created_at)
+            VALUES (?, ?, 'Demo application', 'The well-known demo API key, for local development and MCP.', ARRAY[$rolesLiteral]::varchar[], true, NOW())
+            ON CONFLICT (id) DO UPDATE SET roles = EXCLUDED.roles
             """,
         )
-            .param(java.util.UUID.fromString(DEMO_API_KEY_ID))
+            .param(id)
+            .param(tenantId.key.value)
+            .update()
+        jdbcClient.sql(
+            """
+            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at, application_id)
+            VALUES (?, ?, ?, ?, ?, true, NOW(), ?)
+            ON CONFLICT (id) DO UPDATE SET application_id = EXCLUDED.application_id
+            """,
+        )
+            .param(id)
             .param(tenantId.key.value)
             .param("Demo API Key")
             .param(keyHash)
             .param(keyPrefix)
+            .param(id)
             .update()
         log.info("Created demo API key: {}", DEMO_API_KEY)
     }

@@ -226,7 +226,7 @@ class EpistolaDocumentGenerationApi(
      * orchestration around the commands/queries from
      * `app.epistola.suite.generation.collect`:
      *
-     *   1. Resolve `consumerId` from the authenticated principal (api-key id)
+     *   1. Resolve `consumerId` from the authenticated principal (its application)
      *      and `nodeId` from the `X-EP-Node-Id` request header.
      *   2. [TouchConsumerNode] — bumps `last_seen_at` and computes the
      *      caller's current partition assignment (consistent hash ring).
@@ -252,7 +252,7 @@ class EpistolaDocumentGenerationApi(
             // api_keys.tenantKey. The path tenant must match.
             throw TenantAccessDeniedException(tenant, principal.email)
         }
-        val consumerId = principal.userId.value.toString()
+        val consumerId = principal.collectConsumerId()
         val nodeId = currentRequest()?.getHeader(HEADER_NODE_ID)?.takeIf { it.isNotBlank() }
             ?: throw ValidationException(field = HEADER_NODE_ID, message = "Header $HEADER_NODE_ID is required")
 

@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
@@ -182,7 +183,8 @@ class GenerateDocumentBatchHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
-                    environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
+                    environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status,
+                    application_id
                 )
                 VALUES (:id, :batchId, :tenantId, :catalogKey,
                         (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
@@ -191,10 +193,13 @@ class GenerateDocumentBatchHandler(
                         :releaseVersion, :draftId, :draftLabel,
                         COALESCE(:draftId, (SELECT r.version_key FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                          WHERE r.state = 'released' AND c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
-                        :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                        :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status,
+                        :applicationId)
                 """,
             )
 
+            // From the credential, never the request body (ADR 0054).
+            val applicationId = DocumentVisibility.submittingApplication()?.value
             for ((index, item) in command.items.withIndex()) {
                 // Routing-key precedence: item-level wins, then batch-level default,
                 // then null (emitter falls back to request id at terminal state).
@@ -213,6 +218,7 @@ class GenerateDocumentBatchHandler(
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)
+                    .bind("applicationId", applicationId)
                     .bind("routingKey", effectiveRoutingKey)
                     .bind("status", RequestStatus.PENDING.name)
                     .add()

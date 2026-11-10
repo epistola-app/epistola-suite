@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-    The one-time key reveal. Rendered two ways off ApiKeyHandler.create success:
+    The one-time key reveal. Rendered two ways off ApplicationHandler.createKey success:
       - `content` — non-HTMX full page (direct/boosted POST): page-header + card
         with the shared key guts and a "Done" link back to the list.
       - `created-reveal` — the HTMX reveal (dialogReveal), swapped in place of the
@@ -12,20 +12,20 @@
         header + body + footer.
       - `created-guts` — the shared inner content both reuse.
 
-    Model both need: `tenantId` (Done link), `plaintextKey`, `apiKey`.
+    Model both need: `tenantId` and `app` (Done link), `plaintextKey`, `apiKey`.
     -->
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='API key created',
-            backLinkHref=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
-            backLinkLabel='API keys'
+            backLinkHref=@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})},
+            backLinkLabel=${app.name}
         )}"></div>
 
         <div class="card create-form-card">
             <div class="card-content">
                 <div th:replace="~{::created-guts}"></div>
                 <div class="form-actions" style="margin-top: var(--ep-space-4);">
-                    <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
+                    <a th:href="@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})}" class="ep-btn ep-btn-primary">Done</a>
                 </div>
             </div>
         </div>
@@ -36,7 +36,7 @@
             <div th:replace="~{::created-guts}"></div>
         </div>
         <div class="ep-dialog-footer">
-            <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
+            <a th:href="@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})}" class="ep-btn ep-btn-primary">Done</a>
         </div>
     </th:block>
 

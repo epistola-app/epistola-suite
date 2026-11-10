@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -36,7 +37,9 @@ class CountGenerationJobsHandler(
         if (query.status != null) {
             sql.append(" AND status = :status")
         }
-        val q = handle.createQuery(sql.toString()).bind("tenantId", query.tenantId)
+        val visibility = DocumentVisibility.current()
+        sql.append(" ").append(visibility.predicate("application_id"))
+        val q = handle.createQuery(sql.toString()).bind("tenantId", query.tenantId).let(visibility::bindTo)
         if (query.status != null) {
             q.bind("status", query.status.name)
         }

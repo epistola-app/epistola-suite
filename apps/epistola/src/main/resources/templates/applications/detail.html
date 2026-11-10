@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${app.name},
+            backLinkHref=@{/tenants/{tenantId}/applications(tenantId=${tenantId})},
+            backLinkLabel='Applications',
+            pageDescription=${app.description != null ? app.description : 'A system that calls this tenant through the REST API.'},
+            actions=${auth.has('CREDENTIALS_MANAGE')} ? ~{::application-actions} : null
+        )}"></div>
+
+        <div class="ep-panel detail-section" data-testid="application-roles">
+            <div class="detail-section-header">
+                <h2>Roles</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">Every key of this application acts with these roles. Change them with Edit.</p>
+                <span class="application-roles">
+                    <span class="badge badge-outline"
+                          th:each="role : ${app.roles}"
+                          th:text="${roleLabels.containsKey(role.name()) ? roleLabels.get(role.name()) : role.name()}">Viewer</span>
+                </span>
+            </div>
+        </div>
+
+        <!--/* Which documents the application sees (ADR 0054). Narrowing is how an application the upgrade made from a key is isolated. */-->
+        <div class="ep-panel detail-section" data-testid="application-documents">
+            <div class="detail-section-body ep-row" style="justify-content: space-between; gap: var(--ep-space-4);">
+                <p style="margin: 0;" th:if="${app.seesAllDocuments}">
+                    <span class="badge badge-outline">Every document</span>
+                    Sees every document of the tenant, whichever system requested it: collected results, jobs and downloads.
+                </p>
+                <p style="margin: 0;" th:unless="${app.seesAllDocuments}">
+                    <span class="badge badge-outline">Only its own</span>
+                    Sees only the documents it requested itself; another application's are not found.
+                </p>
+                <form th:if="${auth.has('CREDENTIALS_MANAGE')}" method="post"
+                      th:action="@{/tenants/{t}/applications/{a}/documents(t=${tenantId},a=${app.id})}">
+                    <input type="hidden" name="seesAllDocuments" th:value="${!app.seesAllDocuments}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="application-documents-toggle"
+                            th:text="${app.seesAllDocuments} ? 'Only its own documents' : 'Every document'">Only its own documents</button>
+                </form>
+            </div>
+            <!--/* Unattributed documents record no application: requested before applications existed, or by a
+                 caller without one. One application of the tenant may own them; it matters only once narrowed. */-->
+            <div class="detail-section-body ep-row" th:unless="${app.seesAllDocuments}"
+                 style="justify-content: space-between; gap: var(--ep-space-4); border-top: 1px solid var(--ep-border-color);"
+                 data-testid="application-unattributed">
+                <p style="margin: 0;" th:if="${app.ownsUnattributedDocuments}">
+                    <span class="badge badge-outline">Owns unattributed documents</span>
+                    Also sees the documents that record no application: those requested before applications existed,
+                    and those requested with a bearer token.
+                </p>
+                <p style="margin: 0;" th:unless="${app.ownsUnattributedDocuments}">
+                    Documents that record no application — requested before applications existed, or with a bearer
+                    token — are not shown to it.
+                    <th:block th:if="${unattributedOwner != null}">
+                        They belong to <a th:href="@{/tenants/{t}/applications/{a}(t=${tenantId},a=${unattributedOwner.id})}"
+                                          th:text="${unattributedOwner.name}">Case system</a>; giving them to this application takes them from it.
+                    </th:block>
+                </p>
+                <form th:if="${auth.has('CREDENTIALS_MANAGE')}" method="post"
+                      th:action="@{/tenants/{t}/applications/{a}/unattributed-documents(t=${tenantId},a=${app.id})}">
+                    <input type="hidden" name="owns" th:value="${!app.ownsUnattributedDocuments}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="application-unattributed-toggle"
+                            th:text="${app.ownsUnattributedDocuments} ? 'Give them up' : 'Give it unattributed documents'">Give it unattributed documents</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Keys: one OOB-swappable region, so a create refreshes it behind the still-open reveal and a
+             revoke swaps it in place. The model comes from the handler (keyListModel). -->
+        <div id="key-list" th:fragment="key-list" class="ep-panel detail-section"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
+            <div class="detail-section-header ep-row" style="justify-content: space-between;">
+                <h2>API keys</h2>
+                <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                        th:if="${auth.has('CREDENTIALS_MANAGE') and canCreateKey}"
+                        th:hx-get="@{/tenants/{t}/applications/{a}/keys/new(t=${tenantId},a=${app.id})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                        data-testid="api-key-create-open">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                    New API key
+                </button>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;" th:if="${auth.has('CREDENTIALS_MANAGE') and !canCreateKey}" data-testid="api-key-create-withheld">
+                    You cannot create a key here: this application acts with roles you do not hold in this tenant.
+                    A tenant administrator who holds them can.
+                </p>
+                <p class="text-muted" th:if="${#lists.isEmpty(apiKeys)}" data-testid="api-key-empty">
+                    No active keys. Create one to let this system authenticate. To rotate a key, create the new one before revoking the old.
+                </p>
+                <div th:if="${!#lists.isEmpty(apiKeys)}"
+                     class="ep-table-scroll" role="region" aria-label="API keys table" tabindex="0"
+                     data-testid="fixed-table-scroll">
+                <table class="ep-table ep-table-fixed">
+                    <colgroup>
+                        <col style="width: 18%" /><!-- Name -->
+                        <col style="width: 14%" /><!-- Prefix -->
+                        <col style="width: 14%" /><!-- Created by -->
+                        <col style="width: 16%" /><!-- Created -->
+                        <col style="width: 16%" /><!-- Last used -->
+                        <col style="width: 10%" /><!-- Expires -->
+                        <col style="width: 12%" /><!-- Actions -->
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Prefix</th>
+                            <th>Created by</th>
+                            <th>Created</th>
+                            <th>Last used</th>
+                            <th>Expires</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="api-key-rows">
+                        <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
+                            <td th:text="${apiKey.name}" th:title="${apiKey.name}" style="font-weight: 500;"></td>
+                            <td th:title="${apiKey.keyPrefix}"><code th:text="${apiKey.keyPrefix} + '…'"></code></td>
+                            <td th:title="${apiKey.createdByDisplayName}">
+                                <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
+                                <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
+                            </td>
+                            <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${apiKey.createdAt}"></td>
+                            <td>
+                                <span th:if="${apiKey.lastUsedAt != null}"
+                                      th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${apiKey.lastUsedAt}"></span>
+                                <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
+                            </td>
+                            <td>
+                                <span th:if="${apiKey.expiresAt != null}" th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
+                                <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
+                            </td>
+                            <td class="actions">
+                                <button th:if="${auth.has('CREDENTIALS_MANAGE')}"
+                                        type="button"
+                                        class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
+                                        data-testid="api-key-delete"
+                                        data-confirm-title="Revoke API key"
+                                        th:attr="data-confirm-message='Revoke API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{t}/applications/{a}/keys/{k}/delete(t=${tenantId},a=${app.id},k=${apiKey.id})}"
+                                        data-confirm-target="#key-list" data-confirm-swap="outerHTML">Revoke</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <!--/* Deleting is possible only without active keys: say so, rather than offering a button that refuses. */-->
+        <div class="ep-panel detail-section" th:if="${auth.has('CREDENTIALS_MANAGE')}" data-testid="application-delete">
+            <div class="detail-section-body ep-row" style="justify-content: space-between; gap: var(--ep-space-4);">
+                <p style="margin: 0;" class="text-muted" th:if="${app.activeKeyCount > 0}">
+                    Revoke this application's active keys before deleting it.
+                </p>
+                <p style="margin: 0;" class="text-muted" th:if="${app.activeKeyCount == 0}">
+                    Deleting the application keeps its documents; only systems that see every document can still reach them.
+                </p>
+                <form th:if="${app.activeKeyCount == 0}" id="delete-application-form" method="post"
+                      th:action="@{/tenants/{t}/applications/{a}/delete(t=${tenantId},a=${app.id})}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
+                            data-testid="application-delete-submit"
+                            data-confirm-submit="delete-application-form"
+                            data-confirm-submit-title="Delete application"
+                            th:attr="data-confirm-submit-message='Delete application &quot;' + ${app.name} + '&quot;?'">Delete application</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog != null}">
+                <th:block th:replace="~{${openDialog} :: dialog}"></th:block>
+            </th:block>
+        </div>
+
+        <style>
+            .application-roles {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+        </style>
+    </th:block>
+
+<th:block th:fragment="application-actions">
+    <button type="button" class="ep-btn ep-btn-outline"
+            th:hx-get="@{/tenants/{t}/applications/{a}/edit(t=${tenantId},a=${app.id})}"
+            hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+            data-testid="application-edit-open">
+        <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon')}" />
+        Edit
+    </button>
+</th:block>
+</body>
+</html>

@@ -5,7 +5,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -39,6 +38,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -121,7 +121,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         mediator.publishAndRelease(variant)
         CreateTheme(ThemeId(ThemeKey.of("added"), testCatalog(TenantId(tenant), letters)), "Added", catalogVersion = null).execute()
         mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))))
-        Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-it").execute().plaintextKey)
+        Seeded(tenant, createApiKey(tenant, "cah-it").plaintextKey)
     }
 
     private fun path(seeded: Seeded, catalog: CatalogKey = letters) = withMediator { CatalogApiPaths.catalog(seeded.tenant, catalog.value) }
@@ -184,7 +184,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             // Receiving needs no grant.
             ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
             CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours", catalogVersion = null).execute()
-            Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-receiver").execute().plaintextKey)
+            Seeded(tenant, createApiKey(tenant, "cah-receiver").plaintextKey)
         }
         val catalog = path(receiver)
         exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", receiver)
@@ -207,7 +207,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
                 CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(namespace, letters, TenantId(tenant))), "Invoice of $namespace", catalogVersion = null).execute()
             }
-            tenant to CreateApiKey(tenantId = tenant, name = "two-letters").execute().plaintextKey
+            tenant to createApiKey(tenant, "two-letters").plaintextKey
         }
         val seeded = Seeded(tenant, apiKey)
         for (namespace in listOf("acme", "bureau")) {

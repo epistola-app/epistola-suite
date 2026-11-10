@@ -6,6 +6,7 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -42,6 +43,8 @@ class DeleteDocumentHandler(
     override fun handle(command: DeleteDocument): Boolean {
         logger.info("Deleting document {} for tenant {}", command.documentId, command.tenantId)
 
+        // Another application's document is not found, as another tenant's is (ADR 0054).
+        val visibility = DocumentVisibility.current()
         val deleted = jdbi.inTransaction<Boolean, Exception> { handle ->
             // Delete document - CASCADE will handle generation item references (SET NULL)
             val rowsDeleted = handle.createUpdate(
@@ -49,10 +52,12 @@ class DeleteDocumentHandler(
                 DELETE FROM documents
                 WHERE id = :documentId
                   AND tenant_key = :tenantId
+                  ${visibility.predicate("application_id")}
                 """,
             )
                 .bind("documentId", command.documentId)
                 .bind("tenantId", command.tenantId)
+                .let(visibility::bindTo)
                 .execute()
 
             rowsDeleted > 0

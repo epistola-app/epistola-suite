@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    The create-API-key dialog on an application's page. Rendered off ApplicationHandler:
+      - `dialog` — swapped into #dialog-mount by the trigger, or embedded in the detail page for
+        direct navigation (openDialog='applications/new-key').
+      - `key-form` — re-rendered in place on field errors (dialogFieldErrors).
+    The key acts with its application's roles, so the form asks only for a name and an expiry.
+
+    Model: `tenantId`, `app` (Thymeleaf reserves `application`); on error `formData`/`errors`.
+    -->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-api-key-dialog',
+            title='New API key',
+            closeUrl=@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})},
+            content=~{::key-form})}"></div>
+    </th:block>
+
+    <form th:fragment="key-form" id="create-api-key-form"
+          method="post" th:action="@{/tenants/{t}/applications/{a}/keys(t=${tenantId},a=${app.id})}"
+          th:hx-post="@{/tenants/{t}/applications/{a}/keys(t=${tenantId},a=${app.id})}"
+          hx-target="#create-api-key-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-api-key-error')}"></div>
+        <div class="ep-dialog-body">
+            <p class="form-hint" style="margin-top: 0;">
+                The key authenticates as <strong th:text="${app.name}">Case system</strong>, with its roles.
+            </p>
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="name">Name</label>
+                <input type="text" id="name" name="name" class="ep-input"
+                       required maxlength="100"
+                       placeholder="e.g. production-2026"
+                       th:value="${formData?.name}"
+                       autofocus>
+                <span class="form-hint">A short label so you can tell this key apart when rotating it. Max 100 characters.</span>
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
+                <label class="ep-label" for="expiresAt">Expires (optional)</label>
+                <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
+                       th:value="${formData?.expiresAt}">
+                <span class="form-hint">Leave blank for a key that never expires.</span>
+                <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="create-api-key-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create API key</button>
+        </div>
+    </form>
+</body>
+</html>

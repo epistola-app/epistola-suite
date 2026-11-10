@@ -28,9 +28,9 @@ Authorization: ApiKey epk_<your-key>
 The API key must:
 
 1. Belong to the tenant whose templates you want to manage. All tools resolve the tenant from the key — they take no `tenantId` argument.
-2. Have the permission each tool needs, listed beside it in the tables below: the view permission of what a read tool reads (`TEMPLATE_VIEW`, `THEME_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, …, all granted by the content viewer role), `DOCUMENT_GENERATE` for `preview_document`, and the edit or publish permission of what a write tool changes. A tool needs only the permission it lists: what it reads to do its work and answer is part of it. A key scoped to viewing roles gets every write refused, so choose the key's roles to match what the assistant may change.
+2. Have the permission each tool needs, listed beside it in the tables below: the view permission of what a read tool reads (`TEMPLATE_VIEW`, `THEME_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, …, all granted by the content viewer role), `DOCUMENT_GENERATE` for `preview_document`, and the edit or publish permission of what a write tool changes. A tool needs only the permission it lists: what it reads to do its work and answer is part of it. A key scoped to viewing roles gets every write refused, so give the key's application the roles that match what the assistant may change.
 
-Provision an MCP-purpose key from the Epistola UI under **Operations → API Keys**.
+Provision an MCP-purpose key from the Epistola UI under **Operations → Applications**: create an application for the assistant with the roles it needs, then a key on its page.
 
 ### Example: Claude Desktop config
 
