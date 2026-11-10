@@ -49,8 +49,20 @@ class ApiProblemDetailResponseAdvice : ResponseBodyAdvice<Any> {
         val handler = (request as? ServletServerHttpRequest)?.servletRequest?.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE) as? HandlerMethod
         val slug = ContractProblemDetails.slugFor(problem.type)
         if (handler != null && slug != null && problem.properties?.containsKey(ContractProblemDetails.HELP_PROPERTY) != true) {
-            problem.setProperty(ContractProblemDetails.HELP_PROPERTY, ContractProblemDetails.helpFor(slug, handler.method.name))
+            val help = ContractProblemDetails.helpFor(slug, handler.method.name)
+            problem.setProperty(ContractProblemDetails.HELP_PROPERTY, withMissingKind(help, problem))
         }
         return problem
+    }
+
+    /**
+     * The help link with the kind of resource a `not-found` problem says is missing, so the page can
+     * give the hints for it (`…/not-found?operation=generateDocument&missing=template`). A term of the
+     * contract, never a value: the link is shareable and logged as it is.
+     */
+    private fun withMissingKind(help: java.net.URI, problem: ProblemDetail): java.net.URI {
+        val kind = (problem.properties?.get(ContractProblemDetails.MISSING_PROPERTY) as? Map<*, *>)?.get("kind") as? String ?: return help
+        val separator = if (help.query.isNullOrEmpty()) "?" else "&"
+        return java.net.URI.create("$help${separator}missing=$kind")
     }
 }

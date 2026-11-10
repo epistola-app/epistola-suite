@@ -6,6 +6,10 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.TemplatesApi
 import app.epistola.api.VariantsApi
+import app.epistola.api.model.CatalogReleaseStatus
+import app.epistola.api.model.CatalogTemplateDto
+import app.epistola.api.model.CatalogTemplateListResponse
+import app.epistola.api.model.CatalogTemplateRelease
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
 import app.epistola.api.model.InvalidDataField
@@ -70,9 +74,11 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.templates.queries.CountCatalogTemplates
 import app.epistola.suite.templates.queries.CountDocumentTemplates
 import app.epistola.suite.templates.queries.DocumentTemplateSort
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.ListCatalogTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
@@ -142,6 +148,52 @@ class EpistolaTemplateApi(
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
+                page = Pagination.pageMeta(page, size, total),
+            ),
+        )
+    }
+
+    /**
+     * A catalog's templates across the releases a client can reach, each with the releases that
+     * contain it (contract 2.0.0-rc.2): with `environmentKey` those deployed there, else every
+     * release. Paged in the database by template key ([ListCatalogTemplates]).
+     */
+    override fun listCatalogTemplates(
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        environmentKey: String?,
+        q: String?,
+        page: Int,
+        size: Int,
+    ): ResponseEntity<CatalogTemplateListResponse> {
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        val environment = environmentKey?.let { EnvironmentKey.of(it) }
+        val templates = ListCatalogTemplates(
+            catalog = catalog.catalogId,
+            environmentKey = environment,
+            searchTerm = q,
+            limit = Pagination.limitOf(size),
+            offset = Pagination.offsetOf(page, size),
+        ).query()
+        val total = CountCatalogTemplates(catalog = catalog.catalogId, environmentKey = environment, searchTerm = q).query()
+        return ResponseEntity.ok(
+            CatalogTemplateListResponse(
+                items = templates.map { template ->
+                    CatalogTemplateDto(
+                        key = template.key,
+                        name = template.name,
+                        releases = template.releases.map { release ->
+                            CatalogTemplateRelease(
+                                version = release.version,
+                                releaseId = release.releaseId.toString(),
+                                status = if (release.draft) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+                            )
+                        },
+                        description = template.description,
+                    )
+                },
                 page = Pagination.pageMeta(page, size, total),
             ),
         )
