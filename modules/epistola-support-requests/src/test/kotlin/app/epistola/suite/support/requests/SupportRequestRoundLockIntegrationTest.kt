@@ -96,8 +96,10 @@ class SupportRequestRoundLockIntegrationTest : IntegrationTestBase() {
         var autoCommitInTransaction: Boolean? = null
 
         val ran = lock.runExclusively(Duration.ofSeconds(10)) {
-            // The fewest borrowed over a few looks: other work may borrow one for a moment.
-            repeat(5) {
+            // The fewest borrowed over up to a second of looks, stopping at none: the background work of
+            // other test classes (checks, refreshes) may borrow one for a moment, the round never.
+            repeat(50) {
+                if (borrowedDuringRound == 0) return@repeat
                 borrowedDuringRound = minOf(borrowedDuringRound, pool.activeConnections)
                 Thread.sleep(20)
             }
