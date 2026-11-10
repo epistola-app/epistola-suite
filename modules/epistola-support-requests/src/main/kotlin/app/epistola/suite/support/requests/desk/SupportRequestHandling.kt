@@ -17,28 +17,8 @@ import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import java.util.UUID
-
-/** Who handles new support requests while no installation administrator has saved a choice. */
-enum class SupportRequestHandledBy {
-    /** The installation's own inbox; the desk passes requests on. */
-    INBOX,
-
-    /** Epistola support: new requests go there, as with the pilot. */
-    EPISTOLA,
-}
-
-/**
- * `epistola.support.requests.handled-by` (Helm `support.requests.handledBy`): who handles new
- * support requests until an installation administrator saves a choice on the Epistola support page, which then
- * wins. Default [SupportRequestHandledBy.INBOX].
- */
-@ConfigurationProperties(prefix = "epistola.support.requests")
-data class SupportRequestHandlingProperties(
-    val handledBy: SupportRequestHandledBy = SupportRequestHandledBy.INBOX,
-)
 
 /**
  * Where new support requests go: the choice an installation administrator saved
@@ -62,10 +42,7 @@ class SupportRequestHandlingPolicy(
             handle.createQuery("SELECT id FROM support_connections WHERE handles_new_requests").mapTo(UUID::class.java).findOne().orElse(null)
         }
     } else {
-        when (properties.handledBy) {
-            SupportRequestHandledBy.INBOX -> null
-            SupportRequestHandledBy.EPISTOLA -> connections.configuredId()
-        }
+        properties.endpoint?.let { connections.findByEndpoint(it)?.id }
     }
 
     internal fun markSaved(saved: Boolean) = appMetadata.setAs(SAVED_KEY, Saved(saved))

@@ -36,12 +36,13 @@ import java.time.Duration
  *   support; from then on the saved selection wins and this is ignored. Empty by default: nothing
  *   is used until someone chooses. A name this version does not know is kept and logged, never an
  *   error, so a configuration that names a retired or a newer service still starts.
- * @property tenantDefaults what tenants share with Epistola until a tenant chooses itself, until an
- *   installation administrator saves a preset under Platform → Support connections ([TenantDefaults]).
- * @property privacy what Epistola sees of the tenants and how much telemetry carries, until an
- *   installation administrator saves them under Platform → Support connections ([Privacy]).
- * @property connections further support connections, such as a partner's, that the suite signs in
- *   to with a token the other side issued ([Connection]; ADR 0053). Independent of [enabled], which
+ * @property tenantDefaults what tenants share with the connection this configures until a tenant
+ *   chooses itself, until an installation administrator saves a preset on its page ([TenantDefaults]).
+ * @property privacy the default privacy of every support connection: what it learns of tenants and how
+ *   much telemetry carries, until an administrator saves its own on its page or its entry in
+ *   [connections] sets one ([Privacy]).
+ * @property connections further support connections, such as a partner's ([Connection]; ADR 0053),
+ *   signed in with a token the other side issued or by registering with the installation's own key. Independent of [enabled], which
  *   is the connection to Epistola support: an installation can connect to its partner alone.
  * @property usage how usage for billing is reported ([Usage]).
  */
@@ -70,7 +71,8 @@ data class SupportProperties(
         require(!checkInterval.isNegative && !checkInterval.isZero) { "epistola.support.check-interval must be positive" }
         connections.forEachIndexed { i, c ->
             require(c.name.isNotBlank()) { "epistola.support.connections[$i].name is required" }
-            require(c.token.isNotBlank()) { "epistola.support.connections[$i].token is required" }
+            require(c.auth.trim().lowercase() in setOf(Connection.TOKEN, Connection.REGISTER)) { "epistola.support.connections[$i].auth must be token or register; got '${c.auth}'" }
+            require(c.registers || c.token.isNotBlank()) { "epistola.support.connections[$i].token is required for a connection that signs in with a token" }
             val url = runCatching { URI(c.endpoint.trim()) }.getOrNull()?.takeIf { it.isAbsolute && it.host != null && it.scheme in setOf("https", "http") }
             requireNotNull(url) { "epistola.support.connections[$i].endpoint must be an absolute http(s) URL; got '${c.endpoint}'" }
             require(c.tenantIdentity.isBlank() || TenantIdentity.parse(c.tenantIdentity) != null) { "epistola.support.connections[$i].tenant-identity must be named or confidential; got '${c.tenantIdentity}'" }
@@ -88,18 +90,22 @@ data class SupportProperties(
     }
 
     /**
-     * One entry of `epistola.support.connections` (Helm `support.connections`): a connection the suite
-     * signs in to with a token the other side issued. The configuration sets it until an installation
-     * administrator saves it, and an endpoint names it: the same endpoint at the next start is the same
-     * connection.
+     * One entry of `epistola.support.connections` (Helm `support.connections`): a support connection
+     * besides the one `epistola.support.*` configures (ADR 0053). The configuration sets it until an
+     * installation administrator saves it, and an endpoint names it: the same endpoint at the next start
+     * is the same connection.
      *
      * @property name what the platform page and the support desk call it.
      * @property endpoint its base URL; the paths are those of the published protocol under it.
-     * @property token the bearer token it issued; from a secret, never in a values file.
-     * @property services the services to use over it (`requests`, `usage`, `telemetry`), as far as it grants them.
+     * @property auth how the suite signs in: `token` (the default), with [token]; or `register`, by
+     *   registering with the installation's own key, which an administrator does on its page.
+     * @property token the bearer token it issued, for `token`; from a secret, never in a values file.
+     * @property services the services to use over it (`requests`, `usage`, `telemetry`, `mirror`), as far as it grants them.
      * @property tenantIdentity what it learns of tenants, `named` or `confidential`; blank: the
-     *   installation's setting ([Privacy]), until an administrator saves one for this connection.
+     *   configured default ([Privacy]), until an administrator saves one for this connection.
      * @property telemetry how much telemetry carries over it, `pseudonymised` or `full`; blank likewise.
+     * @property tenantDefaults what tenants share with it until a tenant chooses itself, applied as
+     *   [SupportProperties.tenantDefaults] is for Epistola support's.
      * @property escalatesTo the connection it escalates to when it asks the suite to (ADR 0053 §4), by
      *   its endpoint: another entry's, or the one `epistola.support.endpoint` is set to; blank for none.
      */
@@ -111,9 +117,19 @@ data class SupportProperties(
         val tenantIdentity: String = "",
         val telemetry: String = "",
         val escalatesTo: String = "",
+        val tenantDefaults: TenantDefaults = TenantDefaults(),
+        val auth: String = TOKEN,
     ) {
         /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
         val baseUrl: String get() = endpoint.trim().trimEnd('/')
+
+        /** It registers with the installation's own key rather than signing in with a token. */
+        val registers: Boolean get() = auth.trim().lowercase() == REGISTER
+
+        companion object {
+            const val TOKEN = "token"
+            const val REGISTER = "register"
+        }
 
         /** Never the token. */
         override fun toString(): String = "Connection(name=$name, endpoint=$endpoint, services=$services)"
@@ -163,9 +179,9 @@ data class SupportProperties(
     }
 
     /**
-     * What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2), until an
-     * installation administrator saves them under Platform → Support connections. Helm
-     * `support.privacy.tenantIdentity` / `support.privacy.telemetry`.
+     * The default privacy of every support connection (ADR 0052 §1–2): what it learns of the tenants and
+     * how much telemetry carries, until an administrator saves its own on its page or its configuration
+     * entry sets one. Helm `support.privacy.tenantIdentity` / `support.privacy.telemetry`.
      *
      * @property tenantIdentity `confidential` (the default: every tenant as a reference) or `named`.
      * @property telemetry `pseudonymised` (the default: log messages without their values) or `full`.

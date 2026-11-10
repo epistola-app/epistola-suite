@@ -43,10 +43,11 @@ data class RegisteringConnectionSettings(
         )
 
         /**
-         * A connection that registers at [endpoint], as an administrator added it: on, with no services
-         * until one selects them, and registered when an administrator presses Register.
+         * A connection that registers at [endpoint], as an administrator added it or an entry of
+         * `epistola.support.connections` names it: on, with [services] until an administrator selects
+         * others, and registered when an administrator presses Register.
          */
-        fun forEndpoint(endpoint: URI) = RegisteringConnectionSettings(enabled = true, issuer = endpoint, configuredServices = emptyList(), autoRegister = false)
+        fun forEndpoint(endpoint: URI, services: List<String> = emptyList()) = RegisteringConnectionSettings(enabled = true, issuer = endpoint, configuredServices = SupportScope.normalize(services), autoRegister = false)
     }
 }
 

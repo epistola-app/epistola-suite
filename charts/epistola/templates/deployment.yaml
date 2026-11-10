@@ -209,6 +209,18 @@ spec:
             - name: EPISTOLA_SUPPORT_TENANT_DEFAULTS_MIRROR
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.support.endpoint }}
+            - name: EPISTOLA_SUPPORT_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- /* No node-id env is injected. A chart value lives on the
+                   Deployment, so it is identical for every replica and could
+                   never provide per-pod identity. Node identity is resolved at
+                   runtime by NodeIdentity (hostname → pod name), giving each
+                   pod a distinct id automatically. */}}
+            {{- end }}
+            {{- /* What applies to every support connection, also without support.enabled: an
+                   installation can connect to its partner alone. */}}
             {{- with .Values.support.usage.backlog }}
             - name: EPISTOLA_SUPPORT_USAGE_BACKLOG
               value: {{ . | quote }}
@@ -218,17 +230,13 @@ spec:
             - name: EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY
               value: {{ . | quote }}
             {{- end }}
-            {{- /* What Epistola sees of the tenants; an administrator's saved settings win. */}}
+            {{- /* The default privacy of every support connection; a connection's own settings win. */}}
             {{- with .Values.support.privacy.tenantIdentity }}
             - name: EPISTOLA_SUPPORT_PRIVACY_TENANT_IDENTITY
               value: {{ . | quote }}
             {{- end }}
             {{- with .Values.support.privacy.telemetry }}
             - name: EPISTOLA_SUPPORT_PRIVACY_TELEMETRY
-              value: {{ . | quote }}
-            {{- end }}
-            {{- with .Values.support.endpoint }}
-            - name: EPISTOLA_SUPPORT_ENDPOINT
               value: {{ . | quote }}
             {{- end }}
             {{- /* Forward application logs + metrics to the support service. On by default
@@ -240,12 +248,6 @@ spec:
                    false turns it off for the whole installation (withdrawals still run). */}}
             - name: EPISTOLA_SUPPORT_MIRROR_ENABLED
               value: {{ .Values.support.mirror.enabled | quote }}
-            {{- /* No node-id env is injected. A chart value lives on the
-                   Deployment, so it is identical for every replica and could
-                   never provide per-pod identity. Node identity is resolved at
-                   runtime by NodeIdentity (hostname → pod name), giving each
-                   pod a distinct id automatically. */}}
-            {{- end }}
             {{- /* Further support connections, such as a partner's (ADR 0053), each signed in with a
                    token from a Secret. Independent of support.enabled: an installation can connect
                    to its partner alone. */}}
@@ -268,11 +270,26 @@ spec:
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TELEMETRY
               value: {{ . | quote }}
             {{- end }}
+            {{- with $c.tenantDefaults }}
+            {{- with .requests }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TENANT_DEFAULTS_REQUESTS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .mirror }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TENANT_DEFAULTS_MIRROR
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if eq ($c.auth | default "token") "register" }}
+            - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_AUTH
+              value: "register"
+            {{- else }}
             - name: EPISTOLA_SUPPORT_CONNECTIONS_{{ $i }}_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "support.connections[].tokenSecret.name is required" $c.tokenSecret.name | quote }}
-                  key: {{ $c.tokenSecret.key | default "token" | quote }}
+                  name: {{ required "support.connections[].tokenSecret.name is required for a connection that signs in with a token" (($c.tokenSecret | default dict).name) | quote }}
+                  key: {{ (($c.tokenSecret | default dict).key) | default "token" | quote }}
+            {{- end }}
             {{- end }}
 
             {{- /* Parsed-font cache bounds; empty keeps the application defaults */}}

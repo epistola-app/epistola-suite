@@ -36,17 +36,23 @@
   Each entry may set `tenantIdentity` (`named`, `confidential`) and `telemetry` (`pseudonymised`,
   `full`); left out, the connection follows the installation's privacy settings. `escalatesTo`
   names the connection it escalates to when it asks the installation to, by its endpoint: another
-  entry's, or the one `support.endpoint` is set to.
+  entry's, or the one `support.endpoint` is set to. An entry with `auth: register` signs in by registering with the
+  installation's own key instead (no `tokenSecret`; an administrator registers on the connection's
+  page), and `tenantDefaults` (`requests`, `mirror`) presets what tenants share with it, as
+  `support.tenantDefaults` does for Epistola support. `support.requests.handledBy`, `support.privacy`,
+  `support.usage.backlog`, `support.telemetry.enabled` and `support.mirror.enabled` now render without
+  `support.enabled` too, since they apply to every support connection; `support.privacy` is the
+  default privacy of every connection, which a connection's own settings override.
 
 - **`support.usage.backlog`** sets how far back hours missed while the installation or the support
   service was down are still reported for billing once both are back, as a duration (renders
   `EPISTOLA_SUPPORT_USAGE_BACKLOG`). Empty (the default) keeps the suite's 72h.
 
 - **`support.requests.handledBy`**: who handles new support requests until an installation
-  administrator saves a choice under Platform → Epistola support: `inbox` (the default: the
-  installation's own support desk) or `epistola` (new requests go to Epistola support, as before),
-  rendered as `EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY`. Set `epistola` to keep sending new requests to
-  Epistola support on upgrade.
+  administrator saves a choice under Platform → Support connections: `inbox` (the default: the
+  installation's own support desk) or a support connection by its endpoint, rendered as
+  `EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY`. Set Epistola support's endpoint (`https://support.epistola.app`
+  by default) to keep sending new requests to Epistola support on upgrade.
 
 - **`support.mirror.enabled` — the switch for the catalog mirror.** From Epistola 2.0, tenants can
   share their released catalogs with Epistola for release checks once Epistola grants the `mirror`

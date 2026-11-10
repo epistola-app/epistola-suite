@@ -366,7 +366,7 @@ support:
   # on it.
   services: []
 
-  # What every tenant shares with Epistola until a tenant administrator chooses otherwise on its
+  # What every tenant shares with Epistola support until a tenant administrator chooses otherwise on its
   # Support page, so tenants skip the setup wizard. Applied at startup only while no installation
   # administrator has saved a setup under Platform → Support connections (which then wins), and recorded
   # as agreed on the tenants' behalf by whoever configures the installation. Empty (the default): no
@@ -378,7 +378,8 @@ support:
     mirror: ""
 
   # Further support connections besides Epistola support, such as a partner's (ADR 0053), each signed
-  # in with a token that party issued. Independent of `enabled`: an installation can connect to its
+  # in with a token that party issued (auth: token) or by registering with this installation's own key
+  # (auth: register; an administrator registers on its page). Independent of `enabled`: an installation can connect to its
   # partner alone. The endpoint names a connection: the same endpoint after an upgrade is the same
   # connection. Removing an entry leaves the connection in the installation (it may hold requests).
   # Rendered as EPISTOLA_SUPPORT_CONNECTIONS_<n>_*; the token comes from a Secret, never from values.
@@ -388,13 +389,20 @@ support:
   #       services: [requests, usage]
   #       tokenSecret: { name: acme-support-token, key: token }
   #       # What it learns of tenants (named or confidential) and how much telemetry carries
-  #       # (pseudonymised or full); left out: the installation's privacy settings. An
-  #       # administrator's choice under Platform → Support connections wins.
+  #       # (pseudonymised or full); left out: support.privacy below. An administrator's choice on
+  #       # the connection's page wins.
   #       tenantIdentity: named
+  #       # What tenants share with it until a tenant chooses itself, as tenantDefaults above is for
+  #       # Epistola support; an administrator's setup on the connection's page wins.
+  #       tenantDefaults: { requests: share }
   #       # The connection it escalates to when it asks the installation to, by its endpoint:
   #       # another entry's, or the one support.endpoint is set to; left out: no one, and the
   #       # support desk decides.
   #       escalatesTo: https://support.epistola.app
+  #     - name: Hosting Partner
+  #       endpoint: https://support.hosting.example
+  #       auth: register # registers with this installation's own key; no token
+  #       services: [requests, telemetry]
   connections: []
   # Usage for billing.
   usage:
@@ -408,14 +416,14 @@ support:
   requests:
     # Who handles new support requests until an installation administrator saves a choice under
     # Platform → Support connections (which then wins): inbox (the installation's own support desk, which
-    # passes requests on) or epistola (new requests go to Epistola support, as in the pilot). Requests
-    # already passed on stay where they are. Empty: the suite's default, inbox. Rendered as
-    # EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY.
+    # passes requests on) or a support connection by its endpoint, such as https://support.epistola.app
+    # for Epistola support. Requests already passed on stay where they are. Empty: the suite's default,
+    # inbox. Rendered as EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY.
     handledBy: ""
 
-  # What Epistola sees of the tenants and how much telemetry carries (ADR 0052), until an
-  # installation administrator saves them under Platform → Support connections (which then wins).
-  # Rendered as EPISTOLA_SUPPORT_PRIVACY_*.
+  # The default privacy of every support connection (ADR 0052): what it learns of the tenants and how
+  # much telemetry carries, until an administrator saves its own on the connection's page or its
+  # entry in connections sets one. Rendered as EPISTOLA_SUPPORT_PRIVACY_*.
   privacy:
     # confidential (each tenant as a reference only this installation can trace back; no catalog
     # mirror) or named (tenant keys as they are). Empty: the suite's default, confidential.

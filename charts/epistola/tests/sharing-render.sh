@@ -145,8 +145,10 @@ echo "sharing render: ok"
 partners="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
   --set 'support.connections[0].name=Acme Partner' --set 'support.connections[0].endpoint=https://desk.acme.example' \
   --set 'support.connections[0].services={requests,usage}' --set 'support.connections[0].tokenSecret.name=acme-token' \
-  --set 'support.connections[0].tenantIdentity=named' --set 'support.connections[0].escalatesTo=epistola')"
-expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ESCALATES_TO epistola
+  --set 'support.connections[0].tenantIdentity=named' --set 'support.connections[0].escalatesTo=https://support.epistola.app' \
+  --set 'support.connections[0].tenantDefaults.requests=share')"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ESCALATES_TO "https://support.epistola.app"
+expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_TENANT_DEFAULTS_REQUESTS share
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_TENANT_IDENTITY named
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_NAME "Acme Partner"
 expect "${partners}" EPISTOLA_SUPPORT_CONNECTIONS_0_ENDPOINT "https://desk.acme.example"
@@ -158,6 +160,27 @@ fi
 if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.connections[0].name=X' \
   --set 'support.connections[0].endpoint=http://plain.example' --set 'support.connections[0].tokenSecret.name=s' >/dev/null 2>&1; then
   echo "Expected a plaintext partner endpoint to be refused" >&2
+  exit 1
+fi
+# A connection that registers with the installation's own key needs no token.
+registering="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set 'support.connections[0].name=Hosting Partner' --set 'support.connections[0].endpoint=https://support.hosting.example' \
+  --set 'support.connections[0].auth=register')"
+expect "${registering}" EPISTOLA_SUPPORT_CONNECTIONS_0_AUTH register
+if grep -q -- "- name: EPISTOLA_SUPPORT_CONNECTIONS_0_TOKEN$" <<<"${registering}"; then
+  echo "Expected no token for a connection that registers" >&2
+  exit 1
+fi
+if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.connections[0].name=X' \
+  --set 'support.connections[0].endpoint=https://token.example' >/dev/null 2>&1; then
+  echo "Expected a token connection without tokenSecret to be refused" >&2
+  exit 1
+fi
+# Who handles new support requests: inbox or a connection's endpoint, no keyword.
+handled="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.requests.handledBy=https://support.epistola.app')"
+expect "${handled}" EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY "https://support.epistola.app"
+if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set 'support.requests.handledBy=epistola' >/dev/null 2>&1; then
+  echo "Expected handledBy=epistola to be refused" >&2
   exit 1
 fi
 # The usage backlog renders when set, and is left to the suite's default otherwise.

@@ -371,7 +371,7 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
         fun supportService(registry: DynamicPropertyRegistry) {
             registry.add("epistola.support.enabled") { "true" }
             // These tests are about sending: Epistola handles new requests, as configured.
-            registry.add("epistola.support.requests.handled-by") { "epistola" }
+            registry.add("epistola.support.requests.handled-by") { support.baseUrl }
             registry.add("epistola.support.privacy.tenant-identity") { "named" }
             registry.add("epistola.support.services") { "requests" }
             registry.add("epistola.support.auto-register") { "true" }

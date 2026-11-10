@@ -190,17 +190,29 @@ epistola:
         endpoint: https://desk.partner.example/epistola
         token: ${ACME_SUPPORT_TOKEN}
         services: [requests, usage]
+        tenant-identity: named # its own privacy; left out: epistola.support.privacy
+        tenant-defaults:
+          requests: share # what tenants share with it until they choose
+      - name: Hosting Partner
+        endpoint: https://support.hosting.example
+        auth: register # registers with this installation's own key; no token
+        services: [requests, telemetry]
+    requests:
+      handled-by: https://support.hosting.example # or inbox (the default)
 ```
 
-In Helm, `support.connections` takes the same entries with `tokenSecret: { name, key }` instead of the
-token.
+In Helm, `support.connections` takes the same entries (`auth`, `tenantIdentity`, `telemetry`,
+`tenantDefaults`, `escalatesTo`) with `tokenSecret: { name, key }` instead of the token, and
+`support.requests.handledBy` names who handles new support requests: `inbox`, or a connection's
+endpoint. `tenant-defaults` is applied at startup once per configured value, as
+`epistola.support.tenant-defaults` is for Epistola support's connection.
 
-An installation administrator can also add one under Platform → Support connections → Other support
-connections: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
+An installation administrator can also add one under Platform → Support connections with **Add
+connection**: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
 `support` object with `name`, `endpoint`, `services`, and optionally `tenantIdentity` and `telemetry`),
-or fill in the endpoint by hand, and enter the token the other side issued. Each connection there can be
-renamed, have its services and token changed, and be removed: requests it handled return to the support
-desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
+or fill in the endpoint by hand, and enter the token the other side issued or choose to register. Each
+connection has a page of its own, where it can be renamed, have its services, token, privacy and setup
+for every tenant changed, and be removed: requests it handled return to the support desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
 connection, with the name and token from the configuration. An entry removed from the configuration
 leaves the connection in the installation.
 
