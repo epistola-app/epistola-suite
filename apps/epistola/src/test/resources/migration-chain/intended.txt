@@ -2294,6 +2294,7 @@ $$
     body text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     from_connection uuid,
+    from_connection_name text,
     id uuid NOT NULL,
     kind character varying(16) NOT NULL,
     remote_id text,

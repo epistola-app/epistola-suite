@@ -200,12 +200,23 @@ class ApplyConfiguredSupportRequestSharingDefault(
     private val properties: SupportProperties,
     private val connections: SupportConnections,
 ) {
+    /**
+     * For the connection `epistola.support.*` configures (`epistola.support.tenant-defaults`) and every
+     * entry of `epistola.support.connections` (its `tenant-defaults`), each applied once per configured
+     * value. The connections are stored first among the startup work.
+     */
     @EventListener(ApplicationReadyEvent::class)
     fun apply() {
-        val share = properties.tenantDefaults.requestsShare ?: return
-        if (!properties.enabled) return
-        // The connection epistola.support.* configures, stored first among the startup work.
-        val connectionId = connections.configuredId() ?: return
+        if (properties.enabled) {
+            properties.tenantDefaults.requestsShare?.let { share -> connections.configuredId()?.let { applyFor(it, share, APPLIED_KEY) } }
+        }
+        properties.connections.forEach { entry ->
+            val share = entry.tenantDefaults.requestsShare ?: return@forEach
+            connections.findByEndpoint(entry.baseUrl)?.id?.let { applyFor(it, share, "$APPLIED_KEY.$it") }
+        }
+    }
+
+    private fun applyFor(connectionId: java.util.UUID, share: Boolean, appliedKey: String) {
         val connection = connectionSql(connectionId)
         jdbi.inTransaction<Unit, Exception> { handle ->
             // Not allowed wins over a configured default: nothing is stored or applied.
@@ -213,12 +224,12 @@ class ApplyConfiguredSupportRequestSharingDefault(
             // Applied once per configured value: a preset an administrator cleared, or that a disconnect
             // forgot, does not come back at the next start.
             val applied = handle.createQuery("SELECT value ->> 'requests' FROM app_metadata WHERE key = :key")
-                .bind("key", APPLIED_KEY).mapTo(String::class.java).findOne().orElse(null)
+                .bind("key", appliedKey).mapTo(String::class.java).findOne().orElse(null)
             if (applied == share.toString()) return@inTransaction
             handle.createUpdate(
                 "INSERT INTO app_metadata (key, value, updated_at) VALUES (:key, jsonb_build_object('requests', CAST(:share AS TEXT)), NOW()) " +
                     "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
-            ).bind("key", APPLIED_KEY).bind("share", share.toString()).execute()
+            ).bind("key", appliedKey).bind("share", share.toString()).execute()
             val stored = handle.createUpdate(
                 "INSERT INTO support_sharing_default (connection_id, section, share, set_at, from_configuration) VALUES ($connection, '$REQUESTS_SECTION', :share, :now, TRUE) ON CONFLICT (connection_id, section) DO NOTHING",
             )

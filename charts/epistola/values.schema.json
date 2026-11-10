@@ -449,17 +449,27 @@
         },
         "connections": {
           "type": "array",
-          "description": "Further support connections besides Epistola support, such as a partner's, each signed in with a token from a Secret.",
+          "description": "Further support connections besides Epistola support, such as a partner's, each signed in with a token from a Secret or by OAuth registration (RFC 7591, private_key_jwt).",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "endpoint", "tokenSecret"],
+            "required": ["name", "endpoint"],
             "properties": {
               "name": { "type": "string", "minLength": 1, "description": "What the platform page and the support desk call it." },
               "endpoint": { "type": "string", "pattern": "^https://", "description": "Its base URL; the published protocol's paths are under it." },
-              "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage), as far as it grants them." },
-              "tenantIdentity": { "type": "string", "enum": ["", "named", "confidential"], "description": "What it learns of tenants. Empty: the installation's setting." },
-              "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "How much telemetry carries over it. Empty: the installation's setting." },
+              "auth": { "type": "string", "enum": ["", "token", "register"], "description": "How the installation signs in: token (the default; tokenSecret is required) or register (through OAuth registration, done on its page)." },
+              "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage, telemetry, mirror), as far as it grants them." },
+              "tenantIdentity": { "type": "string", "enum": ["", "named", "confidential"], "description": "What it learns of tenants. Empty: support.privacy.tenantIdentity." },
+              "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "How much telemetry carries over it. Empty: support.privacy.telemetry." },
+              "tenantDefaults": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "What tenants share with it until a tenant chooses itself, as support.tenantDefaults is for Epistola support.",
+                "properties": {
+                  "requests": { "type": "string", "enum": ["", "share", "no"] },
+                  "mirror": { "type": "string", "enum": ["", "off", "all", "marked"] }
+                }
+              },
               "escalatesTo": { "type": "string", "description": "The connection it escalates to when it asks, by its endpoint: another entry's, or the one support.endpoint is set to; empty for none." },
               "tokenSecret": {
                 "type": "object",
@@ -486,7 +496,7 @@
           "description": "Support requests (ADR 0053).",
           "additionalProperties": false,
           "properties": {
-            "handledBy": { "type": "string", "enum": ["", "inbox", "epistola"], "description": "Who handles new support requests until an installation administrator saves a choice: inbox (the installation's support desk) or epistola. Empty: inbox." }
+            "handledBy": { "type": "string", "pattern": "^(|inbox|https://.+)$", "description": "Who handles new support requests until an installation administrator saves a choice: inbox (the installation's support desk) or a support connection's https endpoint. Empty: inbox." }
           }
         },
         "privacy": {

@@ -105,7 +105,7 @@ class DiscoverSupportConnectionPresetHandler(
 /**
  * Adds a support connection as an installation administrator (ADR 0053 §1a), from a preset or by hand:
  * one the suite signs in to with a token the other side issued ([SupportConnectionAuth.BEARER_TOKEN]),
- * or one that registers with the installation's own key, as Epistola support's does
+ * or one that registers through OAuth (RFC 7591, private_key_jwt), as Epistola support's does
  * ([SupportConnectionAuth.PRIVATE_KEY_JWT]; no token, registered when an administrator asks). The
  * configuration leaves it alone.
  */
@@ -234,9 +234,11 @@ class UpdateSupportConnectionHandler(
 
 /**
  * Removes a support connection, any one, Epistola support's too (ADR 0053 §1): requests it handled
- * return to the installation's inbox, and what it was still to get, its registration, its sharing
- * settings and its usage bookkeeping go. What it has keeps. The one `epistola.support.*` configures is
- * stored again at the next start while `epistola.support.enabled` is on.
+ * return to the installation's inbox, and what it was still to get, its sharing settings and its usage
+ * bookkeeping go; replies it sent keep its name. What it has keeps. One registered through OAuth is
+ * disconnected first ([SupportConnectionStillRegisteredException]), so its
+ * registration ends at the other side too. The one `epistola.support.*` configures is stored again at
+ * the next start while `epistola.support.enabled` is on.
  */
 data class RemoveSupportConnection(
     val connectionId: UUID,
@@ -246,8 +248,24 @@ data class RemoveSupportConnection(
 }
 
 @Component
-class RemoveSupportConnectionHandler(private val jdbi: Jdbi) : CommandHandler<RemoveSupportConnection, Boolean> {
-    override fun handle(command: RemoveSupportConnection): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createUpdate("DELETE FROM support_connections WHERE id = :id").bind("id", command.connectionId).execute() > 0
+class RemoveSupportConnectionHandler(
+    private val jdbi: Jdbi,
+    private val registry: SupportConnectionRegistry,
+) : CommandHandler<RemoveSupportConnection, Boolean> {
+    /** @throws SupportConnectionStillRegisteredException while it is registered through OAuth. */
+    override fun handle(command: RemoveSupportConnection): Boolean {
+        // Removing would leave the registration, and what the other side holds, at the other side: disconnect first.
+        registry.registering(command.connectionId)?.takeIf { stillRegistered(it.status().state) }?.let {
+            throw SupportConnectionStillRegisteredException(command.connectionId)
+        }
+        return jdbi.withHandle<Boolean, Exception> { handle ->
+            handle.createUpdate("DELETE FROM support_connections WHERE id = :id").bind("id", command.connectionId).execute() > 0
+        }
     }
 }
+
+/** Registered through OAuth registration, so the other side holds a registration a disconnect ends. */
+internal fun stillRegistered(state: SupportConnectionState): Boolean = state is SupportConnectionState.Pending || state is SupportConnectionState.Active || state is SupportConnectionState.Refused
+
+/** A connection still registered through OAuth is disconnected before it is removed. */
+class SupportConnectionStillRegisteredException(val connectionId: UUID) : RuntimeException("Support connection $connectionId is still registered: disconnect it before removing it")

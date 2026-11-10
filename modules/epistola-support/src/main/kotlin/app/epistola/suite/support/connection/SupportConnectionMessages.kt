@@ -125,7 +125,7 @@ data class SupportConnectionOverview(
 /**
  * The registering connection [connectionId] names: Epistola support's ([connection]) when null, else
  * the [SupportConnectionAuth.PRIVATE_KEY_JWT] connection with that id (ADR 0053 §1: any connection may
- * register with the installation's own key).
+ * register through OAuth).
  */
 internal fun registeringConnection(connection: DefaultSupportConnection, registry: SupportConnectionRegistry, connectionId: UUID?): DefaultSupportConnection = when (connectionId) {
     null, connection.id -> connection

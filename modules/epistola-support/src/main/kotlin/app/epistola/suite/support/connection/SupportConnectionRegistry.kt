@@ -65,7 +65,7 @@ class SupportConnectionRegistry(
     /** Every connection but the discovered one, whatever it signs in with: what the check scheduler checks. */
     fun others(): List<SupportConnection> = all().filter { it.id != discovered.id }
 
-    /** The connection with [id] when it registers with the installation's own key ([SupportConnectionAuth.PRIVATE_KEY_JWT]). */
+    /** The connection with [id] when it registers through OAuth (RFC 7591, private_key_jwt) ([SupportConnectionAuth.PRIVATE_KEY_JWT]). */
     fun registering(id: UUID): DefaultSupportConnection? = find(id) as? DefaultSupportConnection
 
     private fun connectionFor(record: SupportConnectionRecord): SupportConnection? = when {
@@ -82,7 +82,7 @@ class SupportConnectionRegistry(
             )
         }
 
-        // Registers with the installation's own key at its endpoint, as Epistola support's does (ADR 0053 §1).
+        // Registers through OAuth registration at its endpoint, as Epistola support's does (ADR 0053 §1).
         record.auth == SupportConnectionAuth.PRIVATE_KEY_JWT && registering != null -> built.compute(record.id) { _, existing ->
             existing?.takeIf { it is DefaultSupportConnection && it.settings.issuer.toString() == record.endpoint.trimEnd('/') }
                 ?: registering.build(record.id, URI(record.endpoint.trimEnd('/')))
@@ -120,7 +120,7 @@ class ConfiguredSupportConnections(
                 handle.createQuery(
                     """
                     INSERT INTO support_connections (id, name, endpoint, auth, from_configuration)
-                    VALUES (:id, :name, :endpoint, 'BEARER_TOKEN', TRUE)
+                    VALUES (:id, :name, :endpoint, :auth, TRUE)
                     ON CONFLICT (endpoint)
                     DO UPDATE SET name = EXCLUDED.name, auth = EXCLUDED.auth, updated_at = NOW()
                     WHERE support_connections.from_configuration
@@ -128,6 +128,7 @@ class ConfiguredSupportConnections(
                     """,
                 )
                     .bind("id", UUIDv7.generate())
+                    .bind("auth", if (configured.registers) SupportConnectionAuth.PRIVATE_KEY_JWT.name else SupportConnectionAuth.BEARER_TOKEN.name)
                     .bind("name", configured.name.trim())
                     .bind("endpoint", configured.baseUrl)
                     .mapTo(UUID::class.java)
@@ -135,7 +136,7 @@ class ConfiguredSupportConnections(
                     .orElse(null)
             } ?: return@forEach
             val store = connections.store(id)
-            if (runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
+            if (!configured.registers && runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
             log.info("Support connection {} configured at {}", configured.name, configured.baseUrl)
         }
         // Where each escalates to, once all exist: another connection, named by its endpoint.
@@ -225,7 +226,7 @@ class RegisteringSupportConnectionFactory(
 ) {
     fun build(id: UUID, endpoint: URI): DefaultSupportConnection = DefaultSupportConnection(
         properties,
-        RegisteringConnectionSettings.forEndpoint(endpoint),
+        RegisteringConnectionSettings.forEndpoint(endpoint, properties.connections.firstOrNull { it.baseUrl == endpoint.toString() }?.services.orEmpty()),
         connections.store(id),
         client,
         installations,

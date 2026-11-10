@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!--/* One connection that registers with the installation's own key: its registration, services and disconnect. */-->
+    <!--/* One connection that registers through OAuth (RFC 7591, private_key_jwt): its registration, services and disconnect. */-->
     <th:block th:fragment="content">
     <div class="regular">
         <div th:replace="~{epistola-web/page-header :: page-header(

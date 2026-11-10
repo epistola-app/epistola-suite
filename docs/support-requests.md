@@ -55,10 +55,10 @@ tenant's own Support requests page shows that tenant's requests only.
   Platform → Support connections (`/platform/support`, the panel **New support requests**, which
   `epistola-support-requests` adds through the `SupportPlatformPanel` SPI; `SetSupportRequestHandling`, stored as `support_connections.handles_new_requests` and
   marked saved in `app_metadata` key `support.requests.handling-saved`); until then the configuration
-  applies (`epistola.support.requests.handled-by`, Helm `support.requests.handledBy`: `inbox` or
-  `epistola`), and **Follow the configuration** drops a saved choice (`ResetSupportRequestHandling`).
-  With Epistola handling new requests, a new one goes there when the tenant consents, as in the pilot;
-  otherwise it stays in the inbox. Requests already handed on stay where they are when this changes.
+  applies (`epistola.support.requests.handled-by`, Helm `support.requests.handledBy`: `inbox` or a
+  support connection's endpoint, such as `https://support.epistola.app`), and **Follow the
+  configuration** drops a saved choice (`ResetSupportRequestHandling`). With a connection handling new
+  requests, a new one goes there when the tenant shares with it; otherwise it stays in the inbox. Requests already handed on stay where they are when this changes.
 - **Replies and internal notes.** The desk replies (`AddSupportDeskMessage`), which the requester sees
   and which goes to the connection with the request, through its ledger like any reply; or it
   writes an internal note (message kind `NOTE`), which only the desk sees. A note enters no ledger,

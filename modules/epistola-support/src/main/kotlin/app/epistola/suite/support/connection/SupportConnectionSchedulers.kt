@@ -88,7 +88,7 @@ class SupportTokenRefreshScheduler(
 
 /**
  * Keeps a token fresh on every node for each connection other than Epistola support's that registers
- * with the installation's own key (ADR 0053 §1), as [SupportTokenRefreshScheduler] does for Epistola
+ * through OAuth registration (ADR 0053 §1), as [SupportTokenRefreshScheduler] does for Epistola
  * support's. Independent of `epistola.support.enabled`.
  */
 @Component

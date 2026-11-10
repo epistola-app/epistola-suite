@@ -93,8 +93,8 @@ import java.util.concurrent.TimeUnit
         "epistola.support.requests.sync.retry-interval-ms=3600000",
         "epistola.support.requests.sync.polling.enabled=true",
         "epistola.support.requests.sync.polling.interval-ms=3600000",
-        // These tests are about sending: Epistola handles new requests, as configured.
-        "epistola.support.requests.handled-by=epistola",
+        // These tests are about sending: Epistola support's connection (the configured default endpoint) handles new requests.
+        "epistola.support.requests.handled-by=https://support.epistola.app",
     ],
 )
 class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {

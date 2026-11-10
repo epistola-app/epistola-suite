@@ -10,6 +10,7 @@ import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,8 +56,13 @@ class RegisteringSupportConnectionIntegrationTest : IntegrationTestBase() {
         assertThat(connection.accessToken()).isNotBlank()
         assertThat(registry.find(withMediator { EnsureConfiguredSupportConnection().execute() })!!.status().state).`as`("Epistola support's connection is untouched").isEqualTo(SupportConnectionState.Unregistered)
 
+        // Removing it now would leave its registration at the other side: disconnect first.
+        assertThatThrownBy { withMediator { RemoveSupportConnection(id).execute() } }.isInstanceOf(SupportConnectionStillRegisteredException::class.java)
+        assertThat(registry.find(id)).isNotNull()
+
         withMediator { DisconnectSupportConnection(connectionId = id).execute() }
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Disconnected::class.java)
+        assertThat(withMediator { RemoveSupportConnection(id).execute() }).`as`("removed once disconnected").isTrue()
     }
 
     companion object {

@@ -247,28 +247,41 @@ class ApplyConfiguredCatalogMirrorDefault(
     private val privacy: SupportPrivacy,
     private val connections: SupportConnections,
 ) {
+    /**
+     * For the connection `epistola.support.*` configures (`epistola.support.tenant-defaults`) and every
+     * entry of `epistola.support.connections` (its `tenant-defaults`), each applied once per configured
+     * value, and not to a connection tenants are confidential to.
+     */
     @EventListener(ApplicationReadyEvent::class)
     fun apply() {
-        val choice = when (properties.tenantDefaults.mirrorChoice ?: return) {
-            "all" -> CatalogMirrorDefaultChoice.ALL
-            "marked" -> CatalogMirrorDefaultChoice.MARKED
-            else -> CatalogMirrorDefaultChoice.OFF
-        }
-        if (!properties.enabled) return
-        // `epistola.support.tenant-defaults` is the preset of the connection epistola.support.* configures.
-        val connectionId = connections.configuredId() ?: return
         privacy.read() ?: return
+        if (properties.enabled) {
+            choiceOf(properties.tenantDefaults)?.let { choice -> connections.configuredId()?.let { applyFor(it, choice, APPLIED_KEY) } }
+        }
+        properties.connections.forEach { entry ->
+            val choice = choiceOf(entry.tenantDefaults) ?: return@forEach
+            connections.findByEndpoint(entry.baseUrl)?.id?.let { applyFor(it, choice, "$APPLIED_KEY.$it") }
+        }
+    }
+
+    private fun choiceOf(defaults: SupportProperties.TenantDefaults): CatalogMirrorDefaultChoice? = when (defaults.mirrorChoice ?: return null) {
+        "all" -> CatalogMirrorDefaultChoice.ALL
+        "marked" -> CatalogMirrorDefaultChoice.MARKED
+        else -> CatalogMirrorDefaultChoice.OFF
+    }
+
+    private fun applyFor(connectionId: java.util.UUID, choice: CatalogMirrorDefaultChoice, appliedKey: String) {
         if (privacy.forConnection(connectionId).confidential) return
         jdbi.inTransaction<Unit, Exception> { handle ->
             // Applied once per configured value: a preset an administrator cleared, or that a disconnect
             // forgot, does not come back at the next start.
             val applied = handle.createQuery("SELECT value ->> 'mirror' FROM app_metadata WHERE key = :key")
-                .bind("key", APPLIED_KEY).mapTo(String::class.java).findOne().orElse(null)
+                .bind("key", appliedKey).mapTo(String::class.java).findOne().orElse(null)
             if (applied == choice.name) return@inTransaction
             handle.createUpdate(
                 "INSERT INTO app_metadata (key, value, updated_at) VALUES (:key, jsonb_build_object('mirror', CAST(:choice AS TEXT)), NOW()) " +
                     "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
-            ).bind("key", APPLIED_KEY).bind("choice", choice.name).execute()
+            ).bind("key", appliedKey).bind("choice", choice.name).execute()
             // Not allowed wins over a configured default: nothing is stored or applied.
             if (SharingRestrictions.isNotAllowed(handle, CatalogMirror.SECTION, connectionId)) return@inTransaction
             val stored = handle.createUpdate(

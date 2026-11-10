@@ -174,7 +174,7 @@ switched off separately (`epistola.support.telemetry.logs`,
 Besides Epistola support, the installation can share with further parties, such as a partner that
 hosts the suite for its clients or supports a client who hosts it (ADR 0053). Each is a **support
 connection** of its own. Each signs in by its `auth` alone: with a token that party issued
-(`BEARER_TOKEN`, no registration and no claim code), or by registering with the installation's own key
+(`BEARER_TOKEN`, no registration and no claim code), or by OAuth registration (RFC 7591, private_key_jwt)
 at its endpoint, as with Epistola support (`PRIVATE_KEY_JWT`, for a party that runs the support service
 itself). A connection that registers is checked like the others but registers only when an
 administrator asks (`RegisterSupportConnection` with its id), and gets its own claim code, tokens and
@@ -190,17 +190,29 @@ epistola:
         endpoint: https://desk.partner.example/epistola
         token: ${ACME_SUPPORT_TOKEN}
         services: [requests, usage]
+        tenant-identity: named # its own privacy; left out: epistola.support.privacy
+        tenant-defaults:
+          requests: share # what tenants share with it until they choose
+      - name: Hosting Partner
+        endpoint: https://support.hosting.example
+        auth: register # OAuth registration (RFC 7591, private_key_jwt); no token
+        services: [requests, telemetry]
+    requests:
+      handled-by: https://support.hosting.example # or inbox (the default)
 ```
 
-In Helm, `support.connections` takes the same entries with `tokenSecret: { name, key }` instead of the
-token.
+In Helm, `support.connections` takes the same entries (`auth`, `tenantIdentity`, `telemetry`,
+`tenantDefaults`, `escalatesTo`) with `tokenSecret: { name, key }` instead of the token, and
+`support.requests.handledBy` names who handles new support requests: `inbox`, or a connection's
+endpoint. `tenant-defaults` is applied at startup once per configured value, as
+`epistola.support.tenant-defaults` is for Epistola support's connection.
 
-An installation administrator can also add one under Platform → Support connections → Other support
-connections: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
+An installation administrator can also add one under Platform → Support connections with **Add
+connection**: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
 `support` object with `name`, `endpoint`, `services`, and optionally `tenantIdentity` and `telemetry`),
-or fill in the endpoint by hand, and enter the token the other side issued. Each connection there can be
-renamed, have its services and token changed, and be removed: requests it handled return to the support
-desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
+or fill in the endpoint by hand, and enter the token the other side issued or choose to register. Each
+connection has a page of its own, where it can be renamed, have its services, token, privacy and setup
+for every tenant changed, and be removed: requests it handled return to the support desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
 connection, with the name and token from the configuration. An entry removed from the configuration
 leaves the connection in the installation.
 

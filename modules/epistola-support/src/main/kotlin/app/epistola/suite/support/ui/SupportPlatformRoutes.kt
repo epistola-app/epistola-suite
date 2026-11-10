@@ -27,6 +27,7 @@ import app.epistola.suite.support.connection.SupportConnectionPreset
 import app.epistola.suite.support.connection.SupportConnectionPresetUnavailableException
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
+import app.epistola.suite.support.connection.SupportConnectionStillRegisteredException
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
 import app.epistola.suite.support.connection.SupportRegistrationNotAllowedException
@@ -52,7 +53,7 @@ import java.util.UUID
 /**
  * `/platform/support` — the installation's support connections, one list whatever each signs in with
  * (ADR 0053), with the installation's privacy and what tenants share; and
- * `/platform/support/connections/{id}` for one that registers with the installation's own key: its
+ * `/platform/support/connections/{id}` for one that registers through OAuth (RFC 7591, private_key_jwt): its
  * state, the claim code while it waits for activation, the services selected here and those it
  * granted, and the last check. Platform pages (no tenant); the mediator enforces the installation
  * administrator role on every route.
@@ -119,7 +120,7 @@ class SupportPlatformHandler(
 
     /**
      * The page of one connection (ADR 0053 §1): its settings, privacy and removal, and for one that
-     * registers with the installation's own key its registration, services and disconnect.
+     * registers through OAuth (RFC 7591, private_key_jwt) its registration, services and disconnect.
      */
     fun detail(request: ServerRequest): ServerResponse {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.notFound().build()
@@ -337,7 +338,11 @@ class SupportPlatformHandler(
     /** Removes a connection, any one. */
     fun removeConnection(request: ServerRequest): ServerResponse {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
-        RemoveSupportConnection(id).execute()
+        try {
+            RemoveSupportConnection(id).execute()
+        } catch (_: SupportConnectionStillRegisteredException) {
+            return redirect("/platform/support/connections/$id")
+        }
         return redirect("/platform/support#support-connections")
     }
 
@@ -350,7 +355,7 @@ class SupportPlatformHandler(
         return connectionPanel(request, id, notice)
     }
 
-    /** The connection the path names, when it registers with the installation's own key; null otherwise. */
+    /** The connection the path names, when it registers through OAuth (RFC 7591, private_key_jwt); null otherwise. */
     private fun registeringId(request: ServerRequest): UUID? {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return null
         return id.takeIf { supportConnections.find(it)?.auth == SupportConnectionAuth.PRIVATE_KEY_JWT }

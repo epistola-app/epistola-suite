@@ -87,7 +87,7 @@
                                    data-testid="support-connection-open">Partner</a>
                                 <div class="text-muted text-sm" style="overflow-wrap: anywhere;" th:text="${c.endpoint}">https://desk.partner.example</div>
                             </td>
-                            <td class="text-sm" th:text="${c.registers} ? 'Own key' : 'Token'">Token</td>
+                            <td class="text-sm" th:text="${c.registers} ? 'OAuth registration' : 'Token'">Token</td>
                             <td th:insert="~{support/platform :: connection-state(${c})}"></td>
                             <td class="text-sm" th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</td>
                             <td class="text-sm" th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-09 10:00 UTC</td>
@@ -177,7 +177,10 @@
             <div class="detail-section-header"><h2>Remove this connection</h2></div>
             <div class="detail-section-body ep-stack">
                 <p style="margin: 0;">Requests it handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.</p>
-                <form th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post">
+                <p th:unless="${c.canRemove}" class="text-muted" style="margin: 0;" data-testid="support-connection-remove-disconnect-first">
+                    It is registered through OAuth: disconnect it above first, so the registration ends at the other side too.
+                </p>
+                <form th:if="${c.canRemove}" th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post">
                     <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-connection-remove"
                             data-confirm-submit data-confirm-submit-title="Remove connection"
                             th:attr="data-confirm-submit-message=|Requests ${c.name} handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.|"

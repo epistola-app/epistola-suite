@@ -34,7 +34,7 @@ class SupportDisconnector(
      */
     fun disconnect(localOnly: Boolean, by: String?): SupportDisconnectOutcome = disconnect(epistola, localOnly, by)
 
-    /** [disconnect] for [connection], any connection that registers with the installation's own key. */
+    /** [disconnect] for [connection], any connection that registers through OAuth (RFC 7591, private_key_jwt). */
     fun disconnect(connection: DefaultSupportConnection, localOnly: Boolean, by: String?): SupportDisconnectOutcome {
         val store = connection.store
         if (!connection.settings.enabled) throw SupportUnavailableException(connection.settings.offReason)
