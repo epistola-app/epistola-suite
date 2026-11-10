@@ -23,6 +23,7 @@ import javax.sql.DataSource
  * The feedback round's cluster lock. "Another node" is a second round holding the lock on a thread of
  * its own, as another node's round does: the lock is a lease row in the database, not a session.
  */
+@org.junit.jupiter.api.parallel.Isolated("It counts the borrowed connections of the pool every test class in this context shares")
 class SupportRequestRoundLockIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var lock: SupportRequestRoundLock
@@ -96,10 +97,8 @@ class SupportRequestRoundLockIntegrationTest : IntegrationTestBase() {
         var autoCommitInTransaction: Boolean? = null
 
         val ran = lock.runExclusively(Duration.ofSeconds(10)) {
-            // The fewest borrowed over up to a second of looks, stopping at none: the background work of
-            // other test classes (checks, refreshes) may borrow one for a moment, the round never.
-            repeat(50) {
-                if (borrowedDuringRound == 0) return@repeat
+            // The fewest borrowed over a few looks: other work may borrow one for a moment.
+            repeat(5) {
                 borrowedDuringRound = minOf(borrowedDuringRound, pool.activeConnections)
                 Thread.sleep(20)
             }
