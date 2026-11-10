@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.error.KnownValidationCodes
+import app.epistola.api.model.MissingResource
 import app.epistola.api.model.ValidationError
 import app.epistola.suite.api.v1.shared.UnsupportedSortDirectionException
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
@@ -137,7 +138,7 @@ object ApiExceptionMappings {
         builder.register<TenantNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Tenant not found",
-            extensions = { mapOf("tenantId" to it.tenantId.value) },
+            extensions = { mapOf("tenantId" to it.tenantId.value, missing(MissingResource.Kind.TENANT)) },
             logMessage = { "Tenant not found: ${it.tenantId}" },
         )
 
@@ -174,6 +175,7 @@ object ApiExceptionMappings {
                 mapOf(
                     "tenantId" to it.tenantId.value,
                     "templateId" to it.templateId.value,
+                    missing(MissingResource.Kind.TEMPLATE, template = it.templateId.value),
                 )
             },
             logMessage = { "Template not found: tenant=${it.tenantId} template=${it.templateId}" },
@@ -324,6 +326,7 @@ object ApiExceptionMappings {
                     "tenantId" to it.tenantId.value,
                     "templateId" to it.templateId.value,
                     "variantId" to it.variantId.value,
+                    missing(MissingResource.Kind.VARIANT, template = it.templateId.value, variant = it.variantId.value),
                 )
             },
             logMessage = { "Template variant not found: ${it.message}" },
@@ -349,6 +352,7 @@ object ApiExceptionMappings {
                 mapOf(
                     "tenantId" to it.tenantId.value,
                     "environmentId" to it.environmentId.value,
+                    missing(MissingResource.Kind.ENVIRONMENT, environment = it.environmentId.value),
                 )
             },
             logMessage = { "Environment not found: ${it.message}" },
@@ -357,7 +361,9 @@ object ApiExceptionMappings {
         builder.register<CatalogNotReleasedException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The catalog has no release to generate from",
-            extensions = { mapOf("tenantId" to it.tenantKey.value, "catalogId" to it.catalogKey.value) },
+            extensions = {
+                mapOf("tenantId" to it.tenantKey.value, "catalogId" to it.catalogKey.value, missing(MissingResource.Kind.RELEASE))
+            },
             logMessage = { "Catalog not released: ${it.message}" },
         )
 
@@ -371,6 +377,13 @@ object ApiExceptionMappings {
                     "releaseVersion" to it.releaseVersion,
                     "templateId" to it.templateId.value,
                     "variantId" to it.variantId?.value,
+                    missing(
+                        if (it.variantId == null) MissingResource.Kind.TEMPLATE else MissingResource.Kind.VARIANT,
+                        // A draft has no version, and the exception names it by label, not release id.
+                        release = if (it.draftLabel == null) it.releaseVersion else null,
+                        template = it.templateId.value,
+                        variant = it.variantId?.value,
+                    ),
                 )
             },
             logMessage = { "Template not in release: ${it.message}" },
@@ -455,14 +468,26 @@ object ApiExceptionMappings {
         builder.register<NoReleaseDeployedException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "No release of the catalog is deployed to the environment",
-            extensions = { mapOf("environmentId" to it.environmentKey.value, "catalogId" to it.catalogKey.value) },
+            extensions = {
+                mapOf(
+                    "environmentId" to it.environmentKey.value,
+                    "catalogId" to it.catalogKey.value,
+                    missing(MissingResource.Kind.RELEASE, environment = it.environmentKey.value, versionRange = it.versionSelector),
+                )
+            },
             logMessage = { "No release deployed: ${it.message}" },
         )
 
         builder.register<ReleaseNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The catalog has no such release that can be rendered",
-            extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.releaseVersion) },
+            extensions = {
+                mapOf(
+                    "catalogId" to it.catalogKey.value,
+                    "releaseVersion" to it.releaseVersion,
+                    missing(MissingResource.Kind.RELEASE, versionRange = it.releaseVersion),
+                )
+            },
             logMessage = { "Release not found: ${it.message}" },
         )
 
@@ -643,7 +668,7 @@ object ApiExceptionMappings {
         builder.register<CatalogNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Catalog not found",
-            extensions = { mapOf("catalogId" to it.catalogKey.value) },
+            extensions = { mapOf("catalogId" to it.catalogKey.value, missing(MissingResource.Kind.CATALOG)) },
             logMessage = { "Catalog not found: ${it.catalogKey}" },
         )
 
@@ -875,3 +900,27 @@ private class ApiExceptionMappingBuilder {
 
     fun build(): Map<Class<out Throwable>, ApiExceptionMapping> = map.toMap()
 }
+
+/**
+ * The `missing` member of a `not-found` problem (contract 2.0.0-rc.2, `NotFoundProblemDetail`): what
+ * did not exist, and the context the request named, so a client tells "no release in production
+ * satisfies ^2.0.0" from "release 1.4.0 lacks template besluit" without parsing `detail` (RFC 9457
+ * §3.1.4). The catalog is left out: the exceptions carry its key alone, the contract's reference
+ * needs its registry and namespace too, and the client already knows which catalog it asked for.
+ */
+private fun missing(
+    kind: MissingResource.Kind,
+    environment: String? = null,
+    versionRange: String? = null,
+    release: String? = null,
+    template: String? = null,
+    variant: String? = null,
+): Pair<String, Map<String, String>> = app.epistola.api.error.ProblemDetails.MISSING_PROPERTY to listOf(
+    // As a map with only what is known: a property the contract makes optional is absent, not null.
+    "kind" to kind.value,
+    "environment" to environment,
+    "versionRange" to versionRange,
+    "release" to release,
+    "template" to template,
+    "variant" to variant,
+).mapNotNull { (name, value) -> value?.let { name to it } }.toMap()

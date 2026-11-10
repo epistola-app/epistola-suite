@@ -160,6 +160,7 @@ class OperationPermissionContractIT : IntegrationTestBase() {
         "getTemplate" to get({ "${it.draft}/templates/letter" }),
         "updateTemplate" to patch({ "${it.draft}/templates/letter" }),
         "deleteTemplate" to delete({ "${it.draft}/templates/letter" }),
+        "listCatalogTemplates" to get({ "${it.catalog}/templates" }),
         "validateTemplateData" to post({ "${it.catalog}/templates/letter/validate" }, { """{"data": {}}""" }),
         "markTemplateReady" to post({ "${it.draft}/templates/letter/mark-ready" }),
         "listVariants" to get({ "${it.draft}/templates/letter/variants" }),
