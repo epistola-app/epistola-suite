@@ -17,7 +17,6 @@ import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpRequestInterceptor
 import org.springframework.http.client.ClientHttpResponse
-import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.client.RestClient
@@ -66,10 +65,11 @@ import kotlin.concurrent.withLock
  * - **Saving a selection** drops this node's token, so nothing is sent with a token that does not
  *   carry what was selected; the next call, or the token refresh, asks for one with the new selection.
  */
-@Component
 class DefaultSupportConnection(
     private val properties: SupportProperties,
-    private val store: SupportConnectionStore,
+    /** What this connection is configured with: Epistola support's from `epistola.support.*`, another's from its row. */
+    internal val settings: RegisteringConnectionSettings,
+    internal val store: SupportConnectionStore,
     private val client: SupportServiceClient,
     private val productDiscovery: ProductDiscovery,
     private val installations: InstallationService,
@@ -78,6 +78,7 @@ class DefaultSupportConnection(
     private val buildProperties: BuildProperties?,
     private val supportHttp: SupportHttp,
 ) : SupportConnection {
+
     private val log = LoggerFactory.getLogger(javaClass)
 
     override val id: UUID get() = store.connectionId
@@ -114,8 +115,8 @@ class DefaultSupportConnection(
     @Volatile private var renewal: Thread? = null
 
     init {
-        val unknown = properties.unknownServices
-        if (properties.enabled && unknown.isNotEmpty()) {
+        val unknown = settings.configuredServices.filter { it !in SupportScope.NAMES }
+        if (settings.enabled && unknown.isNotEmpty()) {
             log.warn(
                 "epistola.support.services names {} which this version does not know (it knows {}); kept, but not used",
                 unknown,
@@ -127,7 +128,7 @@ class DefaultSupportConnection(
     private val tokenLock = ReentrantLock()
 
     override fun status(): SupportConnectionStatus {
-        if (!properties.enabled) return SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
+        if (!settings.enabled) return SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
         val snap = snapshot()
         val stored = snap.status
         val credentials = snap.credentials?.takeIf { it.clientId != null && (snap.issuer == null || sameIssuer(it.issuer, snap.issuer)) }
@@ -180,7 +181,7 @@ class DefaultSupportConnection(
      * This node's clock is off, so the support service refuses its client assertions: it does not
      * take on cluster-wide support work ([SupportClusterCapability]) until a token is fetched again.
      */
-    fun nodeClockOff(): Boolean = properties.enabled && nodeClock.isOff()
+    fun nodeClockOff(): Boolean = settings.enabled && nodeClock.isOff()
 
     /**
      * Whether [t] was asked for after [stored]'s scopes were learned: by the store version when the
@@ -196,10 +197,10 @@ class DefaultSupportConnection(
         offeredServices()?.contains(scope.value) != false &&
         (status().state as? SupportConnectionState.Active)?.usable(EpistolaClock.instant())?.contains(scope) == true
 
-    override fun isSelected(scope: SupportScope): Boolean = properties.enabled && scope.value in selectedServices().services
+    override fun isSelected(scope: SupportScope): Boolean = settings.enabled && scope.value in selectedServices().services
 
     override fun scopeRefused(scope: SupportScope) {
-        if (!properties.enabled) return
+        if (!settings.enabled) return
         val current = token
         if (current != null && scope !in current.scopes) {
             // A token from before the scope was asked for or granted: drop it, the next call asks again.
@@ -227,10 +228,10 @@ class DefaultSupportConnection(
      * installation administrator saved one. Cached with the other stored rows; no network I/O.
      */
     fun selectedServices(): SupportServiceSelection {
-        if (!properties.enabled) return SupportServiceSelection(properties.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
+        if (!settings.enabled) return SupportServiceSelection(settings.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
         val stored = snapshot().services
         return if (stored == null) {
-            SupportServiceSelection(properties.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
+            SupportServiceSelection(settings.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
         } else {
             SupportServiceSelection(SupportScope.normalize(stored.services), fromConfiguration = false, savedAt = stored.savedAt, savedBy = stored.savedBy)
         }
@@ -281,7 +282,7 @@ class DefaultSupportConnection(
     override fun requestsEndpoint(): URI? = metadataCache.cached()?.requestsEndpoint
 
     override fun cachedAccessToken(): String? {
-        if (!properties.enabled) return null
+        if (!settings.enabled) return null
         val current = token?.takeIf { it.expiresAt.isAfter(EpistolaClock.instant().plus(CACHED_MARGIN)) } ?: return null
         if (!fitsNow(current)) {
             // Asked for another selection, or lacks a scope granted since: never sent with; a new one
@@ -299,7 +300,7 @@ class DefaultSupportConnection(
     }
 
     override fun accessToken(): String {
-        if (!properties.enabled) throw SupportUnavailableException("The support connection is off (epistola.support.enabled=false)")
+        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
         // Refused: asking again only gets invalid_client again. A check (or Register again) finds a restored registration.
         (status().state as? SupportConnectionState.Refused)?.let { throw SupportRefusedException("The support service refused registration ${it.clientId}: ${it.reason}") }
         usable()?.let { return it.value }
@@ -333,7 +334,7 @@ class DefaultSupportConnection(
     private fun backoffDelay(failures: Int): Duration = BACKOFF_FIRST.multipliedBy(1L shl (failures - 1).coerceAtMost(BACKOFF_MAX_DOUBLINGS)).coerceAtMost(BACKOFF_MAX)
 
     override fun tokenRejected(token: String) {
-        if (!properties.enabled || this.token?.value != token) return
+        if (!settings.enabled || this.token?.value != token) return
         if (!replaceRejected(token)) return
         renewInBackground()
     }
@@ -456,9 +457,9 @@ class DefaultSupportConnection(
      * once, and that one's result is what the page shows next.
      */
     fun checkIfIdle(): Boolean {
-        if (!properties.enabled) return true
+        if (!settings.enabled) return true
         val ran = try {
-            store.tryExclusively { check(allowRegister = properties.autoRegister) } != null
+            store.tryExclusively { check(allowRegister = settings.autoRegister) } != null
         } finally {
             invalidate()
         }
@@ -479,7 +480,7 @@ class DefaultSupportConnection(
      * @throws SupportRegistrationNotAllowedException unless the connection is unregistered, expired or disconnected.
      */
     fun registerNow(contact: StoredSupportContact? = null) {
-        if (!properties.enabled) throw SupportUnavailableException("The support connection is off (epistola.support.enabled=false)")
+        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
         try {
             store.tryExclusively {
                 invalidate()
@@ -515,7 +516,7 @@ class DefaultSupportConnection(
      * @throws SupportRegistrationNotAllowedException when the registration is not refused or pending (any more).
      */
     fun registerAgain() {
-        if (!properties.enabled) throw SupportUnavailableException("The support connection is off (epistola.support.enabled=false)")
+        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
         try {
             store.tryExclusively {
                 invalidate()
@@ -564,7 +565,7 @@ class DefaultSupportConnection(
      * while another thread fetches one. Never throws.
      */
     fun refreshTokenIfDue() {
-        if (!properties.enabled) return
+        if (!settings.enabled) return
         val state = status().state
         if (state !is SupportConnectionState.Pending && state !is SupportConnectionState.Active) return
         val current = token
@@ -931,7 +932,7 @@ class DefaultSupportConnection(
 
     // --- metadata, per node ([SupportMetadataCache]) ---
 
-    private fun resolveIssuer(): URI = properties.configuredIssuer ?: productDiscovery.endpoints().support.issuer
+    private fun resolveIssuer(): URI = settings.issuer ?: productDiscovery.endpoints().support.issuer
 
     /** The verified metadata of the issuer in use; fetched when this node has none. */
     private fun currentMetadata(): SupportServiceMetadata = metadataCache.cached() ?: metadataFor(store.credentials()?.issuer?.let(::URI) ?: resolveIssuer())
@@ -963,10 +964,10 @@ class DefaultSupportConnection(
         val generation = synchronized(snapshotLock) { snapshotGeneration }
         // Before the rows: a write that lands in between raises it again, so the next check reads anew.
         if (!versionRead) version = runCatching { store.version() }.getOrNull()
-        val issuer = properties.configuredIssuer ?: runCatching { productDiscovery.cachedEndpoints().support.issuer }.getOrNull()
+        val issuer = settings.issuer ?: runCatching { productDiscovery.cachedEndpoints().support.issuer }.getOrNull()
         val read = readSupportRows(store, issuer, snapshot?.services, version, log)
         // What is selected by these rows: the saved selection, or the configuration until one was saved.
-        val services = read.services?.let { SupportScope.normalize(it.services) } ?: properties.configuredServices
+        val services = read.services?.let { SupportScope.normalize(it.services) } ?: settings.configuredServices
         val previous = lastReadServices
         lastReadServices = services
         // Another node saved a selection: this node's token asked for the old one, and a newly

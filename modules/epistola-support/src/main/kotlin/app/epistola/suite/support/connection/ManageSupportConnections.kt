@@ -103,8 +103,11 @@ class DiscoverSupportConnectionPresetHandler(
 }
 
 /**
- * Adds a support connection the suite signs in to with a token the other side issued (ADR 0053 §1a),
- * as an installation administrator: from a preset or by hand. The configuration leaves it alone.
+ * Adds a support connection as an installation administrator (ADR 0053 §1a), from a preset or by hand:
+ * one the suite signs in to with a token the other side issued ([SupportConnectionAuth.BEARER_TOKEN]),
+ * or one that registers with the installation's own key, as Epistola support's does
+ * ([SupportConnectionAuth.PRIVATE_KEY_JWT]; no token, registered when an administrator asks). The
+ * configuration leaves it alone.
  */
 data class AddSupportConnection(
     val name: String,
@@ -113,13 +116,14 @@ data class AddSupportConnection(
     val services: List<String>,
     val tenantIdentity: TenantIdentity? = null,
     val telemetry: TelemetryDetail? = null,
+    val auth: SupportConnectionAuth = SupportConnectionAuth.BEARER_TOKEN,
 ) : Command<UUID>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
 
     init {
         validate("name", name.isNotBlank() && name.length <= MAX_NAME) { "Give the connection a name of at most $MAX_NAME characters" }
-        validate("token", token.isNotBlank()) { "The token the other side issued is required" }
+        validate("token", auth != SupportConnectionAuth.BEARER_TOKEN || token.isNotBlank()) { "The token the other side issued is required" }
         validate("endpoint", runCatching { URI(endpoint.trim()) }.getOrNull()?.let { it.isAbsolute && it.host != null && it.scheme in setOf("https", "http") } == true) {
             "The endpoint must be an absolute https address"
         }
@@ -128,7 +132,7 @@ data class AddSupportConnection(
     /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
     val baseUrl: String get() = endpoint.trim().trimEnd('/')
 
-    override fun toString(): String = "AddSupportConnection(name=$name, endpoint=$endpoint, services=$services)"
+    override fun toString(): String = "AddSupportConnection(name=$name, endpoint=$endpoint, services=$services, auth=$auth)"
 
     companion object {
         const val MAX_NAME = 100
@@ -148,12 +152,13 @@ class AddSupportConnectionHandler(
             handle.createQuery(
                 """
                 INSERT INTO support_connections (id, name, source, endpoint, auth, from_configuration)
-                VALUES (:id, :name, 'CONFIGURED', :endpoint, 'BEARER_TOKEN', FALSE)
+                VALUES (:id, :name, 'CONFIGURED', :endpoint, :auth, FALSE)
                 ON CONFLICT (endpoint) WHERE source = 'CONFIGURED' DO NOTHING
                 RETURNING id
                 """,
             )
                 .bind("id", UUIDv7.generate())
+                .bind("auth", command.auth.name)
                 .bind("name", command.name.trim())
                 .bind("endpoint", command.baseUrl)
                 .mapTo(UUID::class.java)
@@ -161,7 +166,7 @@ class AddSupportConnectionHandler(
                 .orElse(null)
         } ?: throw SupportConnectionExistsException(command.baseUrl)
         val store = connections.store(id)
-        store.saveBearerToken(command.token.trim())
+        if (command.auth == SupportConnectionAuth.BEARER_TOKEN) store.saveBearerToken(command.token.trim())
         store.saveServices(StoredSupportServices(SupportScope.normalize(command.services), EpistolaClock.instant(), SecurityContext.current().displayName))
         if (command.tenantIdentity != null || command.telemetry != null) {
             val installation = privacy.current()
