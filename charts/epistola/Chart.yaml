@@ -8,9 +8,9 @@ type: application
 # 2.x deploys Epistola 2.x: a new app major is a chart major.
 version: 2.0.0-SNAPSHOT
 # The Epistola release this chart deploys by default, chosen in this file and never taken from the
-# newest app tag; publishing checks that it is a released app version. The newest 2.0 pre-release
-# until 2.0.0 is out, then 2.0.0 before this chart is released.
-appVersion: "2.0.0-beta.1"
+# newest app tag. Publishing checks that it is a released app version, so this chart is released
+# once Epistola 2.0.0 is; until then the smoke test installs the newest 2.x image.
+appVersion: "2.0.0"
 maintainers:
   - name: epistola-app
     url: https://github.com/epistola-app
