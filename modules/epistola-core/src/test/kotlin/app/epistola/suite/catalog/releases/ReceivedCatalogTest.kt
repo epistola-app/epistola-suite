@@ -37,6 +37,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -62,6 +63,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
     /** The author's catalog with a theme `brand`, released as [version]; its archive. */
     private fun authored(author: TenantKey, catalog: CatalogKey): ByteArray {
         CreateCatalog(tenantKey = author, id = catalog, name = catalog.value).execute()
+        withoutSystemCatalog(testCatalog(author, catalog))
         CreateTheme(id = theme(author, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
         MarkCatalogReady(testCatalog(author, catalog), catalogVersion = null).execute()
         ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0", catalogVersion = null).execute()
@@ -253,6 +255,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             val namespace = GetCatalog(testCatalog(author, catalog)).query()!!.namespace
             TestNamespaces.share(author, receiver).execute()
             CreateCatalog(tenantKey = receiver, id = catalog, name = "Ours", namespace = namespace).execute()
+            withoutSystemCatalog(testCatalog(receiver, catalog))
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours", catalogVersion = null).execute()
 
             ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()

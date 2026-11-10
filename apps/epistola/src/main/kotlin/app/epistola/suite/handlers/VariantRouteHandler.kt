@@ -4,7 +4,8 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.attributes.queries.ListVisibleAttributeDefinitions
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ResourceModifiedException
@@ -77,7 +78,7 @@ class VariantRouteHandler {
         }
 
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
-        val attributes = readAttributesFromForm(request, tenantId)
+        val attributes = readAttributesFromForm(request, templateId)
 
         try {
             CreateVariant(
@@ -106,7 +107,7 @@ class VariantRouteHandler {
         val variant = GetVariant(variantId = variantId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId, catalogVersion = version).query()
+        val attributeDefinitions = visibleAttributeDefinitions(templateId, version)
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
@@ -158,7 +159,7 @@ class VariantRouteHandler {
             UpdateVariant(
                 variantId = variantId,
                 title = form["title"],
-                attributes = readAttributesFromForm(request, tenantId),
+                attributes = readAttributesFromForm(request, templateId),
                 catalogVersion = request.catalogVersion(),
                 expectedRevision = request.expectedRevision(),
             ).execute()
@@ -296,8 +297,8 @@ class VariantRouteHandler {
      * validator + UI both accept either form (see `validateAttributes` and
      * `resolveAttributeKey`).
      */
-    private fun readAttributesFromForm(request: ServerRequest, tenantId: TenantId): Map<String, String> {
-        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId, catalogVersion = request.catalogVersion()).query())
+    private fun readAttributesFromForm(request: ServerRequest, templateId: TemplateId): Map<String, String> {
+        val descriptors = buildAttributeDescriptors(visibleAttributeDefinitions(templateId, request.catalogVersion()))
         val attributes = mutableMapOf<String, String>()
         for (descriptor in descriptors) {
             val qualifiedValue = request.params().getFirst("attr_${descriptor.qualifiedKey}")?.trim()
@@ -314,6 +315,9 @@ class VariantRouteHandler {
     }
 }
 
+/** The attributes a variant of [templateId] can carry: those of the catalogs its catalog version can use. */
+internal fun visibleAttributeDefinitions(templateId: TemplateId, version: CatalogReleaseRef?): List<VariantAttributeDefinition> = ListVisibleAttributeDefinitions(templateId.catalogId, version).query()
+
 /**
  * The model the variants tab renders: the variants with their attributes and readiness, the
  * attribute pickers, and the data examples the preview uses.
@@ -323,7 +327,7 @@ class VariantRouteHandler {
  */
 internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext, version: CatalogReleaseRef? = null): Map<String, Any?> {
     val variants = GetVariantSummaries(templateId = templateId, catalogVersion = version).query()
-    val attributeDefinitions = ListAttributeDefinitions(tenantId = templateId.tenantId, catalogVersion = version).query()
+    val attributeDefinitions = visibleAttributeDefinitions(templateId, version)
     val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
     val markReadyAllowed = editable && auth.has(Permission.TEMPLATE_EDIT)
     val decoratedVariants = decorateVariants(variants, attributeDescriptors, markReadyAllowed)

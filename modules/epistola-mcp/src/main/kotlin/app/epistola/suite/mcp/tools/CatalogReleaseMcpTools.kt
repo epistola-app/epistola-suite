@@ -334,7 +334,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             val content = mergedContent.orEmpty().mapValues { (entry, value) -> contentObject(entry, value) }
             val scope = draftScope(catalog, draft)
             val result = MergeReleaseIntoDraft(catalog, release.trim(), sides, scope, expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute()
-            val unused = GetCatalogBorrowing(catalog, scope).query().unused.map { it.alias }
+            val unused = GetCatalogBorrowing(catalog, scope).query().leftOver.map { it.alias }
             return MergedReleaseInfo.from(result, unused)
         }
     }

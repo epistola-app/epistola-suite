@@ -18,7 +18,8 @@ import kotlin.test.assertTrue
  * the database picks. So a statement touching a content table or a view of every version's content
  * (`version_themes`, …) must say which version (ADR 0049): by `version_id` (the one it binds, or a
  * parent row's), or, for a read across catalogs, through `inNextVersion(...)` or
- * `inVersionOrNext(...)` in `CatalogSql.kt` (each catalog's `next_version_id`).
+ * `inVersionOrNext(...)` in `CatalogSql.kt` (each catalog's `next_version_id`), or
+ * `VisibleVersions.predicate(...)` (the versions one catalog version can use, bound by id).
  *
  * The scan looks at each string literal in main Kotlin sources. A literal that reads from, joins,
  * inserts into or updates a content table, and mentions none of those, fails — unless its file is in
@@ -220,7 +221,7 @@ class ContentVersionSqlTest {
         )
 
         // A release named by its number (`version = :version`) names its version as much as a `version_id` does.
-        private val NAMES_VERSION = Regex("""version_id|\bversion\s*=|inNextVersion\(|inVersionOrNext\(|templateViewJoin\(|templateJoin\(""")
+        private val NAMES_VERSION = Regex("""version_id|\bversion\s*=|inNextVersion\(|inVersionOrNext\(|VisibleVersions\.predicate\(|templateViewJoin\(|templateJoin\(""")
         private val WHITESPACE = Regex("""\s+""")
     }
 }

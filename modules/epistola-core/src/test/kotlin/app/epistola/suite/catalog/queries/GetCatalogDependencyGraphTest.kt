@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -30,7 +31,9 @@ class GetCatalogDependencyGraphTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared.key, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared.key))
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
+            withoutSystemCatalog(testCatalog(tenant, letters))
             CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(shared)
             declareDependency(tenant, letters, on = shared.key)

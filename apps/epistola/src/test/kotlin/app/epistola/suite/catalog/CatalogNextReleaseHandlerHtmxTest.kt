@@ -86,6 +86,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("data-testid=\"catalog-nothing-added\"")
+            assertThat(body).`as`("what it starts with is listed, and does not hide the invitation")
+                .contains("data-resource=\"catalogDependency/system\"")
             assertThat(body).doesNotContain("data-testid=\"catalog-no-changes\"")
             assertThat(body).`as`("one invitation, not a tile per kind reading 0")
                 .contains("data-testid=\"catalog-counts-empty\"").contains("data-testid=\"catalog-counts-new-template\"")
@@ -322,7 +324,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"").contains("no release 2.0.0 of shared")
-            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }).`as`("nothing declared").isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }.filterNot { it.catalogKey == "system" }).`as`("nothing declared").isEmpty()
         }
     }
 
@@ -347,7 +349,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"")
-            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }).isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), catalogVersion = null).query() }.filterNot { it.catalogKey == "system" }).isEmpty()
         }
     }
 

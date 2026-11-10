@@ -84,7 +84,7 @@ class CatalogHandler {
     private fun unusedAfterMerge(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar): UnusedAfterMerge? {
         val merged = request.param("merged").orElse(null)?.takeIf { it.isNotBlank() } ?: return null
         if (!bar.editable) return null
-        val unused = GetCatalogBorrowing(segment.catalogIn(tenantId.key), segment.ref(tenantId.key)).query().unused
+        val unused = GetCatalogBorrowing(segment.catalogIn(tenantId.key), segment.ref(tenantId.key)).query().leftOver
         return UnusedAfterMerge(merged, unused).takeIf { unused.isNotEmpty() }
     }
 

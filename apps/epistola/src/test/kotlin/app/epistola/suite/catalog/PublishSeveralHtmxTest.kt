@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -56,7 +57,9 @@ class PublishSeveralHtmxTest : BaseIntegrationTest() {
                 tenant = tenant(name)
                 withMediator {
                     CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
+                    withoutSystemCatalog(testCatalog(tenant.id, shared))
                     CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
+                    withoutSystemCatalog(testCatalog(tenant.id, letters))
                     CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand", catalogVersion = null).execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))
                     CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
@@ -92,6 +95,22 @@ class PublishSeveralHtmxTest : BaseIntegrationTest() {
         assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), "1.0.0").query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly(shared.value to "1.0.0")
         assertThat(result).`as`("everything is published now").contains("data-testid=\"publish-nothing\"")
+    }
+
+    @Test
+    fun `a new catalog with nothing added is not offered, though it declares the system catalog`() {
+        lateinit var tenant: Tenant
+        fixture {
+            given {
+                tenant = tenant("Publish Several Empty")
+                withMediator { CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute() }
+            }
+        }
+
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/publish", String::class.java).body!!
+
+        assertThat(page).doesNotContain("data-catalog=\"${testCatalog(tenant.id, letters).address}\"")
+        assertThat(page).`as`("nor the default catalog, empty too").contains("data-testid=\"publish-nothing\"")
     }
 
     @Test

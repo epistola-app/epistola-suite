@@ -124,7 +124,9 @@ when `InstallSystemCatalog` installs the system catalog on tenant creation and
 upgrades it on boot: their files are written into `asset_content` once per
 installation and linked like any font's faces, so a new or changed bundled font
 is a new release of the system catalog. The model supports the full weight
-range; the bundled set just ships those four faces. A test guards that every
+range; the bundled set just ships those four faces. Every new catalog declares the
+system catalog, so the editor offers these fonts from the start, at the release
+that declaration pins ([catalog-versioning.md](catalog-versioning.md)). A test guards that every
 face the catalog declares is on the classpath and hashes to its declared hash.
 
 The default tenant theme and the demo catalog reference

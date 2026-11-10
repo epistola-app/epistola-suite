@@ -52,6 +52,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -96,6 +97,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
     private fun released(name: String, dependency: Boolean = false): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         UpdateDataContract(invoice(tenant), dataModel = contract, catalogVersion = null).execute()
         CreateStencil(letterhead(tenant), "Letterhead", content = stencilContent("body"), parameterSchema = parameters, catalogVersion = null).execute()
@@ -104,6 +106,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         if (dependency) {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenant, shared, "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             mediator.releaseNext(testCatalog(TenantId(tenant), shared))
             val catalog = GetCatalog(testCatalog(tenant, shared)).query()!!
             UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", "1.0.0")), catalogVersion = null).execute()
@@ -238,10 +241,12 @@ class ReleaseNumberTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         val sharedId = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand", catalogVersion = null).execute()
         CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", content = stencilContent("body"), catalogVersion = null).execute()
         mediator.releaseNext(sharedId)
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         if (usesFooter) {
@@ -316,6 +321,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenant, shared, "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), shared))
             UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()

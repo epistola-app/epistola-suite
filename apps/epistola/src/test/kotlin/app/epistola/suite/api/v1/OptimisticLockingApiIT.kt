@@ -28,6 +28,7 @@ import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -134,7 +135,11 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
     @Test
     fun `a catalog draft's ETag covers its settings and its dependencies`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
-        val version = withMediator { CatalogApiPaths.version(tenantKey) }
+        // So that no dependencies is what it declares, and declaring none again is no change.
+        val version = withMediator {
+            withoutSystemCatalog(CatalogId.default(TenantId(tenantKey)))
+            CatalogApiPaths.version(tenantKey)
+        }
 
         assertLocked(version, apiKey, HttpMethod.PATCH, """{"presets":[{"key":"accent","name":"Accent"}]}""", """{"presets":[]}""")
         assertThat(call(HttpMethod.GET, "$version/dependencies", apiKey).headers.eTag).`as`("the version's ETag")

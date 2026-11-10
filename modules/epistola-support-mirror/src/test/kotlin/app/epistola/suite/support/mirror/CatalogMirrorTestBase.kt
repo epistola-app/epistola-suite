@@ -29,6 +29,7 @@ import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,6 +49,8 @@ abstract class CatalogMirrorTestBase : IntegrationTestBase() {
         val catalogKey = CatalogKey.of(key)
         CreateCatalog(tenantKey = tenant, id = catalogKey, name = key.replaceFirstChar(Char::uppercase)).execute()
         val catalog = testCatalog(tenant, catalogKey)
+        // A new catalog declares the system catalog; these release on their own, depending on nothing.
+        withoutSystemCatalog(catalog)
         val theme = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalogKey))
         // Named after the tenant and catalog, so no two catalogs release the same content (content hash).
         CreateTheme(theme, "Brand ${tenant.value} $key", documentStyles = mapOf("color" to "#000000"), catalogVersion = null).execute()

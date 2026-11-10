@@ -27,6 +27,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -46,6 +47,7 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
         keys.forEach { key ->
             val catalog = CatalogKey.of(key)
             CreateCatalog(tenant, catalog, key).execute()
+            withoutSystemCatalog(testCatalog(tenant, catalog))
             CreateTheme(ThemeId(ThemeKey.of("theme"), testCatalog(TenantId(tenant), catalog)), "Theme of $key", catalogVersion = null).execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), catalog)), "Letter", catalogVersion = null).execute().withRequiredDataExample()
         }

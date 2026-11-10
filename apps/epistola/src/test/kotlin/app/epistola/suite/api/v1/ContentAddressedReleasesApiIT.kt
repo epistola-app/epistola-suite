@@ -42,6 +42,7 @@ import app.epistola.suite.testing.createApiKey
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -109,12 +110,15 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         createTenant(tenant, "Content hash tenant")
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
         CreateCodeList(CodeListId(CodeListKey.of("colours"), testCatalog(TenantId(tenant), shared)), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
         MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
         ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
+
+        withoutSystemCatalog(testCatalog(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)))
         CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()

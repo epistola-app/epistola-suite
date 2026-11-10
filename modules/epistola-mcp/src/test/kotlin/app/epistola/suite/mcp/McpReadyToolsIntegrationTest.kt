@@ -23,6 +23,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.template.model.TemplateDocument
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -128,6 +129,8 @@ class McpReadyToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = newTenant()
         seedTemplateOnStencil(tenantId, fill = "body")
         val system = runAsApiKey(tenantId) {
+            // Published without the system catalog, which every catalog starts out declaring, so declaring it is a change.
+            withoutSystemCatalog(testCatalog(tenantId.key, CatalogKey.of("default")))
             readyTools.markCatalogReady("default")
             ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("default")), "1.0.0", catalogVersion = null).execute()
             val system = GetCatalog(testCatalog(tenantId.key, CatalogKey.of("system"))).query()!!

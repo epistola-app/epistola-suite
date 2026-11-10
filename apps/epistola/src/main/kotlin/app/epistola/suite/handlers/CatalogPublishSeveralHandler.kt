@@ -164,8 +164,9 @@ class CatalogPublishSeveralHandler {
                 if (!bar.editable || bar.chosen == null) return@mapNotNull null
                 val readiness = CatalogReleaseReadiness.of(bar)
                 if (!readiness.publishable || readiness.nothingToPublish) return@mapNotNull null
-                // An empty catalog never published has a first version, but nothing in it to publish.
-                if (readiness.changeCount == 0 && readiness.publishedAlong.isEmpty()) return@mapNotNull null
+                // An empty catalog never published has a first version, but nothing in it to publish:
+                // what a new catalog starts with (the system catalog declared) is not something added.
+                if (readiness.nothingAddedYet || (readiness.changeCount == 0 && readiness.publishedAlong.isEmpty())) return@mapNotNull null
                 Row(
                     address = catalog.catalogId.address,
                     name = catalog.name,

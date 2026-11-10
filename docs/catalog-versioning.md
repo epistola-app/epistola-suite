@@ -727,6 +727,22 @@ a theme's fonts, a stencil's content, an attribute's code list. A catalog that c
 declared by naming its **next release**, which is what the draft then renders it from; one that cannot
 by pinning its highest release. A declaration already there is left as the author set it.
 
+**The system catalog is declared from the start.** A new catalog, and a tenant's default catalog,
+declares the system catalog at its highest release when it is created
+(`UsedCatalogDeclarer.declareSystemCatalog`), so its fonts, locales and themes are there to use
+before anything uses them. The author may remove that declaration while nothing uses it. A catalog
+created before this rule declares the system catalog once it uses something of it, or when its
+author declares it.
+
+**A picker offers what the version can use.** The template theme, variant attribute, editor font and
+catalog default-theme pickers list the catalog's own resources and those of each catalog it
+declares, read at the release the declaration pins or the draft it names; a catalog of the tenant it
+does not declare is not offered, nor what a declared catalog declares in turn. One rule says which
+versions those are (`VisibleVersions`), and one query per type reads across them
+(`ListVisibleFonts`, `ListVisibleThemes`, `ListVisibleAttributeDefinitions`). Lists of a catalog's
+own resources (its fonts, themes and attributes pages, the REST API and MCP list tools) are
+unchanged.
+
 **Pinned as received from before wire v8.** A 1.x archive (wire v7 or earlier) pinned nothing: the
 contract's migration declares every catalog its content names, a variant attribute's qualifier
 (`system.locale`) included, under that catalog's key in the archive's own registry and namespace,

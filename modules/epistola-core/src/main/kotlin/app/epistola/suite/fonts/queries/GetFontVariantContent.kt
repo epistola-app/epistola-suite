@@ -5,7 +5,7 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -28,16 +28,17 @@ import org.springframework.stereotype.Component
  * adds nearest-weight matching.
  *
  * The face's file is the font's binary, stored under its hash (ADR 0033). Returns null when the
- * family has no such face or its bytes are missing.
+ * family has no such face or its bytes are missing. A release's faces are read as a draft's: the
+ * editor offers a catalog's fonts at the release its declaration pins, and fetches their faces there.
  */
 data class GetFontVariantContent(
     val catalog: CatalogId,
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-    /** The catalog version this addresses; null for its catalog's next version. */
+    /** The catalog version this addresses, a draft or a release (ADR 0033); null for its catalog's next version. */
     override val catalogVersion: CatalogReleaseRef?,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<ByteArray?>,
     RequiresPermission {
     val tenantId: TenantKey get() = catalog.tenantKey

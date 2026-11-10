@@ -25,6 +25,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -46,10 +47,12 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
         withMediator {
             CreateEnvironment(production, "Production").execute()
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
             ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
+            withoutSystemCatalog(testCatalog(tenant, letters))
             CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House", catalogVersion = null).execute()
             declareDependency(tenant, letters, on = shared)
             MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()

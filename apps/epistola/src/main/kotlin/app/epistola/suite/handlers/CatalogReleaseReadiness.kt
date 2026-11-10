@@ -141,11 +141,13 @@ data class CatalogReleaseReadiness(
     val onlyOthersChanged: Boolean get() = !nothingToPublish && changeCount == 0 && publishedAlong.isNotEmpty()
 
     /**
-     * A catalog never published with nothing added to it yet. Publishing is still offered (its first
-     * version), but the list of changes is empty, so the page says why instead of showing a blank card.
+     * A catalog never published with no resource added to it yet. Publishing is still offered (its first
+     * version), so the page says why there is nothing to list instead of showing a blank card. What
+     * a new catalog starts with (the system catalog declared, the house theme) are settings, not
+     * something added: they are listed below it, and do not hide it.
      */
     val nothingAddedYet: Boolean
-        get() = hasDraft && drafts.releases.isEmpty() && changeCount == 0 && publishedAlong.isEmpty()
+        get() = hasDraft && drafts.releases.isEmpty() && changed.isEmpty() && publishedAlong.isEmpty()
 
     /**
      * The number this is published as, picked for the person from what changed since the latest

@@ -4,15 +4,19 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.FindCatalogsByKey
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_NAMESPACE
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 
 /**
@@ -92,3 +96,19 @@ fun nextVersion(catalog: CatalogId): app.epistola.suite.catalog.releases.Content
  * derived table for a test's own SQL: `FROM ${atNext("version_themes")} t`.
  */
 fun atNext(view: String): String = "(SELECT * FROM $view WHERE version_id IN (SELECT next_version_id FROM catalogs))"
+
+/**
+ * Removes the declaration of the system catalog that every catalog starts with, for a test about
+ * the dependencies between its own catalogs, which then lists only those. Refused while the draft
+ * uses the system catalog. Needs a mediator bound.
+ */
+fun withoutSystemCatalog(catalog: CatalogId) {
+    val declared = ListCatalogDependencies(catalog, catalogVersion = null).query()
+    val kept = declared.filterNot { it.namespace == SYSTEM_CATALOG_NAMESPACE && it.catalogKey == SYSTEM_CATALOG_KEY.value }
+    if (kept.size == declared.size) return
+    UpdateCatalogDependencies(
+        catalog,
+        kept.map { DeclaredCatalogDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion, it.draftId) },
+        catalogVersion = null,
+    ).execute()
+}
