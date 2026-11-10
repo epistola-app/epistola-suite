@@ -6,14 +6,18 @@
     <div class="regular">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${connectionName},
-            pageDescription='How this installation registers with its own key, whether the connection activated it, and which services this installation uses over it.'
+            pageDescription='Its state, the services this installation uses over it, what it learns of tenants, and where it escalates.'
         )}"></div>
 
         <p>
             <a th:href="@{/platform/support}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="support-back">&larr; Support connections</a>
         </p>
 
-        <th:block th:replace="~{support/platform :: connection}"></th:block>
+        <th:block th:if="${c.registers}">
+            <th:block th:replace="~{support/platform :: connection}"></th:block>
+        </th:block>
+
+        <th:block th:replace="~{support/platform :: connection-settings}"></th:block>
     </div>
     </th:block>
 </body>

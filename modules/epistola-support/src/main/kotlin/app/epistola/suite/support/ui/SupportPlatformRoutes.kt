@@ -126,15 +126,21 @@ class SupportPlatformHandler(
     }
 
     /**
-     * The page of one connection that registers with the installation's own key (ADR 0053 §1): its
-     * registration, the services used over it, and its disconnect. Not found for any other.
+     * The page of one connection (ADR 0053 §1): its settings, privacy and removal, and for one that
+     * registers with the installation's own key its registration, services and disconnect.
      */
     fun detail(request: ServerRequest): ServerResponse {
-        val id = registeringId(request) ?: return ServerResponse.notFound().build()
+        val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.notFound().build()
+        val listing = ListSupportConnections().query().firstOrNull { it.id == id } ?: return ServerResponse.notFound().build()
         return ServerResponse.ok().page("support/connection") {
-            "pageTitle" to "${nameOf(id)} - Epistola"
+            "pageTitle" to "${listing.name} - Epistola"
             "platformPage" to "Support connections"
-            connectionModel(id, notice = null, offerLocalOnly = false).forEach { (k, v) -> k to v }
+            "c" to listing
+            "allConnections" to supportConnections.all()
+            "serviceNames" to SupportScope.entries.map { it.value }
+            if (listing.registers) connectionModel(id, notice = null, offerLocalOnly = false).forEach { (k, v) -> k to v }
+            "connectionId" to id
+            "connectionName" to listing.name
         }
     }
 
@@ -234,7 +240,7 @@ class SupportPlatformHandler(
         val telemetry = request.param("telemetry").orElse("").let(TelemetryDetail::parse) ?: return ServerResponse.badRequest().build()
         return try {
             SetSupportConnectionPrivacy(id, identity, telemetry).execute()
-            redirect("/platform/support#support-connections")
+            redirect("/platform/support/connections/$id")
         } catch (_: SupportConnectionNotFoundException) {
             ServerResponse.notFound().build()
         }
@@ -286,7 +292,7 @@ class SupportPlatformHandler(
                 escalatesTo = escalatesTo,
                 changeEscalation = request.param("escalatesTo").isPresent,
             ).execute()
-            redirect("/platform/support#support-connections")
+            redirect("/platform/support/connections/$id")
         } catch (e: ValidationException) {
             page(request, addError = e.message, status = 422)
         } catch (_: SupportConnectionNotFoundException) {
