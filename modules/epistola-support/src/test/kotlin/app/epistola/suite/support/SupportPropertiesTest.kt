@@ -36,10 +36,12 @@ class SupportPropertiesTest {
     }
 
     @Test
-    fun `a connection escalates to Epistola support, another connection, or no one`() {
+    fun `a connection escalates to another connection by its endpoint, or no one, and no keyword names one`() {
         fun connection(endpoint: String, escalatesTo: String = "") = SupportProperties.Connection("P", endpoint, "t", escalatesTo = escalatesTo)
 
-        assertThat(SupportProperties(connections = listOf(connection("https://a.example", "epistola"))).connections).hasSize(1)
+        assertThat(SupportProperties(endpoint = "https://support.example", connections = listOf(connection("https://a.example", "https://support.example"))).connections)
+            .`as`("the endpoint epistola.support.endpoint is set to").hasSize(1)
+        assertThatThrownBy { SupportProperties(connections = listOf(connection("https://a.example", "epistola"))) }.hasMessageContaining("escalates-to")
         assertThat(SupportProperties(connections = listOf(connection("https://a.example", "https://b.example/"), connection("https://b.example"))).connections).hasSize(2)
         assertThatThrownBy { SupportProperties(connections = listOf(connection("https://a.example", "https://elsewhere.example"))) }.hasMessageContaining("escalates-to")
         assertThatThrownBy { SupportProperties(connections = listOf(connection("https://a.example", "https://a.example"))) }.hasMessageContaining("escalates-to")
