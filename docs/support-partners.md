@@ -27,9 +27,10 @@ All paths are relative to the connection's **endpoint**, which the partner choos
 | `PUT /api/v2/requests/{requestId}/attachments/{id}`          | A screenshot, as bytes; idempotent per attachment id                 |
 | `POST /api/v2/requests/changes`                              | Your changes since what the installation acknowledged                |
 | `PUT /api/v1/usage/hours/{hour}`                             | One finished UTC hour's usage per tenant; the last report wins       |
+| `POST /otlp/v1/logs`, `POST /otlp/v1/metrics`                | Telemetry, OTLP/HTTP (protobuf, gzip, delta temporality)             |
 
 Offer only what you take: `GET /api/v1/connection` answers `{"status": "ACTIVE", "scopes": [...]}`
-with `requests` and/or `usage`, and a call for a service you do not grant answers `403` with
+with the services you take (`requests`, `usage`, `telemetry`), and a call for a service you do not grant answers `403` with
 `insufficient_scope`. A `401` tells the installation its token is no longer accepted; it then uses
 nothing until a check succeeds again.
 

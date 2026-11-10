@@ -95,7 +95,7 @@ data class SupportProperties(
      * @property name what the platform page and the support desk call it.
      * @property endpoint its base URL; the paths are those of the published protocol under it.
      * @property token the bearer token it issued; from a secret, never in a values file.
-     * @property services the services to use over it (`requests`, `usage`), as far as it grants them.
+     * @property services the services to use over it (`requests`, `usage`, `telemetry`), as far as it grants them.
      * @property tenantIdentity what it learns of tenants, `named` or `confidential`; blank: the
      *   installation's setting ([Privacy]), until an administrator saves one for this connection.
      * @property telemetry how much telemetry carries over it, `pseudonymised` or `full`; blank likewise.

@@ -67,8 +67,8 @@ class TokenSupportConnection(
 
     override fun apiEndpoint(): URI = api
 
-    /** Telemetry does not go over a token connection (ADR 0053 step 3: requests and usage). */
-    override fun otlpEndpoint(): URI? = null
+    /** OTLP/HTTP under `{endpoint}/otlp`: `/v1/logs` and `/v1/metrics` (ADR 0053 step 3i: telemetry is a service like any other). */
+    override fun otlpEndpoint(): URI = URI("$endpoint/otlp")
 
     override fun requestsEndpoint(): URI = URI("$endpoint/api/v2/requests")
 

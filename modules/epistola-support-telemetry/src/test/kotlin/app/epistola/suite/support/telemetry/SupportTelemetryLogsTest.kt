@@ -266,6 +266,47 @@ class SupportTelemetryLogsTest {
         assertThat(took).isLessThan(2_000)
     }
 
+    @Test
+    fun `each connection that grants telemetry gets the logs, converted with its own privacy`() {
+        // ADR 0053 step 3i: telemetry is a service every connection may grant, like requests and usage.
+        val partnerSink = OtlpSink()
+        try {
+            val partner = FakeSupportConnection(otlp = partnerSink.otlpEndpoint, token = "partner-token", id = java.util.UUID.fromString("01900000-0000-7000-8000-0000000000aa"))
+            connection.grant()
+            partner.grant()
+            val full = TelemetryPrivacy.FULL
+            val pseudonymised = TelemetryPrivacy(pseudonymised = true, tenantOnWire = { null })
+            val leg = SupportTelemetryLogs(
+                TelemetryProperties(logScheduleDelay = Duration.ofMinutes(5), exportTimeout = Duration.ofSeconds(10)),
+                SupportProperties(),
+                SupportTelemetryTargets { listOf(SupportOtlpTarget(connection, logPrivacy = { full }), SupportOtlpTarget(partner, logPrivacy = { pseudonymised })) },
+                testResource(),
+            ).also {
+                it.attach(loggerName)
+                started = it
+            }
+
+            logger.warn("preview failed for template {}", "letter")
+            leg.flushUntil { sink.logRequests.isNotEmpty() && partnerSink.logRequests.isNotEmpty() }
+
+            assertThat(bodies()).contains("preview failed for template letter")
+            val partnerBodies = partnerSink.logRequests.flatMap { OtlpSink.logs(it).resourceLogsList }.flatMap { it.scopeLogsList }.flatMap { it.logRecordsList }.map { it.body.stringValue }
+            assertThat(partnerBodies).`as`("the partner's copy is pseudonymised").doesNotContain("preview failed for template letter").isNotEmpty()
+            assertThat(partnerSink.logRequests.single().header("Authorization")).isEqualTo("Bearer partner-token")
+
+            // One withdrawing does not stop the other.
+            partner.withdraw()
+            leg.refreshGate()
+            val before = partnerSink.logRequests.size
+            logger.warn("render failed")
+            leg.flushUntil { bodies().contains("render failed") }
+            assertThat(bodies()).contains("render failed")
+            assertThat(partnerSink.logRequests).hasSize(before)
+        } finally {
+            partnerSink.close()
+        }
+    }
+
     private companion object {
         /** How long an export may take on a busy machine. */
         val FLUSH_WAIT: Duration = Duration.ofSeconds(30)
