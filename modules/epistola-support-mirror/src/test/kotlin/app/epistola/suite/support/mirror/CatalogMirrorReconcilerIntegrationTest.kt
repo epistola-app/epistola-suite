@@ -47,6 +47,9 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
     private lateinit var reconciler: CatalogMirrorReconciler
 
     @Autowired
+    private lateinit var registry: app.epistola.suite.support.connection.SupportConnectionRegistry
+
+    @Autowired
     private lateinit var scheduler: CatalogMirrorReconcileScheduler
 
     @Autowired
@@ -93,17 +96,17 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
     fun `a Sync now that finds the tenant claimed by another round asks again rather than being lost`() {
         val tenant = createTenant("Mirror Sync Busy").id
         optIn(tenant, shareByDefault = true)
-        val otherRound = checkNotNull(mirrorStore.claim(tenant))
+        val otherRound = checkNotNull(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant))
         try {
-            val result = withMediator { syncTimer.sync(tenant) }
+            val result = withMediator { syncTimer.sync(DEFAULT_MIRROR_CONNECTION, tenant) }
 
             assertThat(result).isEqualTo(TenantReconcileResult.BUSY)
             val timers = jdbi.withHandle<Int, Exception> {
-                it.createQuery("SELECT COUNT(*) FROM cluster_timers WHERE timer_key = :k").bind("k", CatalogMirrorSyncTimerHandler.timerKey(tenant)).mapTo(Int::class.java).one()
+                it.createQuery("SELECT COUNT(*) FROM cluster_timers WHERE timer_key = :k").bind("k", CatalogMirrorSyncTimerHandler.timerKey(DEFAULT_MIRROR_CONNECTION, tenant)).mapTo(Int::class.java).one()
             }
             assertThat(timers).`as`("a timer runs it again").isEqualTo(1)
         } finally {
-            mirrorStore.release(tenant, otherRound)
+            mirrorStore.release(DEFAULT_MIRROR_CONNECTION, tenant, otherRound)
         }
     }
 
@@ -325,7 +328,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         reconciler.reconcileAll()
         val puts = mirror.puts(tenant)
         // Another node's round is sending the tenant's set right now.
-        val claim = mirrorStore.claim(tenant)
+        val claim = mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)
         assertThat(claim).isNotNull()
 
         withMediator { OptOutCatalogMirror(tenant).execute() }
@@ -335,7 +338,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         assertThat(mirror.puts(tenant)).`as`("no unclaimed withdrawal that the running round could overtake").isEqualTo(puts)
         assertThat(settings(tenant).consent!!.withdrawalPending).isTrue()
 
-        mirrorStore.release(tenant, claim!!)
+        mirrorStore.release(DEFAULT_MIRROR_CONNECTION, tenant, claim!!)
         scheduling.advanceTimeBy(Duration.ofMinutes(2))
         work.awaitIdle()
 
@@ -436,7 +439,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(stopped)
         reconciler.reconcileAll()
         optInOwnCatalogs(sharing)
-        val off = CatalogMirrorReconciler(connection, supportProperties, mirrorProperties.copy(enabled = false), mirrorClient, mirrorStore, mediator, privacy)
+        val off = CatalogMirrorReconciler(registry, mirrorProperties.copy(enabled = false), mirrorClient, mirrorStore, mediator, privacy)
         withMediator { OptOutCatalogMirror(stopped).execute() }
         // The opt-out's own "Sync now" is left to the reconciler with the mirror off.
         val report = off.reconcileAll()
@@ -644,7 +647,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val catalog = releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
         // The dead node's round: it took the claim and never let go.
-        assertThat(mirrorStore.claim(tenant)).isNotNull()
+        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
         assertThat(reconciler.syncTenant(tenant)).`as`("while the round may still be running").isEqualTo(TenantReconcileResult.BUSY)
 
         claimLeaseRunsOut(tenant)
@@ -664,7 +667,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
         // Another node's round, running now.
-        assertThat(mirrorStore.claim(tenant)).isNotNull()
+        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
 
         testClock.advanceBy(mirrorStore.claimLease.plusMinutes(1)) // this node's clock is ahead
 

@@ -53,7 +53,7 @@ class CatalogMirrorRulesTest {
 
     @Test
     fun `the wire set carries the protocol's fields and the same set has the same digest`() {
-        val client = CatalogMirrorClient(NoConnection, JsonMapper.builder().build())
+        val client = CatalogMirrorClient(JsonMapper.builder().build())
         val binding = MirrorBinding(
             catalogRowId = UUID.randomUUID(),
             versionRowId = UUID.randomUUID(),
@@ -134,18 +134,5 @@ class CatalogMirrorRulesTest {
         assertThat(base.policyOptions(entry)).containsExactly(CatalogMirrorPolicy.NEVER)
         assertThat(base.canSetPolicy(entry)).isFalse()
         assertThat(base.copy(canChangeSharing = true).policyOptions(entry)).containsExactly(CatalogMirrorPolicy.INHERIT, CatalogMirrorPolicy.SHARE, CatalogMirrorPolicy.NEVER)
-    }
-
-    private object NoConnection : SupportConnection {
-        override fun status() = SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
-        override fun hasScope(scope: SupportScope) = false
-        override fun isSelected(scope: SupportScope) = false
-        override fun scopeRefused(scope: SupportScope) = Unit
-        override fun apiEndpoint(): URI? = null
-        override fun otlpEndpoint(): URI? = null
-        override fun cachedAccessToken(): String? = null
-        override fun accessToken(): String = error("not connected")
-        override fun restClient(): RestClient = error("not connected")
-        override fun checkNow() = Unit
     }
 }

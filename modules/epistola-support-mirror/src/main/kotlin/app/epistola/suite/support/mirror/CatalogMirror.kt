@@ -87,22 +87,20 @@ enum class CatalogMirrorSharing(val label: String) {
 }
 
 /**
- * The support connection the catalog mirror shares over (ADR 0053). The mirror uses one connection
- * for now; every consent, policy, default and state row it reads or writes is that connection's.
+ * The connection the mirror's commands and queries act on when none is named: Epistola support's,
+ * until every caller names one (ADR 0053 step 3i). The mirror is a service of every connection that
+ * grants it; nothing in it is Epistola's alone.
  */
-val MIRROR_CONNECTION: UUID = SupportConnections.DISCOVERED_ID
-
-/** [MIRROR_CONNECTION] as an SQL literal, for statements built from constants. */
-const val MIRROR_CONNECTION_SQL = "'${SupportConnections.DISCOVERED_ID_TEXT}'::uuid"
+val DEFAULT_MIRROR_CONNECTION: UUID get() = SupportConnections.DISCOVERED_ID
 
 /**
  * SQL predicate for the mirror's rows in `support_sharing_choice` and `support_sharing_default`, which
- * hold every shared service's choices: [MIRROR_CONNECTION] and the section `mirror`. [alias] is the
- * table's alias, or empty.
+ * hold every shared service's choices: the connection bound as `:connection` and the section `mirror`.
+ * [alias] is the table's alias, or empty.
  */
 internal fun mirrorSharing(alias: String = ""): String {
     val p = if (alias.isEmpty()) "" else "$alias."
-    return "${p}connection_id = $MIRROR_CONNECTION_SQL AND ${p}section = '${CatalogMirror.SECTION}'"
+    return "${p}connection_id = :connection AND ${p}section = '${CatalogMirror.SECTION}'"
 }
 
 /** SQL expression: the mirror choice's "share every catalog" option of the row aliased [alias]. */
@@ -139,7 +137,7 @@ object CatalogMirror {
     val MAX_BACKOFF: Duration = Duration.ofHours(6)
 
     /**
-     * What the tenant `:t` sends, as common table expressions ending in `sent(version_id)` for a
+     * What the tenant `:t` sends over the connection `:connection`, as common table expressions ending in `sent(version_id)` for a
      * query to select from (`docs/catalog-mirror.md`, "What is sent"):
      *
      * - `chosen`: the released versions of the catalogs the sharing rule shares
@@ -157,9 +155,9 @@ object CatalogMirror {
             SELECT v.version_id
             FROM support_sharing_choice m
             JOIN catalogs c ON c.tenant_key = m.tenant_key
-            LEFT JOIN support_mirror_catalog_policies p ON p.connection_id = $MIRROR_CONNECTION_SQL AND p.tenant_key = c.tenant_key AND p.catalog_id = c.catalog_id
+            LEFT JOIN support_mirror_catalog_policies p ON p.connection_id = :connection AND p.tenant_key = c.tenant_key AND p.catalog_id = c.catalog_id
             JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.state = 'released'
-            WHERE m.connection_id = $MIRROR_CONNECTION_SQL AND m.section = '$SECTION' AND m.tenant_key = :t
+            WHERE m.connection_id = :connection AND m.section = '$SECTION' AND m.tenant_key = :t
               AND m.withdrawn_at IS NULL
               AND (p.policy = 'SHARE' OR (p.policy IS NULL AND (m.options->>'shareByDefault')::boolean))
         ),
@@ -175,7 +173,7 @@ object CatalogMirror {
             SELECT cl.root_id, bv.catalog_id
             FROM closure cl
             JOIN catalog_versions bv ON bv.tenant_key = :t AND bv.version_id = cl.version_id
-            JOIN support_mirror_catalog_policies bp ON bp.connection_id = $MIRROR_CONNECTION_SQL AND bp.tenant_key = :t AND bp.catalog_id = bv.catalog_id AND bp.policy = 'NEVER'
+            JOIN support_mirror_catalog_policies bp ON bp.connection_id = :connection AND bp.tenant_key = :t AND bp.catalog_id = bv.catalog_id AND bp.policy = 'NEVER'
         ),
         sent AS (
             SELECT DISTINCT cl.version_id

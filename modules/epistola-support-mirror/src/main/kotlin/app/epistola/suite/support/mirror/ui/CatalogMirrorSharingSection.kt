@@ -7,7 +7,8 @@ package app.epistola.suite.support.mirror.ui
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.support.connection.SupportConnection
+import app.epistola.suite.support.connection.SupportConnectionRegistry
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.mirror.CatalogMirror
 import app.epistola.suite.support.mirror.CatalogMirrorAvailability
@@ -17,7 +18,6 @@ import app.epistola.suite.support.mirror.FollowCatalogMirrorDefault
 import app.epistola.suite.support.mirror.ForgetCatalogMirrorSharing
 import app.epistola.suite.support.mirror.GetCatalogMirrorDefault
 import app.epistola.suite.support.mirror.GetCatalogMirrorSettings
-import app.epistola.suite.support.mirror.MIRROR_CONNECTION
 import app.epistola.suite.support.mirror.OptInCatalogMirror
 import app.epistola.suite.support.mirror.OptOutCatalogMirror
 import app.epistola.suite.support.mirror.SetCatalogMirrorDefault
@@ -37,13 +37,14 @@ import java.util.UUID
  */
 @Component
 class CatalogMirrorSharingSection(
-    private val connection: SupportConnection,
+    private val registry: SupportConnectionRegistry,
+    private val connections: SupportConnections,
     private val privacy: SupportPrivacy,
 ) : TenantSharingSection {
     override val key = "mirror"
     override val order = 20
     override val title = "Catalogs"
-    override val summary = "Released catalog versions, with everything they depend on, go to Epistola support to check them against new suite versions."
+    override val summary = "Released catalog versions, with everything they depend on, go to the support connection to check them against new suite versions."
     override val statementFragment = "support/mirror/page :: statement"
     override val choices = listOf(
         SharingChoice(CatalogMirrorDefaultChoice.ALL.name, "Share every catalog, unless marked never to be shared", shares = true),
@@ -51,12 +52,11 @@ class CatalogMirrorSharingSection(
         SharingChoice(CatalogMirrorDefaultChoice.OFF.name, "Do not share catalogs", shares = false),
     )
 
-    /** Asked only once the installation selected the mirror under Services, and over Epistola support's connection only: the mirror is a service Epistola offers. */
-    override fun offered(connectionId: UUID): Boolean = connectionId == MIRROR_CONNECTION && connection.isSelected(SupportScope.MIRROR)
+    /** Asked for every connection the installation selected the mirror for under Services (ADR 0053 step 3i). */
+    override fun offered(connectionId: UUID): Boolean = registry.find(connectionId)?.isSelected(SupportScope.MIRROR) == true
 
     override fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView {
-        onlyMirrorConnection(connectionId)
-        val settings = GetCatalogMirrorSettings(tenantKey, limit = 1).query()
+        val settings = GetCatalogMirrorSettings(tenantKey, limit = 1, connectionId = connectionId).query()
         val consent = settings.consent
         val value = when {
             consent == null || !consent.sharing -> CatalogMirrorDefaultChoice.OFF
@@ -67,7 +67,7 @@ class CatalogMirrorSharingSection(
         val confidential = settings.availability == CatalogMirrorAvailability.CONFIDENTIAL
         val off = confidential || settings.availability == CatalogMirrorAvailability.SUPPORT_OFF || settings.availability == CatalogMirrorAvailability.MIRROR_OFF
         val reason = if (confidential) {
-            "Not available: this installation keeps its tenants confidential to Epistola, and a shared release would name the organisation."
+            "Not available: this installation keeps its tenants confidential to ${name(connectionId)}, and a shared release would name the organisation."
         } else {
             "This installation does not keep a catalog mirror; an installation administrator can turn it on."
         }
@@ -82,11 +82,10 @@ class CatalogMirrorSharingSection(
     }
 
     override fun installationView(connectionId: UUID): InstallationSharingView {
-        onlyMirrorConnection(connectionId)
-        val default = GetCatalogMirrorDefault().query()
+        val default = GetCatalogMirrorDefault(connectionId).query()
         // A preset that shares catalogs is refused while tenants are confidential (SetCatalogMirrorDefault), so it is not offered.
-        val withheld = if (privacy.current().confidential) {
-            val reason = "Not available: this installation keeps its tenants confidential to Epistola, and a shared release would name the organisation."
+        val withheld = if (privacy.forConnection(connectionId).confidential) {
+            val reason = "Not available: this installation keeps its tenants confidential to ${name(connectionId)}, and a shared release would name the organisation."
             choices.filter { it.shares }.associate { it.value to reason }
         } else {
             emptyMap()
@@ -95,40 +94,33 @@ class CatalogMirrorSharingSection(
     }
 
     override fun applyOwn(tenantKey: TenantKey, value: String, connectionId: UUID) {
-        onlyMirrorConnection(connectionId)
         when (CatalogMirrorDefaultChoice.valueOf(value)) {
-            CatalogMirrorDefaultChoice.ALL -> OptInCatalogMirror(tenantKey, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION).execute()
-            CatalogMirrorDefaultChoice.MARKED -> OptInCatalogMirror(tenantKey, shareByDefault = false, consentVersion = CatalogMirror.CONSENT_VERSION).execute()
-            CatalogMirrorDefaultChoice.OFF -> OptOutCatalogMirror(tenantKey).execute()
+            CatalogMirrorDefaultChoice.ALL -> OptInCatalogMirror(tenantKey, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = connectionId).execute()
+            CatalogMirrorDefaultChoice.MARKED -> OptInCatalogMirror(tenantKey, shareByDefault = false, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = connectionId).execute()
+            CatalogMirrorDefaultChoice.OFF -> OptOutCatalogMirror(tenantKey, connectionId).execute()
         }
     }
 
     override fun followPreset(tenantKey: TenantKey, connectionId: UUID) {
-        onlyMirrorConnection(connectionId)
-        FollowCatalogMirrorDefault(tenantKey).execute()
+        FollowCatalogMirrorDefault(tenantKey, connectionId).execute()
     }
 
     override fun forgetAll(connectionId: UUID) {
-        onlyMirrorConnection(connectionId)
-        ForgetCatalogMirrorSharing().execute()
+        ForgetCatalogMirrorSharing(connectionId).execute()
     }
 
     override fun saveInstallation(form: Map<String, List<String>>, connectionId: UUID): String? {
-        onlyMirrorConnection(connectionId)
-        val current = GetCatalogMirrorDefault().query()
+        val current = GetCatalogMirrorDefault(connectionId).query()
         if (form.field("mirror.default") == NO_PRESET) {
             if (!current.isSet) return null
-            ClearCatalogMirrorDefault().execute()
+            ClearCatalogMirrorDefault(connectionId).execute()
             return "Catalogs: no preset; each tenant sets it up."
         }
         val choice = form.field("mirror.default")?.let { runCatching { CatalogMirrorDefaultChoice.valueOf(it) }.getOrNull() } ?: return null
         if (current.isSet && !current.fromConfiguration && current.choice == choice) return null
-        SetCatalogMirrorDefault(choice).execute()
+        SetCatalogMirrorDefault(choice, connectionId).execute()
         return "Catalogs: ${choice.label.lowercase()}."
     }
 
-    /** The catalog mirror shares over one connection for now (ADR 0053). */
-    private fun onlyMirrorConnection(connectionId: UUID) {
-        check(connectionId == MIRROR_CONNECTION) { "The catalog mirror is shared over connection $MIRROR_CONNECTION only, not $connectionId" }
-    }
+    private fun name(connectionId: UUID): String = connections.find(connectionId)?.name ?: "this support connection"
 }

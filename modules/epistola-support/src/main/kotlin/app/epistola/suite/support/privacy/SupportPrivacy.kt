@@ -201,6 +201,9 @@ class SupportPrivacy(
         null
     }
 
+    /** Every connection whose settings this node knows: Epistola support's and every other one read. */
+    internal fun connectionIds(): Set<UUID> = perConnection.keys + SupportConnections.DISCOVERED_ID
+
     internal fun save(stored: StoredSupportPrivacy): SupportPrivacySettings {
         metadata.setAs(KEY, stored)
         return refresh()
@@ -327,15 +330,16 @@ class GetSupportPrivacyHandler(private val privacy: SupportPrivacy) : QueryHandl
     override fun handle(query: GetSupportPrivacy): SupportPrivacySettings = privacy.refresh()
 }
 
-/** Something that has to happen when tenants become confidential (the catalog mirror withdraws). */
+/** Something that has to happen when tenants become confidential to a connection (the catalog mirror withdraws from it). */
 interface TenantIdentityListener {
-    fun becameConfidential()
+    fun becameConfidential(connectionId: UUID)
 }
 
 /**
  * Saves the privacy settings; every node applies them within [SupportPrivacy.REFRESH_SECONDS] seconds.
- * Making tenants confidential tells every [TenantIdentityListener] at once, so the catalog mirror
- * withdraws what it shares: a release names its client whatever key it is filed under.
+ * Making tenants confidential tells every [TenantIdentityListener] at once, for Epistola support's
+ * connection and every connection that follows the installation's settings, so the catalog mirror
+ * withdraws what it shares there: a release names its client whatever key it is filed under.
  */
 data class SetSupportPrivacy(
     val tenantIdentity: TenantIdentity,
@@ -352,10 +356,17 @@ class SetSupportPrivacyHandler(
 ) : CommandHandler<SetSupportPrivacy, SupportPrivacySettings> {
     override fun handle(command: SetSupportPrivacy): SupportPrivacySettings {
         val before = privacy.refresh()
+        val connectionsBefore = privacy.connectionIds().associateWith { privacy.forConnection(it) }
         val saved = privacy.save(
             StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
         )
-        if (saved.confidential && (!before.confidential || before.fromConfiguration)) listeners.orderedStream().forEach { it.becameConfidential() }
+        // The installation's settings are Epistola support's and those of every connection that follows them.
+        connectionsBefore.forEach { (connectionId, was) ->
+            val follows = connectionId == SupportConnections.DISCOVERED_ID || was.followsInstallation
+            if (follows && privacy.forConnection(connectionId).confidential && (!was.confidential || before.fromConfiguration)) {
+                listeners.orderedStream().forEach { it.becameConfidential(connectionId) }
+            }
+        }
         return saved
     }
 }
@@ -380,9 +391,17 @@ data class SetSupportConnectionPrivacy(
 @Component
 class SetSupportConnectionPrivacyHandler(
     private val privacy: SupportPrivacy,
+    private val listeners: ObjectProvider<TenantIdentityListener>,
 ) : CommandHandler<SetSupportConnectionPrivacy, SupportPrivacySettings> {
-    override fun handle(command: SetSupportConnectionPrivacy): SupportPrivacySettings = privacy.saveFor(
-        command.connectionId,
-        StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
-    )
+    override fun handle(command: SetSupportConnectionPrivacy): SupportPrivacySettings {
+        privacy.refresh()
+        val before = privacy.forConnection(command.connectionId)
+        val saved = privacy.saveFor(
+            command.connectionId,
+            StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
+        )
+        // Tenants became confidential to this connection: what it was sent of them is withdrawn.
+        if (saved.confidential && (!before.confidential || before.fromConfiguration)) listeners.orderedStream().forEach { it.becameConfidential(command.connectionId) }
+        return saved
+    }
 }

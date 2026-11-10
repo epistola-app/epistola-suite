@@ -16,9 +16,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemInternal
-import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.support.connection.SupportConnection
+import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnectionState
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportPause
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.privacy.SupportPrivacy
@@ -33,9 +34,9 @@ import java.sql.ResultSet
 import java.time.OffsetDateTime
 import java.util.UUID
 
-/** Whether this installation can keep a mirror at all, and if not, why not. */
+/** Whether this installation can keep a mirror with a connection at all, and if not, why not. */
 enum class CatalogMirrorAvailability {
-    /** The support connection is off (`epistola.support.enabled=false`). */
+    /** The support connection is off (`epistola.support.enabled=false`), or there is no such connection. */
     SUPPORT_OFF,
 
     /** The installation turned the mirror off (`epistola.support.mirror.enabled=false`). */
@@ -135,9 +136,14 @@ data class CatalogMirrorEntry(
     val key: String get() = catalog.key.value
 }
 
+/** A connection the tenant can share its catalogs with: one that the installation selected the mirror for. */
+data class CatalogMirrorConnection(val id: UUID, val name: String)
+
 /**
- * The tenant's catalog-mirror page: whether the mirror can be used here, the tenant's consent, the
- * last round, and one page of its catalogs with what is shared.
+ * The tenant's catalog-mirror page for one connection ([connectionId], named [connectionName]):
+ * whether the mirror can be used with it, the tenant's consent, the last round, and one page of its
+ * catalogs with what is shared. [connections] are every connection the mirror is selected for, to
+ * switch between.
  *
  * @property canChangeSharing the viewer may opt in or out, share and inherit ([Permission.INTEGRATIONS_MANAGE]).
  * @property canWithhold the viewer may mark a catalog never to be shared ([Permission.CATALOG_MANAGE]).
@@ -157,6 +163,9 @@ data class CatalogMirrorSettings(
     val installationDefault: CatalogMirrorDefault = CatalogMirrorDefault.NONE,
     /** The pause in force while [availability] is [CatalogMirrorAvailability.PAUSED]; null otherwise. */
     val pause: SupportPause? = null,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionName: String = "",
+    val connections: List<CatalogMirrorConnection> = emptyList(),
 ) {
     /** The tenant follows the installation default: it has no consent record, or one the default wrote. */
     val followsDefault: Boolean get() = consent?.followsDefault ?: true
@@ -231,6 +240,7 @@ data class GetCatalogMirrorSettings(
     override val tenantKey: TenantKey,
     val offset: Int = 0,
     val limit: Int = DEFAULT_LIMIT,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Query<CatalogMirrorSettings>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -248,16 +258,18 @@ data class GetCatalogMirrorSettings(
 @Component
 class GetCatalogMirrorSettingsHandler(
     private val jdbi: Jdbi,
-    private val connection: SupportConnection,
-    private val supportProperties: SupportProperties,
+    private val registry: SupportConnectionRegistry,
+    private val connections: SupportConnections,
     private val properties: CatalogMirrorProperties,
     private val privacy: SupportPrivacy,
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetCatalogMirrorSettings, CatalogMirrorSettings> {
     override fun handle(query: GetCatalogMirrorSettings): CatalogMirrorSettings = jdbi.withHandle<CatalogMirrorSettings, Exception> { handle ->
         val principal = SecurityContext.current()
-        val consent = consent(handle, query.tenantKey)
-        val round = CatalogMirrorStateStore.round(handle, query.tenantKey, objectMapper)
+        val connectionId = query.connectionId
+        val connection = registry.find(connectionId)
+        val consent = consent(handle, connectionId, query.tenantKey)
+        val round = CatalogMirrorStateStore.round(handle, connectionId, query.tenantKey, objectMapper)
         var total = 0
         val catalogs = handle.createQuery(
             """
@@ -268,13 +280,14 @@ class GetCatalogMirrorSettingsHandler(
                     WHERE v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.state = 'released') AS releases,
                    count(*) OVER () AS total
             FROM catalogs c
-            LEFT JOIN support_mirror_catalog_policies p ON p.connection_id = $MIRROR_CONNECTION_SQL AND p.tenant_key = c.tenant_key AND p.catalog_id = c.catalog_id
-            LEFT JOIN support_mirror_state s ON s.connection_id = $MIRROR_CONNECTION_SQL AND s.tenant_key = c.tenant_key
+            LEFT JOIN support_mirror_catalog_policies p ON p.connection_id = :connection AND p.tenant_key = c.tenant_key AND p.catalog_id = c.catalog_id
+            LEFT JOIN support_mirror_state s ON s.connection_id = :connection AND s.tenant_key = c.tenant_key
             WHERE c.tenant_key = :t
             ORDER BY c.namespace, c.catalog_key
             LIMIT :limit OFFSET :offset
             """,
         )
+            .bind("connection", connectionId)
             .bind("t", query.tenantKey.value)
             .bind("limit", query.pageLimit)
             .bind("offset", query.pageOffset)
@@ -284,7 +297,7 @@ class GetCatalogMirrorSettingsHandler(
             }
             .list()
             .let { rows ->
-                val dependencies = dependencyEffects(handle, query.tenantKey, rows.map { it.first })
+                val dependencies = dependencyEffects(handle, connectionId, query.tenantKey, rows.map { it.first })
                 rows.map { (id, entry) ->
                     dependencies[id]?.let { entry.copy(withheldReleases = it.withheld, withheldBecause = it.because, sentAsDependency = it.asDependency) } ?: entry
                 }
@@ -294,8 +307,12 @@ class GetCatalogMirrorSettingsHandler(
         }
         CatalogMirrorSettings(
             tenantKey = query.tenantKey,
-            availability = availability(),
-            pause = mirrorPause(),
+            connectionId = connectionId,
+            connectionName = connections.find(connectionId)?.name ?: "this support connection",
+            connections = registry.all().filter { it.isSelected(SupportScope.MIRROR) || it.id == connectionId }
+                .mapNotNull { c -> connections.find(c.id)?.let { CatalogMirrorConnection(c.id, it.name) } },
+            availability = availability(connection),
+            pause = connection?.let { mirrorPause(it) },
             consent = consent,
             round = round,
             catalogs = catalogs,
@@ -304,7 +321,7 @@ class GetCatalogMirrorSettingsHandler(
             limit = query.pageLimit,
             canChangeSharing = principal.hasPermission(query.tenantKey, Permission.INTEGRATIONS_MANAGE),
             canWithhold = principal.hasPermission(query.tenantKey, Permission.CATALOG_MANAGE),
-            installationDefault = readMirrorDefault(handle),
+            installationDefault = readMirrorDefault(handle, connectionId),
         )
     }
 
@@ -315,7 +332,7 @@ class GetCatalogMirrorSettingsHandler(
      * dependency withholds and which catalogs those are, and how many are sent only because a shared
      * release depends on them ([CatalogMirror.SENT_RELEASES_SQL]).
      */
-    private fun dependencyEffects(handle: Handle, tenantKey: TenantKey, catalogIds: List<UUID>): Map<UUID, DependencyEffect> {
+    private fun dependencyEffects(handle: Handle, connectionId: UUID, tenantKey: TenantKey, catalogIds: List<UUID>): Map<UUID, DependencyEffect> {
         if (catalogIds.isEmpty()) return emptyMap()
         return handle.createQuery(
             """
@@ -342,6 +359,7 @@ class GetCatalogMirrorSettingsHandler(
             WHERE c.tenant_key = :t AND c.catalog_id IN (<catalogs>) AND (w.catalog_id IS NOT NULL OR d.catalog_id IS NOT NULL)
             """,
         )
+            .bind("connection", connectionId)
             .bind("t", tenantKey.value)
             .bindList("catalogs", catalogIds)
             .map { rs, _ ->
@@ -356,15 +374,15 @@ class GetCatalogMirrorSettingsHandler(
     }
 
     /** The pause in force that holds the mirror back, or null. */
-    private fun mirrorPause(): SupportPause? = (connection.status().state as? SupportConnectionState.Active)?.let { state ->
+    private fun mirrorPause(connection: SupportConnection): SupportPause? = (connection.status().state as? SupportConnectionState.Active)?.let { state ->
         state.pause?.takeIf { SupportScope.MIRROR in state.scopes && SupportScope.MIRROR in it.scopes && it.inForceAt(EpistolaClock.instant()) }
     }
 
-    private fun availability(): CatalogMirrorAvailability {
-        if (!supportProperties.enabled) return CatalogMirrorAvailability.SUPPORT_OFF
+    private fun availability(connection: SupportConnection?): CatalogMirrorAvailability {
+        if (connection == null || connection.status().state == SupportConnectionState.Disabled) return CatalogMirrorAvailability.SUPPORT_OFF
         if (!properties.enabled) return CatalogMirrorAvailability.MIRROR_OFF
-        if (privacy.current().confidential) return CatalogMirrorAvailability.CONFIDENTIAL
-        if (GetSharingRestrictions(MIRROR_CONNECTION).query().of(CatalogMirror.SECTION) == SharingRestriction.NOT_ALLOWED) return CatalogMirrorAvailability.NOT_ALLOWED
+        if (privacy.forConnection(connection.id).confidential) return CatalogMirrorAvailability.CONFIDENTIAL
+        if (GetSharingRestrictions(connection.id).query().of(CatalogMirror.SECTION) == SharingRestriction.NOT_ALLOWED) return CatalogMirrorAvailability.NOT_ALLOWED
         return when (connection.status().state) {
             SupportConnectionState.Disabled -> CatalogMirrorAvailability.SUPPORT_OFF
 
@@ -376,13 +394,13 @@ class GetCatalogMirrorSettingsHandler(
             is SupportConnectionState.Active -> when {
                 !connection.isSelected(SupportScope.MIRROR) -> CatalogMirrorAvailability.NOT_SELECTED
                 connection.hasScope(SupportScope.MIRROR) -> CatalogMirrorAvailability.AVAILABLE
-                mirrorPause() != null -> CatalogMirrorAvailability.PAUSED
+                mirrorPause(connection) != null -> CatalogMirrorAvailability.PAUSED
                 else -> CatalogMirrorAvailability.NOT_GRANTED
             }
         }
     }
 
-    private fun consent(handle: Handle, tenantKey: TenantKey): CatalogMirrorConsent? = handle.createQuery(
+    private fun consent(handle: Handle, connectionId: UUID, tenantKey: TenantKey): CatalogMirrorConsent? = handle.createQuery(
         """
         SELECT COALESCE(${shareByDefault("m")}, FALSE) AS share_by_default, m.statement_version AS consent_version, m.given_at AS opted_in_at,
                u.display_name, m.withdrawn_at AS opted_out_at, m.withdrawal_confirmed_at, m.follows_default
@@ -390,6 +408,7 @@ class GetCatalogMirrorSettingsHandler(
         WHERE ${mirrorSharing("m")} AND m.tenant_key = :t
         """,
     )
+        .bind("connection", connectionId)
         .bind("t", tenantKey.value)
         .map { rs, _ ->
             CatalogMirrorConsent(
@@ -459,6 +478,8 @@ data class ListMirrorBindings(
     val tenantKey: TenantKey,
     val after: MirrorBindingCursor? = null,
     val limit: Int = DEFAULT_LIMIT,
+    /** The connection the bindings go to: each has its own sharing choice and catalog policies. */
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Query<MirrorBindingsPage>,
     SystemInternal {
     /** [limit] as the handler applies it: 1..[MAX_LIMIT]. */
@@ -488,6 +509,7 @@ class ListMirrorBindingsHandler(
             LIMIT :limit
             """,
         )
+            .bind("connection", query.connectionId)
             .bind("t", query.tenantKey.value)
             .bind("afterCatalog", query.after?.catalogRowId)
             .bind("afterVersion", query.after?.versionRowId)
@@ -587,8 +609,8 @@ data class MirrorTenants(val tenants: List<MirrorTenant>) {
     val withdrawalPending: List<TenantKey> get() = tenants.filter { it.withdrawalPending }.map { it.tenantKey }
 }
 
-/** The tenants the reconcile has to look at: those sharing, and those whose withdrawal is unconfirmed. For the reconcile. */
-class ListMirrorTenants :
+/** The tenants the reconcile with [connectionId] has to look at: those sharing, and those whose withdrawal is unconfirmed. For the reconcile. */
+data class ListMirrorTenants(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
     Query<MirrorTenants>,
     SystemInternal
 
@@ -606,6 +628,7 @@ class ListMirrorTenantsHandler(
                 ORDER BY tenant_key
                 """,
             )
+                .bind("connection", query.connectionId)
                 .map { rs, _ -> MirrorTenant(TenantKey.of(rs.getString("tenant_key")), rs.getBoolean("sharing"), rs.getBoolean("withdrawal_pending")) }
                 .list(),
         )

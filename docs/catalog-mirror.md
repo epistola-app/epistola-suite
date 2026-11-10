@@ -11,6 +11,15 @@ protocol is in [Support service protocol](support-protocol.md#catalog-mirror--sc
 It is a custody copy, not a registry. Nothing is published through it, nobody resolves names
 against it, and other customers never see it. What a tenant stops sharing is deleted there.
 
+The mirror is a service of every support connection that grants it, not of Epistola's alone
+([ADR 0053](adr/0053-support-connections-and-support-requests.md) step 3i): a partner signed in with
+a token can keep one too. Each connection has its own tenant choices, preset, catalog policies,
+round state and back-off (every mirror row carries its `connection_id`), and its own privacy
+settings. A round runs per connection the mirror is selected for (`CatalogMirrorReconciler.reconcileEvery`),
+so one connection that is unreachable or refuses never holds back another. The tenant page switches
+between them (`?connection=`). The rules below hold per connection; "Epistola" stands for whichever
+connection the tenant shares with.
+
 ## When it runs
 
 All of these must hold:
@@ -21,10 +30,12 @@ All of these must hold:
    has granted it the `mirror` scope. The tenant page says which of these is missing.
 2. The installation keeps a mirror: `epistola.support.mirror.enabled` (default `true`).
 3. A tenant administrator opted the tenant in, on **Support → Catalog mirror**.
-4. The installation names its tenants to Epistola. While it keeps them **confidential** (the default,
-   [support](support.md#privacy)) the mirror is unavailable: a release holds the templates themselves,
-   which name the organisation whatever key it is filed under. Making tenants confidential forgets
-   every tenant's choice and the preset, and the next round withdraws everything the mirror holds.
+4. The installation names its tenants to that connection. While it keeps them **confidential** (the
+   default, [support](support.md#privacy)) the mirror is unavailable over it: a release holds the
+   templates themselves, which name the organisation whatever key it is filed under. Making tenants
+   confidential to a connection (the installation's settings, which Epistola support's connection and
+   every connection without its own follow, or a connection's own) forgets every tenant's choice with
+   it and its preset, and its next round withdraws everything its mirror holds.
 5. Sharing catalogs is not **not allowed** by an installation administrator (ADR 0052 §5); making it
    not allowed withdraws every tenant at once.
 
@@ -165,7 +176,9 @@ an installation that never comes back without disconnecting is up to Epistola.
 | `epistola.support.mirror.interval`     | `15m`   | Wait between reconcile rounds.                                                                       |
 | `epistola.support.mirror.round-budget` | `5m`    | Most one round spends uploading; the rest goes next round.                                           |
 
-Both need `epistola.support.enabled=true` to matter; the support connection is off by default.
+For Epistola support's connection they need `epistola.support.enabled=true` to matter (off by
+default); a partner's connection (`epistola.support.connections`) needs only `mirror` among its
+services and granted.
 
 ## How to verify
 
@@ -173,8 +186,10 @@ Both need `epistola.support.enabled=true` to matter; the support connection is o
   shared, uploaded, the last problem) and, per catalog, whether it is shared and when it last synced.
 - The tests drive the reconcile against a stand-in support service over real HTTP:
   `CatalogMirrorReconcilerIntegrationTest` (complete sets, uploads of exactly the missing releases,
-  withdrawals, the digest skip, back-off, Sync now, an opt-out during a round, the mirror turned off) and `CatalogMirrorSharingIntegrationTest` (the
-  sharing rules and what each binding carries).
+  withdrawals, the digest skip, back-off, Sync now, an opt-out during a round, the mirror turned off),
+  `CatalogMirrorPerConnectionIntegrationTest` (a partner's mirror beside Epistola support's: what goes
+  where, an unreachable partner, a withdrawal or confidentiality with one connection only) and
+  `CatalogMirrorSharingIntegrationTest` (the sharing rules and what each binding carries).
 
 ## Why this is not in the demo catalog
 
