@@ -85,3 +85,39 @@ class SupportTokenRefreshScheduler(
         const val INTERVAL_MS = 30_000L
     }
 }
+
+/**
+ * Keeps a token fresh on every node for each connection other than Epistola support's that registers
+ * with the installation's own key (ADR 0053 §1), as [SupportTokenRefreshScheduler] does for Epistola
+ * support's. Independent of `epistola.support.enabled`.
+ */
+@Component
+class OtherSupportTokenRefreshScheduler(
+    private val registry: SupportConnectionRegistry,
+    private val work: SupportBackgroundWork,
+) : ClusterScheduledTaskHandler {
+    override val taskType: String = TASK_TYPE
+
+    @Bean
+    fun otherSupportTokenRefreshTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = "system:$TASK_KEY",
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(SupportTokenRefreshScheduler.INTERVAL_MS),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        work.launch(TASK_KEY) { refreshAll() }
+    }
+
+    /** Refreshes each one's token; one that fails does not hold back the others. */
+    fun refreshAll() {
+        registry.others().filterIsInstance<DefaultSupportConnection>().forEach { runCatching { it.refreshTokenIfDue() } }
+    }
+
+    companion object {
+        const val TASK_KEY = "support.connection.token.others"
+        const val TASK_TYPE = "support.connection.token.others"
+    }
+}

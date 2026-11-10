@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support.connection
 
-import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -19,10 +18,8 @@ import org.springframework.web.client.RestClientResponseException
  */
 @Component
 class SupportDisconnector(
-    private val properties: SupportProperties,
-    private val store: SupportConnectionStore,
     private val client: SupportServiceClient,
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,8 +32,12 @@ class SupportDisconnector(
      * @throws SupportUnavailableException when the service could not be told; nothing changed then.
      * @throws SupportRegistrationNotAllowedException when there is no connection to end.
      */
-    fun disconnect(localOnly: Boolean, by: String?): SupportDisconnectOutcome {
-        if (!properties.enabled) throw SupportUnavailableException("The support connection is off (epistola.support.enabled=false)")
+    fun disconnect(localOnly: Boolean, by: String?): SupportDisconnectOutcome = disconnect(epistola, localOnly, by)
+
+    /** [disconnect] for [connection], any connection that registers with the installation's own key. */
+    fun disconnect(connection: DefaultSupportConnection, localOnly: Boolean, by: String?): SupportDisconnectOutcome {
+        val store = connection.store
+        if (!connection.settings.enabled) throw SupportUnavailableException(connection.settings.offReason)
         try {
             return store.tryExclusively {
                 connection.invalidate()
@@ -47,7 +48,7 @@ class SupportDisconnector(
                 val outcome = when {
                     localOnly -> SupportDisconnectOutcome.LOCAL_ONLY
                     state is SupportConnectionState.Refused -> SupportDisconnectOutcome.ALREADY_GONE
-                    else -> tellService()
+                    else -> tellService(connection)
                 }
                 val now = EpistolaClock.instant()
                 store.disconnected(
@@ -73,7 +74,7 @@ class SupportDisconnector(
      * `DELETE {api}/connection` with this node's token; a `401` gets a new token once. A registration
      * the token endpoint refuses, or no longer knows, has nothing to end at the service.
      */
-    private fun tellService(): SupportDisconnectOutcome {
+    private fun tellService(connection: DefaultSupportConnection): SupportDisconnectOutcome {
         val serviceMetadata = connection.serviceMetadata()
         val first = try {
             connection.tokenForCall()

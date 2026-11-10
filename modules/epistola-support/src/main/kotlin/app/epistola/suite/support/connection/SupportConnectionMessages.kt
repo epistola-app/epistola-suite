@@ -122,8 +122,18 @@ data class SupportConnectionOverview(
     val pausedServices: String get() = pause?.scopes?.sortedBy { it.ordinal }?.joinToString(", ") { it.title() }.orEmpty()
 }
 
-/** Reads the support connection for the installation page. No network I/O. */
-class GetSupportConnectionOverview :
+/**
+ * The registering connection [connectionId] names: Epistola support's ([connection]) when null, else
+ * the [SupportConnectionAuth.PRIVATE_KEY_JWT] connection with that id (ADR 0053 §1: any connection may
+ * register with the installation's own key).
+ */
+internal fun registeringConnection(connection: DefaultSupportConnection, registry: SupportConnectionRegistry, connectionId: UUID?): DefaultSupportConnection = when (connectionId) {
+    null, connection.id -> connection
+    else -> registry.registering(connectionId) ?: throw app.epistola.suite.support.privacy.SupportConnectionNotFoundException(connectionId)
+}
+
+/** Reads a registering support connection for the installation page; Epistola support's by default. No network I/O. */
+data class GetSupportConnectionOverview(val connectionId: UUID? = null) :
     Query<SupportConnectionOverview>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -131,11 +141,12 @@ class GetSupportConnectionOverview :
 
 @Component
 class GetSupportConnectionOverviewHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
     private val installations: InstallationService,
-    private val properties: SupportProperties,
 ) : QueryHandler<GetSupportConnectionOverview, SupportConnectionOverview> {
     override fun handle(query: GetSupportConnectionOverview): SupportConnectionOverview {
+        val connection = registeringConnection(epistola, registry, query.connectionId)
         val status = connection.status()
         val state = status.state
         val selection = connection.selectedServices()
@@ -148,7 +159,7 @@ class GetSupportConnectionOverviewHandler(
             canDisconnect = state is SupportConnectionState.Pending || state is SupportConnectionState.Active || state is SupportConnectionState.Refused,
             canRegisterAgain = state is SupportConnectionState.Refused || state is SupportConnectionState.Pending || state is SupportConnectionState.Declined,
             registerAgainNeedsConfirm = state is SupportConnectionState.Pending,
-            autoRegister = properties.autoRegister,
+            autoRegister = connection.settings.autoRegister,
             claimCodeExpired = (state as? SupportConnectionState.Pending)?.claimCodeExpiresAt?.let { !it.isAfter(EpistolaClock.instant()) } == true,
             selection = selection,
             canSelect = state !is SupportConnectionState.Disabled,
@@ -196,7 +207,7 @@ class GetTenantSupportSummaryHandler(
  * Registers when needed and refreshes the connection status now, instead of at the next scheduled
  * check. Talks to the support service, so it runs outside a database transaction.
  */
-class CheckSupportConnection :
+data class CheckSupportConnection(val connectionId: UUID? = null) :
     Command<SupportConnectionStatus>,
     RequiresPlatformRole,
     SelfManagedTransaction {
@@ -205,10 +216,12 @@ class CheckSupportConnection :
 
 @Component
 class CheckSupportConnectionHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
 ) : CommandHandler<CheckSupportConnection, SupportConnectionStatus> {
     /** @throws SupportConnectionBusyException when a check or registration already runs, on any node. */
     override fun handle(command: CheckSupportConnection): SupportConnectionStatus {
+        val connection = registeringConnection(epistola, registry, command.connectionId)
         if (!connection.checkIfIdle()) throw SupportConnectionBusyException()
         return connection.status()
     }
@@ -221,7 +234,7 @@ class CheckSupportConnectionHandler(
  * registered, after the claim code expired and after disconnecting; talks to the support service, so
  * it runs outside a database transaction.
  */
-data class RegisterSupportConnection(val companyName: String? = null, val adminEmail: String? = null) :
+data class RegisterSupportConnection(val companyName: String? = null, val adminEmail: String? = null, val connectionId: UUID? = null) :
     Command<SupportConnectionStatus>,
     RequiresPlatformRole,
     SelfManagedTransaction {
@@ -243,9 +256,11 @@ data class RegisterSupportConnection(val companyName: String? = null, val adminE
 
 @Component
 class RegisterSupportConnectionHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
 ) : CommandHandler<RegisterSupportConnection, SupportConnectionStatus> {
     override fun handle(command: RegisterSupportConnection): SupportConnectionStatus {
+        val connection = registeringConnection(epistola, registry, command.connectionId)
         val contact = command.companyName?.let {
             StoredSupportContact(it.trim(), command.adminEmail.orEmpty().trim(), EpistolaClock.instant(), SecurityContext.currentOrNull()?.displayName)
         }
@@ -258,7 +273,7 @@ class RegisterSupportConnectionHandler(
  * Forgets the registration and registers anew with a new key. Allowed after a refusal; while
  * pending only with [confirmed], because it invalidates the claim code shown so far.
  */
-data class RegisterSupportConnectionAgain(val confirmed: Boolean = false) :
+data class RegisterSupportConnectionAgain(val confirmed: Boolean = false, val connectionId: UUID? = null) :
     Command<SupportConnectionStatus>,
     RequiresPlatformRole,
     SelfManagedTransaction {
@@ -273,9 +288,11 @@ class SupportConnectionBusyException : SupportRegistrationNotAllowedException("A
 
 @Component
 class RegisterSupportConnectionAgainHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
 ) : CommandHandler<RegisterSupportConnectionAgain, SupportConnectionStatus> {
     override fun handle(command: RegisterSupportConnectionAgain): SupportConnectionStatus {
+        val connection = registeringConnection(epistola, registry, command.connectionId)
         connection.invalidate()
         when (val state = connection.status().state) {
             is SupportConnectionState.Refused, is SupportConnectionState.Declined -> Unit
@@ -299,7 +316,7 @@ class RegisterSupportConnectionAgainHandler(
  * [localOnly] skips telling the service, for when it cannot be reached. Talks to the support
  * service, so it runs outside a database transaction.
  */
-data class DisconnectSupportConnection(val localOnly: Boolean = false) :
+data class DisconnectSupportConnection(val localOnly: Boolean = false, val connectionId: UUID? = null) :
     Command<SupportDisconnected>,
     RequiresPlatformRole,
     SelfManagedTransaction {
@@ -311,7 +328,8 @@ data class SupportDisconnected(val outcome: SupportDisconnectOutcome, val status
 
 @Component
 class DisconnectSupportConnectionHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
     private val disconnector: SupportDisconnector,
     private val sections: List<TenantSharingSection>,
 ) : CommandHandler<DisconnectSupportConnection, SupportDisconnected> {
@@ -320,11 +338,12 @@ class DisconnectSupportConnectionHandler(
      * @throws SupportRegistrationNotAllowedException when there is no registration to end.
      */
     override fun handle(command: DisconnectSupportConnection): SupportDisconnected {
-        val outcome = disconnector.disconnect(command.localOnly, SecurityContext.currentOrNull()?.displayName)
+        val connection = registeringConnection(epistola, registry, command.connectionId)
+        val outcome = disconnector.disconnect(connection, command.localOnly, SecurityContext.currentOrNull()?.displayName)
         // After the registration is gone: nothing is sent any more, whatever the order of the rest.
-        sections.sortedBy { it.order }.forEach { it.forgetAll() }
+        sections.sortedBy { it.order }.forEach { it.forgetAll(connection.id) }
         // Required and Not allowed too: registering again asks the administrator again, as everyone else.
-        sections.forEach { SetSharingRestriction(it.key, null).execute() }
+        sections.forEach { SetSharingRestriction(it.key, null, connection.id).execute() }
         return SupportDisconnected(outcome, connection.status())
     }
 }
@@ -335,7 +354,7 @@ class DisconnectSupportConnectionHandler(
  * network I/O: it works while the support service is unreachable. A deselected service stops at once
  * on this node and within a second on the others; the next token asks for the new selection.
  */
-data class SaveSupportServices(val services: Set<String>) :
+data class SaveSupportServices(val services: Set<String>, val connectionId: UUID? = null) :
     Command<SupportServiceSelection>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -343,9 +362,11 @@ data class SaveSupportServices(val services: Set<String>) :
 
 @Component
 class SaveSupportServicesHandler(
-    private val connection: DefaultSupportConnection,
+    private val epistola: DefaultSupportConnection,
+    private val registry: SupportConnectionRegistry,
 ) : CommandHandler<SaveSupportServices, SupportServiceSelection> {
     override fun handle(command: SaveSupportServices): SupportServiceSelection {
+        val connection = registeringConnection(epistola, registry, command.connectionId)
         validate("services", command.services.size <= MAX_SELECTED_SERVICES, ValidationCode.GENERIC) { "At most $MAX_SELECTED_SERVICES services can be selected." }
         validate("services", command.services.all { SERVICE_NAME.matches(it.trim().lowercase()) }, ValidationCode.GENERIC) { "A service name is malformed." }
         val by = SecurityContext.currentOrNull()?.displayName

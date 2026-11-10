@@ -290,8 +290,10 @@ can open requests through the same protocol.
      - **identity**: no fixed id and no `source`; the endpoint has a default (the product domain's
        discovery, or `epistola.support.endpoint`), and a fresh installation starts with that one
        connection, which can be removed like any other;
-     - **signing in**: `auth` alone (`PRIVATE_KEY_JWT` registers, `BEARER_TOKEN` uses a token), so a
-       partner running the support service can register too;
+     - **signing in** (built): `auth` alone (`PRIVATE_KEY_JWT` registers, `BEARER_TOKEN` uses a
+       token), so a partner running the support service can register too: the registry builds a
+       `DefaultSupportConnection` at the row's endpoint, with settings of its own
+       (`RegisteringConnectionSettings`), and the connection commands take the connection's id;
      - **telemetry and the catalog mirror**: services, sent to every connection that grants them,
        each with its own privacy checks, as requests and usage already are (telemetry built: a log
        exporter per connection and one metrics registry whose sender fans out, rewritten per
