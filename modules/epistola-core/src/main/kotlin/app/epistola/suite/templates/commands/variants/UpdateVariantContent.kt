@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ContentVersion
@@ -64,14 +63,11 @@ class UpdateVariantContentHandler(
     private val jdbi: Jdbi,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
     private val objectMapper: ObjectMapper,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val templates: TemplateStore,
 ) : CommandHandler<UpdateVariantContent, SavedVariantContent> {
     override fun handle(command: UpdateVariantContent): SavedVariantContent {
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.variantId.catalogId, command) }
         val saved = save(command, at)
-        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(at, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
         return saved
     }
 

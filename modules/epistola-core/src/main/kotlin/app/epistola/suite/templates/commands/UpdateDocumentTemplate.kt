@@ -7,7 +7,6 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -76,14 +75,11 @@ data class UpdateDocumentTemplate(
 @Component
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val templates: TemplateStore,
 ) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
         val saved = save(command, at)
-        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        if (saved != null && command.themeId != null) usedCatalogs.declare(at, command.themeCatalog)
         return saved
     }
 

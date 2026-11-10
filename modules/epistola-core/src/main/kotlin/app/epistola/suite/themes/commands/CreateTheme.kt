@@ -6,7 +6,6 @@ package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ContentVersion
@@ -65,14 +64,11 @@ data class CreateTheme(
 class CreateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val themes: ThemeStore,
 ) : CommandHandler<CreateTheme, Theme> {
     override fun handle(command: CreateTheme): Theme {
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
         val saved = save(command, at)
-        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(at, saved.crossCatalogRefs(objectMapper))
         return saved
     }
 
