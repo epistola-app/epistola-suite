@@ -19,7 +19,6 @@ import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
-import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.PlatformRole
@@ -67,17 +66,16 @@ class ClusterStatusHandler(
     }
 
     /**
-     * Starts the content collector by hand for this tenant (ADR 0033): what the nightly run would
+     * Starts the content collector by hand for every tenant (ADR 0033): what the nightly run would
      * take, now. Answers with the line that says what it took.
      */
     fun collectStorage(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val collection = app.epistola.suite.catalog.revisions.CollectResourceContents(tenantId.key).execute()
+        val collection = app.epistola.suite.catalog.revisions.CollectResourceContents.execute()
         return request.htmx {
-            fragment("storage/collect", "storage-collect-result") {
+            fragment("cluster/dashboard", "storage-collect-result") {
                 "collection" to collection
             }
-            onFullPage { redirect("/tenants/${tenantId.key}") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
@@ -176,6 +174,7 @@ class ClusterStatusHandler(
             activeCount = nodes.count { it.isActive },
             staleCount = nodes.count { !it.isActive },
             forgetWithheld = forgetWithheld,
+            mayCollect = mayForget,
         )
     }
 
@@ -213,6 +212,11 @@ data class ClusterStatusReport(
      * so, rather than leaving the reader to wonder why no row offers Forget.
      */
     val forgetWithheld: Boolean = false,
+    /**
+     * The viewer may collect stored content now: the installation administrator. The platform
+     * observer reads the page only, and is told who collects instead of finding no button.
+     */
+    val mayCollect: Boolean = false,
 ) {
     val totalCount: Int = nodes.size
     val heartbeatIntervalSeconds: Long = heartbeatIntervalMs / 1_000L

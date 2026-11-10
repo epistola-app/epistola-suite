@@ -4,6 +4,7 @@
 
 package app.epistola.suite.security
 
+import app.epistola.suite.catalog.revisions.CollectResourceContents
 import app.epistola.suite.cluster.ForgetClusterNode
 import app.epistola.suite.cluster.ListClusterNodes
 import app.epistola.suite.cluster.schedules.ListClusterScheduledTaskNodeStates
@@ -173,6 +174,14 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                     .extracting { (it as PlatformAccessDeniedException).requiredRole }
                     .isEqualTo(PlatformRole.INSTALLATION_ADMINISTRATOR)
             }
+        }
+        asPrincipal(observer) {
+            assertThatThrownBy { mediator.send(CollectResourceContents) }
+                .`as`("collecting stored content by hand is the administrator's, not the observer's")
+                .isInstanceOf(PlatformAccessDeniedException::class.java)
+        }
+        asPrincipal(tenantAdministrator) {
+            assertThatThrownBy { mediator.send(CollectResourceContents) }.isInstanceOf(PlatformAccessDeniedException::class.java)
         }
         listOf(observer, administrator).forEach { reader ->
             asPrincipal(reader) {

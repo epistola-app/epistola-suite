@@ -124,22 +124,39 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `POST collect collects a tenant's stored content now, and says what it took`() = fixture {
-        lateinit var tenant: Tenant
+    fun `the installation administrator collects stored content now, and POST collect says what it took`() {
+        val page = restTemplate.getForEntity("/platform/cluster", String::class.java).body!!
+        val collect = restTemplate.exchange(
+            "/platform/cluster/storage/collect",
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        )
 
-        given { tenant = tenant("Cluster Storage Collect") }
+        assertThat(page).contains("data-testid=\"storage-collect-now\"").contains("/platform/cluster/storage/collect")
+            .doesNotContain("data-testid=\"storage-collect-withheld\"")
+        assertThat(collect.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(collect.body!!).doesNotContain("<html").contains("id=\"storage-collect-result\"").contains("Collected ")
+    }
 
-        whenever {
-            val headers = HttpHeaders()
-            headers.set("HX-Request", "true")
-            restTemplate.exchange("/tenants/${tenant.id}/storage/collect", HttpMethod.POST, HttpEntity<Void>(headers), String::class.java)
-        }
+    @Test
+    fun `the platform observer is told who collects stored content, and cannot collect it`() {
+        val observer = HttpHeaders().apply { set(TEST_PLATFORM_ROLES_HEADER, "PLATFORM_OBSERVER") }
+        val page = restTemplate.exchange("/platform/cluster", HttpMethod.GET, HttpEntity<Void>(observer), String::class.java).body!!
+        val collect = restTemplate.exchange(
+            "/platform/cluster/storage/collect",
+            HttpMethod.POST,
+            HttpEntity<Void>(
+                HttpHeaders().apply {
+                    addAll(observer)
+                    set("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
 
-        then {
-            val collect = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(collect.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(collect.body!!).doesNotContain("<html").contains("id=\"storage-collect-result\"").contains("Collected 0 content(s)")
-        }
+        assertThat(page).contains("data-testid=\"storage-collect-withheld\"").doesNotContain("data-testid=\"storage-collect-now\"")
+        assertThat(collect.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
     }
 
     @Test

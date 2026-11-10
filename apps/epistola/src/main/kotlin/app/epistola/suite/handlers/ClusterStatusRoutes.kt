@@ -11,7 +11,7 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 /**
- * Routes for the Operations -> Cluster dashboard and its HTMX refresh endpoint.
+ * Routes for the Platform -> Cluster dashboard, its HTMX refresh, and its two actions.
  */
 @Configuration
 class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
@@ -22,8 +22,7 @@ class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
             GET("", handler::dashboard)
             GET("/refresh", handler::refresh)
             POST("/nodes/{nodeId}/forget", handler::forgetNode)
+            POST("/storage/collect", handler::collectStorage)
         }
-        // Collecting a tenant's unreferenced release content is the tenant's own diagnostics action.
-        POST("/tenants/{tenantId}/storage/collect", handler::collectStorage)
     }
 }

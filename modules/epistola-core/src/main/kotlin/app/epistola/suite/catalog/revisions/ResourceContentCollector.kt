@@ -13,8 +13,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.observability.recordScheduledTask
-import app.epistola.suite.security.Permission
-import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.RequiresPlatformRole
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tag
 import org.jdbi.v3.core.Handle
@@ -63,7 +63,7 @@ data class ContentCollection(
  * - Deleting a release or a catalog removes rows only; what they alone held is collected here.
  *
  * A single-owner cluster task in a configurable window, nightly by default, which an operator can
- * also start by hand for one tenant ([CollectResourceContents]). Two gauges say what is left to
+ * also start by hand from the platform cluster page ([CollectResourceContents]). Two gauges say what is left to
  * collect, past the grace period, after a run: `epistola.storage.orphaned_contents` and
  * `epistola.storage.orphaned_blobs{namespace=asset}`. A healthy installation reads zero on both.
  */
@@ -264,20 +264,21 @@ class ResourceContentCollectorTask(
 }
 
 /**
- * Starts the collector by hand for [tenantKey] (after removing many releases, say): its orphaned
- * content past the grace period, then the blobs nothing holds. The same rules as the nightly run.
+ * Starts the collector by hand, for every tenant (after removing many releases, say): what the
+ * nightly run would take, now, by the same rules. The installation administrator's, from the
+ * platform cluster page: the blobs it sweeps are the installation's, held across tenants.
  */
-data class CollectResourceContents(override val tenantKey: TenantKey) :
+data object CollectResourceContents :
     Command<ContentCollection>,
-    RequiresPermission,
+    RequiresPlatformRole,
     // It commits batch by batch, with a pause between them, as the nightly run does.
     app.epistola.suite.mediator.SelfManagedTransaction {
-    override val permission get() = Permission.DIAGNOSTICS_MANAGE
+    override val platformRole get() = PlatformRole.INSTALLATION_ADMINISTRATOR
 }
 
 @Component
 class CollectResourceContentsHandler(
     private val collector: ResourceContentCollector,
 ) : CommandHandler<CollectResourceContents, ContentCollection> {
-    override fun handle(command: CollectResourceContents): ContentCollection = collector.collect(command.tenantKey)
+    override fun handle(command: CollectResourceContents): ContentCollection = collector.collectAll()
 }

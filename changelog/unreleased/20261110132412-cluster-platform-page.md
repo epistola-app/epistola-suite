@@ -10,4 +10,5 @@ whatever their role, could open it there. It shows the whole installation: its n
 scheduled tasks and timers it runs for every tenant. It is now Platform → Cluster
 (`/platform/cluster`), open to the installation administrator and the platform observer; only the
 administrator forgets a node. The tenant URL is gone, and the page left the tenant's Operations menu.
-Collecting a tenant's stored release content by hand stays a tenant action.
+Collecting stored release content by hand moved with it: the installation administrator collects it
+for every tenant there, by the nightly run's rules.
