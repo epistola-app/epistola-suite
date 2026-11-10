@@ -3,9 +3,12 @@
 -- and the document and the generation result copy it, so a restricted application is shown only
 -- its own (#749).
 --
--- rollback-compatible: true
--- Every new column is nullable without a default, so the previous release inserts and reads as
--- before; a key it creates has no application and behaves exactly as keys did before.
+-- An API key no longer carries roles: it proves its application, and the application holds them, so
+-- api_keys.roles moves to the application made for each key below and is dropped.
+--
+-- rollback-compatible: false
+-- reason: drops api_keys.roles, which the previous release reads for every API-key login and writes
+-- for every new key.
 
 CREATE TABLE applications (
     id                 UUID PRIMARY KEY,
@@ -54,6 +57,9 @@ FROM api_keys
 WHERE revoked_at IS NULL;
 
 UPDATE api_keys SET application_id = id WHERE revoked_at IS NULL;
+
+-- The roles now live on the application. A revoked key cannot authenticate, and its roles are not shown.
+ALTER TABLE api_keys DROP COLUMN roles;
 
 -- A tenant with a single key: its application asked for every earlier document, so it owns the
 -- unattributed rows. With several keys nothing tells them apart; an administrator chooses the owner.
