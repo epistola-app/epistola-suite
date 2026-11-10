@@ -251,7 +251,7 @@
     <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
         <div class="detail-section-header">
             <h2>Setup for every tenant</h2>
-            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing or #lists.isEmpty(defaults)}" data-testid="support-defaults-change"
+            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing == true or #lists.isEmpty(defaults)}" data-testid="support-defaults-change"
                     th:attr="hx-get=@{/platform/support/connections/{id}/defaults/edit(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
         </div>
         <div class="detail-section-body ep-stack">

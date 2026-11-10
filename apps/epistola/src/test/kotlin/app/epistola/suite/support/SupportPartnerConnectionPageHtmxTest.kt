@@ -153,6 +153,21 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
     private lateinit var connections: app.epistola.suite.support.connection.SupportConnections
 
     @Test
+    fun `Add connection opens as a dialog, alone for the page's action and on the list for a direct visit`() {
+        val fragment = restTemplate.exchange(
+            "/platform/support/connections/new",
+            org.springframework.http.HttpMethod.GET,
+            org.springframework.http.HttpEntity<Void>(org.springframework.http.HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        ).body!!
+        assertThat(fragment).contains("id=\"add-connection-dialog\"").contains("data-testid=\"support-connection-add\"").doesNotContain("data-testid=\"support-connections\"")
+
+        val page = restTemplate.getForEntity("/platform/support/connections/new", String::class.java).body!!
+        assertThat(page).contains("data-testid=\"support-connections\"").contains("id=\"add-connection-dialog\"")
+        assertThat(restTemplate.getForEntity("/platform/support", String::class.java).body).`as`("not on a plain visit").doesNotContain("id=\"add-connection-dialog\"")
+    }
+
+    @Test
     fun `an installation administrator adds a connection by hand, is told what is missing, and removes it`() {
         assertThat(post("/platform/support/connections/lookup", mapOf("domain" to "")).body).contains("data-testid=\"support-connection-add-error\"")
         val missing = post("/platform/support/connections", mapOf("name" to "Hand Partner", "endpoint" to "https://desk.hand.example", "token" to ""))
