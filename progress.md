@@ -75,6 +75,35 @@ Decided and closed:
 
 ## Touched
 
+### Pre-2.0.0 release test: 1.5.1 → main, flows, UI publishing (10 November; branch `fix/address-block-two-pass`)
+
+v1.5.1 and main `678e51ab5` from source on one Postgres 17, seeded on 1.5.1 with the demo, Utrecht
+(4 catalogs) and Sittard-Geleen catalogs, every variant activated in production, a 1.x release, an
+open draft and generated documents; upgraded twice from the same dump.
+
+- ✅ Upgrade: 30 migrations clean both times (2–6 s). Utrecht + Sittard 23/28 pixel-identical with
+  V8, **28/28 with rendering defaults forced to V6**, so content carries over exactly and every
+  difference is the documented V8 spacing. 1.x documents still listed.
+- ✅ UI publishing: a non-admin publisher released "Published in 1.x"/next draft and deployed from
+  the publish dialog; a dependent catalog's dialog releases its dependency with it; a new template
+  created, edited (autosave), published from the editor bar, deployed, generated over REST; a
+  second release served by default while `versionRange: 1.0.0` still gets the first.
+- ✅ Fixed: an address block plus `sys.pages.total` failed every render ("Must be a tagged
+  document", HTTP 500; demo `simple-letter`), a regression from #1304, unreleased. Test in
+  `AddressBlockTest`, generation unitTest 813/0.
+
+Noticed, not touched:
+
+- The catalog overview's "Your application asks for namespace …, catalog …" omits the registry;
+  a tenant's own catalog is in `local`, an omitted registry means the default
+  (`exchange.epistola.app`), so following it answers 404 "Catalog not found". The template's API
+  tab names it. `docs/generation.md` does not mention the registry.
+- The demo `corporate` theme has 72 mm page margins (meant as points?): the traffic fine renders in
+  a 66 mm column over 9 pages; `sectioned-letter` grows too.
+- The upgrade banner asks to publish the empty Default catalog of every 1.x tenant.
+- `docs/upgrades.md` says releasing refuses a dependency with no release; the dialog releases it
+  along instead.
+
 ### Four findings of the 2.0 security review (10 November; branch `fix/review-authz-authn-files`)
 
 - **Registry publish checks the namespace grant.** `PublishReleaseToRegistry` refuses a catalog
