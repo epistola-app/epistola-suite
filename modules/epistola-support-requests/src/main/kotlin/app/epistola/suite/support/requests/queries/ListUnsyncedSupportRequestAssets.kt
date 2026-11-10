@@ -17,8 +17,6 @@ import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
-import app.epistola.suite.support.requests.consent.createdUnderConsent
-import app.epistola.suite.support.requests.consent.exchangedUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
 import app.epistola.suite.time.EpistolaClock
@@ -40,8 +38,8 @@ data class UnsyncedSupportRequestAsset(
 
 /**
  * Assets not sent yet, and due (their back-off over), of feedback already sent to the support service,
- * oldest first, of feedback that is exchanged (see `exchangedUnderConsent`), added while sharing was
- * on (see `createdUnderConsent`). An asset goes after the feedback it belongs to,
+ * oldest first, of requests exchanged with the connection (`exchangedWith`), in its ledger
+ * (`mayGoTo`). An asset goes after the feedback it belongs to,
  * because the support service addresses it by that feedback's id.
  */
 data class ListUnsyncedSupportRequestAssets(
@@ -70,7 +68,7 @@ class ListUnsyncedSupportRequestAssetsHandler(
               AND d.state = :synced
               AND d.remote_ref IS NOT NULL
               AND ${exchangedWith("f", "d")}
-              AND ${mayGoTo("a", "da", "d")}
+              AND ${mayGoTo("da")}
             ORDER BY a.created_at ASC
             LIMIT :limit
             """,

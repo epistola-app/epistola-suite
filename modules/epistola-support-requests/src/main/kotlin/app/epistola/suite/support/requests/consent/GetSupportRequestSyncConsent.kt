@@ -51,8 +51,8 @@ class IsSupportRequestSyncConsentInForceHandler(
 }
 
 /**
- * Whether the feedback is exchanged with Epistola support now: submitted under the consent in force
- * (`exchangedUnderConsent`). For the drivers that send a comment, a status change or an asset.
+ * Whether the request is exchanged with [connectionId] now: the tenant shares support requests with
+ * it (`exchangedWith`). For the drivers that send a comment, a status change or an asset.
  */
 data class IsSupportRequestExchangedUnderConsent(
     val id: SupportRequestId,

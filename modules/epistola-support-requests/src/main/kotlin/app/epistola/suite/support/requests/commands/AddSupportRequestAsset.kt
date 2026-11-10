@@ -12,7 +12,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.support.requests.SupportRequestAsset
 import app.epistola.suite.support.requests.consent.SupportRequestLedger
-import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -103,10 +102,10 @@ class AddSupportRequestAssetHandler(
         handle.createQuery(
             """
             INSERT INTO support_request_assets (
-                tenant_key, request_id, id, content, content_type, filename, created_at, sync_consent_id
+                tenant_key, request_id, id, content, content_type, filename, created_at
             )
             VALUES (
-                :tenantKey, :feedbackId, :id, :content, :contentType, :filename, NOW(), ${lockedConsentInForceId(":tenantKey")}
+                :tenantKey, :feedbackId, :id, :content, :contentType, :filename, NOW()
             )
             RETURNING tenant_key, request_id, id, content_type, filename, created_at
             """,
@@ -119,7 +118,7 @@ class AddSupportRequestAssetHandler(
             .bind("filename", command.filename)
             .mapTo(SupportRequestAsset::class.java)
             .one()
-            // It goes to every other connection the request is delivered to that the tenant shares with now.
+            // It goes to every connection the request is delivered to that the tenant shares with now.
             .also { SupportRequestLedger.recordItem(handle, command.id.tenantKey, command.id.supportRequestKey.value, command.id.key.value) }
     }
 }

@@ -2108,7 +2108,6 @@ $$
     follows_default boolean DEFAULT false NOT NULL,
     given_at timestamp with time zone,
     given_by uuid,
-    grant_id uuid DEFAULT gen_random_uuid() NOT NULL,
     options jsonb DEFAULT '{}'::jsonb NOT NULL,
     section character varying(64) NOT NULL,
     statement_version character varying(32),
@@ -2265,7 +2264,6 @@ $$
     filename character varying(255),
     id uuid NOT NULL,
     request_id uuid NOT NULL,
-    sync_consent_id uuid,
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.support_request_delivered_items (
@@ -2305,7 +2303,6 @@ $$
     remote_id text,
     request_id uuid NOT NULL,
     seq bigint NOT NULL,
-    sync_consent_id uuid,
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.support_requests (
@@ -2321,7 +2318,6 @@ $$
     server_logs text,
     source_url text,
     status character varying(30) DEFAULT 'OPEN'::character varying NOT NULL,
-    sync_consent_id uuid,
     tenant_key public.tenant_key NOT NULL,
     title text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL

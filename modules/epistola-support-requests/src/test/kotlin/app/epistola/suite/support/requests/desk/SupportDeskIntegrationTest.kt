@@ -198,12 +198,12 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a request submitted while the tenant did not share cannot be passed on, nor one whose tenant stopped sharing`() {
+    fun `a request whose tenant does not share cannot be passed on`() {
         val notSharing = createTenant("Desk Not Sharing")
         val before = submit(notSharing)
         val view = withMediator { GetSupportInboxRequest(notSharing.id, before.id).query() }!!
         assertThat(view.canEscalate).isFalse()
-        assertThat(view.escalationBlocked).contains("did not share support requests when this one was submitted")
+        assertThat(view.escalationBlocked).contains("does not share support requests now")
         assertThatThrownBy { withMediator { EscalateSupportRequest(notSharing.id, before.id, REQUESTS_CONNECTION).execute() } }
             .isInstanceOf(SupportRequestNotEscalatedException::class.java)
 
@@ -214,6 +214,23 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { EscalateSupportRequest(stopped.id, submitted.id, REQUESTS_CONNECTION).execute() } }
             .isInstanceOf(SupportRequestNotEscalatedException::class.java)
         assertThat(recording.createdTickets).isEmpty()
+    }
+
+    @Test
+    fun `a request submitted while the tenant did not share goes with its history once it shares and the desk passes it on`() {
+        // Epistola support's connection follows the same rule as any other (ADR 0053 step 3i).
+        val tenant = createTenant("Desk Shares Later")
+        val request = submit(tenant)
+        withMediator { AddSupportDeskMessage(tenant.id, request.id, "Written before sharing", note = false).execute() }
+        withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+
+        assertThat(withMediator { GetSupportInboxRequest(tenant.id, request.id).query() }!!.canEscalate).isTrue()
+        withMediator { EscalateSupportRequest(tenant.id, request.id, REQUESTS_CONNECTION).execute() }
+        work.awaitIdle()
+        sweep.retryPendingSync()
+
+        assertThat(recording.createdTickets.map { it.id }).containsExactly(request.id)
+        assertThat(recording.addedComments.map { it.second.body }).`as`("its history goes along").containsExactly("Written before sharing")
     }
 
     @Test

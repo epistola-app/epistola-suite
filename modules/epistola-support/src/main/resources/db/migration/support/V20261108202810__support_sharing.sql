@@ -22,7 +22,7 @@ COMMENT ON TABLE support_sharing_restriction IS
     'Per connection and shared service (requests, mirror, usage): NOT_ALLOWED or REQUIRED for every tenant. No row: tenants choose.';
 
 -- A tenant's choice: given (sharing) or withdrawn. A withdrawal keeps the row and stamps
--- withdrawn_at/_by; giving again clears them, and a new grant_id when it was withdrawn. Sharing while
+-- withdrawn_at/_by; giving again clears them. Sharing while
 -- withdrawn_at IS NULL. A tenant that chose not to share without ever having shared has a withdrawn
 -- row never given. follows_default: written by the installation default rather than the tenant.
 -- No row: the tenant follows the default as it stands.
@@ -30,7 +30,6 @@ CREATE TABLE support_sharing_choice (
     connection_id           UUID        NOT NULL REFERENCES support_connections (id) ON DELETE CASCADE,
     section                 VARCHAR(64) NOT NULL,
     tenant_key              TENANT_KEY  NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
-    grant_id                UUID        NOT NULL DEFAULT gen_random_uuid(),
     given_at                TIMESTAMPTZ,
     given_by                UUID        REFERENCES users (id) ON DELETE SET NULL,
     withdrawn_at            TIMESTAMPTZ,
@@ -49,7 +48,6 @@ CREATE TABLE support_sharing_choice (
 
 COMMENT ON TABLE support_sharing_choice IS
     'A tenant''s choice to share a service over a support connection (ADR 0053). Sharing while withdrawn_at IS NULL; no row: it follows the default.';
-COMMENT ON COLUMN support_sharing_choice.grant_id IS 'Identifies one grant: a new one each time sharing is given again after a withdrawal.';
 
 -- The installation's default per connection and service, for tenants without a choice of their own.
 -- No row: not shared. from_configuration: set by the deployment configuration (Helm

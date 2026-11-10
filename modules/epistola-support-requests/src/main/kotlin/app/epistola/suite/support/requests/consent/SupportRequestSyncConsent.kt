@@ -81,35 +81,6 @@ internal fun consentInForce(tenantKeyColumn: String, connection: String = REQUES
 """
 
 /**
- * SQL expression: the `grant_id` of [tenantKeyColumn]'s consent in force (one grant), or NULL.
- * What `support_requests.sync_consent_id` is set to when feedback is submitted.
- */
-internal fun consentInForceId(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
-    (SELECT fsc.grant_id FROM support_sharing_choice fsc
-     WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
-"""
-
-/**
- * SQL predicate, for a query over `support_requests` aliased [feedbackAlias], that the feedback is exchanged
- * with Epistola support: the tenant's consent is in force, and the feedback was submitted under a
- * grant of consent (any grant: after a withdrawal and a new grant it carries on). Feedback submitted
- * without consent, or synced by the retired hub, is not: its comments, status changes and assets stay
- * in the installation. A comment or an asset also needs [createdUnderConsent].
- */
-internal fun exchangedUnderConsent(supportRequestAlias: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
-    ($supportRequestAlias.sync_consent_id IS NOT NULL
-     AND EXISTS (SELECT 1 FROM support_sharing_choice fsc
-                 WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $supportRequestAlias.tenant_key AND fsc.withdrawn_at IS NULL))
-"""
-
-/**
- * SQL predicate, for a `support_request_comments` or `support_request_assets` row aliased [alias], that it was
- * written while sharing was on and was not stopped by a withdrawal before it was sent. What was
- * written while sharing was off is never sent, also once consent is given again.
- */
-internal fun createdUnderConsent(alias: String): String = "$alias.sync_consent_id IS NOT NULL"
-
-/**
  * For a statement that **writes** something that may be sent: [consentInForce], reading the tenant's
  * consent row `FOR SHARE`. A withdrawal holds that row locked from its first statement until it
  * commits, so a write that runs meanwhile waits for it and then reads consent withdrawn, and a write
@@ -124,63 +95,32 @@ internal fun lockedConsentInForce(tenantKeyColumn: String, connection: String = 
             FOR SHARE)
 """
 
-/** [consentInForceId] for a statement that writes, locking as [lockedConsentInForce] does. */
-internal fun lockedConsentInForceId(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
-    (SELECT fsc.grant_id FROM support_sharing_choice fsc
-     WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
-     FOR SHARE)
-"""
-
-/** [exchangedUnderConsent] for a statement that writes, locking as [lockedConsentInForce] does. */
-internal fun exchangedUnderLockedConsent(supportRequestAlias: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
-    ($supportRequestAlias.sync_consent_id IS NOT NULL AND ${lockedConsentInForce("$supportRequestAlias.tenant_key", connection)})
-"""
-
 /**
  * SQL predicate: the request aliased [requestAlias] is exchanged with the connection of its delivery
- * [deliveryAlias] (ADR 0053 step 3). Epistola support's connection as before
- * ([exchangedUnderConsent]); another connection while the tenant shares support requests with it: the
- * request was handed to it then, with what it held.
+ * [deliveryAlias] (ADR 0053 §4): the tenant shares support requests with that connection now. A
+ * delivery exists only when the tenant shared when the request was handed to it, and then what it held
+ * went along ([SupportRequestLedger]).
  */
-internal fun exchangedWith(requestAlias: String, deliveryAlias: String): String = """
-    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${exchangedUnderConsent(requestAlias)})
-     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND ${consentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")}))
-"""
+internal fun exchangedWith(requestAlias: String, deliveryAlias: String): String = consentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")
 
 /**
- * SQL predicate: the message or asset aliased [itemAlias] may go to the connection of the delivery
- * [deliveryAlias], its ledger row for that connection aliased [ledgerAlias] (a LEFT JOIN of
- * `support_request_delivered_items`). Epistola support's connection: written under consent, as before
- * ([createdUnderConsent]). Another connection: its ledger row exists, written while the tenant shared
- * with that connection ([SupportRequestLedger]).
+ * SQL predicate: a message or asset may go to the connection of its delivery, its ledger row for that
+ * connection aliased [ledgerAlias] (a LEFT JOIN of `support_request_delivered_items`): the row exists,
+ * written while the tenant shared with that connection ([SupportRequestLedger]).
  */
-internal fun mayGoTo(itemAlias: String, ledgerAlias: String, deliveryAlias: String): String = """
-    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${createdUnderConsent(itemAlias)})
-     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND $ledgerAlias.item_id IS NOT NULL))
-"""
+internal fun mayGoTo(ledgerAlias: String): String = "$ledgerAlias.item_id IS NOT NULL"
 
 /**
  * SQL predicate, for a statement that writes: the request aliased [requestAlias] is exchanged with
  * connection [connectionId], reading the consent `FOR SHARE` ([exchangedWith] for one connection).
  */
-internal fun exchangedWithLocked(requestAlias: String, connectionId: UUID): String = if (connectionId == REQUESTS_CONNECTION) {
-    exchangedUnderLockedConsent(requestAlias)
-} else {
-    lockedConsentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
-}
+internal fun exchangedWithLocked(requestAlias: String, connectionId: UUID): String = lockedConsentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
 
 /** [exchangedWith] for one connection, for a query. */
-internal fun exchangedWithConnection(requestAlias: String, connectionId: UUID): String = if (connectionId == REQUESTS_CONNECTION) {
-    exchangedUnderConsent(requestAlias)
-} else {
-    consentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
-}
+internal fun exchangedWithConnection(requestAlias: String, connectionId: UUID): String = consentInForce("$requestAlias.tenant_key", connectionSql(connectionId))
 
 /** [exchangedWith] for a statement that writes, reading the consent `FOR SHARE`. */
-internal fun exchangedWithLockedRow(requestAlias: String, deliveryAlias: String): String = """
-    (($deliveryAlias.connection_id = $REQUESTS_CONNECTION_SQL AND ${exchangedUnderLockedConsent(requestAlias)})
-     OR ($deliveryAlias.connection_id <> $REQUESTS_CONNECTION_SQL AND ${lockedConsentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")}))
-"""
+internal fun exchangedWithLockedRow(requestAlias: String, deliveryAlias: String): String = lockedConsentInForce("$requestAlias.tenant_key", "$deliveryAlias.connection_id")
 
 /**
  * Marks [requestAlias]'s new status as still to send to every connection it is delivered to and

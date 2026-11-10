@@ -18,8 +18,9 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /**
- * Gives the tenant's consent to send its feedback to Epistola support, from now on. Feedback
- * submitted before stays in the installation: consent is not applied to it retroactively.
+ * Gives the tenant's consent to send its support requests to the connection, from now on. A request
+ * submitted before stays in the installation unless the support desk passes it on: consent is not
+ * applied to it retroactively.
  * Granting again while in force changes nothing, except that it is now the tenant's own choice: it
  * no longer follows the installation default ([SupportRequestSharingDefault]).
  */

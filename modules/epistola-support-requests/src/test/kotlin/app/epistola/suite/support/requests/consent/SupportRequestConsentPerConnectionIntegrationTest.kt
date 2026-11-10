@@ -4,8 +4,6 @@
 
 package app.epistola.suite.support.requests.consent
 
-import app.epistola.suite.common.ids.SupportRequestCommentId
-import app.epistola.suite.common.ids.SupportRequestCommentKey
 import app.epistola.suite.common.ids.SupportRequestId
 import app.epistola.suite.common.ids.SupportRequestKey
 import app.epistola.suite.common.ids.TenantId
@@ -17,7 +15,6 @@ import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.requests.RecordingSupportRequestSyncPort
 import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
-import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
 import app.epistola.suite.support.sharing.SetSharingRestriction
@@ -123,23 +120,29 @@ class SupportRequestConsentPerConnectionIntegrationTest : IntegrationTestBase() 
     }
 
     @Test
-    fun `withdrawing from the partner leaves what is written under Epistola support's consent to go there`() {
+    fun `withdrawing from the partner leaves what is still to go to Epistola support`() {
         val tenant = createTenant("Withdraw Per Connection").id
         withMediator { GrantSupportRequestSyncConsent(tenant, epistola).execute() }
         withMediator { GrantSupportRequestSyncConsent(tenant, partner).execute() }
         val request = SupportRequestId(SupportRequestKey.generate(), TenantId(tenant))
         withMediator {
             CreateSupportRequest(request, "Blank page", "It stays blank", SupportRequestCategory.BUG, SupportRequestPriority.MEDIUM, null, null, null, author).execute()
-            AddSupportRequestComment(SupportRequestCommentId(SupportRequestCommentKey.generate(), request), "Still blank", "Per Connection", null).execute()
+        }
+        // Handed to both while the tenant shares with both: the question is in each one's ledger.
+        jdbi.useHandle<Exception> { handle ->
+            SupportRequestLedger.recordHistory(handle, tenant, request.key.value, epistola)
+            SupportRequestLedger.recordHistory(handle, tenant, request.key.value, partner)
         }
 
         withMediator { WithdrawSupportRequestSyncConsent(tenant, partner).execute() }
 
-        val ungranted = jdbi.withHandle<Int, Exception> {
-            it.createQuery("SELECT COUNT(*) FROM support_request_messages WHERE tenant_key = :t AND request_id = :r AND sync_consent_id IS NULL")
-                .bind("t", tenant).bind("r", request.key.value).mapTo(Int::class.java).one()
-        }
-        assertThat(ungranted).`as`("the question and the reply keep their grant").isZero()
+        assertThat(stillToGo(request, epistola)).`as`("still to go to Epistola support").isEqualTo(1)
+        assertThat(stillToGo(request, partner)).`as`("dropped for the partner").isZero()
+    }
+
+    private fun stillToGo(request: SupportRequestId, connection: UUID): Int = jdbi.withHandle<Int, Exception> {
+        it.createQuery("SELECT COUNT(*) FROM support_request_delivered_items WHERE tenant_key = :t AND request_id = :r AND connection_id = :c AND remote_id IS NULL AND sent_at IS NULL")
+            .bind("t", request.tenantKey).bind("r", request.key.value).bind("c", connection).mapTo(Int::class.java).one()
     }
 
     companion object {

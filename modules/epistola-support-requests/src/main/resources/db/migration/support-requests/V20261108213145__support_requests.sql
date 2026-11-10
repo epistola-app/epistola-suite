@@ -31,8 +31,6 @@ CREATE TABLE support_requests (
     created_by         UUID        NOT NULL REFERENCES users (id),
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    -- The grant it was submitted under (support_sharing_choice.grant_id); NULL: none was in force.
-    sync_consent_id    UUID,
     PRIMARY KEY (tenant_key, id)
 );
 
@@ -47,8 +45,6 @@ CREATE TRIGGER trg_support_requests_updated_at
 COMMENT ON TABLE support_requests IS 'Support requests (ADR 0053): title, kind, status and priorities; the text is in support_request_messages.';
 COMMENT ON COLUMN support_requests.metadata IS 'Client metadata captured at submission: browser, viewport, app version, etc.';
 COMMENT ON COLUMN support_requests.server_logs IS 'JSON array of the server log lines of the submitter''s recent requests, when attached; NULL otherwise.';
-COMMENT ON COLUMN support_requests.sync_consent_id IS
-    'grant_id of the grant the request was submitted under; NULL when it was submitted without one.';
 
 -- ============================================================================
 -- MESSAGES: the question, the replies, written here or arriving over a connection
@@ -67,9 +63,6 @@ CREATE TABLE support_request_messages (
     -- NULL: written here. Otherwise the connection it came from, with that connection's id for it.
     from_connection UUID        REFERENCES support_connections (id) ON DELETE SET NULL,
     remote_id       TEXT,
-    -- The grant in force when it was written here; only a message with one is sent. Withdrawing
-    -- consent clears it on those not sent yet.
-    sync_consent_id UUID,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, request_id, id),
     CONSTRAINT fk_support_request_messages_request FOREIGN KEY (tenant_key, request_id)
@@ -91,8 +84,6 @@ CREATE TABLE support_request_assets (
     content_type    VARCHAR(100) NOT NULL,
     filename        VARCHAR(255),
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    -- As on a message: only an asset added under a grant is sent.
-    sync_consent_id UUID,
     PRIMARY KEY (tenant_key, request_id, id),
     CONSTRAINT fk_support_request_assets_request FOREIGN KEY (tenant_key, request_id)
         REFERENCES support_requests (tenant_key, id) ON DELETE CASCADE
@@ -101,8 +92,8 @@ CREATE TABLE support_request_assets (
 COMMENT ON TABLE support_request_assets IS 'Attachments of support requests (screenshots, files), stored as blobs.';
 
 -- A tenant's consent and the installation default are in support_sharing_choice and
--- support_sharing_default under the section 'requests' (V20261107074805); a request, message or
--- asset records the grant_id it was written under in sync_consent_id.
+-- support_sharing_default under the section 'requests' (V20261107074805). What of a request may go
+-- to a connection is in support_request_delivered_items, the same for every connection.
 
 -- ============================================================================
 -- DELIVERIES: what was sent where, per support connection (ADR 0053 §4)

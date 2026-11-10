@@ -60,14 +60,14 @@ tenant's own Support requests page shows that tenant's requests only.
   With Epistola handling new requests, a new one goes there when the tenant consents, as in the pilot;
   otherwise it stays in the inbox. Requests already handed on stay where they are when this changes.
 - **Replies and internal notes.** The desk replies (`AddSupportDeskMessage`), which the requester sees
-  and which goes to the connection with the request, under the tenant's grant like any reply; or it
-  writes an internal note (message kind `NOTE`), which only the desk sees. A note records no grant,
+  and which goes to the connection with the request, through its ledger like any reply; or it
+  writes an internal note (message kind `NOTE`), which only the desk sees. A note enters no ledger,
   and every query that picks messages to send reads `REPLY` only, so a note never leaves the
   installation (`SupportDeskIntegrationTest` proves it).
 - **Passing a request on** (`EscalateSupportRequest`): the request gets a delivery to the connection,
   which handles it from then on; it is sent as any request is, with replies written so far, and its
-  replies come back. Refused, with the reason on the page, when the tenant did not share support
-  requests when it was submitted or does not share them now, or no connection takes requests.
+  replies come back. Refused, with the reason on the page, when the tenant does not share support
+  requests with that connection now, or no connection takes requests.
 
 ## Sending to Epistola support
 
@@ -151,37 +151,37 @@ unchanged. A tenant's own choice wins until it uses the installation's setup aga
 themselves up.
 
 - **Granting** (`GrantSupportRequestSyncConsent`, `INTEGRATIONS_MANAGE`) applies to requests submitted
-  from then on. Requests submitted before keeps `NOT_CONFIGURED` and is never sent: consent is not
-  applied retroactively. Each grant gets a new `grant_id`, and requests, comments and assets record
-  the grant in force when they were created (`sync_consent_id`; null when sharing was off). A request
-  is exchanged while consent is in force and it was submitted under a grant, any grant
-  (`exchangedUnderConsent`, `IsSupportRequestExchangedUnderConsent`); a comment or an asset also needs one of
-  its own (`createdUnderConsent`). The page offers consent only once the installation can send
-  (connected with the support request service), so the recipient can be named.
+  from then on. Requests submitted before keep `NOT_CONFIGURED` and are not sent unless the desk
+  passes one on: consent is not applied retroactively. What of a request may go to a connection is
+  its ledger, `support_request_delivered_items`, the same for every connection, Epistola support's
+  included (`SupportRequestLedger`): when a request is handed to a connection while the tenant shares
+  with it, everything it holds so far goes along; afterwards a message or screenshot goes when it is
+  written while the tenant still shares (`mayGoTo`). A request is exchanged while the tenant shares
+  with the connection it is delivered to (`exchangedWith`, `IsSupportRequestExchangedUnderConsent`).
+  The page offers consent only once the installation can send (connected with the support request
+  service), so the recipient can be named.
 - **Withdrawing** (`WithdrawSupportRequestSyncConsent`) is always possible while consent is in force. It
   stops everything not sent, in the same transaction: requests still waiting to be sent (`PENDING`,
   or `FAILED` after refusals) moves to `NOT_CONFIGURED`, a status change not sent yet is no longer
-  marked unsent (`status_unsent`), and comments and assets not sent yet lose their grant, so granting
-  again later sends none of them. A write landing at the same moment is not missed: the withdrawal
+  marked unsent (`status_unsent`), and comments and assets not sent yet leave the connection's
+  ledger, so granting again later sends none of them. A write landing at the same moment is not missed: the withdrawal
   locks the consent row from its first statement, and every write that may be sent reads that row
   `FOR SHARE` (`lockedConsentInForce`), so it either waits and finds consent withdrawn or commits
   first and is stopped with the rest. A sending round already under way reads each item again right
   before it sends it (`IsSupportRequestItemStillToSend`), so it starts nothing after the withdrawal; only a
   call already on its way at that moment completes. When Epistola takes it, Epistola holds that item;
   when it fails, the item stays stopped like the rest (`RecordSupportRequestSyncFailure` changes only
-  requests still waiting). A request that read `FAILED` under no grant, as the retired hub left it,
-  was never waiting and is not counted as stopped. Replies from
+  requests still waiting). Replies from
   Epistola are no longer applied (the poll reads past them, and does not apply them later). What
   Epistola already holds stays there.
 - **Status changes while sharing is off.** A status changed while consent is not in force is stored
-  locally only: `UpdateSupportRequestStatus` marks it unsent only while the request is exchanged under the
-  consent in force, and `UpdateSupportRequestSyncRef` does the same for a change made while the request
+  locally only: `UpdateSupportRequestStatus` marks it unsent only while the request is exchanged with
+  the connection, and `UpdateSupportRequestSyncRef` does the same for a change made while the request
   was on its way. It is never sent, also not once consent is given again; Epistola keeps the last
-  status it received until the status is changed again after the new grant.
+  status it received until the status is changed again once the tenant shares again.
 - **Giving consent again** carries on with requests Epistola already received: comments, screenshots
   and status changes made from then on are sent, and replies from then on are applied again. What was
   written or changed while sharing was off is never sent, and requests submitted then stay local.
-  Hub-era requests (synced by the retired hub, with no grant) is never exchanged.
 - **Disconnecting** the installation (Platform → Epistola support, `DisconnectSupportConnection`)
   forgets every tenant's choice and the installation's setup (`ForgetSupportRequestSharing`): what waits
   to be sent stops as on a withdrawal, and after registering again every tenant sets itself up
@@ -277,15 +277,15 @@ connection it went to as its handler. Support requests start empty: the feedback
 `db/migration/feedback/`, which keeps its path) is not moved, and its tables (`feedback`,
 `feedback_comments`, `feedback_assets`) stay in place, unused, because a migration never deletes data.
 
-| Table                             | Holds                                                                                                                                                                                                                                         |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `support_requests`                | the requests: title, category, status, requested and current priority, the page context; `sync_consent_id` the grant it was submitted under                                                                                                   |
-| `support_request_messages`        | its messages in `seq` order: the QUESTION (the description; its id is the request's) and REPLY messages, written here or arriving over a connection                                                                                           |
-| `support_request_assets`          | screenshots as `BYTEA`; `sync_consent_id` the grant it was added under                                                                                                                                                                        |
-| `support_request_deliveries`      | per request and support connection: `PENDING`, `SYNCED` or `FAILED`, the connection's reference, the back-off, and a status not yet taken                                                                                                     |
-| `support_request_delivered_items` | per message or screenshot and connection: the connection's id for a message, or when a screenshot was sent; the attempts and back-off until then                                                                                              |
-| `support_sharing_choice`          | section `requests`: one row per tenant that ever chose: `grant_id` (new per grant), `given_at`/`_by`, and `withdrawn_at`/`_by` after a withdrawal; in force while `withdrawn_at` is null. Shared with the other services (`epistola-support`) |
-| `support_sharing_default`         | section `requests`: the installation default, and whether it came from the configuration                                                                                                                                                      |
+| Table                             | Holds                                                                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `support_requests`                | the requests: title, category, status, requested and current priority, the page context                                                                                                                           |
+| `support_request_messages`        | its messages in `seq` order: the QUESTION (the description; its id is the request's) and REPLY messages, written here or arriving over a connection                                                               |
+| `support_request_assets`          | screenshots as `BYTEA`                                                                                                                                                                                            |
+| `support_request_deliveries`      | per request and support connection: `PENDING`, `SYNCED` or `FAILED`, the connection's reference, the back-off, and a status not yet taken                                                                         |
+| `support_request_delivered_items` | per message or screenshot and connection: the connection's id for a message, or when a screenshot was sent; the attempts and back-off until then                                                                  |
+| `support_sharing_choice`          | section `requests`: one row per tenant that ever chose: `given_at`/`_by`, and `withdrawn_at`/`_by` after a withdrawal; in force while `withdrawn_at` is null. Shared with the other services (`epistola-support`) |
+| `support_sharing_default`         | section `requests`: the installation default, and whether it came from the configuration                                                                                                                          |
 
 A request without a delivery is not going anywhere: it reads `NOT_CONFIGURED`.
 

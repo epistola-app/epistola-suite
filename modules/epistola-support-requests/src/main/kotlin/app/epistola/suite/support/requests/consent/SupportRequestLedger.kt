@@ -9,10 +9,9 @@ import org.jdbi.v3.core.Handle
 import java.util.UUID
 
 /**
- * What may go to a support connection other than Epistola support's, item by item (ADR 0053 step 3):
- * a row in `support_request_delivered_items` without `remote_id` or `sent_at` is an item still to go
- * there, one with them an item it has. Epistola support's connection keeps reading the grant an item
- * was written under ([createdUnderConsent]); this ledger is for the others ([mayGoTo]).
+ * What may go to a support connection, item by item (ADR 0053 §4), the same for every connection: a
+ * row in `support_request_delivered_items` without `remote_id` or `sent_at` is an item still to go
+ * there, one with them an item it has ([mayGoTo]).
  *
  * - When a request is handed to such a connection while the tenant shares support requests with it,
  *   everything it holds so far goes along ([recordHistory]), except internal notes and what came from
@@ -26,7 +25,6 @@ import java.util.UUID
 internal object SupportRequestLedger {
     /** Everything [requestId] holds so far may go to [connectionId], if the tenant shares with it now. */
     fun recordHistory(handle: Handle, tenantKey: TenantKey, requestId: UUID, connectionId: UUID) {
-        if (connectionId == REQUESTS_CONNECTION) return
         val connection = connectionSql(connectionId)
         handle.createUpdate(
             """
@@ -51,9 +49,8 @@ internal object SupportRequestLedger {
     }
 
     /**
-     * Item [itemId] of [requestId], just written, may go to every connection other than Epistola
-     * support's that the request is delivered to and that the tenant shares with now, except the
-     * connection it came from ([fromConnection]).
+     * Item [itemId] of [requestId], just written, may go to every connection the request is delivered
+     * to and that the tenant shares with now, except the connection it came from ([fromConnection]).
      */
     fun recordItem(handle: Handle, tenantKey: TenantKey, requestId: UUID, itemId: UUID, fromConnection: UUID? = null) {
         handle.createUpdate(
@@ -62,7 +59,6 @@ internal object SupportRequestLedger {
             SELECT d.tenant_key, d.request_id, :itemId, d.connection_id
             FROM support_request_deliveries d
             WHERE d.tenant_key = :tenantKey AND d.request_id = :requestId
-              AND d.connection_id <> $REQUESTS_CONNECTION_SQL
               AND d.connection_id IS DISTINCT FROM :fromConnection
               AND ${lockedConsentInForce(":tenantKey", "d.connection_id")}
             ON CONFLICT DO NOTHING
@@ -77,7 +73,7 @@ internal object SupportRequestLedger {
 
     /** What of [tenantKeys] was still to go to [connectionId] stays here. @return the items dropped. */
     fun forgetUnsent(handle: Handle, tenantKeys: List<TenantKey>, connectionId: UUID): Int {
-        if (tenantKeys.isEmpty() || connectionId == REQUESTS_CONNECTION) return 0
+        if (tenantKeys.isEmpty()) return 0
         return handle.createUpdate(
             """
             DELETE FROM support_request_delivered_items

@@ -12,7 +12,6 @@ import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.connectionSql
-import app.epistola.suite.support.requests.consent.exchangedUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.selectSupportRequest
 import app.epistola.suite.time.EpistolaClock

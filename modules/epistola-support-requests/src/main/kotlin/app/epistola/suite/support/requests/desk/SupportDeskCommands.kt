@@ -15,11 +15,9 @@ import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.SupportRequestLedger
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.lockedConsentInForce
-import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import app.epistola.suite.support.requests.sync.SupportRequestSyncKick
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
@@ -61,13 +59,10 @@ class AddSupportDeskMessageHandler(
         requireRequest(handle, command.tenant, command.request)
         val principal = SecurityContext.current()
         val id = UUIDv7.generate()
-        // A reply records the grant in force, as a requester's comment does, so it is sent only while
-        // the tenant shares; a note records none, so nothing ever sends it.
-        val grant = if (command.note) "NULL" else lockedConsentInForceId(":tenant")
         handle.createUpdate(
             """
-            INSERT INTO support_request_messages (tenant_key, request_id, id, kind, body, author_name, author_email, author_id, created_at, sync_consent_id)
-            VALUES (:tenant, :request, :id, :kind, :body, :authorName, :authorEmail, (SELECT id FROM users WHERE id = :authorId), NOW(), $grant)
+            INSERT INTO support_request_messages (tenant_key, request_id, id, kind, body, author_name, author_email, author_id, created_at)
+            VALUES (:tenant, :request, :id, :kind, :body, :authorName, :authorEmail, (SELECT id FROM users WHERE id = :authorId), NOW())
             """,
         )
             .bind("tenant", command.tenant)
@@ -140,9 +135,8 @@ class SetSupportDeskPriorityHandler(private val jdbi: Jdbi) : CommandHandler<Set
 /**
  * The desk passes a request the inbox handles on to [connectionId] (ADR 0053 §4): it is sent there as
  * any request is, shaped by that connection's privacy profile, the connection handles it from then on,
- * and its replies come back here. Refused, with the reason, when the tenant did not share support
- * requests when it was submitted or does not share them now: what was written while sharing was off
- * never leaves the installation.
+ * and its replies come back here, and what the request holds goes along. Refused, with the reason,
+ * when the tenant does not share support requests with that connection now.
  */
 data class EscalateSupportRequest(
     val tenant: TenantKey,
@@ -164,14 +158,9 @@ class EscalateSupportRequestHandler(
             requireHandledHere(handle, command.tenant, command.request)
             val target = choices(handle, port).firstOrNull { it.connectionId == command.connectionId }
                 ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
-            // The tenant's consent is read locked, as on every write that may be sent. Epistola support's
-            // connection: shared when it was submitted and now; another connection: shared now, and
-            // then what the request holds goes along (ADR 0053 step 3).
-            val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
-                "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
-            } else {
-                lockedConsentInForce(":tenant", connectionSql(target.connectionId))
-            }
+            // The tenant's consent is read locked, as on every write that may be sent: shared now, and
+            // then what the request holds goes along (ADR 0053 §4).
+            val exchanged = lockedConsentInForce(":tenant", connectionSql(target.connectionId))
             val delivered = handle.createUpdate(
                 """
                 INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)
@@ -189,7 +178,7 @@ class EscalateSupportRequestHandler(
                 .execute()
             if (delivered == 0) {
                 throw SupportRequestNotEscalatedException(
-                    "The tenant did not share support requests when this one was submitted, or does not share them now.",
+                    "The tenant does not share support requests with ${target.name} now.",
                 )
             }
             handle.createUpdate("UPDATE support_requests SET handler_connection = :connection, updated_at = NOW() WHERE tenant_key = :tenant AND id = :request")
@@ -223,9 +212,8 @@ private class Holder(val handler: UUID?)
  * The desk attaches [connectionId] to a request besides the connection or inbox that handles it (ADR
  * 0053 step 3): it gets the request and everything written on it but internal notes, shaped by its
  * privacy, and its replies come back here; the handler alone sets status and priority. Allowed as
- * passing a request on is: Epistola support's connection when the request was submitted while shared
- * and is shared now, another while the tenant shares with it now, and then what the request holds goes
- * along. Refused, with the reason, otherwise.
+ * passing a request on is: while the tenant shares support requests with that connection now, and then
+ * what the request holds goes along. Refused, with the reason, otherwise.
  */
 data class AttachSupportConnection(
     val tenant: TenantKey,
@@ -258,11 +246,7 @@ internal fun attachConnection(handle: Handle, ports: SupportRequestSyncPorts, te
     if (handler == connectionId) throw SupportRequestNotEscalatedException("That support connection handles this request already.")
     val target = choices(handle, ports).firstOrNull { it.connectionId == connectionId }
         ?: throw SupportRequestNotEscalatedException("That support connection does not take support requests now.")
-    val exchanged = if (target.connectionId == REQUESTS_CONNECTION) {
-        "f.sync_consent_id IS NOT NULL AND ${lockedConsentInForce(":tenant")}"
-    } else {
-        lockedConsentInForce(":tenant", connectionSql(target.connectionId))
-    }
+    val exchanged = lockedConsentInForce(":tenant", connectionSql(target.connectionId))
     val attached = handle.createUpdate(
         """
         INSERT INTO support_request_deliveries (tenant_key, request_id, connection_id, state)

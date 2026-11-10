@@ -14,8 +14,6 @@ import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
-import app.epistola.suite.support.requests.consent.createdUnderConsent
-import app.epistola.suite.support.requests.consent.exchangedUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
 import app.epistola.suite.support.requests.selectSupportRequestReply
@@ -30,8 +28,8 @@ import java.util.UUID
  * the support service (no `external_comment_id`), on feedback that is already synced. These are comments
  * whose immediate push in [app.epistola.suite.support.requests.sync.OnSupportRequestCommentAdded] failed;
  * the retry scheduler re-pushes them once their back-off is over. Inbound ([CommentSource.EXTERNAL]) comments are excluded, and
- * so are comments written while sharing was off
- * (see `createdUnderConsent`), and feedback not exchanged (see `exchangedUnderConsent`). Oldest first.
+ * so are comments not in the connection's ledger (`mayGoTo`) and requests not exchanged with it
+ * (`exchangedWith`). Oldest first.
  */
 data class ListUnsyncedComments(
     val limit: Int = 50,
@@ -58,7 +56,7 @@ class ListUnsyncedCommentsHandler(
               AND d.remote_ref IS NOT NULL
               AND (dm.next_attempt_at IS NULL OR dm.next_attempt_at <= :now)
               AND ${exchangedWith("f", "d")}
-              AND ${mayGoTo("c", "dm", "d")}
+              AND ${mayGoTo("dm")}
             ORDER BY c.seq ASC
             LIMIT :limit
             """,
