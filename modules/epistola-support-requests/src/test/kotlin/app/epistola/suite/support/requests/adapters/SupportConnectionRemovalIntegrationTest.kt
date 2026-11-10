@@ -90,7 +90,11 @@ class SupportConnectionRemovalIntegrationTest : IntegrationTestBase() {
         ensureUser(author, "removal-requests", "removal-requests@epistola.test", "Removal Requests")
         partner.issuePartnerToken(TOKEN, setOf("requests"))
         partner.route("PUT", "/api/v2/requests/") { r ->
-            FakeSupportResponse.json(201, """{"requestId":"pr-${r.path.substringAfterLast('/')}","url":null}""")
+            if (r.path.contains("/messages/")) {
+                FakeSupportResponse.json(201, """{"messageId":"pm-${r.path.substringAfterLast('/')}"}""")
+            } else {
+                FakeSupportResponse.json(201, """{"requestId":"pr-${r.path.substringAfterLast('/')}","url":null}""")
+            }
         }
         partner.route("POST", "/api/v2/requests/changes") { _ ->
             val entries = feed.toList().also { feed.clear() }
@@ -109,7 +113,10 @@ class SupportConnectionRemovalIntegrationTest : IntegrationTestBase() {
         work.awaitIdle()
         sweep.retryPendingSync()
         feed += """{"sequence":1,"requestId":"pr-${id.key.value}","tenantKey":"${references.reference(tenant)}","suiteRequestId":"${id.key.value}","occurredAt":"2026-11-09T12:00:00Z","type":"MESSAGE","message":{"messageId":"removal-1","kind":"REPLY","authorName":"Partner desk","authorEmail":null,"body":"We look into it"}}"""
+        val sent = jdbi.withHandle<String?, Exception> { it.createQuery("SELECT state || ':' || COALESCE(remote_ref, '-') FROM support_request_deliveries WHERE request_id = :id").bind("id", id.key.value).mapTo(String::class.java).findOne().orElse(null) }
+        assertThat(sent).`as`("sent to the partner: " + partner.requests.map { it.method + " " + it.path }).isEqualTo("SYNCED:pr-${id.key.value}")
         poll.pollForUpdates()
+        assertThat(withMediator { GetSupportRequestComments(id).query() }.map { it.body }).`as`("the partner's reply arrived").contains("We look into it")
 
         assertThat(withMediator { RemoveSupportConnection(partnerId).execute() }).isTrue()
 

@@ -36,8 +36,8 @@
   Each entry may set `tenantIdentity` (`named`, `confidential`) and `telemetry` (`pseudonymised`,
   `full`); left out, the connection follows the installation's privacy settings. `escalatesTo`
   names the connection it escalates to when it asks the installation to, by its endpoint: another
-  entry's, or the one `support.endpoint` is set to. An entry with `auth: register` signs in by registering with the
-  installation's own key instead (no `tokenSecret`; an administrator registers on the connection's
+  entry's, or the one `support.endpoint` is set to. An entry with `auth: register` signs in by OAuth registration
+  instead (RFC 7591 dynamic client registration, then `private_key_jwt`) (no `tokenSecret`; an administrator registers on the connection's
   page), and `tenantDefaults` (`requests`, `mirror`) presets what tenants share with it, as
   `support.tenantDefaults` does for Epistola support. `support.requests.handledBy`, `support.privacy`,
   `support.usage.backlog`, `support.telemetry.enabled` and `support.mirror.enabled` now render without

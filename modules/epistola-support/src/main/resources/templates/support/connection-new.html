@@ -49,7 +49,7 @@
                  th:with="auth=${addForm != null and addForm.get('auth') == 'PRIVATE_KEY_JWT'} ? 'PRIVATE_KEY_JWT' : 'BEARER_TOKEN'">
                 <span class="ep-label" id="support-add-auth-label">How this installation signs in</span>
                 <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="BEARER_TOKEN" th:checked="${auth == 'BEARER_TOKEN'}"> With a token the other side issued</label>
-                <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="PRIVATE_KEY_JWT" th:checked="${auth == 'PRIVATE_KEY_JWT'}"> By registering with this installation's own key</label>
+                <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="PRIVATE_KEY_JWT" th:checked="${auth == 'PRIVATE_KEY_JWT'}"> By OAuth registration: this installation registers itself (RFC 7591) and signs its own tokens (private_key_jwt)</label>
             </div>
             <div class="form-group">
                 <label class="ep-label" for="support-add-token">Token</label>

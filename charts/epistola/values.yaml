@@ -378,7 +378,7 @@ support:
     mirror: ""
 
   # Further support connections besides Epistola support, such as a partner's (ADR 0053), each signed
-  # in with a token that party issued (auth: token) or by registering with this installation's own key
+  # in with a token that party issued (auth: token) or by OAuth registration (RFC 7591, private_key_jwt)
   # (auth: register; an administrator registers on its page). Independent of `enabled`: an installation can connect to its
   # partner alone. The endpoint names a connection: the same endpoint after an upgrade is the same
   # connection. Removing an entry leaves the connection in the installation (it may hold requests).
@@ -401,7 +401,7 @@ support:
   #       escalatesTo: https://support.epistola.app
   #     - name: Hosting Partner
   #       endpoint: https://support.hosting.example
-  #       auth: register # registers with this installation's own key; no token
+  #       auth: register # OAuth registration (RFC 7591, private_key_jwt); no token
   #       services: [requests, telemetry]
   connections: []
   # Usage for billing.

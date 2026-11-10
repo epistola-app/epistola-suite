@@ -42,7 +42,7 @@ import java.time.Duration
  *   much telemetry carries, until an administrator saves its own on its page or its entry in
  *   [connections] sets one ([Privacy]).
  * @property connections further support connections, such as a partner's ([Connection]; ADR 0053),
- *   signed in with a token the other side issued or by registering with the installation's own key. Independent of [enabled], which
+ *   signed in with a token the other side issued or by OAuth registration (RFC 7591, private_key_jwt). Independent of [enabled], which
  *   is the connection to Epistola support: an installation can connect to its partner alone.
  * @property usage how usage for billing is reported ([Usage]).
  */
@@ -98,7 +98,7 @@ data class SupportProperties(
      * @property name what the platform page and the support desk call it.
      * @property endpoint its base URL; the paths are those of the published protocol under it.
      * @property auth how the suite signs in: `token` (the default), with [token]; or `register`, by
-     *   registering with the installation's own key, which an administrator does on its page.
+     *   OAuth registration (RFC 7591, private_key_jwt), which an administrator does on its page.
      * @property token the bearer token it issued, for `token`; from a secret, never in a values file.
      * @property services the services to use over it (`requests`, `usage`, `telemetry`, `mirror`), as far as it grants them.
      * @property tenantIdentity what it learns of tenants, `named` or `confidential`; blank: the
@@ -123,7 +123,7 @@ data class SupportProperties(
         /** [endpoint] without surrounding blanks or a trailing slash: the connection's identity. */
         val baseUrl: String get() = endpoint.trim().trimEnd('/')
 
-        /** It registers with the installation's own key rather than signing in with a token. */
+        /** It registers through OAuth (RFC 7591, private_key_jwt) rather than signing in with a token. */
         val registers: Boolean get() = auth.trim().lowercase() == REGISTER
 
         companion object {

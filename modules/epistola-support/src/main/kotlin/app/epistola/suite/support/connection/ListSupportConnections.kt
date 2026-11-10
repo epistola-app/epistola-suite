@@ -52,10 +52,10 @@ data class SupportConnectionListing(
     /** Where it stands, as [SupportConnectionState]'s name (`Pending`, `Active`, …). */
     val state: String = "Unregistered",
 ) {
-    /** It registers with the installation's own key: its registration is on a page of its own. */
+    /** It registers through OAuth (RFC 7591, private_key_jwt): its registration is on a page of its own. */
     val registers: Boolean get() = auth == SupportConnectionAuth.PRIVATE_KEY_JWT
 
-    /** It can be removed now: not while it is registered with the installation's own key, which a disconnect ends first. */
+    /** It can be removed now: not while it is registered through OAuth, which a disconnect ends first. */
     val canRemove: Boolean get() = !(registers && state in setOf("Pending", "Active", "Refused"))
 }
 

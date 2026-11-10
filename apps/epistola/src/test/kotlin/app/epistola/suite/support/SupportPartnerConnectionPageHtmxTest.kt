@@ -135,7 +135,7 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
 
         val list = restTemplate.getForEntity("/platform/support", String::class.java).body!!
         assertThat(list.substringAfter("data-connection=\"$id\"").substringBefore("</tr>"))
-            .contains("Registering Partner").contains("Not registered").contains("/platform/support/connections/$id").contains("Own key")
+            .contains("Registering Partner").contains("Not registered").contains("/platform/support/connections/$id").contains("OAuth registration")
 
         val detail = restTemplate.getForEntity("/platform/support/connections/$id", String::class.java)
         assertThat(detail.statusCode).isEqualTo(HttpStatus.OK)

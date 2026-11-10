@@ -16,7 +16,7 @@ import java.net.URI
 
 /**
  * What one [DefaultSupportConnection] (ADR 0053 §1, [SupportConnectionAuth.PRIVATE_KEY_JWT]: it
- * registers with the installation's own key) is configured with. Epistola support's comes from
+ * registers through OAuth (RFC 7591, private_key_jwt)) is configured with. Epistola support's comes from
  * `epistola.support.*` ([of]); another's from its row ([forEndpoint]).
  *
  * @property enabled false: the connection reads [SupportConnectionState.Disabled] and uses nothing.

@@ -449,7 +449,7 @@
         },
         "connections": {
           "type": "array",
-          "description": "Further support connections besides Epistola support, such as a partner's, each signed in with a token from a Secret or by registering with the installation's own key.",
+          "description": "Further support connections besides Epistola support, such as a partner's, each signed in with a token from a Secret or by OAuth registration (RFC 7591, private_key_jwt).",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -457,7 +457,7 @@
             "properties": {
               "name": { "type": "string", "minLength": 1, "description": "What the platform page and the support desk call it." },
               "endpoint": { "type": "string", "pattern": "^https://", "description": "Its base URL; the published protocol's paths are under it." },
-              "auth": { "type": "string", "enum": ["", "token", "register"], "description": "How the installation signs in: token (the default; tokenSecret is required) or register (with the installation's own key, done on its page)." },
+              "auth": { "type": "string", "enum": ["", "token", "register"], "description": "How the installation signs in: token (the default; tokenSecret is required) or register (through OAuth registration, done on its page)." },
               "services": { "type": "array", "items": { "type": "string" }, "description": "The services to use over it (requests, usage, telemetry, mirror), as far as it grants them." },
               "tenantIdentity": { "type": "string", "enum": ["", "named", "confidential"], "description": "What it learns of tenants. Empty: support.privacy.tenantIdentity." },
               "telemetry": { "type": "string", "enum": ["", "pseudonymised", "full"], "description": "How much telemetry carries over it. Empty: support.privacy.telemetry." },

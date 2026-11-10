@@ -174,7 +174,7 @@ switched off separately (`epistola.support.telemetry.logs`,
 Besides Epistola support, the installation can share with further parties, such as a partner that
 hosts the suite for its clients or supports a client who hosts it (ADR 0053). Each is a **support
 connection** of its own. Each signs in by its `auth` alone: with a token that party issued
-(`BEARER_TOKEN`, no registration and no claim code), or by registering with the installation's own key
+(`BEARER_TOKEN`, no registration and no claim code), or by OAuth registration (RFC 7591, private_key_jwt)
 at its endpoint, as with Epistola support (`PRIVATE_KEY_JWT`, for a party that runs the support service
 itself). A connection that registers is checked like the others but registers only when an
 administrator asks (`RegisterSupportConnection` with its id), and gets its own claim code, tokens and
@@ -195,7 +195,7 @@ epistola:
           requests: share # what tenants share with it until they choose
       - name: Hosting Partner
         endpoint: https://support.hosting.example
-        auth: register # registers with this installation's own key; no token
+        auth: register # OAuth registration (RFC 7591, private_key_jwt); no token
         services: [requests, telemetry]
     requests:
       handled-by: https://support.hosting.example # or inbox (the default)

@@ -20,7 +20,7 @@ import java.util.UUID
 
 /** How the suite signs in to a connection's endpoint. */
 enum class SupportConnectionAuth {
-    /** Dynamic registration with the installation's own key, then `private_key_jwt` (ADR 0050). */
+    /** OAuth dynamic client registration (RFC 7591), then `private_key_jwt` (RFC 7523) (ADR 0050). */
     PRIVATE_KEY_JWT,
 
     /** A token the other side issued, set in configuration. */
