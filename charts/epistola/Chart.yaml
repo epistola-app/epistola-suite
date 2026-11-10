@@ -5,12 +5,12 @@ type: application
 # Source of truth for the chart version. Dev carries the next version with
 # -SNAPSHOT; a release strips it, tags epistola-<version>, then re-opens the next
 # -SNAPSHOT (see the release-helm-chart skill). CI validates the tag == this value.
-version: 1.1.1-SNAPSHOT
-# The released application image used by default. CI verifies/synchronizes this
-# to the latest app tag when publishing the chart.
-# The Epistola release this chart deploys, chosen when the chart is released; publishing checks that
-# it is a released app version. Moving it to a new app major is a chart major.
-appVersion: "1.5.0"
+# 2.x deploys Epistola 2.x: a new app major is a chart major.
+version: 2.0.0-SNAPSHOT
+# The Epistola release this chart deploys by default, chosen in this file and never taken from the
+# newest app tag; publishing checks that it is a released app version. The newest 2.0 pre-release
+# until 2.0.0 is out, then 2.0.0 before this chart is released.
+appVersion: "2.0.0-beta.1"
 maintainers:
   - name: epistola-app
     url: https://github.com/epistola-app
