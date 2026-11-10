@@ -180,9 +180,8 @@ expressible, and MCP sessions inherit the key's scope automatically.
 
 Administration (`TENANT_ADMINISTRATOR`) is offered but never
 pre-selected — keys stay least-privilege unless deliberately escalated. The `CreateApiKey` command
-takes the roles of the application it names; given no application it creates one of its own with
-the roles passed (all of them by default), a convenience for tests and fixtures that the UI never
-uses.
+requires the application the key belongs to and takes no roles; tests that want a key with certain
+roles create an application with them first (the `createApiKey` fixture in `modules/testing`).
 
 A key's scope never exceeds its creator's roles in that tenant: `CreateApplication` and
 `CreateApiKey` refuse any role the creator does not hold (tenant and global roles together), the
