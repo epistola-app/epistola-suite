@@ -11,13 +11,14 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 /**
- * Routes for the Operations -> Cluster dashboard and its HTMX refresh endpoint.
+ * Routes for the Platform -> Cluster dashboard, its HTMX refresh, and its two actions.
  */
 @Configuration
 class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
     @Bean
     fun clusterStatusRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/cluster".nest {
+        // The installation's cluster: a platform page, no tenant in its URL.
+        "/platform/cluster".nest {
             GET("", handler::dashboard)
             GET("/refresh", handler::refresh)
             POST("/nodes/{nodeId}/forget", handler::forgetNode)

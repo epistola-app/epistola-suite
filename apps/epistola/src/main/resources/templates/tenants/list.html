@@ -88,6 +88,7 @@
             <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline" data-testid="platform-sharing-link">Shared with Epistola</a>
             <a th:href="@{/platform/support}" class="ep-btn ep-btn-outline" data-testid="platform-support-link">Support connections</a>
         </th:block>
+        <a th:if="${auth.has('INSTALLATION_ADMINISTRATOR') or auth.has('PLATFORM_OBSERVER')}" th:href="@{/platform/cluster}" class="ep-btn ep-btn-outline" data-testid="platform-cluster-link">Cluster</a>
         <th:block th:if="${auth.has('TENANT_MANAGER')}">
             <button type="button" class="ep-btn ep-btn-primary"
                     th:hx-get="@{/tenants/new}" hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"

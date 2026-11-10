@@ -4,7 +4,12 @@
 
 package app.epistola.suite.security
 
+import app.epistola.suite.catalog.revisions.CollectResourceContents
 import app.epistola.suite.cluster.ForgetClusterNode
+import app.epistola.suite.cluster.ListClusterNodes
+import app.epistola.suite.cluster.schedules.ListClusterScheduledTaskNodeStates
+import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
+import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -152,6 +157,39 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
         }
         asPrincipal(reader) {
             assertThat(mediator.query(ListDocuments(tenantKey))).isEmpty()
+        }
+    }
+
+    @Test
+    fun `the cluster is read by the installation administrator and the platform observer, by no tenant role`() {
+        val tenantAdministrator = principal("00000000-0000-0000-0000-000000000009", "cluster-tenant-admin", globalRoles = TenantRole.entries.toSet(), platformRoles = setOf(PlatformRole.TENANT_MANAGER))
+        val observer = principal("00000000-0000-0000-0000-000000000010", "cluster-observer", platformRoles = setOf(PlatformRole.PLATFORM_OBSERVER))
+        val administrator = principal("00000000-0000-0000-0000-000000000011", "cluster-admin", platformRoles = setOf(PlatformRole.INSTALLATION_ADMINISTRATOR))
+
+        asPrincipal(tenantAdministrator) {
+            listOf(ListClusterNodes, ListClusterTimers(), ListClusterScheduledTasks, ListClusterScheduledTaskNodeStates).forEach { read ->
+                assertThatThrownBy { mediator.query(read) }
+                    .`as`("$read")
+                    .isInstanceOf(PlatformAccessDeniedException::class.java)
+                    .extracting { (it as PlatformAccessDeniedException).requiredRole }
+                    .isEqualTo(PlatformRole.INSTALLATION_ADMINISTRATOR)
+            }
+        }
+        asPrincipal(observer) {
+            assertThatThrownBy { mediator.send(CollectResourceContents) }
+                .`as`("collecting stored content by hand is the administrator's, not the observer's")
+                .isInstanceOf(PlatformAccessDeniedException::class.java)
+        }
+        asPrincipal(tenantAdministrator) {
+            assertThatThrownBy { mediator.send(CollectResourceContents) }.isInstanceOf(PlatformAccessDeniedException::class.java)
+        }
+        listOf(observer, administrator).forEach { reader ->
+            asPrincipal(reader) {
+                assertThat(mediator.query(ListClusterNodes)).isNotNull()
+                assertThat(mediator.query(ListClusterTimers())).isNotNull()
+                assertThat(mediator.query(ListClusterScheduledTasks)).isNotNull()
+                assertThat(mediator.query(ListClusterScheduledTaskNodeStates)).isNotNull()
+            }
         }
     }
 

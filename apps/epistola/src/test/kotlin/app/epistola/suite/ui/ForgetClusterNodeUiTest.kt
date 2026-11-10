@@ -4,9 +4,7 @@
 
 package app.epistola.suite.ui
 
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -27,13 +25,10 @@ class ForgetClusterNodeUiTest : BasePlaywrightTest() {
 
     @Test
     fun `forgetting a stale node removes its row from the cluster table`() {
-        val tenant = withMediator {
-            TestNamespaces.createTenant(TenantKey.of("forget-node-ui-${System.nanoTime()}"), "Forget Node UI Tenant").execute()
-        }
         val nodeId = "ui-stale-node"
         insertNode(nodeId, OffsetDateTime.now().minusDays(2))
 
-        gotoAndReady("/tenants/${tenant.id}/cluster")
+        gotoAndReady("/platform/cluster")
 
         // Scope to the node table: a stale node also shows up in the per-node rows of every
         // each-capable-node scheduled task, which is part of the same leak.
@@ -55,11 +50,7 @@ class ForgetClusterNodeUiTest : BasePlaywrightTest() {
 
     @Test
     fun `the current node is offered no Forget button`() {
-        val tenant = withMediator {
-            TestNamespaces.createTenant(TenantKey.of("forget-node-ui-active-${System.nanoTime()}"), "Forget Node UI Active Tenant").execute()
-        }
-
-        gotoAndReady("/tenants/${tenant.id}/cluster")
+        gotoAndReady("/platform/cluster")
 
         // Opening the page heartbeats this node, so its row is active — and an active node
         // must never be removable: every claim path needs its row.

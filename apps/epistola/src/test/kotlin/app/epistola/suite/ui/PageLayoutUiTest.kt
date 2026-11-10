@@ -141,9 +141,7 @@ class PageLayoutUiTest : BasePlaywrightTest() {
 
     @Test
     fun `the cluster page keeps its tables inside the page and writes times in the app's one shape`() {
-        val tenant = createTenant("Cluster Layout")
-
-        gotoAndReady("/tenants/${tenant.id}/cluster")
+        gotoAndReady("/platform/cluster")
 
         val viewportWidth = (page.evaluate("() => document.documentElement.clientWidth") as Number).toDouble()
         val pageWidth = (page.evaluate("() => document.documentElement.scrollWidth") as Number).toDouble()

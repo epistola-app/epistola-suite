@@ -7,7 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
+import app.epistola.suite.testing.TEST_PLATFORM_ROLES_HEADER
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -43,7 +43,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${tenant.id}/cluster",
+                "/platform/cluster",
                 String::class.java,
             )
         }
@@ -73,7 +73,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.set("HX-Request", "true")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/cluster/refresh",
+                "/platform/cluster/refresh",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -107,7 +107,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${tenant.id}/cluster",
+                "/platform/cluster",
                 String::class.java,
             )
         }
@@ -124,24 +124,39 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the dashboard offers collecting stored content now, and POST collect says what it took`() = fixture {
-        lateinit var tenant: Tenant
+    fun `the installation administrator collects stored content now, and POST collect says what it took`() {
+        val page = restTemplate.getForEntity("/platform/cluster", String::class.java).body!!
+        val collect = restTemplate.exchange(
+            "/platform/cluster/storage/collect",
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        )
 
-        given { tenant = tenant("Cluster Storage Collect") }
+        assertThat(page).contains("data-testid=\"storage-collect-now\"").contains("/platform/cluster/storage/collect")
+            .doesNotContain("data-testid=\"storage-collect-withheld\"")
+        assertThat(collect.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(collect.body!!).doesNotContain("<html").contains("id=\"storage-collect-result\"").contains("Collected ")
+    }
 
-        whenever {
-            val headers = HttpHeaders()
-            headers.set("HX-Request", "true")
-            restTemplate.getForEntity("/tenants/${tenant.id}/cluster", String::class.java).body!! to
-                restTemplate.exchange("/tenants/${tenant.id}/cluster/storage/collect", HttpMethod.POST, HttpEntity<Void>(headers), String::class.java)
-        }
+    @Test
+    fun `the platform observer is told who collects stored content, and cannot collect it`() {
+        val observer = HttpHeaders().apply { set(TEST_PLATFORM_ROLES_HEADER, "PLATFORM_OBSERVER") }
+        val page = restTemplate.exchange("/platform/cluster", HttpMethod.GET, HttpEntity<Void>(observer), String::class.java).body!!
+        val collect = restTemplate.exchange(
+            "/platform/cluster/storage/collect",
+            HttpMethod.POST,
+            HttpEntity<Void>(
+                HttpHeaders().apply {
+                    addAll(observer)
+                    set("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
 
-        then {
-            val (page, collect) = result<Pair<String, org.springframework.http.ResponseEntity<String>>>()
-            assertThat(page).contains("data-testid=\"storage-collect-now\"").contains("/tenants/${tenant.id}/cluster/storage/collect")
-            assertThat(collect.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(collect.body!!).doesNotContain("<html").contains("id=\"storage-collect-result\"").contains("Collected 0 content(s)")
-        }
+        assertThat(page).contains("data-testid=\"storage-collect-withheld\"").doesNotContain("data-testid=\"storage-collect-now\"")
+        assertThat(collect.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
     }
 
     @Test
@@ -158,7 +173,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.set("HX-Request", "true")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/cluster/nodes/forgettable-cluster-node/forget",
+                "/platform/cluster/nodes/forgettable-cluster-node/forget",
                 HttpMethod.POST,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -189,7 +204,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.set("HX-Request", "true")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/cluster/nodes/${nodeIdentity.nodeId}/forget",
+                "/platform/cluster/nodes/${nodeIdentity.nodeId}/forget",
                 HttpMethod.POST,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -219,7 +234,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.set("HX-Request", "true")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/cluster/nodes/no-such-node/forget",
+                "/platform/cluster/nodes/no-such-node/forget",
                 HttpMethod.POST,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -248,7 +263,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${tenant.id}/cluster", String::class.java)
+            restTemplate.getForEntity("/platform/cluster", String::class.java)
         }
 
         then {
@@ -274,9 +289,9 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         }
 
         whenever {
-            // A tenant administrator: every tenant role, no platform role.
-            val headers = HttpHeaders().apply { set(TEST_TENANT_ROLES_HEADER, "TENANT_ADMINISTRATOR") }
-            restTemplate.exchange("/tenants/${tenant.id}/cluster", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+            // The platform observer: may look, may not forget.
+            val headers = HttpHeaders().apply { set(TEST_PLATFORM_ROLES_HEADER, "PLATFORM_OBSERVER") }
+            restTemplate.exchange("/platform/cluster", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
         }
 
         then {
@@ -301,7 +316,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.set("HX-Request", "true")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/cluster/nodes/lagging-cluster-node/forget",
+                "/platform/cluster/nodes/lagging-cluster-node/forget",
                 HttpMethod.POST,
                 HttpEntity<Void>(headers),
                 String::class.java,

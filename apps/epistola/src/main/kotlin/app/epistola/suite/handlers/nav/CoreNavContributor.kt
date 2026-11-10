@@ -55,7 +55,6 @@ class CoreNavContributor : NavContributor {
         // Operations — per-item permissions
         if (context.hasPermission(Permission.DIAGNOSTICS_VIEW)) {
             add(NavItem("operations", "consumers", "Consumers", "consumers", 30))
-            add(NavItem("operations", "cluster", "Cluster", "cluster", 35))
             add(NavItem("operations", "logs", "Logs", "logs", 45))
         }
         // The Audit item is contributed by the epistola-audit module's AuditNavContributor.

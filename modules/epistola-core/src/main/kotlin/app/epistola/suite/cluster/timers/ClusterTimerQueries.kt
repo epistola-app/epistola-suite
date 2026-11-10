@@ -4,6 +4,7 @@
 
 package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterInspection
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
@@ -30,7 +31,7 @@ data class GetClusterTimer(
 data class ListClusterTimers(
     val limit: Int = 100,
 ) : Query<List<ClusterTimer>>,
-    SystemInternal
+    ClusterInspection
 
 /**
  * Mediator query handler backed by the internal timer persistence boundary.

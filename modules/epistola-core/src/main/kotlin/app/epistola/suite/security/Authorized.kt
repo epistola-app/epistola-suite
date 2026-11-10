@@ -35,6 +35,12 @@ interface RequiresPermission : Authorized {
  */
 interface RequiresPlatformRole : Authorized {
     val platformRole: PlatformRole
+
+    /**
+     * Further platform roles that pass too, for a read more than one role may make (the cluster
+     * page: the installation administrator and the platform observer). A refusal names [platformRole].
+     */
+    val alsoAllowedPlatformRoles: Set<PlatformRole> get() = emptySet()
 }
 
 /**

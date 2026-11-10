@@ -103,8 +103,8 @@ what it refers to. Rows go at once; content nothing points at any more is collec
    orphaned content and bytes past the grace period left after the run, zero when it did its job.
 
 It runs on `epistola.storage.gc.cron` (default `0 0 2 * * ?`, nightly at 02:00); disable the
-schedule with `epistola.storage.gc.enabled=false`. An operator with diagnostics rights starts it
-by hand for one tenant from **Operations → Cluster → Stored content → Collect now** (the command
+schedule with `epistola.storage.gc.enabled=false`. The installation administrator starts it
+by hand, for every tenant, from **Platform → Cluster → Stored content → Collect now** (the command
 `CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog removes its rows only; the
 content only it held is collected here, past the grace period, like any other orphan.
 

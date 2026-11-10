@@ -23,15 +23,12 @@ import org.springframework.stereotype.Component
 import java.time.Duration
 
 /**
- * Lists all known cluster nodes (live and stale) from the node registry.
- *
- * `SystemInternal` like the other cluster reads ([app.epistola.suite.cluster.timers.ListClusterTimers],
- * [app.epistola.suite.cluster.schedules.ListClusterScheduledTasks]) — the UI layer gates
- * the Operations page; the query itself carries no tenant scope.
+ * Lists all known cluster nodes (live and stale) from the node registry. A [ClusterInspection], like
+ * the other cluster reads: it carries no tenant scope, so no tenant role reaches it.
  */
 data object ListClusterNodes :
     Query<List<ClusterNode>>,
-    SystemInternal
+    ClusterInspection
 
 @Component
 class ListClusterNodesHandler(

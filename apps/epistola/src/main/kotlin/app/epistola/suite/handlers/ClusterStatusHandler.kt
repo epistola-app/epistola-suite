@@ -19,11 +19,11 @@ import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
-import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.requirePlatformRole
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
@@ -45,42 +45,37 @@ class ClusterStatusHandler(
 ) {
 
     fun dashboard(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val report = loadReport()
 
         return ServerResponse.ok().page("cluster/dashboard") {
             "pageTitle" to "Cluster - Epistola"
-            "tenantId" to tenantId.key
-            "activeNavSection" to "cluster"
+            "platformPage" to "Cluster"
             "report" to report
         }
     }
 
     fun refresh(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val report = loadReport()
 
         return request.htmx {
             fragment("cluster/dashboard", "results") {
-                "tenantId" to tenantId.key
                 "report" to report
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
     /**
-     * Starts the content collector by hand for this tenant (ADR 0033): what the nightly run would
+     * Starts the content collector by hand for every tenant (ADR 0033): what the nightly run would
      * take, now. Answers with the line that says what it took.
      */
     fun collectStorage(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val collection = app.epistola.suite.catalog.revisions.CollectResourceContents(tenantId.key).execute()
+        val collection = app.epistola.suite.catalog.revisions.CollectResourceContents.execute()
         return request.htmx {
             fragment("cluster/dashboard", "storage-collect-result") {
                 "collection" to collection
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
@@ -91,7 +86,6 @@ class ClusterStatusHandler(
      * the page render and this call is refused rather than removed.
      */
     fun forgetNode(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val nodeId = request.pathVariable("nodeId")
 
         try {
@@ -107,7 +101,7 @@ class ClusterStatusHandler(
                     .body(mapOf("detail" to detail, "error" to detail))
             } else {
                 ServerResponse.status(HttpStatus.SEE_OTHER)
-                    .header("Location", "/tenants/${tenantId.key}/cluster")
+                    .header("Location", PAGE)
                     .build()
             }
         }
@@ -115,14 +109,16 @@ class ClusterStatusHandler(
         val report = loadReport()
         return request.htmx {
             fragment("cluster/dashboard", "results") {
-                "tenantId" to tenantId.key
                 "report" to report
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
     private fun loadReport(): ClusterStatusReport {
+        // The reads check this too (ClusterInspection); checked first here so a refused request
+        // records no heartbeat.
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR, setOf(PlatformRole.PLATFORM_OBSERVER))
         val currentNode = RecordClusterHeartbeat.execute()
         val now = EpistolaClock.offsetDateTime()
         // The registry is the installation's: forgetting a node is the installation administrator's.
@@ -178,11 +174,13 @@ class ClusterStatusHandler(
             activeCount = nodes.count { it.isActive },
             staleCount = nodes.count { !it.isActive },
             forgetWithheld = forgetWithheld,
+            mayCollect = mayForget,
         )
     }
 
     private companion object {
         const val MILLIS_PER_SECOND = 1_000L
+        const val PAGE = "/platform/cluster"
     }
 
     private fun taskStatusLabel(
@@ -214,6 +212,11 @@ data class ClusterStatusReport(
      * so, rather than leaving the reader to wonder why no row offers Forget.
      */
     val forgetWithheld: Boolean = false,
+    /**
+     * The viewer may collect stored content now: the installation administrator. The platform
+     * observer reads the page only, and is told who collects instead of finding no button.
+     */
+    val mayCollect: Boolean = false,
 ) {
     val totalCount: Int = nodes.size
     val heartbeatIntervalSeconds: Long = heartbeatIntervalMs / 1_000L
