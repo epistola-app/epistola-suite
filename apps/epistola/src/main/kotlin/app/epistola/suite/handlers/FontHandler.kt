@@ -26,11 +26,11 @@ import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.fonts.queries.ListVisibleFonts
 import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
-import app.epistola.suite.handlers.acrossVisibleCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogParam
@@ -392,23 +392,15 @@ class FontHandler(
         val catalogFilter = segment?.catalogIn(tenantId)
         val version = segment?.ref(tenantKey)
 
-        // The fonts the editing context can use: its own catalog's and those of each catalog it
-        // declares, each read at the release or draft its declaration names, which is what renders.
-        // Without a catalog (an editor opened outside one), the system catalog's.
-        val visible: List<Pair<Font, CatalogReleaseRef?>> = if (catalogFilter != null) {
-            acrossVisibleCatalogs(catalogFilter, version) { catalog, at ->
-                ListFonts(tenantId = tenantId, catalog = catalog, catalogVersion = at).query().map { it to at }
-            }
-        } else {
-            ListFonts(tenantId = tenantId, catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key), catalogVersion = null).query().map { it to null }
-        }
+        // The fonts the editing context can use (ListVisibleFonts): its own catalog's and those of each
+        // catalog it declares, each read at the release or draft its declaration names, which is what
+        // renders. Without a catalog (an editor opened outside one), the system catalog's.
+        val visible = ListVisibleFonts(
+            catalog = catalogFilter ?: app.epistola.suite.catalog.system.systemCatalog(tenantKey),
+            catalogVersion = version,
+        ).query()
 
-        val fontInfoList = visible.map { (font, at) ->
-            val rows = GetFontVariants(
-                fontId = FontId(font.slug, font.catalogId),
-                catalogVersion = at,
-            ).query()
-
+        val fontInfoList = visible.map { (font, rows, at) ->
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
             // Face bytes are served from the version the font was read at (and cached under its URL).
             val faceSegment = at?.let { CatalogSegment(it.catalogKey, it.draft.toString(), it.catalog.namespace).value } ?: font.catalogId.address

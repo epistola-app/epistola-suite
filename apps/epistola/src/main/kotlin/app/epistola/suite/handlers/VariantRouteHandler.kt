@@ -5,7 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.attributes.queries.ListVisibleAttributeDefinitions
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ResourceModifiedException
@@ -13,7 +13,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.handlers.AuthContext
-import app.epistola.suite.handlers.acrossVisibleCatalogs
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.handlers.decorateVariants
@@ -317,9 +316,7 @@ class VariantRouteHandler {
 }
 
 /** The attributes a variant of [templateId] can carry: those of the catalogs its catalog version can use. */
-internal fun visibleAttributeDefinitions(templateId: TemplateId, version: CatalogReleaseRef?): List<VariantAttributeDefinition> = acrossVisibleCatalogs(templateId.catalogId, version) { catalog, at ->
-    ListAttributeDefinitions(tenantId = templateId.tenantId, catalog = catalog, catalogVersion = at).query()
-}
+internal fun visibleAttributeDefinitions(templateId: TemplateId, version: CatalogReleaseRef?): List<VariantAttributeDefinition> = ListVisibleAttributeDefinitions(templateId.catalogId, version).query()
 
 /**
  * The model the variants tab renders: the variants with their attributes and readiness, the

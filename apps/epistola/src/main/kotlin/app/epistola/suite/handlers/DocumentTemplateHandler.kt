@@ -29,7 +29,6 @@ import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.handlers.WorkspaceBuilder
-import app.epistola.suite.handlers.acrossVisibleCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalog
@@ -76,7 +75,7 @@ import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.BlockStylePresets
-import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.themes.queries.ListVisibleThemes
 import app.epistola.suite.themes.queries.ResolveTemplateTheme
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.DocumentStyles
@@ -714,9 +713,7 @@ class DocumentTemplateHandler(
         }
 
         // Load available themes for the fragment
-        val themes = acrossVisibleCatalogs(templateId.catalogId, request.catalogVersion()) { catalog, version ->
-            ListThemes(tenantId = tenantId, catalog = catalog, catalogVersion = version).query()
-        }
+        val themes = ListVisibleThemes(templateId.catalogId, request.catalogVersion()).query()
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return request.htmx {

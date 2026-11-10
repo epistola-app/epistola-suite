@@ -12,7 +12,6 @@ import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.catalogNamed
@@ -24,7 +23,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
-import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.themes.queries.ListVisibleThemes
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -90,9 +89,7 @@ class CatalogThemeSettingsHandler {
     }
 
     private fun themeOptions(tenantKey: app.epistola.suite.common.ids.TenantKey, segment: CatalogSegment): List<ThemeOption> {
-        val themes = acrossVisibleCatalogs(segment.catalogIn(tenantKey), segment.ref(tenantKey)) { catalog, version ->
-            ListThemes(TenantId(tenantKey), catalog = catalog, catalogVersion = version).query()
-        }
+        val themes = ListVisibleThemes(segment.catalogIn(tenantKey), segment.ref(tenantKey)).query()
         return themes.map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
     }
 }
