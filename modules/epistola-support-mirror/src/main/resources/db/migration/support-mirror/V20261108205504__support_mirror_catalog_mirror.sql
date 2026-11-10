@@ -9,7 +9,7 @@
 -- has got. Commercial-tier state, so it lives in tables of its own rather than in core's catalogs.
 
 -- A tenant's consent and the installation default are in support_sharing_choice and
--- support_sharing_default under the section 'mirror' (V20261107074805): options.shareByDefault there
+-- support_sharing_default under the section 'mirror' (V20261108192223): options.shareByDefault there
 -- is the person's choice between "every catalog, including new ones" and "only the catalogs I mark".
 
 -- A catalog's own policy. No row is INHERIT: the tenant's share_by_default decides. The CHECK lists
@@ -21,7 +21,7 @@ CREATE TABLE support_mirror_catalog_policies (
     catalog_id UUID        NOT NULL,
     policy     VARCHAR(16) NOT NULL,
     set_at     TIMESTAMPTZ NOT NULL,
-    set_by     UUID,
+    set_by     UUID        REFERENCES users (id) ON DELETE SET NULL,
     PRIMARY KEY (connection_id, tenant_key, catalog_id),
     CONSTRAINT fk_support_mirror_catalog_policies_catalog FOREIGN KEY (tenant_key, catalog_id)
         REFERENCES catalogs (tenant_key, catalog_id) ON DELETE CASCADE,

@@ -2047,7 +2047,6 @@ $$
 + ALTER TABLE ONLY public.support_connections
     ADD CONSTRAINT support_connections_pkey PRIMARY KEY (id)
 + CREATE TABLE public.support_connections (
-    CONSTRAINT chk_support_connections_auth CHECK (((auth)::text = ANY ((ARRAY['PRIVATE_KEY_JWT'::character varying, 'BEARER_TOKEN'::character varying])::text[]))),
     auth character varying(32) NOT NULL,
     contact jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -2144,6 +2143,8 @@ $$
     ADD CONSTRAINT support_mirror_catalog_policies_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
 + ALTER TABLE ONLY public.support_mirror_catalog_policies
     ADD CONSTRAINT support_mirror_catalog_policies_pkey PRIMARY KEY (connection_id, tenant_key, catalog_id)
++ ALTER TABLE ONLY public.support_mirror_catalog_policies
+    ADD CONSTRAINT support_mirror_catalog_policies_set_by_fkey FOREIGN KEY (set_by) REFERENCES public.users(id) ON DELETE SET NULL
 + ALTER TABLE ONLY public.support_mirror_state
     ADD CONSTRAINT support_mirror_state_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.support_connections(id) ON DELETE CASCADE
 + ALTER TABLE ONLY public.support_mirror_state
@@ -2228,6 +2229,7 @@ $$
 + CREATE INDEX idx_application_log_trace ON public.application_log USING btree (trace_id) WHERE (trace_id IS NOT NULL)
 + CREATE INDEX idx_support_request_deliveries_remote ON public.support_request_deliveries USING btree (connection_id, tenant_key, remote_ref) WHERE (remote_ref IS NOT NULL)
 + CREATE INDEX idx_support_request_deliveries_waiting ON public.support_request_deliveries USING btree (connection_id, state) WHERE ((state)::text <> 'SYNCED'::text)
++ CREATE INDEX idx_support_request_delivered_items_unsent ON public.support_request_delivered_items USING btree (connection_id, tenant_key) WHERE ((remote_id IS NULL) AND (sent_at IS NULL))
 + CREATE INDEX idx_support_requests_created_at ON public.support_requests USING btree (tenant_key, created_at DESC)
 + CREATE INDEX idx_support_requests_created_by ON public.support_requests USING btree (tenant_key, created_by)
 + CREATE INDEX idx_support_requests_status ON public.support_requests USING btree (tenant_key, status)
@@ -2287,7 +2289,6 @@ $$
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.support_request_messages (
-    CONSTRAINT chk_support_request_messages_kind CHECK (((kind)::text = ANY ((ARRAY['QUESTION'::character varying, 'REPLY'::character varying, 'STATUS'::character varying, 'NOTE'::character varying])::text[]))),
     author_email text,
     author_id uuid,
     author_name text DEFAULT ''::text NOT NULL,
