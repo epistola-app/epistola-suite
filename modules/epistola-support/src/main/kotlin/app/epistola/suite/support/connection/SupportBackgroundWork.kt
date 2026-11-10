@@ -57,6 +57,12 @@ class SupportBackgroundWork(private val mediator: Mediator) {
 
     @Volatile private var closed = false
 
+    /**
+     * Loops started and not yet ended. A loop leaves [running] before it ends (and before a launch from
+     * its last moments starts the next), so only this says whether work is still in flight.
+     */
+    private val inFlight = java.util.concurrent.atomic.AtomicInteger()
+
     /** Runs on the worker after a key's loop decided to stop, before its Future completes; a test seam. */
     internal var afterLastRound: (String) -> Unit = {}
 
@@ -77,7 +83,13 @@ class SupportBackgroundWork(private val mediator: Mediator) {
                 current
             } else {
                 started = true
-                executor.submit(MediatorContext.runnable(mediator, SecurityContext.currentOrNull()) { runLoop(key, work) })
+                inFlight.incrementAndGet()
+                try {
+                    executor.submit(MediatorContext.runnable(mediator, SecurityContext.currentOrNull()) { runLoop(key, work) })
+                } catch (e: java.util.concurrent.RejectedExecutionException) {
+                    inFlight.decrementAndGet()
+                    throw e
+                }
             }
         }
         return started
@@ -113,7 +125,7 @@ class SupportBackgroundWork(private val mediator: Mediator) {
     /** Waits until no work runs on this node, at most [timeout]; for tests. */
     fun awaitIdle(timeout: Duration = Duration.ofSeconds(30)): Boolean {
         val until = System.nanoTime() + timeout.toNanos()
-        while (running.values.any { !it.isDone }) {
+        while (inFlight.get() > 0 || running.values.any { !it.isDone }) {
             if (System.nanoTime() > until) return false
             Thread.sleep(10)
         }
@@ -121,17 +133,21 @@ class SupportBackgroundWork(private val mediator: Mediator) {
     }
 
     private fun runLoop(key: String, work: () -> Unit) {
-        while (true) {
-            rerun -= key
-            try {
-                work()
-            } catch (e: Exception) {
-                if (closed) return
-                log.warn("Support work '{}' failed: {}", key, e.message, e)
+        try {
+            while (true) {
+                rerun -= key
+                try {
+                    work()
+                } catch (e: Exception) {
+                    if (closed) return
+                    log.warn("Support work '{}' failed: {}", key, e.message, e)
+                }
+                if (closed || !goesOn(key)) break
             }
-            if (closed || !goesOn(key)) break
+            afterLastRound(key)
+        } finally {
+            inFlight.decrementAndGet()
         }
-        afterLastRound(key)
     }
 
     /**
