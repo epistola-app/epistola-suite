@@ -334,7 +334,7 @@ class SpringMediator(
                 requirePermission(message.tenantKey, message.permission)
             }
 
-            is RequiresPlatformRole -> requirePlatformRole(message.platformRole)
+            is RequiresPlatformRole -> requirePlatformRole(message.platformRole, message.alsoAllowedPlatformRoles)
 
             is RequiresAuthentication -> {
                 currentUser()

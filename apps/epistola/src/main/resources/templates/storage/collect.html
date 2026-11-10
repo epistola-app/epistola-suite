@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* A tenant's stored release content: collected every night, or now by hand. */-->
+    <th:block th:fragment="section">
+        <div class="cluster-work-section" data-testid="storage-collect">
+            <h2>Stored content</h2>
+            <p class="text-muted">Release content nothing points at any more is collected every night, after a grace period.
+                After removing many releases, collect it now.</p>
+            <button type="button" class="ep-btn ep-btn-sm"
+                    th:hx-post="@{/tenants/{tenantId}/storage/collect(tenantId=${tenantId})}"
+                    hx-target="#storage-collect-result" hx-swap="outerHTML"
+                    data-testid="storage-collect-now">Collect now</button>
+            <p th:fragment="storage-collect-result" id="storage-collect-result" class="text-muted"
+               th:text="${collection != null} ? 'Collected ' + ${collection.contents} + ' content(s) and ' + ${collection.blobs} + ' stored file(s).' : ''"></p>
+        </div>
+    </th:block>
+</body>
+</html>

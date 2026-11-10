@@ -42,16 +42,20 @@ documents without generating them.
 
 `security/PlatformRole.kt`. Cross-tenant, never persisted (token/config only).
 
-| Role                         | Capability                                                                                                                                                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TENANT_MANAGER`             | Create and delete tenants, and grant them namespaces.                                                                                                                               |
-| `INSTALLATION_ADMINISTRATOR` | Installation state: forget cluster nodes, the site banner, what the installation shares with Epistola, and who handles new support requests.                                        |
-| `SUPPORT_DESK`               | The support desk (Platform → Support requests): every tenant's support requests, their replies and internal notes, status and priority, and passing them on. Nothing in any tenant. |
-| `PLATFORM_OBSERVER`          | `DIAGNOSTICS_VIEW` and `AUDIT_VIEW` in **every** tenant, member or not. Read-only.                                                                                                  |
+| Role                         | Capability                                                                                                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TENANT_MANAGER`             | Create and delete tenants, and grant them namespaces.                                                                                                                                  |
+| `INSTALLATION_ADMINISTRATOR` | Installation state: the cluster page (Platform → Cluster) and forgetting its nodes, the site banner, what the installation shares with Epistola, and who handles new support requests. |
+| `SUPPORT_DESK`               | The support desk (Platform → Support requests): every tenant's support requests, their replies and internal notes, status and priority, and passing them on. Nothing in any tenant.    |
+| `PLATFORM_OBSERVER`          | `DIAGNOSTICS_VIEW` and `AUDIT_VIEW` in **every** tenant, member or not, and the cluster page. Read-only.                                                                               |
 
 `PLATFORM_OBSERVER`'s grants are `PlatformRole.permissionsInEveryTenant()`: the mediator lets a
 message needing one of them through without tenant membership, and refuses anything else in a tenant
 the observer is not a member of.
+
+The cluster page is the installation's, not a tenant's: its nodes, scheduled tasks and timers span
+every tenant, so no tenant role opens it. Its reads are `ClusterInspection` messages, which pass for
+the installation administrator and the platform observer (`RequiresPlatformRole.alsoAllowedPlatformRoles`).
 
 ## Permission catalog
 
@@ -72,7 +76,7 @@ identity-provider name, or an operation requiring a permission the suite does no
 | Documents                                                            | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`               | generator or reader / generator    |
 | Reference data (attributes, code lists, fonts)                       | `REFERENCE_VIEW` / `REFERENCE_EDIT`                 | viewer / author                    |
 | Catalogs                                                             | `CATALOG_VIEW` / `CATALOG_MANAGE`                   | viewer / administrator             |
-| Diagnostics (logs, cluster, consumers, load tests)                   | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`           | administrator (view also observer) |
+| Diagnostics (logs, consumers, load tests)                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`           | administrator (view also observer) |
 | Audit trail                                                          | `AUDIT_VIEW`                                        | administrator, observer            |
 | Tenant config (feature toggles, defaults, environments)              | `TENANT_SETTINGS`                                   | administrator                      |
 | Integrations that send tenant data out (Exchange, quality providers) | `INTEGRATIONS_MANAGE`                               | administrator                      |

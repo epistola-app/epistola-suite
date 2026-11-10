@@ -4,6 +4,7 @@
 
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.cluster.ClusterInspection
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -68,14 +69,14 @@ data class TriggerClusterScheduledTaskNow(
  */
 data object ListClusterScheduledTasks :
     Query<List<ClusterScheduledTask>>,
-    SystemInternal
+    ClusterInspection
 
 /**
  * Lists per-node runtime state for all-node scheduled tasks.
  */
 data object ListClusterScheduledTaskNodeStates :
     Query<List<ClusterScheduledTaskNodeState>>,
-    SystemInternal
+    ClusterInspection
 
 /**
  * Command handler that persists scheduled task definitions through the internal

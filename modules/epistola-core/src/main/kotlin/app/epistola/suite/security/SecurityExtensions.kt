@@ -66,14 +66,14 @@ fun requirePermission(tenantId: TenantKey, permission: Permission) {
 fun requireTenantManager() = requirePlatformRole(PlatformRole.TENANT_MANAGER)
 
 /**
- * Check if the current user holds a specific platform role.
+ * Check if the current user holds a specific platform role, or one of [alsoAllowed].
  *
- * @throws PlatformAccessDeniedException if the user lacks the role
+ * @throws PlatformAccessDeniedException if the user holds none of them; it names [role]
  * @throws IllegalStateException if no user is authenticated
  */
-fun requirePlatformRole(role: PlatformRole) {
+fun requirePlatformRole(role: PlatformRole, alsoAllowed: Set<PlatformRole> = emptySet()) {
     val principal = SecurityContext.current()
-    if (!principal.hasPlatformRole(role)) {
+    if (!principal.hasPlatformRole(role) && alsoAllowed.none { principal.hasPlatformRole(it) }) {
         throw PlatformAccessDeniedException(
             userEmail = principal.email,
             requiredRole = role,

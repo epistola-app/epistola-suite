@@ -24,6 +24,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.requirePlatformRole
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
@@ -45,27 +46,23 @@ class ClusterStatusHandler(
 ) {
 
     fun dashboard(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val report = loadReport()
 
         return ServerResponse.ok().page("cluster/dashboard") {
             "pageTitle" to "Cluster - Epistola"
-            "tenantId" to tenantId.key
-            "activeNavSection" to "cluster"
+            "platformPage" to "Cluster"
             "report" to report
         }
     }
 
     fun refresh(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val report = loadReport()
 
         return request.htmx {
             fragment("cluster/dashboard", "results") {
-                "tenantId" to tenantId.key
                 "report" to report
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
@@ -77,10 +74,10 @@ class ClusterStatusHandler(
         val tenantId = request.tenantId()
         val collection = app.epistola.suite.catalog.revisions.CollectResourceContents(tenantId.key).execute()
         return request.htmx {
-            fragment("cluster/dashboard", "storage-collect-result") {
+            fragment("storage/collect", "storage-collect-result") {
                 "collection" to collection
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect("/tenants/${tenantId.key}") }
         }
     }
 
@@ -91,7 +88,6 @@ class ClusterStatusHandler(
      * the page render and this call is refused rather than removed.
      */
     fun forgetNode(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
         val nodeId = request.pathVariable("nodeId")
 
         try {
@@ -107,7 +103,7 @@ class ClusterStatusHandler(
                     .body(mapOf("detail" to detail, "error" to detail))
             } else {
                 ServerResponse.status(HttpStatus.SEE_OTHER)
-                    .header("Location", "/tenants/${tenantId.key}/cluster")
+                    .header("Location", PAGE)
                     .build()
             }
         }
@@ -115,14 +111,16 @@ class ClusterStatusHandler(
         val report = loadReport()
         return request.htmx {
             fragment("cluster/dashboard", "results") {
-                "tenantId" to tenantId.key
                 "report" to report
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect(PAGE) }
         }
     }
 
     private fun loadReport(): ClusterStatusReport {
+        // The reads check this too (ClusterInspection); checked first here so a refused request
+        // records no heartbeat.
+        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR, setOf(PlatformRole.PLATFORM_OBSERVER))
         val currentNode = RecordClusterHeartbeat.execute()
         val now = EpistolaClock.offsetDateTime()
         // The registry is the installation's: forgetting a node is the installation administrator's.
@@ -183,6 +181,7 @@ class ClusterStatusHandler(
 
     private companion object {
         const val MILLIS_PER_SECOND = 1_000L
+        const val PAGE = "/platform/cluster"
     }
 
     private fun taskStatusLabel(

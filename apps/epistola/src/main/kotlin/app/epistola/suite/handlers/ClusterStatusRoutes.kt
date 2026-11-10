@@ -17,11 +17,13 @@ import org.springframework.web.servlet.function.router
 class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
     @Bean
     fun clusterStatusRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/cluster".nest {
+        // The installation's cluster: a platform page, no tenant in its URL.
+        "/platform/cluster".nest {
             GET("", handler::dashboard)
             GET("/refresh", handler::refresh)
             POST("/nodes/{nodeId}/forget", handler::forgetNode)
-            POST("/storage/collect", handler::collectStorage)
         }
+        // Collecting a tenant's unreferenced release content is the tenant's own diagnostics action.
+        POST("/tenants/{tenantId}/storage/collect", handler::collectStorage)
     }
 }
