@@ -9,11 +9,10 @@ import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
-import org.slf4j.LoggerFactory
 import java.time.Duration
 
 /**
- * Exports log records to the support service's `POST {otlp}/v1/logs` (OTLP/HTTP, protobuf, gzip),
+ * Exports log records to one support connection's `POST {otlp}/v1/logs` (OTLP/HTTP, protobuf, gzip),
  * deciding per batch:
  *
  * - without the `telemetry` scope, the batch is **dropped** and reported as exported, so the batch
@@ -43,7 +42,7 @@ internal class SupportLogRecordExporter(
 
     private val lock = Any()
 
-    private val outage = TelemetryOutageLog("logs", LoggerFactory.getLogger(SupportTelemetryLogs::class.java))
+    private val outage = target.logsOutage
 
     /** The HTTP client's threads, on which the exporter's own failure logging is quiet. */
     private val executor = SupportTelemetryThreads.newExecutor()

@@ -18,10 +18,11 @@ import io.opentelemetry.api.logs.Severity
 import java.time.Instant
 
 /**
- * Logback appender that forwards each log event to the support service as an OTLP log record, via the dedicated
- * OpenTelemetry [Logger] of the telemetry leg ([SupportTelemetryLogs]). It runs on the logging thread, so the
- * request's tenant context is still bound, and emits only the records [shouldForward] lets through — the leg
- * passes its cached `telemetry` scope flag, so nothing is converted while the scope is not granted. Conversion
+ * Logback appender that forwards each log event as an OTLP log record to every support connection that takes
+ * telemetry, via the dedicated OpenTelemetry [Logger] of each ([SupportTelemetryLogs]), converted with that
+ * connection's privacy. It runs on the logging thread, so the request's tenant context is still bound, and emits
+ * only to the [outputs] the leg holds — those whose `telemetry` scope it found granted, cached, so nothing is
+ * converted while no connection grants it. Conversion
  * is cheap and never throws into the caller; the OTLP `BatchLogRecordProcessor` behind [otelLogger] owns
  * batching, compression, and drop-on-overflow.
  *
@@ -33,17 +34,33 @@ import java.time.Instant
  * bounds it in bytes, also while the support service is slow and an error storm fills it.
  */
 class TelemetryLogAppender(
-    private val otelLogger: Logger,
-    private val shouldForward: (tenantKey: String?) -> Boolean,
-    private val privacy: () -> TelemetryPrivacy = { TelemetryPrivacy.FULL },
+    /** Where each event goes now: one output per connection that takes telemetry, each with its own privacy. */
+    private val outputs: () -> List<Output>,
 ) : AppenderBase<ILoggingEvent>() {
+    /** One connection's logger and how a line is turned into a record for it. */
+    class Output(val otelLogger: Logger, val privacy: () -> TelemetryPrivacy)
+
+    /** One output: [otelLogger] while [shouldForward] says so, with [privacy]. */
+    constructor(
+        otelLogger: Logger,
+        shouldForward: (tenantKey: String?) -> Boolean,
+        privacy: () -> TelemetryPrivacy = { TelemetryPrivacy.FULL },
+    ) : this({
+        val tenantKey = runCatching { SecurityContext.currentOrNull()?.currentTenantId?.value }.getOrNull()
+        if (shouldForward(tenantKey)) listOf(Output(otelLogger, privacy)) else emptyList()
+    })
+
     public override fun append(event: ILoggingEvent) {
         val loggerName = event.loggerName ?: ""
         if (loggerName.startsWith(OTEL_PACKAGE) || loggerName.startsWith(SELF_PACKAGE)) return
-
+        val targets = outputs()
+        if (targets.isEmpty()) return
         val tenantKey = runCatching { SecurityContext.currentOrNull()?.currentTenantId?.value }.getOrNull()
-        if (!shouldForward(tenantKey)) return
-        val mode = privacy()
+        targets.forEach { emit(event, loggerName, tenantKey, it) }
+    }
+
+    private fun emit(event: ILoggingEvent, loggerName: String, tenantKey: String?, output: Output) {
+        val mode = output.privacy()
         // Pseudonymised: below WARN only the suite's own lines, whose message patterns carry no values
         // (LogMessageTemplateTest); a library may format values into its message itself.
         if (mode.pseudonymised && !loggerName.startsWith(OWN_PACKAGE) && (event.level?.levelInt ?: 0) < Level.WARN_INT) return
@@ -69,7 +86,7 @@ class TelemetryLogAppender(
             else -> WITHHELD_BODY
         }
 
-        otelLogger
+        output.otelLogger
             .logRecordBuilder()
             .setTimestamp(Instant.ofEpochMilli(event.timeStamp))
             .setSeverity(severityOf(event.level))

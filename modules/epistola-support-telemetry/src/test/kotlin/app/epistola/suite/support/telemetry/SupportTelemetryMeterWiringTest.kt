@@ -26,13 +26,15 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
  * app's usual only registry.
  */
 class SupportTelemetryMeterWiringTest {
-    private val runner = ApplicationContextRunner()
+    private val base = ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(MetricsAutoConfiguration::class.java, CompositeMeterRegistryAutoConfiguration::class.java))
         .withUserConfiguration(SupportTelemetryConfiguration::class.java)
         .withBean("prometheusStandIn", SimpleMeterRegistry::class.java, { SimpleMeterRegistry() })
-        .withBean(SupportConnection::class.java, { FakeSupportConnection() })
         .withBean(SupportProperties::class.java, { SupportProperties(enabled = true) })
         .withBean(TelemetryResource::class.java, { testResource() })
+
+    /** One connection selected for telemetry. */
+    private val runner = base.withBean(SupportTelemetryTargets::class.java, { SupportTelemetryTargets { listOf(SupportOtlpTarget(FakeSupportConnection())) } })
 
     @Test
     fun `app meters reach the support registry through Boot's primary composite`() {
@@ -64,13 +66,33 @@ class SupportTelemetryMeterWiringTest {
     }
 
     @Test
-    fun `no support registry when support, telemetry or its metrics are off`() {
-        runner.run { assertThat(it).doesNotHaveBean(SupportTelemetryMeterRegistry::class.java) }
-        runner.withPropertyValues("epistola.support.enabled=true", "epistola.support.telemetry.enabled=false").run {
+    fun `no support registry when telemetry or its metrics are off`() {
+        runner.withPropertyValues("epistola.support.telemetry.enabled=false").run {
             assertThat(it).doesNotHaveBean(SupportTelemetryMeterRegistry::class.java)
         }
-        runner.withPropertyValues("epistola.support.enabled=true", "epistola.support.telemetry.metrics=false").run {
+        runner.withPropertyValues("epistola.support.telemetry.metrics=false").run {
             assertThat(it).doesNotHaveBean(SupportTelemetryMeterRegistry::class.java)
+        }
+    }
+
+    @Test
+    fun `app meters reach no OTLP registry while no connection is selected for telemetry, and do once one is`() {
+        // An installation that shares telemetry with nobody aggregates nothing for it (ADR 0053 step 3i).
+        var selected = emptyList<SupportOtlpTarget>()
+        base.withBean(SupportTelemetryTargets::class.java, { SupportTelemetryTargets { selected } }).run { context ->
+            val primary = context.getBean(MeterRegistry::class.java)
+            val support = context.getBean(SupportTelemetryMeterRegistry::class.java)
+            primary.counter("epistola.app.idle").increment()
+            assertThat(support.otlp.find("epistola.app.idle").counter()).isNull()
+
+            selected = listOf(SupportOtlpTarget(FakeSupportConnection()))
+            support.refresh()
+            assertThat(support.otlp.find("epistola.app.idle").counter()).`as`("a meter from before is carried over").isNotNull
+
+            selected = emptyList()
+            support.refresh()
+            primary.counter("epistola.app.later").increment()
+            assertThat(support.otlp.find("epistola.app.later").counter()).`as`("detached again").isNull()
         }
     }
 }

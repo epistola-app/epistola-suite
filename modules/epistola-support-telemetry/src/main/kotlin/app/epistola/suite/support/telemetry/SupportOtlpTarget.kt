@@ -6,15 +6,40 @@ package app.epistola.suite.support.telemetry
 
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportScope
+import app.epistola.suite.support.privacy.SupportPrivacy
 import io.opentelemetry.exporter.internal.FailedExportException
+import org.slf4j.LoggerFactory
+import java.util.UUID
 
 /**
- * Where and whether telemetry goes, asked of the [SupportConnection] at the moment of each export.
- * Nothing here blocks on the network or throws: the connection's status is cached, the token is
- * the one this node already holds, and a failure reads as "not now".
+ * Where and whether telemetry goes over one support connection (ADR 0053 §1: telemetry is a service
+ * every connection may grant), asked of the [SupportConnection] at the moment of each export. Nothing
+ * here blocks on the network or throws: the connection's status is cached, the token is the one this
+ * node already holds, and a failure reads as "not now".
+ *
+ * @property logPrivacy how a log line is turned into a record for this connection; read on the
+ *   logging thread, so never from the database. The strictest settings by default.
+ * @property metricsRewrite rewrites a metrics export for this connection's privacy; unchanged by default.
  */
-internal class SupportOtlpTarget(private val connection: SupportConnection) {
-    /** True while Epistola grants this installation the `telemetry` scope. */
+class SupportOtlpTarget internal constructor(
+    private val connection: SupportConnection,
+    val logPrivacy: () -> TelemetryPrivacy = { TelemetryPrivacy.of(SupportPrivacy.STRICTEST, null) },
+    val metricsRewrite: (ByteArray) -> ByteArray = { it },
+) {
+    /** The connection this target sends to. */
+    val connectionId: UUID get() = connection.id
+
+    /** Outages of each signal, logged once per outage and connection. */
+    internal val logsOutage = TelemetryOutageLog("logs", LoggerFactory.getLogger(SupportTelemetryLogs::class.java))
+    internal val metricsOutage = TelemetryOutageLog("metrics", LoggerFactory.getLogger(SupportTelemetryMeterRegistry::class.java))
+
+    /** This target with [rewrite] applied to a metrics export before its own rewrite. */
+    internal fun rewrittenFirst(rewrite: (ByteArray) -> ByteArray): SupportOtlpTarget = SupportOtlpTarget(connection, logPrivacy) { metricsRewrite(rewrite(it)) }
+
+    /** True while the connection is selected for `telemetry`: what it asks for, granted or not. Cached. */
+    fun selected(): Boolean = runCatching { connection.isSelected(SupportScope.TELEMETRY) }.getOrDefault(false)
+
+    /** True while the connection grants this installation the `telemetry` scope. */
     fun granted(): Boolean = runCatching { connection.hasScope(SupportScope.TELEMETRY) }.getOrDefault(false)
 
     /**
@@ -38,7 +63,7 @@ internal class SupportOtlpTarget(private val connection: SupportConnection) {
      * An export sent with [token] succeeded: the service accepts it, which ends the connection's
      * back-off after a `401` (exports do not go through its REST client). Never throws.
      */
-    fun exportSucceeded(token: String, outage: TelemetryOutageLog) {
+    internal fun exportSucceeded(token: String, outage: TelemetryOutageLog) {
         outage.succeeded()
         runCatching { connection.tokenAccepted(token) }
     }
@@ -48,7 +73,7 @@ internal class SupportOtlpTarget(private val connection: SupportConnection) {
      * withdrawal ([scopeRefused]); `401` is a token the service no longer accepts, which the
      * connection replaces; anything else is an outage for [outage] to log. Never throws.
      */
-    fun exportFailed(failure: Throwable?, token: String, outage: TelemetryOutageLog) {
+    internal fun exportFailed(failure: Throwable?, token: String, outage: TelemetryOutageLog) {
         runCatching {
             when {
                 isInsufficientScope(failure) -> {
