@@ -21,6 +21,8 @@ import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.releases.versionOf
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_NAMESPACE
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -72,6 +74,13 @@ data class CatalogBorrowing(val catalogs: List<BorrowedCatalog>, val others: Lis
      * would still pin them; whether they go is the author's call (`RemoveUnusedCatalogDependencies`).
      */
     val unused: List<BorrowedCatalog> get() = catalogs.filter { it.declared && !it.used }
+
+    /**
+     * What a merge can leave behind for the author to remove: [unused], but the system catalog, which
+     * every catalog declares from the start whether it uses it or not, so its being unused is no
+     * leftover of anything.
+     */
+    val leftOver: List<BorrowedCatalog> get() = unused.filterNot { it.namespace == SYSTEM_CATALOG_NAMESPACE && it.catalogKey == SYSTEM_CATALOG_KEY.value }
 
     /** Declared by name, pinning nothing: releasing pins each to its latest release ([BorrowedCatalog.pinsAtRelease]). */
     val pinnedAtRelease: List<BorrowedCatalog> get() = catalogs.filter { it.pinsAtRelease }

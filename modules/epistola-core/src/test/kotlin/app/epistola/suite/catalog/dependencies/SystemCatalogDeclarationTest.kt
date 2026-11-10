@@ -114,6 +114,18 @@ class SystemCatalogDeclarationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an unused system catalog declaration may be removed, but is no leftover to point out`() {
+        val tenant = createTenant("system-not-left-over").id
+        val borrowing = withMediator {
+            CreateCatalog(tenant, letters, "Letters").execute()
+            GetCatalogBorrowing(testCatalog(tenant, letters), catalogVersion = null).query()
+        }
+
+        assertThat(borrowing.unused.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
+        assertThat(borrowing.leftOver).isEmpty()
+    }
+
+    @Test
     fun `a catalog it does not declare is not visible`() {
         val tenant = createTenant("not-visible").id
         val visible = withMediator {
