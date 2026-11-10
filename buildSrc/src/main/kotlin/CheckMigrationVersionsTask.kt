@@ -73,11 +73,12 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 ),
             "modules/epistola-support/src/main/resources/db/migration/support/V20261108192223__support_connections.sql" to
                 ReviewedModification(
-                    sha256 = "a4d72b815c8dc47f9433afd37639ef21c17788aeb82b1b0ba29d17d37065341c",
+                    sha256 = "f662af8c8c31bc2281cf2c3067957a5ab3430215cc17e39b342f20920589c785",
                     reason =
                         "Unreleased when edited. The support connections table grew with ADR 0053 step 3 " +
                             "(partner connections: the configured endpoint, privacy per connection, connections " +
-                            "added in the UI) before any release shipped it.",
+                            "added in the UI) and step 3i (no fixed connection and no source column: every connection is named by " +
+                            "its endpoint) before any release shipped it.",
                 ),
             "modules/epistola-support/src/main/resources/db/migration/support/V20261108202810__support_sharing.sql" to
                 ReviewedModification(

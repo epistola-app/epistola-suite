@@ -12,7 +12,7 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -51,6 +51,7 @@ class SupportRequestHandlingPolicy(
     private val jdbi: Jdbi,
     private val appMetadata: AppMetadataService,
     private val properties: SupportRequestHandlingProperties,
+    private val connections: SupportConnections,
 ) {
     /** An installation administrator saved a choice, which wins over the configuration. */
     fun saved(): Boolean = appMetadata.getAs<Saved>(SAVED_KEY)?.saved == true
@@ -63,7 +64,7 @@ class SupportRequestHandlingPolicy(
     } else {
         when (properties.handledBy) {
             SupportRequestHandledBy.INBOX -> null
-            SupportRequestHandledBy.EPISTOLA -> REQUESTS_CONNECTION
+            SupportRequestHandledBy.EPISTOLA -> connections.configuredId()
         }
     }
 
@@ -188,13 +189,13 @@ class ResetSupportRequestHandlingHandler(
 }
 
 /**
- * The connections support requests can be handed to (ADR 0053 step 3): Epistola support's while its
- * port is wired, and every other connection the installation selected support requests for.
+ * The connections support requests can be handed to (ADR 0053 §4): every connection whose port is
+ * enabled, which for a connection means the installation selected support requests for it.
  */
 internal fun choices(handle: Handle, ports: SupportRequestSyncPorts): List<SupportRequestHandlerChoice> {
-    val ids = ports.all().filter { (id, p) -> p.isEnabled() && (id == REQUESTS_CONNECTION || ports.selectsRequests(id)) }.map { it.first }
+    val ids = ports.all().filter { (_, p) -> p.isEnabled() }.map { it.first }
     if (ids.isEmpty()) return emptyList()
-    return handle.createQuery("SELECT id, name FROM support_connections WHERE id IN (<ids>) ORDER BY source = 'DISCOVERED' DESC, created_at, id")
+    return handle.createQuery("SELECT id, name FROM support_connections WHERE id IN (<ids>) ORDER BY created_at, id")
         .bindList("ids", ids)
         .map { rs, _ -> SupportRequestHandlerChoice(rs.getObject("id", UUID::class.java), rs.getString("name")) }
         .list()

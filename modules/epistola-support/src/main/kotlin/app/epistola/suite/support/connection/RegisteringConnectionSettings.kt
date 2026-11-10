@@ -13,23 +13,23 @@ import java.net.URI
  * `epistola.support.*` ([of]); another's from its row ([forEndpoint]).
  *
  * @property enabled false: the connection reads [SupportConnectionState.Disabled] and uses nothing.
- * @property issuer the support service's issuer; null: found through the product domain's discovery.
+ * @property issuer the support service's issuer: the connection's endpoint.
  * @property configuredServices the services used until an administrator saves a selection.
  * @property autoRegister the scheduled check registers on its own.
  * @property offReason what a call made while not [enabled] fails with.
  */
 data class RegisteringConnectionSettings(
     val enabled: Boolean,
-    val issuer: URI?,
+    val issuer: URI,
     val configuredServices: List<String>,
     val autoRegister: Boolean,
     val offReason: String = "The support connection is off",
 ) {
     companion object {
-        /** Epistola support's connection, as `epistola.support.*` configures it. */
-        fun of(properties: SupportProperties) = RegisteringConnectionSettings(
+        /** The connection `epistola.support.*` configures, at [endpoint] ([SupportConnections.configuredEndpoint]). */
+        fun of(properties: SupportProperties, endpoint: URI) = RegisteringConnectionSettings(
             enabled = properties.enabled,
-            issuer = properties.configuredIssuer,
+            issuer = endpoint,
             configuredServices = properties.configuredServices,
             autoRegister = properties.autoRegister,
             offReason = "The support connection is off (epistola.support.enabled=false)",

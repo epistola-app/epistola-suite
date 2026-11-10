@@ -45,7 +45,7 @@ data class UsageDefault(val share: Boolean, val setAt: OffsetDateTime?, val setB
 }
 
 /** A tenant's own choice, or that it follows the default. */
-data class GetUsageChoice(override val tenantKey: TenantKey, val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class GetUsageChoice(override val tenantKey: TenantKey, val connectionId: UUID) :
     Query<UsageChoice>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -69,7 +69,7 @@ class GetUsageChoiceHandler(private val jdbi: Jdbi) : QueryHandler<GetUsageChoic
     }
 }
 
-data class GetUsageDefault(val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class GetUsageDefault(val connectionId: UUID) :
     Query<UsageDefault>,
     RequiresAuthentication
 
@@ -85,7 +85,7 @@ class GetUsageDefaultHandler(private val jdbi: Jdbi) : QueryHandler<GetUsageDefa
 }
 
 /** The tenant's own choice. Sharing is refused while usage is not allowed. */
-data class SetUsageChoice(override val tenantKey: TenantKey, val share: Boolean, val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class SetUsageChoice(override val tenantKey: TenantKey, val share: Boolean, val connectionId: UUID) :
     Command<UsageChoice>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -119,7 +119,7 @@ class SetUsageChoiceHandler(private val jdbi: Jdbi) : CommandHandler<SetUsageCho
 }
 
 /** The tenant drops its own choice and follows the installation default. */
-data class FollowUsageDefault(override val tenantKey: TenantKey, val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class FollowUsageDefault(override val tenantKey: TenantKey, val connectionId: UUID) :
     Command<UsageChoice>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -137,7 +137,7 @@ class FollowUsageDefaultHandler(private val jdbi: Jdbi) : CommandHandler<FollowU
 }
 
 /** The installation default for tenants without a choice of their own. Sharing is refused while usage is not allowed. */
-data class SetUsageDefault(val share: Boolean, val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class SetUsageDefault(val share: Boolean, val connectionId: UUID) :
     Command<UsageDefault>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -169,7 +169,7 @@ class SetUsageDefaultHandler(private val jdbi: Jdbi) : CommandHandler<SetUsageDe
  * Forgets every tenant's usage choice and the default, as on disconnecting or when usage becomes not
  * allowed. What was counted stays: it is this installation's own record.
  */
-data class ForgetUsageSharing(val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class ForgetUsageSharing(val connectionId: UUID) :
     Command<ForgottenUsageSharing>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR

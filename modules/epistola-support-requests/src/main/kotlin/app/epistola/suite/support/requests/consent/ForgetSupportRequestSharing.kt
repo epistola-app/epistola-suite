@@ -21,7 +21,7 @@ import java.util.UUID
  * every tenant is asked again. The feedback itself stays.
  */
 data class ForgetSupportRequestSharing(
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<ForgottenSupportRequestSharing>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR

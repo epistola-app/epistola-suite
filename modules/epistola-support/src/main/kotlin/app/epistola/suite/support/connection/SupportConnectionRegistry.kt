@@ -12,9 +12,10 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.observability.NodeIdentity
-import app.epistola.suite.productdomain.ProductDiscovery
-import app.epistola.suite.support.ESCALATES_TO_EPISTOLA
 import app.epistola.suite.support.SupportProperties
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -23,6 +24,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.info.BuildProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.util.UUID
@@ -47,7 +50,10 @@ class SupportConnectionRegistry(
 ) {
     private val built = ConcurrentHashMap<UUID, SupportConnection>()
 
-    /** Every connection, the discovered one first, then by creation. */
+    /** Every connection, by creation, with the id of its row (what other tables refer to). */
+    fun entries(): List<Pair<UUID, SupportConnection>> = connections.all().mapNotNull { record -> connectionFor(record)?.let { record.id to it } }
+
+    /** Every connection, by creation. */
     fun all(): List<SupportConnection> = connections.all().mapNotNull { connectionFor(it) }
 
     /** The connection with [id]; null when there is none. */
@@ -63,9 +69,10 @@ class SupportConnectionRegistry(
     fun registering(id: UUID): DefaultSupportConnection? = find(id) as? DefaultSupportConnection
 
     private fun connectionFor(record: SupportConnectionRecord): SupportConnection? = when {
-        record.source == SupportConnectionSource.DISCOVERED -> discovered
+        // The connection epistola.support.* configures: the bean every module injects, with that configuration.
+        record.auth == SupportConnectionAuth.PRIVATE_KEY_JWT && record.endpoint == connections.configuredEndpoint().toString() -> discovered
 
-        record.auth == SupportConnectionAuth.BEARER_TOKEN && record.endpoint != null -> built.compute(record.id) { _, existing ->
+        record.auth == SupportConnectionAuth.BEARER_TOKEN -> built.compute(record.id) { _, existing ->
             existing?.takeIf { it is TokenSupportConnection && it.endpoint.toString() == record.endpoint } ?: TokenSupportConnection(
                 id = record.id,
                 endpoint = URI(record.endpoint.trimEnd('/')),
@@ -76,7 +83,7 @@ class SupportConnectionRegistry(
         }
 
         // Registers with the installation's own key at its endpoint, as Epistola support's does (ADR 0053 §1).
-        record.auth == SupportConnectionAuth.PRIVATE_KEY_JWT && record.endpoint != null && registering != null -> built.compute(record.id) { _, existing ->
+        record.auth == SupportConnectionAuth.PRIVATE_KEY_JWT && registering != null -> built.compute(record.id) { _, existing ->
             existing?.takeIf { it is DefaultSupportConnection && it.settings.issuer.toString() == record.endpoint.trimEnd('/') }
                 ?: registering.build(record.id, URI(record.endpoint.trimEnd('/')))
         }
@@ -96,21 +103,25 @@ class SupportConnectionRegistry(
  */
 @Component
 class ConfiguredSupportConnections(
+    private val mediator: Mediator,
     private val jdbi: Jdbi,
     private val connections: SupportConnections,
     private val properties: SupportProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    /** First among the startup work: what runs after it finds the connections stored. */
     @EventListener(ApplicationReadyEvent::class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     fun apply() {
+        storeEpistolaSupport()
         properties.connections.forEach { configured ->
             val id = jdbi.withHandle<UUID, Exception> { handle ->
                 handle.createQuery(
                     """
-                    INSERT INTO support_connections (id, name, source, endpoint, auth, from_configuration)
-                    VALUES (:id, :name, 'CONFIGURED', :endpoint, 'BEARER_TOKEN', TRUE)
-                    ON CONFLICT (endpoint) WHERE source = 'CONFIGURED'
+                    INSERT INTO support_connections (id, name, endpoint, auth, from_configuration)
+                    VALUES (:id, :name, :endpoint, 'BEARER_TOKEN', TRUE)
+                    ON CONFLICT (endpoint)
                     DO UPDATE SET name = EXCLUDED.name, auth = EXCLUDED.auth, updated_at = NOW()
                     WHERE support_connections.from_configuration
                     RETURNING id
@@ -127,7 +138,7 @@ class ConfiguredSupportConnections(
             if (runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
             log.info("Support connection {} configured at {}", configured.name, configured.baseUrl)
         }
-        // Where each escalates to, once all exist: Epistola support's connection or another configured one.
+        // Where each escalates to, once all exist: another connection, named by its endpoint.
         properties.connections.forEach { configured ->
             val to = configured.escalatesTo.trim().trimEnd('/')
             jdbi.useHandle<Exception> { handle ->
@@ -135,19 +146,22 @@ class ConfiguredSupportConnections(
                     """
                     UPDATE support_connections c SET escalates_to = CASE
                         WHEN :to = '' THEN NULL
-                        WHEN :to = :epistola THEN CAST(:discovered AS UUID)
-                        ELSE (SELECT t.id FROM support_connections t WHERE t.source = 'CONFIGURED' AND t.endpoint = :to)
+                        ELSE (SELECT t.id FROM support_connections t WHERE t.endpoint = :to)
                     END
-                    WHERE c.source = 'CONFIGURED' AND c.endpoint = :endpoint AND c.from_configuration
+                    WHERE c.endpoint = :endpoint AND c.from_configuration
                     """,
                 )
                     .bind("to", to)
-                    .bind("epistola", ESCALATES_TO_EPISTOLA)
-                    .bind("discovered", SupportConnections.DISCOVERED_ID)
                     .bind("endpoint", configured.baseUrl)
                     .execute()
             }
         }
+    }
+
+    /** With `epistola.support.enabled`, the connection `epistola.support.*` configures is stored when it is not. */
+    private fun storeEpistolaSupport() {
+        if (!properties.enabled) return
+        MediatorContext.runWithMediator(mediator) { EnsureConfiguredSupportConnection().execute() }
     }
 }
 
@@ -203,7 +217,6 @@ class RegisteringSupportConnectionFactory(
     private val properties: SupportProperties,
     private val connections: SupportConnections,
     private val client: SupportServiceClient,
-    private val productDiscovery: ProductDiscovery,
     private val installations: InstallationService,
     private val installation: InstallationProperties,
     private val nodeIdentity: NodeIdentity,
@@ -215,7 +228,6 @@ class RegisteringSupportConnectionFactory(
         RegisteringConnectionSettings.forEndpoint(endpoint),
         connections.store(id),
         client,
-        productDiscovery,
         installations,
         installation,
         nodeIdentity,

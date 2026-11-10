@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
 import app.epistola.suite.support.requests.desk.SetSupportRequestHandling
@@ -98,7 +99,7 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         assertThat(page).contains("data-testid=\"support-request-handling\"").contains("data-testid=\"request-handling-select\"")
             .contains("data-testid=\"request-handling-from-configuration\"").doesNotContain("data-testid=\"request-handling-reset\"")
 
-        val saved = post("/platform/support/request-handling", mapOf("connection" to "01900000-0000-7000-8000-000000000001"))
+        val saved = post("/platform/support/request-handling", mapOf("connection" to withMediator { EnsureConfiguredSupportConnection().execute() }.toString()))
         assertThat(saved).contains("data-testid=\"request-handling-reset\"").doesNotContain("data-testid=\"request-handling-from-configuration\"")
         assertThat(get("/platform/support-requests")).contains("New support requests are passed on to")
 

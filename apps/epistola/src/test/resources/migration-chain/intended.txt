@@ -2040,21 +2040,19 @@ $$
 # (V20261108184344), so the first round has it to lock.
 + row app_metadata: {"key":"statistics.generation-position","updated_at":"<now>","value":{"sequence":0}}
 
-# Added after the chain: the support connection replaces the gRPC hub (V20261108192223), with the
-# connection the product domain names created up front.
+# Added after the chain: the support connections replace the gRPC hub (V20261108192223). None is
+# created here: the one epistola.support.* configures is stored at startup.
 + ALTER TABLE ONLY public.support_connections
     ADD CONSTRAINT support_connections_escalates_to_fkey FOREIGN KEY (escalates_to) REFERENCES public.support_connections(id) ON DELETE SET NULL
 + ALTER TABLE ONLY public.support_connections
     ADD CONSTRAINT support_connections_pkey PRIMARY KEY (id)
 + CREATE TABLE public.support_connections (
     CONSTRAINT chk_support_connections_auth CHECK (((auth)::text = ANY ((ARRAY['PRIVATE_KEY_JWT'::character varying, 'BEARER_TOKEN'::character varying])::text[]))),
-    CONSTRAINT chk_support_connections_endpoint CHECK ((((source)::text = 'DISCOVERED'::text) OR (endpoint IS NOT NULL))),
-    CONSTRAINT chk_support_connections_source CHECK (((source)::text = ANY ((ARRAY['DISCOVERED'::character varying, 'CONFIGURED'::character varying])::text[]))),
     auth character varying(32) NOT NULL,
     contact jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     credentials text,
-    endpoint text,
+    endpoint text NOT NULL,
     escalates_to uuid,
     from_configuration boolean DEFAULT false NOT NULL,
     handles_new_requests boolean DEFAULT false NOT NULL,
@@ -2064,14 +2062,12 @@ $$
     privacy jsonb,
     refusals jsonb DEFAULT '{}'::jsonb NOT NULL,
     services jsonb,
-    source character varying(16) NOT NULL,
     status jsonb,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL
 )
-+ CREATE UNIQUE INDEX uq_support_connections_discovered ON public.support_connections USING btree (source) WHERE ((source)::text = 'DISCOVERED'::text)
-+ CREATE UNIQUE INDEX uq_support_connections_configured_endpoint ON public.support_connections USING btree (endpoint) WHERE ((source)::text = 'CONFIGURED'::text)
-+ row support_connections: {"auth":"PRIVATE_KEY_JWT","contact":null,"created_at":"<now>","credentials":null,"endpoint":null,"escalates_to":null,"from_configuration":false,"handles_new_requests":false,"id":"@7c9813bb96b2","name":"Epistola support","node_clocks":{},"privacy":null,"refusals":{},"services":null,"source":"DISCOVERED","status":null,"updated_at":"<now>","version":0}
++ ALTER TABLE ONLY public.support_connections
+    ADD CONSTRAINT uq_support_connections_endpoint UNIQUE (endpoint)
 
 # Added after the chain: what tenants share per support connection, and the usage hours reported
 # (V20261108202810, V20261108202811).

@@ -7,6 +7,7 @@ package app.epistola.suite.support.requests
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
 import app.epistola.suite.testing.FakeSupportServer
@@ -51,7 +52,7 @@ class SupportRequestSharingNoticeHtmxTest : BaseIntegrationTest() {
     fun `a tenant that shares support requests sees on its Support page why they are not sent yet, until they are`() {
         val tenant = createTenant("Sharing Notice")
         connection.checkNow()
-        withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
         assertThat(notice(supportPage(tenant.id.value))).contains("waits to be activated")
 

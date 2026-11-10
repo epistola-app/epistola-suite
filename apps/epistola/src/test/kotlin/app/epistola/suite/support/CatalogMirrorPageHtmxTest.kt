@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.mirror.CatalogMirror
 import app.epistola.suite.support.mirror.CatalogMirrorSharing
@@ -99,7 +100,7 @@ class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("Mirror page marked")
         val letters = testCatalog(tenant, "letters")
         val address = "${letters.namespace}/letters"
-        withMediator { OptInCatalogMirror(tenant, shareByDefault = false, consentVersion = CatalogMirror.CONSENT_VERSION).execute() }
+        withMediator { OptInCatalogMirror(tenant, shareByDefault = false, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(row(page(tenant), address)).contains("Not shared: not marked to share")
 
         val marked = post(tenant, "policy", mapOf("namespace" to letters.namespace, "key" to "letters", "policy" to "SHARE"))
@@ -107,7 +108,7 @@ class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
         assertThat(marked).contains("id=\"catalog-mirror\"").doesNotContain("<html")
         assertThat(marked).contains("Saved the policy of $address.")
         assertThat(row(marked, address)).contains("data-sharing=\"SHARED\"")
-        assertThat(withMediator { GetCatalogMirrorSettings(tenant).query() }.catalogs.single { it.catalog == letters }.sharing)
+        assertThat(withMediator { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.catalogs.single { it.catalog == letters }.sharing)
             .isEqualTo(CatalogMirrorSharing.SHARED)
         // Pending: syncing waits for Epistola to activate the installation, and says so.
         assertThat(marked).contains("data-testid=\"mirror-sync-withheld\"").contains("once Epistola has activated this installation")
@@ -119,7 +120,7 @@ class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
         support.activate(scopes = setOf("mirror"))
         support.expireTokens()
         connection.checkNow()
-        withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION).execute() }
+        withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
         val body = page(tenant)
         assertThat(body).contains("Available").contains("data-testid=\"mirror-sync-now\"")

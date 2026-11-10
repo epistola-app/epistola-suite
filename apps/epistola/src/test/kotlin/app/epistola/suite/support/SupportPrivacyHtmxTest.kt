@@ -8,6 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.mirror.CatalogMirror
 import app.epistola.suite.support.mirror.CatalogMirrorConfidentialException
@@ -108,7 +109,7 @@ class SupportPrivacyHtmxTest : BaseIntegrationTest() {
         assertThat(reference).`as`("the Support page names the tenant's reference").isEqualTo(references.reference(tenant))
 
         assertThat(get("/tenants/${tenant.value}/support/mirror")).contains("Confidential").contains("so catalogs are not shared")
-        assertThatThrownBy { withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION).execute() } }
+        assertThatThrownBy { withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(CatalogMirrorConfidentialException::class.java)
     }
 
@@ -120,13 +121,13 @@ class SupportPrivacyHtmxTest : BaseIntegrationTest() {
 
         assertThat(saved).contains("Named: Epistola sees each tenant").contains("Everything: log messages and errors as written").contains("Set by ")
         assertThat(get("/tenants/${tenant.value}/support")).doesNotContain("data-testid=\"support-tenant-reference\"")
-        withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION).execute() }
-        assertThat(withMediator { GetCatalogMirrorSettings(tenant).query() }.sharing).isTrue()
+        withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
+        assertThat(withMediator { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.sharing).isTrue()
 
         val confidential = post("/platform/support/privacy", mapOf("tenantIdentity" to "CONFIDENTIAL", "telemetry" to "PSEUDONYMISED"))
 
         assertThat(confidential).contains("the catalog mirror withdraws what it holds")
-        assertThat(withMediator { GetCatalogMirrorSettings(tenant).query() }.sharing).`as`("its choice is forgotten").isFalse()
+        assertThat(withMediator { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.sharing).`as`("its choice is forgotten").isFalse()
     }
 
     companion object {

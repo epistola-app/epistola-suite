@@ -39,7 +39,7 @@ import java.util.UUID
 data class WithdrawSupportRequestSyncConsent(
     override val tenantKey: TenantKey,
     /** The connection the tenant stops sharing support requests with. */
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SupportRequestSyncConsentWithdrawal>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE

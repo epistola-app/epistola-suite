@@ -9,8 +9,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import app.epistola.suite.support.requests.queries.ListPendingSyncSupportRequest
@@ -33,7 +31,7 @@ data class RecordSupportRequestSyncFailure(
     val nextAttemptAt: java.time.OffsetDateTime?,
     val countAttempt: Boolean,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 

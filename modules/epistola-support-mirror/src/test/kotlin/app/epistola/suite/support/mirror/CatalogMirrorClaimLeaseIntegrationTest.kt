@@ -5,6 +5,8 @@
 package app.epistola.suite.support.mirror
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -28,13 +30,13 @@ class CatalogMirrorClaimLeaseIntegrationTest : CatalogMirrorTestBase() {
     @Test
     fun `with a long read-timeout a live round's claim is not taken over mid-upload`() {
         val tenant = createTenant("Mirror long lease").id
-        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
+        assertThat(mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).isNotNull()
 
         // Six minutes into one upload that may take ten: past five minutes, well within the deadline.
         claimAged(tenant, Duration.ofMinutes(6))
 
-        assertThat(mirrorStore.isClaimed(DEFAULT_MIRROR_CONNECTION, tenant)).`as`("the round may still be uploading").isTrue()
-        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).`as`("not taken over").isNull()
+        assertThat(mirrorStore.isClaimed(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).`as`("the round may still be uploading").isTrue()
+        assertThat(mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).`as`("not taken over").isNull()
     }
 
     /** Ages [tenant]'s claim by [age]. Raw SQL: the lease runs on the database's clock, which a test cannot move. */

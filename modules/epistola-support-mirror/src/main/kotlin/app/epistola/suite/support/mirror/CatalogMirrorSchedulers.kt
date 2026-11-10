@@ -76,7 +76,7 @@ class CatalogMirrorSyncTimerHandler(
      */
     override fun handle(timer: ClusterTimer): ClusterTimerResult {
         val tenantKey = timer.tenantKey ?: return ClusterTimerResult.Complete
-        val connectionId = (timer.payload[CONNECTION] as? String)?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: DEFAULT_MIRROR_CONNECTION
+        val connectionId = (timer.payload[CONNECTION] as? String)?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return ClusterTimerResult.Complete
         if (reconciler.isClaimed(tenantKey, connectionId)) return ClusterTimerResult.Reschedule(EpistolaClock.offsetDateTime().plus(BUSY_RETRY))
         if (!work.launch(timerKey(connectionId, tenantKey)) { sync(connectionId, tenantKey) }) {
             return ClusterTimerResult.Reschedule(EpistolaClock.offsetDateTime().plus(BUSY_RETRY))

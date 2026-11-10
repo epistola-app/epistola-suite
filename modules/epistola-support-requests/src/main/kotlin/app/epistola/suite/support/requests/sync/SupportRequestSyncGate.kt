@@ -16,7 +16,6 @@ import app.epistola.suite.support.connection.lastContactFailed
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.consent.IsSupportRequestExchangedUnderConsent
 import app.epistola.suite.support.requests.consent.IsSupportRequestSyncConsentInForce
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
@@ -43,22 +42,19 @@ class SupportRequestSyncGate(
 
     /** [canSendNow] for support connection [connectionId] (ADR 0053 step 3): its port is wired and ready, and its last contact did not fail. */
     fun canSendNow(connectionId: UUID): Boolean {
-        if (connectionId == REQUESTS_CONNECTION) return canSendNow()
-        val target = ports.ifAvailable?.port(connectionId) ?: return false
         val other = registry.ifAvailable?.find(connectionId) ?: return false
+        if (other === connection) return canSendNow()
+        val target = ports.ifAvailable?.port(connectionId) ?: return false
         return target.isEnabled() && target.isReady() && !other.lastContactFailed()
     }
-
-    /** [canSendNow], and [tenantKey]'s consent to send its feedback is in force. */
-    fun maySend(tenantKey: TenantKey): Boolean = canSendNow() && IsSupportRequestSyncConsentInForce(tenantKey).query()
 
     /**
      * [canSendNow], and [feedback] is exchanged under the consent in force: what is said or added
      * about feedback sent before a withdrawal, or synced by the retired hub, stays here.
      */
     fun mayExchange(supportRequest: SupportRequest): Boolean {
-        // With the connection that handles it (Epistola support's while none does), as the request view reads it.
-        val connectionId = supportRequest.handlerConnection ?: REQUESTS_CONNECTION
+        // With the connection that handles it, as the request view reads it; with none, the inbox keeps it.
+        val connectionId = supportRequest.handlerConnection ?: return false
         return canSendNow(connectionId) && IsSupportRequestExchangedUnderConsent(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), connectionId).query()
     }
 }

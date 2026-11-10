@@ -163,7 +163,7 @@ data class CatalogMirrorSettings(
     val installationDefault: CatalogMirrorDefault = CatalogMirrorDefault.NONE,
     /** The pause in force while [availability] is [CatalogMirrorAvailability.PAUSED]; null otherwise. */
     val pause: SupportPause? = null,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
     val connectionName: String = "",
     val connections: List<CatalogMirrorConnection> = emptyList(),
 ) {
@@ -240,7 +240,7 @@ data class GetCatalogMirrorSettings(
     override val tenantKey: TenantKey,
     val offset: Int = 0,
     val limit: Int = DEFAULT_LIMIT,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Query<CatalogMirrorSettings>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -479,7 +479,7 @@ data class ListMirrorBindings(
     val after: MirrorBindingCursor? = null,
     val limit: Int = DEFAULT_LIMIT,
     /** The connection the bindings go to: each has its own sharing choice and catalog policies. */
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Query<MirrorBindingsPage>,
     SystemInternal {
     /** [limit] as the handler applies it: 1..[MAX_LIMIT]. */
@@ -610,7 +610,7 @@ data class MirrorTenants(val tenants: List<MirrorTenant>) {
 }
 
 /** The tenants the reconcile with [connectionId] has to look at: those sharing, and those whose withdrawal is unconfirmed. For the reconcile. */
-data class ListMirrorTenants(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
+data class ListMirrorTenants(val connectionId: UUID) :
     Query<MirrorTenants>,
     SystemInternal
 

@@ -8,8 +8,6 @@ import app.epistola.suite.common.ids.SupportRequestCommentId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import org.jdbi.v3.core.Jdbi
@@ -21,7 +19,7 @@ data class UpdateSupportRequestCommentExternalRef(
     val id: SupportRequestCommentId,
     val externalCommentId: String,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -60,7 +58,7 @@ data class RecordSupportRequestCommentSyncFailure(
     /** One attempt more: a refusal. A server error on this comment alone is not counted. */
     val countAttempt: Boolean = true,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 

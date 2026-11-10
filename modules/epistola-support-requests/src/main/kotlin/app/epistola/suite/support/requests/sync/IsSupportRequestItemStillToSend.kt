@@ -12,8 +12,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
@@ -44,7 +42,7 @@ sealed interface OutboundSupportRequestItem {
  */
 data class IsSupportRequestItemStillToSend(
     val item: OutboundSupportRequestItem,
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Query<Boolean>,
     SystemInternal
 

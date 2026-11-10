@@ -8,6 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
@@ -79,8 +80,8 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
     fun `disconnecting ends the registration at Epistola, forgets its key and clears every tenant's choice`() {
         val tenant = createTenant("Disconnect Clears").id
         withMediator {
-            SetUsageChoice(tenant, share = true).execute()
-            SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute()
+            SetUsageChoice(tenant, share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
         }
         val clientId = support.latestRegistration.clientId
 
@@ -92,8 +93,8 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         val state = connection.status().state as SupportConnectionState.Disconnected
         assertThat(state.outcome).isEqualTo(SupportDisconnectOutcome.CONFIRMED)
         assertThat(store.credentials()).`as`("the key is forgotten").isNull()
-        assertThat(withMediator { GetUsageChoice(tenant).query() }.share).`as`("no choice is left").isNull()
-        assertThat(withMediator { GetSharingRestrictions().query() }.of(USAGE_SECTION)).`as`("nor Required: registering again asks again").isNull()
+        assertThat(withMediator { GetUsageChoice(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.share).`as`("no choice is left").isNull()
+        assertThat(withMediator { GetSharingRestrictions(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.of(USAGE_SECTION)).`as`("nor Required: registering again asks again").isNull()
     }
 
     @Test

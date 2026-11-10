@@ -11,7 +11,6 @@ import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.support.requests.SupportRequestStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi

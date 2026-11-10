@@ -5,7 +5,6 @@
 package app.epistola.suite.support.requests.consent
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.support.connection.SupportConnections
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -49,15 +48,6 @@ data class SupportRequestSyncConsentWithdrawal(
     val stoppedSupportRequest: Int,
 )
 
-/**
- * The connection support requests went over before they had one per connection: Epistola support's.
- * What reads or writes a tenant's consent takes the connection; this is its default (ADR 0053 step 3).
- */
-internal val REQUESTS_CONNECTION: UUID = SupportConnections.DISCOVERED_ID
-
-/** [REQUESTS_CONNECTION] as an SQL literal, for the predicates below, which are built into other statements. */
-internal val REQUESTS_CONNECTION_SQL = connectionSql(REQUESTS_CONNECTION)
-
 /** Connection [id] as an SQL literal, for the predicates below; a column such as `d.connection_id` works as well. */
 internal fun connectionSql(id: UUID): String = "'$id'::uuid"
 
@@ -75,7 +65,7 @@ internal val SELECT_SUPPORT_REQUEST_SYNC_CONSENT = """
  * SQL predicate, for a query with the tenant's key in [tenantKeyColumn], that the tenant's consent
  * is in force. The sync sweeps filter on it in SQL so they never load what they may not send.
  */
-internal fun consentInForce(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
+internal fun consentInForce(tenantKeyColumn: String, connection: String): String = """
     EXISTS (SELECT 1 FROM support_sharing_choice fsc
             WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL)
 """
@@ -89,7 +79,7 @@ internal fun consentInForce(tenantKeyColumn: String, connection: String = REQUES
  * still in force and the withdrawal's statements miss its uncommitted row: it would be sent once
  * consent is given again. Not for queries, which may run read-only.
  */
-internal fun lockedConsentInForce(tenantKeyColumn: String, connection: String = REQUESTS_CONNECTION_SQL): String = """
+internal fun lockedConsentInForce(tenantKeyColumn: String, connection: String): String = """
     EXISTS (SELECT 1 FROM support_sharing_choice fsc
             WHERE fsc.connection_id = $connection AND fsc.section = '$REQUESTS_SECTION' AND fsc.tenant_key = $tenantKeyColumn AND fsc.withdrawn_at IS NULL
             FOR SHARE)

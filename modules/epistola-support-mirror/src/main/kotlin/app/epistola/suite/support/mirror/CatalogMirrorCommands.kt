@@ -55,7 +55,7 @@ data class OptInCatalogMirror(
     val shareByDefault: Boolean,
     val consentVersion: String,
     /** The connection the tenant shares its catalogs with. */
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorConsentResult>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -109,7 +109,7 @@ class OptInCatalogMirrorHandler(
  */
 data class OptOutCatalogMirror(
     override val tenantKey: TenantKey,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorConsentResult?>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -162,7 +162,7 @@ data class SetCatalogMirrorPolicy(
     val catalog: CatalogId,
     val policy: CatalogMirrorPolicy,
     /** The connection whose sharing the policy is part of: each has its own. */
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorPolicyResult>,
     RequiresPermission {
     override val tenantKey: TenantKey get() = catalog.tenantKey
@@ -222,7 +222,7 @@ data class CatalogMirrorSyncRequested(val tenantKey: TenantKey, val connectionId
  */
 data class RequestCatalogMirrorSync(
     override val tenantKey: TenantKey,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorSyncRequested>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE

@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportCluster
+import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.commands.MarkSupportRequestAssetSynced
@@ -27,7 +28,6 @@ import app.epistola.suite.support.requests.commands.RecordSupportRequestCommentS
 import app.epistola.suite.support.requests.commands.RecordSupportRequestSyncFailure
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestCommentExternalRef
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncRef
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.queries.GetSupportRequest
 import app.epistola.suite.support.requests.queries.GetSupportRequestAssetContent
 import app.epistola.suite.support.requests.queries.GetSupportRequestDelivered
@@ -128,7 +128,7 @@ class SupportRequestSyncScheduler(
         private var serverErrors = 0
 
         /** The connection this part of the round sends to. */
-        var connectionId: java.util.UUID = REQUESTS_CONNECTION
+        var connectionId: java.util.UUID = SupportConnectionStore.NO_CONNECTION
             set(value) {
                 field = value
                 serverErrors = 0

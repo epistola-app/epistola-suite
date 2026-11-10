@@ -11,8 +11,6 @@ import app.epistola.suite.support.requests.CommentSource
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
@@ -34,7 +32,7 @@ import java.util.UUID
 data class ListUnsyncedComments(
     val limit: Int = 50,
     /** The connection to send to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Query<List<SupportRequestComment>>,
     SystemInternal
 

@@ -18,6 +18,7 @@ import app.epistola.suite.statistics.GenerationStatisticsRollup
 import app.epistola.suite.statistics.PreviewStatisticsCounter
 import app.epistola.suite.statistics.StatisticsProperties
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.sharing.SetSharingRestriction
@@ -80,15 +81,15 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
         // writes, so each test starts with none reported, from the current hour on.
         jdbi.useHandle<Exception> {
             it.createUpdate("DELETE FROM support_usage_reports").execute()
-            it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", UsageReporter.SINCE_KEY).execute()
+            it.createUpdate("DELETE FROM app_metadata WHERE key LIKE :key").bind("key", "${UsageReporter.SINCE_KEY}.%").execute()
         }
     }
 
     @AfterEach
     fun reset() {
         withMediator {
-            SetSharingRestriction(USAGE_SECTION, null).execute()
-            ForgetUsageSharing().execute()
+            SetSharingRestriction(USAGE_SECTION, null, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            ForgetUsageSharing(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
         }
     }
 
@@ -151,7 +152,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     @Test
     fun `required, every tenant's documents and previews of a finished day are reported under its reference`() {
         val tenant = tenantWithUse("Usage Required")
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
         val reported = reportNextHour()
 
@@ -164,8 +165,8 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
         val sharing = tenantWithUse("Usage Default")
         val optedOut = tenantWithUse("Usage Opted Out")
         withMediator {
-            SetUsageDefault(share = true).execute()
-            SetUsageChoice(optedOut, share = false).execute()
+            SetUsageDefault(share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            SetUsageChoice(optedOut, share = false, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
         }
 
         val reported = reportNextHour()
@@ -173,7 +174,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
         assertThat(reported).containsKey(references.reference(sharing)).doesNotContainKey(references.reference(optedOut))
 
         support.usageReports.clear()
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.NOT_ALLOWED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.NOT_ALLOWED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(reportNextHour()).isEmpty()
         assertThat(support.usageReports).isEmpty()
     }
@@ -182,21 +183,21 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     fun `a tenant's own usage choice reads back as declined or shared, and following the default forgets it`() {
         val tenant = createTenant("Usage Choice").id
         withMediator {
-            SetUsageDefault(share = true).execute()
+            SetUsageDefault(share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
 
-            val declined = SetUsageChoice(tenant, share = false).execute()
+            val declined = SetUsageChoice(tenant, share = false, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
             assertThat(declined.share).isFalse()
             assertThat(declined.decidedAt).isNotNull()
 
-            val shared = SetUsageChoice(tenant, share = true).execute()
+            val shared = SetUsageChoice(tenant, share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
             assertThat(shared.share).isTrue()
             assertThat(shared.decidedAt).isAfterOrEqualTo(declined.decidedAt)
 
-            assertThat(SetUsageChoice(tenant, share = false).execute().share).`as`("declined again after sharing").isFalse()
+            assertThat(SetUsageChoice(tenant, share = false, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute().share).`as`("declined again after sharing").isFalse()
 
-            val following = FollowUsageDefault(tenant).execute()
+            val following = FollowUsageDefault(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
             assertThat(following.share).`as`("no choice of its own").isNull()
-            assertThat(GetUsageChoice(tenant).query().share).isNull()
+            assertThat(GetUsageChoice(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query().share).isNull()
         }
     }
 
@@ -241,15 +242,15 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     fun `hours from while usage was not allowed are never sent, also once it is allowed again`() {
         val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
         // The installation has reported before: the hour before this one went out.
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         EpistolaClock.withInstant(hour.plusSeconds(30)) { reporter.report() }
         assertThat(support.usageReports.keys).contains(hour.minus(1, ChronoUnit.HOURS).toString())
         tenantWithUse("Usage Not Allowed Then")
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.NOT_ALLOWED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.NOT_ALLOWED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(reportNextHour()).isEmpty()
 
         // An hour later usage is Required again: the hour of the use was under Not allowed, and stays unsent.
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         EpistolaClock.withInstant(hour.plus(2, ChronoUnit.HOURS).plusSeconds(30)) { reporter.report() }
 
         assertThat(support.usageReports.keys).`as`("the not-allowed hour").doesNotContain(hour.toString())
@@ -258,7 +259,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     @Test
     fun `a 403 insufficient_scope on a report tells the connection, which stops using usage`() {
         tenantWithUse("Usage Withdrawn")
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         support.fault(app.epistola.suite.testing.FakeSupportFault.Respond(app.epistola.suite.testing.FakeSupportResponse.insufficientScope("usage")), "PUT", "/api/v1/usage/hours/")
 
         reportNextHour()
@@ -271,7 +272,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
     @Test
     fun `an hour the support service refuses for good is skipped, so later hours still go`() {
         tenantWithUse("Usage Refused Hour")
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         statistics.rollUp()
         previews.flush()
         val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
@@ -291,7 +292,7 @@ class UsageReportingIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `which hours went out is kept only as long as a round can look back, and a day more`() {
-        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED).execute() }
+        withMediator { SetSharingRestriction(USAGE_SECTION, SharingRestriction.REQUIRED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         val hour = EpistolaClock.instant().truncatedTo(ChronoUnit.HOURS)
         EpistolaClock.withInstant(hour.plusSeconds(30)) { reporter.report() }
         EpistolaClock.withInstant(hour.plus(1, ChronoUnit.HOURS).plusSeconds(30)) { reporter.report() }

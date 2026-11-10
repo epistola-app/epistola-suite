@@ -391,9 +391,10 @@ support:
   #       # (pseudonymised or full); left out: the installation's privacy settings. An
   #       # administrator's choice under Platform → Epistola support wins.
   #       tenantIdentity: named
-  #       # The connection it escalates to when it asks the installation to (epistola, another
-  #       # entry's endpoint); left out: no one, and the support desk decides.
-  #       escalatesTo: epistola
+  #       # The connection it escalates to when it asks the installation to, by its endpoint:
+  #       # another entry's, or the one support.endpoint is set to; left out: no one, and the
+  #       # support desk decides.
+  #       escalatesTo: https://support.epistola.app
   connections: []
   # Usage for billing.
   usage:
@@ -423,9 +424,9 @@ support:
     # Empty: the suite's default, pseudonymised.
     telemetry: ""
 
-  # The support service's https URL (its OAuth issuer). Empty: found through productDomain, and
-  # https://support.{productDomain} when the discovery document names none. Plaintext is a
-  # local-development setting and is not exposed here.
+  # The https URL (OAuth issuer) of the support connection support.enabled stores at startup, when
+  # it is not stored (also after an administrator removed it). Empty: https://support.{productDomain}.
+  # Plaintext is a local-development setting and is not exposed here.
   endpoint: ""
 
   # Installation identity. Required when support.enabled is true.

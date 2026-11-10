@@ -55,7 +55,7 @@ object SharingRestrictions {
     /** What a tenant reads where it cannot opt in. */
     const val NOT_ALLOWED_REASON = "Not allowed in this installation. An installation administrator decides this."
 
-    fun of(handle: Handle, section: String, connectionId: UUID = SupportConnections.DISCOVERED_ID): SharingRestriction? = handle
+    fun of(handle: Handle, section: String, connectionId: UUID): SharingRestriction? = handle
         .createQuery("SELECT restriction FROM support_sharing_restriction WHERE connection_id = :connection AND section = :section")
         .bind("connection", connectionId)
         .bind("section", section)
@@ -64,10 +64,10 @@ object SharingRestrictions {
         .map(SharingRestriction::valueOf)
         .orElse(null)
 
-    fun isNotAllowed(handle: Handle, section: String, connectionId: UUID = SupportConnections.DISCOVERED_ID): Boolean = of(handle, section, connectionId) == SharingRestriction.NOT_ALLOWED
+    fun isNotAllowed(handle: Handle, section: String, connectionId: UUID): Boolean = of(handle, section, connectionId) == SharingRestriction.NOT_ALLOWED
 
     /** Throws [SharingNotAllowedException] while [section] is not allowed towards [connectionId]. */
-    fun requireAllowed(handle: Handle, section: String, connectionId: UUID = SupportConnections.DISCOVERED_ID) {
+    fun requireAllowed(handle: Handle, section: String, connectionId: UUID) {
         if (isNotAllowed(handle, section, connectionId)) throw SharingNotAllowedException(section)
     }
 }
@@ -78,7 +78,7 @@ data class SharingRestrictionsResult(val bySection: Map<String, SharingRestricti
 }
 
 /** The restrictions towards [connectionId], for the platform page and every tenant's Support page. */
-data class GetSharingRestrictions(val connectionId: UUID = SupportConnections.DISCOVERED_ID) :
+data class GetSharingRestrictions(val connectionId: UUID) :
     Query<SharingRestrictionsResult>,
     RequiresAuthentication
 
@@ -117,7 +117,7 @@ class GetSharingRestrictionsHandler(private val jdbi: Jdbi) : QueryHandler<GetSh
 data class SetSharingRestriction(
     val section: String,
     val restriction: SharingRestriction?,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SharingRestrictionsResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR

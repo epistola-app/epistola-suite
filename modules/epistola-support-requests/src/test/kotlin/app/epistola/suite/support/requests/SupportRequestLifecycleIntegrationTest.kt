@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.commands.SyncSupportRequestPriority
@@ -193,7 +194,7 @@ class SupportRequestLifecycleIntegrationTest : IntegrationTestBase() {
         assertThat(created.priority).`as`("the priority starts as the requested one").isEqualTo(SupportRequestPriority.MEDIUM)
 
         // The inbox handles it: the desk sets the priority, and a connection's is not applied.
-        assertThat(withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.LOW).execute() }).`as`("not from a connection").isFalse()
+        assertThat(withMediator { SyncSupportRequestPriority(id, SupportRequestPriority.LOW, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }).`as`("not from a connection").isFalse()
         val changed = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
         val again = withMediator { SetSupportDeskPriority(tenant.id, created.id, SupportRequestPriority.HIGH).execute() }
 

@@ -10,14 +10,13 @@
 -- reads, the selected services, the contact, refusals and node clock errors,
 -- and the version every write raises so other nodes see a change with one primary-key read.
 --
--- The connection the product domain's discovery document names (ADR 0030) has a fixed id and is
--- created here, so the tables that hang off a connection always have it to refer to.
+-- No row is created here: the connection epistola.support.* configures is stored at startup while
+-- epistola.support.enabled is on, and the others when they are configured or added.
 
 CREATE TABLE support_connections (
     id           UUID        NOT NULL PRIMARY KEY,
     name         TEXT        NOT NULL,
-    source       VARCHAR(16) NOT NULL CONSTRAINT chk_support_connections_source CHECK (source IN ('DISCOVERED', 'CONFIGURED')),
-    endpoint     TEXT,
+    endpoint     TEXT        NOT NULL,
     auth         VARCHAR(32) NOT NULL CONSTRAINT chk_support_connections_auth CHECK (auth IN ('PRIVATE_KEY_JWT', 'BEARER_TOKEN')),
     escalates_to UUID        REFERENCES support_connections (id) ON DELETE SET NULL,
     credentials  TEXT,
@@ -33,19 +32,15 @@ CREATE TABLE support_connections (
     version      BIGINT      NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_support_connections_endpoint CHECK (source = 'DISCOVERED' OR endpoint IS NOT NULL)
+    -- A connection is named by its endpoint: the configuration that names it again at the next start
+    -- finds it, and nodes starting together cannot create it twice.
+    CONSTRAINT uq_support_connections_endpoint UNIQUE (endpoint)
 );
-
--- One connection comes from the product domain's discovery document.
-CREATE UNIQUE INDEX uq_support_connections_discovered ON support_connections (source) WHERE source = 'DISCOVERED';
--- A configured connection is named by its endpoint: the configuration that names it again at the next
--- start finds it, and nodes starting together cannot create it twice.
-CREATE UNIQUE INDEX uq_support_connections_configured_endpoint ON support_connections (endpoint) WHERE source = 'CONFIGURED';
 
 COMMENT ON TABLE support_connections IS
     'Parties the installation shares with (ADR 0053): registration, status, selected services and contact per connection.';
 COMMENT ON COLUMN support_connections.endpoint IS
-    'The support service''s issuer; NULL for the DISCOVERED connection, whose endpoint comes from the product domain or epistola.support.endpoint.';
+    'The other side''s base URL or issuer, without a trailing slash: the connection''s identity.';
 COMMENT ON COLUMN support_connections.credentials IS
     'The registration (private key, client id, claim code), encrypted with the credential cipher; NULL while not registered.';
 COMMENT ON COLUMN support_connections.status IS
@@ -57,9 +52,6 @@ COMMENT ON COLUMN support_connections.refusals IS
 COMMENT ON COLUMN support_connections.node_clocks IS
     'Per node id, a clock error the service reported for that node, stamped by the database clock.';
 COMMENT ON COLUMN support_connections.privacy IS
-    'What this connection learns of tenants and how much telemetry carries, as an administrator saved it; NULL: the configuration, else the installation''s settings. Not used for the discovered connection, whose settings are the installation''s (app_metadata support.privacy).';
+    'What this connection learns of tenants and how much telemetry carries, as an administrator saved it; NULL: the configuration, else the installation''s settings (app_metadata support.privacy).';
 COMMENT ON COLUMN support_connections.version IS
     'Raised by every write to the row: a node that finds it unchanged knows its copy is current.';
-
-INSERT INTO support_connections (id, name, source, auth)
-VALUES ('01900000-0000-7000-8000-000000000001', 'Epistola support', 'DISCOVERED', 'PRIVATE_KEY_JWT');

@@ -8,7 +8,6 @@ import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.observability.NodeIdentity
-import app.epistola.suite.productdomain.ProductDiscovery
 import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.time.EpistolaClock
 import com.nimbusds.jose.jwk.ECKey
@@ -74,7 +73,6 @@ class DefaultSupportConnection internal constructor(
     internal val settings: RegisteringConnectionSettings,
     internal val store: SupportConnectionStore,
     private val client: SupportServiceClient,
-    private val productDiscovery: ProductDiscovery,
     private val installations: InstallationService,
     private val installation: InstallationProperties,
     private val nodeIdentity: NodeIdentity,
@@ -87,13 +85,13 @@ class DefaultSupportConnection internal constructor(
         properties: SupportProperties,
         store: SupportConnectionStore,
         client: SupportServiceClient,
-        productDiscovery: ProductDiscovery,
+        connections: SupportConnections,
         installations: InstallationService,
         installation: InstallationProperties,
         nodeIdentity: NodeIdentity,
         buildProperties: BuildProperties?,
         supportHttp: SupportHttp,
-    ) : this(properties, RegisteringConnectionSettings.of(properties), store, client, productDiscovery, installations, installation, nodeIdentity, buildProperties, supportHttp)
+    ) : this(properties, RegisteringConnectionSettings.of(properties, connections.configuredEndpoint()), store, client, installations, installation, nodeIdentity, buildProperties, supportHttp)
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -143,8 +141,13 @@ class DefaultSupportConnection internal constructor(
 
     private val tokenLock = ReentrantLock()
 
+    /** On: [RegisteringConnectionSettings.enabled], and the connection's row exists (an administrator may have removed it). */
+    private fun on(): Boolean = settings.enabled && store.exists()
+
+    private fun offReason(): String = if (settings.enabled) "The support connection was removed" else settings.offReason
+
     override fun status(): SupportConnectionStatus {
-        if (!settings.enabled) return SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
+        if (!on()) return SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
         val snap = snapshot()
         val stored = snap.status
         val credentials = snap.credentials?.takeIf { it.clientId != null && (snap.issuer == null || sameIssuer(it.issuer, snap.issuer)) }
@@ -197,7 +200,7 @@ class DefaultSupportConnection internal constructor(
      * This node's clock is off, so the support service refuses its client assertions: it does not
      * take on cluster-wide support work ([SupportClusterCapability]) until a token is fetched again.
      */
-    fun nodeClockOff(): Boolean = settings.enabled && nodeClock.isOff()
+    fun nodeClockOff(): Boolean = on() && nodeClock.isOff()
 
     /**
      * Whether [t] was asked for after [stored]'s scopes were learned: by the store version when the
@@ -213,10 +216,10 @@ class DefaultSupportConnection internal constructor(
         offeredServices()?.contains(scope.value) != false &&
         (status().state as? SupportConnectionState.Active)?.usable(EpistolaClock.instant())?.contains(scope) == true
 
-    override fun isSelected(scope: SupportScope): Boolean = settings.enabled && scope.value in selectedServices().services
+    override fun isSelected(scope: SupportScope): Boolean = on() && scope.value in selectedServices().services
 
     override fun scopeRefused(scope: SupportScope) {
-        if (!settings.enabled) return
+        if (!on()) return
         val current = token
         if (current != null && scope !in current.scopes) {
             // A token from before the scope was asked for or granted: drop it, the next call asks again.
@@ -244,7 +247,7 @@ class DefaultSupportConnection internal constructor(
      * installation administrator saved one. Cached with the other stored rows; no network I/O.
      */
     fun selectedServices(): SupportServiceSelection {
-        if (!settings.enabled) return SupportServiceSelection(settings.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
+        if (!on()) return SupportServiceSelection(settings.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
         val stored = snapshot().services
         return if (stored == null) {
             SupportServiceSelection(settings.configuredServices, fromConfiguration = true, savedAt = null, savedBy = null)
@@ -298,7 +301,7 @@ class DefaultSupportConnection internal constructor(
     override fun requestsEndpoint(): URI? = metadataCache.cached()?.requestsEndpoint
 
     override fun cachedAccessToken(): String? {
-        if (!settings.enabled) return null
+        if (!on()) return null
         val current = token?.takeIf { it.expiresAt.isAfter(EpistolaClock.instant().plus(CACHED_MARGIN)) } ?: return null
         if (!fitsNow(current)) {
             // Asked for another selection, or lacks a scope granted since: never sent with; a new one
@@ -316,7 +319,7 @@ class DefaultSupportConnection internal constructor(
     }
 
     override fun accessToken(): String {
-        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
+        if (!on()) throw SupportUnavailableException(offReason())
         // Refused: asking again only gets invalid_client again. A check (or Register again) finds a restored registration.
         (status().state as? SupportConnectionState.Refused)?.let { throw SupportRefusedException("The support service refused registration ${it.clientId}: ${it.reason}") }
         usable()?.let { return it.value }
@@ -350,7 +353,7 @@ class DefaultSupportConnection internal constructor(
     private fun backoffDelay(failures: Int): Duration = BACKOFF_FIRST.multipliedBy(1L shl (failures - 1).coerceAtMost(BACKOFF_MAX_DOUBLINGS)).coerceAtMost(BACKOFF_MAX)
 
     override fun tokenRejected(token: String) {
-        if (!settings.enabled || this.token?.value != token) return
+        if (!on() || this.token?.value != token) return
         if (!replaceRejected(token)) return
         renewInBackground()
     }
@@ -473,7 +476,7 @@ class DefaultSupportConnection internal constructor(
      * once, and that one's result is what the page shows next.
      */
     fun checkIfIdle(): Boolean {
-        if (!settings.enabled) return true
+        if (!on()) return true
         val ran = try {
             store.tryExclusively { check(allowRegister = settings.autoRegister) } != null
         } finally {
@@ -496,7 +499,7 @@ class DefaultSupportConnection internal constructor(
      * @throws SupportRegistrationNotAllowedException unless the connection is unregistered, expired or disconnected.
      */
     fun registerNow(contact: StoredSupportContact? = null) {
-        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
+        if (!on()) throw SupportUnavailableException(offReason())
         try {
             store.tryExclusively {
                 invalidate()
@@ -532,7 +535,7 @@ class DefaultSupportConnection internal constructor(
      * @throws SupportRegistrationNotAllowedException when the registration is not refused or pending (any more).
      */
     fun registerAgain() {
-        if (!settings.enabled) throw SupportUnavailableException(settings.offReason)
+        if (!on()) throw SupportUnavailableException(offReason())
         try {
             store.tryExclusively {
                 invalidate()
@@ -581,7 +584,7 @@ class DefaultSupportConnection internal constructor(
      * while another thread fetches one. Never throws.
      */
     fun refreshTokenIfDue() {
-        if (!settings.enabled) return
+        if (!on()) return
         val state = status().state
         if (state !is SupportConnectionState.Pending && state !is SupportConnectionState.Active) return
         val current = token
@@ -948,7 +951,7 @@ class DefaultSupportConnection internal constructor(
 
     // --- metadata, per node ([SupportMetadataCache]) ---
 
-    private fun resolveIssuer(): URI = settings.issuer ?: productDiscovery.endpoints().support.issuer
+    private fun resolveIssuer(): URI = settings.issuer
 
     /** The verified metadata of the issuer in use; fetched when this node has none. */
     private fun currentMetadata(): SupportServiceMetadata = metadataCache.cached() ?: metadataFor(store.credentials()?.issuer?.let(::URI) ?: resolveIssuer())
@@ -980,7 +983,7 @@ class DefaultSupportConnection internal constructor(
         val generation = synchronized(snapshotLock) { snapshotGeneration }
         // Before the rows: a write that lands in between raises it again, so the next check reads anew.
         if (!versionRead) version = runCatching { store.version() }.getOrNull()
-        val issuer = settings.issuer ?: runCatching { productDiscovery.cachedEndpoints().support.issuer }.getOrNull()
+        val issuer: URI? = settings.issuer
         val read = readSupportRows(store, issuer, snapshot?.services, version, log)
         // What is selected by these rows: the saved selection, or the configuration until one was saved.
         val services = read.services?.let { SupportScope.normalize(it.services) } ?: settings.configuredServices

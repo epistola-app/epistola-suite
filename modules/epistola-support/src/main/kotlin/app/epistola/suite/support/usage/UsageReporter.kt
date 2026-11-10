@@ -14,7 +14,6 @@ import app.epistola.suite.statistics.StatisticsProperties
 import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
-import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.isInsufficientScope
 import app.epistola.suite.support.connection.isSupportUnavailable
@@ -102,13 +101,11 @@ class UsageReporter(
      * where it started and its lock are its own. Epistola support's keeps the keys it always had.
      */
     private inner class ConnectionReporter(val connection: SupportConnection) {
-        private val discoveredOne = connection.id == SupportConnections.DISCOVERED_ID
-
         /** Where this connection's reporting started, in `app_metadata`. */
-        private val sinceKey = if (discoveredOne) SINCE_KEY else "$SINCE_KEY.${connection.id}"
+        private val sinceKey = "$SINCE_KEY.${connection.id}"
 
         /** The advisory lock that lets one node report to this connection at a time. */
-        private val lockKey = if (discoveredOne) LOCK_KEY else LOCK_KEY xor connection.id.leastSignificantBits
+        private val lockKey = LOCK_KEY xor connection.id.leastSignificantBits
 
         /** After a round that could not send everything, the next one waits until then. */
         @Volatile private var notBefore: Instant = Instant.MIN

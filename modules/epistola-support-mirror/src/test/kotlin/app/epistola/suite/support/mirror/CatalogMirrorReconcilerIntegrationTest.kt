@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportScope
@@ -96,17 +97,17 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
     fun `a Sync now that finds the tenant claimed by another round asks again rather than being lost`() {
         val tenant = createTenant("Mirror Sync Busy").id
         optIn(tenant, shareByDefault = true)
-        val otherRound = checkNotNull(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant))
+        val otherRound = checkNotNull(mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant))
         try {
-            val result = withMediator { syncTimer.sync(DEFAULT_MIRROR_CONNECTION, tenant) }
+            val result = withMediator { syncTimer.sync(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant) }
 
             assertThat(result).isEqualTo(TenantReconcileResult.BUSY)
             val timers = jdbi.withHandle<Int, Exception> {
-                it.createQuery("SELECT COUNT(*) FROM cluster_timers WHERE timer_key = :k").bind("k", CatalogMirrorSyncTimerHandler.timerKey(DEFAULT_MIRROR_CONNECTION, tenant)).mapTo(Int::class.java).one()
+                it.createQuery("SELECT COUNT(*) FROM cluster_timers WHERE timer_key = :k").bind("k", CatalogMirrorSyncTimerHandler.timerKey(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).mapTo(Int::class.java).one()
             }
             assertThat(timers).`as`("a timer runs it again").isEqualTo(1)
         } finally {
-            mirrorStore.release(DEFAULT_MIRROR_CONNECTION, tenant, otherRound)
+            mirrorStore.release(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant, otherRound)
         }
     }
 
@@ -117,7 +118,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         try {
             val before = support.requests.count { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }
 
-            reconciler.syncTenant(tenant)
+            reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
             assertThat(support.requests.filter { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }.drop(before).map { it.path })
                 .`as`("no request names %s", tenant.value).isEmpty()
@@ -136,7 +137,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(tenant)
         val before = support.requests.size
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(report.ran).isFalse()
         assertThat(support.requests.drop(before).filter { it.path.startsWith("/api/v1/mirror") }).isEmpty()
@@ -147,13 +148,13 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror withdrawn scope").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         // Staff withdraw the mirror: the service refuses the scope at once, with the token still valid.
         support.activate(scopes = setOf("requests"))
         val before = support.requests.size
 
-        val refused = reconciler.reconcileAll()
-        val after = reconciler.reconcileAll()
+        val refused = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
+        val after = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(refused.ran).isFalse()
         assertThat(after.ran).isFalse()
@@ -163,7 +164,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
 
         support.activate(scopes = setOf("mirror"))
         connection.checkNow()
-        assertThat(reconciler.syncTenant(tenant)).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isEqualTo(TenantReconcileResult.SENT)
     }
 
     @Test
@@ -171,11 +172,11 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror withdrawal refused").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
-        withMediator { OptOutCatalogMirror(tenant).execute() }
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
+        withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         mirror.refuseScopeOnSet = true
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         // Other test classes' sharing tenants may come first; the first refusal stops the round either way.
         assertThat(report.tenants.values).contains(TenantReconcileResult.NOT_GRANTED).doesNotContain(TenantReconcileResult.FAILED)
@@ -187,7 +188,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
 
         mirror.refuseScopeOnSet = false
         connection.checkNow()
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.WITHDRAWN)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.WITHDRAWN)
         assertThat(settings(tenant).consent!!.withdrawalPending).isFalse()
     }
 
@@ -202,7 +203,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         // The mirror already has 1.0.0, from another tenant of this installation.
         mirror.stored[hashes.getValue("1.0.0")] = byteArrayOf(1)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(report.tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         val sent = mirror.lastSet(tenant)
@@ -227,18 +228,18 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror digest").id
         val letters = releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         val puts = mirror.puts(tenant)
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.UNCHANGED)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.UNCHANGED)
         assertThat(mirror.puts(tenant)).isEqualTo(puts)
 
         testClock.advanceBy(Duration.ofHours(25))
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).`as`("at least daily").isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).`as`("at least daily").isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.uploadsOf(contentHashes(letters).values)).`as`("nothing new to upload").hasSize(1)
 
         releaseDependingOnNothing(letters, "1.1.0")
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.lastSet(tenant).map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.1.0")
         assertThat(mirror.uploadsOf(contentHashes(letters).values)).hasSize(2)
     }
@@ -248,13 +249,13 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror withdraw").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.held.getValue(tenant.value)).hasSize(1)
         // A tenant deleted from this installation that the mirror still holds.
         mirror.held["mirror-gone-tenant"] = setOf("v6:${"a".repeat(64)}")
-        withMediator { OptOutCatalogMirror(tenant).execute() }
+        withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(report.tenants[tenant.value]).isEqualTo(TenantReconcileResult.WITHDRAWN)
         assertThat(report.tenants["mirror-gone-tenant"]).isEqualTo(TenantReconcileResult.WITHDRAWN)
@@ -265,7 +266,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         assertThat(consent.withdrawalConfirmedAt).isNotNull()
 
         val putsAfter = mirror.puts(tenant)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.puts(tenant)).`as`("a confirmed withdrawal is not repeated").isEqualTo(putsAfter)
     }
 
@@ -276,16 +277,16 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(tenant)
         mirror.failTenant = tenant.value
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.UNAVAILABLE)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.UNAVAILABLE)
 
         val round = settings(tenant).round!!
         assertThat(round.consecutiveFailures).isEqualTo(1)
         assertThat(round.lastError).contains("503")
         assertThat(round.nextAttemptAt).isEqualTo(round.lastAttemptAt!!.plus(Duration.ofMinutes(15)))
         mirror.failTenant = null
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).`as`("backing off").isEqualTo(TenantReconcileResult.SKIPPED)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).`as`("backing off").isEqualTo(TenantReconcileResult.SKIPPED)
 
-        withMediator { RequestCatalogMirrorSync(tenant).execute() }
+        withMediator { RequestCatalogMirrorSync(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(settings(tenant).round!!.syncRequestedAt).isNotNull()
         scheduling.runDue()
         // The timer hands the sync to the support background work.
@@ -306,7 +307,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val refused = contentHashes(letters).getValue("1.0.0")
         mirror.refuseRelease = refused
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
 
         val round = settings(tenant).round!!
         assertThat(mirror.uploadsOf(contentHashes(letters).values)).containsExactly(contentHashes(letters).getValue("1.1.0"))
@@ -316,7 +317,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         mirror.refuseRelease = null
         // The refused release waits for its own back-off (one interval after one refusal), then goes again.
         testClock.advanceBy(mirrorProperties.interval.plusMinutes(1))
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).`as`("not skipped while a release is missing").isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).`as`("not skipped while a release is missing").isEqualTo(TenantReconcileResult.SENT)
         assertThat(settings(tenant).round!!.releasesMissing).isZero()
     }
 
@@ -325,20 +326,20 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror opt-out busy").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         val puts = mirror.puts(tenant)
         // Another node's round is sending the tenant's set right now.
-        val claim = mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)
+        val claim = mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)
         assertThat(claim).isNotNull()
 
-        withMediator { OptOutCatalogMirror(tenant).execute() }
+        withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         scheduling.runDue()
         work.awaitIdle()
 
         assertThat(mirror.puts(tenant)).`as`("no unclaimed withdrawal that the running round could overtake").isEqualTo(puts)
         assertThat(settings(tenant).consent!!.withdrawalPending).isTrue()
 
-        mirrorStore.release(DEFAULT_MIRROR_CONNECTION, tenant, claim!!)
+        mirrorStore.release(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant, claim!!)
         scheduling.advanceTimeBy(Duration.ofMinutes(2))
         work.awaitIdle()
 
@@ -354,9 +355,9 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(tenant)
         val hashes = contentHashes(letters).values.toSet()
         // Other test classes' tenants are reconciled in the same round: only this tenant's first upload counts.
-        mirror.onUpload = { hash -> if (hash in hashes) withMediator { OptOutCatalogMirror(tenant).execute() } }
+        mirror.onUpload = { hash -> if (hash in hashes) withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
 
-        val result = reconciler.reconcileAll().tenants[tenant.value]
+        val result = reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]
 
         assertThat(mirror.uploadsOf(contentHashes(letters).values)).`as`("nothing after the opt-out").hasSize(1)
         assertThat(result).isEqualTo(TenantReconcileResult.WITHDRAWN)
@@ -379,7 +380,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         // A catalog manager withholds the catalog while its first release is being uploaded.
         mirror.onUpload = { hash -> if (hash in hashes) policy(letters, CatalogMirrorPolicy.NEVER) }
 
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(releaseRequests(hashes)).`as`("nothing of it after it was withheld").hasSize(1)
     }
@@ -393,7 +394,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         // An installation administrator deselects the mirror while the first release is being uploaded.
         mirror.onUpload = { hash -> if (hash in hashes) connection.saveSelectedServices(listOf("requests"), "test") }
         try {
-            reconciler.reconcileAll()
+            reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         } finally {
             supportStore.forgetServices()
             connection.invalidate()
@@ -407,11 +408,11 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror lost").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         // The mirror lost the tenant: restored from a backup, or an earlier withdrawal overtook a set.
         mirror.held.remove(tenant.value)
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.held.getValue(tenant.value)).hasSize(1)
     }
 
@@ -420,11 +421,11 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror blank answer").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        reconciler.reconcileAll()
-        withMediator { OptOutCatalogMirror(tenant).execute() }
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
+        withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         mirror.blankAnswers = true
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.FAILED)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.FAILED)
 
         assertThat(settings(tenant).consent!!.withdrawalPending).isTrue()
         assertThat(settings(tenant).consent!!.withdrawalConfirmedAt).isNull()
@@ -437,19 +438,19 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         releasedCatalog(stopped, "letters", "1.0.0")
         releasedCatalog(sharing, "letters", "1.0.0")
         optInOwnCatalogs(stopped)
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         optInOwnCatalogs(sharing)
         val off = CatalogMirrorReconciler(registry, mirrorProperties.copy(enabled = false), mirrorClient, mirrorStore, mediator, privacy)
-        withMediator { OptOutCatalogMirror(stopped).execute() }
+        withMediator { OptOutCatalogMirror(stopped, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         // The opt-out's own "Sync now" is left to the reconciler with the mirror off.
-        val report = off.reconcileAll()
+        val report = off.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(report.tenants[stopped.value]).isEqualTo(TenantReconcileResult.WITHDRAWN)
         assertThat(mirror.held).doesNotContainKey(stopped.value)
         assertThat(settings(stopped).consent!!.withdrawalConfirmedAt).isNotNull()
         assertThat(report.tenants).doesNotContainKey(sharing.value)
         assertThat(mirror.puts(sharing)).isZero()
-        assertThat(off.syncTenant(sharing)).isEqualTo(TenantReconcileResult.SKIPPED)
+        assertThat(off.syncTenant(sharing, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isEqualTo(TenantReconcileResult.SKIPPED)
         assertThat(mirror.puts(sharing)).isZero()
     }
 
@@ -482,12 +483,12 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         mirror.onUpload = { if (it in mine) Thread.sleep(1_000) }
         optInOwnCatalogs(tenant)
 
-        val took = kotlin.system.measureTimeMillis { reconciler.reconcileAll() }
+        val took = kotlin.system.measureTimeMillis { reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }) }
 
         assertThat(took).isLessThan(4_500)
         assertThat(mirror.uploadsOf(mine).size).isLessThan(mine.size)
         mirror.onUpload = null
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.uploadsOf(mine)).containsExactlyInAnyOrderElementsOf(mine)
     }
 
@@ -517,16 +518,16 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         mirror.releaseAnswer = { if (it in mine) FakeSupportResponse.json(status.toInt(), """{"error":"$error"}""") else null }
         optInOwnCatalogs(tenant)
 
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(attempts).`as`("stopped after the first").hasSize(1)
 
         testClock.advanceBy(mirrorProperties.interval.plusMinutes(1))
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(attempts).`as`("backing off").hasSize(1)
 
         testClock.advanceBy(java.time.Duration.ofHours(7))
         mirror.releaseAnswer = null
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.uploadsOf(mine)).`as`("tried again later, and taken").containsExactlyInAnyOrderElementsOf(mine)
     }
 
@@ -541,16 +542,16 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         mirror.releaseAnswer = { if (it == bad) FakeSupportResponse.json(422, """{"error":"hash_mismatch"}""") else null }
         optInOwnCatalogs(tenant)
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.uploadsOf(hashes.values)).containsExactlyInAnyOrder(hashes.getValue("1.0.0"), hashes.getValue("1.0.2"))
         assertThat(settings(tenant).round!!.failedReleases.map { it.contentHash }).containsExactly(bad)
 
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(attempts).`as`("not again before its back-off").hasSize(1)
 
         testClock.advanceBy(mirrorProperties.interval.plusMinutes(1))
         mirror.releaseAnswer = null
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.uploadsOf(hashes.values)).contains(bad)
         assertThat(settings(tenant).round!!.failedReleases).isEmpty()
     }
@@ -566,16 +567,16 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         mirror.releaseAnswer = { if (it == bad) FakeSupportResponse.json(500, """{"error":"server_error"}""") else null }
         optInOwnCatalogs(tenant)
 
-        assertThat(reconciler.reconcileAll().tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).tenants[tenant.value]).isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.uploadsOf(hashes.values)).containsExactlyInAnyOrder(hashes.getValue("1.0.1"), hashes.getValue("1.0.2"))
         assertThat(settings(tenant).round!!.failedReleases.map { it.contentHash }).containsExactly(bad)
 
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(attempts).`as`("waits for its own back-off").hasSize(1)
 
         testClock.advanceBy(mirrorProperties.interval.plusMinutes(1))
         mirror.releaseAnswer = null
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.uploadsOf(hashes.values)).contains(bad)
     }
 
@@ -595,7 +596,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(first)
         optInOwnCatalogs(second)
 
-        reconciler.reconcileAll()
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Refused::class.java)
         // One token request finds the refusal, and one more confirms it: the fake's Date header is the
@@ -624,12 +625,12 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         }
         optInOwnCatalogs(tenant)
         val clock = app.epistola.suite.time.EpistolaClock.capture()
-        val round = java.util.concurrent.CompletableFuture.runAsync { app.epistola.suite.time.EpistolaClock.withClock(clock) { reconciler.reconcileAll() } }
+        val round = java.util.concurrent.CompletableFuture.runAsync { app.epistola.suite.time.EpistolaClock.withClock(clock) { reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }) } }
         assertThat(entered.await(20, java.util.concurrent.TimeUnit.SECONDS)).isTrue()
 
         // The first round's claim is older than the lease: "Sync now" takes the tenant over and finishes.
         claimLeaseRunsOut(tenant)
-        reconciler.syncTenant(tenant)
+        reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         proceed.countDown()
         round.join()
 
@@ -647,13 +648,13 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val catalog = releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
         // The dead node's round: it took the claim and never let go.
-        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
-        assertThat(reconciler.syncTenant(tenant)).`as`("while the round may still be running").isEqualTo(TenantReconcileResult.BUSY)
+        assertThat(mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).isNotNull()
+        assertThat(reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).`as`("while the round may still be running").isEqualTo(TenantReconcileResult.BUSY)
 
         claimLeaseRunsOut(tenant)
 
-        assertThat(reconciler.isClaimed(tenant)).isFalse()
-        assertThat(reconciler.syncTenant(tenant)).isEqualTo(TenantReconcileResult.SENT)
+        assertThat(reconciler.isClaimed(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isFalse()
+        assertThat(reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isEqualTo(TenantReconcileResult.SENT)
         assertThat(mirror.uploadsOf(contentHashes(catalog).values.toList())).hasSize(1)
     }
 
@@ -667,12 +668,12 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
         // Another node's round, running now.
-        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
+        assertThat(mirrorStore.claim(withMediator { EnsureConfiguredSupportConnection().execute() }, tenant)).isNotNull()
 
         testClock.advanceBy(mirrorStore.claimLease.plusMinutes(1)) // this node's clock is ahead
 
-        assertThat(reconciler.isClaimed(tenant)).isTrue()
-        assertThat(reconciler.syncTenant(tenant)).isEqualTo(TenantReconcileResult.BUSY)
+        assertThat(reconciler.isClaimed(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isTrue()
+        assertThat(reconciler.syncTenant(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })).isEqualTo(TenantReconcileResult.BUSY)
     }
 
     /**

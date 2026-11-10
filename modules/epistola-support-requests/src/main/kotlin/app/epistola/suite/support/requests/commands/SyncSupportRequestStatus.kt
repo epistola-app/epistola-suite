@@ -9,8 +9,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SupportRequestStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.markStatusUnsentSql
 import org.jdbi.v3.core.Jdbi
@@ -30,7 +28,7 @@ data class SyncSupportRequestStatus(
     val id: SupportRequestId,
     val status: SupportRequestStatus,
     /** The connection it came over; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 
