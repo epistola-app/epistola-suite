@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
+import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.support.sharing.SetSharingRestriction
 import app.epistola.suite.support.sharing.SharingNotAllowedException
 import app.epistola.suite.support.usage.ForgetUsageSharing
@@ -234,7 +235,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         withMediator { app.epistola.suite.support.connection.SaveSupportServices(setOf("usage", "mirror")).execute() }
         support.activate(scopes = setOf("usage", "mirror"))
         connection.checkNow()
-        withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        withMediator { app.epistola.suite.support.privacy.SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         try {
             val form = get("/platform/support/connections/${epistola()}/defaults/edit", htmx = true)
             assertThat(Regex("<input[^>]*data-testid=\"sharing-default-mirror-all\"[^>]*>").find(form)!!.value).contains("disabled")
@@ -245,7 +246,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
             assertThat(refused).contains("data-testid=\"support-defaults-error\"").contains("keeps its tenants confidential to Epistola").contains("data-testid=\"support-defaults-form\"")
             assertThat(withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorDefault(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.isSet).`as`("nothing saved").isFalse()
         } finally {
-            withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+            withMediator { app.epistola.suite.support.privacy.SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         }
     }
 

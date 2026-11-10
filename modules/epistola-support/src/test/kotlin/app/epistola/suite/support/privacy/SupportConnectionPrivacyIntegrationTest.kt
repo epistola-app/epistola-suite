@@ -9,6 +9,7 @@ import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.TokenSupportConnection
+import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -47,22 +48,17 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> {
             it.createUpdate("UPDATE support_connections SET privacy = NULL").execute()
         }
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
         privacy.refresh()
     }
 
     @Test
-    fun `a connection with nothing set follows the installation, also when the installation changes`() {
+    fun `a connection with nothing set follows the configured default`() {
         val advising = connection(ADVISING).id
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
+        privacy.refresh()
 
         assertThat(privacy.forConnection(advising).followsInstallation).isTrue()
+        assertThat(privacy.forConnection(advising).tenantIdentity).`as`("epistola.support.privacy, confidential by default").isEqualTo(TenantIdentity.CONFIDENTIAL)
         assertThat(references.onWire("acme", advising)).isEqualTo(references.reference("acme"))
-
-        withMediator { SetSupportPrivacy(TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
-
-        assertThat(privacy.forConnection(advising).tenantIdentity).isEqualTo(TenantIdentity.NAMED)
-        assertThat(references.onWire("acme", advising)).isEqualTo("acme")
     }
 
     @Test
@@ -79,11 +75,11 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
         assertThat(saved.setBy).isNotNull()
         assertThat(references.onWire("acme", hosting)).isEqualTo(references.reference("acme"))
         assertThat(privacy.forConnection(hosting).telemetry).isEqualTo(TelemetryDetail.FULL)
-        assertThat(privacy.current().telemetry).`as`("the installation's are unchanged").isEqualTo(TelemetryDetail.PSEUDONYMISED)
+        assertThat(privacy.current().telemetry).`as`("the configured default is unchanged").isEqualTo(TelemetryDetail.PSEUDONYMISED)
     }
 
     @Test
-    fun `Epistola support's connection follows the installation's privacy until an administrator saves its own, as any connection`() {
+    fun `Epistola support's connection follows the configured default until an administrator saves its own, as any connection`() {
         val epistola = withMediator { EnsureConfiguredSupportConnection().execute() }
         privacy.refresh()
         assertThat(privacy.forConnection(epistola).followsInstallation).isTrue()
@@ -92,7 +88,7 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
         withMediator { SetSupportConnectionPrivacy(epistola, TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
 
         assertThat(references.onWire("acme", epistola)).isEqualTo("acme")
-        assertThat(privacy.current().tenantIdentity).`as`("the installation's are unchanged").isEqualTo(TenantIdentity.CONFIDENTIAL)
+        assertThat(privacy.current().tenantIdentity).`as`("the configured default is unchanged").isEqualTo(TenantIdentity.CONFIDENTIAL)
     }
 
     @Test

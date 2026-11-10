@@ -15,6 +15,7 @@ import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportScope
+import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.testing.FakeSupportRequest
 import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
@@ -114,7 +115,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
     @Test
     fun `while tenants are confidential, Sync now sends no tenant key to the mirror`() {
         val tenant = createTenant("Mirror Confidential Sync").id
-        withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+        withMediator { app.epistola.suite.support.privacy.SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         try {
             val before = support.requests.count { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }
 
@@ -123,7 +124,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
             assertThat(support.requests.filter { it.method == "PUT" && it.path.startsWith("/api/v1/mirror/tenants/") }.drop(before).map { it.path })
                 .`as`("no request names %s", tenant.value).isEmpty()
         } finally {
-            withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
+            withMediator { app.epistola.suite.support.privacy.SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         }
     }
 

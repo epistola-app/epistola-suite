@@ -47,7 +47,7 @@ Epistola support is a support connection like any other (ADR 0053), named by its
 `support.enabled` the installation stores it at startup when it is not stored, at the first start and
 again after an administrator removed it; one that exists is left as it is. Changing `support.endpoint`
 stores a connection at the new endpoint beside the old one, which an administrator removes. Its privacy
-is the installation's (below) until an administrator saves settings of its own for it.
+is the configured default (below) until an administrator saves settings of its own for it.
 
 ## Applying for support
 
@@ -70,8 +70,10 @@ ends.
 
 ## Privacy
 
-Two installation settings under **Privacy** decide what Epistola sees (ADR 0052 §1–2). Helm sets them
-until an administrator saves them (`support.privacy.tenantIdentity`, `support.privacy.telemetry`).
+Two settings decide what a support connection sees (ADR 0052 §1–2), per connection, on its page under
+**Privacy**. Until an administrator saves them for a connection, it follows the configured default
+(`epistola.support.privacy.tenant-identity` and `.telemetry`, Helm `support.privacy.tenantIdentity` and
+`support.privacy.telemetry`). There is no installation-wide setting on the page.
 
 **Tenants: confidential (the default) or named.**
 
@@ -210,10 +212,9 @@ again. Platform → Support connections lists every connection with its state, t
 those used.
 
 **Privacy per connection.** Each connection has its own privacy: whether tenants are named or
-confidential to it, and how much telemetry carries over it. Epistola support's are the installation's
-(above). Another connection's are what an administrator saves in its row on the platform page, else its
-entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`, `telemetry`), else the installation's,
-following them when they change. A confidential tenant has one reference for every connection, so
+confidential to it, and how much telemetry carries over it. That is what an administrator saves on its
+page, else its configuration entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`,
+`telemetry`), else the configured default (above), Epistola support's included. A confidential tenant has one reference for every connection, so
 Epistola and a partner can talk about it by the same reference.
 
 **Sharing per connection.** What a tenant shares is set per connection too: its consent for support

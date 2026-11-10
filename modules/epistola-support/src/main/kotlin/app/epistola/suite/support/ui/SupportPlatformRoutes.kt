@@ -34,7 +34,6 @@ import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.support.connection.SupportWorkAttempt
 import app.epistola.suite.support.connection.UpdateSupportConnection
-import app.epistola.suite.support.privacy.GetSupportPrivacy
 import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.support.privacy.SupportConnectionNotFoundException
 import app.epistola.suite.support.privacy.TelemetryDetail
@@ -114,7 +113,6 @@ class SupportPlatformHandler(
         "allConnections" to supportConnections.all(),
         "pageTitle" to "Support connections - Epistola",
         "platformPage" to "Support connections",
-        "privacy" to GetSupportPrivacy().query(),
         "connections" to ListSupportConnections().query(),
         "panels" to panelViews(),
     )

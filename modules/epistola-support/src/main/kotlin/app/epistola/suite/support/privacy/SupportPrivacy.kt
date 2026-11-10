@@ -69,8 +69,8 @@ enum class TelemetryDetail {
  *
  * @property fromConfiguration nobody saved them: they come from `epistola.support.privacy.*` (or its
  *   defaults), or for another connection from its entry in `epistola.support.connections`.
- * @property followsInstallation for a connection other than Epistola support: nothing is set for it,
- *   so the installation's settings apply.
+ * @property followsInstallation nothing is saved for the connection: the configured default applies
+ *   (`epistola.support.privacy.*`).
  */
 data class SupportPrivacySettings(
     val tenantIdentity: TenantIdentity,
@@ -84,7 +84,7 @@ data class SupportPrivacySettings(
     val pseudonymised: Boolean get() = telemetry == TelemetryDetail.PSEUDONYMISED
 }
 
-/** As stored in `app_metadata` under [SupportPrivacy.KEY]. */
+/** As stored in a connection's `support_connections.privacy`. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class StoredSupportPrivacy(
     val tenantIdentity: String = TenantIdentity.CONFIDENTIAL.name,
@@ -95,16 +95,15 @@ data class StoredSupportPrivacy(
 
 /**
  * The privacy settings in force, cached for the hot paths that need them on every log line and every
- * export (they cannot dispatch through the mediator from a logging thread). Saved settings win over
- * the configuration; every node re-reads them every [REFRESH_SECONDS] seconds, the node that saves at once.
+ * export (they cannot dispatch through the mediator from a logging thread). Every node re-reads them
+ * every [REFRESH_SECONDS] seconds, the node that saves at once.
  *
- * Every support connection has its own (ADR 0053 §1): Epistola support's are the installation's
- * ([current]); another connection's ([forConnection]) are what an administrator saved for it, else its
- * entry in `epistola.support.connections`, else the installation's.
+ * Privacy is per support connection (ADR 0053 §1): what an administrator saved for it on its page,
+ * else its entry in `epistola.support.connections`, else the configured default ([current],
+ * `epistola.support.privacy.*`). There is no installation-wide setting to save.
  */
 @Component
 class SupportPrivacy(
-    private val metadata: AppMetadataService,
     private val properties: SupportProperties,
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
@@ -121,43 +120,23 @@ class SupportPrivacy(
      */
     fun forConnection(connectionId: UUID): SupportPrivacySettings = perConnection[connectionId] ?: current().copy(followsInstallation = true)
 
-    /**
-     * The settings in force, without touching the database: it is asked on every forwarded log line,
-     * on whatever thread logged. Before the first read ([refresh], scheduled from startup) the
-     * strictest settings apply.
-     */
+    /** The configured default (`epistola.support.privacy.*`) every connection without settings of its own follows. */
     fun current(): SupportPrivacySettings = cached ?: STRICTEST
 
     /**
-     * Reads the settings: saved ones win over the configuration. A read that fails keeps the settings
-     * last read, or the strictest before any: a database that cannot be reached never loosens them.
+     * Reads every connection's settings. A read that fails keeps the settings last read, or the
+     * strictest before any: a database that cannot be reached never loosens them.
      */
     @Scheduled(fixedDelay = REFRESH_SECONDS, timeUnit = TimeUnit.SECONDS)
     fun refresh(): SupportPrivacySettings = read() ?: cached ?: STRICTEST
 
     /**
-     * The settings as stored now, or null when they cannot be read. For a decision that must not rest
-     * on a stand-in, such as forgetting every tenant's choice at startup: [current] and [refresh] give
-     * the strictest settings while nothing was read, which would read as "confidential".
+     * The configured default, and every connection's settings as stored now. Never null; kept a
+     * function that may be, for the callers that must not rest on a stand-in (forgetting every tenant's
+     * choice at startup).
      */
     fun read(): SupportPrivacySettings? {
-        val read = try {
-            metadata.getAs(KEY, StoredSupportPrivacy::class.java)
-        } catch (e: RuntimeException) {
-            log.warn("Support privacy settings could not be read; keeping the settings last read: {}", e.message)
-            return null
-        }
-        val settings = if (read == null) {
-            SupportPrivacySettings(properties.privacy.tenantIdentityValue, properties.privacy.telemetryValue, fromConfiguration = true)
-        } else {
-            SupportPrivacySettings(
-                TenantIdentity.parse(read.tenantIdentity) ?: TenantIdentity.CONFIDENTIAL,
-                TelemetryDetail.parse(read.telemetry) ?: TelemetryDetail.PSEUDONYMISED,
-                fromConfiguration = false,
-                setBy = read.setBy,
-                setAt = read.setAt,
-            )
-        }
+        val settings = SupportPrivacySettings(properties.privacy.tenantIdentityValue, properties.privacy.telemetryValue, fromConfiguration = true)
         cached = settings
         readConnections(settings)?.let { perConnection = it }
         return settings
@@ -197,13 +176,11 @@ class SupportPrivacy(
         null
     }
 
+    /** Whether tenants are confidential to at least one connection, as last read. */
+    fun anyConfidential(): Boolean = perConnection.values.any { it.confidential }
+
     /** Every connection whose settings this node knows. */
     internal fun connectionIds(): Set<UUID> = perConnection.keys
-
-    internal fun save(stored: StoredSupportPrivacy): SupportPrivacySettings {
-        metadata.setAs(KEY, stored)
-        return refresh()
-    }
 
     /** Saves [connectionId]'s own settings, no longer following the installation's, and applies them on this node at once. */
     internal fun saveFor(connectionId: UUID, stored: StoredSupportPrivacy): SupportPrivacySettings {
@@ -219,7 +196,6 @@ class SupportPrivacy(
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        const val KEY = "support.privacy"
         const val REFRESH_SECONDS = 30L
 
         /** Before the settings were read, and while they cannot be: confidential, pseudonymised. */
@@ -280,6 +256,9 @@ class TenantReferences(
     /** Tenants are confidential to Epistola now: names and addresses stay in the installation too. */
     fun confidential(): Boolean = privacy.current().confidential
 
+    /** Tenants are confidential to at least one connection: a tenant then has a reference to name itself by. */
+    fun confidentialToAny(): Boolean = privacy.anyConfidential()
+
     /** What is sent for [tenantKey]: the key itself when tenants are named, its reference when confidential. */
     fun onWire(tenantKey: String): String = if (privacy.current().confidential) reference(tenantKey) else tenantKey
 
@@ -313,56 +292,9 @@ class TenantReferences(
     }
 }
 
-/** The privacy settings, for the platform page. */
-class GetSupportPrivacy :
-    Query<SupportPrivacySettings>,
-    RequiresPlatformRole {
-    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
-}
-
-@Component
-class GetSupportPrivacyHandler(private val privacy: SupportPrivacy) : QueryHandler<GetSupportPrivacy, SupportPrivacySettings> {
-    override fun handle(query: GetSupportPrivacy): SupportPrivacySettings = privacy.refresh()
-}
-
 /** Something that has to happen when tenants become confidential to a connection (the catalog mirror withdraws from it). */
 interface TenantIdentityListener {
     fun becameConfidential(connectionId: UUID)
-}
-
-/**
- * Saves the privacy settings; every node applies them within [SupportPrivacy.REFRESH_SECONDS] seconds.
- * Making tenants confidential tells every [TenantIdentityListener] at once, for Epistola support's
- * connection and every connection that follows the installation's settings, so the catalog mirror
- * withdraws what it shares there: a release names its client whatever key it is filed under.
- */
-data class SetSupportPrivacy(
-    val tenantIdentity: TenantIdentity,
-    val telemetry: TelemetryDetail,
-) : Command<SupportPrivacySettings>,
-    RequiresPlatformRole {
-    override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
-}
-
-@Component
-class SetSupportPrivacyHandler(
-    private val privacy: SupportPrivacy,
-    private val listeners: ObjectProvider<TenantIdentityListener>,
-) : CommandHandler<SetSupportPrivacy, SupportPrivacySettings> {
-    override fun handle(command: SetSupportPrivacy): SupportPrivacySettings {
-        val before = privacy.refresh()
-        val connectionsBefore = privacy.connectionIds().associateWith { privacy.forConnection(it) }
-        val saved = privacy.save(
-            StoredSupportPrivacy(command.tenantIdentity.name, command.telemetry.name, SecurityContext.current().displayName, EpistolaClock.offsetDateTime()),
-        )
-        // The installation's settings are those of every connection that follows them.
-        connectionsBefore.forEach { (connectionId, was) ->
-            if (was.followsInstallation && privacy.forConnection(connectionId).confidential && (!was.confidential || before.fromConfiguration)) {
-                listeners.orderedStream().forEach { it.becameConfidential(connectionId) }
-            }
-        }
-        return saved
-    }
 }
 
 /** No support connection has [connectionId]. */

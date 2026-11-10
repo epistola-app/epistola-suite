@@ -33,10 +33,7 @@ class SupportPrivacyFailClosedTest : IntegrationTestBase() {
     @Autowired
     private lateinit var cipher: CredentialCipher
 
-    @Autowired
-    private lateinit var installed: SupportPrivacy
-
-    /** A configuration looser than what the administrator saves. */
+    /** A configuration looser than the strictest. */
     private val loose = SupportProperties(privacy = SupportProperties.Privacy(tenantIdentity = "named", telemetry = "full"))
 
     private inner class Flaky : AppMetadataService(jdbi, objectMapper, cipher) {
@@ -45,43 +42,21 @@ class SupportPrivacyFailClosedTest : IntegrationTestBase() {
         override fun get(key: String): JsonNode? = if (down) error("the database is unreachable") else super.get(key)
     }
 
-    @AfterEach
-    fun backToConfiguration() {
-        // No command removes saved settings (an administrator only replaces them).
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
-        installed.refresh()
-    }
-
-    @Test
-    fun `a failed read keeps the settings last read`() {
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
-        val metadata = Flaky()
-        val privacy = SupportPrivacy(metadata, loose, jdbi, objectMapper)
-        assertThat(privacy.refresh().confidential).isTrue()
-
-        metadata.down = true
-        val during = privacy.refresh()
-
-        assertThat(during.tenantIdentity).isEqualTo(TenantIdentity.CONFIDENTIAL)
-        assertThat(during.telemetry).isEqualTo(TelemetryDetail.PSEUDONYMISED)
-    }
-
     @Test
     fun `before any read the strictest settings apply, without reading the database`() {
-        val metadata = Flaky().apply { down = true }
-        val privacy = SupportPrivacy(metadata, loose, jdbi, objectMapper)
+        val privacy = SupportPrivacy(loose, jdbi, objectMapper)
 
         val first = privacy.current()
 
         assertThat(first.tenantIdentity).isEqualTo(TenantIdentity.CONFIDENTIAL)
         assertThat(first.telemetry).isEqualTo(TelemetryDetail.PSEUDONYMISED)
-        assertThat(privacy.refresh().tenantIdentity).`as`("still the strictest while it cannot be read").isEqualTo(TenantIdentity.CONFIDENTIAL)
+        assertThat(privacy.forConnection(java.util.UUID.randomUUID()).confidential).`as`("a connection follows the strictest before any read").isTrue()
     }
 
     @Test
     fun `a tenant reference for the telemetry legs never reads the database, and is there once the secret is loaded`() {
         val metadata = Flaky().apply { down = true }
-        val references = TenantReferences(metadata, SupportPrivacy(metadata, loose, jdbi, objectMapper))
+        val references = TenantReferences(metadata, SupportPrivacy(loose, jdbi, objectMapper))
 
         assertThat(references.referenceIfReady("acme")).`as`("not loaded, and not loaded on this thread").isNull()
         references.loadSecret()
