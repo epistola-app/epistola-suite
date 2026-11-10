@@ -14,7 +14,7 @@
 import './theme-editor/theme-editor.css';
 import './theme-editor/EpistolaThemeEditor.js';
 import type { ThemeData } from './theme-editor/ThemeEditorState.js';
-import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
+import { setFontCatalog, setFontDeclarer, type FontInfo } from './engine/font-catalog.js';
 
 export type { ThemeData } from './theme-editor/ThemeEditorState.js';
 export type { FontInfo } from './engine/font-catalog.js';
@@ -45,6 +45,11 @@ export interface ThemeEditorOptions {
    */
   fontOptions?: {
     listFonts: () => Promise<FontInfo[]>;
+    /**
+     * Makes the editing catalog depend on [catalog] (an address) once the author confirms; true
+     * when it was declared. Absent: fonts of catalogs it does not declare are not offered.
+     */
+    declareCatalog?: (catalog: string, catalogKey: string) => Promise<boolean>;
   };
 }
 
@@ -67,13 +72,25 @@ export function mountThemeEditor(options: ThemeEditorOptions): ThemeEditorInstan
   // Backend-driven font picker — mutates the live style-registry options and
   // injects `@font-face`; a re-render picks the new options up.
   if (options.fontOptions) {
-    options.fontOptions
-      .listFonts()
-      .then((fonts) => {
+    const { listFonts, declareCatalog } = options.fontOptions;
+    const loadFonts = () =>
+      listFonts().then((fonts) => {
         setFontCatalog(fonts);
         editorEl.requestUpdate();
-      })
-      .catch((e) => console.warn('Failed to load font catalog:', e));
+      });
+    // A font of a catalog the editing catalog does not declare declares it first; the list is
+    // read again, so its fonts move in with those it can use.
+    setFontDeclarer(
+      declareCatalog
+        ? async (font) => {
+            const declared = await declareCatalog(font.catalog ?? font.catalogKey, font.catalogKey);
+            if (declared)
+              await loadFonts().catch((e) => console.warn('Failed to reload fonts:', e));
+            return declared;
+          }
+        : null,
+    );
+    loadFonts().catch((e) => console.warn('Failed to load font catalog:', e));
   }
 
   container.innerHTML = '';

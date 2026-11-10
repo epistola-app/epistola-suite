@@ -9,10 +9,14 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.assets.queries.ListVisibleImages
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.dependencies.Reach
+import app.epistola.suite.catalog.dependencies.VisibleVersion
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListVisibleCatalogs
 import app.epistola.suite.catalog.queries.ResolveCatalogAlias
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.AssetKey
@@ -22,6 +26,7 @@ import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.handlers.offersDeclaring
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogParam
@@ -92,8 +97,23 @@ class AssetHandler(
             }
         }
 
-        // Editor calls with Accept: application/json
-        val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, version = version)
+        // Editor calls with Accept: application/json. Asked `for` its template's catalog version, a
+        // catalog it declares is read at the version the declaration names, and one it does not (where
+        // declaring can land) at the version declaring it would name; the picker declares it before use.
+        val editingSegment = request.catalogParam("for")
+        val assets = if (editingSegment != null && catalogFilter != null) {
+            val editing = editingSegment.catalogIn(tenantId)
+            val editingVersion = editingSegment.ref(tenantId)
+            val declared = ListVisibleCatalogs(editing, editingVersion).query().any { it.catalog == catalogFilter }
+            if (declared || offersDeclaring(editing, editingVersion)) {
+                ListVisibleImages(editing, editingVersion, searchTerm, if (declared) Reach.DECLARED else Reach.UNDECLARED).query()
+                    .filter { it.catalogId == catalogFilter && it.mediaType.category != AssetMediaCategory.FONT }
+            } else {
+                emptyList()
+            }
+        } else {
+            listImages(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, version = version)
+        }
         val assetInfoList = assets.map { asset ->
             mapOf(
                 "id" to asset.id.value,
@@ -120,6 +140,22 @@ class AssetHandler(
     fun catalogs(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val editability = ListCatalogEditability(tenantId).query()
+        // Asked `for` a template's catalog version: the catalogs it can use first (`declared`), then,
+        // where declaring can land, those it could declare, which the picker declares before use.
+        request.catalogParam("for")?.let { segment ->
+            val editing = segment.catalogIn(tenantId)
+            val editingVersion = segment.ref(tenantId)
+            val names = ListCatalogs(tenantId).query().associate { it.catalogId to it.name }
+            fun row(visible: VisibleVersion, declared: Boolean) = mapOf(
+                "key" to visible.catalog.address,
+                "name" to (names[visible.catalog] ?: visible.catalog.key.value),
+                "editable" to editability.editable(visible.catalog),
+                "declared" to declared,
+            )
+            val usable = ListVisibleCatalogs(editing, editingVersion).query().map { row(it, true) }
+            val other = if (offersDeclaring(editing, editingVersion)) ListVisibleCatalogs(editing, editingVersion, Reach.UNDECLARED).query().map { row(it, false) } else emptyList()
+            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(usable + other)
+        }
         val catalogList = ListCatalogs(tenantId).query().map { catalog ->
             mapOf(
                 "key" to catalog.address,

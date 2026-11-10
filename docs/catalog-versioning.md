@@ -743,6 +743,15 @@ versions those are (`VisibleVersions`), and one query per type reads across them
 own resources (its fonts, themes and attributes pages, the REST API and MCP list tools) are
 unchanged.
 
+**Another catalog is used once it is declared.** A picker also offers, apart and marked "adds a
+dependency", the resources of the tenant's catalogs the version does not declare, each read at the
+version declaring it would name: its next version when it can be changed here, its highest release
+when Epistola supplies it or the installation is run-only (`Reach.UNDECLARED`). Choosing one asks
+the author to add the dependency, which `DeclareCatalogDependency` does (`POST
+…/dependencies/declare`); only then is the resource used. Nothing is offered apart where declaring
+cannot land: a release, a catalog that cannot be changed here, or a viewer without
+`TEMPLATE_EDIT` (`offersDeclaring`).
+
 **Pinned as received from before wire v8.** A 1.x archive (wire v7 or earlier) pinned nothing: the
 contract's migration declares every catalog its content names, a variant attribute's qualifier
 (`system.locale`) included, under that catalog's key in the archive's own registry and namespace,

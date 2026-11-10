@@ -173,6 +173,8 @@ export async function openStencilPickerDialog(
     const createError = dialog.querySelector<HTMLElement>('#create-stencil-error')!;
 
     let selectedStencil: StencilSummary | null = null;
+    // Catalogs declared while the dialog is open: inserting another of their stencils asks no more.
+    const declaredHere = new Set<string>();
     let pendingPrepared: PreparedStencil | null = null;
     let bindingValues: Record<string, string> = {};
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -195,7 +197,12 @@ export async function openStencilPickerDialog(
 
     // ── Step 1: Stencil list ──
 
-    function renderStencilList(stencils: StencilSummary[]) {
+    function renderStencilList(found: StencilSummary[]) {
+      // Stencils of catalogs the document's catalog does not declare come last, under their own
+      // heading, and only when declaring one can follow: inserting one declares it first.
+      const usable = found.filter((s) => s.declared !== false);
+      const others = callbacks.declareCatalog ? found.filter((s) => s.declared === false) : [];
+      const stencils = [...usable, ...others];
       if (stencils.length === 0) {
         list.innerHTML = callbacks.createStencil
           ? '<div class="stencil-picker-empty">No stencils found. Create a new one.</div>'
@@ -205,6 +212,14 @@ export async function openStencilPickerDialog(
 
       list.innerHTML = '';
       for (const stencil of stencils) {
+        if (stencil === others[0]) {
+          const heading = document.createElement('div');
+          heading.className = 'stencil-picker-section';
+          heading.dataset.testid = 'stencil-picker-other-catalogs';
+          heading.textContent =
+            'From other catalogs: inserting one makes this catalog depend on it';
+          list.appendChild(heading);
+        }
         const card = document.createElement('div');
         card.className = 'stencil-picker-card';
         card.dataset.stencilKey = stencil.stencilKey;
@@ -226,12 +241,16 @@ export async function openStencilPickerDialog(
         const catalogBadge = stencil.catalogKey
           ? `<span class="stencil-picker-tag">${escapeHtml(stencil.catalogKey)}</span>`
           : '';
+        const dependencyBadge =
+          stencil.declared === false
+            ? '<span class="stencil-picker-tag" data-testid="stencil-picker-adds-dependency">adds a dependency</span>'
+            : '';
         const recursionBadge = isRecursive
           ? '<span class="stencil-picker-tag" style="background:var(--ep-amber-50,#fffbeb);color:var(--ep-amber-700,#b45309);">would contain itself</span>'
           : '';
 
         card.innerHTML = `
-          <div class="stencil-picker-card-name">${escapeHtml(stencil.name)} ${catalogBadge}${recursionBadge}</div>
+          <div class="stencil-picker-card-name">${escapeHtml(stencil.name)} ${catalogBadge}${dependencyBadge}${recursionBadge}</div>
           ${tags ? `<div class="stencil-picker-card-meta"><span class="stencil-picker-card-tags">${tags}</span></div>` : ''}
           ${stencil.description ? `<div class="stencil-picker-card-desc">${escapeHtml(stencil.description)}</div>` : ''}
         `;
@@ -384,6 +403,15 @@ export async function openStencilPickerDialog(
 
     async function doInsert() {
       if (!selectedStencil) return;
+      // A stencil of a catalog the document's catalog does not declare declares it first, once
+      // the author confirms; declined or refused, nothing is inserted and the dialog stays open.
+      const chosen = selectedStencil;
+      const catalog = chosen.catalog ?? chosen.catalogKey;
+      if (chosen.declared === false && !declaredHere.has(catalog)) {
+        const declared = (await callbacks.declareCatalog?.(catalog, chosen.catalogKey)) ?? false;
+        if (!declared) return;
+        declaredHere.add(catalog);
+      }
       insertBtn.disabled = true;
       insertBtn.textContent = 'Loading...';
       showPickError(null);

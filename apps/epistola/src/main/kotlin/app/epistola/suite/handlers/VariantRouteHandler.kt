@@ -12,6 +12,7 @@ import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.handlers.AttributePicker
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
@@ -108,7 +109,8 @@ class VariantRouteHandler {
             ?: return ServerResponse.notFound().build()
 
         val attributeDefinitions = visibleAttributeDefinitions(templateId, version)
-        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
+        val picker = AttributePicker.of(templateId.catalogId, version, attributeDefinitions)
+        val attributeDescriptors = picker.descriptors
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
         // SpEL can't introspect `contains(String)` on Kotlin's `EmptySet`
@@ -126,6 +128,9 @@ class VariantRouteHandler {
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDescriptors" to attributeDescriptors
+                "attributeRowDescriptors" to picker.rows
+                "otherAttributeDescriptors" to picker.others
+                "attributeDeclareUrl" to picker.declareUrl
                 "attributeDefinitions" to attributeDefinitions
                 "attributeOptions" to attributeOptions
                 "variantEntries" to variantEntries
@@ -328,13 +333,17 @@ internal fun visibleAttributeDefinitions(templateId: TemplateId, version: Catalo
 internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext, version: CatalogReleaseRef? = null): Map<String, Any?> {
     val variants = GetVariantSummaries(templateId = templateId, catalogVersion = version).query()
     val attributeDefinitions = visibleAttributeDefinitions(templateId, version)
-    val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
+    val picker = AttributePicker.of(templateId.catalogId, version, attributeDefinitions)
+    val attributeDescriptors = picker.descriptors
     val markReadyAllowed = editable && auth.has(Permission.TEMPLATE_EDIT)
     val decoratedVariants = decorateVariants(variants, attributeDescriptors, markReadyAllowed)
     return mapOf(
         "variants" to decoratedVariants,
         "offerMarkAllReady" to (markReadyAllowed && variants.any { !it.ready }),
         "attributeDescriptors" to attributeDescriptors,
+        "attributeRowDescriptors" to picker.rows,
+        "otherAttributeDescriptors" to picker.others,
+        "attributeDeclareUrl" to picker.declareUrl,
         "usedAttributeDescriptors" to filterToUsedDescriptors(attributeDescriptors, decoratedVariants),
         "attributeDefinitions" to attributeDefinitions,
         "attributeOptions" to buildAttributeOptions(attributeDefinitions),

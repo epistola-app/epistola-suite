@@ -169,6 +169,85 @@ describe('openAssetPickerDialog catalog selector', () => {
 
 // Regression coverage for issue #644 (stored XSS): asset/catalog names come from
 // raw uploaded filenames and must never be interpolated into innerHTML.
+describe('openAssetPickerDialog with catalogs the template does not declare', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(() => {});
+    vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  const listed: CatalogInfo[] = [
+    { key: 'epistola-demo', name: 'Demo', editable: true },
+    { key: 'system', name: 'System', editable: false, declared: false },
+  ];
+
+  function withDeclaring(answer: boolean | undefined) {
+    const cb = { ...makeCallbacks(), listCatalogs: vi.fn(async () => listed) };
+    return answer === undefined
+      ? cb
+      : { ...cb, declareCatalog: vi.fn(async (_key: string) => answer) };
+  }
+
+  async function pickSystemIcon() {
+    await flush();
+    await flush();
+    const select = catalogSelect();
+    select.value = 'system';
+    select.dispatchEvent(new Event('change'));
+    await flush();
+    await flush();
+    document
+      .querySelector<HTMLElement>('[data-asset-id="s1"]')!
+      .dispatchEvent(new MouseEvent('dblclick'));
+    await flush();
+  }
+
+  it('offers them apart, saying using an image adds a dependency', async () => {
+    openAssetPickerDialog(withDeclaring(true));
+    await flush();
+    await flush();
+
+    const group = catalogSelect().querySelector('optgroup');
+    expect(group?.label).toContain('adds a dependency');
+    expect([...group!.querySelectorAll('option')].map((o) => o.value)).toEqual(['system']);
+  });
+
+  it('does not offer them when the host cannot declare a catalog', async () => {
+    openAssetPickerDialog(withDeclaring(undefined));
+    await flush();
+    await flush();
+
+    expect([...catalogSelect().options].map((o) => o.value)).toEqual(['epistola-demo']);
+  });
+
+  it('declares the catalog before using one of its images, once the author agrees', async () => {
+    const cb = withDeclaring(true);
+    const result = openAssetPickerDialog(cb);
+
+    await pickSystemIcon();
+
+    expect(cb.declareCatalog).toHaveBeenCalledWith('system');
+    expect((await result)?.id).toBe('s1');
+  });
+
+  it('uses nothing and stays open when the author declines', async () => {
+    const cb = withDeclaring(false);
+    let settled = false;
+    void openAssetPickerDialog(cb).then(() => {
+      settled = true;
+    });
+
+    await pickSystemIcon();
+
+    expect(cb.declareCatalog).toHaveBeenCalledWith('system');
+    expect(settled).toBe(false);
+  });
+});
+
 describe('openAssetPickerDialog XSS hardening (#644)', () => {
   const MALICIOUS_ASSET_NAME = '"><img src=x onerror=window.__pwned=1>.png';
   const MALICIOUS_CATALOG_NAME = '"><img src=x onerror=window.__pwned=1>';

@@ -13,7 +13,8 @@
 import { html } from 'lit';
 import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-catalog';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
-import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../../engine/font-ref.js';
+import { fontFamilyValueToSelectValue } from '../../engine/font-ref.js';
+import { chooseFont } from '../../engine/font-catalog.js';
 import {
   renderUnitInput,
   renderColorInput,
@@ -211,7 +212,10 @@ function renderPresetStyleInput(
       return renderSelectInput(
         prop.key === 'fontFamily' ? fontFamilyValueToSelectValue(value) : value,
         prop.options ?? [],
-        (v) => onChange(prop.key === 'fontFamily' ? normalizeFontFamilyValue(v) : v || undefined),
+        (v, select) =>
+          prop.key === 'fontFamily'
+            ? chooseFont(v, onChange, select, String(fontFamilyValueToSelectValue(value) ?? ''))
+            : onChange(v || undefined),
         inputId,
         readOnly,
       );

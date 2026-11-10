@@ -65,6 +65,7 @@
                     <div class="form-group" style="margin-bottom: 0;">
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" data-revert-on-error
+                                th:data-declare-url="${declareUrl}"
                                 data-error-target="#theme-select-error" aria-describedby="theme-select-error"
                                 th:hx-patch="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/theme(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                                 hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
@@ -75,6 +76,17 @@
                                             th:value="${theme.catalogId.address + '/' + theme.id}"
                                             th:text="${theme.name}"
                                             th:selected="${template.themeKey != null and template.themeKey == theme.id and (template.themeCatalogKey == null or template.themeCatalogKey == theme.catalogKey)}"></option>
+                                </optgroup>
+                            </th:block>
+                            <!-- Catalogs this one does not declare: choosing a theme of one asks to
+                                 add the dependency first (catalog-dependencies.js). -->
+                            <th:block th:each="catalog : ${otherThemeCatalogs}">
+                                <optgroup th:label="${catalog.key + ' (adds a dependency)'}">
+                                    <option th:each="theme : ${catalog.value}"
+                                            th:value="${theme.catalogId.address + '/' + theme.id}"
+                                            th:text="${theme.name}"
+                                            th:data-declares="${theme.catalogId.address}"
+                                            th:data-declares-name="${theme.catalogKey}"></option>
                                 </optgroup>
                             </th:block>
                         </select>

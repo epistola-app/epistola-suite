@@ -24,10 +24,15 @@
                   hx-target="#catalog-theme-settings" hx-swap="outerHTML" data-testid="catalog-theme-settings-form">
                 <div class="form-group">
                     <label class="ep-label" for="catalog-default-theme">Default theme</label>
-                    <select id="catalog-default-theme" name="defaultTheme" class="ep-select">
+                    <select id="catalog-default-theme" name="defaultTheme" class="ep-select"
+                            th:data-declare-url="${declareUrl}">
                         <option value="" th:selected="${defaultThemeValue == null}">None: the built-in styles</option>
+                        <!-- A theme of a catalog this one does not depend on asks to add the dependency
+                             first (data-declares, catalog-dependencies.js). -->
                         <option th:each="option : ${themeOptions}" th:value="${option.value}" th:text="${option.label}"
-                                th:selected="${option.value == defaultThemeValue}">Brand (letters)</option>
+                                th:selected="${option.value == defaultThemeValue}"
+                                th:data-declares="${option.declares}"
+                                th:data-declares-name="${option.declaresName}">Brand (letters)</option>
                     </select>
                     <p class="form-hint">Templates of this catalog that name no theme use it.</p>
                 </div>

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.api.v1.toUiValidationProblemBody
+import app.epistola.suite.catalog.commands.DeclareCatalogDependency
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RemoveUnusedCatalogDependencies
@@ -19,6 +21,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
+import app.epistola.suite.htmx.catalogNamed
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -28,6 +31,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.ValidationException
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -143,6 +147,25 @@ class CatalogReleaseHandler {
             e.message
         }
         return nextRelease(request, tenantId, segment, error)
+    }
+
+    /**
+     * `POST /{catalogId}/dependencies/declare`: declares the catalog `dependency` names (`acme/shared`)
+     * in this draft, the step a picker confirms before one of that catalog's resources is used. JSON for
+     * the script that asked: the aliases declared (none when it was declared already), or the refusal
+     * as a problem.
+     */
+    fun declareDependency(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val dependency = request.param("dependency").orElse(null)?.let { catalogNamed(tenantId, it) }
+            ?: return ServerResponse.badRequest().build()
+        return try {
+            val added = DeclareCatalogDependency(segment.catalogIn(tenantId), dependency, catalogVersion = segment.ref(tenantId.key)).execute()
+            ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(mapOf("declared" to added.map { it.alias }))
+        } catch (e: ValidationException) {
+            ServerResponse.badRequest().contentType(MediaType.APPLICATION_PROBLEM_JSON).body(e.toUiValidationProblemBody(request.servletRequest()))
+        }
     }
 
     /**

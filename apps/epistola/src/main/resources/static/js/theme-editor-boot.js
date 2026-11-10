@@ -48,6 +48,21 @@ async function mount(container) {
         if (!resp.ok) throw new Error('Failed to list fonts');
         return await resp.json();
       },
+      // A font of a catalog this one does not declare declares it first, once the author confirms
+      // (catalog-dependencies.js); only where the theme can be changed.
+      declareCatalog:
+        editable && window.epistolaDeclareDependency
+          ? (catalog, catalogKey) =>
+              window.epistolaDeclareDependency(
+                '/tenants/' +
+                  tenantId +
+                  '/catalogs/' +
+                  catalogPath(catalogSegment) +
+                  '/dependencies/declare',
+                catalog,
+                catalogKey,
+              )
+          : undefined,
     },
     onSave: async function save(payload, overwrite = false) {
       const response = await fetch(

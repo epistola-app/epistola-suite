@@ -9,6 +9,7 @@ import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.dependencies.Reach
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.CatalogId
@@ -31,6 +32,7 @@ import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.handlers.offersDeclaring
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogParam
@@ -394,13 +396,19 @@ class FontHandler(
 
         // The fonts the editing context can use (ListVisibleFonts): its own catalog's and those of each
         // catalog it declares, each read at the release or draft its declaration names, which is what
-        // renders. Without a catalog (an editor opened outside one), the system catalog's.
-        val visible = ListVisibleFonts(
-            catalog = catalogFilter ?: app.epistola.suite.catalog.system.systemCatalog(tenantKey),
-            catalogVersion = version,
-        ).query()
+        // renders. Without a catalog (an editor opened outside one), the system catalog's. Where
+        // declaring can land, the other catalogs' fonts too, marked undeclared: the picker offers
+        // them apart and declares the catalog before one is used.
+        val editing = catalogFilter ?: app.epistola.suite.catalog.system.systemCatalog(tenantKey)
+        val usable = ListVisibleFonts(catalog = editing, catalogVersion = version).query().map { it to true }
+        val other = if (catalogFilter != null && offersDeclaring(editing, version)) {
+            ListVisibleFonts(catalog = editing, catalogVersion = version, reach = Reach.UNDECLARED).query().map { it to false }
+        } else {
+            emptyList()
+        }
 
-        val fontInfoList = visible.map { (font, rows, at) ->
+        val fontInfoList = (usable + other).map { (visible, declared) ->
+            val (font, rows, at) = visible
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
             // Face bytes are served from the version the font was read at (and cached under its URL).
             val faceSegment = at?.let { CatalogSegment(it.catalogKey, it.draft.toString(), it.catalog.namespace).value } ?: font.catalogId.address
@@ -409,6 +417,8 @@ class FontHandler(
                 "name" to font.name,
                 "kind" to font.kind.wire,
                 "catalogKey" to font.catalogKey.value,
+                "catalog" to font.catalogId.address,
+                "declared" to declared,
                 "variants" to rows.map { mapOf("weight" to it.weight, "italic" to it.italic) },
                 "css" to mapOf(
                     "family" to family,

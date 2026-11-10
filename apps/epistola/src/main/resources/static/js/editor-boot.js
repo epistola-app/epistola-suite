@@ -45,6 +45,15 @@ async function mount(container) {
   // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
   // this catalog's rows from it and every other catalog's from its current version.
   const inParam = inDraft ? 'in=' + encodeURIComponent(catalogSegment) : '';
+  // Using a resource of a catalog this one does not declare declares it first, once the author
+  // confirms (catalog-dependencies.js). Offered only where the template can be changed; the server
+  // lists such resources only where declaring can land.
+  const declareUrl =
+    '/tenants/' + tenantId + '/catalogs/' + catalogPath(catalogSegment) + '/dependencies/declare';
+  const declareCatalog =
+    config.canSave !== false && window.epistolaDeclareDependency
+      ? (catalog, name, what) => window.epistolaDeclareDependency(declareUrl, catalog, name, what)
+      : undefined;
   // The variant's revision as last read or saved. Each save names it, so a save over someone else's
   // is refused (`resource-modified`) instead of silently replacing their work.
   let variantRevision = config.variantRevision ?? null;
@@ -99,6 +108,8 @@ async function mount(container) {
         if (!resp.ok) throw new Error('Failed to list fonts');
         return await resp.json();
       },
+      declareCatalog:
+        declareCatalog && ((catalog, catalogKey) => declareCatalog(catalog, catalogKey)),
     },
     imageOptions: {
       defaultCatalogKey: catalogId,
@@ -113,14 +124,15 @@ async function mount(container) {
         catalogPath(catalogSegment) +
         '/images/{imageKey}/content?alias={catalogId}',
       listCatalogs: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
+        const params = new URLSearchParams({ for: catalogSegment });
+        const resp = await fetch('/tenants/' + tenantId + '/images/catalogs?' + params.toString(), {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
         });
         if (!resp.ok) throw new Error('Failed to list catalogs');
         return await resp.json();
       },
       listAssets: async (catalog) => {
-        const params = new URLSearchParams({ catalog: segmentOf(catalog) });
+        const params = new URLSearchParams({ catalog: segmentOf(catalog), for: catalogSegment });
         const resp = await fetch('/tenants/' + tenantId + '/images/search?' + params.toString(), {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
         });
@@ -142,6 +154,8 @@ async function mount(container) {
         }
         return await resp.json();
       },
+      declareCatalog:
+        declareCatalog && ((catalog) => declareCatalog(catalog, String(catalog).split('/').pop())),
     },
     // A stencil has one working copy and no versions (contract ADRs 0002/0006): templates use it by
     // reference. The editor reads the working copy to inline it, saves it when the author edits the
@@ -169,7 +183,8 @@ async function mount(container) {
         searchStencils: async (query) => {
           const params = new URLSearchParams();
           if (query) params.set('q', query);
-          if (inDraft) params.set('in', catalogSegment);
+          // Asked from this catalog's version: what it can use, and apart what it could declare.
+          params.set('in', catalogSegment);
           const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
             headers: jsonHeaders(),
           });
@@ -181,8 +196,12 @@ async function mount(container) {
             name: item.name,
             description: item.description ?? undefined,
             tags: item.tags ?? [],
+            catalog: item.catalog ?? undefined,
+            declared: item.declared !== false,
           }));
         },
+        declareCatalog:
+          declareCatalog && ((catalog, catalogKey) => declareCatalog(catalog, catalogKey)),
         getStencil: async (ref) => {
           const resp = await fetch(stencilUrl(ref) + '/content', { headers: jsonHeaders() });
           if (resp.status === 404) return null;

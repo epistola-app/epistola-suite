@@ -29,6 +29,13 @@ data class AttributeDescriptor(
     val bareSlug: String,
     val displayName: String,
     val options: List<AttributeOption>,
+    /**
+     * The catalog of an attribute the template's catalog does not declare yet (`acme/shared`), offered
+     * apart: adding it to a variant asks to declare that catalog first. Null for one it can use.
+     */
+    val declares: String? = null,
+    /** The key of [declares]' catalog, for the question. */
+    val declaresName: String? = null,
 )
 
 /**

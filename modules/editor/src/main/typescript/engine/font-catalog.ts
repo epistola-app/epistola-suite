@@ -26,6 +26,7 @@
  */
 
 import { defaultStyleRegistry } from './style-registry.js';
+import { normalizeFontFamilyValue } from './font-ref.js';
 
 /** One face of a font family: CSS numeric weight (1–1000) + italic. */
 export interface FontVariant {
@@ -46,6 +47,13 @@ export interface FontInfo {
   name: string;
   kind: string;
   catalogKey: string;
+  /** The address of its catalog (`acme/shared`), which declaring it names. */
+  catalog?: string;
+  /**
+   * False for a font of a catalog the editing catalog does not declare: offered apart, and choosing
+   * it declares that catalog first ([setFontDeclarer]). Absent means declared.
+   */
+  declared?: boolean;
   variants: FontVariant[];
   css: {
     family: string;
@@ -63,6 +71,50 @@ const KIND_FALLBACK: Record<string, string> = {
 };
 
 let currentCatalog: FontInfo[] = [];
+
+/**
+ * Declares the catalog of a font the editing catalog does not declare, once the author confirms;
+ * resolves true when it was declared. Set by the host page; without one such fonts are not offered.
+ */
+export type FontDeclarer = (font: FontInfo) => Promise<boolean>;
+
+let fontDeclarer: FontDeclarer | null = null;
+
+/** Sets (or, with null, clears) what declares the catalog of a font chosen from another catalog. */
+export function setFontDeclarer(declarer: FontDeclarer | null): void {
+  fontDeclarer = declarer;
+  syncStyleRegistryOptions();
+}
+
+/**
+ * Applies the font a `fontFamily` select now names. One of a catalog the editing catalog does not
+ * declare declares that catalog first, once the author confirms; declined or refused, nothing is
+ * applied and [select] shows [previous] again.
+ */
+export function chooseFont(
+  selectValue: string,
+  apply: (value: unknown) => void,
+  select?: HTMLSelectElement,
+  previous = '',
+): void {
+  const font = undeclaredFont(selectValue);
+  if (!font || !fontDeclarer) {
+    apply(normalizeFontFamilyValue(selectValue));
+    return;
+  }
+  void fontDeclarer(font).then((declared) => {
+    if (declared) apply(normalizeFontFamilyValue(selectValue));
+    else if (select) select.value = previous;
+  });
+}
+
+/** The font [selectValue] names when it is of a catalog the editing catalog does not declare. */
+function undeclaredFont(selectValue: string): FontInfo | null {
+  const ref = parseRef(selectValue);
+  if (!ref) return null;
+  const font = currentCatalog.find((f) => f.slug === ref.slug && f.catalogKey === ref.catalogKey);
+  return font && font.declared === false ? font : null;
+}
 
 const STYLE_ELEMENT_ID = 'epistola-font-faces';
 
@@ -94,15 +146,19 @@ export function getFontCatalog(): readonly FontInfo[] {
  */
 export function buildFontFamilyOptions(
   fonts: readonly FontInfo[],
+  offerUndeclared = true,
 ): { label: string; value: string; group: string }[] {
-  return fonts.map((f) => ({
-    label: f.name,
-    value: JSON.stringify({ slug: f.slug, catalogKey: f.catalogKey }),
-    // Groups the picker into `<optgroup>`s by catalog so the author can see
-    // which catalog a font comes from (and same-named fonts in different
-    // catalogs are distinguishable).
-    group: f.catalogKey,
-  }));
+  return fonts
+    .filter((f) => f.declared !== false || offerUndeclared)
+    .map((f) => ({
+      label: f.name,
+      value: JSON.stringify({ slug: f.slug, catalogKey: f.catalogKey }),
+      // Groups the picker into `<optgroup>`s by catalog so the author can see
+      // which catalog a font comes from (and same-named fonts in different
+      // catalogs are distinguishable). A catalog the editing catalog does not declare says so:
+      // choosing one of its fonts adds the dependency.
+      group: f.declared === false ? `${f.catalogKey} (adds a dependency)` : f.catalogKey,
+    }));
 }
 
 /**
@@ -154,7 +210,7 @@ function syncStyleRegistryOptions(): void {
   for (const group of defaultStyleRegistry.groups) {
     for (const prop of group.properties) {
       if (prop.key === 'fontFamily') {
-        prop.options = buildFontFamilyOptions(currentCatalog);
+        prop.options = buildFontFamilyOptions(currentCatalog, fontDeclarer !== null);
       }
     }
   }

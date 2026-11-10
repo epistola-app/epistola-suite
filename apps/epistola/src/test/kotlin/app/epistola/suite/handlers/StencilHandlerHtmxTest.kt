@@ -261,7 +261,9 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
      * `?catalog=` query parameter and then discarded it before calling
      * `ListStencilSummaries`, so the inline stencil picker in the template editor
      * could not be scoped to a single catalog. The HTMX branch already honoured
-     * the same parameter; this asserts the JSON path now does too.
+     * the same parameter; this asserts the JSON path now does too. The catalog
+     * named is the one the picker is in: what it can use is offered as usable, and
+     * another catalog's stencils only apart, marked undeclared (declared first).
      */
     @Test
     fun `JSON search honours the catalog query param`() = fixture {
@@ -297,8 +299,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains(seed.slugA)
-            assertThat(response.body).doesNotContain(seed.slugB)
+            val items = tools.jackson.databind.json.JsonMapper.builder().build().readTree(response.body)["items"].values().associate { it["id"].asString() to it["declared"].asBoolean() }
+            assertThat(items).containsEntry(seed.slugA, true).containsEntry(seed.slugB, false)
         }
     }
 

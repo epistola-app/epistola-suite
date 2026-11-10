@@ -22,7 +22,7 @@ import { createDefaultRegistry } from './engine/registry.js';
 import type { EditorFeatures } from './engine/feature-flags.js';
 import { createImageDefinition } from './components/image/image-registration.js';
 import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
-import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
+import { setFontCatalog, setFontDeclarer, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
@@ -121,6 +121,11 @@ export interface EditorOptions {
     listCatalogs: () => Promise<CatalogInfo[]>;
     listAssets: (catalogKey: string) => Promise<AssetInfo[]>;
     uploadAsset: (file: File, catalogKey: string) => Promise<AssetInfo>;
+    /**
+     * Makes the template's catalog depend on [catalogKey] (an address) once the author confirms;
+     * true when it was declared. Absent: catalogs it does not declare are not offered.
+     */
+    declareCatalog?: (catalogKey: string) => Promise<boolean>;
     contentUrlPattern: string;
   };
   /**
@@ -131,6 +136,11 @@ export interface EditorOptions {
    */
   fontOptions?: {
     listFonts: () => Promise<FontInfo[]>;
+    /**
+     * Makes the editing catalog depend on [catalog] (an address) once the author confirms; true
+     * when it was declared. Absent: fonts of catalogs it does not declare are not offered.
+     */
+    declareCatalog?: (catalog: string, catalogKey: string) => Promise<boolean>;
   };
   /**
    * Optional stencil support: search, read the working copy, create, save and
@@ -241,13 +251,25 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   // select options and `@font-face` rules are mutated in place when the
   // catalog arrives, so a re-render picks them up without re-mounting.
   if (options.fontOptions) {
-    options.fontOptions
-      .listFonts()
-      .then((fonts) => {
+    const { listFonts, declareCatalog } = options.fontOptions;
+    const loadFonts = () =>
+      listFonts().then((fonts) => {
         setFontCatalog(fonts);
         editorEl.requestUpdate();
-      })
-      .catch((e) => console.warn('Failed to load font catalog:', e));
+      });
+    // A font of a catalog the editing catalog does not declare declares it first; the list is
+    // read again, so its fonts move in with those it can use.
+    setFontDeclarer(
+      declareCatalog
+        ? async (font) => {
+            const declared = await declareCatalog(font.catalog ?? font.catalogKey, font.catalogKey);
+            if (declared)
+              await loadFonts().catch((e) => console.warn('Failed to reload fonts:', e));
+            return declared;
+          }
+        : null,
+    );
+    loadFonts().catch((e) => console.warn('Failed to load font catalog:', e));
   }
 
   // Build registry with optional image support
@@ -261,6 +283,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
           listCatalogs: options.imageOptions.listCatalogs,
           listAssets: options.imageOptions.listAssets,
           uploadAsset: options.imageOptions.uploadAsset,
+          declareCatalog: options.imageOptions.declareCatalog,
         },
         contentUrlPattern: options.imageOptions.contentUrlPattern,
         defaultCatalogKey: options.imageOptions.defaultCatalogKey,

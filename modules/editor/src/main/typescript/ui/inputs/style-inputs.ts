@@ -648,7 +648,7 @@ export const COMPOUND_STYLE_TYPES: Record<
 export function renderSelectInput(
   value: unknown,
   options: { label: string; value: string; group?: string }[],
-  onChange: (value: string) => void,
+  onChange: (value: string, select: HTMLSelectElement) => void,
   selectId?: string,
   readOnly = false,
 ): unknown {
@@ -689,7 +689,10 @@ export function renderSelectInput(
       class="ep-select"
       id=${selectId ?? nothing}
       ?disabled=${readOnly}
-      @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
+      @change=${(e: Event) => {
+        const select = e.target as HTMLSelectElement;
+        onChange(select.value, select);
+      }}
     >
       <option value="" ?selected=${!currentValue}>—</option>
       ${body}
