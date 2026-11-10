@@ -4,6 +4,8 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.CatalogEditingProperties
+import app.epistola.suite.catalog.dependencies.Reach
 import app.epistola.suite.catalog.dependencies.VisibleVersions
 import app.epistola.suite.catalog.dependencies.VisibleVersions.bindVisible
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -24,12 +26,16 @@ import java.util.UUID
 /**
  * The fonts one version of [catalog] can use ([VisibleVersions]), with their faces: its own
  * catalog's, then those of each catalog it declares, at the release or draft the declaration names;
- * within a catalog by name. What the editor's font picker offers, in one read.
+ * within a catalog by name. What the editor's font picker offers, in one read. With [reach]
+ * [Reach.UNDECLARED], those of the catalogs it could declare instead, each at the version declaring
+ * it names: what a picker offers apart, to be declared before it is used.
  */
 data class ListVisibleFonts(
     val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's next version. */
     override val catalogVersion: CatalogReleaseRef?,
+    /** The catalogs it can use, or those it could declare. */
+    val reach: Reach = Reach.DECLARED,
 ) : ReleaseReadable,
     Query<List<VisibleFont>>,
     RequiresPermission {
@@ -47,9 +53,10 @@ data class VisibleFont(val font: Font, val faces: List<FontFace>, val version: C
 class ListVisibleFontsHandler(
     private val jdbi: Jdbi,
     private val fonts: FontStore,
+    private val editing: CatalogEditingProperties,
 ) : QueryHandler<ListVisibleFonts, List<VisibleFont>> {
     override fun handle(query: ListVisibleFonts): List<VisibleFont> = jdbi.withHandle<List<VisibleFont>, Exception> { handle ->
-        val visible = VisibleVersions.of(handle, query.catalog, query)
+        val visible = VisibleVersions.reach(handle, query.catalog, query, query.reach, editing.enabled)
         if (visible.isEmpty()) return@withHandle emptyList()
         val refs = visible.associate { it.versionId to it.ref }
         handle.createQuery(
