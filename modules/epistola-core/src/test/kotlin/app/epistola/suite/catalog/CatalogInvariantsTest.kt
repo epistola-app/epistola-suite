@@ -33,6 +33,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.invariants.CatalogInvariants
 import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.publishAndRelease
@@ -78,6 +79,7 @@ class CatalogInvariantsTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("house"), letters), "House", catalogVersion = null).execute()
             val memo = TemplateId(TemplateKey.of("memo"), shared)
             CreateDocumentTemplate(memo, "Memo", catalogVersion = null).execute()
+            declares(shared, letters)
             UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalog = letters, catalogVersion = null).execute()
         }
 

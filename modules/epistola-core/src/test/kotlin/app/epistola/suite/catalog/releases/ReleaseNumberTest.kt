@@ -49,6 +49,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -248,6 +249,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         CreateCatalog(tenant, letters, "Letters").execute()
         withoutSystemCatalog(testCatalog(tenant, letters))
         CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        declares(invoice(tenant).catalogId, testCatalog(invoice(tenant).tenantKey, shared))
         UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         if (usesFooter) {
             UpdateVariantContent(
@@ -324,6 +326,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
             withoutSystemCatalog(testCatalog(tenant, shared))
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), shared))
+            declares(invoice(tenant).catalogId, testCatalog(invoice(tenant).tenantKey, shared))
             UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         }
         assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters), catalogVersion = null).query() }.map { it.catalogKey to it.draftName })

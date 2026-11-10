@@ -23,6 +23,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declaresUsed
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.ThemeRef
@@ -136,6 +137,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             ),
             themeRef = ThemeRef.Inherit,
         )
+        if (saved) declaresUsed(variantId.templateId.catalogId, model)
         if (saved) UpdateVariantContent(variantId = variantId, templateModel = model, catalogVersion = null).execute()
 
         return PreviewVariant(

@@ -721,11 +721,18 @@ releases again; `UpgradeCatalogDependencies` moves every pin to the highest rele
 library upgrade does, and leaves a declaration naming a draft as it is (the UI's _Use the latest
 versions_). Renaming the dependency's namespace carries the declarations that name it.
 
-**Declared as it is used.** A write that starts using another catalog declares it
-(`UsedCatalogDeclarer`), on every surface: a variant's stencils, images and fonts, a variant attribute of another catalog (`shared.tone`), a template's theme,
-a theme's fonts, a stencil's content, an attribute's code list. A catalog that can be changed here is
-declared by naming its **next release**, which is what the draft then renders it from; one that cannot
-by pinning its highest release. A declaration already there is left as the author set it.
+**Declared before it is used.** Using another catalog is a deliberate step, on every surface: a
+write that would make a version use a catalog it does not declare is refused with
+`CATALOG_NOT_DECLARED`, naming the catalog to declare (`DraftReferenceGuard`). That covers a
+variant's stencils, images and fonts, a variant attribute of another catalog (`shared.tone`), a
+template's theme, a theme's fonts, a stencil's content, an attribute's code list and the catalog's
+default theme. A reference that was already there stays editable, so a draft from before this rule
+can still be changed. The pickers offer the step themselves ("adds a dependency"); REST and MCP
+clients declare first, with the catalog's dependencies endpoint or `update_catalog_dependencies`.
+Declaring one catalog (`DeclareCatalogDependency`, as `UsedCatalogDeclarer` does it) names its
+**next release** when it can be changed here, which the draft then renders it from, and pins its
+highest release when it cannot. Choosing a house theme when a catalog is created, or applying one,
+declares its catalog itself: that choice is the step.
 
 **The system catalog is declared from the start.** A new catalog, and a tenant's default catalog,
 declares the system catalog at its highest release when it is created

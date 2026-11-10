@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.testing.withoutSystemCatalog
@@ -47,6 +48,7 @@ class PublishCatalogsTest : IntegrationTestBase() {
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
         val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        declares(invoice.catalogId, testCatalog(invoice.tenantKey, shared))
         UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
         CreateTheme(ThemeId(ThemeKey.of("plain"), testCatalog(TenantId(tenant), forms)), "Plain", catalogVersion = null).execute()
         tenant

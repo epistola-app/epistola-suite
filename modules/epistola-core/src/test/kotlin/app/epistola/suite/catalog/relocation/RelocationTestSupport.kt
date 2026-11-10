@@ -52,6 +52,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declaresUsed
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -235,6 +236,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         withMediator {
             CreateDocumentTemplate(variant.templateId, "Template $key", catalogVersion = null).execute().withRequiredDataExample()
             setup(variant.templateId)
+            declaresUsed(variant.templateId.catalogId, model)
             UpdateVariantContent(variant, model, catalogVersion = null).execute()
             MarkVariantReady(variant, catalogVersion = null).execute()
         }

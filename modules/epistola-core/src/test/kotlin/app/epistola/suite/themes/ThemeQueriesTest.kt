@@ -28,6 +28,7 @@ import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
@@ -383,6 +384,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         repeat(2) { index ->
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             CreateDocumentTemplate(templateId, "Template ${index + 1}", catalogVersion = null).execute()
+            declares(templateId.catalogId, testCatalog(templateId.tenantKey, marketingTheme.catalogKey))
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = marketingTheme.key,

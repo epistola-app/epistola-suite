@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -241,6 +242,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         CreateCatalog(tenantKey = tenantId.key, id = CatalogKey.of("brand"), name = "Brand").execute()
         val outer = StencilId(TestIdHelpers.nextStencilId(), testCatalog(tenantId, CatalogKey.of("brand")))
         val content = stencilDocument { stencil("inst", inner.key.value, catalogKey = inner.catalogKey.value).let { build("inst") } }
+        declares(outer.catalogId, inner.catalogId)
         CreateStencil(id = outer, name = "Outer", content = content, catalogVersion = null).execute()
 
         assertThatThrownBy { DeleteStencil(id = inner, catalogVersion = null).execute() }.isInstanceOf(StencilInUseException::class.java).hasMessageContaining("Outer")

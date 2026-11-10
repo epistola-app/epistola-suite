@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declaresUsed
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.nextVersion
@@ -104,6 +105,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter", catalogVersion = null).execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
+        declaresUsed(templateId.catalogId, templateEmbedding(*instances))
         UpdateVariantContent(variantId = variantId, templateModel = templateEmbedding(*instances), catalogVersion = null).execute()
         Fixture(tenantId, stencils[0], stencils[1], variantId)
     }

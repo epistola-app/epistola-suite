@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -55,6 +56,7 @@ class CatalogBundleTest : IntegrationTestBase() {
     private fun template(tenant: TenantKey, catalog: CatalogKey, key: String, themeFrom: CatalogKey, theme: String) {
         val id = TemplateId(TemplateKey.of(key), testCatalog(TenantId(tenant), catalog))
         CreateDocumentTemplate(id, key.replaceFirstChar { it.uppercase() }, catalogVersion = null).execute().withRequiredDataExample()
+        declares(id.catalogId, testCatalog(id.tenantKey, themeFrom))
         UpdateDocumentTemplate(id, themeId = ThemeKey.of(theme), themeCatalog = testCatalog(id.tenantKey, themeFrom), catalogVersion = null).execute()
     }
 

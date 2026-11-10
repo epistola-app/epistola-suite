@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -89,6 +90,7 @@ class UnusedCatalogDependenciesTest : IntegrationTestBase() {
         withMediator {
             val template = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            declares(template.catalogId, app.epistola.suite.catalog.system.systemCatalog(tenant))
             CreateVariant(VariantId(VariantKey.of("dutch"), template), "Dutch", null, attributes = mapOf("system.locale" to "nl-NL"), catalogVersion = null).execute()
         }
 

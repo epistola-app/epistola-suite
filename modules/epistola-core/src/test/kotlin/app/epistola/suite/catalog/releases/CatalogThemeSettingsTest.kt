@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -63,6 +64,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = catalog.tenantKey, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(catalog.tenantKey), shared)), "Brand", catalogVersion = null).execute()
 
+            declares(testCatalog(catalog.tenantKey, letters), testCatalog(catalog.tenantKey, shared))
             SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared)), catalogVersion = null).execute()
             assertThat(ListCatalogDependencies(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query().map { it.catalogKey }).contains(shared.value)
 
@@ -100,6 +102,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
             SetCatalogPresets(testCatalog(catalog.tenantKey, shared), listOf(CatalogPreset("accent", "Shared accent"), CatalogPreset("small-print", "Small print")), catalogVersion = null).execute()
             SetCatalogPresets(testCatalog(catalog.tenantKey, letters), listOf(CatalogPreset("accent", "Letters accent")), catalogVersion = null).execute()
             // Using the shared theme makes letters depend on shared.
+            declares(testCatalog(catalog.tenantKey, letters), testCatalog(catalog.tenantKey, shared))
             SetCatalogDefaultTheme(testCatalog(catalog.tenantKey, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(catalog.tenantKey, shared)), catalogVersion = null).execute()
 
             val available = GetAvailablePresets(testCatalog(catalog.tenantKey, letters), catalogVersion = null).query()

@@ -27,6 +27,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.testing.withoutSystemCatalog
@@ -74,6 +75,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                     ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0", catalogVersion = null).execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))
                     CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+                    declares(invoice.catalogId, testCatalog(invoice.tenantKey, shared))
                     UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
                     // Using Shared named its next version; Letters pins Shared's release instead.
                     val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!

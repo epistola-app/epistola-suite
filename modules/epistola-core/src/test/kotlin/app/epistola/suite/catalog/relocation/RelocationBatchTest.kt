@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.testing.declares
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -212,9 +213,11 @@ class RelocationBatchTest : RelocationTestSupport() {
             CreateTheme(ThemeId(ThemeKey.of("base"), catalogId(tenant, shared)), "Base", catalogVersion = null).execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", catalogVersion = null).execute()
             CreateStencil(header, "Header", catalogVersion = null).execute()
+            declares(header.catalogId, catalogId(tenant, letters))
             UpdateStencil(header, content = usesTheme("brand", letters.value), catalogVersion = null).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
             CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute()
+            declares(invoice.catalogId, catalogId(tenant, shared))
             UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value), catalogVersion = null).execute()
         }
         val stencil = address(tenant, CatalogResourceType.STENCIL, letters, "header")

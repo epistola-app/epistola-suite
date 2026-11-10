@@ -23,6 +23,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -187,6 +188,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             val stencilId = StencilId(stencilKey, own)
             CreateStencil(id = stencilId, name = "Seal", catalogVersion = null).execute()
             CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), own), name = "Frame", content = buildTemplateModelWithStencil(stencilKey), catalogVersion = null).execute()
+            declares(other, own)
             CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), other), name = "Letterhead", content = buildTemplateModelWithStencil(stencilKey, own.key.value), catalogVersion = null).execute()
 
             assertThat(FindStencilUsages(stencilId = stencilId, catalogVersion = null).query()).containsExactly("Frame", "Letterhead")

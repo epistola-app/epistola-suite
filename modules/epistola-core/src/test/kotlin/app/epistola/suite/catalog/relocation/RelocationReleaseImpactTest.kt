@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -60,6 +61,7 @@ class RelocationReleaseImpactTest : RelocationTestSupport() {
             mediator.releaseNext(catalogId(tenant, shared))
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
             CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            declares(invoice.catalogId, catalogId(tenant, shared))
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = catalogId(tenant, shared), catalogVersion = null).execute()
         }
 

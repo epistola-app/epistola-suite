@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclareCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
@@ -34,6 +35,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.testing.withoutSystemCatalog
@@ -73,6 +75,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     private fun invoiceOnSharedTheme(tenant: TenantKey, version: CatalogReleaseRef? = null) = withMediator {
         val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         if (version == null) CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        DeclareCatalogDependency(templateId.catalogId, testCatalog(templateId.tenantKey, shared), catalogVersion = version).execute()
         UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared), catalogVersion = version).execute()
     }
 
@@ -114,6 +117,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         withMediator {
             val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            declares(templateId.catalogId, testCatalog(templateId.tenantKey, forms))
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("plain"), themeCatalog = testCatalog(templateId.tenantKey, forms), catalogVersion = null).execute()
         }
 
@@ -181,6 +185,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
             releaseSharedNow(tenant, "1.1.0") { UpdateStencil(footer, content = footerWith("body"), catalogVersion = null).execute() }
             val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            declares(invoice.catalogId, testCatalog(invoice.tenantKey, shared))
             UpdateVariantContent(
                 VariantId(VariantKey.INITIAL, invoice),
                 stencilDocument {

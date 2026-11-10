@@ -39,6 +39,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.atNext
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -327,6 +328,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             // A template in another catalog pins the received theme.
             val tplId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(sub.id), CatalogKey.DEFAULT))
             CreateDocumentTemplate(id = tplId, name = "Cross-Ref Template", catalogVersion = null).execute()
+            declares(tplId.catalogId, testCatalog(tplId.tenantKey, catalogKey))
             UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalog = testCatalog(tplId.tenantKey, catalogKey), catalogVersion = null).execute()
 
             // Publisher drops the still-referenced theme in the next release.
