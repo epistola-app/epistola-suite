@@ -11,6 +11,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClients
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
 import org.apache.hc.client5.http.impl.routing.SystemDefaultRoutePlanner
+import org.apache.hc.core5.http.io.EofSensorInputStream
 import org.apache.hc.core5.util.Timeout
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.http.HttpHeaders
@@ -50,6 +51,8 @@ class OutboundHttpFetcher(
     private val guard: OutboundUrlGuard,
     connectTimeout: Duration = Duration.ofSeconds(5),
     readTimeout: Duration = Duration.ofSeconds(15),
+    /** How long one response may take in all. [readTimeout] bounds each read, so it alone lets a source answering a byte at a time hold the thread for as long as it likes. */
+    private val responseTimeout: Duration = Duration.ofSeconds(60),
 ) : DisposableBean {
 
     private val httpClient: CloseableHttpClient = HttpClients.custom()
@@ -78,16 +81,19 @@ class OutboundHttpFetcher(
         .build()
 
     /**
-     * GETs [url] and returns at most [maxBytes] bytes of body. The caller has already passed [url]
-     * through the guard; every redirect is checked here.
+     * GETs [url] and returns at most [maxBytes] bytes of body, read within [responseTimeout] and
+     * before [deadlineNanos] ([System.nanoTime]) when one is given. The caller has already passed
+     * [url] through the guard; every redirect is checked here.
      */
-    fun get(url: String, headers: Map<String, String>, allowHttp: Boolean, maxBytes: Long): ByteArray {
+    fun get(url: String, headers: Map<String, String>, allowHttp: Boolean, maxBytes: Long, deadlineNanos: Long? = null): ByteArray {
+        val ownDeadline = System.nanoTime() + responseTimeout.toNanos()
+        val deadline = if (deadlineNanos != null && deadlineNanos - ownDeadline < 0) deadlineNanos else ownDeadline
         val origin = URI(url)
         var current = origin
         var requestHeaders = headers
         var redirects = 0
         while (true) {
-            when (val hop = fetchOnce(current, requestHeaders, maxBytes)) {
+            when (val hop = fetchOnce(current, requestHeaders, maxBytes, deadline)) {
                 is Hop.Body -> return hop.bytes
 
                 is Hop.Redirect -> {
@@ -113,7 +119,7 @@ class OutboundHttpFetcher(
         class Redirect(val location: String) : Hop
     }
 
-    private fun fetchOnce(uri: URI, headers: Map<String, String>, maxBytes: Long): Hop = restClient.get()
+    private fun fetchOnce(uri: URI, headers: Map<String, String>, maxBytes: Long, deadline: Long): Hop = restClient.get()
         .uri(uri)
         .headers { h -> headers.forEach { (name, value) -> h.set(name, value) } }
         .exchange { _, response ->
@@ -122,7 +128,7 @@ class OutboundHttpFetcher(
                 status.is2xxSuccessful -> {
                     val declared = response.headers.contentLength
                     if (declared > maxBytes) throw tooLarge(maxBytes)
-                    Hop.Body(readCapped(response.body, maxBytes))
+                    Hop.Body(readCapped(response.body, maxBytes, deadline))
                 }
 
                 status.is3xxRedirection && status.value() in REDIRECT_STATUSES -> {
@@ -141,13 +147,29 @@ class OutboundHttpFetcher(
         else -> OutboundFetchException("Unexpected response status ${status.value()}")
     }
 
-    private fun readCapped(body: InputStream, maxBytes: Long): ByteArray {
-        val bytes = body.readNBytes((maxBytes + 1).coerceAtMost(Int.MAX_VALUE.toLong() - 8).toInt())
-        if (bytes.size > maxBytes) throw tooLarge(maxBytes)
-        return bytes
+    /**
+     * Reads at most [maxBytes], a chunk at a time, and gives up once [deadline] has passed. Giving up
+     * aborts the connection: closing the response normally would first read the rest of the body,
+     * which from a source answering slowly takes as long as not giving up at all.
+     */
+    private fun readCapped(body: InputStream, maxBytes: Long, deadline: Long): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val chunk = ByteArray(CHUNK_BYTES)
+        try {
+            while (true) {
+                if (System.nanoTime() - deadline > 0) throw OutboundFetchException("The source took too long to answer")
+                val read = body.read(chunk, 0, (maxBytes + 1 - out.size()).coerceIn(1, CHUNK_BYTES.toLong()).toInt())
+                if (read < 0) return out.toByteArray()
+                out.write(chunk, 0, read)
+                if (out.size() > maxBytes) throw tooLarge(maxBytes)
+            }
+        } catch (e: OutboundFetchException) {
+            (body as? EofSensorInputStream)?.abort()
+            throw e
+        }
     }
 
-    private fun tooLarge(maxBytes: Long) = OutboundFetchException("The response is larger than the $maxBytes-byte limit")
+    private fun tooLarge(maxBytes: Long) = OutboundResponseTooLargeException("The response is larger than the $maxBytes-byte limit")
 
     private fun sameOrigin(a: URI, b: URI): Boolean = a.scheme.equals(b.scheme, ignoreCase = true) &&
         a.host.equals(b.host, ignoreCase = true) &&
@@ -176,6 +198,7 @@ class OutboundHttpFetcher(
 
     private companion object {
         val REDIRECT_STATUSES = setOf(301, 302, 303, 307, 308)
+        const val CHUNK_BYTES = 64 * 1024
         val CREDENTIAL_HEADERS = setOf("authorization", "x-api-key", "cookie")
     }
 }

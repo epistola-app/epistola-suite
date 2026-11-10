@@ -328,6 +328,12 @@ scopes → `epistola-suite-dedicated` → Add mapper → By configuration → Us
    and platform roles. Empty here despite roles in the token means the **names** don't match
    the encoding (step 2a).
 
+#### 2e. Hold API tokens to Epistola (recommended)
+
+Add the audience mapper described in
+[API tokens and the audience](#api-tokens-and-the-audience-recommended-for-a-shared-realm), and
+set `oidc.audiences`. Strongly recommended when the realm serves other applications too.
+
 ### Group Membership Mapper (groups path)
 
 Prefer hierarchical groups instead of (or alongside) client roles? Configure this manually
@@ -365,6 +371,65 @@ Assign users to the leaf groups (e.g., `/epistola/tenants/demo/content-viewer`).
 The groups and protocol mappers above are configured **in Keycloak** (realm import, Terraform, or
 by hand). Epistola reads the resulting `groups` / `roles` claims from the token; it does not manage
 Keycloak groups or mappers itself.
+
+## API tokens and the audience (recommended for a shared realm)
+
+**What it protects against.** A system can call Epistola's REST API with a Keycloak access token
+(`Authorization: Bearer …`). Epistola checks the token's signature, that it has not expired, and
+that it comes from the configured realm (`iss`), then grants the roles it carries. A realm usually
+serves several applications, all under the same issuer and keys, so a token Keycloak issued to
+**another** application of the realm passes those checks too. Whoever holds such a token, that
+application, its administrators or anyone who compromises it, can call Epistola's API as the user it
+was issued for. What they can do depends on the roles in the token: with the client-role or group
+mappers on the `epistola-suite` client alone, another client's token carries none of Epistola's
+roles; with a realm-wide roles or groups scope, it carries all of them.
+
+The `aud` (audience) claim says which application a token is for. With `oidc.audiences` set,
+Epistola accepts a token only when its `aud` names one of them; another application's token is
+refused with 401. Without it only the issuer is checked, as in earlier releases, and the
+application logs a warning at startup.
+
+API keys (`Authorization: ApiKey epk_…`), MCP and signing in to the UI are not affected.
+
+**1. Put Epistola in the token's audience.** Keycloak puts the client a token is issued to in
+`azp`, not in `aud`, so add an audience mapper to the `epistola-suite` client: **Clients →
+`epistola-suite` → Client scopes → `epistola-suite-dedicated` → Add mapper → By configuration →
+Audience**.
+
+| Field                    | Value               |
+| ------------------------ | ------------------- |
+| Name                     | `epistola-audience` |
+| Included Client Audience | `epistola-suite`    |
+| Add to access token      | ON                  |
+| Add to ID token          | OFF                 |
+
+**2. Do the same for every other system calling the API with a Keycloak token**, such as a client
+using client credentials or a portal forwarding its users' tokens: add the same mapper (Included
+Client Audience `epistola-suite`) to **that** system's client, so its tokens name Epistola too. Do
+this before step 3, or those calls start answering 401.
+
+**3. Tell Epistola to check it.**
+
+```yaml
+# Helm
+oidc:
+  audiences: [epistola-suite]
+```
+
+```bash
+# Plain environment variables
+SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=epistola-suite
+```
+
+Several audiences may be listed; a token naming any of them is accepted.
+
+**4. Verify.** Decode an access token issued to `epistola-suite` (e.g. <https://jwt.io>): `aud`
+contains `epistola-suite`, for example `["epistola-suite", "account"]`. The startup log no longer
+warns that bearer tokens are checked for their issuer only. A call with a token issued to another
+client, one without the mapper, answers 401.
+
+The local realm (`apps/epistola/docker/keycloak/realm-export.json`) has the mapper, and the
+`keycloak` profile sets the audience.
 
 ## Local Development
 
@@ -405,6 +470,9 @@ same effective memberships:
 
 ```json
 {
+  "iss": "https://sso.example.com/realms/epistola",
+  "aud": ["epistola-suite", "account"],
+  "azp": "epistola-suite",
   "groups": [
     "/epistola/tenants/demo/content-viewer",
     "/epistola/tenants/demo/content-author",
@@ -423,7 +491,8 @@ same effective memberships:
 ```
 
 An IdP that emits only one of these — say, only `roles` — is fully supported. The
-unused parser simply contributes the empty membership set.
+unused parser simply contributes the empty membership set. `aud` names `epistola-suite` once the
+audience mapper is added ([API tokens and the audience](#api-tokens-and-the-audience-recommended-for-a-shared-realm)).
 
 ## Using a Non-Keycloak IDP (BYO IDP)
 
@@ -480,6 +549,9 @@ For any IDP integration, the token Epistola Suite receives must contain `sub` an
 | -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `groups`                               | array of string | `["/epistola/tenants/acme-corp/content-viewer", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
 | `roles` (or the configured equivalent) | array of string | `["ept_acme-corp_content-viewer", "eps_tenant_manager"]` — see [Flat Roles](#flat-roles-for-idps-without-groups)                                                                                         |
+
+For bearer tokens on the REST API, `aud` should name Epistola as well, and must once
+`oidc.audiences` is set ([API tokens and the audience](#api-tokens-and-the-audience-recommended-for-a-shared-realm)).
 
 Anything outside the recognised prefixes / paths is ignored by the parsers — short-name
 groups (e.g. `"tenant-manager"` without the path prefix) and unknown role labels alike.

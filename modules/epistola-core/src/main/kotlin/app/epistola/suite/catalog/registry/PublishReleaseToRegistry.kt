@@ -39,6 +39,10 @@ import tools.jackson.databind.ObjectMapper
  * immutable, which refuse a second push of the same content. Between the look and the push another
  * installation could still publish the tag; an immutable-tag policy on the registry closes that.
  *
+ * **Published under a namespace the tenant holds**, as releasing needs (ADR 0034, section 2): a
+ * catalog received from elsewhere keeps its publisher's name, and is not sent on under it by a tenant
+ * that does not hold that namespace too. A local catalog needs no grant.
+ *
  * [Permission.CATALOG_PUBLISH], as sending a release to Epistola Exchange is: the release leaves
  * the installation, which being trusted to release it here does not cover. Exporting it needs
  * [Permission.CATALOG_VIEW] as well, checked on that dispatch.
@@ -84,6 +88,7 @@ class PublishReleaseToRegistryHandler(
     private val mapper: ObjectMapper,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+    private val grants: app.epistola.suite.catalog.namespaces.NamespaceGrantStore,
 ) : CommandHandler<PublishReleaseToRegistry, RegistryPublication> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -92,6 +97,8 @@ class PublishReleaseToRegistryHandler(
         val registry = registries.named(command.registry)
         val version = command.version.trim()
         val catalog = GetCatalog(command.catalog).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        val holding = jdbi.withHandle<app.epistola.suite.catalog.namespaces.CatalogNamespaceHolding, Exception> { app.epistola.suite.catalog.namespaces.holdingOf(it, grants, command.catalog) }
+        holding.refusal?.let { throw ValidationException("namespace", it, ValidationCode.CATALOG_NAMESPACE_NOT_HELD) }
         val release = ListCatalogReleaseSummaries(command.catalog).query().firstOrNull { it.version == version }
             ?: throw CatalogReleaseNotFoundException(command.catalogKey, version)
         val repository = registries.repository(registry, catalog.registry, catalog.namespace, catalog.id.value)

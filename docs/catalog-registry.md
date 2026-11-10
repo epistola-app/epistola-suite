@@ -98,7 +98,10 @@ unless `allow-http` is on, and the registry's credentials are never sent to anot
 
 ## What is checked
 
-**Publishing** first looks the version up in the registry. Already there with the same fingerprint
+**Publishing** is refused for a catalog named in a namespace the tenant does not hold
+(`CATALOG_NAMESPACE_NOT_HELD`), as releasing it is: a catalog received from elsewhere keeps its
+publisher's name, and is not sent on under it. A `local` catalog needs no grant. The release page
+then says why instead of offering _Publish to registry_. It then looks the version up in the registry. Already there with the same fingerprint
 label: nothing is pushed and the result says so. There with anything else: refused, because one
 number names one release; release the changes under a new number. Looking first also matters on
 registries that refuse to overwrite a tag at all. Between the look and the push another
@@ -125,6 +128,19 @@ A catalog the tenant does not have yet is created with that registry as its sour
 version, and the catalogs list offers a newer one through the same dialog. A catalog the tenant has
 receives the release as any import does: its next release moves to it, or, when that has changes of
 its own or the release is lower, it is recorded beside the others (ADR 0032).
+
+## A namespace is a claim, not a proof
+
+A domain namespace (`gemeente-x.nl/letters`) says which organisation a catalog comes from; nothing
+in Epistola proves it. A tenant's administrator adds domains and their namespaces themselves
+(`docs/auth.md`), and every tenant publishes to a registry with the installation's credentials, so
+the registry cannot tell tenants apart either. Whoever installs from a registry trusts the registry
+and its access control, not the name in the path.
+
+On an installation that hosts several organisations, do not share one registry, or one
+`repository-prefix`, between them: give each its own, so that what one tenant publishes cannot be
+mistaken for another's. The Epistola Exchange is different: it grants its own namespaces, and those
+are not added by hand.
 
 ## Tags are mutable: turn on immutable tags
 

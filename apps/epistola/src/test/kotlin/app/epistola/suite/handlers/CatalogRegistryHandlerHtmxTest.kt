@@ -7,12 +7,16 @@ package app.epistola.suite.handlers
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.registry.InstallReleaseFromRegistry
 import app.epistola.suite.catalog.registry.PublishReleaseToRegistry
+import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -156,6 +160,23 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
 
         val second = post("/tenants/${a.value}/catalogs/${a.value}/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
         assertThat(second.body).contains("had this release already")
+    }
+
+    @Test
+    fun `a release received under a namespace the tenant does not hold is not offered for publishing, and says why`() {
+        val (a, namespace) = released("Registry UI foreign source", "ui-foreign")
+        val b = createTenant("Registry UI foreign receiver").id
+        withMediator {
+            val archive = ExportCatalogZip(testCatalog(a, CatalogKey.of("ui-foreign")), "1.0.0").execute().zipBytes
+            ImportCatalogZip(tenantKey = b, zipBytes = archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+        }
+
+        val page = restTemplate.getForEntity("/tenants/${b.value}/catalogs/$namespace/ui-foreign/releases/1.0.0", String::class.java)
+
+        assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(page.body)
+            .doesNotContain("data-testid=\"release-registry-publish\"")
+            .contains("data-testid=\"release-registry-publish-refused\"", "does not hold the namespace $namespace")
     }
 }
 

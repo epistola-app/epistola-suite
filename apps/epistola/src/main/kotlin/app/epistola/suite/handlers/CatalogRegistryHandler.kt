@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.CatalogImportValidationException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
+import app.epistola.suite.catalog.namespaces.CatalogNamespaceHolding
 import app.epistola.suite.catalog.registry.InstallReleaseRegistryRelease
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
 import app.epistola.suite.catalog.registry.ListReleaseRegistryReleases
@@ -205,13 +206,22 @@ class CatalogRegistryHandler {
 
     companion object {
         /**
-         * Whether the release page offers _Publish to a registry_: the tenant has a release registry, and the
-         * principal may publish. The one name the template gates on.
+         * Whether the release page offers _Publish to a registry_ ([RegistryPublishOffer.available]),
+         * and why not when only the namespace stands in the way ([RegistryPublishOffer.refusal]): the
+         * tenant has a release registry, the principal may publish, and the tenant holds the catalog's
+         * namespace (a catalog received from elsewhere keeps its publisher's, ADR 0034). The one name
+         * the template gates on.
          */
-        fun canPublish(tenantKey: TenantKey, registries: ReleaseRegistryList): Boolean = registries.available && SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH)
+        fun publishOffer(tenantKey: TenantKey, registries: ReleaseRegistryList, holding: CatalogNamespaceHolding): RegistryPublishOffer {
+            val mayPublish = registries.available && SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH)
+            return RegistryPublishOffer(available = mayPublish && holding.held, refusal = holding.refusal?.takeIf { mayPublish })
+        }
 
         /** Whether the catalogs page offers _Get a release from a registry_. */
         fun canInstall(tenantKey: TenantKey, registries: ReleaseRegistryList): Boolean = registries.available &&
             SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_MANAGE)
     }
 }
+
+/** _Publish to a registry_ on a release: offered when [available]; otherwise [refusal] says why, when it is the namespace. */
+data class RegistryPublishOffer(val available: Boolean, val refusal: String?)

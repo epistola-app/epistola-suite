@@ -307,7 +307,9 @@ one the connection grants is not removed by hand. Every member sees what the ten
 they name a catalog (`ListHeldNamespaces`, `CATALOG_VIEW`). The demo grants the `demo` tenant
 `exchange.epistola.app/demo` on every start (`SeedTenantNamespace`, `SystemInternal`); its personal
 tenants hold none and name their catalogs under `local`. See `docs/catalog-versioning.md`, "Who
-names a catalog".
+names a catalog". A domain namespace is a claim the tenant makes, not one Epistola verifies:
+releasing and publishing to a registry need the namespace held, and on an installation hosting
+several organisations each gets its own registry or prefix (`docs/catalog-registry.md`).
 
 ## Production (OAuth2/OIDC)
 
@@ -322,6 +324,7 @@ export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<REG>_CLIENTSECRET=<your-secre
 export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_<REG>_SCOPE=openid,profile,email
 export SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_<REG>_ISSUERURI=https://sso.example.com/realms/epistola
 export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/realms/epistola
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=epistola-suite # recommended, see below
 ```
 
 Activate profiles (no `keycloak`):
@@ -333,6 +336,16 @@ SPRING_PROFILES_ACTIVE=prod
 The presence of the registration properties enables OIDC login; the `prod` profile provides
 production hardening (flyway clean disabled, tuned concurrency). See
 [keycloak-setup.md](keycloak-setup.md) / [authentik-setup.md](authentik-setup.md).
+
+**Hold bearer tokens to Epistola's audience.** With
+`spring.security.oauth2.resourceserver.jwt.audiences` set (Helm: `oidc.audiences`), a token on the
+REST API is accepted only when its `aud` claim names one of them (`JwtAudiencePolicy`). Without it
+only the issuer is checked, as in earlier releases, and the boot logs a warning: an identity
+provider's realm usually serves several applications with one issuer, and a token issued to any of
+them is then accepted here with the roles it carries. Recommended whenever the realm is shared; the
+provider must put the audience in Epistola's tokens (Keycloak: an audience mapper,
+[keycloak-setup.md](keycloak-setup.md#api-tokens-and-the-audience-recommended-for-a-shared-realm);
+authentik puts the provider's client id in `aud`).
 
 ### Silent Sign-In
 

@@ -33,19 +33,32 @@ class OutboundSourceReader(
         return read(url, headers, allowHttp)
     }
 
-    private fun read(url: String, headers: Map<String, String>, allowHttp: Boolean): ByteArray = when (OutboundUrlGuard.schemeOf(url)) {
-        "file" -> {
-            val path = guard.requireFileUnderRoots(url)
-            if (Files.size(path) > maxBytes) throw OutboundFetchException("The file is larger than the $maxBytes-byte limit")
-            Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS).use { it.readNBytes(maxBytes.coerceAtMost(Int.MAX_VALUE - 8L).toInt()) }
-        }
+    /** Every read is charged to the [OutboundBudget] of the work it is part of, when there is one. */
+    private fun read(url: String, headers: Map<String, String>, allowHttp: Boolean): ByteArray {
+        val budget = OutboundBudget.current()
+        budget?.checkTime()
+        val cap = budget?.let { minOf(maxBytes, it.remainingBytes()) } ?: maxBytes
+        val bytes = when (OutboundUrlGuard.schemeOf(url)) {
+            "file" -> {
+                val path = guard.requireFileUnderRoots(url)
+                if (Files.size(path) > cap) throw budget?.takeIf { cap < maxBytes }?.tooMuch() ?: OutboundFetchException("The file is larger than the $maxBytes-byte limit")
+                Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS).use { it.readNBytes(cap.coerceAtMost(Int.MAX_VALUE - 8L).toInt()) }
+            }
 
-        "classpath" -> {
-            val resource = resourceLoader.getResource(url)
-            if (!resource.exists()) throw OutboundFetchException("Classpath resource not found: $url")
-            resource.contentAsByteArray
-        }
+            "classpath" -> {
+                val resource = resourceLoader.getResource(url)
+                if (!resource.exists()) throw OutboundFetchException("Classpath resource not found: $url")
+                resource.contentAsByteArray
+            }
 
-        else -> fetcher.get(url, headers, allowHttp, maxBytes)
+            else -> try {
+                fetcher.get(url, headers, allowHttp, cap, budget?.deadlineNanos())
+            } catch (e: OutboundResponseTooLargeException) {
+                // Larger than what the work has left, not than one response may be: say which.
+                throw budget?.takeIf { cap < maxBytes }?.tooMuch() ?: e
+            }
+        }
+        budget?.charge(bytes.size)
+        return bytes
     }
 }

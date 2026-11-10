@@ -4,7 +4,9 @@
 
 package app.epistola.suite.assets
 
+import app.epistola.suite.assets.commands.ImportAsset
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.testing.testCatalog
@@ -47,6 +49,15 @@ class ImagePixelPolicyTest {
     @Test
     fun `an image claiming more pixels than a render can hold is refused`() {
         assertThatThrownBy { upload(pngClaiming(50_000, 50_000)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("50000 × 50000")
+    }
+
+    @Test
+    fun `a catalog's image re-imported over one it has is held to the same size`() {
+        assertThatThrownBy {
+            ImportAsset(testCatalog(TenantKey("testtenant"), CatalogKey.DEFAULT), null, AssetKey.of("mark"), "mark.png", AssetMediaType.fromMimeType("image/png"), pngClaiming(50_000, 50_000))
+        }
             .isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("50000 × 50000")
     }

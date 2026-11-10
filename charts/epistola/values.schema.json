@@ -313,6 +313,11 @@
         "silentLogin": {
           "type": "boolean",
           "description": "Try a silent OIDC sign-in (prompt=none) before showing the login page, so users with a live identity-provider session need no click."
+        },
+        "audiences": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Audiences a bearer token on /api must name in its aud claim; empty checks the issuer only."
         }
       },
       "allOf": [

@@ -317,6 +317,12 @@ oidc:
   secretKey: client-secret
   # Issuer URI for browser-facing OAuth2 / JWT validation.
   issuerUri: ""
+  # Audiences a bearer token on /api (the REST API) must name in its `aud` claim, e.g.
+  # [epistola-suite]. Recommended whenever the identity provider's realm serves other applications:
+  # empty, only the issuer is checked, so a token issued to any of them is accepted (with a warning
+  # at startup). Your provider must put one of these in `aud` (Keycloak: an audience mapper; see
+  # docs/keycloak-setup.md; authentik puts the provider's client id there).
+  audiences: []
   # OAuth2 scopes requested at login (comma-separated). `openid` is required for OIDC; keep
   # `profile`/`email` so Epistola receives the name/email claims. Add the scope that emits your
   # roles/groups claim if your provider gates it behind a scope (e.g. authentik scope mappings).

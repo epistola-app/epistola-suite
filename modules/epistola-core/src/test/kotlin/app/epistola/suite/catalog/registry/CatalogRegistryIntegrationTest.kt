@@ -7,12 +7,14 @@ package app.epistola.suite.catalog.registry
 import app.epistola.suite.catalog.commands.CatalogImportValidationException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.ReleaseChannel
+import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
@@ -180,6 +182,24 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         assertThat(registries.client(registry).manifest(registries.repository(registry, TestNamespaces.DEFAULT_AUTHORITY, r.namespace, "reg-taken"), "1.0.0")!!.digest)
             .`as`("not overwritten")
             .isEqualTo(theirs)
+    }
+
+    @Test
+    fun `a received catalog is not published under a namespace the tenant does not hold`() {
+        val r = released("reg-foreign")
+        withMediator {
+            // B received A's release, as an upload: receiving needs no grant, and keeps A's namespace.
+            ImportCatalogZip(tenantKey = r.b, zipBytes = export(r), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            val received = testCatalog(r.b, r.catalog)
+            assertThat(received.namespace).isEqualTo(r.namespace)
+
+            assertThatThrownBy { PublishReleaseToRegistry(received, "1.0.0", "local").execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_NOT_HELD) }
+        }
+        val registry = registries.named("local")
+        assertThat(registries.client(registry).manifest(registries.repository(registry, TestNamespaces.DEFAULT_AUTHORITY, r.namespace, "reg-foreign"), "1.0.0"))
+            .`as`("nothing pushed")
+            .isNull()
     }
 
     @Test

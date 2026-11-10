@@ -17,6 +17,9 @@ import java.nio.file.Path
 /** A catalog or code-list fetch that did not complete. The message is safe to show to the user. */
 open class OutboundFetchException(override val message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
+/** A response with more body than the reader allows. */
+class OutboundResponseTooLargeException(message: String) : OutboundFetchException(message)
+
 /** A source, redirect or derived URL that [OutboundUrlGuard] refuses to read. */
 class OutboundUrlRejectedException(message: String) : OutboundFetchException(message)
 
