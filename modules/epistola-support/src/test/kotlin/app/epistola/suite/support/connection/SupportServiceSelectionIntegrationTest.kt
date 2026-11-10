@@ -501,9 +501,9 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
     /** A second connection over the same rows: another node of the installation. */
     private fun anotherNode(store: SupportConnectionStore = supportConnections.configuredStore()) = DefaultSupportConnection(
         properties,
+        RegisteringConnectionSettings.of(properties, supportConnections.configuredEndpoint()),
         store,
         serviceClient,
-        supportConnections,
         installations,
         installation,
         nodeIdentity,
