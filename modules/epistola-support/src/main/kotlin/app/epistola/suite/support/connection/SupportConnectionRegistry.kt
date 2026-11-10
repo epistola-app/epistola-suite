@@ -166,7 +166,11 @@ class ConfiguredSupportConnections(
     /** With `epistola.support.enabled`, the connection `epistola.support.*` configures is stored when it is not. */
     private fun storeEpistolaSupport() {
         if (!properties.enabled) return
-        MediatorContext.runWithMediator(mediator) { EnsureConfiguredSupportConnection().execute() }
+        try {
+            MediatorContext.runWithMediator(mediator) { EnsureConfiguredSupportConnection().execute() }
+        } catch (e: SupportEndpointTakenException) {
+            log.warn("{}; an administrator removes that connection, or epistola.support.endpoint names another", e.message)
+        }
     }
 }
 

@@ -43,8 +43,9 @@ class EnsureConfiguredSupportConnectionHandler(
                 .bind("name", NAME)
                 .bind("endpoint", endpoint)
                 .execute()
-            handle.createQuery("SELECT id FROM support_connections WHERE endpoint = :endpoint").bind("endpoint", endpoint).mapTo(UUID::class.java).one()
-        }
+            handle.createQuery("SELECT id FROM support_connections WHERE endpoint = :endpoint AND auth = 'PRIVATE_KEY_JWT'")
+                .bind("endpoint", endpoint).mapTo(UUID::class.java).findOne().orElse(null)
+        } ?: throw SupportEndpointTakenException(endpoint)
     }
 
     companion object {
@@ -52,3 +53,6 @@ class EnsureConfiguredSupportConnectionHandler(
         const val NAME = "Epistola support"
     }
 }
+
+/** The configured endpoint is taken by a connection that signs in otherwise (a token): Epistola support's cannot be stored there. */
+class SupportEndpointTakenException(val endpoint: String) : RuntimeException("A support connection at $endpoint signs in with a token, so the connection epistola.support.* configures is not stored there")
