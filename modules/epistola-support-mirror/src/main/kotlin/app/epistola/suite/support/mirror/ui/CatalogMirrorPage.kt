@@ -31,6 +31,7 @@ import app.epistola.suite.support.mirror.RequestCatalogMirrorSync
 import app.epistola.suite.support.mirror.SetCatalogMirrorPolicy
 import app.epistola.suite.support.ui.SupportNavContributor
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.ValidationException
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
@@ -102,6 +103,8 @@ class CatalogMirrorHandler(private val registry: SupportConnectionRegistry) {
                 SetCatalogMirrorPolicy(catalog, policy, connection(request)).execute()
                 "Saved the policy of $namespace/$key."
             } catch (e: CatalogNotFoundException) {
+                e.message
+            } catch (e: ValidationException) {
                 e.message
             }
         }

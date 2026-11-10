@@ -20,6 +20,8 @@ import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.testing.TestPrincipalUser
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -128,6 +130,38 @@ class CatalogMirrorSharingIntegrationTest : CatalogMirrorTestBase() {
         assertThat(entry.sharing).isEqualTo(CatalogMirrorSharing.SHARED)
         assertThat(entry.withheldReleases).isEqualTo(1)
         assertThat(entry.withheldBecause).containsExactly("${shared.namespace}/shared")
+    }
+
+    @Test
+    fun `a catalog Epistola supplies cannot be marked never to be shared, so it withholds nothing`() {
+        val tenant = createTenant("Mirror supplied").id
+        val system = testCatalog(tenant, SYSTEM_CATALOG_KEY)
+        optIn(tenant, shareByDefault = true)
+
+        assertThatThrownBy { policy(system, CatalogMirrorPolicy.NEVER) }
+            .isInstanceOf(ValidationException::class.java)
+            .extracting { (it as ValidationException).code }
+            .isEqualTo(ValidationCode.SUPPLIED_CATALOG_NOT_WITHHELD)
+
+        assertThat(settings(tenant).catalogs.single { it.catalog == system }.policy).isEqualTo(CatalogMirrorPolicy.INHERIT)
+    }
+
+    @Test
+    fun `a new catalog's release, depending on the system catalog by default, is sent with the system release it pins`() {
+        val tenant = createTenant("Mirror on system").id
+        val letters = releasedCatalog(tenant, "letters", "1.0.0", onSystem = true)
+        val system = testCatalog(tenant, SYSTEM_CATALOG_KEY)
+        optIn(tenant, shareByDefault = true)
+
+        val sent = bindings(tenant).associateBy { it.catalog.key.value to it.version }
+        val release = sent.getValue("letters" to "1.0.0")
+        val pin = release.dependencies.single()
+        val systemRelease = withMediator { GetCatalog(system).query()!!.latestReleaseVersion!! }
+
+        assertThat(pin.namespace to pin.key).isEqualTo(system.namespace to SYSTEM_CATALOG_KEY.value)
+        assertThat(pin.version).isEqualTo(systemRelease)
+        assertThat(sent).containsKey(SYSTEM_CATALOG_KEY.value to systemRelease)
+        assertThat(settings(tenant).catalogs.single { it.catalog == letters }.withheldReleases).isZero()
     }
 
     @Test

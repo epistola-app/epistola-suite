@@ -34,6 +34,7 @@ import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import java.util.UUID
 
 /**
  * Seeds catalogs, releases, deployments and mirror choices through commands, as people make them.
@@ -44,13 +45,16 @@ abstract class CatalogMirrorTestBase : IntegrationTestBase() {
     @Autowired
     protected lateinit var privacy: SupportPrivacy
 
-    /** Creates [key] with a theme and releases it as each of [versions], every release with different content. */
-    protected fun releasedCatalog(tenant: TenantKey, key: String, vararg versions: String): CatalogId = withMediator {
+    /**
+     * Creates [key] with a theme and releases it as each of [versions], every release with different
+     * content. It depends on nothing unless [onSystem]: then on the system catalog, as a new catalog does.
+     */
+    protected fun releasedCatalog(tenant: TenantKey, key: String, vararg versions: String, onSystem: Boolean = false): CatalogId = withMediator {
         val catalogKey = CatalogKey.of(key)
         CreateCatalog(tenantKey = tenant, id = catalogKey, name = key.replaceFirstChar(Char::uppercase)).execute()
         val catalog = testCatalog(tenant, catalogKey)
         // A new catalog declares the system catalog; these release on their own, depending on nothing.
-        withoutSystemCatalog(catalog)
+        if (!onSystem) withoutSystemCatalog(catalog)
         val theme = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalogKey))
         // Named after the tenant and catalog, so no two catalogs release the same content (content hash).
         CreateTheme(theme, "Brand ${tenant.value} $key", documentStyles = mapOf("color" to "#000000"), catalogVersion = null).execute()
@@ -96,12 +100,15 @@ abstract class CatalogMirrorTestBase : IntegrationTestBase() {
     protected fun policy(catalog: CatalogId, policy: CatalogMirrorPolicy) = withMediator { SetCatalogMirrorPolicy(catalog, policy, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
     /**
-     * Opts in sharing every catalog but the system catalog, which is marked never to be shared: for
-     * tests about the tenant's own catalogs, which depend on nothing, so their sets stay small.
+     * Opts in over [connectionId] sharing the catalogs marked, and marks every catalog the tenant has
+     * now but those Epistola supplies (which cannot be withheld): for tests about the tenant's own
+     * catalogs, which depend on nothing, so their sets stay small.
      */
-    protected fun optInOwnCatalogs(tenant: TenantKey) {
-        optIn(tenant, shareByDefault = true)
-        policy(testCatalog(tenant, SYSTEM_CATALOG_KEY), CatalogMirrorPolicy.NEVER)
+    protected fun optInOwnCatalogs(tenant: TenantKey, connectionId: UUID = withMediator { EnsureConfiguredSupportConnection().execute() }) = withMediator {
+        OptInCatalogMirror(tenant, shareByDefault = false, CatalogMirror.CONSENT_VERSION, connectionId = connectionId).execute()
+        GetCatalogMirrorSettings(tenant, limit = GetCatalogMirrorSettings.MAX_LIMIT, connectionId = connectionId).query().catalogs
+            .filterNot { it.suppliedByEpistola }
+            .forEach { SetCatalogMirrorPolicy(it.catalog, CatalogMirrorPolicy.SHARE, connectionId).execute() }
     }
 
     /** Every binding the tenant shares, walking the pages. */

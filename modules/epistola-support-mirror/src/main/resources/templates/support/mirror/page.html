@@ -208,6 +208,8 @@
                                 <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" th:attr="aria-label='Save the policy of ' + ${e.address}">Save</button>
                             </form>
                             <span th:unless="${s.canSetPolicy(e)}" th:text="${e.policy.label}">Share</span>
+                            <div class="text-muted" th:if="${s.withholdingRefusedReason(e) != null}" data-testid="mirror-catalog-supplied"
+                                 th:text="${s.withholdingRefusedReason(e)}">Epistola supplies this catalog, so it cannot be marked never to be shared.</div>
                         </td>
                         <td th:text="${e.releases}">3</td>
                         <td th:text="${e.lastSyncedAt != null} ? ${#temporals.format(e.lastSyncedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : '—'">—</td>
@@ -232,7 +234,8 @@
                 depends on a catalog marked "Never share" is not sent at all.
             </p>
             <p>
-                The system catalog and catalogs Epistola supplies with the suite are shared like any other.
+                The system catalog and catalogs Epistola supplies with the suite are shared like any other,
+                and cannot be marked "Never share": the releases that depend on them could not be sent.
                 Content Epistola already holds is not uploaded again. Drafts and draft deployments are never
                 sent, nor generated documents and the data they were made from.
             </p>

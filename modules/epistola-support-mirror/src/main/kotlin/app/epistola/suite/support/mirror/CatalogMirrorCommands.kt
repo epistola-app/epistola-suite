@@ -4,6 +4,7 @@
 
 package app.epistola.suite.support.mirror
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.cluster.timers.ScheduleClusterTimer
 import app.epistola.suite.common.ids.CatalogId
@@ -17,6 +18,8 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.sharing.SharingRestrictions
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -155,8 +158,13 @@ data class CatalogMirrorPolicyResult(val catalog: CatalogId, val policy: Catalog
 
 /**
  * Sets one catalog's mirror policy: [CatalogMirrorPolicy.INHERIT] removes its own. Any catalog the
- * tenant has can be set, received, installed and those Epistola supplies included. Tightening is easy and loosening is not: withholding needs
- * [Permission.CATALOG_MANAGE], sharing or inheriting needs [Permission.INTEGRATIONS_MANAGE].
+ * tenant has can be set, received and installed ones included. Tightening is easy and loosening is
+ * not: withholding needs [Permission.CATALOG_MANAGE], sharing or inheriting needs
+ * [Permission.INTEGRATIONS_MANAGE].
+ *
+ * A catalog Epistola supplies (the system catalog, a bundled one) is never withheld: new catalogs
+ * depend on the system catalog, so marking it never to be shared would keep nearly every release
+ * home, and it holds nothing of the tenant's own.
  */
 data class SetCatalogMirrorPolicy(
     val catalog: CatalogId,
@@ -177,16 +185,22 @@ class SetCatalogMirrorPolicyHandler(
     override fun handle(command: SetCatalogMirrorPolicy): CatalogMirrorPolicyResult = jdbi.withHandle<CatalogMirrorPolicyResult, Exception> { handle ->
         val target = handle.createQuery(
             """
-            SELECT c.catalog_id
+            SELECT c.catalog_id, c.source_url
             FROM catalogs c WHERE c.tenant_key = :t AND c.namespace = :ns AND c.catalog_key = :key
             """,
         )
             .bind("t", command.tenantKey.value)
             .bind("ns", command.catalog.namespace)
             .bind("key", command.catalog.key.value)
-            .map { rs, _ -> rs.getObject("catalog_id", java.util.UUID::class.java) }
+            .map { rs, _ -> rs.getObject("catalog_id", java.util.UUID::class.java) to (rs.getString("source_url")?.startsWith(Catalog.CLASSPATH_SOURCE) == true) }
             .findOne()
             .orElseThrow { CatalogNotFoundException(command.catalog.key) }
+            .let { (id, supplied) ->
+                if (supplied && command.policy == CatalogMirrorPolicy.NEVER) {
+                    throw ValidationException("policy", CatalogMirrorPolicy.SUPPLIED_NOT_WITHHELD_REASON, ValidationCode.SUPPLIED_CATALOG_NOT_WITHHELD)
+                }
+                id
+            }
         if (command.policy == CatalogMirrorPolicy.INHERIT) {
             handle.createUpdate("DELETE FROM support_mirror_catalog_policies WHERE connection_id = :connection AND tenant_key = :t AND catalog_id = :c")
                 .bind("t", command.tenantKey.value)

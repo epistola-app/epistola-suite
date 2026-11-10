@@ -70,10 +70,7 @@ class CatalogMirrorPerConnectionIntegrationTest : CatalogMirrorTestBase() {
     fun `a tenant that shares with a partner has its releases mirrored there, and only there`() {
         val tenant = createTenant("Mirror Partner Only").id
         val letters = releasedCatalog(tenant, "letters", "1.0.0")
-        withMediator {
-            OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = partner().id).execute()
-            SetCatalogMirrorPolicy(testCatalog(tenant, SYSTEM_CATALOG_KEY), CatalogMirrorPolicy.NEVER, partner().id).execute()
-        }
+        optInOwnCatalogs(tenant, partner().id)
 
         val reports = reconciler.reconcileEvery()
 
@@ -88,10 +85,7 @@ class CatalogMirrorPerConnectionIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror Partner Down").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        withMediator {
-            OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = partner().id).execute()
-            SetCatalogMirrorPolicy(testCatalog(tenant, SYSTEM_CATALOG_KEY), CatalogMirrorPolicy.NEVER, partner().id).execute()
-        }
+        optInOwnCatalogs(tenant, partner().id)
         partnerService.fault(FakeSupportFault.unavailable(), pathPrefix = "/api/v1/mirror")
 
         val reports = reconciler.reconcileEvery()
@@ -107,10 +101,7 @@ class CatalogMirrorPerConnectionIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror Partner Withdraw").id
         releasedCatalog(tenant, "letters", "1.0.0")
         optInOwnCatalogs(tenant)
-        withMediator {
-            OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = partner().id).execute()
-            SetCatalogMirrorPolicy(testCatalog(tenant, SYSTEM_CATALOG_KEY), CatalogMirrorPolicy.NEVER, partner().id).execute()
-        }
+        optInOwnCatalogs(tenant, partner().id)
         reconciler.reconcileEvery()
         assertThat(partnerMirror.held).containsKey(tenant.value)
 
