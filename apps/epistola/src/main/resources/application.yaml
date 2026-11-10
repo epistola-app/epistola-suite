@@ -388,7 +388,7 @@ epistola:
 
   # The connection to the Epistola support service (docs/support-protocol.md). Off by default:
   # nothing is registered and nothing is sent. When on, an installation administrator registers it
-  # under Platform → Epistola support, which shows a claim code to send to Epistola, and it uses the
+  # under Platform → Support connections, which shows a claim code to send to Epistola, and it uses the
   # services Epistola grants once linked.
   support:
     enabled: false
@@ -407,7 +407,7 @@ epistola:
     # Epistola linked it (after seven days). Off: nothing is sent until an administrator presses Register.
     auto-register: false
     # The support services this installation uses (telemetry, requests, mirror, usage) until an
-    # installation administrator saves a selection under Platform → Epistola support; from then on that
+    # installation administrator saves a selection under Platform → Support connections; from then on that
     # selection wins. A service is used only when selected AND granted by Epistola. Empty: none. A name
     # this version does not know is logged and ignored.
     services: []
@@ -423,7 +423,7 @@ epistola:
     # second per 512 KiB). No call runs on a request or scheduler thread (docs/support-protocol.md, "Reliability").
     read-timeout: 30s
     # What Epistola sees of the tenants and how much telemetry carries, until an installation
-    # administrator saves them under Platform → Epistola support (docs/support.md, "Privacy").
+    # administrator saves them under Platform → Support connections (docs/support.md, "Privacy").
     privacy:
       tenant-identity: confidential # confidential (each tenant as a reference) or named
       telemetry: pseudonymised # pseudonymised (log messages without their values) or full

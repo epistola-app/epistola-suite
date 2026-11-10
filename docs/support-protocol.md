@@ -70,7 +70,7 @@ every upload do, and they must only go to that origin.
 
 **Which services the installation uses.** A service is used only when it is **selected** by the
 installation **and granted** by Epistola. An installation administrator selects services under
-Platform → Epistola support; the selection is stored installation-wide and needs no connection to
+Platform → Support connections; the selection is stored installation-wide and needs no connection to
 save. Until an administrator saves one, `epistola.support.services` is the selection; from then on
 the saved selection wins and the setting is ignored. Nothing is selected by default. A name the
 suite does not know (a retired or a newer service) is kept and logged, never an error.
@@ -84,7 +84,7 @@ The services have their own settings: telemetry in `epistola.support.telemetry.*
 source address.
 
 **When the suite registers.** Only when an installation administrator presses Register under
-Platform → Epistola support, unless `epistola.support.auto-register` (Helm `support.autoRegister`,
+Platform → Support connections, unless `epistola.support.auto-register` (Helm `support.autoRegister`,
 off by default) lets the status check register on its own. Before that the suite does not contact the
 support service at all.
 
@@ -200,7 +200,7 @@ carry on: it is not the installation's last error. The node logs it once at WARN
 advertising the cluster capability `support`, which the scheduled support work requires (the
 connection check, the support request sweep and reply poll, the mirror round): within a heartbeat that work
 is owned by the other nodes, not skipped on this one. It stores the problem under its node id, so
-Platform → Epistola support shows, on every node, which node is how far ahead of or behind the
+Platform → Support connections shows, on every node, which node is how far ahead of or behind the
 service, asking to set its clock right (NTP). The node clears that entry at its next token, once its
 clock is right (its token refresh keeps trying, backing off); an entry not stored again for 15
 minutes (the node went away) drops off. The suite does not use that token: a node whose clock is off
@@ -309,7 +309,7 @@ endpoints answer `403` with `error: "service_paused"` (the `WWW-Authenticate` ch
 `insufficient_scope`, so a client that knows no pauses stops as for a withdrawn scope). `pause` in
 the connection status says which services, since when, until when (`null`: until Epistola resumes)
 and why, as Epistola's staff wrote it (at most 200 characters). The pause ends by itself at `until`.
-The suite shows the pause on Platform → Epistola support and on the tenant pages, with the reason;
+The suite shows the pause on Platform → Support connections and on the tenant pages, with the reason;
 it keeps the selection and every tenant's choice, keeps support requests and catalog changes waiting and
 sends them once the pause ends, and drops telemetry meanwhile.
 
@@ -757,7 +757,7 @@ sent once it is back. The mirror is rebuilt from the catalogs, so nothing is que
 Telemetry is lossy by design: metrics and logs that cannot be sent are dropped, nothing builds up,
 the log exporter makes one attempt per batch, and shutdown waits at most a second for each leg.
 
-**What people see.** Platform → Epistola support shows the last error and when the last check ran;
+**What people see.** Platform → Support connections shows the last error and when the last check ran;
 the connection's state (pending, active) is kept through any failure except the service's own
 `invalid_client`. In the application log, each telemetry leg (logs, metrics) reports an outage once
 per node: one WARN when its exports start failing, one INFO when they succeed again, and every

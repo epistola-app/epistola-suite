@@ -345,7 +345,7 @@ oidc:
   flatRolesClaimName: ""
 
 # The connection to the Epistola support service (docs/support-protocol.md). When enabled, an
-# installation administrator registers the installation under Platform → Epistola support, which
+# installation administrator registers the installation under Platform → Support connections, which
 # shows a claim code to send to Epistola; once linked it uses the services Epistola grants.
 # Off by default: nothing is registered and nothing is sent.
 support:
@@ -359,7 +359,7 @@ support:
 
   # The support services this installation uses: any of telemetry, requests, mirror, usage. Rendered as
   # EPISTOLA_SUPPORT_SERVICES. Only the initial selection: once an installation administrator saves
-  # one under Platform → Epistola support, that selection wins and this is ignored. Empty (the
+  # one under Platform → Support connections, that selection wins and this is ignored. Empty (the
   # default): nothing is used until an administrator selects it. A service is used only when it is
   # selected AND Epistola granted it. A name this chart or the suite does not know (a retired or a
   # newer service) is accepted and logged by the suite, never an error, so an upgrade never breaks
@@ -368,7 +368,7 @@ support:
 
   # What every tenant shares with Epistola until a tenant administrator chooses otherwise on its
   # Support page, so tenants skip the setup wizard. Applied at startup only while no installation
-  # administrator has saved a setup under Platform → Epistola support (which then wins), and recorded
+  # administrator has saved a setup under Platform → Support connections (which then wins), and recorded
   # as agreed on the tenants' behalf by whoever configures the installation. Empty (the default): no
   # preset, and each tenant sets itself up. Rendered as EPISTOLA_SUPPORT_TENANT_DEFAULTS_*.
   tenantDefaults:
@@ -389,7 +389,7 @@ support:
   #       tokenSecret: { name: acme-support-token, key: token }
   #       # What it learns of tenants (named or confidential) and how much telemetry carries
   #       # (pseudonymised or full); left out: the installation's privacy settings. An
-  #       # administrator's choice under Platform → Epistola support wins.
+  #       # administrator's choice under Platform → Support connections wins.
   #       tenantIdentity: named
   #       # The connection it escalates to when it asks the installation to, by its endpoint:
   #       # another entry's, or the one support.endpoint is set to; left out: no one, and the
@@ -407,14 +407,14 @@ support:
   # Support requests (ADR 0053).
   requests:
     # Who handles new support requests until an installation administrator saves a choice under
-    # Platform → Epistola support (which then wins): inbox (the installation's own support desk, which
+    # Platform → Support connections (which then wins): inbox (the installation's own support desk, which
     # passes requests on) or epistola (new requests go to Epistola support, as in the pilot). Requests
     # already passed on stay where they are. Empty: the suite's default, inbox. Rendered as
     # EPISTOLA_SUPPORT_REQUESTS_HANDLEDBY.
     handledBy: ""
 
   # What Epistola sees of the tenants and how much telemetry carries (ADR 0052), until an
-  # installation administrator saves them under Platform → Epistola support (which then wins).
+  # installation administrator saves them under Platform → Support connections (which then wins).
   # Rendered as EPISTOLA_SUPPORT_PRIVACY_*.
   privacy:
     # confidential (each tenant as a reference only this installation can trace back; no catalog
@@ -444,7 +444,7 @@ support:
 
   # Forward application logs + metrics to the support service. On by default when
   # support.enabled is true — the real gate is the `telemetry` service being selected
-  # (support.services or Platform → Epistola support) and granted by Epistola, so
+  # (support.services or Platform → Support connections) and granted by Epistola, so
   # nothing is shipped until both. Set to false to opt out. The endpoint
   # comes from the support service's metadata — nothing to configure here.
   telemetry:
@@ -452,7 +452,7 @@ support:
 
   # The catalog mirror (docs/catalog-mirror.md): a custody copy at Epistola of the releases tenants
   # chose to share. Nothing is sent until the `mirror` service is selected (support.services or
-  # Platform → Epistola support), Epistola grants it, and a tenant opts in.
+  # Platform → Support connections), Epistola grants it, and a tenant opts in.
   # false turns it off for the whole installation: nothing is sent, but what tenants stopped
   # sharing is still withdrawn (deleted at Epistola).
   mirror:

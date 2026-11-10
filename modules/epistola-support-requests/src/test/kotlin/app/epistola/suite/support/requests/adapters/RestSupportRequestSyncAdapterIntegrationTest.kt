@@ -11,9 +11,10 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.isSupportUnavailable
-import app.epistola.suite.support.privacy.SetSupportPrivacy
+import app.epistola.suite.support.privacy.SetSupportConnectionPrivacy
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.privacy.TelemetryDetail
 import app.epistola.suite.support.privacy.TenantIdentity
@@ -101,7 +102,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `with confidential tenants, support request goes under the tenant's reference, which also replaces it in the page address`() {
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
+        withMediator { SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
         try {
             val reference = references.reference(TENANT)
             val supportRequest = supportRequest(metadata = """{"url":"https://suite.example.org/tenants/acme-fb/templates"}""")
@@ -115,15 +116,15 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
             assertThat(body.path("sourceUrl").stringValue()).isEqualTo("https://suite.example.org/tenants/$reference/templates?q=letter")
             assertThat(body.path("metadata").stringValue()).doesNotContain("acme-fb").contains("/tenants/$reference/templates")
         } finally {
-            // No command removes saved settings; the next test must find the configuration in force.
-            jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+            // No command removes a connection's saved settings; the next test must find the configured default in force.
+            jdbi.useHandle<Exception> { it.createUpdate("UPDATE support_connections SET privacy = NULL").execute() }
             privacy.refresh()
         }
     }
 
     @Test
     fun `with confidential tenants and full telemetry, an attached server log names the tenant by its reference only`() {
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.FULL).execute() }
+        withMediator { SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, TenantIdentity.CONFIDENTIAL, TelemetryDetail.FULL).execute() }
         try {
             val reference = references.reference(TENANT)
             val supportRequest = supportRequest(serverLogs = """[{"level":"ERROR","message":"Rendering invoice for tenant acme-fb failed: Tenant acme-fb not found"}]""")
@@ -133,7 +134,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
             val body = support.requests.last { it.method == "PUT" && it.path.startsWith("/api/v2/requests/$reference/") }.json()
             assertThat(body.path("serverLogs").stringValue()).doesNotContain("acme-fb").contains("tenant $reference failed")
         } finally {
-            jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+            jdbi.useHandle<Exception> { it.createUpdate("UPDATE support_connections SET privacy = NULL").execute() }
             privacy.refresh()
         }
     }
@@ -287,7 +288,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
             authorId = author.value,
         )
         val anonymous = comment.copy(id = SupportRequestCommentKey.generate(), authorId = null)
-        withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
+        withMediator { SetSupportConnectionPrivacy(withMediator { EnsureConfiguredSupportConnection().execute() }, TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
         try {
             port.addComment(synced(), comment)
             port.addComment(synced(), anonymous)
@@ -301,7 +302,7 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
             assertThat(withoutAuthor.path("authorName").stringValue()).isEqualTo(RestSupportRequestSyncAdapter.ANONYMOUS_AUTHOR)
             assertThat(withoutAuthor.has("authorRef")).isFalse()
         } finally {
-            jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+            jdbi.useHandle<Exception> { it.createUpdate("UPDATE support_connections SET privacy = NULL").execute() }
             privacy.refresh()
         }
     }

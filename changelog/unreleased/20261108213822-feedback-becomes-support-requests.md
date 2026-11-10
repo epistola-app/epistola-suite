@@ -11,7 +11,7 @@ request**: under Support → Support requests, at `/tenants/{t}/support/requests
 the installation as messages (its question, then replies) with a delivery per support connection
 recording what was sent where.
 
-With `requests` selected under Platform → Epistola support and granted by Epistola, a tenant's
+With `requests` selected under Platform → Support connections and granted by Epistola, a tenant's
 requests go to the Epistola support service over protocol v2, but only for a tenant that agreed to
 share them: a step of the setup wizard on its Support page, or a default an installation administrator
 sets for every tenant (Helm `support.tenantDefaults.requests`). Status and replies come back through a

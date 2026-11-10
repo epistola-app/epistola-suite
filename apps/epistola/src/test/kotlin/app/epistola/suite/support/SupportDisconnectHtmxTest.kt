@@ -43,6 +43,9 @@ import org.springframework.util.LinkedMultiValueMap
  */
 @Isolated("Disconnecting clears the sharing choices of every tenant in the database")
 class SupportDisconnectHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -85,7 +88,7 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         }
         val clientId = support.latestRegistration.clientId
 
-        val panel = post("/platform/support/disconnect")
+        val panel = post("/platform/support/connections/${epistola()}/disconnect")
 
         assertThat(panel).contains("Disconnected. Epistola support ended this installation").contains("choice of what to share was cleared").contains("data-testid=\"support-disconnected\"")
             .contains("data-testid=\"support-register\"").doesNotContain("data-testid=\"support-disconnect\"")
@@ -99,7 +102,7 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `after disconnecting, the check does not register again by itself, and Register does`() {
-        post("/platform/support/disconnect")
+        post("/platform/support/connections/${epistola()}/disconnect")
         val registrations = support.registrations.size
 
         connection.checkNow()
@@ -107,9 +110,9 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Disconnected::class.java)
         assertThat(support.registrations).`as`("auto-register is on, yet nothing registered").hasSize(registrations)
 
-        val panel = post("/platform/support/register")
+        val panel = post("/platform/support/connections/${epistola()}/register")
 
-        assertThat(panel).contains("Registered. Epistola will contact you")
+        assertThat(panel).contains("Registered. Epistola support will contact you")
         assertThat(support.registrations).hasSize(registrations + 1)
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Pending::class.java)
     }
@@ -119,12 +122,12 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         val clientId = support.latestRegistration.clientId
         support.fault(FakeSupportFault.Respond(FakeSupportResponse.json(503, """{"error":"temporarily_unavailable"}""")), "DELETE", "/api/v1/connection")
 
-        val failed = post("/platform/support/disconnect")
+        val failed = post("/platform/support/connections/${epistola()}/disconnect")
 
         assertThat(failed).contains("Not disconnected:").contains("Nothing changed").contains("data-testid=\"support-disconnect-local\"")
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Active::class.java)
 
-        val removed = post("/platform/support/disconnect", mapOf("localOnly" to "true"))
+        val removed = post("/platform/support/connections/${epistola()}/disconnect", mapOf("localOnly" to "true"))
 
         assertThat(removed).contains("Removed here only").contains("Ask Epistola support to remove the registration")
         assertThat(support.registrations.getValue(clientId).status).`as`("the service was not told").isEqualTo("ACTIVE")
@@ -139,7 +142,7 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Refused::class.java)
         val deletes = support.requests.count { it.method == "DELETE" }
 
-        val panel = post("/platform/support/disconnect")
+        val panel = post("/platform/support/connections/${epistola()}/disconnect")
 
         assertThat(panel).contains("Epistola support no longer accepted this registration")
         assertThat(support.requests.count { it.method == "DELETE" }).isEqualTo(deletes)

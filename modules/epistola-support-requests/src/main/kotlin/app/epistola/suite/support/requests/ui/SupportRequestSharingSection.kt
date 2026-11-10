@@ -68,7 +68,7 @@ class SupportRequestSharingSection(private val registry: SupportConnectionRegist
 
         SupportRequestSharingConnection.OFF -> "Not sent: this installation's support connection is off. An installation administrator can turn it on."
 
-        SupportRequestSharingConnection.NOT_CONNECTED -> "Not sent: this installation is not connected. An installation administrator sees why under Platform → Epistola support."
+        SupportRequestSharingConnection.NOT_CONNECTED -> "Not sent: this installation is not connected. An installation administrator sees why under Platform → Support connections."
 
         SupportRequestSharingConnection.PENDING -> "Not sent yet: the connection waits to be activated for your organisation. Support requests go once it is."
 

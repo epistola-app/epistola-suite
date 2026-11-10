@@ -153,17 +153,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     @Autowired
     private lateinit var objectMapper: tools.jackson.databind.ObjectMapper
 
-    @Autowired
-    private lateinit var cipher: app.epistola.suite.crypto.CredentialCipher
-
     private val namedConfiguration = SupportProperties(enabled = true, tenantDefaults = SupportProperties.TenantDefaults(mirror = "all"), privacy = SupportProperties.Privacy(tenantIdentity = "named"))
-
-    /** The metadata store, switched to failing as an unreachable database does. */
-    private inner class Flaky : app.epistola.suite.metadata.AppMetadataService(jdbi, objectMapper, cipher) {
-        @Volatile var down = false
-
-        override fun get(key: String): tools.jackson.databind.JsonNode? = if (down) error("the database is unreachable") else super.get(key)
-    }
 
     @Test
     fun `a configured preset an administrator cleared is not applied again at the next start`() {
@@ -181,7 +171,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     @Test
     fun `the configured preset applies at startup also before this node read the privacy settings`() {
         val following = createTenant("Mirror Default Unread Privacy").id
-        val unread = app.epistola.suite.support.privacy.SupportPrivacy(Flaky(), namedConfiguration, jdbi, objectMapper)
+        val unread = app.epistola.suite.support.privacy.SupportPrivacy(namedConfiguration, jdbi, objectMapper)
 
         ApplyConfiguredCatalogMirrorDefault(jdbi, namedConfiguration, unread, supportConnections).apply()
 
@@ -207,7 +197,7 @@ class CatalogMirrorDefaultIntegrationTest : CatalogMirrorTestBase() {
     fun `a startup that cannot read the privacy settings forgets no tenant's choice`() {
         val tenant = createTenant("Mirror Default Startup Unreadable").id
         optIn(tenant, shareByDefault = true)
-        val unreadable = app.epistola.suite.support.privacy.SupportPrivacy(Flaky().apply { down = true }, namedConfiguration, jdbi, objectMapper)
+        val unreadable = app.epistola.suite.support.privacy.SupportPrivacy(namedConfiguration, jdbi, objectMapper)
 
         CatalogMirrorConfidentiality(unreadable, jdbi).withdrawWhenConfidential()
 

@@ -22,7 +22,7 @@ when an installation administrator selected it on that page (or `epistola.suppor
 nothing under any of them yet: hub telemetry and the hub feedback sync are removed, feedback stays in
 the installation, and each service arrives over the new connection in a later release.
 
-An installation administrator can disconnect under Platform → Epistola support: the support service
+An installation administrator can disconnect under Platform → Support connections: the support service
 is told, and the installation forgets its key and does not register again by itself, also with
 auto-register. When the support service cannot be reached, nothing changes and the page offers to
 remove the connection here only.

@@ -35,8 +35,8 @@ class SupportOverviewHandler(private val references: TenantReferences, private v
             "tenant" to tenant
             "tenantId" to tenantId.key
             "summary" to summary
-            // A confidential tenant names itself to Epistola support by its reference; the connection off, it has nothing to name.
-            "tenantReference" to references.takeIf { summary.connection != TenantSupportConnection.OFF && it.confidential() }?.reference(tenantId.key)
+            // A tenant confidential to a connection names itself there by its reference; with nothing connected, it has nothing to name.
+            "tenantReference" to references.takeIf { summary.connection != TenantSupportConnection.OFF && it.confidentialToAny() }?.reference(tenantId.key)
             sharing.overview(tenantId.key).let { overview ->
                 "sharing" to overview
                 "wizard" to overview?.takeIf { it.offersSetup }?.let { sharing.startWizard(it) }

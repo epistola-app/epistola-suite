@@ -72,9 +72,9 @@ class SupportPrivacyHtmxTest : BaseIntegrationTest() {
 
     @AfterEach
     fun backToConfiguration() {
-        // No command removes saved settings (an administrator only replaces them); the next test class
-        // must find the configuration in force, not what this one saved.
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM app_metadata WHERE key = :key").bind("key", SupportPrivacy.KEY).execute() }
+        // No command removes a connection's saved settings; the next test class must find the configured
+        // default in force, not what this one saved.
+        jdbi.useHandle<Exception> { it.createUpdate("UPDATE support_connections SET privacy = NULL").execute() }
         privacy.refresh()
     }
 
@@ -102,8 +102,10 @@ class SupportPrivacyHtmxTest : BaseIntegrationTest() {
     fun `by default tenants are confidential, each known by its reference, and the catalog mirror is unavailable`() {
         val tenant = createTenant("Privacy Confidential").id
 
-        assertThat(get("/platform/support")).contains("data-testid=\"support-privacy\"").contains("Confidential: Epistola sees each tenant as a reference")
-            .contains("Pseudonymised: log messages without their values")
+        val epistola = withMediator { EnsureConfiguredSupportConnection().execute() }
+        assertThat(get("/platform/support")).`as`("no privacy setting for the whole installation").doesNotContain("data-testid=\"support-privacy\"")
+        assertThat(get("/platform/support/connections/$epistola")).contains("data-testid=\"support-connection-privacy\"")
+            .contains("Now: the configured default")
         val support = get("/tenants/${tenant.value}/support")
         val reference = Regex("t-[0-9a-f]{16}").find(support.substringAfter("data-testid=\"support-tenant-reference\""))?.value
         assertThat(reference).`as`("the Support page names the tenant's reference").isEqualTo(references.reference(tenant))
@@ -117,16 +119,16 @@ class SupportPrivacyHtmxTest : BaseIntegrationTest() {
     fun `named, the mirror can be used, and confidential again every tenant's mirror choice is withdrawn`() {
         val tenant = createTenant("Privacy Named").id
 
-        val saved = post("/platform/support/privacy", mapOf("tenantIdentity" to "NAMED", "telemetry" to "FULL"))
+        val epistola = withMediator { EnsureConfiguredSupportConnection().execute() }
+        val saved = post("/platform/support/connections/$epistola/privacy", mapOf("tenantIdentity" to "NAMED", "telemetry" to "FULL"))
 
-        assertThat(saved).contains("Named: Epistola sees each tenant").contains("Everything: log messages and errors as written").contains("Set by ")
+        assertThat(saved).contains("data-testid=\"support-connection-privacy-source\"").contains("set by ")
         assertThat(get("/tenants/${tenant.value}/support")).doesNotContain("data-testid=\"support-tenant-reference\"")
         withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(withMediator { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.sharing).isTrue()
 
-        val confidential = post("/platform/support/privacy", mapOf("tenantIdentity" to "CONFIDENTIAL", "telemetry" to "PSEUDONYMISED"))
+        post("/platform/support/connections/$epistola/privacy", mapOf("tenantIdentity" to "CONFIDENTIAL", "telemetry" to "PSEUDONYMISED"))
 
-        assertThat(confidential).contains("the catalog mirror withdraws what it holds")
         assertThat(withMediator { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.sharing).`as`("its choice is forgotten").isFalse()
     }
 

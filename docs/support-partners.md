@@ -37,7 +37,7 @@ nothing until a check succeeds again.
 ### The token
 
 You issue each installation a token and its operator configures it (`epistola.support.connections`,
-Helm `support.connections` with the token in a Secret) or enters it under Platform → Epistola support →
+Helm `support.connections` with the token in a Secret) or enters it under Platform → Support connections →
 Other support connections. There is no registration and no OAuth flow. Rotate a token by issuing a new
 one and having the operator replace it; the old one is refused from then on.
 

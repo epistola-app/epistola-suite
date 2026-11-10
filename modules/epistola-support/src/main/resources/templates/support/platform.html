@@ -4,78 +4,40 @@
     <th:block th:fragment="content">
     <div class="regular">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Epistola support',
-            pageDescription='The connection between this installation and the Epistola support service: whether Epistola has activated it for your organisation, and which services it may use.'
+            pageTitle='Support connections',
+            pageDescription='The parties this installation shares with, such as Epistola support or a partner: whether each is active, which services it grants, and what tenants share with it.',
+            actions=~{::support-connection-actions}
         )}"></div>
 
         <p>
             <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="support-back">&larr; Back to tenants</a>
         </p>
 
-        <th:block th:replace="~{support/platform :: connection}"></th:block>
+        <th:block th:replace="~{support/platform :: connections}"></th:block>
+
+        <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
+        <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
+            <th:block th:replace="~{__${panel.fragment}__}"></th:block>
+        </th:block>
+
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{support/connection-new :: dialog}"></th:block>
+            </th:block>
+        </div>
     </div>
     </th:block>
 
+    <th:block th:fragment="support-connection-actions">
+        <button type="button" class="ep-btn ep-btn-primary" th:hx-get="@{/platform/support/connections/new}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true" data-testid="support-connection-add-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            Add connection
+        </button>
+    </th:block>
 
-    <!--/* What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2): a summary,
-      or with privacyEditing a form. Model: privacy (SupportPrivacySettings), privacyEditing, privacyNotice. */-->
-    <section th:fragment="privacy" id="support-privacy" class="ep-panel detail-section" data-testid="support-privacy"
-             th:with="p=${privacy}">
-        <div class="detail-section-header">
-            <h2>Privacy</h2>
-            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${privacyEditing}" data-testid="support-privacy-change"
-                    th:attr="hx-get=@{/platform/support/privacy/edit}" hx-target="#support-privacy" hx-swap="outerHTML">Change</button>
-        </div>
-        <div class="detail-section-body ep-stack">
-            <div class="alert alert-success" th:if="${privacyNotice != null}" role="status" data-testid="support-privacy-notice"
-                 th:text="${privacyNotice}">Saved.</div>
-            <dl class="description-list" th:unless="${privacyEditing}" data-testid="support-privacy-summary">
-                <dt>Tenants</dt>
-                <dd data-testid="support-privacy-tenants">
-                    <th:block th:if="${p.confidential}">Confidential: Epistola sees each tenant as a reference, never its name, and the catalog mirror is not available.</th:block>
-                    <th:block th:unless="${p.confidential}">Named: Epistola sees each tenant's key.</th:block>
-                </dd>
-                <dt>Telemetry</dt>
-                <dd data-testid="support-privacy-telemetry">
-                    <th:block th:if="${p.pseudonymised}">Pseudonymised: log messages without their values, errors without their message.</th:block>
-                    <th:block th:unless="${p.pseudonymised}">Everything: log messages and errors as written.</th:block>
-                </dd>
-            </dl>
-            <p class="text-muted text-xs" style="margin: 0;" th:unless="${privacyEditing}"
-               th:text="${p.fromConfiguration} ? 'From the configuration (Helm support.privacy).' : 'Set by ' + (${p.setBy} ?: 'a removed user') + ' on ' + ${#temporals.format(p.setAt, 'yyyy-MM-dd', 'UTC')}">From the configuration.</p>
 
-            <form th:if="${privacyEditing}" th:attr="hx-post=@{/platform/support/privacy}" hx-target="#support-privacy" hx-swap="outerHTML"
-                  th:action="@{/platform/support/privacy}" method="post" class="ep-stack" data-testid="support-privacy-form">
-                <fieldset class="form-group" style="border: 0; padding: 0; margin: 0;">
-                    <legend class="ep-label" style="padding: 0;">What Epistola sees of your tenants</legend>
-                    <label class="ep-row" style="gap: var(--ep-space-2);">
-                        <input type="radio" name="tenantIdentity" value="CONFIDENTIAL" th:checked="${p.confidential}" data-testid="support-privacy-confidential">
-                        <span>Confidential: each tenant as a reference that only this installation can trace back. The catalog mirror stops, and what it holds is withdrawn.</span>
-                    </label>
-                    <label class="ep-row" style="gap: var(--ep-space-2);">
-                        <input type="radio" name="tenantIdentity" value="NAMED" th:checked="${!p.confidential}" data-testid="support-privacy-named">
-                        <span>Named: each tenant's key</span>
-                    </label>
-                </fieldset>
-                <fieldset class="form-group" style="border: 0; padding: 0; margin: 0;">
-                    <legend class="ep-label" style="padding: 0;">Telemetry</legend>
-                    <label class="ep-row" style="gap: var(--ep-space-2);">
-                        <input type="radio" name="telemetry" value="PSEUDONYMISED" th:checked="${p.pseudonymised}" data-testid="support-privacy-pseudonymised">
-                        <span>Pseudonymised: log messages as written in the code, without the values filled in; errors as their type and where they happened</span>
-                    </label>
-                    <label class="ep-row" style="gap: var(--ep-space-2);">
-                        <input type="radio" name="telemetry" value="FULL" th:checked="${!p.pseudonymised}" data-testid="support-privacy-full">
-                        <span>Everything: log messages and errors as written, which can name people and organisations</span>
-                    </label>
-                </fieldset>
-                <div class="ep-row">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-privacy-save">Save privacy</button>
-                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-privacy-cancel"
-                            th:attr="hx-get=@{/platform/support/privacy}" hx-target="#support-privacy" hx-swap="outerHTML">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </section>
+
 
     <!--/*
       The preset of what every tenant shares with Epistola: one row per TenantSharingSection, as a
@@ -85,135 +47,161 @@
       save), defaultsNotice, defaultsError.
     */-->
     <!--/* The other support connections, such as a partner's (ADR 0053): signed in with a token they issued. */-->
+    <!--/* Every support connection (ADR 0053), however it signs in: a table, each name leading to its own page. */-->
     <section th:fragment="connections" id="support-connections" class="ep-panel detail-section" data-testid="support-connections">
-        <div class="detail-section-header"><h2>Other support connections</h2></div>
+        <div class="detail-section-header"><h2>Connections</h2></div>
         <div class="detail-section-body">
-            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                Parties besides Epistola support that this installation shares with, such as a partner. Each signs this
-                installation in with a token it issued.
+            <p class="text-muted text-sm" style="margin-top: 0;">
+                Every party this installation shares with, Epistola support among them. Open one to change it, set its
+                privacy, or register with it.
             </p>
-            <p th:if="${#lists.isEmpty(connections)}" class="text-muted" data-testid="support-connections-empty">No other support connections yet. Add one below.</p>
-            <div th:each="c : ${connections}" class="form-section" style="margin-bottom: var(--ep-space-4);" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
-                <div class="ep-row ep-row-wrap ep-gap-3">
-                    <strong th:text="${c.name}">Partner</strong>
-                    <span class="text-muted text-sm" style="overflow-wrap: anywhere;" th:text="${c.endpoint}">https://desk.partner.example</span>
-                    <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
-                    <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning">Unreachable</span>
-                    <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error">Refused</span>
-                    <span th:if="${c.standing.name() == 'NOT_CHECKED'}" class="badge badge-muted">Not checked yet</span>
+            <div th:if="${#lists.isEmpty(connections)}" class="empty-state" data-testid="support-connections-empty">
+                <div class="empty-state-title">No support connections yet</div>
+                <div class="empty-state-description">
+                    Add one with Add connection. With <code>epistola.support.enabled=true</code> (Helm: <code>support.enabled</code>)
+                    Epistola support's is added at the next start.
                 </div>
-                <div class="text-muted text-sm" th:if="${c.standing.name() == 'REFUSED'}" th:text="${c.reason}">the token was refused</div>
-                <div class="text-muted text-sm" th:if="${c.lastError != null}" th:text="${c.lastError}">unreachable</div>
-                <div class="text-muted text-sm">
-                    Services granted: <span th:text="${#lists.isEmpty(c.granted)} ? 'none' : ${#strings.listJoin(c.granted, ', ')}">requests</span>.
-                    Last checked: <span th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'not yet'">2026-11-09 10:00</span>.
-                </div>
-                <form th:action="@{/platform/support/connections/{id}(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-edit">
-                    <label class="form-group">Name <input type="text" name="name" class="ep-input ep-input-sm" maxlength="100" th:value="${c.name}" required></label>
-                    <fieldset class="ep-row ep-row-wrap ep-gap-3">
-                        <legend class="text-sm">Services used</legend>
-                        <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
-                    </fieldset>
-                    <label class="form-group">New token <input type="password" name="token" class="ep-input ep-input-sm" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it"></label>
-                    <label class="form-group">Escalates to
-                        <select name="escalatesTo" class="ep-select ep-select-sm form-control-auto" data-testid="support-connection-escalates-to">
+            </div>
+            <div th:unless="${#lists.isEmpty(connections)}" class="ep-table-scroll" role="region" aria-label="Support connections" tabindex="0">
+                <table class="ep-table ep-table-fixed">
+                    <colgroup>
+                        <col style="width: 30%" />
+                        <col style="width: 12%" />
+                        <col style="width: 18%" />
+                        <col style="width: 18%" />
+                        <col style="width: 22%" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Connection</th>
+                            <th>Signs in</th>
+                            <th>State</th>
+                            <th>Services granted</th>
+                            <th>Last checked</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="c : ${connections}" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
+                            <td>
+                                <a th:href="@{/platform/support/connections/{id}(id=${c.id})}" style="font-weight: 500;" th:text="${c.name}"
+                                   data-testid="support-connection-open">Partner</a>
+                                <div class="text-muted text-sm" style="overflow-wrap: anywhere;" th:text="${c.endpoint}">https://desk.partner.example</div>
+                            </td>
+                            <td class="text-sm" th:text="${c.registers} ? 'Own key' : 'Token'">Token</td>
+                            <td th:insert="~{support/platform :: connection-state(${c})}"></td>
+                            <td class="text-sm" th:text="${#lists.isEmpty(c.granted)} ? 'None' : ${#strings.listJoin(c.granted, ', ')}">requests</td>
+                            <td class="text-sm" th:text="${c.checkedAt} ? ${#temporals.format(c.checkedAt, 'yyyy-MM-dd HH:mm', 'UTC')} + ' UTC' : 'Not yet'">2026-11-09 10:00 UTC</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!--/* A connection's state as a badge, whatever it signs in with. */-->
+    <th:block th:fragment="connection-state(c)">
+        <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
+        <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning">Unreachable</span>
+        <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error">Refused</span>
+        <th:block th:if="${c.standing.name() == 'NOT_CHECKED'}">
+            <span th:if="${!c.registers}" class="badge badge-muted">Not checked yet</span>
+            <span th:if="${c.registers and c.state == 'Disabled'}" class="badge badge-muted">Off</span>
+            <span th:if="${c.registers and (c.state == 'Unregistered' or c.state == 'Expired' or c.state == 'Disconnected')}" class="badge badge-warning">Not registered</span>
+            <span th:if="${c.registers and c.state == 'Pending'}" class="badge badge-info">Waiting for activation</span>
+            <span th:if="${c.registers and c.state == 'Declined'}" class="badge badge-muted">Declined</span>
+        </th:block>
+    </th:block>
+
+    <!--/* One connection's settings, privacy and removal, on its own page. Model: c (SupportConnectionListing), allConnections, serviceNames. */-->
+    <th:block th:fragment="connection-settings">
+        <section class="ep-panel detail-section" data-testid="support-connection-settings">
+            <div class="detail-section-header"><h2>Settings</h2></div>
+            <div class="detail-section-body">
+                <form th:action="@{/platform/support/connections/{id}(id=${c.id})}" method="post" class="ep-stack" data-testid="support-connection-edit">
+                    <div class="form-group">
+                        <label class="ep-label" for="support-edit-name">Name</label>
+                        <input class="ep-input" id="support-edit-name" type="text" name="name" maxlength="100" th:value="${c.name}" required>
+                    </div>
+                    <div class="form-group" th:unless="${c.registers}" role="group" aria-labelledby="support-edit-services-label">
+                        <span class="ep-label" id="support-edit-services-label">Services used</span>
+                        <div class="ep-row ep-row-wrap ep-gap-4">
+                            <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
+                        </div>
+                    </div>
+                    <!--/* A connection that registers selects its services in its Services panel; they are kept as they are. */-->
+                    <input th:if="${c.registers}" th:each="sv : ${c.selected}" type="hidden" name="services" th:value="${sv}">
+                    <div class="form-group" th:unless="${c.registers}">
+                        <label class="ep-label" for="support-edit-token">New token</label>
+                        <input class="ep-input" id="support-edit-token" type="password" name="token" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it">
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="support-edit-escalates">Escalates to</label>
+                        <select class="ep-select form-control-auto" id="support-edit-escalates" name="escalatesTo" data-testid="support-connection-escalates-to">
                             <option value="" th:selected="${c.escalatesTo == null}">No one</option>
                             <option th:each="o : ${allConnections}" th:if="${o.id != c.id}" th:value="${o.id}" th:text="${o.name}"
                                     th:selected="${c.escalatesTo != null and c.escalatesTo == o.id}">Epistola support</option>
                         </select>
-                    </label>
-                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-save">Save</button>
+                        <span class="form-hint">Where a request goes when this connection asks to escalate it.</span>
+                    </div>
+                    <div><button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-connection-save">Save</button></div>
                 </form>
-                <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-row ep-row-wrap ep-gap-3" style="margin-top: var(--ep-space-2);" data-testid="support-connection-privacy">
-                    <select name="tenantIdentity" class="ep-select ep-select-sm form-control-auto" aria-label="What this connection learns of tenants">
-                        <option value="CONFIDENTIAL" th:selected="${c.privacy.tenantIdentity.name() == 'CONFIDENTIAL'}">Tenants confidential</option>
-                        <option value="NAMED" th:selected="${c.privacy.tenantIdentity.name() == 'NAMED'}">Tenants named</option>
-                    </select>
-                    <select name="telemetry" class="ep-select ep-select-sm form-control-auto" aria-label="How much telemetry carries">
-                        <option value="PSEUDONYMISED" th:selected="${c.privacy.telemetry.name() == 'PSEUDONYMISED'}">Telemetry pseudonymised</option>
-                        <option value="FULL" th:selected="${c.privacy.telemetry.name() == 'FULL'}">Telemetry full</option>
-                    </select>
-                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Save privacy</button>
-                    <span class="text-muted text-sm" data-testid="support-connection-privacy-source"
-                          th:text="${c.privacy.followsInstallation} ? 'As the installation\'s settings' : (${c.privacy.fromConfiguration} ? 'From the configuration' : 'Set by ' + (${c.privacy.setBy} ?: 'a removed user'))">As the installation's settings</span>
+            </div>
+        </section>
+
+        <section class="ep-panel detail-section" data-testid="support-connection-privacy-panel">
+            <div class="detail-section-header"><h2>Privacy</h2></div>
+            <div class="detail-section-body">
+                <form th:action="@{/platform/support/connections/{id}/privacy(id=${c.id})}" method="post" class="ep-stack" data-testid="support-connection-privacy">
+                    <div class="form-group">
+                        <label class="ep-label" for="support-privacy-identity">What this connection learns of tenants</label>
+                        <select class="ep-select form-control-auto" id="support-privacy-identity" name="tenantIdentity">
+                            <option value="CONFIDENTIAL" th:selected="${c.privacy.tenantIdentity.name() == 'CONFIDENTIAL'}">Confidential: each tenant as a reference</option>
+                            <option value="NAMED" th:selected="${c.privacy.tenantIdentity.name() == 'NAMED'}">Named: tenant keys as they are</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="support-privacy-telemetry">How much telemetry carries</label>
+                        <select class="ep-select form-control-auto" id="support-privacy-telemetry" name="telemetry">
+                            <option value="PSEUDONYMISED" th:selected="${c.privacy.telemetry.name() == 'PSEUDONYMISED'}">Pseudonymised: messages without their values</option>
+                            <option value="FULL" th:selected="${c.privacy.telemetry.name() == 'FULL'}">Full</option>
+                        </select>
+                    </div>
+                    <p class="text-muted text-sm" style="margin: 0;" data-testid="support-connection-privacy-source"
+                       th:text="${c.privacy.followsInstallation} ? 'Now: the configured default (epistola.support.privacy).' : (${c.privacy.fromConfiguration} ? 'Now: from this connection\'s configuration.' : 'Now: set by ' + (${c.privacy.setBy} ?: 'a removed user') + '.')">Now: the configured default.</p>
+                    <div><button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Save privacy</button></div>
                 </form>
-                <form th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post" style="margin-top: var(--ep-space-2);">
-                    <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-remove"
+            </div>
+        </section>
+
+        <section class="ep-panel detail-section danger-zone" data-testid="support-connection-remove-panel">
+            <div class="detail-section-header"><h2>Remove this connection</h2></div>
+            <div class="detail-section-body ep-stack">
+                <p style="margin: 0;">Requests it handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.</p>
+                <form th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post">
+                    <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-connection-remove"
                             data-confirm-submit data-confirm-submit-title="Remove connection"
                             th:attr="data-confirm-submit-message=|Requests ${c.name} handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.|"
                             data-confirm-submit-label="Remove" data-confirm-submit-class="ep-btn-primary">Remove</button>
                 </form>
             </div>
-
-            <h3 style="margin-top: var(--ep-space-4);">Add a connection</h3>
-            <div class="alert alert-error" role="alert" th:if="${addError != null}" data-testid="support-connection-add-error" th:text="${addError}">The token is required.</div>
-            <form th:action="@{/platform/support/connections/lookup}" method="post" class="ep-row ep-row-wrap ep-gap-3" data-testid="support-connection-lookup">
-                <label class="form-group">Domain <input type="text" name="domain" class="ep-input ep-input-sm" maxlength="253" placeholder="partner.example"
-                       th:value="${addForm != null ? addForm.get('domain') : ''}"></label>
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-connection-lookup-submit">Look up</button>
-            </form>
-            <p class="text-muted text-sm">Fills in what the domain publishes for connecting to it. Without it, fill in the endpoint yourself.</p>
-            <form th:action="@{/platform/support/connections}" method="post" class="form-section" data-testid="support-connection-add"
-                  th:with="pre=${addPreset}">
-                <label class="form-group">Name <input type="text" name="name" class="ep-input" maxlength="100" required
-                       th:value="${pre != null ? pre.name : (addForm != null ? addForm.get('name') : '')}"></label>
-                <label class="form-group">Endpoint <input type="text" name="endpoint" class="ep-input" maxlength="2000" required placeholder="https://desk.partner.example/epistola"
-                       th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}"></label>
-                <label class="form-group">Token <input type="password" name="token" class="ep-input" maxlength="4096" autocomplete="off" required></label>
-                <fieldset class="ep-row ep-row-wrap ep-gap-3">
-                    <legend class="text-sm">Services to use</legend>
-                    <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${pre != null and #lists.contains(pre.services, sv)}"> <span th:text="${sv}">requests</span></label>
-                </fieldset>
-                <input type="hidden" name="tenantIdentity" th:if="${pre != null and pre.tenantIdentity != null}" th:value="${pre.tenantIdentity.name()}">
-                <input type="hidden" name="telemetry" th:if="${pre != null and pre.telemetry != null}" th:value="${pre.telemetry.name()}">
-                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-connection-add-submit">Add connection</button>
-            </form>
-        </div>
-    </section>
-
-    <!--/* The installation's preset per other support connection: what tenants share with it until they choose. */-->
-    <section th:fragment="connection-presets" th:if="${connectionPresets != null and !#lists.isEmpty(connectionPresets)}" id="support-connection-presets"
-             class="ep-panel detail-section" data-testid="support-connection-presets">
-        <div class="detail-section-header"><h2>Setup for every tenant, per connection</h2></div>
-        <div class="detail-section-body">
-            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                What tenants share with each other support connection until a tenant chooses itself on its Support page.
-            </p>
-            <form th:each="cp : ${connectionPresets}" th:action="@{/platform/support/connections/{id}/defaults(id=${cp.connectionId})}" method="post"
-                  class="form-section" data-testid="support-connection-preset" th:attr="data-connection=${cp.connectionId}">
-                <h3 th:text="${cp.name}">Partner</h3>
-                <div class="alert alert-error" role="alert" th:if="${presetError != null and presetError == cp.connectionId.toString()}"
-                     data-testid="support-connection-preset-error">To share anything, agree on behalf of the tenants that use this setup.</div>
-                <div class="form-group" th:each="v : ${cp.views}">
-                    <label th:for="|${cp.connectionId}-${v.section.key}|" th:text="${v.section.title}">Support requests</label>
-                    <select class="ep-select ep-select-sm form-control-auto" th:id="|${cp.connectionId}-${v.section.key}|" th:name="${v.section.key} + '.default'">
-                        <option value="NONE" th:selected="${v.formValue == 'NONE'}">No preset: each tenant chooses</option>
-                        <option th:each="c : ${v.section.choices}" th:value="${c.value}" th:text="${c.label}" th:selected="${v.formValue == c.value}">Share support requests</option>
-                        <option th:if="${v.section.offersRequired}" value="REQUIRED" th:selected="${v.formValue == 'REQUIRED'}">Required for every tenant</option>
-                        <option value="NOT_ALLOWED" th:selected="${v.formValue == 'NOT_ALLOWED'}">Not allowed</option>
-                    </select>
-                </div>
-                <label class="ep-row ep-gap-3">
-                    <input type="checkbox" name="agree" value="true">
-                    <span th:text="|To share anything, I agree on behalf of the tenants that use this setup to share it with ${cp.name}.|">I agree.</span>
-                </label>
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2);" data-testid="support-connection-preset-save">Save</button>
-            </form>
-        </div>
-    </section>
+        </section>
+    </th:block>
 
     <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
         <div class="detail-section-header">
             <h2>Setup for every tenant</h2>
-            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing}" data-testid="support-defaults-change"
-                    th:attr="hx-get=@{/platform/support/defaults/edit}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
+            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing == true or #lists.isEmpty(defaults)}" data-testid="support-defaults-change"
+                    th:attr="hx-get=@{/platform/support/connections/{id}/defaults/edit(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
         </div>
         <div class="detail-section-body ep-stack">
             <div class="alert alert-success" th:if="${defaultsNotice != null}" role="status" data-testid="support-defaults-notice"
                  th:text="${defaultsNotice}">Saved.</div>
             <p class="text-muted text-sm" style="margin: 0;">
-                Tenants that have not set up sharing themselves use this, and so do tenants created later. You agree on
-                their behalf; a tenant administrator can still change it for their own tenant on its Support page.
+                What tenants share with this connection until they set it up themselves, and tenants created later too.
+                You agree on their behalf; a tenant administrator can still change it for their own tenant on its Support page.
+            </p>
+            <p th:if="${#lists.isEmpty(defaults)}" class="text-muted" style="margin: 0;" data-testid="support-defaults-nothing">
+                Nothing to set up yet: this installation uses no service over this connection that tenants share.
             </p>
 
             <th:block th:unless="${defaultsEditing}">
@@ -223,7 +211,7 @@
                         <dd th:attr="data-section=${view.section.key}">
                             <span th:if="${view.notAllowed}" data-testid="support-defaults-not-allowed">Not allowed: no tenant shares it</span>
                             <span th:if="${view.required}" data-testid="support-defaults-required">Required: every tenant shares it, without a choice</span>
-                            <span th:if="${view.restriction == null and view.isSet}" th:text="${view.label}">Share support requests with Epistola support</span>
+                            <span th:if="${view.restriction == null and view.isSet}" th:text="${view.label}">Share support requests</span>
                             <span th:if="${view.restriction == null and !view.isSet}" class="text-muted"
                                   th:text="${view.section.offersNoPreset} ? 'Not set: each tenant sets it up' : 'Not set: not shared until set'">Not set</span>
                             <span th:if="${view.restriction == null and view.isSet}" class="text-muted text-xs" style="display: block;"
@@ -236,8 +224,8 @@
                 </p>
             </th:block>
 
-            <form th:if="${defaultsEditing}" th:attr="hx-post=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML"
-                  th:action="@{/platform/support/defaults}" method="post" class="ep-stack" data-testid="support-defaults-form">
+            <form th:if="${defaultsEditing}" th:attr="hx-post=@{/platform/support/connections/{id}/defaults(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML"
+                  th:action="@{/platform/support/connections/{id}/defaults(id=${connectionId})}" method="post" class="ep-stack" data-testid="support-defaults-form">
                 <div class="alert alert-error" th:if="${defaultsError != null}" role="alert" data-testid="support-defaults-error" th:text="${defaultsError}">Agree first.</div>
                 <fieldset th:each="view : ${defaults}" class="form-group"
                           style="border: 0; border-top: 1px solid var(--ep-border-color); padding: var(--ep-space-4) 0 0; margin: 0;"
@@ -282,7 +270,7 @@
                 <div class="ep-row">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-defaults-save">Save setup for every tenant</button>
                     <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-defaults-cancel"
-                            th:attr="hx-get=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML">Cancel</button>
+                            th:attr="hx-get=@{/platform/support/connections/{id}/defaults(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML">Cancel</button>
                 </div>
             </form>
         </div>
@@ -295,7 +283,7 @@
     <div th:fragment="connection" id="support-connection" data-testid="support-connection"
          th:with="o=${overview}, s=${overview.state}, kind=${overview.state.class.simpleName}">
         <!--/* While a check or registration runs in the background, the panel refreshes itself until it is done. */-->
-        <div th:if="${checking}" th:attr="hx-get=@{/platform/support/connection}" hx-trigger="every 2s" hx-target="#support-connection" hx-swap="outerHTML"
+        <div th:if="${checking}" th:attr="hx-get=@{/platform/support/connections/{id}/connection(id=${connectionId})}" hx-trigger="every 2s" hx-target="#support-connection" hx-swap="outerHTML"
              data-testid="support-checking"></div>
 
         <section class="ep-panel detail-section">
@@ -430,8 +418,8 @@
                     </dd>
                 </dl>
 
-                <form th:if="${o.canRegister}" th:attr="hx-post=@{/platform/support/register}" hx-target="#support-connection" hx-swap="outerHTML"
-                      th:action="@{/platform/support/register}" method="post" class="ep-stack" data-testid="support-register-form">
+                <form th:if="${o.canRegister}" th:attr="hx-post=@{/platform/support/connections/{id}/register(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/connections/{id}/register(id=${connectionId})}" method="post" class="ep-stack" data-testid="support-register-form">
                     <p class="text-sm" style="margin: 0;">Check who Epistola contacts about this installation; you can correct it here.</p>
                     <div class="form-group">
                         <label class="ep-label" for="support-company">Company or organisation</label>
@@ -446,12 +434,12 @@
                 </form>
 
                 <div class="ep-row" th:if="${o.canCheck or o.canRegisterAgain}">
-                    <form th:if="${o.canCheck}" th:attr="hx-post=@{/platform/support/check}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/check}" method="post">
+                    <form th:if="${o.canCheck}" th:attr="hx-post=@{/platform/support/connections/{id}/check(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/check(id=${connectionId})}" method="post">
                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-check-now">Check now</button>
                     </form>
-                    <form th:if="${o.canRegisterAgain}" th:attr="hx-post=@{/platform/support/register-again}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/register-again}" method="post">
+                    <form th:if="${o.canRegisterAgain}" th:attr="hx-post=@{/platform/support/connections/{id}/register-again(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/register-again(id=${connectionId})}" method="post">
                         <input type="hidden" name="confirmed" value="true">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-register-again"
                                 data-confirm-submit
@@ -472,8 +460,8 @@
                     <em>and</em> Epistola granted it. Saving needs no connection to the support service; a service you
                     deselect stops at once.
                 </p>
-                <form th:attr="hx-post=@{/platform/support/services}" hx-target="#support-connection" hx-swap="outerHTML"
-                      th:action="@{/platform/support/services}" method="post" data-testid="support-services-form">
+                <form th:attr="hx-post=@{/platform/support/connections/{id}/services(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/connections/{id}/services(id=${connectionId})}" method="post" data-testid="support-services-form">
                     <div class="ep-table-scroll" role="region" aria-label="Support services" tabindex="0">
                     <table class="ep-table" data-testid="support-services">
                         <thead>
@@ -525,21 +513,12 @@
             </div>
         </section>
 
-        <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
-        <th:block th:replace="~{support/platform :: defaults}"></th:block>
 
-        <th:block th:replace="~{support/platform :: connections}"></th:block>
 
-        <th:block th:replace="~{support/platform :: connection-presets}"></th:block>
-
-        <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
-        <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
-            <th:block th:replace="~{__${panel.fragment}__}"></th:block>
-        </th:block>
 
         <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
-            <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
+            <div class="detail-section-header"><h2 th:text="|Disconnect from ${connectionName}|">Disconnect from Epistola support</h2></div>
             <div class="detail-section-body ep-stack">
                 <p data-testid="support-disconnect-explained">
                     Ends this installation's connection with Epistola support: Epistola support ends the registration, and here
@@ -548,16 +527,16 @@
                     Epistola then activates the installation again.
                 </p>
                 <div class="ep-row">
-                    <form th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/disconnect}" method="post">
+                    <form th:attr="hx-post=@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" method="post">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect"
                                 data-confirm-submit
-                                data-confirm-submit-title="Disconnect from Epistola support"
+                                th:attr="data-confirm-submit-title=|Disconnect from ${connectionName}|"
                                 data-confirm-submit-message="Epistola support ends this installation's registration, and this installation forgets it. Every tenant's choice of what to share is cleared here. Connecting again needs a new activation by Epistola."
                                 data-confirm-submit-label="Disconnect">Disconnect</button>
                     </form>
-                    <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/disconnect}" method="post">
+                    <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" method="post">
                         <input type="hidden" name="localOnly" value="true">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect-local"
                                 data-confirm-submit

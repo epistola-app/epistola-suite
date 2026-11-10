@@ -23,7 +23,7 @@ class SupportOffPageHtmxTest : BaseIntegrationTest() {
             it.body!!
         }
 
-        assertThat(body).contains("does not connect to Epistola support").contains("epistola.support.enabled=true")
+        assertThat(body).contains("No support connections yet").contains("epistola.support.enabled=true")
         assertThat(body).doesNotContain("data-testid=\"support-check-now\"").doesNotContain("data-testid=\"support-register-again\"")
     }
 

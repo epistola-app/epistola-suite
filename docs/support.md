@@ -36,18 +36,18 @@ support:
     companyName: Example Hosting B.V. # who Epistola contacts about this installation
     adminEmail: beheer@example.org
     environment: production
-  services: [telemetry, requests, usage] # the first selection; Platform → Epistola support wins once saved
+  services: [telemetry, requests, usage] # the first selection; Platform → Support connections wins once saved
   autoRegister: false # true: register on its own instead of waiting for an administrator
   endpoint: "" # empty: https://support.{product-domain}
 ```
 
-The page is **Platform → Epistola support** (`/platform/support`), for installation administrators.
+The page is **Platform → Support connections** (`/platform/support`), for installation administrators.
 
 Epistola support is a support connection like any other (ADR 0053), named by its endpoint. With
 `support.enabled` the installation stores it at startup when it is not stored, at the first start and
 again after an administrator removed it; one that exists is left as it is. Changing `support.endpoint`
 stores a connection at the new endpoint beside the old one, which an administrator removes. Its privacy
-is the installation's (below) until an administrator saves settings of its own for it.
+is the configured default (below) until an administrator saves settings of its own for it.
 
 ## Applying for support
 
@@ -70,8 +70,10 @@ ends.
 
 ## Privacy
 
-Two installation settings under **Privacy** decide what Epistola sees (ADR 0052 §1–2). Helm sets them
-until an administrator saves them (`support.privacy.tenantIdentity`, `support.privacy.telemetry`).
+Two settings decide what a support connection sees (ADR 0052 §1–2), per connection, on its page under
+**Privacy**. Until an administrator saves them for a connection, it follows the configured default
+(`epistola.support.privacy.tenant-identity` and `.telemetry`, Helm `support.privacy.tenantIdentity` and
+`support.privacy.telemetry`). There is no installation-wide setting on the page.
 
 **Tenants: confidential (the default) or named.**
 
@@ -193,7 +195,7 @@ epistola:
 In Helm, `support.connections` takes the same entries with `tokenSecret: { name, key }` instead of the
 token.
 
-An installation administrator can also add one under Platform → Epistola support → Other support
+An installation administrator can also add one under Platform → Support connections → Other support
 connections: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
 `support` object with `name`, `endpoint`, `services`, and optionally `tenantIdentity` and `telemetry`),
 or fill in the endpoint by hand, and enter the token the other side issued. Each connection there can be
@@ -206,23 +208,22 @@ The suite checks each connection every `epistola.support.check-interval` with
 `GET {endpoint}/api/v1/connection`: the answer says whether it is active and which services it grants.
 A service is used over a connection when it is listed in `services` and granted. A `401` reads as a
 refused token; an unreachable connection keeps its services but uses none until a check reaches it
-again. Platform → Epistola support lists every connection with its state, the services granted and
+again. Platform → Support connections lists every connection with its state, the services granted and
 those used.
 
 **Privacy per connection.** Each connection has its own privacy: whether tenants are named or
-confidential to it, and how much telemetry carries over it. Epistola support's are the installation's
-(above). Another connection's are what an administrator saves in its row on the platform page, else its
-entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`, `telemetry`), else the installation's,
-following them when they change. A confidential tenant has one reference for every connection, so
+confidential to it, and how much telemetry carries over it. That is what an administrator saves on its
+page, else its configuration entry's `tenant-identity` and `telemetry` (Helm `tenantIdentity`,
+`telemetry`), else the configured default (above), Epistola support's included. A confidential tenant has one reference for every connection, so
 Epistola and a partner can talk about it by the same reference.
 
 **Sharing per connection.** What a tenant shares is set per connection too: its consent for support
 requests, the installation's preset and the restriction (Not allowed, Required). A tenant's Support
 page has a "Sharing with …" panel for every other connection that offers something, next to the setup
-for Epistola support; Platform → Epistola support has the preset for every tenant per connection. One
+for Epistola support; Platform → Support connections has the preset for every tenant per connection. One
 connection's choice never changes another's.
 
-**Support requests over a partner.** Who handles new support requests (Platform → Epistola support)
+**Support requests over a partner.** Who handles new support requests (Platform → Support connections)
 can be any connection the installation selected support requests for, and the support desk can pass a
 request on to any of them. A request goes to such a connection while the tenant shares support
 requests with it; when it is handed over, everything it holds so far goes along, except internal notes.
@@ -251,7 +252,7 @@ When Epistola cannot be reached, the page offers to remove the connection here o
 
 ## Where to look
 
-| Who                        | Page                        | What                                     |
-| -------------------------- | --------------------------- | ---------------------------------------- |
-| Installation administrator | Platform → Epistola support | connection, claim code, services         |
-| Tenant administrator       | Tenant → Support            | whether it is connected, services in use |
+| Who                        | Page                           | What                                     |
+| -------------------------- | ------------------------------ | ---------------------------------------- |
+| Installation administrator | Platform → Support connections | connection, claim code, services         |
+| Tenant administrator       | Tenant → Support               | whether it is connected, services in use |

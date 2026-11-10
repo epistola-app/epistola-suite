@@ -309,7 +309,9 @@ can open requests through the same protocol.
        as with any connection, where before it went only when submitted while shared;
      - **escalation** (built): `escalates_to` names a connection; in the configuration by its
        endpoint, and the keyword `epistola` is gone;
-     - **the platform page**: one list of connections.
+     - **the platform page** (built): one list of connections, Epistola support's among them, with the
+       installation's privacy and what tenants share; a connection that registers has a page of its
+       own (`/platform/support/connections/{id}`) for its registration, services and disconnect.
 
      While no release has shipped the connections table, its migration is edited in place; after that, a forward migration does it.
 4. The support portal on Epistola's website, with Authentik.

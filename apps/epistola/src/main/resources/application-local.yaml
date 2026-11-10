@@ -144,12 +144,12 @@ epistola:
   # The support connection is OFF by default for local dev: it needs a running
   # support service, and without one every check logs a failure.
   #
-  # To work on it (Platform → Epistola support): start the sibling service with
+  # To work on it (Platform → Support connections): start the sibling service with
   #   ./gradlew bootRun --args='--spring.profiles.active=local'
   # in ../epistola-support, then run the suite with `--epistola.support.enabled=true`.
   # The settings below already point at it (plaintext, port 8095) and skip product
   # discovery, so that one flag is all it takes. Then press Register under
-  # Platform → Epistola support (or add `--epistola.support.auto-register=true`).
+  # Platform → Support connections (or add `--epistola.support.auto-register=true`).
   support:
     enabled: false
     endpoint: http://localhost:8095

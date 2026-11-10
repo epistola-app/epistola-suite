@@ -14,10 +14,10 @@ import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-/** The privacy settings are the installation administrator's: nobody else reads or changes them. */
+/** A connection's privacy is the installation administrator's: nobody else changes it. */
 class SupportPrivacyAuthorizationTest : IntegrationTestBase() {
     @Test
-    fun `a tenant administrator neither reads nor saves the privacy settings`() {
+    fun `a tenant administrator does not save a connection's privacy`() {
         val tenantAdministrator = EpistolaPrincipal(
             userId = UserKey.of("00000000-0000-0000-0000-0000000c0001"),
             externalId = "privacy-tenant-admin",
@@ -30,8 +30,7 @@ class SupportPrivacyAuthorizationTest : IntegrationTestBase() {
         )
 
         runAs(tenantAdministrator) {
-            assertThatThrownBy { GetSupportPrivacy().query() }.isInstanceOf(PlatformAccessDeniedException::class.java)
-            assertThatThrownBy { SetSupportPrivacy(TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
+            assertThatThrownBy { SetSupportConnectionPrivacy(java.util.UUID.randomUUID(), TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
                 .isInstanceOf(PlatformAccessDeniedException::class.java)
         }
     }
