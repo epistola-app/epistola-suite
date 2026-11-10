@@ -37,6 +37,9 @@ import java.nio.charset.StandardCharsets
         "epistola.logs.enabled=false",
         "epistola.catalog.upstream-check.enabled=false",
         "epistola.generation.polling.enabled=false",
+        // localauth refuses the passwords it ships with outside local development.
+        "LOCAL_AUTH_ADMIN_PASSWORD=it-admin-password",
+        "LOCAL_AUTH_USER_PASSWORD=it-user-password",
     ],
 )
 @ActiveProfiles(profiles = ["localauth"], inheritProfiles = false)
@@ -80,7 +83,7 @@ class ApiChainIgnoresSessionIT : IntegrationTestBase() {
         // csrf.spa() keeps the token in an XSRF-TOKEN cookie; no session exists before sign-in.
         val anonymous = cookies(loginPage)
 
-        val form = mapOf("username" to "admin@local", "password" to "admin", "_csrf" to csrf)
+        val form = mapOf("username" to "admin@local", "password" to "it-admin-password", "_csrf" to csrf)
             .entries.joinToString("&") { (k, v) -> "$k=${URLEncoder.encode(v, StandardCharsets.UTF_8)}" }
         val login = send(
             HttpRequest.newBuilder(uri("/login"))

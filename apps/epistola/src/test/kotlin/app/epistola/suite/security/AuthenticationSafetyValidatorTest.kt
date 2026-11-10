@@ -197,4 +197,42 @@ class AuthenticationSafetyValidatorTest {
             validator.afterSingletonsInstantiated()
         }
     }
+
+    private fun localUsers(adminPassword: String, userPassword: String) = AuthProperties(
+        localUsers = listOf(
+            LocalUserProperties(username = "admin@local", password = adminPassword),
+            LocalUserProperties(username = "user@local", password = userPassword),
+        ),
+    )
+
+    private fun validator(authProperties: AuthProperties, vararg profiles: String) = AuthenticationSafetyValidator(
+        environment = envWith(*profiles),
+        userDetailsService = mockUserDetailsService(),
+        clientRegistrationRepository = null,
+        authProperties = authProperties,
+    )
+
+    @Test
+    fun `localauth with a shipped password is refused outside local development`() {
+        val ex = assertThrows<IllegalStateException> { validator(localUsers("admin", "s3cret-user"), "localauth").afterSingletonsInstantiated() }
+        assertThat(ex.message).contains("admin@local").contains("LOCAL_AUTH_ADMIN_PASSWORD").doesNotContain("user@local")
+        assertThrows<IllegalStateException> { validator(localUsers("s3cret-admin", "user"), "demo", "localauth").afterSingletonsInstantiated() }
+    }
+
+    @Test
+    fun `localauth with passwords of its own starts`() {
+        validator(localUsers("s3cret-admin", "s3cret-user"), "demo", "localauth").afterSingletonsInstantiated()
+    }
+
+    @Test
+    fun `the shipped passwords are fine in local development`() {
+        validator(localUsers("admin", "user"), "local", "localauth").afterSingletonsInstantiated()
+    }
+
+    @Test
+    fun `the passwords refused are the ones the localauth profile falls back to`() {
+        val profile = checkNotNull(javaClass.getResource("/application-localauth.yaml")).readText()
+        val fallbacks = Regex("""password: \$\{LOCAL_AUTH_\w+_PASSWORD:([^}]*)}""").findAll(profile).map { it.groupValues[1] }.toSet()
+        assertThat(fallbacks).isEqualTo(AuthenticationSafetyValidator.DEFAULT_PASSWORDS)
+    }
 }

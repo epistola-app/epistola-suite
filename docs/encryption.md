@@ -129,6 +129,10 @@ EPISTOLA_ENCRYPTION_KEYS_0_ID=k1
 EPISTOLA_ENCRYPTION_KEYS_0_MATERIAL=<from secretKeyRef>
 ```
 
+The chart refuses to render with `encryption.enabled` and no `keys`, or with a `primaryKeyId` that
+names none of them, so an incomplete keyset fails at `helm install` / `helm upgrade` instead of at
+the application's start.
+
 Create the Secret with, e.g.:
 
 ```bash

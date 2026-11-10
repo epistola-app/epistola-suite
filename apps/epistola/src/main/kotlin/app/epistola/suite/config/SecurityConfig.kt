@@ -350,20 +350,6 @@ class SecurityConfig(
         return http.build()
     }
 
-    /**
-     * Security filter chain for test profile.
-     * Permits all requests to simplify integration testing.
-     */
-    @Bean
-    @Profile("test")
-    fun testSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        http
-            .authorizeHttpRequests { authorize ->
-                authorize.anyRequest().permitAll()
-            }
-            .csrf { csrf ->
-                csrf.disable()
-            }
-        return http.build()
-    }
+    // The `test` profile's permit-all chain is not here: it lives in the test-only library
+    // (modules/testing, TestSecurityConfiguration), so it is never in the application.
 }

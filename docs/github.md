@@ -413,20 +413,28 @@ All published Docker images are cryptographically signed using [Cosign](https://
 
 #### Verify Image Signature
 
+A release image is signed by `build.yml` building the release tag, so the certificate names that
+workflow at that tag. Check that identity exactly: matching any identity (`.*`) only proves that
+_some_ GitHub Actions workflow signed the image, anyone's included.
+
 ```bash
-cosign verify ghcr.io/epistola-app/epistola-suite:<tag> \
-  --certificate-identity-regexp='.*' \
+VERSION=2.0.0
+cosign verify ghcr.io/epistola-app/epistola-suite:${VERSION} \
+  --certificate-identity="https://github.com/epistola-app/epistola-suite/.github/workflows/build.yml@refs/tags/v${VERSION}" \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
+
+The `-demo` image is verified the same way. Images pushed for a pull request with the `publish`
+label are signed from that pull request's ref, not a release tag, and are not release images.
 
 #### Verify SBOM Attestation
 
 The SBOM (CycloneDX format) is attached as a signed attestation to each image:
 
 ```bash
-cosign verify-attestation ghcr.io/epistola-app/epistola-suite:<tag> \
+cosign verify-attestation ghcr.io/epistola-app/epistola-suite:${VERSION} \
   --type cyclonedx \
-  --certificate-identity-regexp='.*' \
+  --certificate-identity="https://github.com/epistola-app/epistola-suite/.github/workflows/build.yml@refs/tags/v${VERSION}" \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
 

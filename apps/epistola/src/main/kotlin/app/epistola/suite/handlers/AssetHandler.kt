@@ -26,6 +26,7 @@ import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.handlers.TenantContentCaching
 import app.epistola.suite.handlers.offersDeclaring
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
@@ -362,9 +363,12 @@ class AssetHandler(
         val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalog = target, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
+        val etag = TenantContentCaching.etag(assetContent.contentHash)
+        TenantContentCaching.notModified(request, etag)?.let { return it }
         return ServerResponse.ok()
             .contentType(MediaType.parseMediaType(assetContent.mediaType.mimeType))
-            .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .header(HttpHeaders.CACHE_CONTROL, TenantContentCaching.CACHE_CONTROL)
+            .header(HttpHeaders.ETAG, etag)
             .headers { headers ->
                 // Opened directly, an SVG is a document in our origin: keep it inert.
                 if (SvgContentPolicy.isSvg(assetContent.mediaType)) {

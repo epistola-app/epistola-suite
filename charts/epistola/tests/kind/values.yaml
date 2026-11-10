@@ -4,6 +4,11 @@ config:
   # image refuses (docs/auth.md, "Two images"); nothing here needs demo mode.
   # The chart still exercises its external database and migration Job wiring.
   profiles: localauth
+  # localauth refuses the passwords it ships with outside local development, so the disposable
+  # smoke environment names its own.
+  env:
+    LOCAL_AUTH_ADMIN_PASSWORD: chart-smoke-admin
+    LOCAL_AUTH_USER_PASSWORD: chart-smoke-user
 
 # The smoke environment is disposable. Exercise the chart's production database
 # wiring and migration hook without provisioning a test encryption keyset.

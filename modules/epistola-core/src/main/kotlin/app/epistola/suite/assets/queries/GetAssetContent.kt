@@ -82,6 +82,7 @@ class GetAssetContentHandler(
             catalogKey = metadata.catalogKey,
             mediaType = metadata.mediaType,
             content = bytes,
+            contentHash = hash,
         )
     }
 }

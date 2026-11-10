@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **Breaking: with `config.profiles` including `localauth`, set the local users' passwords.**
+  From Epistola 2.0 the application refuses to start while a `localauth` user still has the password
+  it ships with (`admin`, `user`), unless the `local` profile is active. Set
+  `LOCAL_AUTH_ADMIN_PASSWORD` and `LOCAL_AUTH_USER_PASSWORD` in `config.env`.
+
 - **Breaking: `support.hub.*` is removed; the support connection takes `support.endpoint`.** From Epistola 2.0 the installation connects to the Epistola support service
   over HTTPS with OAuth client credentials instead of the gRPC hub. `support.endpoint` is the
   service's URL and renders `EPISTOLA_SUPPORT_ENDPOINT`; left empty, it is
@@ -119,6 +124,10 @@
   turns the cache off. Raise them on pods that render many distinct fonts.
 
 ### Fixed
+
+- **An incomplete encryption keyset is refused when the chart renders.** With `encryption.enabled`,
+  `encryption.keys` must name at least one key and `encryption.primaryKeyId` must be one of them;
+  before, the chart rendered and the application failed at startup instead.
 
 - **The pod disruption budget no longer counts the migration Job's pods.** They carry the
   application's selector labels, so the PDB selected them too. With `maxUnavailable`, Kubernetes

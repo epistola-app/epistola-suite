@@ -24,6 +24,10 @@ import org.springframework.stereotype.Component
  *    expose known/configurable passwords in a production environment.
  * 3. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
  *    [ClientRegistrationRepository] (OAuth2) is present, the app would start but 403 everywhere.
+ * 4. **No shipped password outside local development** — `localauth` falls back to the passwords
+ *    `admin` and `user` ([DEFAULT_PASSWORDS]) when none is configured, and its admin holds every
+ *    platform role. Anywhere but alongside `local` such a password is refused: set
+ *    `LOCAL_AUTH_ADMIN_PASSWORD` and `LOCAL_AUTH_USER_PASSWORD`.
  *
  * Skipped in `test` profile (tests use permit-all security).
  */
@@ -33,6 +37,7 @@ class AuthenticationSafetyValidator(
     private val environment: Environment,
     private val userDetailsService: UserDetailsService? = null,
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
+    private val authProperties: AuthProperties = AuthProperties(),
 ) : SmartInitializingSingleton {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -41,6 +46,7 @@ class AuthenticationSafetyValidator(
         validateProdAndLocalAreExclusive()
         validateNoInMemoryUsersInProduction()
         validateAuthMechanismExists()
+        validateNoShippedPasswordsOutsideLocal()
 
         logger.info(
             "Authentication configured — form login: {}, OAuth2: {}",
@@ -74,6 +80,18 @@ class AuthenticationSafetyValidator(
         }
     }
 
+    private fun validateNoShippedPasswordsOutsideLocal() {
+        if (environment.acceptsProfiles(Profiles.of("local"))) return
+        val shipped = authProperties.localUsers.filter { it.password in DEFAULT_PASSWORDS }.map { it.username }
+        if (shipped.isNotEmpty()) {
+            throw IllegalStateException(
+                "SECURITY: local user(s) ${shipped.joinToString()} still have the password this installation ships with. " +
+                    "Outside local development set LOCAL_AUTH_ADMIN_PASSWORD and LOCAL_AUTH_USER_PASSWORD " +
+                    "(Helm: config.env), or sign in through OIDC instead of 'localauth'.",
+            )
+        }
+    }
+
     private fun validateAuthMechanismExists() {
         if (userDetailsService == null && clientRegistrationRepository == null) {
             throw IllegalStateException(
@@ -83,5 +101,10 @@ class AuthenticationSafetyValidator(
                     "oidc.* values). The 'keycloak' profile is local-dev only and requires 'local'.",
             )
         }
+    }
+
+    companion object {
+        /** The passwords `application-localauth.yaml` falls back to when none is configured. */
+        val DEFAULT_PASSWORDS: Set<String> = setOf("admin", "user")
     }
 }

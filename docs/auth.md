@@ -101,6 +101,12 @@ Override credentials via environment variables:
 | `LOCAL_AUTH_USER_DISPLAY_NAME`  | `Local User`  |
 | `LOCAL_AUTH_USER_TENANT`        | `demo`        |
 
+**Set both passwords anywhere but on a developer's machine.** The defaults `admin` and `user` are
+public, and the admin holds every platform role. Unless the `local` profile is active too, the
+application refuses to start while a local user still has one of them
+(`AuthenticationSafetyValidator`); with Helm, set them through `config.env`. `localauth` is never
+combined with `prod`.
+
 ## Demo Profile
 
 The `demo` profile loads demo data (tenant, themes, templates) and adds two demo-only behaviours on
