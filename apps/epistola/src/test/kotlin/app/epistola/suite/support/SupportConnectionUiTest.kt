@@ -121,7 +121,7 @@ class SupportConnectionUiTest : BasePlaywrightTest() {
 
         register()
 
-        assertThat(notice()).hasText("Registered. Epistola will contact you to activate this installation.")
+        assertThat(notice()).hasText("Registered. Epistola support will contact you to activate this installation.")
         assertThat(panel.getByTestId("support-claim-code")).hasText(support.latestRegistration.claimCode)
         assertThat(panel.getByTestId("support-claim-code-expires")).containsText("If Epistola has not activated")
         assertThat(panel.getByTestId("support-register")).hasCount(0)
@@ -237,7 +237,7 @@ class SupportConnectionUiTest : BasePlaywrightTest() {
         page.getByTestId("confirm-dialog-confirm").click()
         page.htmxSettle()
 
-        assertThat(notice()).hasText("Registered again. Epistola will contact you to activate this installation.")
+        assertThat(notice()).hasText("Registered again. Epistola support will contact you to activate this installation.")
         assertThat(state()).hasText("Waiting for activation")
         val second = support.latestRegistration
         assertThatValue(second.clientId).isNotEqualTo(first.clientId)

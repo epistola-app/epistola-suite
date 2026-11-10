@@ -5,7 +5,9 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStore
@@ -39,6 +41,9 @@ import kotlin.system.measureTimeMillis
  * The deadline for one call (`read-timeout`) is five seconds here, longer than a page waits.
  */
 class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -76,7 +81,7 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
      */
     private fun registered() {
         assertThat(work.awaitIdle()).`as`("work left from an earlier test ends").isTrue()
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         assertThat(work.awaitIdle()).`as`("the registration ends").isTrue()
         connection.invalidate()
         assertThat(connection.status().state).`as`("registered").isInstanceOf(SupportConnectionState.Pending::class.java)
@@ -114,11 +119,11 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `check now while another node checks says so at once instead of waiting on the lock`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
 
         whileAnotherNodeChecks {
             var answer = 0 to ""
-            val took = measureTimeMillis { answer = post("/platform/support/check") }
+            val took = measureTimeMillis { answer = post("/platform/support/connections/${epistola()}/check") }
 
             assertThat(took).isLessThan(2_000)
             assertThat(answer.first).isEqualTo(HttpStatus.OK.value())
@@ -130,7 +135,7 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
     fun `register while another node checks says so at once instead of waiting on the lock`() {
         whileAnotherNodeChecks {
             var answer = 0 to ""
-            val took = measureTimeMillis { answer = post("/platform/support/register") }
+            val took = measureTimeMillis { answer = post("/platform/support/connections/${epistola()}/register") }
 
             assertThat(took).isLessThan(2_000)
             assertThat(answer.first).isEqualTo(HttpStatus.OK.value())
@@ -140,11 +145,11 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `a check against a hanging service answers within a few seconds and carries on in the background`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.fault(FakeSupportFault.Hang(maxMillis = 20_000), "GET", "/api/v1/connection")
 
         var answer = 0 to ""
-        val took = measureTimeMillis { answer = post("/platform/support/check") }
+        val took = measureTimeMillis { answer = post("/platform/support/connections/${epistola()}/check") }
 
         assertThat(took).isLessThan(4_500)
         assertThat(answer.first).isEqualTo(HttpStatus.OK.value())
@@ -156,7 +161,7 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
         registered()
         support.stop()
 
-        val (status, body) = post("/platform/support/check")
+        val (status, body) = post("/platform/support/connections/${epistola()}/check")
 
         assertThat(status).isEqualTo(HttpStatus.OK.value())
         val notice = body.substringAfter("data-testid=\"support-notice\"").substringBefore("</div>")
@@ -168,10 +173,10 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
     @ParameterizedTest
     @MethodSource("faults")
     fun `a failing service never turns an action into a 500`(fault: FakeSupportFault) {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.fault(fault)
 
-        for (path in listOf("/platform/support/check", "/platform/support/register-again")) {
+        for (path in listOf("/platform/support/connections/${epistola()}/check", "/platform/support/connections/${epistola()}/register-again")) {
             val (status, body) = post(path, mapOf("confirmed" to "true"))
             assertThat(status).`as`(path).isEqualTo(HttpStatus.OK.value())
             assertThat(body).contains("id=\"support-connection\"")

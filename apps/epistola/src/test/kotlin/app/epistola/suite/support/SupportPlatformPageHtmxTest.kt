@@ -5,7 +5,9 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.testing.FakeSupportFault
 import app.epistola.suite.testing.FakeSupportResponse
@@ -35,6 +37,9 @@ import java.time.format.DateTimeFormatter
  * an expired code, the services once activated, and the way back from a refusal.
  */
 class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -53,7 +58,7 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
         connection.resetBackoff()
     }
 
-    private fun page(): String = restTemplate.getForEntity("/platform/support", String::class.java).let {
+    private fun page(): String = restTemplate.getForEntity("/platform/support/connections/${epistola()}", String::class.java).let {
         assertThat(it.statusCode).isEqualTo(HttpStatus.OK)
         it.body!!
     }
@@ -83,14 +88,14 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
         assertThat(body).doesNotContain("data-testid=\"support-register-again\"")
         assertThat(body).contains(support.baseUrl)
 
-        val checked = post("/platform/support/check")
+        val checked = post("/platform/support/connections/${epistola()}/check")
         assertThat(checked).contains("Not registered").contains("data-testid=\"support-register\"").doesNotContain("data-testid=\"support-claim-code\"")
         assertThat(support.registrationRequests).hasSize(before)
     }
 
     @Test
     fun `register applies for support and says Epistola will contact the address, with the reference and its expiry`() {
-        val fragment = post("/platform/support/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
+        val fragment = post("/platform/support/connections/${epistola()}/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
 
         val registration = support.latestRegistration
         val claimCode = registration.claimCode
@@ -113,12 +118,12 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
     fun `a claim code that expired unlinked says when, and Register gets a new one`() {
         // Issued already expired: invalid_client counts as "gone" only once the claim code expired.
         support.claimCodeLifetime = java.time.Duration.ofMinutes(-1)
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.claimCodeLifetime = java.time.Duration.ofDays(7)
         val first = support.latestRegistration
         support.expire(first.clientId)
 
-        val expired = post("/platform/support/check")
+        val expired = post("/platform/support/connections/${epistola()}/check")
 
         assertThat(expired).contains("Claim code expired").contains("data-testid=\"support-register\"")
         assertThat(expired.substringAfter("data-testid=\"support-expired\"").substringBefore("</p>"))
@@ -128,7 +133,7 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
         assertThat(expired.substringAfter("data-testid=\"support-expired\"").substringBefore("</p>"))
             .contains("Register to apply again.").doesNotContain("Register again")
 
-        val again = post("/platform/support/register")
+        val again = post("/platform/support/connections/${epistola()}/register")
 
         val second = support.latestRegistration
         assertThat(second.clientId).isNotEqualTo(first.clientId)
@@ -137,10 +142,10 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `an activated installation shows its granted services`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.activate(scopes = setOf("requests"))
 
-        val fragment = post("/platform/support/check")
+        val fragment = post("/platform/support/connections/${epistola()}/check")
 
         assertThat(fragment).contains("Connected").contains("Epistola activated this installation.")
         val services = fragment.substringAfter("data-testid=\"support-services\"").substringBefore("</table>")
@@ -152,12 +157,12 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `an administrator selects the services, each shows selected, granted and in use, and tenant pages say what is not selected`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.activate(scopes = setOf("requests", "mirror"))
-        val before = post("/platform/support/check")
+        val before = post("/platform/support/connections/${epistola()}/check")
         assertThat(before.substringAfter("data-testid=\"support-services-source\"").substringBefore("</p>")).contains("epistola.support.services")
 
-        val saved = post("/platform/support/services", listOf("services" to "requests", "services" to "telemetry"))
+        val saved = post("/platform/support/connections/${epistola()}/services", listOf("services" to "requests", "services" to "telemetry"))
 
         assertThat(saved).contains("id=\"support-connection\"").contains("Saved. Selected: requests, telemetry.")
         val services = saved.substringAfter("data-testid=\"support-services\"").substringBefore("</table>")
@@ -176,42 +181,42 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `saving no services at all is a choice too`() {
-        val saved = post("/platform/support/services", emptyList())
+        val saved = post("/platform/support/connections/${epistola()}/services", emptyList())
 
-        assertThat(saved).contains("Saved. This installation uses no support service.")
+        assertThat(saved).contains("Saved. This installation uses no service over this connection.")
         assertThat(connection.selectedServices().services).isEmpty()
         assertThat(connection.selectedServices().fromConfiguration).isFalse()
     }
 
     @Test
     fun `a refused installation says why and registers again with a new claim code`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         val first = support.latestRegistration
         support.activate(first.clientId)
-        post("/platform/support/check")
+        post("/platform/support/connections/${epistola()}/check")
         support.revoke(first.clientId)
 
-        val refused = post("/platform/support/check")
+        val refused = post("/platform/support/connections/${epistola()}/check")
         assertThat(refused).contains("Refused").contains("invalid_client").contains("data-testid=\"support-register-again\"")
 
-        val again = post("/platform/support/register-again", mapOf("confirmed" to "true"))
+        val again = post("/platform/support/connections/${epistola()}/register-again", mapOf("confirmed" to "true"))
 
         val second = support.latestRegistration
         assertThat(second.clientId).isNotEqualTo(first.clientId)
-        assertThat(again).contains("Registered again. Epistola will contact you to activate this installation.").contains(">${second.claimCode}</code>")
+        assertThat(again).contains("Registered again. Epistola support will contact you to activate this installation.").contains(">${second.claimCode}</code>")
     }
 
     @Test
     fun `registering again that fails says it failed, not that it registered`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         val first = support.latestRegistration
         support.activate(first.clientId)
-        post("/platform/support/check")
+        post("/platform/support/connections/${epistola()}/check")
         support.revoke(first.clientId)
-        post("/platform/support/check")
+        post("/platform/support/connections/${epistola()}/check")
         support.fault(FakeSupportFault.Respond(FakeSupportResponse.json(503, """{"error":"temporarily_unavailable"}""")), "POST", "/oauth2/register")
 
-        val again = post("/platform/support/register-again", mapOf("confirmed" to "true"))
+        val again = post("/platform/support/connections/${epistola()}/register-again", mapOf("confirmed" to "true"))
 
         assertThat(again).doesNotContain("Registered again").contains("Registering failed")
         assertThat(connection.status().state).isNotInstanceOf(app.epistola.suite.support.connection.SupportConnectionState.Pending::class.java)
@@ -219,9 +224,9 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `a node whose clock is off says by how much, and the installation stays connected`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         support.activate(support.latestRegistration.clientId)
-        post("/platform/support/check")
+        post("/platform/support/connections/${epistola()}/check")
         // The fake checks assertion times against the real clock, the one its Date header states: this
         // node's clock is set from it to put the two a known distance apart. The check runs on this
         // thread, which the test clock governs; request threads keep the real one.
@@ -244,7 +249,7 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `the tenant page says the installation is pending and lists the tenant's support settings, without the claim code`() {
-        post("/platform/support/register")
+        post("/platform/support/connections/${epistola()}/register")
         val tenant = createTenant("Support Tenant Page")
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/support", String::class.java).let {

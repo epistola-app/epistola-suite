@@ -20,6 +20,7 @@ import app.epistola.suite.support.connection.RegisterSupportConnectionAgain
 import app.epistola.suite.support.connection.RemoveSupportConnection
 import app.epistola.suite.support.connection.SaveSupportServices
 import app.epistola.suite.support.connection.SupportBackgroundWork
+import app.epistola.suite.support.connection.SupportConnectionAuth
 import app.epistola.suite.support.connection.SupportConnectionCheckScheduler
 import app.epistola.suite.support.connection.SupportConnectionExistsException
 import app.epistola.suite.support.connection.SupportConnectionPreset
@@ -50,10 +51,12 @@ import java.time.Duration
 import java.util.UUID
 
 /**
- * `/platform/support` — the installation's connection to Epistola support: its state, the claim
- * code while it waits for activation, the services selected here and those Epistola granted, and the
- * last check. A platform page (no tenant); the mediator enforces the installation administrator
- * role on every route.
+ * `/platform/support` — the installation's support connections, one list whatever each signs in with
+ * (ADR 0053), with the installation's privacy and what tenants share; and
+ * `/platform/support/connections/{id}` for one that registers with the installation's own key: its
+ * state, the claim code while it waits for activation, the services selected here and those it
+ * granted, and the last check. Platform pages (no tenant); the mediator enforces the installation
+ * administrator role on every route.
  */
 @Configuration
 class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
@@ -61,12 +64,13 @@ class SupportPlatformRoutes(private val handler: SupportPlatformHandler) {
     fun supportPlatformRouterFunction(): RouterFunction<ServerResponse> = router {
         "/platform/support".nest {
             GET("", handler::show)
-            GET("/connection", handler::panel)
-            POST("/check", handler::check)
-            POST("/register", handler::register)
-            POST("/register-again", handler::registerAgain)
-            POST("/disconnect", handler::disconnect)
-            POST("/services", handler::saveServices)
+            GET("/connections/{connectionId}", handler::detail)
+            GET("/connections/{connectionId}/connection", handler::panel)
+            POST("/connections/{connectionId}/check", handler::check)
+            POST("/connections/{connectionId}/register", handler::register)
+            POST("/connections/{connectionId}/register-again", handler::registerAgain)
+            POST("/connections/{connectionId}/disconnect", handler::disconnect)
+            POST("/connections/{connectionId}/services", handler::saveServices)
             POST("/connections/{connectionId}/privacy", handler::saveConnectionPrivacy)
             POST("/connections/lookup", handler::lookUpConnection)
             POST("/connections", handler::addConnection)
@@ -111,10 +115,8 @@ class SupportPlatformHandler(
         "addForm" to addForm
         "serviceNames" to SupportScope.entries.map { it.value }
         "allConnections" to supportConnections.all()
-        "pageTitle" to "Epistola support - Epistola"
-        "platformPage" to "Epistola support"
-        "overview" to GetSupportConnectionOverview().query()
-        "checking" to work.isRunning(WORK_KEY)
+        "pageTitle" to "Support connections - Epistola"
+        "platformPage" to "Support connections"
         "privacy" to GetSupportPrivacy().query()
         "defaults" to sharing.installationViews()
         "connections" to ListSupportConnections().query()
@@ -123,39 +125,61 @@ class SupportPlatformHandler(
         "panels" to panelViews()
     }
 
+    /**
+     * The page of one connection that registers with the installation's own key (ADR 0053 §1): its
+     * registration, the services used over it, and its disconnect. Not found for any other.
+     */
+    fun detail(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
+        return ServerResponse.ok().page("support/connection") {
+            "pageTitle" to "${nameOf(id)} - Epistola"
+            "platformPage" to "Support connections"
+            connectionModel(id, notice = null, offerLocalOnly = false).forEach { (k, v) -> k to v }
+        }
+    }
+
     /** The connection panel alone: what the panel polls while a check runs in the background. */
-    fun panel(request: ServerRequest): ServerResponse = connectionPanel(request, if (work.isRunning(WORK_KEY)) STILL_RUNNING else null)
+    fun panel(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
+        return connectionPanel(request, id, if (work.isRunning(workKey(id))) STILL_RUNNING else null)
+    }
 
     /** Checks now; the connection panel is swapped in place, or the page reloads without HTMX. */
-    fun check(request: ServerRequest): ServerResponse = connectionPanel(
-        request,
-        attempt { CheckSupportConnection().execute() }.notice { status ->
-            status.lastError?.let { "${checkFailed(it)}. This installation keeps working, and tries again at the next check." } ?: "Checked just now."
-        },
-    )
+    fun check(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
+        return connectionPanel(
+            request,
+            id,
+            attempt(id) { CheckSupportConnection(id).execute() }.notice { status ->
+                status.lastError?.let { "${checkFailed(it)}. This installation keeps working, and tries again at the next check." } ?: "Checked just now."
+            },
+        )
+    }
 
     /** Registers now: while not registered, or after the claim code expired. */
     fun register(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
         val company = request.param("companyName").orElse(null)
         val email = request.param("adminEmail").orElse(null)
         // Built here, so a contact that does not validate is said on the page, not lost on the background thread.
         val command = try {
-            RegisterSupportConnection(company, email)
+            RegisterSupportConnection(company, email, id)
         } catch (e: ValidationException) {
-            return connectionPanel(request, "Not registered: ${e.message}")
+            return connectionPanel(request, id, "Not registered: ${e.message}")
         }
-        val notice = attempt { command.execute() }.notice { status ->
-            if (status.state is SupportConnectionState.Pending) "Registered. Epistola will contact you to activate this installation." else status.lastError?.let { "Registering failed: $it" }
+        val notice = attempt(id) { command.execute() }.notice { status ->
+            if (status.state is SupportConnectionState.Pending) "Registered. ${nameOf(id)} will contact you to activate this installation." else status.lastError?.let { "Registering failed: $it" }
         }
-        return connectionPanel(request, notice)
+        return connectionPanel(request, id, notice)
     }
 
     fun registerAgain(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
         val confirmed = request.param("confirmed").map { it == "true" }.orElse(false)
-        val notice = attempt { RegisterSupportConnectionAgain(confirmed).execute() }.notice { status ->
-            if (status.state is SupportConnectionState.Pending) "Registered again. Epistola will contact you to activate this installation." else status.lastError?.let { "Registering failed: $it" }
+        val notice = attempt(id) { RegisterSupportConnectionAgain(confirmed, id).execute() }.notice { status ->
+            if (status.state is SupportConnectionState.Pending) "Registered again. ${nameOf(id)} will contact you to activate this installation." else status.lastError?.let { "Registering failed: $it" }
         }
-        return connectionPanel(request, notice)
+        return connectionPanel(request, id, notice)
     }
 
     /**
@@ -164,20 +188,22 @@ class SupportPlatformHandler(
      * connection here only (`localOnly=true`).
      */
     fun disconnect(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
+        val name = nameOf(id)
         val localOnly = request.param("localOnly").map { it == "true" }.orElse(false)
         var outcome: SupportDisconnectOutcome? = null
         val notice = try {
-            attempt { DisconnectSupportConnection(localOnly).execute().also { outcome = it.outcome }.status }.notice {
+            attempt(id) { DisconnectSupportConnection(localOnly, id).execute().also { outcome = it.outcome }.status }.notice {
                 when (outcome) {
-                    SupportDisconnectOutcome.CONFIRMED -> "Disconnected. Epistola support ended this installation's registration."
-                    SupportDisconnectOutcome.ALREADY_GONE -> "Disconnected. Epistola support no longer accepted this registration, so there was nothing to end there."
-                    else -> "Removed here only. Ask Epistola support to remove the registration and what it holds of this installation."
+                    SupportDisconnectOutcome.CONFIRMED -> "Disconnected. $name ended this installation's registration."
+                    SupportDisconnectOutcome.ALREADY_GONE -> "Disconnected. $name no longer accepted this registration, so there was nothing to end there."
+                    else -> "Removed here only. Ask $name to remove the registration and what it holds of this installation."
                 }
             }
         } catch (e: SupportUnavailableException) {
-            return connectionPanel(request, "Not disconnected: ${e.message}. Nothing changed. Try again, or remove the connection here only.", offerLocalOnly = true)
+            return connectionPanel(request, id, "Not disconnected: ${e.message}. Nothing changed. Try again, or remove the connection here only.", offerLocalOnly = true)
         }
-        return connectionPanel(request, notice)
+        return connectionPanel(request, id, notice)
     }
 
     private sealed interface Outcome {
@@ -186,8 +212,8 @@ class SupportPlatformHandler(
         data class Notice(val text: String?) : Outcome
     }
 
-    private fun attempt(action: () -> SupportConnectionStatus): Outcome = try {
-        when (val attempt = work.launchAndWait(WORK_KEY, INTERACTIVE_WAIT, action)) {
+    private fun attempt(id: UUID, action: () -> SupportConnectionStatus): Outcome = try {
+        when (val attempt = work.launchAndWait(workKey(id), INTERACTIVE_WAIT, action)) {
             is SupportWorkAttempt.Done -> Outcome.Done(attempt.value)
             SupportWorkAttempt.Busy -> Outcome.Notice(BUSY)
             SupportWorkAttempt.StillRunning -> Outcome.Notice(STILL_RUNNING)
@@ -237,6 +263,7 @@ class SupportPlatformHandler(
                 services = services,
                 tenantIdentity = TenantIdentity.parse(form.getValue("tenantIdentity")),
                 telemetry = TelemetryDetail.parse(form.getValue("telemetry")),
+                auth = request.param("auth").orElse("").let { v -> SupportConnectionAuth.entries.firstOrNull { it.name == v } } ?: SupportConnectionAuth.BEARER_TOKEN,
             ).execute()
             redirect("/platform/support#support-connections")
         } catch (e: ValidationException) {
@@ -267,7 +294,7 @@ class SupportPlatformHandler(
         }
     }
 
-    /** Removes a connection other than Epistola support's. */
+    /** Removes a connection, any one. */
     fun removeConnection(request: ServerRequest): ServerResponse {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
         RemoveSupportConnection(id).execute()
@@ -276,28 +303,41 @@ class SupportPlatformHandler(
 
     /** Saves the selected services; no network I/O, so it works while the support service is down. */
     fun saveServices(request: ServerRequest): ServerResponse {
+        val id = registeringId(request) ?: return ServerResponse.notFound().build()
         val selected = request.params()["services"].orEmpty().toSet()
-        val saved = SaveSupportServices(selected).execute()
-        val notice = if (saved.services.isEmpty()) "Saved. This installation uses no support service." else "Saved. Selected: ${saved.services.joinToString(", ")}."
-        return connectionPanel(request, notice)
+        val saved = SaveSupportServices(selected, id).execute()
+        val notice = if (saved.services.isEmpty()) "Saved. This installation uses no service over this connection." else "Saved. Selected: ${saved.services.joinToString(", ")}."
+        return connectionPanel(request, id, notice)
     }
 
-    private fun connectionPanel(request: ServerRequest, notice: String?, offerLocalOnly: Boolean = false): ServerResponse {
-        val overview = GetSupportConnectionOverview().query()
+    /** The connection the path names, when it registers with the installation's own key; null otherwise. */
+    private fun registeringId(request: ServerRequest): UUID? {
+        val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return null
+        return id.takeIf { supportConnections.find(it)?.auth == SupportConnectionAuth.PRIVATE_KEY_JWT }
+    }
+
+    private fun nameOf(id: UUID): String = supportConnections.find(id)?.name ?: "The support connection"
+
+    /**
+     * The [SupportBackgroundWork] key of a check or registration of connection [id]: the scheduled
+     * check's own for the connection `epistola.support.*` configures, so a page asks while it runs.
+     */
+    private fun workKey(id: UUID): String = if (id == supportConnections.configuredId()) WORK_KEY else "$WORK_KEY:$id"
+
+    private fun connectionModel(id: UUID, notice: String?, offerLocalOnly: Boolean): Map<String, Any?> = mapOf(
+        "connectionId" to id,
+        "connectionName" to nameOf(id),
+        "overview" to GetSupportConnectionOverview(id).query(),
+        "notice" to notice,
+        "checking" to work.isRunning(workKey(id)),
+        "offerLocalOnly" to offerLocalOnly,
+    )
+
+    private fun connectionPanel(request: ServerRequest, id: UUID, notice: String?, offerLocalOnly: Boolean = false): ServerResponse {
+        val model = connectionModel(id, notice, offerLocalOnly)
         return request.htmx {
-            fragment("support/platform", "connection") {
-                "overview" to overview
-                "notice" to notice
-                "checking" to work.isRunning(WORK_KEY)
-                "offerLocalOnly" to offerLocalOnly
-                "privacy" to GetSupportPrivacy().query()
-                "defaults" to sharing.installationViews()
-                "connections" to ListSupportConnections().query()
-                "connectionPresets" to sharing.connectionPresets()
-                "connections" to ListSupportConnections().query()
-                "panels" to panelViews()
-            }
-            onFullPage { redirect("/platform/support") }
+            fragment("support/platform", "connection") { model.forEach { (k, v) -> k to v } }
+            onFullPage { redirect("/platform/support/connections/$id") }
         }
     }
 }
@@ -307,9 +347,9 @@ private const val WORK_KEY = SupportConnectionCheckScheduler.WORK_KEY
 /** How long a page waits for the support service before it carries on in the background. */
 private val INTERACTIVE_WAIT: Duration = Duration.ofSeconds(3)
 
-private const val BUSY = "A check or registration with Epistola support is already running. This panel shows its result shortly."
+private const val BUSY = "A check or registration with this support connection is already running. This panel shows its result shortly."
 
-private const val STILL_RUNNING = "Epistola support is answering slowly; the check goes on in the background and this panel updates when it is done."
+private const val STILL_RUNNING = "The support connection is answering slowly; the check goes on in the background and this panel updates when it is done."
 
 /**
  * "The check failed …" for a check's [lastError], saying "failed" once: most errors already start

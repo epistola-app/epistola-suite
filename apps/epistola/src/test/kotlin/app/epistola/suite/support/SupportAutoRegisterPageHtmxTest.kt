@@ -5,7 +5,9 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
@@ -27,6 +29,9 @@ import org.springframework.util.LinkedMultiValueMap
  * registers again at once when the claim code expired unlinked, which the page then says.
  */
 class SupportAutoRegisterPageHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -47,7 +52,7 @@ class SupportAutoRegisterPageHtmxTest : BaseIntegrationTest() {
             contentType = MediaType.APPLICATION_FORM_URLENCODED
             set("HX-Request", "true")
         }
-        return restTemplate.postForEntity("/platform/support/check", HttpEntity(LinkedMultiValueMap<String, String>(), headers), String::class.java).let {
+        return restTemplate.postForEntity("/platform/support/connections/${epistola()}/check", HttpEntity(LinkedMultiValueMap<String, String>(), headers), String::class.java).let {
             assertThat(it.statusCode).isEqualTo(HttpStatus.OK)
             it.body!!
         }
@@ -55,7 +60,7 @@ class SupportAutoRegisterPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `the check registers on its own, and Register is still offered before it does`() {
-        val before = restTemplate.getForEntity("/platform/support", String::class.java).body!!
+        val before = restTemplate.getForEntity("/platform/support/connections/${epistola()}", String::class.java).body!!
         assertThat(before).contains("Not registered").contains("data-testid=\"support-register\"")
 
         val fragment = check()

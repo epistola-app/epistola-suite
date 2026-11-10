@@ -40,7 +40,6 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
             it.body!!
         }
 
-        assertThat(body).contains("does not connect to Epistola support")
         assertThat(body).contains("data-testid=\"support-connections\"").contains("Acme Partner").contains(partner.baseUrl.trimEnd('/'))
             .contains("Connected")
     }
@@ -123,6 +122,34 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(attached.body).contains("data-testid=\"desk-attached-connection\"").contains("Acme Partner")
     }
+
+    @Test
+    fun `a connection added to register with the installation's key is listed with a page of its own that offers Register, and a token connection has none`() {
+        post(
+            "/platform/support/connections",
+            mapOf("name" to "Registering Partner", "endpoint" to "https://desk.registering.example", "token" to "", "auth" to "PRIVATE_KEY_JWT", "services" to "requests"),
+        )
+        val id = withMediator { connections.findByEndpoint("https://desk.registering.example")!! }.also {
+            assertThat(it.auth).isEqualTo(app.epistola.suite.support.connection.SupportConnectionAuth.PRIVATE_KEY_JWT)
+        }.id
+
+        val list = restTemplate.getForEntity("/platform/support", String::class.java).body!!
+        assertThat(list.substringAfter("data-connection=\"$id\"").substringBefore("data-testid=\"support-connection-row\""))
+            .contains("Registering Partner").contains("Not registered").contains("/platform/support/connections/$id")
+            .doesNotContain("New token")
+
+        val detail = restTemplate.getForEntity("/platform/support/connections/$id", String::class.java)
+        assertThat(detail.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(detail.body).contains("Registering Partner").contains("data-testid=\"support-register-form\"")
+            .contains("/platform/support/connections/$id/register")
+
+        val token = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
+        assertThat(restTemplate.getForEntity("/platform/support/connections/$token", String::class.java).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        withMediator { app.epistola.suite.support.connection.RemoveSupportConnection(id).execute() }
+    }
+
+    @Autowired
+    private lateinit var connections: app.epistola.suite.support.connection.SupportConnections
 
     @Test
     fun `an installation administrator adds a connection by hand, is told what is missing, and removes it`() {

@@ -4,17 +4,29 @@
     <th:block th:fragment="content">
     <div class="regular">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Epistola support',
-            pageDescription='The connection between this installation and the Epistola support service: whether Epistola has activated it for your organisation, and which services it may use.'
+            pageTitle='Support connections',
+            pageDescription='The parties this installation shares with, such as Epistola support or a partner: whether each is active, which services it grants, and what tenants share with it.'
         )}"></div>
 
         <p>
             <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="support-back">&larr; Back to tenants</a>
         </p>
 
-        <th:block th:replace="~{support/platform :: connection}"></th:block>
+        <th:block th:replace="~{support/platform :: connections}"></th:block>
+
+        <th:block th:replace="~{support/platform :: privacy}"></th:block>
+
+        <th:block th:replace="~{support/platform :: defaults}"></th:block>
+
+        <th:block th:replace="~{support/platform :: connection-presets}"></th:block>
+
+        <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
+        <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
+            <th:block th:replace="~{__${panel.fragment}__}"></th:block>
+        </th:block>
     </div>
     </th:block>
+
 
 
     <!--/* What Epistola sees of the tenants and how much telemetry carries (ADR 0052 §1–2): a summary,
@@ -86,13 +98,16 @@
     */-->
     <!--/* The other support connections, such as a partner's (ADR 0053): signed in with a token they issued. */-->
     <section th:fragment="connections" id="support-connections" class="ep-panel detail-section" data-testid="support-connections">
-        <div class="detail-section-header"><h2>Other support connections</h2></div>
+        <div class="detail-section-header"><h2>Connections</h2></div>
         <div class="detail-section-body">
             <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                Parties besides Epistola support that this installation shares with, such as a partner. Each signs this
-                installation in with a token it issued.
+                Every party this installation shares with, Epistola support among them. Each signs this installation in
+                either with a token it issued, or by registering with this installation's own key and activating it.
             </p>
-            <p th:if="${#lists.isEmpty(connections)}" class="text-muted" data-testid="support-connections-empty">No other support connections yet. Add one below.</p>
+            <p th:if="${#lists.isEmpty(connections)}" class="text-muted" data-testid="support-connections-empty">
+                No support connections yet. Add one below; with <code>epistola.support.enabled=true</code> (Helm:
+                <code>support.enabled</code>) Epistola support's is added at the next start.
+            </p>
             <div th:each="c : ${connections}" class="form-section" style="margin-bottom: var(--ep-space-4);" data-testid="support-connection-row" th:attr="data-connection=${c.id}">
                 <div class="ep-row ep-row-wrap ep-gap-3">
                     <strong th:text="${c.name}">Partner</strong>
@@ -100,7 +115,15 @@
                     <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError == null}" class="badge badge-success">Connected</span>
                     <span th:if="${c.standing.name() == 'ACTIVE' and c.lastError != null}" class="badge badge-warning">Unreachable</span>
                     <span th:if="${c.standing.name() == 'REFUSED'}" class="badge badge-error">Refused</span>
-                    <span th:if="${c.standing.name() == 'NOT_CHECKED'}" class="badge badge-muted">Not checked yet</span>
+                    <th:block th:if="${c.standing.name() == 'NOT_CHECKED'}">
+                        <span th:if="${!c.registers}" class="badge badge-muted">Not checked yet</span>
+                        <span th:if="${c.registers and c.state == 'Disabled'}" class="badge badge-muted">Off</span>
+                        <span th:if="${c.registers and (c.state == 'Unregistered' or c.state == 'Expired' or c.state == 'Disconnected')}" class="badge badge-warning">Not registered</span>
+                        <span th:if="${c.registers and c.state == 'Pending'}" class="badge badge-info">Waiting for activation</span>
+                        <span th:if="${c.registers and c.state == 'Declined'}" class="badge badge-muted">Declined</span>
+                    </th:block>
+                    <a th:if="${c.registers}" th:href="@{/platform/support/connections/{id}(id=${c.id})}" class="ep-btn ep-btn-outline ep-btn-sm"
+                       data-testid="support-connection-open">Registration and services</a>
                 </div>
                 <div class="text-muted text-sm" th:if="${c.standing.name() == 'REFUSED'}" th:text="${c.reason}">the token was refused</div>
                 <div class="text-muted text-sm" th:if="${c.lastError != null}" th:text="${c.lastError}">unreachable</div>
@@ -114,7 +137,7 @@
                         <legend class="text-sm">Services used</legend>
                         <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
                     </fieldset>
-                    <label class="form-group">New token <input type="password" name="token" class="ep-input ep-input-sm" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it"></label>
+                    <label class="form-group" th:unless="${c.registers}">New token <input type="password" name="token" class="ep-input ep-input-sm" maxlength="4096" autocomplete="off" placeholder="Leave empty to keep it"></label>
                     <label class="form-group">Escalates to
                         <select name="escalatesTo" class="ep-select ep-select-sm form-control-auto" data-testid="support-connection-escalates-to">
                             <option value="" th:selected="${c.escalatesTo == null}">No one</option>
@@ -159,7 +182,13 @@
                        th:value="${pre != null ? pre.name : (addForm != null ? addForm.get('name') : '')}"></label>
                 <label class="form-group">Endpoint <input type="text" name="endpoint" class="ep-input" maxlength="2000" required placeholder="https://desk.partner.example/epistola"
                        th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}"></label>
-                <label class="form-group">Token <input type="password" name="token" class="ep-input" maxlength="4096" autocomplete="off" required></label>
+                <fieldset class="ep-row ep-row-wrap ep-gap-3" data-testid="support-connection-add-auth">
+                    <legend class="text-sm">How this installation signs in</legend>
+                    <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="BEARER_TOKEN" checked> With a token the other side issued</label>
+                    <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="PRIVATE_KEY_JWT"> By registering with this installation's own key</label>
+                </fieldset>
+                <label class="form-group">Token <input type="password" name="token" class="ep-input" maxlength="4096" autocomplete="off"></label>
+                <p class="text-muted text-sm">Only with a token: one that registers is registered afterwards, from its page.</p>
                 <fieldset class="ep-row ep-row-wrap ep-gap-3">
                     <legend class="text-sm">Services to use</legend>
                     <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${pre != null and #lists.contains(pre.services, sv)}"> <span th:text="${sv}">requests</span></label>
@@ -295,7 +324,7 @@
     <div th:fragment="connection" id="support-connection" data-testid="support-connection"
          th:with="o=${overview}, s=${overview.state}, kind=${overview.state.class.simpleName}">
         <!--/* While a check or registration runs in the background, the panel refreshes itself until it is done. */-->
-        <div th:if="${checking}" th:attr="hx-get=@{/platform/support/connection}" hx-trigger="every 2s" hx-target="#support-connection" hx-swap="outerHTML"
+        <div th:if="${checking}" th:attr="hx-get=@{/platform/support/connections/{id}/connection(id=${connectionId})}" hx-trigger="every 2s" hx-target="#support-connection" hx-swap="outerHTML"
              data-testid="support-checking"></div>
 
         <section class="ep-panel detail-section">
@@ -430,8 +459,8 @@
                     </dd>
                 </dl>
 
-                <form th:if="${o.canRegister}" th:attr="hx-post=@{/platform/support/register}" hx-target="#support-connection" hx-swap="outerHTML"
-                      th:action="@{/platform/support/register}" method="post" class="ep-stack" data-testid="support-register-form">
+                <form th:if="${o.canRegister}" th:attr="hx-post=@{/platform/support/connections/{id}/register(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/connections/{id}/register(id=${connectionId})}" method="post" class="ep-stack" data-testid="support-register-form">
                     <p class="text-sm" style="margin: 0;">Check who Epistola contacts about this installation; you can correct it here.</p>
                     <div class="form-group">
                         <label class="ep-label" for="support-company">Company or organisation</label>
@@ -446,12 +475,12 @@
                 </form>
 
                 <div class="ep-row" th:if="${o.canCheck or o.canRegisterAgain}">
-                    <form th:if="${o.canCheck}" th:attr="hx-post=@{/platform/support/check}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/check}" method="post">
+                    <form th:if="${o.canCheck}" th:attr="hx-post=@{/platform/support/connections/{id}/check(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/check(id=${connectionId})}" method="post">
                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-check-now">Check now</button>
                     </form>
-                    <form th:if="${o.canRegisterAgain}" th:attr="hx-post=@{/platform/support/register-again}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/register-again}" method="post">
+                    <form th:if="${o.canRegisterAgain}" th:attr="hx-post=@{/platform/support/connections/{id}/register-again(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/register-again(id=${connectionId})}" method="post">
                         <input type="hidden" name="confirmed" value="true">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-register-again"
                                 data-confirm-submit
@@ -472,8 +501,8 @@
                     <em>and</em> Epistola granted it. Saving needs no connection to the support service; a service you
                     deselect stops at once.
                 </p>
-                <form th:attr="hx-post=@{/platform/support/services}" hx-target="#support-connection" hx-swap="outerHTML"
-                      th:action="@{/platform/support/services}" method="post" data-testid="support-services-form">
+                <form th:attr="hx-post=@{/platform/support/connections/{id}/services(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                      th:action="@{/platform/support/connections/{id}/services(id=${connectionId})}" method="post" data-testid="support-services-form">
                     <div class="ep-table-scroll" role="region" aria-label="Support services" tabindex="0">
                     <table class="ep-table" data-testid="support-services">
                         <thead>
@@ -525,21 +554,12 @@
             </div>
         </section>
 
-        <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
-        <th:block th:replace="~{support/platform :: defaults}"></th:block>
 
-        <th:block th:replace="~{support/platform :: connections}"></th:block>
 
-        <th:block th:replace="~{support/platform :: connection-presets}"></th:block>
-
-        <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
-        <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
-            <th:block th:replace="~{__${panel.fragment}__}"></th:block>
-        </th:block>
 
         <section class="ep-panel detail-section danger-zone" th:if="${o.canDisconnect}" data-testid="support-disconnect-panel">
-            <div class="detail-section-header"><h2>Disconnect from Epistola support</h2></div>
+            <div class="detail-section-header"><h2 th:text="|Disconnect from ${connectionName}|">Disconnect from Epistola support</h2></div>
             <div class="detail-section-body ep-stack">
                 <p data-testid="support-disconnect-explained">
                     Ends this installation's connection with Epistola support: Epistola support ends the registration, and here
@@ -548,16 +568,16 @@
                     Epistola then activates the installation again.
                 </p>
                 <div class="ep-row">
-                    <form th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/disconnect}" method="post">
+                    <form th:attr="hx-post=@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" method="post">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect"
                                 data-confirm-submit
-                                data-confirm-submit-title="Disconnect from Epistola support"
+                                th:attr="data-confirm-submit-title=|Disconnect from ${connectionName}|"
                                 data-confirm-submit-message="Epistola support ends this installation's registration, and this installation forgets it. Every tenant's choice of what to share is cleared here. Connecting again needs a new activation by Epistola."
                                 data-confirm-submit-label="Disconnect">Disconnect</button>
                     </form>
-                    <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/disconnect}" hx-target="#support-connection" hx-swap="outerHTML"
-                          th:action="@{/platform/support/disconnect}" method="post">
+                    <form th:if="${offerLocalOnly}" th:attr="hx-post=@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" hx-target="#support-connection" hx-swap="outerHTML"
+                          th:action="@{/platform/support/connections/{id}/disconnect(id=${connectionId})}" method="post">
                         <input type="hidden" name="localOnly" value="true">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-disconnect-local"
                                 data-confirm-submit

@@ -5,7 +5,9 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.testing.FakeSupportServer
@@ -29,6 +31,9 @@ import org.springframework.util.LinkedMultiValueMap
  * of its services for a while, and the page says so with the reason.
  */
 class SupportApplyDeclinePauseHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -56,16 +61,16 @@ class SupportApplyDeclinePauseHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    private fun page(): String = restTemplate.getForEntity("/platform/support", String::class.java).body!!
+    private fun page(): String = restTemplate.getForEntity("/platform/support/connections/${epistola()}", String::class.java).body!!
 
     @Test
     fun `the administrator confirms who Epistola contacts, and the waiting page names that address`() {
         assertThat(page()).contains("data-testid=\"support-register-form\"").contains("name=\"adminEmail\"")
 
-        val invalid = post("/platform/support/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "not an address"))
+        val invalid = post("/platform/support/connections/${epistola()}/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "not an address"))
         assertThat(invalid).contains("Not registered:")
 
-        val waiting = post("/platform/support/register", mapOf("companyName" to "Gemeente Corrected", "adminEmail" to "support@corrected.example"))
+        val waiting = post("/platform/support/connections/${epistola()}/register", mapOf("companyName" to "Gemeente Corrected", "adminEmail" to "support@corrected.example"))
 
         assertThat(waiting).contains("Waiting for Epistola.").contains("support@corrected.example")
         val sent = support.registrationRequests.last()
@@ -75,11 +80,11 @@ class SupportApplyDeclinePauseHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `a declined installation says so and offers to apply again, without registering by itself`() {
-        post("/platform/support/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
+        post("/platform/support/connections/${epistola()}/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
         support.decline()
         val registrations = support.registrations.size
 
-        val declined = post("/platform/support/check")
+        val declined = post("/platform/support/connections/${epistola()}/check")
         connection.checkNow()
 
         assertThat(declined).contains("Declined").contains("data-testid=\"support-declined\"").contains("data-testid=\"support-register-again\"")
@@ -89,11 +94,11 @@ class SupportApplyDeclinePauseHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `a paused service shows as paused by Epistola with the reason, and is not used`() {
-        post("/platform/support/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
+        post("/platform/support/connections/${epistola()}/register", mapOf("companyName" to "Gemeente Test", "adminEmail" to "beheer@test.example"))
         support.activate(scopes = setOf("requests", "mirror"))
         support.pause(setOf("requests"), "Planned maintenance of the feedback inbox")
 
-        val paused = post("/platform/support/check")
+        val paused = post("/platform/support/connections/${epistola()}/check")
         connection.refreshTokenIfDue()
 
         assertThat(paused).contains("data-testid=\"support-paused\"").contains("Planned maintenance of the feedback inbox").contains("until Epistola resumes it")
@@ -102,7 +107,7 @@ class SupportApplyDeclinePauseHtmxTest : BaseIntegrationTest() {
         assertThat(connection.hasScope(SupportScope.MIRROR)).isTrue()
 
         support.resume()
-        post("/platform/support/check")
+        post("/platform/support/connections/${epistola()}/check")
         assertThat(connection.hasScope(SupportScope.REQUESTS)).isTrue()
     }
 

@@ -41,6 +41,9 @@ import org.springframework.util.LinkedMultiValueMap
  */
 @Isolated("The installation preset applies to every tenant in the database")
 class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
+    /** The connection epistola.support.* configures, as startup stores it. */
+    private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
+
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -193,7 +196,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     @Test
     fun `a service the installation has not selected is not offered to tenants`() {
         val tenant = createTenant("Usage Not Selected").id
-        post("/platform/support/services", mapOf("services" to "telemetry"))
+        post("/platform/support/connections/${epistola()}/services", mapOf("services" to "telemetry"))
 
         val page = get("/tenants/${tenant.value}/support")
 

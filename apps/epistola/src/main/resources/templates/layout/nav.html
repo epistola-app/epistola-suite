@@ -41,7 +41,7 @@
                         <th:block th:if="${auth.has('INSTALLATION_ADMINISTRATOR')}">
                             <a th:href="@{/platform/banner}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Site banner</a>
                             <a th:href="@{/platform/sharing}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Shared with Epistola</a>
-                            <a th:href="@{/platform/support}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Epistola support</a>
+                            <a th:href="@{/platform/support}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Support connections</a>
                         </th:block>
                         <a th:if="${auth.has('SUPPORT_DESK')}" th:href="@{/platform/support-requests}" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-platform-support-requests">Support requests</a>
                     </div>
