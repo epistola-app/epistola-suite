@@ -38,6 +38,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -71,6 +72,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
 
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        declares(invoice(tenant).catalogId, testCatalog(invoice(tenant).tenantKey, shared))
         UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared), catalogVersion = null).execute()
         UpdateVariantContent(
             VariantId(VariantKey.INITIAL, invoice(tenant)),

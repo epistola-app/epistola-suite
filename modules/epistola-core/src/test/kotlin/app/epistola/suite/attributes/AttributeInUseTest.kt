@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -60,6 +61,7 @@ class AttributeInUseTest : IntegrationTestBase() {
     private fun variantIn(tenantKey: TenantKey, catalog: CatalogKey, attributes: Map<String, String>) = withMediator {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenantKey), catalog))
         CreateDocumentTemplate(id = templateId, name = "Uses brand", catalogVersion = null).execute()
+        attributes.keys.mapNotNull { it.substringBefore('.', "").ifEmpty { null } }.toSet().forEach { declares(templateId.catalogId, testCatalog(tenantKey, it)) }
         CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Branded", null, attributes, catalogVersion = null).execute()
     }
 

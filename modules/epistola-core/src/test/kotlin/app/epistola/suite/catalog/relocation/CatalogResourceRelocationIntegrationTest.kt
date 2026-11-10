@@ -61,6 +61,7 @@ import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.atNext
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.nextVersion
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -619,6 +620,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateStencil(header, content = usesTheme(lettersTheme.key.value, letters.value), catalogVersion = null).execute()
             // And a template in letters depends on the shared theme, so letters -> shared exists.
             CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            declares(lettersId, sharedId)
             UpdateVariantContent(variantId, usesTheme(sharedTheme.key.value, shared.value), catalogVersion = null).execute()
         }
 

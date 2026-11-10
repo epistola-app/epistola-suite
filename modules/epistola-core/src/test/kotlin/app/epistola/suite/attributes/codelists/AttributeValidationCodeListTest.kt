@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
@@ -203,6 +204,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
                 catalogVersion = null,
             ).execute()
 
+            declares(defaultCatalog, codeListId.catalogId)
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("region"), defaultCatalog),
                 displayName = "Region",

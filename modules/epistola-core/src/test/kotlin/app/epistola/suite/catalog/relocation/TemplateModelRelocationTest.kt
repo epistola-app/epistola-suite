@@ -17,6 +17,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.atNext
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.Node
@@ -74,6 +75,7 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
             CreateDocumentTemplate(leaving, "Leaving", catalogVersion = null).execute()
             CreateDocumentTemplate(joining, "Joining", catalogVersion = null).execute()
             UpdateVariantContent(VariantId(VariantKey.INITIAL, leaving), model("house", null), catalogVersion = null).execute()
+            declares(joining.catalogId, catalogId(tenant, letters))
             UpdateVariantContent(VariantId(VariantKey.INITIAL, joining), model("house", "letters"), catalogVersion = null).execute()
         }
         assertThat(storedThemeRef(tenant, "leaving")).isEqualTo("<relative>")

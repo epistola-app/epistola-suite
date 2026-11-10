@@ -11,7 +11,6 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.contentRevision
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inVersionOrNext
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -85,13 +84,11 @@ class AllowedValuesInUseException(
 class UpdateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val attributes: AttributeStore,
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
     override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
         // The code list's catalog is declared first: the binding names it by alias (ADR 0033).
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
-        usedCatalogs.declare(at, command.codeListId?.catalogId)
         return save(command, at)
     }
 

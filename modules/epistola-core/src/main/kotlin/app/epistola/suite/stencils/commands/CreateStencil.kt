@@ -7,7 +7,6 @@ package app.epistola.suite.stencils.commands
 import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -91,14 +90,11 @@ class CreateStencilHandler(
     private val objectMapper: ObjectMapper,
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val stencils: StencilStore,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
         val saved = save(command, at)
-        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        command.content?.let { usedCatalogs.declare(at, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
         return saved
     }
 

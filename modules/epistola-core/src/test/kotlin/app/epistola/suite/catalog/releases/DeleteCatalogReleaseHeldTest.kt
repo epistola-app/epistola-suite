@@ -32,6 +32,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -161,6 +162,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val colours = CodeListId(CodeListKey.of("colours"), id(tenant))
         withMediator {
             CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
+            declares(id(tenant, shared), colours.catalogId)
             CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant, shared)), "Colour", codeListId = colours, catalogVersion = null).execute()
         }
 
@@ -193,6 +195,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = null).execute()
             CreateDocumentTemplate(letter, "Letter", catalogVersion = null).execute()
+            declares(letter.catalogId, testCatalog(letter.tenantKey, letters))
             UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalog = testCatalog(letter.tenantKey, letters), catalogVersion = null).execute()
         }
 

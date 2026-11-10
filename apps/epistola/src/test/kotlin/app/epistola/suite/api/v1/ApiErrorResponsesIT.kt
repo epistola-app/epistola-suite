@@ -108,7 +108,7 @@ class ApiErrorResponsesIT : IntegrationTestBase() {
 
         assertProblem(response, HttpStatus.NOT_FOUND, "not-found")
         assertThat(JsonPath.read<String>(response.body!!, "$.templateId")).isEqualTo("absent")
-        assertThat(JsonPath.read<String>(response.body!!, "$.help")).isEqualTo("https://epistola.app/errors/not-found?operation=validateTemplateData")
+        assertThat(JsonPath.read<String>(response.body!!, "$.help")).isEqualTo("https://epistola.app/errors/not-found?operation=validateTemplateData&missing=template")
     }
 
     @Test

@@ -38,6 +38,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -118,6 +119,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
 
             val templateId = TemplateId(TemplateKey.of("welcome"), testCatalog(tenantId, lettersCatalog))
             CreateDocumentTemplate(templateId, "Welcome", catalogVersion = null).execute().withRequiredDataExample()
+            declares(templateId.catalogId, testCatalog(templateId.tenantKey, brandCatalog))
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("corporate"), themeCatalog = testCatalog(templateId.tenantKey, brandCatalog), catalogVersion = null).execute()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariant(variantId, "Default", mapOf("brand.audience" to "customer"), catalogVersion = null).execute()

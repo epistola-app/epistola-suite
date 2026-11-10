@@ -176,7 +176,6 @@ class DraftResourceWriter(
                         app.epistola.suite.catalog.releases.CatalogDefaultTheme(theme.themeKey, themeCatalog)
                     },
                     catalogVersion = at.ref,
-                    declaresCatalog = false,
                 ).execute()
 
                 is CatalogSetting.Presets -> SetCatalogPresets(catalog, setting.presets, at.ref).execute()

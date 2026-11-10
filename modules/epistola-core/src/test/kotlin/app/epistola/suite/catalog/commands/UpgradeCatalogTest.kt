@@ -31,6 +31,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -249,6 +250,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             // A template of another catalog renders with the subscribed catalog's theme.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
             CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template", catalogVersion = null).execute()
+            declares(templateId.catalogId, testCatalog(tenantId, depKey))
             UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(tenantId, depKey), catalogVersion = null).execute()
             // 1.1.0 no longer publishes the theme, nor uses it itself.
             fixture(tmp.resolve("next"), "1.1.0") { dir ->
@@ -281,6 +283,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
             CreateDocumentTemplate(id = templateId, name = "Attribute User", catalogVersion = null).execute()
+            declares(templateId.catalogId, testCatalog(tenantId, depKey))
             app.epistola.suite.templates.commands.variants.CreateVariant(
                 app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.of("dutch"), templateId),
                 "Dutch",
@@ -315,6 +318,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(tenantId, CatalogKey.DEFAULT))
             CreateDocumentTemplate(id = templateId, name = "Stencil User", catalogVersion = null).execute()
+            declares(templateId.catalogId, testCatalog(tenantId, depKey))
             app.epistola.suite.templates.commands.variants.UpdateVariantContent(
                 app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, templateId),
                 app.epistola.suite.templates.model.TemplateDocument(

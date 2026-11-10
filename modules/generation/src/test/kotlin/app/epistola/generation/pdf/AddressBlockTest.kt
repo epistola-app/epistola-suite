@@ -128,6 +128,41 @@ class AddressBlockTest {
     }
 
     @Test
+    fun `a letter whose body shows the page total renders, which needs a second pass`() {
+        // sys.pages.total makes the renderer count pages first, in an untagged pass; the
+        // address block tags itself, so it must not touch the tag tree in that pass.
+        val base = documentWithAddressBlock(addressText = "Recipient Name")
+        val pageTotal = Node(
+            id = "page-total",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Pages: "),
+                                mapOf("type" to "expression", "attrs" to mapOf("expression" to "sys.pages.total")),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val root = base.slots.getValue("slot-root")
+        val doc = base.copy(
+            nodes = base.nodes + ("page-total" to pageTotal),
+            slots = base.slots + ("slot-root" to root.copy(children = root.children + "page-total")),
+        )
+
+        val text = renderAndExtract(doc)
+
+        assertContains(text, "Recipient Name")
+        assertContains(text, "Pages: 1")
+    }
+
+    @Test
     fun `renders address block nested in container`() {
         val rootSlotId = "slot-root"
         val containerSlotId = "slot-container"

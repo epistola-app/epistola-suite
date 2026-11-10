@@ -39,6 +39,7 @@ import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestTenantCounter
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -109,6 +110,7 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
             CreateDocumentTemplate(variant.templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
             UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice"), catalogVersion = null).execute()
             // The theme of bureau's letters: declared on use, under its key.
+            declares(variant.templateId.catalogId, letters(tenant, "bureau"))
             UpdateDocumentTemplate(variant.templateId, themeId = ThemeKey.of("brand"), themeCatalog = letters(tenant, "bureau"), catalogVersion = null).execute()
 
             // Every catalog uses the system catalog too, declared when it was made.

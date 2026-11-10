@@ -23,6 +23,7 @@ import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.StencilStorageConversion
 import app.epistola.suite.testing.atNext
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -80,6 +81,7 @@ class StencilStorageTest : IntegrationTestBase() {
             CreateCatalog(tenant, parts.key, "Parts").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
             CreateStencil(StencilId(StencilKey.of("header"), parts), "Header", catalogVersion = null).execute()
+            declares(letters, parts)
             val created = CreateStencil(footer, "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand(), catalogVersion = null).execute()
             assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetStencil(footer, catalogVersion = null).query())
         }
@@ -159,6 +161,7 @@ class StencilStorageTest : IntegrationTestBase() {
             CreateCatalog(tenant, parts.key, "Parts").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", catalogVersion = null).execute()
             CreateStencil(StencilId(StencilKey.of("header"), parts), "Header", catalogVersion = null).execute()
+            declares(letters, parts)
             CreateStencil(StencilId(StencilKey.of("footer"), letters), "Footer", description = "At the bottom", tags = listOf("legal"), content = usesHeaderAndBrand(), catalogVersion = null).execute()
             CreateStencil(
                 StencilId(StencilKey.of("address"), letters),

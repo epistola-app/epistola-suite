@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -45,6 +46,7 @@ class ListCatalogDependentsTest : IntegrationTestBase() {
             ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+            declares(invoice.catalogId, testCatalog(invoice.tenantKey, shared))
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared), catalogVersion = null).execute()
             declareDependency(tenant, letters, on = shared)
             tenant
