@@ -5,7 +5,10 @@
 package app.epistola.suite.support.privacy
 
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.connection.AddSupportConnection
 import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
+import app.epistola.suite.support.connection.RemoveSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.TokenSupportConnection
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.parallel.Isolated
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Every support connection has its own privacy (ADR 0053 §1): Epistola support's are the
@@ -40,6 +44,9 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
     private fun connection(endpoint: String): TokenSupportConnection = registry.tokenConnections().single { it.endpoint.toString() == endpoint }
 
     @AfterEach
@@ -49,6 +56,23 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
             it.createUpdate("UPDATE support_connections SET privacy = NULL").execute()
         }
         privacy.refresh()
+    }
+
+    @Test
+    fun `a connection another node added is treated as confidential until this node read it, whatever the default`() {
+        // This node: tenants named by default, settings read before the connection existed.
+        val thisNode = SupportPrivacy(SupportProperties(privacy = SupportProperties.Privacy(tenantIdentity = "named")), jdbi, objectMapper)
+        thisNode.read()
+        val added = withMediator { AddSupportConnection("Added elsewhere", "https://desk.added.example", token = "t", services = emptyList()).execute() }
+        try {
+            assertThat(thisNode.forConnection(added).confidential).`as`("not read yet: the strictest").isTrue()
+
+            thisNode.refresh()
+
+            assertThat(thisNode.forConnection(added).confidential).`as`("read: the configured default").isFalse()
+        } finally {
+            withMediator { RemoveSupportConnection(added).execute() }
+        }
     }
 
     @Test

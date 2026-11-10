@@ -180,6 +180,8 @@ class AddSupportConnectionHandler(
                 ),
             )
         }
+        // This node knows the new connection's privacy at once; the others at their next read.
+        privacy.refresh()
         return id
     }
 }

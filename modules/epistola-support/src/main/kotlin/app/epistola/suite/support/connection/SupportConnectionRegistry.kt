@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.privacy.SupportPrivacy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -107,6 +108,7 @@ class ConfiguredSupportConnections(
     private val jdbi: Jdbi,
     private val connections: SupportConnections,
     private val properties: SupportProperties,
+    private val privacy: SupportPrivacy? = null,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -157,6 +159,8 @@ class ConfiguredSupportConnections(
                     .execute()
             }
         }
+        // The connections just stored have their privacy on this node before anything sends to them.
+        privacy?.refresh()
     }
 
     /** With `epistola.support.enabled`, the connection `epistola.support.*` configures is stored when it is not. */
