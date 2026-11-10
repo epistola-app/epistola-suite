@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.dependencies.Reach
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.IsCatalogEditable
@@ -45,6 +46,7 @@ import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.ListStencils
+import app.epistola.suite.stencils.queries.ListVisibleStencils
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -94,11 +96,22 @@ class StencilHandler(
         val version = segment?.ref(tenantId.key) ?: request.catalogParam("in")?.ref(tenantId.key)
 
         if (!request.isHtmx) {
-            val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, catalogVersion = version).query()
-            val items = stencils.map { s ->
+            // The editor asks from inside its template's catalog: what that version can use, and,
+            // where declaring can land, the other catalogs' stencils apart (declared before use).
+            val editing = catalogFilter ?: request.catalogParam("in")?.catalogIn(tenantId)
+            val stencils: List<Pair<Stencil, Boolean>> = if (editing == null) {
+                ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogVersion = version).query().map { it to true }
+            } else {
+                val usable = ListVisibleStencils(editing, version, searchTerm).query().map { it to true }
+                val other = if (offersDeclaring(editing, version)) ListVisibleStencils(editing, version, searchTerm, Reach.UNDECLARED).query().map { it to false } else emptyList()
+                usable + other
+            }
+            val items = stencils.map { (s, declared) ->
                 mapOf(
                     "id" to s.id.value,
                     "catalogKey" to s.catalogKey.value,
+                    "catalog" to s.catalogId.address,
+                    "declared" to declared,
                     "name" to s.name,
                     "description" to s.description,
                     "tags" to s.tags,

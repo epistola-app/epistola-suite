@@ -23,7 +23,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
-import app.epistola.suite.themes.queries.ListVisibleThemes
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -37,8 +36,12 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogThemeSettingsHandler {
 
-    /** A theme the default can be: one of the catalog's own, or of a catalog it depends on. */
-    data class ThemeOption(val value: String, val label: String)
+    /**
+     * A theme the default can be: one of the catalog's own, or of a catalog it depends on. [declares]
+     * names the catalog of one it does not depend on yet (offered only where declaring can land),
+     * which choosing it asks to declare first.
+     */
+    data class ThemeOption(val value: String, val label: String, val declares: String? = null, val declaresName: String? = null)
 
     fun show(request: ServerRequest): ServerResponse = section(request, saved = false, error = null)
 
@@ -81,6 +84,7 @@ class CatalogThemeSettingsHandler {
                 "settings" to settings
                 "defaultThemeValue" to settings.defaultTheme?.let { "${it.catalogKey.value}/${it.themeKey.value}" }
                 "themeOptions" to themeOptions(tenantId.key, segment)
+                "declareUrl" to declareUrl(tenantId.key, segment)
                 "saved" to saved
                 "error" to error
             }
@@ -89,7 +93,11 @@ class CatalogThemeSettingsHandler {
     }
 
     private fun themeOptions(tenantKey: app.epistola.suite.common.ids.TenantKey, segment: CatalogSegment): List<ThemeOption> {
-        val themes = ListVisibleThemes(segment.catalogIn(tenantKey), segment.ref(tenantKey)).query()
-        return themes.map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
+        val picker = ThemePicker.of(segment.catalogIn(tenantKey), segment.ref(tenantKey), segment)
+        val usable = picker.themes.map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
+        val others = picker.otherThemeCatalogs.values.flatten().map {
+            ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value}, adds a dependency)", it.catalogId.address, it.catalogKey.value)
+        }
+        return usable + others
     }
 }

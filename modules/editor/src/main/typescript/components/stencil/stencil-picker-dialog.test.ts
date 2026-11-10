@@ -163,6 +163,101 @@ describe('openStencilPickerDialog', () => {
   });
 });
 
+describe('openStencilPickerDialog with stencils of catalogs the document does not declare', () => {
+  const OTHER: StencilSummary = {
+    stencilKey: 'header',
+    catalogKey: 'shared',
+    catalog: 'acme/shared',
+    name: 'Shared header',
+    tags: [],
+    declared: false,
+  };
+
+  function withDeclaring(answer: boolean, asked: string[]): StencilCallbacks {
+    return {
+      ...callbacks([SUMMARY, OTHER]),
+      declareCatalog: (catalog) => {
+        asked.push(catalog);
+        return Promise.resolve(answer);
+      },
+    };
+  }
+
+  function cards(): string[] {
+    return [...pickerDialog().querySelectorAll('#stencil-list .stencil-picker-card')].map(
+      (c) => (c as HTMLElement).dataset.stencilKey ?? '',
+    );
+  }
+
+  async function insert(key: string) {
+    await tick();
+    pickerDialog().querySelector<HTMLElement>(`[data-stencil-key="${key}"]`)!.click();
+    pickerDialog().querySelector<HTMLButtonElement>('.insert')!.click();
+    await tick();
+    await tick();
+  }
+
+  it('lists them last, under their own heading, saying inserting one adds a dependency', async () => {
+    void openStencilPickerDialog(withDeclaring(true, []), { prepare: prepareWith(undefined) });
+    await tick();
+
+    expect(cards()).toEqual(['greeting', 'header']);
+    expect(
+      pickerDialog().querySelector('[data-testid="stencil-picker-other-catalogs"]'),
+    ).not.toBeNull();
+    expect(
+      pickerDialog().querySelectorAll('[data-testid="stencil-picker-adds-dependency"]'),
+    ).toHaveLength(1);
+  });
+
+  it('does not offer them when the host cannot declare a catalog', async () => {
+    void openStencilPickerDialog(callbacks([SUMMARY, OTHER]), { prepare: prepareWith(undefined) });
+    await tick();
+
+    expect(cards()).toEqual(['greeting']);
+  });
+
+  it('declares the catalog before inserting one, once the author agrees', async () => {
+    const asked: string[] = [];
+    const result = openStencilPickerDialog(withDeclaring(true, asked), {
+      prepare: prepareWith(undefined),
+    });
+
+    await insert('header');
+
+    expect(asked).toEqual(['acme/shared']);
+    await expect(result).resolves.toMatchObject({ action: 'use-existing' });
+  });
+
+  it('inserts nothing and stays open when the author declines', async () => {
+    const asked: string[] = [];
+    let settled = false;
+    const prepare = vi.fn(prepareWith(undefined));
+    void openStencilPickerDialog(withDeclaring(false, asked), { prepare }).then(() => {
+      settled = true;
+    });
+
+    await insert('header');
+
+    expect(asked).toEqual(['acme/shared']);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(settled).toBe(false);
+    expect(document.querySelector('dialog.stencil-picker-dialog')).not.toBeNull();
+  });
+
+  it('inserts a stencil it can use without asking', async () => {
+    const asked: string[] = [];
+    const result = openStencilPickerDialog(withDeclaring(true, asked), {
+      prepare: prepareWith(undefined),
+    });
+
+    await insert('greeting');
+
+    expect(asked).toEqual([]);
+    await expect(result).resolves.toMatchObject({ action: 'use-existing' });
+  });
+});
+
 describe('openStencilPickerDialog escapes author-controlled text', () => {
   const MALICIOUS = '"><img src=x onerror=window.__pwned=1>';
 

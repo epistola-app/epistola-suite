@@ -89,6 +89,13 @@
     font-size: var(--ep-text-sm);
   }
 
+  /* Heads the stencils of catalogs the document's catalog does not declare yet. */
+  .stencil-picker-section {
+    padding: var(--ep-space-3) var(--ep-space-2) var(--ep-space-1);
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-sm);
+  }
+
   .stencil-picker-card {
     padding: var(--ep-space-3) var(--ep-space-4);
     border: 2px solid var(--ep-border-color);

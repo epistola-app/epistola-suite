@@ -2,12 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { describe, it, expect, beforeEach } from 'vitest';
+// @vitest-environment happy-dom
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   buildFontFamilyOptions,
   fontFamilyValueToCss,
   fontFaceFamily,
   setFontCatalog,
+  setFontDeclarer,
+  chooseFont,
   getFontCatalog,
   type FontInfo,
 } from './font-catalog.js';
@@ -154,5 +158,80 @@ describe('normalizeFontFamilyValue (select string -> stored object)', () => {
     const selectValue = fontFamilyValueToSelectValue(ref);
     expect(selectValue).toBe('{"slug":"inter","catalogKey":"system"}');
     expect(normalizeFontFamilyValue(selectValue)).toEqual(ref);
+  });
+});
+
+describe('fonts of a catalog the editing catalog does not declare', () => {
+  const inter = makeFont('inter', 'Inter', 'sans');
+  const brand: FontInfo = {
+    ...makeFont('brand', 'Brand', 'sans', 'shared'),
+    catalog: 'acme/shared',
+    declared: false,
+  };
+  const brandValue = JSON.stringify({ slug: 'brand', catalogKey: 'shared' });
+
+  beforeEach(() => {
+    setFontDeclarer(null);
+    setFontCatalog([inter, brand]);
+  });
+
+  it('are offered apart, saying choosing one adds a dependency, only when they can be declared', () => {
+    expect(buildFontFamilyOptions([inter, brand], false).map((o) => o.label)).toEqual(['Inter']);
+
+    const groups = buildFontFamilyOptions([inter, brand], true).map((o) => o.group);
+
+    expect(groups).toEqual(['system', 'shared (adds a dependency)']);
+  });
+
+  it('declare the catalog first, and apply the font once it is declared', async () => {
+    const asked: FontInfo[] = [];
+    setFontDeclarer(async (font) => {
+      asked.push(font);
+      return true;
+    });
+    const applied: unknown[] = [];
+
+    chooseFont(brandValue, (v) => applied.push(v));
+    await vi.waitFor(() => expect(applied).toHaveLength(1));
+
+    expect(asked.map((f) => f.catalog)).toEqual(['acme/shared']);
+    expect(applied).toEqual([{ slug: 'brand', catalogKey: 'shared' }]);
+  });
+
+  it('apply nothing when the author declines, and show the previous font again', async () => {
+    const select = document.createElement('select');
+    for (const value of ['', brandValue]) {
+      const option = document.createElement('option');
+      option.value = value;
+      select.appendChild(option);
+    }
+    select.value = brandValue;
+    const applied: unknown[] = [];
+    let settled = false;
+    setFontDeclarer(async () => {
+      settled = true;
+      return false;
+    });
+
+    chooseFont(brandValue, (v) => applied.push(v), select, '');
+    await vi.waitFor(() => expect(settled).toBe(true));
+    await Promise.resolve();
+
+    expect(applied).toEqual([]);
+    expect(select.value).toBe('');
+  });
+
+  it('a font the editing catalog can use is applied at once, without asking', () => {
+    let asked = false;
+    setFontDeclarer(async () => {
+      asked = true;
+      return true;
+    });
+    const applied: unknown[] = [];
+
+    chooseFont(JSON.stringify({ slug: 'inter', catalogKey: 'system' }), (v) => applied.push(v));
+
+    expect(asked).toBe(false);
+    expect(applied).toEqual([{ slug: 'inter', catalogKey: 'system' }]);
   });
 });

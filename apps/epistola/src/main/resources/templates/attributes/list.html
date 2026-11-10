@@ -206,13 +206,23 @@
                 </div>
                 <div class="form-group constraint-pane" data-constraint-pane="code-list">
                     <label class="ep-label" for="edit-attr-codeList">Code list</label>
-                    <select id="edit-attr-codeList" name="codeList" class="ep-select">
+                    <select id="edit-attr-codeList" name="codeList" class="ep-select"
+                            th:data-declare-url="${codeListDeclareUrl}">
                         <option value="">&mdash; Select a code list &mdash;</option>
                         <th:block th:each="cl : ${codeLists}">
                             <option th:value="${cl.catalogId.address + '/' + cl.slug}"
                                     th:text="${cl.catalogKey + ' / ' + cl.displayName}"
                                     th:selected="${attribute.codeListId != null and cl.catalogId == attribute.codeListId.catalogId and cl.slug == attribute.codeListSlug}"></option>
                         </th:block>
+                        <!-- A code list of a catalog this one does not declare asks to add the dependency first
+                             (data-declares, catalog-dependencies.js). -->
+                        <optgroup th:if="${otherCodeLists != null and !otherCodeLists.isEmpty()}" label="Other catalogs (adds a dependency)">
+                            <option th:each="cl : ${otherCodeLists}"
+                                    th:value="${cl.catalogId.address + '/' + cl.slug}"
+                                    th:text="${cl.catalogKey + ' / ' + cl.displayName}"
+                                    th:data-declares="${cl.catalogId.address}"
+                                    th:data-declares-name="${cl.catalogKey}"></option>
+                        </optgroup>
                     </select>
                 </div>
             </div>

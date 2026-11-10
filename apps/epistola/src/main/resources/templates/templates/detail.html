@@ -60,7 +60,7 @@
                      template stays Thymeleaf-simple. -->
                 <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
                      id="edit-attr-rows" data-attr-rows>
-                    <div class="form-group" th:each="d : ${attributeDescriptors}"
+                    <div class="form-group" th:each="d : ${attributeRowDescriptors}"
                          th:data-attr-row="${d.qualifiedKey}"
                          th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
                          th:style="${hasValue} ? '' : 'display: none;'">
@@ -82,12 +82,21 @@
                     <div class="form-group" data-add-attr-picker>
                         <label class="ep-label" for="edit-add-attr">Add attribute</label>
                         <div class="ep-row">
-                            <select id="edit-add-attr" class="ep-select" data-add-attr-select>
+                            <select id="edit-add-attr" class="ep-select" data-add-attr-select th:data-declare-url="${attributeDeclareUrl}">
                                 <option value="">— Choose an attribute to add —</option>
                                 <option th:each="d : ${attributeDescriptors}"
                                         th:if="${(presentQualifiedKeys == null or !presentQualifiedKeys.contains(d.qualifiedKey)) and (presentRawKeys == null or !presentRawKeys.contains(d.bareSlug))}"
                                         th:value="${d.qualifiedKey}"
                                         th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"></option>
+                                <!-- Attributes of catalogs this one does not declare: adding one asks to add the dependency
+                                     first (data-declares, catalog-dependencies.js). -->
+                                <optgroup th:if="${otherAttributeDescriptors != null and !otherAttributeDescriptors.isEmpty()}" label="Other catalogs (adds a dependency)">
+                                    <option th:each="d : ${otherAttributeDescriptors}"
+                                            th:value="${d.qualifiedKey}"
+                                            th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"
+                                            th:data-declares="${d.declares}"
+                                            th:data-declares-name="${d.declaresName}"></option>
+                                </optgroup>
                             </select>
                             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-add-attr-button>Add</button>
                         </div>

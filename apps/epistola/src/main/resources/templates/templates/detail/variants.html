@@ -36,7 +36,7 @@
                              excluded server-side), so leaving hidden rows
                              in the DOM is safe and lets the picker simply
                              toggle visibility. -->
-                        <div class="form-group" th:each="d : ${attributeDescriptors}"
+                        <div class="form-group" th:each="d : ${attributeRowDescriptors}"
                              th:data-attr-row="${d.qualifiedKey}" style="display: none;">
                             <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
                                 <span th:text="${d.displayName}"></span>
@@ -55,11 +55,20 @@
                         <div class="form-group" data-add-attr-picker>
                             <label class="ep-label" for="create-add-attr">Add attribute</label>
                             <div class="ep-row">
-                                <select id="create-add-attr" class="ep-select" data-add-attr-select>
+                                <select id="create-add-attr" class="ep-select" data-add-attr-select th:data-declare-url="${attributeDeclareUrl}">
                                     <option value="">— Choose an attribute to add —</option>
                                     <option th:each="d : ${attributeDescriptors}"
                                             th:value="${d.qualifiedKey}"
                                             th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"></option>
+                                    <!-- Attributes of catalogs this one does not declare: adding one asks to add the dependency
+                                         first (data-declares, catalog-dependencies.js). -->
+                                    <optgroup th:if="${otherAttributeDescriptors != null and !otherAttributeDescriptors.isEmpty()}" label="Other catalogs (adds a dependency)">
+                                        <option th:each="d : ${otherAttributeDescriptors}"
+                                                th:value="${d.qualifiedKey}"
+                                                th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"
+                                                th:data-declares="${d.declares}"
+                                                th:data-declares-name="${d.declaresName}"></option>
+                                    </optgroup>
                                 </select>
                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-add-attr-button>Add</button>
                             </div>

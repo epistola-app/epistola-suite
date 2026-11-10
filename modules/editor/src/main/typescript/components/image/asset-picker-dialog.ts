@@ -31,6 +31,11 @@ export interface CatalogInfo {
   name: string;
   /** Whether the catalog can be changed here, and so accepts uploads. */
   editable: boolean;
+  /**
+   * False for a catalog the template's catalog does not declare: its images are offered apart, and
+   * using one declares the catalog first (`declareCatalog`). Absent means declared.
+   */
+  declared?: boolean;
 }
 
 export interface AssetPickerCallbacks {
@@ -39,6 +44,12 @@ export interface AssetPickerCallbacks {
   listCatalogs: () => Promise<CatalogInfo[]>;
   listAssets: (catalogKey: string) => Promise<AssetInfo[]>;
   uploadAsset: (file: File, catalogKey: string) => Promise<AssetInfo>;
+  /**
+   * Makes the template's catalog depend on catalog [catalogKey] (an address) once the author
+   * confirms: resolves true when it was declared, false when the author declined or it was refused.
+   * Absent: catalogs that are not declared are not offered.
+   */
+  declareCatalog?: (catalogKey: string) => Promise<boolean>;
 }
 
 export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<AssetInfo | null> {
@@ -90,6 +101,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     let selectedAsset: AssetInfo | null = null;
     let currentCatalogKey = callbacks.defaultCatalogKey;
     const editableByKey = new Map<string, boolean>();
+    const undeclared = new Set<string>();
 
     const close = (result: AssetInfo | null) => {
       dialog.close();
@@ -135,10 +147,23 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         });
         card.addEventListener('dblclick', () => {
           selectedAsset = asset;
-          close(selectedAsset);
+          void choose(asset);
         });
         grid.appendChild(card);
       }
+    }
+
+    /**
+     * Uses [asset]: an image of a catalog the template's catalog does not declare declares that
+     * catalog first, once the author confirms; declined or refused, the dialog stays open.
+     */
+    async function choose(asset: AssetInfo) {
+      if (undeclared.has(currentCatalogKey)) {
+        const declared = (await callbacks.declareCatalog?.(currentCatalogKey)) ?? false;
+        if (!declared) return;
+        undeclared.delete(currentCatalogKey);
+      }
+      close(asset);
     }
 
     // Bumped on every load so a slow earlier response can't overwrite a newer one.
@@ -173,15 +198,31 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     // Populate the catalog chooser, defaulting to the template's catalog.
     callbacks
       .listCatalogs()
-      .then((catalogs) => {
+      .then((listed) => {
+        let catalogs = listed;
         catalogSelect.innerHTML = '';
-        for (const catalog of catalogs) {
+        // The catalogs the template's catalog does not declare come apart, and only when declaring
+        // one can follow: using an image of one declares it first.
+        const offered = catalogs.filter((c) => c.declared !== false || callbacks.declareCatalog);
+        let others: HTMLOptGroupElement | null = null;
+        for (const catalog of offered) {
           editableByKey.set(catalog.key, catalog.editable);
           const option = document.createElement('option');
           option.value = catalog.key;
           option.textContent = catalog.name;
-          catalogSelect.appendChild(option);
+          if (catalog.declared === false) {
+            undeclared.add(catalog.key);
+            if (!others) {
+              others = document.createElement('optgroup');
+              others.label = 'Other catalogs: using an image adds a dependency';
+            }
+            others.appendChild(option);
+          } else {
+            catalogSelect.appendChild(option);
+          }
         }
+        if (others) catalogSelect.appendChild(others);
+        catalogs = offered;
         if (catalogs.some((c) => c.key === currentCatalogKey)) {
           catalogSelect.value = currentCatalogKey;
         } else if (catalogs.length > 0) {
@@ -262,7 +303,9 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     // Button actions
     closeBtn.addEventListener('click', () => close(null));
     cancelBtn.addEventListener('click', () => close(null));
-    insertBtn.addEventListener('click', () => close(selectedAsset));
+    insertBtn.addEventListener('click', () => {
+      if (selectedAsset) void choose(selectedAsset);
+    });
 
     dialog.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.attributes
 
-import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -22,6 +21,7 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
+import app.epistola.suite.handlers.CodeListPicker
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
@@ -60,12 +60,14 @@ class AttributeHandler {
         // one ListCodeLists per request, shared by the list and the dialog's <select>.
         // Opened from a list filtered to a draft, the dialog creates in that draft.
         val selected = request.catalogParam()
-        val codeLists by lazy { ListCodeLists(tenantId, catalogVersion = selected?.ref(tenantId.key)).query() }
+        val codeLists by lazy { CodeListPicker.of(tenantId, selected) }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("attributes/new", "dialog") {
                 "tenantId" to tenantId.key
-                "codeLists" to codeLists
+                "codeLists" to codeLists.codeLists
+                "otherCodeLists" to codeLists.otherCodeLists
+                "codeListDeclareUrl" to codeLists.declareUrl
                 // The catalog it was opened on, a draft or plain (see ThemeHandler.newForm).
                 "draftSegment" to selected
             }
@@ -75,7 +77,9 @@ class AttributeHandler {
                 page("attributes/list") {
                     attributePageModel(request)
                     "openDialog" to true
-                    "codeLists" to codeLists
+                    "codeLists" to codeLists.codeLists
+                    "otherCodeLists" to codeLists.otherCodeLists
+                    "codeListDeclareUrl" to codeLists.declareUrl
                 }
             }
         }
@@ -138,7 +142,7 @@ class AttributeHandler {
 
         if (result.hasErrors()) {
             // Prefill shared by both render paths — one code-list query.
-            val codeLists = ListCodeLists(tenantId, catalogVersion = null).query()
+            val codeLists = CodeListPicker.of(tenantId, request.catalogParam())
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
                 // the list) with inline errors + preserved values. `tenantId` and
@@ -152,13 +156,17 @@ class AttributeHandler {
                 ) {
                     "tenantId" to tenantId.key
                     "draftSegment" to request.catalogParam()
-                    "codeLists" to codeLists
+                    "codeLists" to codeLists.codeLists
+                    "otherCodeLists" to codeLists.otherCodeLists
+                    "codeListDeclareUrl" to codeLists.declareUrl
                 }
                 onFullPage {
                     page(422, "attributes/list") {
                         attributePageModel(request)
                         "openDialog" to true
-                        "codeLists" to codeLists
+                        "codeLists" to codeLists.codeLists
+                        "otherCodeLists" to codeLists.otherCodeLists
+                        "codeListDeclareUrl" to codeLists.declareUrl
                         "formData" to result.formData
                         "errors" to result.errors
                     }
@@ -191,13 +199,15 @@ class AttributeHandler {
             id = attributeId,
             catalogVersion = version,
         ).query() ?: return ServerResponse.notFound().build()
-        val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
+        val codeLists = CodeListPicker.of(tenantId, request.catalogSegment())
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
                 "tenantId" to tenantId.key
                 "attribute" to attribute
-                "codeLists" to codeLists
+                "codeLists" to codeLists.codeLists
+                "otherCodeLists" to codeLists.otherCodeLists
+                "codeListDeclareUrl" to codeLists.declareUrl
                 "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
             }
             // A dialog of the attribute list, not a page: a direct navigation opens the list.
@@ -222,7 +232,7 @@ class AttributeHandler {
 
         val version = request.catalogVersion()
         val draftSegment = request.catalogSegment().takeIf { it.draft != null }
-        val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
+        val codeLists = CodeListPicker.of(tenantId, request.catalogSegment())
 
         // A refusal is said in the dialog's error slot, leaving what was typed in place.
         if (form.hasErrors()) return request.htmx { globalFormError("edit-attribute-error", form.errors.values.first()) }
@@ -249,7 +259,9 @@ class AttributeHandler {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
-                    "codeLists" to codeLists
+                    "codeLists" to codeLists.codeLists
+                    "otherCodeLists" to codeLists.otherCodeLists
+                    "codeListDeclareUrl" to codeLists.declareUrl
                     "draftSegment" to draftSegment
                     "error" to "Someone else changed this attribute since you opened it. The form now shows their version; make your change again."
                 }

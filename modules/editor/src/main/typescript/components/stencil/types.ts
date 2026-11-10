@@ -31,6 +31,13 @@ export interface StencilSummary {
   name: string;
   description?: string;
   tags: string[];
+  /** The address of its catalog (`acme/shared`), which declaring it names. */
+  catalog?: string;
+  /**
+   * False for a stencil of a catalog the document's catalog does not declare: offered apart, and
+   * inserting it declares that catalog first (`declareCatalog`). Absent means declared.
+   */
+  declared?: boolean;
 }
 
 /** A stencil's working copy, as an instance inlines it. */
@@ -89,4 +96,13 @@ export interface StencilCallbacks {
   createStencil?: CreateStencilFn;
   saveStencil?: SaveStencilFn;
   markStencilReady?: MarkStencilReadyFn;
+  /**
+   * Makes the document's catalog depend on [catalog] (an address) once the author confirms:
+   * resolves true when it was declared, false when the author declined or it was refused. Absent:
+   * stencils of catalogs that are not declared are not offered.
+   */
+  declareCatalog?: DeclareCatalogFn;
 }
+
+/** Declares a catalog in the document's catalog once the author confirms; true when declared. */
+export type DeclareCatalogFn = (catalog: string, catalogKey: string) => Promise<boolean>;

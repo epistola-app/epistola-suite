@@ -97,6 +97,8 @@ class CatalogRoutes(
         GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
         POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
         POST("/{catalogId}/dependencies/upgrade", nextRelease::upgradeDependencies)
+        // Declaring one catalog, the step a picker confirms before another catalog's resource is used.
+        POST("/{catalogId}/dependencies/declare", nextRelease::declareDependency)
         POST("/{catalogId}/dependencies/remove-unused", nextRelease::removeUnusedDependencies)
         // Merging a published version the draft lacks into it (ADR 0032, alpha).
         GET("/{catalogId}/merge", merge::mergeDialog)

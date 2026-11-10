@@ -16,7 +16,8 @@ import type { BlockStylePreset, StyleProperty } from '@epistola.app/epistola-cat
 import { getNestedValue, setNestedValue } from '../engine/props.js';
 import { isEditorStyleApplicable } from '../engine/style-registry.js';
 import { EDITOR_UI_ANCHORS } from './editor-ui-anchors.js';
-import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../engine/font-ref.js';
+import { fontFamilyValueToSelectValue } from '../engine/font-ref.js';
+import { chooseFont } from '../engine/font-catalog.js';
 import {
   isValidExpression,
   validateArrayResult,
@@ -487,7 +488,10 @@ export class EpistolaInspector extends LitElement {
         return renderSelectInput(
           prop.key === 'fontFamily' ? fontFamilyValueToSelectValue(value) : value,
           prop.options ?? [],
-          (v) => onChange(prop.key === 'fontFamily' ? normalizeFontFamilyValue(v) : v || undefined),
+          (v, select) =>
+            prop.key === 'fontFamily'
+              ? chooseFont(v, onChange, select, String(fontFamilyValueToSelectValue(value) ?? ''))
+              : onChange(v || undefined),
           inputId,
         );
       case 'unit':
