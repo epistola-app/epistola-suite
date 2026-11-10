@@ -207,6 +207,49 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `generation fails, naming the expression, when a template's expression is refused for what it would cost`(): Unit = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            val template = template(tenant.id, "Padded Template")
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+            val variant = variant(compositeTemplateId, "Default")
+            val minimal = TestTemplateBuilder.buildMinimal(name = "Padded Template")
+            val slot = minimal.slots.values.single()
+            val condition = app.epistola.template.model.Node(
+                id = "padded",
+                type = "conditional",
+                slots = emptyList(),
+                props = mapOf("condition" to mapOf("raw" to "\$pad('x', 500)")),
+            )
+            val templateModel = minimal.copy(
+                nodes = minimal.nodes + (condition.id to condition),
+                slots = mapOf(slot.id to slot.copy(children = listOf(condition.id))),
+            )
+            val version = released(VariantId(variant.id, compositeTemplateId), templateModel)
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            execute(
+                GenerateDocument(
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    environmentId = null,
+                    data = objectMapper.createObjectNode(),
+                    filename = "padded.pdf",
+                ),
+            )
+        }.then { setup, request ->
+            // Integration tests wire a fake executor that never renders, so run the production one.
+            realExecutor.execute(request)
+
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.FAILED)
+            assertThat(job.request.errorMessage).contains("\$pad('x', 500)").contains("100")
+        }
+    }
+
+    @Test
     fun `generation for an environment validates data against the activated version's contract`(): Unit = scenario {
         given {
             val tenant = tenant("Test Tenant")

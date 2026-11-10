@@ -94,6 +94,40 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
+        fun `previewing a model of one's own needs permission to edit the template, viewing the saved one does not`() {
+            val tenant = createTenant("Live Model Preview Tenant")
+            val templateId = TemplateId(app.epistola.suite.common.ids.TemplateKey.of("live-preview"), CatalogId.default(TenantId(tenant.id)))
+            withMediator {
+                app.epistola.suite.templates.commands.CreateDocumentTemplate(id = templateId, name = "Live Template", catalogVersion = null).execute()
+            }
+            fun member(id: String, vararg roles: app.epistola.suite.security.TenantRole) = app.epistola.suite.security.EpistolaPrincipal(
+                userId = app.epistola.suite.common.ids.UserKey.of(id),
+                externalId = "preview-$id",
+                email = "preview-$id@example.com",
+                displayName = "Preview $id",
+                tenantMemberships = mapOf(tenant.id to roles.toSet()),
+                currentTenantId = null,
+            )
+            val viewer = member("00000000-0000-0000-0000-0000000000b1", app.epistola.suite.security.TenantRole.CONTENT_VIEWER)
+            val author = member("00000000-0000-0000-0000-0000000000b2", app.epistola.suite.security.TenantRole.CONTENT_VIEWER, app.epistola.suite.security.TenantRole.CONTENT_AUTHOR)
+            fun preview(model: app.epistola.template.model.TemplateDocument?) = PreviewVariant(
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
+                templateId = templateId.key,
+                variantId = app.epistola.suite.common.ids.VariantKey.INITIAL,
+                data = emptyData(),
+                templateModel = model,
+                catalogVersion = null,
+            ).query()
+
+            assertThat(runAs(viewer) { preview(null) }).`as`("the saved model").isNotEmpty()
+            assertThatThrownBy { runAs(viewer) { preview(TestTemplateBuilder.buildMinimal()) } }
+                .isInstanceOf(app.epistola.suite.security.PermissionDeniedException::class.java)
+                .extracting { (it as app.epistola.suite.security.PermissionDeniedException).permission }
+                .isEqualTo(app.epistola.suite.security.Permission.TEMPLATE_EDIT)
+            assertThat(runAs(author) { preview(TestTemplateBuilder.buildMinimal()) }).isNotEmpty()
+        }
+
+        @Test
         fun `whoever may view a template may preview it, without permission to generate documents`() {
             val tenant = createTenant("Viewer Preview Tenant")
             val templateId = TemplateId(app.epistola.suite.common.ids.TemplateKey.of("viewer-preview"), CatalogId.default(TenantId(tenant.id)))

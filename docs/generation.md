@@ -173,6 +173,20 @@ active ? "Yes" : "No"                   // Conditional
 
 Implementation: [Dashjoin JSONata](https://github.com/dashjoin/jsonata-java) (Java)
 
+#### What one expression may cost
+
+A template's expressions run inside the suite — the editor preview renders whatever model its author
+sends — so one expression is bounded (`JsonataEvaluator`):
+
+- **5 seconds** and **100 levels of recursion**, checked between evaluation steps;
+- **`$pad` to at most 100 characters**: the built-in is shadowed by one that refuses a wider width,
+  because a single call runs to completion inside one step;
+- an expression **nested too deeply** to parse or evaluate is refused rather than overflowing the stack.
+
+An expression past a limit fails the render with `ExpressionLimitException`, naming the expression:
+the editor preview shows the message, and a document's generation fails with it. Every other
+expression error (an unknown function, a type mismatch) still renders as empty.
+
 #### JavaScript expressions (removed)
 
 Earlier releases also evaluated `language: "javascript"` with GraalJS. The editor never offered it,

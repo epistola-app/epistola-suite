@@ -355,7 +355,9 @@ async function mount(container) {
             'X-XSRF-TOKEN': window.getCsrfToken(),
           },
           body: JSON.stringify({
-            templateModel: doc,
+            // A read-only editor shows the saved model, so it previews that: sending its own model
+            // would need permission to edit the template (PreviewVariant), which it may not have.
+            templateModel: config.canSave === false ? null : doc,
             data: data?.data ?? data,
             theme: config.theme ?? null,
           }),
