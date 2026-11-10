@@ -16,10 +16,12 @@
   to Epistola support (docs/support-protocol.md). `support.telemetry.enabled` stays, and now
   forwards to the support service while Epistola grants the `telemetry` scope, instead of to the hub.
 
-- **`appVersion` is pinned in the chart, `1.5.0`.** Publishing a chart used to set it to the newest
-  app release, so a chart patch could move an installation to a new app major. It is now chosen when
-  the chart is released and publishing checks that it names a released app version; the chart that
-  deploys Epistola 2.0 will be a new chart major with its own upgrade notes.
+- **Breaking: chart 2.0 deploys Epistola 2.0.** The chart major follows the app major, so an
+  installation on chart 1.x stays on Epistola 1.x until it moves to chart 2.x deliberately, with the
+  upgrade notes below and Epistola 2.0's. `appVersion` is chosen in `Chart.yaml` when the chart is
+  released, and publishing checks that it names a released app version; it is no longer set to the
+  newest app release, which let a chart patch move an installation to a new app major. Chart 2.0.0 is released with
+  `appVersion` `2.0.0`.
 
 - **The Prometheus scrape port defaults to `4040` in every profile.** From Epistola 2.0 the actuator
   (`/actuator/health`, `/actuator/info`, `/actuator/prometheus`) serves on the management port
