@@ -4,11 +4,15 @@
 
 package app.epistola.suite.support.requests.desk
 
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
+import app.epistola.suite.support.connection.RemoveSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionAuth
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportScope
+import app.epistola.suite.support.requests.consent.ApplyConfiguredSupportRequestSharingDefault
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingDefault
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -32,6 +36,9 @@ class ConfiguredSupportSetupIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var handling: SupportRequestHandlingPolicy
 
+    @Autowired
+    private lateinit var presets: ApplyConfiguredSupportRequestSharingDefault
+
     @Test
     fun `a configured connection that registers, with its services, its preset, and new requests handled there`() {
         val record = connections.findByEndpoint(ENDPOINT)!!
@@ -47,6 +54,19 @@ class ConfiguredSupportSetupIntegrationTest : IntegrationTestBase() {
         assertThat(connection.isSelected(SupportScope.REQUESTS)).isTrue()
     }
 
+    @Test
+    fun `Epistola support's connection, removed and stored again, gets its configured preset again`() {
+        val first = connections.configuredId()!!
+        assertThat(withMediator { GetSupportRequestSharingDefault(first).query() }.share).`as`("applied at startup").isTrue()
+
+        withMediator { RemoveSupportConnection(first).execute() }
+        val again = withMediator { EnsureConfiguredSupportConnection().execute() }
+        presets.apply()
+
+        assertThat(again).isNotEqualTo(first)
+        assertThat(withMediator { GetSupportRequestSharingDefault(again).query() }.share).`as`("the new connection's preset").isTrue()
+    }
+
     companion object {
         private const val ENDPOINT = "https://support.hosting.example"
 
@@ -59,6 +79,9 @@ class ConfiguredSupportSetupIntegrationTest : IntegrationTestBase() {
             registry.add("epistola.support.connections[0].services") { "requests,telemetry" }
             registry.add("epistola.support.connections[0].tenant-defaults.requests") { "share" }
             registry.add("epistola.support.requests.handled-by") { ENDPOINT }
+            registry.add("epistola.support.enabled") { "true" }
+            registry.add("epistola.support.endpoint") { "https://support.epistola.example" }
+            registry.add("epistola.support.tenant-defaults.requests") { "share" }
         }
     }
 }

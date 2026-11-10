@@ -73,8 +73,8 @@ class SupportConnections(
      */
     fun configuredEndpoint(): URI = properties.configuredIssuer ?: URI("https://support.${domain.host}")
 
-    /** The id of the connection `epistola.support.*` configures; null while it is not stored. */
-    fun configuredId(): UUID? = findByEndpoint(configuredEndpoint().toString())?.id
+    /** The id of the connection `epistola.support.*` configures: the one registering through OAuth at [configuredEndpoint]; null while there is none. */
+    fun configuredId(): UUID? = findByEndpoint(configuredEndpoint().toString())?.takeIf { it.auth == SupportConnectionAuth.PRIVATE_KEY_JWT }?.id
 
     private fun select(rest: String, binds: Map<String, Any>): List<SupportConnectionRecord> = jdbi.withHandle<List<SupportConnectionRecord>, Exception> { handle ->
         handle.createQuery("SELECT id, name, endpoint, auth, escalates_to, created_at FROM support_connections $rest")

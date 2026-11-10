@@ -74,9 +74,12 @@ class UsageReporter(
         existing?.takeIf { it.connection === connection } ?: ConnectionReporter(connection)
     }!!
 
-    /** Every connection usage may go to: Epistola support's, and every other one the installation selected usage for. */
+    /**
+     * Every connection usage may go to: Epistola support's, and every other one the installation selected
+     * usage for, however it signs in (a token, or OAuth registration).
+     */
     private fun connections(): List<SupportConnection> = listOf(discovered) +
-        registry.ifAvailable?.tokenConnections().orEmpty().filter { it.isSelected(SupportScope.USAGE) }
+        registry.ifAvailable?.all().orEmpty().filter { it !== discovered && it.isSelected(SupportScope.USAGE) }
 
     /**
      * How long after the start of every hour this installation reports: a moment within the first
@@ -98,7 +101,7 @@ class UsageReporter(
 
     /**
      * Reports usage to one support connection (ADR 0053 step 3): what it has been sent, its back-off,
-     * where it started and its lock are its own. Epistola support's keeps the keys it always had.
+     * where it started and its lock are its own, keyed by the connection's id.
      */
     private inner class ConnectionReporter(val connection: SupportConnection) {
         /** Where this connection's reporting started, in `app_metadata`. */

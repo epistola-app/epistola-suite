@@ -26,17 +26,24 @@ class SupportBackgroundWorkTest {
     fun close() = work.close()
 
     @Test
-    fun `a re-run asked for just as the work stops still runs`() {
+    fun `a re-run asked for just as the work stops still runs, and the work is not idle in between`() {
         val runs = AtomicInteger()
+        val inWindow = java.util.concurrent.CountDownLatch(1)
+        val proceed = java.util.concurrent.CountDownLatch(1)
         // Fires once, in the window after the loop decided to stop and before its Future is done:
         // a user's change kicking the round at exactly that moment.
         work.afterLastRound = { key ->
             work.afterLastRound = {}
+            inWindow.countDown()
+            proceed.await(5, java.util.concurrent.TimeUnit.SECONDS)
             work.launch(key, again = true) { runs.incrementAndGet() }
         }
 
         work.launch("k", again = true) { runs.incrementAndGet() }
 
+        assertThat(inWindow.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue()
+        assertThat(work.awaitIdle(Duration.ZERO)).`as`("the loop has left the running keys but has not ended").isFalse()
+        proceed.countDown()
         assertThat(work.awaitIdle(Duration.ofSeconds(5))).isTrue()
         assertThat(runs.get()).isEqualTo(2)
     }

@@ -208,7 +208,7 @@ class ApplyConfiguredSupportRequestSharingDefault(
     @EventListener(ApplicationReadyEvent::class)
     fun apply() {
         if (properties.enabled) {
-            properties.tenantDefaults.requestsShare?.let { share -> connections.configuredId()?.let { applyFor(it, share, APPLIED_KEY) } }
+            properties.tenantDefaults.requestsShare?.let { share -> connections.configuredId()?.let { applyFor(it, share, "$APPLIED_KEY.$it") } }
         }
         properties.connections.forEach { entry ->
             val share = entry.tenantDefaults.requestsShare ?: return@forEach
@@ -246,7 +246,7 @@ class ApplyConfiguredSupportRequestSharingDefault(
     }
 
     companion object {
-        /** The configured preset last applied (`app_metadata`), so it is applied once per value. */
+        /** The configured preset last applied per connection (`app_metadata`, `<key>.<connection id>`), so it is applied once per value and connection. */
         const val APPLIED_KEY = "support.requests.configured-default-applied"
     }
 }

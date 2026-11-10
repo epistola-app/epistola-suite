@@ -179,6 +179,7 @@
                 <p style="margin: 0;">Requests it handles return to the support desk's inbox, and nothing more goes to it. What it has, it keeps.</p>
                 <p th:unless="${c.canRemove}" class="text-muted" style="margin: 0;" data-testid="support-connection-remove-disconnect-first">
                     It is registered through OAuth: disconnect it above first, so the registration ends at the other side too.
+                    <th:block th:if="${c.state == 'Disabled'}">Support is off (epistola.support.enabled=false): turn it on to disconnect.</th:block>
                 </p>
                 <form th:if="${c.canRemove}" th:action="@{/platform/support/connections/{id}/remove(id=${c.id})}" method="post">
                     <button type="button" class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="support-connection-remove"

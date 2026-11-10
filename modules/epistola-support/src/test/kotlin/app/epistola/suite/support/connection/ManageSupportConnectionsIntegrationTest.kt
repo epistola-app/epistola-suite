@@ -104,6 +104,27 @@ class ManageSupportConnectionsIntegrationTest : IntegrationTestBase() {
         assertThat(withMediator { RemoveSupportConnection(UUID.randomUUID()).execute() }).isFalse()
     }
 
+    @Test
+    fun `while support is off, Epistola support's connection that is still registered is not removed`() {
+        // Support is off (epistola.support.enabled unset): Epistola support's connection, stored while it
+        // was on, still holds its registration. Nothing registers while it is off, so the store says so.
+        val id = withMediator { AddSupportConnection("Epistola support", connections.configuredEndpoint().toString(), token = "", services = emptyList(), auth = SupportConnectionAuth.PRIVATE_KEY_JWT).execute() }
+        val store = connections.store(id)
+        store.saveCredentials(StoredSupportCredentials(issuer = connections.configuredEndpoint().toString(), clientId = "client-1", privateJwk = "{}"))
+        store.saveStatus(StoredSupportStatus(issuer = connections.configuredEndpoint().toString(), clientId = "client-1", state = StoredConnectionState.ACTIVE))
+        try {
+            assertThat(registry.find(id)!!.status().state).isEqualTo(SupportConnectionState.Disabled)
+
+            assertThatThrownBy { withMediator { RemoveSupportConnection(id).execute() } }.isInstanceOf(SupportConnectionStillRegisteredException::class.java)
+            assertThat(withMediator { ListSupportConnections().query() }.single { it.id == id }.canRemove).isFalse()
+        } finally {
+            if (connections.find(id) != null) {
+                store.forget()
+                withMediator { RemoveSupportConnection(id).execute() }
+            }
+        }
+    }
+
     companion object {
         private const val CONFIGURED = "https://desk.configured.example"
 
