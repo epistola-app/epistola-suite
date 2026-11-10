@@ -93,7 +93,8 @@ class PageLayoutUiTest : BasePlaywrightTest() {
 
         val publish = page.locator("dialog[open]#release-dialog [data-testid='release-submit']")
         assertThat(publish).isInViewport()
-        assertThat(page.locator("dialog[open]#release-dialog [data-testid='publish-change']")).hasCount(14)
+        // The fourteen letters, and the system catalog the default catalog declares, which its first version pins.
+        assertThat(page.locator("dialog[open]#release-dialog [data-testid='publish-change']")).hasCount(15)
     }
 
     @Test
