@@ -24,18 +24,17 @@ class MirrorTenantSet(val body: ByteArray, val size: Int) {
 }
 
 /**
- * The catalog-mirror endpoints of the support service (`docs/support-protocol.md`, "Catalog
- * mirror"), over the support connection's authorised client. Network I/O: never call it inside a
+ * The catalog-mirror endpoints of a support connection (`docs/support-protocol.md`, "Catalog
+ * mirror"), over that connection's authorised client. Network I/O: never call it inside a
  * database transaction. Failures are the RestClient's exceptions; classify them with
  * `isSupportUnavailable()`.
  */
 @Component
 class CatalogMirrorClient(
-    private val connection: SupportConnection,
     private val objectMapper: ObjectMapper,
 ) {
     /** `GET {api}/mirror/tenants`: the tenants the mirror holds anything of for this installation. */
-    fun heldTenants(): List<String> {
+    fun heldTenants(connection: SupportConnection): List<String> {
         val body = connection.restClient().get().uri("/mirror/tenants")
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
@@ -51,7 +50,7 @@ class CatalogMirrorClient(
      * withdrawal, and only an explicit `missing` list says which releases to upload. An answer
      * without them (an empty body from a proxy, say) is refused rather than read as success.
      */
-    fun putTenant(tenantKey: String, set: MirrorTenantSet): MirrorReconcileResponse {
+    fun putTenant(connection: SupportConnection, tenantKey: String, set: MirrorTenantSet): MirrorReconcileResponse {
         val body = connection.restClient().put().uri("/mirror/tenants/{tenant}", tenantKey)
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
@@ -71,7 +70,7 @@ class CatalogMirrorClient(
     }
 
     /** `PUT {api}/mirror/releases/{contentHash}`: the release archive exactly as the suite exports it. */
-    fun putRelease(contentHash: String, archive: ByteArray) {
+    fun putRelease(connection: SupportConnection, contentHash: String, archive: ByteArray) {
         connection.restClient().put().uri("/mirror/releases/{hash}", contentHash)
             .contentType(APPLICATION_ZIP)
             .body(archive)

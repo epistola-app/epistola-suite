@@ -20,6 +20,7 @@ import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /** A tenant's consent record, as it stands after an opt-in or opt-out. */
 data class CatalogMirrorConsentResult(
@@ -36,13 +37,13 @@ data class CatalogMirrorConsentResult(
 class CatalogMirrorConsentOutdatedException(version: String) : RuntimeException("Consent version $version is not the current statement (${CatalogMirror.CONSENT_VERSION}); reload the page and read it again")
 
 /** Tenants are confidential (ADR 0052 §1): a release names its client whatever key it is filed under, so nothing is mirrored. */
-class CatalogMirrorConfidentialException : IllegalStateException("The catalog mirror is unavailable while tenants are confidential to Epistola")
+class CatalogMirrorConfidentialException : IllegalStateException("The catalog mirror is unavailable while tenants are confidential to that support connection")
 
 /** The tenant has never opted in to the catalog mirror, so there is nothing to sync. */
-class CatalogMirrorNotOptedInException(tenantKey: TenantKey) : RuntimeException("Tenant ${tenantKey.value} does not share catalogs with Epistola")
+class CatalogMirrorNotOptedInException(tenantKey: TenantKey) : RuntimeException("Tenant ${tenantKey.value} does not share catalogs with that support connection")
 
 /**
- * The tenant starts sharing catalog releases with the Epistola support service, with an explicit
+ * The tenant starts sharing catalog releases with support connection [connectionId], with an explicit
  * choice: [shareByDefault] true shares every catalog that has no policy of its own, new ones
  * included; false shares only the catalogs marked [CatalogMirrorPolicy.SHARE]. Records who agreed,
  * when, and to which [consentVersion]. Opting in again (also to change the choice) replaces the
@@ -53,6 +54,8 @@ data class OptInCatalogMirror(
     override val tenantKey: TenantKey,
     val shareByDefault: Boolean,
     val consentVersion: String,
+    /** The connection the tenant shares its catalogs with. */
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorConsentResult>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -64,14 +67,14 @@ class OptInCatalogMirrorHandler(
     private val privacy: SupportPrivacy,
 ) : CommandHandler<OptInCatalogMirror, CatalogMirrorConsentResult> {
     override fun handle(command: OptInCatalogMirror): CatalogMirrorConsentResult {
-        if (privacy.current().confidential) throw CatalogMirrorConfidentialException()
+        if (privacy.forConnection(command.connectionId).confidential) throw CatalogMirrorConfidentialException()
         if (command.consentVersion != CatalogMirror.CONSENT_VERSION) throw CatalogMirrorConsentOutdatedException(command.consentVersion)
         return jdbi.withHandle<CatalogMirrorConsentResult, Exception> { handle ->
-            SharingRestrictions.requireAllowed(handle, CatalogMirror.SECTION, MIRROR_CONNECTION)
+            SharingRestrictions.requireAllowed(handle, CatalogMirror.SECTION, command.connectionId)
             handle.createQuery(
                 """
                 INSERT INTO support_sharing_choice (connection_id, section, tenant_key, options, statement_version, given_at, given_by, follows_default)
-                VALUES ($MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
+                VALUES (:connection, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
                         (SELECT id FROM users WHERE id = :by), FALSE)
                 ON CONFLICT (connection_id, section, tenant_key) DO UPDATE SET
                     follows_default = FALSE,
@@ -86,6 +89,7 @@ class OptInCatalogMirrorHandler(
                 """,
             )
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .bind("shareByDefault", command.shareByDefault)
                 .bind("version", command.consentVersion)
                 .bind("now", EpistolaClock.offsetDateTime())
@@ -105,6 +109,7 @@ class OptInCatalogMirrorHandler(
  */
 data class OptOutCatalogMirror(
     override val tenantKey: TenantKey,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorConsentResult?>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -119,7 +124,7 @@ class OptOutCatalogMirrorHandler(
             handle.createUpdate(
                 """
                 INSERT INTO support_sharing_choice (connection_id, section, tenant_key, options, withdrawn_at, withdrawn_by, withdrawal_confirmed_at, follows_default)
-                VALUES ($MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', FALSE), :now,
+                VALUES (:connection, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', FALSE), :now,
                         (SELECT id FROM users WHERE id = :by), :now, FALSE)
                 ON CONFLICT (connection_id, section, tenant_key) DO UPDATE SET
                     follows_default = FALSE,
@@ -129,16 +134,18 @@ class OptOutCatalogMirrorHandler(
                 """,
             )
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .bind("now", EpistolaClock.offsetDateTime())
                 .bind("by", SecurityContext.current().userId.value)
                 .execute()
             handle.createQuery("SELECT tenant_key, (options->>'shareByDefault')::boolean AS share_by_default, statement_version AS consent_version, given_at AS opted_in_at, withdrawn_at AS opted_out_at FROM support_sharing_choice WHERE ${mirrorSharing()} AND tenant_key = :t")
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .map { rs, _ -> consentResult(rs) }
                 .findOne()
                 .orElse(null)
         }
-        if (result != null) scheduleSync(jdbi, command.tenantKey)
+        if (result != null) scheduleSync(jdbi, command.connectionId, command.tenantKey)
         return result
     }
 }
@@ -154,6 +161,8 @@ data class CatalogMirrorPolicyResult(val catalog: CatalogId, val policy: Catalog
 data class SetCatalogMirrorPolicy(
     val catalog: CatalogId,
     val policy: CatalogMirrorPolicy,
+    /** The connection whose sharing the policy is part of: each has its own. */
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorPolicyResult>,
     RequiresPermission {
     override val tenantKey: TenantKey get() = catalog.tenantKey
@@ -179,19 +188,21 @@ class SetCatalogMirrorPolicyHandler(
             .findOne()
             .orElseThrow { CatalogNotFoundException(command.catalog.key) }
         if (command.policy == CatalogMirrorPolicy.INHERIT) {
-            handle.createUpdate("DELETE FROM support_mirror_catalog_policies WHERE connection_id = $MIRROR_CONNECTION_SQL AND tenant_key = :t AND catalog_id = :c")
+            handle.createUpdate("DELETE FROM support_mirror_catalog_policies WHERE connection_id = :connection AND tenant_key = :t AND catalog_id = :c")
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .bind("c", target)
                 .execute()
         } else {
             handle.createUpdate(
                 """
                 INSERT INTO support_mirror_catalog_policies (connection_id, tenant_key, catalog_id, policy, set_at, set_by)
-                VALUES ($MIRROR_CONNECTION_SQL, :t, :c, :policy, :now, :by)
+                VALUES (:connection, :t, :c, :policy, :now, :by)
                 ON CONFLICT (connection_id, tenant_key, catalog_id) DO UPDATE SET policy = EXCLUDED.policy, set_at = EXCLUDED.set_at, set_by = EXCLUDED.set_by
                 """,
             )
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .bind("c", target)
                 .bind("policy", command.policy.name)
                 .bind("now", EpistolaClock.offsetDateTime())
@@ -203,7 +214,7 @@ class SetCatalogMirrorPolicyHandler(
 }
 
 /** A sync was asked for; the reconcile runs it in the background, on whichever node takes it. */
-data class CatalogMirrorSyncRequested(val tenantKey: TenantKey, val requestedAt: OffsetDateTime)
+data class CatalogMirrorSyncRequested(val tenantKey: TenantKey, val connectionId: UUID, val requestedAt: OffsetDateTime)
 
 /**
  * "Sync now": reconciles the tenant with the mirror in the background, instead of at the next
@@ -211,6 +222,7 @@ data class CatalogMirrorSyncRequested(val tenantKey: TenantKey, val requestedAt:
  */
 data class RequestCatalogMirrorSync(
     override val tenantKey: TenantKey,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorSyncRequested>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -224,33 +236,36 @@ class RequestCatalogMirrorSyncHandler(
         val consented = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery("SELECT EXISTS (SELECT 1 FROM support_sharing_choice WHERE ${mirrorSharing()} AND tenant_key = :t)")
                 .bind("t", command.tenantKey.value)
+                .bind("connection", command.connectionId)
                 .mapTo(Boolean::class.java)
                 .one()
         }
         if (!consented) throw CatalogMirrorNotOptedInException(command.tenantKey)
-        return CatalogMirrorSyncRequested(command.tenantKey, scheduleSync(jdbi, command.tenantKey))
+        return CatalogMirrorSyncRequested(command.tenantKey, command.connectionId, scheduleSync(jdbi, command.connectionId, command.tenantKey))
     }
 }
 
-/** Marks [tenantKey] as waiting for a sync and schedules the cluster timer that runs it now. */
-internal fun scheduleSync(jdbi: Jdbi, tenantKey: TenantKey): OffsetDateTime {
+/** Marks [tenantKey] as waiting for a sync with [connectionId] and schedules the cluster timer that runs it now. */
+internal fun scheduleSync(jdbi: Jdbi, connectionId: UUID, tenantKey: TenantKey): OffsetDateTime {
     val now = EpistolaClock.offsetDateTime()
     jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
-            INSERT INTO support_mirror_state (connection_id, tenant_key, sync_requested_at) VALUES ($MIRROR_CONNECTION_SQL, :t, :now)
+            INSERT INTO support_mirror_state (connection_id, tenant_key, sync_requested_at) VALUES (:connection, :t, :now)
             ON CONFLICT (connection_id, tenant_key) DO UPDATE SET sync_requested_at = EXCLUDED.sync_requested_at
             """,
         )
+            .bind("connection", connectionId)
             .bind("t", tenantKey.value)
             .bind("now", now)
             .execute()
     }
     ScheduleClusterTimer(
-        timerKey = CatalogMirrorSyncTimerHandler.timerKey(tenantKey),
+        timerKey = CatalogMirrorSyncTimerHandler.timerKey(connectionId, tenantKey),
         routingKey = "system:${CatalogMirrorSyncTimerHandler.TIMER_TYPE}",
         timerType = CatalogMirrorSyncTimerHandler.TIMER_TYPE,
         dueAt = now,
+        payload = mapOf(CatalogMirrorSyncTimerHandler.CONNECTION to connectionId.toString()),
         tenantKey = tenantKey,
     ).execute()
     return now

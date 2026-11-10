@@ -21,6 +21,7 @@ import app.epistola.suite.support.SupportProperties
 import app.epistola.suite.support.mirror.CatalogMirrorConsentOutdatedException
 import app.epistola.suite.support.mirror.CatalogMirrorNotOptedInException
 import app.epistola.suite.support.mirror.CatalogMirrorPolicy
+import app.epistola.suite.support.mirror.DEFAULT_MIRROR_CONNECTION
 import app.epistola.suite.support.mirror.GetCatalogMirrorSettings
 import app.epistola.suite.support.mirror.OptInCatalogMirror
 import app.epistola.suite.support.mirror.OptOutCatalogMirror
@@ -35,6 +36,7 @@ import org.springframework.web.servlet.function.RouterFunction
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
+import java.util.UUID
 
 /**
  * Adds "Catalog mirror" to the Support group for tenant administrators while the support
@@ -95,7 +97,7 @@ class CatalogMirrorHandler {
             "Choose a catalog and a policy."
         } else {
             try {
-                SetCatalogMirrorPolicy(catalog, policy).execute()
+                SetCatalogMirrorPolicy(catalog, policy, connection(request)).execute()
                 "Saved the policy of $namespace/$key."
             } catch (e: CatalogNotFoundException) {
                 e.message
@@ -106,7 +108,7 @@ class CatalogMirrorHandler {
 
     fun sync(request: ServerRequest): ServerResponse {
         val notice = try {
-            RequestCatalogMirrorSync(request.tenantId().key).execute()
+            RequestCatalogMirrorSync(request.tenantId().key, connection(request)).execute()
             "Sync requested. It runs in the background; reload to see how it went."
         } catch (e: CatalogMirrorNotOptedInException) {
             e.message
@@ -117,7 +119,11 @@ class CatalogMirrorHandler {
     private fun settings(request: ServerRequest) = GetCatalogMirrorSettings(
         tenantKey = request.tenantId().key,
         offset = request.param("offset").map { it.toIntOrNull() ?: 0 }.orElse(0).coerceAtLeast(0),
+        connectionId = connection(request),
     ).query()
+
+    /** The connection the page is about (`connection`, from the query or the form); Epistola support's when none or not a UUID. */
+    private fun connection(request: ServerRequest): UUID = request.param("connection").map { runCatching { UUID.fromString(it) }.getOrNull() }.orElse(null) ?: DEFAULT_MIRROR_CONNECTION
 
     private fun panel(request: ServerRequest, notice: String?): ServerResponse {
         val tenantId = request.tenantId()
@@ -128,7 +134,7 @@ class CatalogMirrorHandler {
                 "settings" to settings
                 "notice" to notice
             }
-            onFullPage { redirect("/tenants/${tenantId.key.value}/support/mirror") }
+            onFullPage { redirect("/tenants/${tenantId.key.value}/support/mirror?connection=${settings.connectionId}") }
         }
     }
 }

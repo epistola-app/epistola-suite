@@ -28,13 +28,13 @@ class CatalogMirrorClaimLeaseIntegrationTest : CatalogMirrorTestBase() {
     @Test
     fun `with a long read-timeout a live round's claim is not taken over mid-upload`() {
         val tenant = createTenant("Mirror long lease").id
-        assertThat(mirrorStore.claim(tenant)).isNotNull()
+        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).isNotNull()
 
         // Six minutes into one upload that may take ten: past five minutes, well within the deadline.
         claimAged(tenant, Duration.ofMinutes(6))
 
-        assertThat(mirrorStore.isClaimed(tenant)).`as`("the round may still be uploading").isTrue()
-        assertThat(mirrorStore.claim(tenant)).`as`("not taken over").isNull()
+        assertThat(mirrorStore.isClaimed(DEFAULT_MIRROR_CONNECTION, tenant)).`as`("the round may still be uploading").isTrue()
+        assertThat(mirrorStore.claim(DEFAULT_MIRROR_CONNECTION, tenant)).`as`("not taken over").isNull()
     }
 
     /** Ages [tenant]'s claim by [age]. Raw SQL: the lease runs on the database's clock, which a test cannot move. */
