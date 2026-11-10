@@ -63,8 +63,10 @@ class AddressBlockEventHandler(
         val canvas = Canvas(pdfCanvas, rect).setFont(context.fontCache.regular)
         // The recipient address is meaningful content, not decoration: tag it into
         // the structure tree (unlike the header/footer/watermark artifacts) so
-        // screen readers announce it (PDF/UA-1, #752).
-        canvas.enableAutoTagging(page)
+        // screen readers announce it (PDF/UA-1, #752). The page-counting first pass of a
+        // document that shows sys.pages.total is untagged, so there is nothing to tag into.
+        val tagged = pdfDoc.isTagged
+        if (tagged) canvas.enableAutoTagging(page)
 
         val slotsByName = addressNode.slots.mapNotNull { slotId ->
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
@@ -84,7 +86,7 @@ class AddressBlockEventHandler(
             }
         }
 
-        withTaggingFirst(pdfDoc) { canvas.add(address) }
+        if (tagged) withTaggingFirst(pdfDoc) { canvas.add(address) } else canvas.add(address)
 
         canvas.close()
         pdfCanvas.release()
