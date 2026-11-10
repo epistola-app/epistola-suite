@@ -59,7 +59,7 @@ data class SupportRequestSharingDefault(
 
 /** The installation's default for feedback sharing, for the platform page and every tenant's settings. */
 data class GetSupportRequestSharingDefault(
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Query<SupportRequestSharingDefault>,
     RequiresAuthentication
 
@@ -80,7 +80,7 @@ data class SupportRequestSharingDefaultResult(val default: SupportRequestSharing
  */
 data class SetSupportRequestSharingDefault(
     val share: Boolean,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SupportRequestSharingDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -101,7 +101,7 @@ class SetSupportRequestSharingDefaultHandler(
  * own withdrawal, and has to set itself up (its Support page shows the setup wizard again).
  */
 data class ClearSupportRequestSharingDefault(
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SupportRequestSharingDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -124,7 +124,7 @@ class ClearSupportRequestSharingDefaultHandler(
  *
  * @return the tenants it changed.
  */
-internal fun setSupportRequestDefault(handle: Handle, share: Boolean, userId: UUID?, fromConfiguration: Boolean, connectionId: UUID = REQUESTS_CONNECTION): Int {
+internal fun setSupportRequestDefault(handle: Handle, share: Boolean, userId: UUID?, fromConfiguration: Boolean, connectionId: UUID): Int {
     if (share) SharingRestrictions.requireAllowed(handle, REQUESTS_SECTION, connectionId)
     val now = EpistolaClock.offsetDateTime()
     handle.createUpdate(
@@ -198,14 +198,18 @@ private fun withdrawForFollowers(handle: Handle, now: OffsetDateTime, userId: UU
 class ApplyConfiguredSupportRequestSharingDefault(
     private val jdbi: Jdbi,
     private val properties: SupportProperties,
+    private val connections: SupportConnections,
 ) {
     @EventListener(ApplicationReadyEvent::class)
     fun apply() {
         val share = properties.tenantDefaults.requestsShare ?: return
         if (!properties.enabled) return
+        // The connection epistola.support.* configures, stored first among the startup work.
+        val connectionId = connections.configuredId() ?: return
+        val connection = connectionSql(connectionId)
         jdbi.inTransaction<Unit, Exception> { handle ->
             // Not allowed wins over a configured default: nothing is stored or applied.
-            if (SharingRestrictions.isNotAllowed(handle, REQUESTS_SECTION, REQUESTS_CONNECTION)) return@inTransaction
+            if (SharingRestrictions.isNotAllowed(handle, REQUESTS_SECTION, connectionId)) return@inTransaction
             // Applied once per configured value: a preset an administrator cleared, or that a disconnect
             // forgot, does not come back at the next start.
             val applied = handle.createQuery("SELECT value ->> 'requests' FROM app_metadata WHERE key = :key")
@@ -216,7 +220,7 @@ class ApplyConfiguredSupportRequestSharingDefault(
                     "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
             ).bind("key", APPLIED_KEY).bind("share", share.toString()).execute()
             val stored = handle.createUpdate(
-                "INSERT INTO support_sharing_default (connection_id, section, share, set_at, from_configuration) VALUES ($REQUESTS_CONNECTION_SQL, '$REQUESTS_SECTION', :share, :now, TRUE) ON CONFLICT (connection_id, section) DO NOTHING",
+                "INSERT INTO support_sharing_default (connection_id, section, share, set_at, from_configuration) VALUES ($connection, '$REQUESTS_SECTION', :share, :now, TRUE) ON CONFLICT (connection_id, section) DO NOTHING",
             )
                 .bind("share", share)
                 .bind("now", EpistolaClock.offsetDateTime())
@@ -224,9 +228,9 @@ class ApplyConfiguredSupportRequestSharingDefault(
             // A preset the configuration stored and nobody replaced follows the configuration when it
             // changes; one an administrator saved wins over it.
             val fromChangedConfiguration = stored == 0 && handle.createQuery(
-                "SELECT from_configuration AND share <> :share FROM support_sharing_default WHERE connection_id = $REQUESTS_CONNECTION_SQL AND section = '$REQUESTS_SECTION'",
+                "SELECT from_configuration AND share <> :share FROM support_sharing_default WHERE connection_id = $connection AND section = '$REQUESTS_SECTION'",
             ).bind("share", share).mapTo(Boolean::class.java).findOne().orElse(false)
-            if (stored == 1 || fromChangedConfiguration) setSupportRequestDefault(handle, share, userId = null, fromConfiguration = true)
+            if (stored == 1 || fromChangedConfiguration) setSupportRequestDefault(handle, share, userId = null, fromConfiguration = true, connectionId = connectionId)
         }
     }
 
@@ -242,7 +246,7 @@ class ApplyConfiguredSupportRequestSharingDefault(
  */
 data class FollowSupportRequestSharingDefault(
     override val tenantKey: TenantKey,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SupportRequestSyncConsent>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE

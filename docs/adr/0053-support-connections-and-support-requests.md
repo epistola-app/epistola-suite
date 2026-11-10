@@ -287,9 +287,13 @@ can open requests through the same protocol.
      single it out: a fixed id (`SupportConnections.DISCOVERED_ID`, used as `REQUESTS_CONNECTION` and
      `MIRROR_CONNECTION`), a `source` column (`DISCOVERED` / `CONFIGURED`), and behaviour only it has.
      Each becomes a property every connection has:
-     - **identity**: no fixed id and no `source`; the endpoint has a default (the product domain's
-       discovery, or `epistola.support.endpoint`), and a fresh installation starts with that one
-       connection, which can be removed like any other;
+     - **identity** (built): no fixed id and no `source`; every connection is named by its endpoint
+       (`UNIQUE (endpoint)`). `epistola.support.endpoint` has a default, `https://support.{product-domain}`
+       (the product domain's discovery no longer names it), and with `epistola.support.enabled` that
+       connection is stored at startup when it is not (`EnsureConfiguredSupportConnection`), so a fresh
+       installation starts with it; it can be removed like any other and comes back at the next start
+       while the configuration asks for it. Every connection's privacy follows the installation's
+       until an administrator saves its own;
      - **signing in** (built): `auth` alone (`PRIVATE_KEY_JWT` registers, `BEARER_TOKEN` uses a
        token), so a partner running the support service can register too: the registry builds a
        `DefaultSupportConnection` at the row's endpoint, with settings of its own
@@ -303,7 +307,8 @@ can open requests through the same protocol.
        connection; Epistola's per-item grant (`sync_consent_id`, and `support_sharing_choice.grant_id`)
        is gone. A request the desk hands to Epistola support's connection later takes its history,
        as with any connection, where before it went only when submitted while shared;
-     - **escalation**: `escalates_to` names a connection; the configuration keyword `epistola` goes;
+     - **escalation** (built): `escalates_to` names a connection; in the configuration by its
+       endpoint, and the keyword `epistola` is gone;
      - **the platform page**: one list of connections.
 
      While no release has shipped the connections table, its migration is edited in place; after that, a forward migration does it.

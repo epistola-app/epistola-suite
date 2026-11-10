@@ -151,9 +151,9 @@ class AddSupportConnectionHandler(
         val id = jdbi.withHandle<UUID?, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO support_connections (id, name, source, endpoint, auth, from_configuration)
-                VALUES (:id, :name, 'CONFIGURED', :endpoint, :auth, FALSE)
-                ON CONFLICT (endpoint) WHERE source = 'CONFIGURED' DO NOTHING
+                INSERT INTO support_connections (id, name, endpoint, auth, from_configuration)
+                VALUES (:id, :name, :endpoint, :auth, FALSE)
+                ON CONFLICT (endpoint) DO NOTHING
                 RETURNING id
                 """,
             )
@@ -215,7 +215,7 @@ class UpdateSupportConnectionHandler(
     override fun handle(command: UpdateSupportConnection) {
         val updated = jdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
-                "UPDATE support_connections SET name = :name, from_configuration = FALSE, version = version + 1, updated_at = NOW() WHERE id = :id AND source = 'CONFIGURED'",
+                "UPDATE support_connections SET name = :name, from_configuration = FALSE, version = version + 1, updated_at = NOW() WHERE id = :id",
             ).bind("id", command.connectionId).bind("name", command.name.trim()).execute()
         }
         if (updated == 0) throw app.epistola.suite.support.privacy.SupportConnectionNotFoundException(command.connectionId)
@@ -233,9 +233,10 @@ class UpdateSupportConnectionHandler(
 }
 
 /**
- * Removes a support connection other than Epistola support's: requests it handled return to the
- * installation's inbox, and what it was still to get, its sharing settings and its usage bookkeeping go.
- * What it has keeps.
+ * Removes a support connection, any one, Epistola support's too (ADR 0053 §1): requests it handled
+ * return to the installation's inbox, and what it was still to get, its registration, its sharing
+ * settings and its usage bookkeeping go. What it has keeps. The one `epistola.support.*` configures is
+ * stored again at the next start while `epistola.support.enabled` is on.
  */
 data class RemoveSupportConnection(
     val connectionId: UUID,
@@ -247,6 +248,6 @@ data class RemoveSupportConnection(
 @Component
 class RemoveSupportConnectionHandler(private val jdbi: Jdbi) : CommandHandler<RemoveSupportConnection, Boolean> {
     override fun handle(command: RemoveSupportConnection): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createUpdate("DELETE FROM support_connections WHERE id = :id AND source = 'CONFIGURED'").bind("id", command.connectionId).execute() > 0
+        handle.createUpdate("DELETE FROM support_connections WHERE id = :id").bind("id", command.connectionId).execute() > 0
     }
 }

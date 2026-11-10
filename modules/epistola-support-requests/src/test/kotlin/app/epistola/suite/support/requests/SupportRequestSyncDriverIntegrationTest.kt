@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
@@ -32,7 +33,6 @@ import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncRef
 import app.epistola.suite.support.requests.commands.UpdateSupportRequestSyncStatus
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
 import app.epistola.suite.support.requests.desk.GetSupportRequestHandling
 import app.epistola.suite.support.requests.queries.GetSupportRequest
@@ -105,6 +105,8 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
      * the real bean never reports a failed contact; this lets the last contact fail per test.
      */
     class ToggleableSupportConnection : SupportConnection {
+        override val id: java.util.UUID = app.epistola.suite.support.connection.SupportConnectionStore.NO_CONNECTION
+
         @Volatile
         var serviceReachable: Boolean = true
 
@@ -179,7 +181,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         ensureUser(testUserKey, "support-request-driver-author", "support-request-driver@epistola.test", "Feedback Driver Author")
     }
 
-    private fun consent(tenant: Tenant) = withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+    private fun consent(tenant: Tenant) = withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
     private fun createSupportRequest(tenant: Tenant, title: String = "Driver Bug"): SupportRequest = withMediator {
         val created = CreateSupportRequest(
@@ -208,7 +210,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
 
     /** Consents for [tenant] first: the drivers send nothing of a tenant without consent. */
     private fun createSyncedSupportRequest(tenant: Tenant, title: String = "Driver Bug"): SupportRequest = withMediator {
-        GrantSupportRequestSyncConsent(tenant.id).execute()
+        GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
         val created = CreateSupportRequest(
             id = SupportRequestId(SupportRequestKey.generate(), TenantId(tenant.id)),
             title = title,
@@ -229,11 +231,11 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
     fun `with the configuration handing new requests to Epistola, a new request goes there and the desk says where that comes from`() {
         val handling = withMediator { GetSupportRequestHandling().query() }
         assertThat(handling.fromConfiguration).isTrue()
-        assertThat(handling.connectionId).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(handling.connectionId).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
 
         val supportRequest = createSyncedSupportRequest(createTenant("Driver Configured"))
 
-        assertThat(supportRequest.handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(supportRequest.handlerConnection).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(recording.createdTickets.map { it.id }).contains(supportRequest.id)
     }
 
@@ -282,6 +284,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
                 authorName = "Triager",
                 authorEmail = null,
                 externalCommentId = "ext-inbound-1",
+                connectionId = withMediator { EnsureConfiguredSupportConnection().execute() },
             ).execute()
         }
 
@@ -315,6 +318,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
             SyncSupportRequestStatus(
                 id = SupportRequestId(supportRequest.id, TenantId(tenant.id)),
                 status = SupportRequestStatus.CLOSED,
+                connectionId = withMediator { EnsureConfiguredSupportConnection().execute() },
             ).execute()
         }
 
@@ -409,7 +413,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         }
 
         assertThat(withMediator { GetSupportRequest(supportRequestId).query()!! }.syncStatus).isEqualTo(SyncStatus.FAILED)
-        assertThat(withMediator { ListPendingSyncSupportRequest(limit = 10_000).query() }.map { it.id }).`as`("never given up").contains(supportRequestId.key)
+        assertThat(withMediator { ListPendingSyncSupportRequest(limit = 10_000, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("never given up").contains(supportRequestId.key)
         recording.failCreate = false
         retryScheduler.retryPendingSync()
         assertThat(withMediator { GetSupportRequest(supportRequestId).query()!! }.syncStatus).isEqualTo(SyncStatus.SYNCED)
@@ -519,7 +523,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Driver Withdrawn")
         val supportRequest = createSyncedSupportRequest(tenant)
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         recording.addedComments.clear()
         recording.statusUpdates.clear()
 
@@ -548,7 +552,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Driver Regrant")
         val supportRequest = createSyncedSupportRequest(tenant)
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         val whileWithdrawn = SupportRequestCommentId(SupportRequestCommentKey.generate(), supportRequestId)
         withMediator { AddSupportRequestComment(whileWithdrawn, "written while withdrawn", "Alice", "alice@example.com").execute() }
         val screenshotWhileWithdrawn = addScreenshot(supportRequest)
@@ -573,8 +577,8 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         assertThat(recording.addedComments.filter { it.first.id == supportRequest.id }.map { it.second.id }).containsExactly(afterGrant.key)
         assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }.map { it.second }).containsExactly(SupportRequestStatus.CLOSED)
         assertThat(recording.uploadedAssets.filter { it.supportRequest.id == supportRequest.id }.map { it.assetKey }).containsExactly(screenshotAfterGrant.id)
-        assertThat(withMediator { ListUnsyncedComments(limit = 10_000).query() }.map { it.id }).doesNotContain(whileWithdrawn.key)
-        assertThat(withMediator { ListUnsyncedSupportRequestAssets().query() }.map { it.id }).doesNotContain(screenshotWhileWithdrawn.id.value)
+        assertThat(withMediator { ListUnsyncedComments(limit = 10_000, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).doesNotContain(whileWithdrawn.key)
+        assertThat(withMediator { ListUnsyncedSupportRequestAssets(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).doesNotContain(screenshotWhileWithdrawn.id.value)
     }
 
     @Test
@@ -588,7 +592,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         withMediator { AddSupportRequestComment(unsent, "not sent before the withdrawal", "Alice", null).execute() }
         val unsentScreenshot = addScreenshot(supportRequest)
 
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         consent(tenant)
         recording.failAddComment = false
         recording.failUploadAsset = false
@@ -612,10 +616,10 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         backgroundWork.awaitIdle()
         retryScheduler.retryPendingSync()
 
-        assertThat(withMediator { ListUnsyncedComments(limit = 10_000).query() }.map { it.id }).`as`("backing off").doesNotContain(commentId.key)
+        assertThat(withMediator { ListUnsyncedComments(limit = 10_000, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("backing off").doesNotContain(commentId.key)
         assertThat(withMediator { GetSupportRequestComments(supportRequestId).query() }.map { it.id }).`as`("kept locally").contains(commentId.key)
         testClock.advanceBy(Duration.ofHours(7))
-        assertThat(withMediator { ListUnsyncedComments(limit = 10_000).query() }.map { it.id }).`as`("tried again").contains(commentId.key)
+        assertThat(withMediator { ListUnsyncedComments(limit = 10_000, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("tried again").contains(commentId.key)
     }
 
     @Test
@@ -626,7 +630,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val pending = createSupportRequest(tenant)
         assertThat(pending.syncStatus).isEqualTo(SyncStatus.PENDING)
 
-        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         consent(tenant)
         recording.failCreate = false
         recording.createdTickets.clear()
@@ -652,7 +656,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         assertThat(uploaded.content.content).containsExactly(9, 8, 7)
         assertThat(uploaded.content.contentType).isEqualTo("image/jpeg")
         assertThat(uploaded.supportRequest.externalRef).isEqualTo(supportRequest.externalRef)
-        assertThat(withMediator { ListUnsyncedSupportRequestAssets().query() }.map { it.id }).doesNotContain(asset.id.value)
+        assertThat(withMediator { ListUnsyncedSupportRequestAssets(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).doesNotContain(asset.id.value)
         recording.uploadedAssets.clear()
         retryScheduler.retryPendingSync()
         assertThat(recording.uploadedAssets).`as`("sent once").isEmpty()
@@ -684,15 +688,15 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val asset = addScreenshot(supportRequest)
         backgroundWork.awaitIdle()
         repeat(6) { retryScheduler.retryPendingSync() }
-        assertThat(withMediator { ListUnsyncedSupportRequestAssets().query() }.map { it.id }).`as`("still waiting").contains(asset.id.value)
+        assertThat(withMediator { ListUnsyncedSupportRequestAssets(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("still waiting").contains(asset.id.value)
 
         recording.assetServiceUnavailable = false
         recording.failUploadAsset = true
         retryScheduler.retryPendingSync()
 
-        assertThat(withMediator { ListUnsyncedSupportRequestAssets().query() }.map { it.id }).`as`("backing off").doesNotContain(asset.id.value)
+        assertThat(withMediator { ListUnsyncedSupportRequestAssets(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("backing off").doesNotContain(asset.id.value)
         testClock.advanceBy(Duration.ofHours(7))
-        assertThat(withMediator { ListUnsyncedSupportRequestAssets().query() }.map { it.id }).`as`("tried again").contains(asset.id.value)
+        assertThat(withMediator { ListUnsyncedSupportRequestAssets(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.id }).`as`("tried again").contains(asset.id.value)
         assertThat(withMediator { ListSupportRequestAssets(SupportRequestId(supportRequest.id, TenantId(tenant.id))).query() }.map { it.id }).`as`("kept locally").contains(asset.id)
         assertThat(recording.uploadedAssets.filter { it.supportRequest.id == supportRequest.id }).isEmpty()
     }
@@ -817,7 +821,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Driver StatusWithdrawn")
         val supportRequest = createSyncedSupportRequest(tenant)
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
         backgroundWork.awaitIdle()
 
@@ -825,7 +829,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         retryScheduler.retryPendingSync()
 
         assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }).`as`("changed while withdrawn: never sent").isEmpty()
-        assertThat(withMediator { ListUnsentSupportRequestStatuses(limit = 10_000).query() }.map { it.supportRequest.id }).doesNotContain(supportRequest.id)
+        assertThat(withMediator { ListUnsentSupportRequestStatuses(limit = 10_000, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.map { it.supportRequest.id }).doesNotContain(supportRequest.id)
 
         withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.OPEN).execute() }
         backgroundWork.awaitIdle()
@@ -842,7 +846,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         withMediator { UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute() }
         backgroundWork.awaitIdle()
 
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         consent(tenant)
         recording.ready = true
         retryScheduler.retryPendingSync()
@@ -863,7 +867,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         }
         assertThat(withMediator { GetSupportRequest(failedId).query()!! }.syncStatus).isEqualTo(SyncStatus.FAILED)
 
-        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         consent(tenant)
         recording.failCreate = false
         recording.createdTickets.clear()
@@ -879,7 +883,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
     fun `support request submitted while consent is withdrawn is never sent, also once consent is given again`() {
         val tenant = createTenant("Driver SubmitWithdrawn")
         consent(tenant)
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         val supportRequest = createSupportRequest(tenant)
 
         consent(tenant)
@@ -922,7 +926,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         recording.beforeSend = { outbound, supportRequest ->
             if (supportRequest.tenantKey == tenant.id) {
                 sent += outbound
-                if (outbound == kind && sent.count { it == kind } == 1) withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+                if (outbound == kind && sent.count { it == kind } == 1) withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
             }
         }
         recording.ready = true
@@ -957,7 +961,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
                 withMediator {
                     MediatorContext.runnable(mediator) {
                         TransactionTemplate(transactionManager).executeWithoutResult {
-                            WithdrawSupportRequestSyncConsent(tenant.id).execute()
+                            WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
                             withdrawing.countDown()
                             letGo.await(20, TimeUnit.SECONDS)
                         }
@@ -1076,7 +1080,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         recording.beforeSend = { outbound, sending ->
             if (outbound == RecordingSupportRequestSyncPort.Outbound.SUPPORT_REQUEST && sending.id == supportRequest.id) {
                 withMediator {
-                    WithdrawSupportRequestSyncConsent(tenant.id).execute()
+                    WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
                     UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute()
                 }
             }
@@ -1107,7 +1111,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
         recording.beforeSend = { outbound, sending ->
             if (outbound == RecordingSupportRequestSyncPort.Outbound.SUPPORT_REQUEST && sending.id == supportRequest.id) {
-                withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+                withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
                 if (failure == "refused") {
                     recording.failCreate = true
                 } else {
@@ -1168,12 +1172,12 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         consent(tenant)
         toggleableConnectivity.serviceReachable = false
 
-        val settings = withMediator { GetSupportRequestSharingSettings(tenant.id).query() }
+        val settings = withMediator { GetSupportRequestSharingSettings(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
 
         assertThat(settings.sendsSupportRequest).`as`("the gate sends nothing now").isFalse()
         assertThat(settings.consentedButWaiting).isTrue()
         toggleableConnectivity.serviceReachable = true
-        assertThat(withMediator { GetSupportRequestSharingSettings(tenant.id).query() }.sendsSupportRequest).isTrue()
+        assertThat(withMediator { GetSupportRequestSharingSettings(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.sendsSupportRequest).isTrue()
     }
 
     @Test
@@ -1182,7 +1186,7 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         val supportRequest = createSyncedSupportRequest(tenant)
         val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
         val ref = supportRequest.externalRef!!
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         recording.pages.addLast(
             ExternalUpdatePage(
                 updates = listOf(ExternalUpdate.Comment(3, tenant.id, ref, OCCURRED_AT, "ext-while-withdrawn", "Triager", null, "while withdrawn")),

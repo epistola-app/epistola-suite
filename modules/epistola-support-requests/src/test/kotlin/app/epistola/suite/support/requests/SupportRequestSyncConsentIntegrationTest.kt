@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent
@@ -33,34 +34,34 @@ class SupportRequestSyncConsentIntegrationTest : IntegrationTestBase() {
     fun `a tenant has no consent until it is given`() {
         val tenant = createTenant("Consent None")
 
-        val consent = withMediator { GetSupportRequestSyncConsent(tenant.id).query() }
+        val consent = withMediator { GetSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
 
         assertThat(consent.inForce).isFalse()
         assertThat(consent.consentedAt).isNull()
-        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id).query() }).isFalse()
+        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }).isFalse()
     }
 
     @Test
     fun `consent is given, kept when given again, withdrawn and given again`() {
         val tenant = createTenant("Consent Cycle")
 
-        val given = withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        val given = withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(given.inForce).isTrue()
         assertThat(given.consentedAt).isNotNull()
         assertThat(given.consentedBy).isEqualTo(TestPrincipalUser.DISPLAY_NAME)
-        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id).query() }).isTrue()
+        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }).isTrue()
 
-        val again = withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        val again = withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(again.consentedAt).`as`("giving it again changes nothing").isEqualTo(given.consentedAt)
 
-        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(withdrawal.consent.inForce).isFalse()
         assertThat(withdrawal.consent.withdrawnAt).isNotNull()
         assertThat(withdrawal.consent.withdrawnBy).isEqualTo(TestPrincipalUser.DISPLAY_NAME)
         assertThat(withdrawal.stoppedSupportRequest).isZero()
-        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id).query() }).isFalse()
+        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }).isFalse()
 
-        val regiven = withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        val regiven = withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(regiven.inForce).isTrue()
         assertThat(regiven.withdrawnAt).isNull()
     }
@@ -70,15 +71,15 @@ class SupportRequestSyncConsentIntegrationTest : IntegrationTestBase() {
         val consenting = createTenant("Consent Mine")
         val other = createTenant("Consent Other")
 
-        withMediator { GrantSupportRequestSyncConsent(consenting.id).execute() }
+        withMediator { GrantSupportRequestSyncConsent(consenting.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
-        assertThat(withMediator { IsSupportRequestSyncConsentInForce(other.id).query() }).isFalse()
+        assertThat(withMediator { IsSupportRequestSyncConsentInForce(other.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }).isFalse()
     }
 
     @Test
     fun `with the support connection off, support request stays local even with consent`() {
         val tenant = createTenant("Consent Off")
-        withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         val author = UserKey.of("00000000-0000-0000-0000-feedbac00091")
         ensureUser(author, "consent-author", "consent-author@epistola.test", "Consent Author")
 
@@ -103,14 +104,14 @@ class SupportRequestSyncConsentIntegrationTest : IntegrationTestBase() {
     fun `the settings say the connection is off and offer no consent, but always offer withdrawal`() {
         val tenant = createTenant("Consent Settings")
 
-        val before = withMediator { GetSupportRequestSharingSettings(tenant.id).query() }
+        val before = withMediator { GetSupportRequestSharingSettings(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
         assertThat(before.connection).isEqualTo(SupportRequestSharingConnection.OFF)
         assertThat(before.canGrant).isFalse()
         assertThat(before.canWithdraw).isFalse()
         assertThat(before.sendsSupportRequest).isFalse()
 
-        withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
-        val after = withMediator { GetSupportRequestSharingSettings(tenant.id).query() }
+        withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
+        val after = withMediator { GetSupportRequestSharingSettings(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
         assertThat(after.canWithdraw).isTrue()
         assertThat(after.consentedButWaiting).isTrue()
         assertThat(after.sendsSupportRequest).isFalse()
@@ -128,9 +129,9 @@ class SupportRequestSyncConsentIntegrationTest : IntegrationTestBase() {
             currentTenantId = tenant.id,
         )
 
-        assertThatThrownBy { runAs(viewer) { GrantSupportRequestSyncConsent(tenant.id).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(viewer) { WithdrawSupportRequestSyncConsent(tenant.id).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(viewer) { GetSupportRequestSharingSettings(tenant.id).query() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id).query() }).isFalse()
+        assertThatThrownBy { runAs(viewer) { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(viewer) { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(viewer) { GetSupportRequestSharingSettings(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThat(withMediator { IsSupportRequestSyncConsentInForce(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }).isFalse()
     }
 }

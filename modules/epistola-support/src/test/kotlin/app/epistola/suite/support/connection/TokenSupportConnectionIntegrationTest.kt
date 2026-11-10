@@ -50,7 +50,6 @@ class TokenSupportConnectionIntegrationTest : IntegrationTestBase() {
         val record = connections.find(connection.id)!!
 
         assertThat(record.name).isEqualTo("Acme Partner")
-        assertThat(record.source).isEqualTo(SupportConnectionSource.CONFIGURED)
         assertThat(record.auth).isEqualTo(SupportConnectionAuth.BEARER_TOKEN)
         assertThat(connections.store(connection.id).bearerToken()).isEqualTo(TOKEN)
         val stored = jdbi.withHandle<String, Exception> { it.createQuery("SELECT credentials FROM support_connections WHERE id = :id").bind("id", connection.id).mapTo(String::class.java).one() }

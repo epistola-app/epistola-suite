@@ -16,6 +16,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.testing.TestPrincipalUser
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
@@ -40,7 +41,7 @@ class CatalogMirrorSharingIntegrationTest : CatalogMirrorTestBase() {
         assertThat(before.catalogs.single { it.catalog.key.value == "letters" }.sharing).isEqualTo(CatalogMirrorSharing.TENANT_NOT_SHARING)
         assertThat(bindings(tenant)).isEmpty()
 
-        assertThatThrownBy { withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = "1999-01-01").execute() } }
+        assertThatThrownBy { withMediator { OptInCatalogMirror(tenant, shareByDefault = true, consentVersion = "1999-01-01", connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(CatalogMirrorConsentOutdatedException::class.java)
         assertThat(settings(tenant).consent).`as`("an outdated statement records nothing").isNull()
 
@@ -212,14 +213,14 @@ class CatalogMirrorSharingIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(tenant)
         assertThat(bindings(tenant)).hasSize(1)
 
-        val result = withMediator { OptOutCatalogMirror(tenant).execute() }!!
+        val result = withMediator { OptOutCatalogMirror(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }!!
 
         assertThat(result.sharing).isFalse()
         assertThat(bindings(tenant)).isEmpty()
         val consent = settings(tenant).consent!!
         assertThat(consent.withdrawalPending).isTrue()
         assertThat(settings(tenant).round?.syncRequestedAt).`as`("a withdrawal is scheduled at once").isNotNull()
-        val tenants = withMediator { ListMirrorTenants().query() }
+        val tenants = withMediator { ListMirrorTenants(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
         assertThat(tenants.withdrawalPending).contains(tenant)
         assertThat(tenants.sharing).doesNotContain(tenant)
 
@@ -232,21 +233,21 @@ class CatalogMirrorSharingIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror permissions").id
         val letters = releasedCatalog(tenant, "letters", "1.0.0")
 
-        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER).permission).isEqualTo(Permission.CATALOG_MANAGE)
-        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.SHARE).permission).isEqualTo(Permission.INTEGRATIONS_MANAGE)
-        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.INHERIT).permission).isEqualTo(Permission.INTEGRATIONS_MANAGE)
+        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).permission).isEqualTo(Permission.CATALOG_MANAGE)
+        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.SHARE, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).permission).isEqualTo(Permission.INTEGRATIONS_MANAGE)
+        assertThat(SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.INHERIT, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).permission).isEqualTo(Permission.INTEGRATIONS_MANAGE)
 
         val publisher = member(tenant, TenantRole.CONTENT_PUBLISHER, TenantRole.CONTENT_AUTHOR, TenantRole.CONTENT_VIEWER)
-        assertThatThrownBy { runAs(publisher) { OptInCatalogMirror(tenant, true, CatalogMirror.CONSENT_VERSION).execute() } }
+        assertThatThrownBy { runAs(publisher) { OptInCatalogMirror(tenant, true, CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(publisher) { SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER).execute() } }
+        assertThatThrownBy { runAs(publisher) { SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(publisher) { GetCatalogMirrorSettings(tenant).query() } }
+        assertThatThrownBy { runAs(publisher) { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() } }
             .isInstanceOf(PermissionDeniedException::class.java)
 
         val admin = member(tenant, TenantRole.TENANT_ADMINISTRATOR)
-        runAs(admin) { SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER).execute() }
-        val seen = runAs(admin) { GetCatalogMirrorSettings(tenant).query() }
+        runAs(admin) { SetCatalogMirrorPolicy(letters, CatalogMirrorPolicy.NEVER, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
+        val seen = runAs(admin) { GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
         assertThat(seen.canChangeSharing).isTrue()
         assertThat(seen.canWithhold).isTrue()
     }
@@ -258,8 +259,8 @@ class CatalogMirrorSharingIntegrationTest : CatalogMirrorTestBase() {
         releasedCatalog(tenant, "bravo", "1.0.0")
 
         val all = settings(tenant)
-        val first = withMediator { GetCatalogMirrorSettings(tenant, offset = 0, limit = 1).query() }
-        val second = withMediator { GetCatalogMirrorSettings(tenant, offset = 1, limit = 1).query() }
+        val first = withMediator { GetCatalogMirrorSettings(tenant, offset = 0, limit = 1, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
+        val second = withMediator { GetCatalogMirrorSettings(tenant, offset = 1, limit = 1, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
 
         assertThat(first.totalCatalogs).isEqualTo(all.catalogs.size).isGreaterThanOrEqualTo(3)
         assertThat(first.catalogs.single()).isEqualTo(all.catalogs[0])

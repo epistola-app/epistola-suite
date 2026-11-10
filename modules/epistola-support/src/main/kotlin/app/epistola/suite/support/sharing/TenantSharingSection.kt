@@ -50,29 +50,29 @@ interface TenantSharingSection {
      * Whether tenants are asked about it now: the installation selected the service. A service it does
      * not use is not offered, so no tenant agrees to share what is never sent.
      */
-    fun offered(connectionId: UUID = SupportConnections.DISCOVERED_ID): Boolean = true
+    fun offered(connectionId: UUID): Boolean = true
 
     /** What the tenant shares now, and whose decision that is. */
-    fun tenantView(tenantKey: TenantKey, connectionId: UUID = SupportConnections.DISCOVERED_ID): TenantSharingView
+    fun tenantView(tenantKey: TenantKey, connectionId: UUID): TenantSharingView
 
     /** The installation preset. */
-    fun installationView(connectionId: UUID = SupportConnections.DISCOVERED_ID): InstallationSharingView
+    fun installationView(connectionId: UUID): InstallationSharingView
 
     /** Records [value] (one of [choices]) as the tenant's own choice. */
-    fun applyOwn(tenantKey: TenantKey, value: String, connectionId: UUID = SupportConnections.DISCOVERED_ID)
+    fun applyOwn(tenantKey: TenantKey, value: String, connectionId: UUID)
 
     /** The tenant drops its own choice and follows the installation preset. */
-    fun followPreset(tenantKey: TenantKey, connectionId: UUID = SupportConnections.DISCOVERED_ID)
+    fun followPreset(tenantKey: TenantKey, connectionId: UUID)
 
     /** Applies the preset from [form] (all fields of the platform page's form); a notice of what changed, or null. */
-    fun saveInstallation(form: Map<String, List<String>>, connectionId: UUID = SupportConnections.DISCOVERED_ID): String?
+    fun saveInstallation(form: Map<String, List<String>>, connectionId: UUID): String?
 
     /**
      * Forgets what every tenant chose and the installation's preset, as the installation disconnected
      * from Epistola support: after registering again, every tenant is asked again. Stops what still
      * waits to be sent. Idempotent.
      */
-    fun forgetAll(connectionId: UUID = SupportConnections.DISCOVERED_ID)
+    fun forgetAll(connectionId: UUID)
 }
 
 /**

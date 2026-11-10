@@ -12,8 +12,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -24,7 +22,7 @@ data class GetSupportRequestByExternalRef(
     override val tenantKey: TenantKey,
     val externalRef: String,
     /** The connection it came over; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Query<SupportRequestId?>,
     RequiresPermission {
     override val permission get() = Permission.SUPPORT_REQUEST_SUBMIT

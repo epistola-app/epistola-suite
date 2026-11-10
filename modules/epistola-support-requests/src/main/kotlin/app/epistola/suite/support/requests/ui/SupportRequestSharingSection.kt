@@ -15,7 +15,6 @@ import app.epistola.suite.support.requests.consent.ForgetSupportRequestSharing
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingDefault
 import app.epistola.suite.support.requests.consent.GetSupportRequestSharingSettings
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_SECTION
 import app.epistola.suite.support.requests.consent.SetSupportRequestSharingDefault
 import app.epistola.suite.support.requests.consent.SupportRequestSharingConnection

@@ -155,16 +155,27 @@ class UnreadableSupportCredentialsException(cause: Throwable) : RuntimeException
  * the rest and finds it unchanged knows its copy is current. That is how a change on one node reaches
  * every other node at once, with one primary-key read instead of a broadcast (ADR 0050).
  *
- * @property connectionId the connection this store is for.
- *
  * Open, with [services] and [refusals] open, so a test can stand in a store that holds or fails a read.
  */
 open class SupportConnectionStore(
     private val jdbi: Jdbi,
     private val cipher: CredentialCipher,
     private val objectMapper: ObjectMapper,
-    val connectionId: UUID,
+    /** The id of the connection this store is for, read on every call; null while there is no such row. */
+    private val resolveId: () -> UUID?,
 ) {
+    /** A store for connection [connectionId]. */
+    constructor(jdbi: Jdbi, cipher: CredentialCipher, objectMapper: ObjectMapper, connectionId: UUID) : this(jdbi, cipher, objectMapper, { connectionId })
+
+    /**
+     * The connection this store is for; [NO_CONNECTION] while its row does not exist (the configured
+     * connection while it is not stored), which no row has: reads find nothing and writes fail.
+     */
+    val connectionId: UUID get() = resolveId() ?: NO_CONNECTION
+
+    /** Whether the row exists now. */
+    fun exists(): Boolean = resolveId() != null
+
     /**
      * The stored registration, or null when there is none.
      *
@@ -377,8 +388,8 @@ open class SupportConnectionStore(
         }
     }
 
-    /** This connection's advisory lock: [LOCK_KEY] for the discovered connection, so it stays what it was; derived from the id otherwise. */
-    fun lockKey(): Long = if (connectionId == SupportConnections.DISCOVERED_ID) LOCK_KEY else LOCK_KEY xor connectionId.leastSignificantBits
+    /** This connection's advisory lock, derived from its id. */
+    fun lockKey(): Long = LOCK_KEY xor connectionId.leastSignificantBits
 
     private fun column(name: String): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT $name::text FROM support_connections WHERE id = :id").bind("id", connectionId)
@@ -404,6 +415,9 @@ open class SupportConnectionStore(
 
         /** "EpSuppC1": the advisory lock that keeps registration and checks of a connection to one node at a time. */
         const val LOCK_KEY = 0x4570_5375_7070_4331L
+
+        /** The id of no connection: what [connectionId] reads while the row does not exist. */
+        val NO_CONNECTION: UUID = UUID(0, 0)
     }
 }
 

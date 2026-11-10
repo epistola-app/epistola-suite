@@ -14,8 +14,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
@@ -45,7 +43,7 @@ data class UnsyncedSupportRequestAsset(
 data class ListUnsyncedSupportRequestAssets(
     val limit: Int = 20,
     /** The connection to send to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Query<List<UnsyncedSupportRequestAsset>>,
     SystemInternal
 

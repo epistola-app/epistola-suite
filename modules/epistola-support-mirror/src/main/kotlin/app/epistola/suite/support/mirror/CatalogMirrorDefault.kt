@@ -18,6 +18,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.sharing.SharingRestrictions
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -71,7 +72,7 @@ data class CatalogMirrorDefault(
 }
 
 /** The installation's default for the catalog mirror, for the platform page and every tenant's page. */
-data class GetCatalogMirrorDefault(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
+data class GetCatalogMirrorDefault(val connectionId: UUID) :
     Query<CatalogMirrorDefault>,
     RequiresAuthentication
 
@@ -94,7 +95,7 @@ data class CatalogMirrorDefaultResult(val default: CatalogMirrorDefault, val ten
  */
 data class SetCatalogMirrorDefault(
     val choice: CatalogMirrorDefaultChoice,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -123,7 +124,7 @@ class SetCatalogMirrorDefaultHandler(
  * Removes the installation preset: every tenant that followed it stops sharing, exactly as by its own
  * opt-out (withdrawn at the next reconcile), and has to set itself up.
  */
-data class ClearCatalogMirrorDefault(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
+data class ClearCatalogMirrorDefault(val connectionId: UUID) :
     Command<CatalogMirrorDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -244,6 +245,7 @@ class ApplyConfiguredCatalogMirrorDefault(
     private val jdbi: Jdbi,
     private val properties: SupportProperties,
     private val privacy: SupportPrivacy,
+    private val connections: SupportConnections,
 ) {
     @EventListener(ApplicationReadyEvent::class)
     fun apply() {
@@ -253,8 +255,8 @@ class ApplyConfiguredCatalogMirrorDefault(
             else -> CatalogMirrorDefaultChoice.OFF
         }
         if (!properties.enabled) return
-        // `epistola.support.tenant-defaults` is the preset of the connection to Epistola support.
-        val connectionId = DEFAULT_MIRROR_CONNECTION
+        // `epistola.support.tenant-defaults` is the preset of the connection epistola.support.* configures.
+        val connectionId = connections.configuredId() ?: return
         privacy.read() ?: return
         if (privacy.forConnection(connectionId).confidential) return
         jdbi.inTransaction<Unit, Exception> { handle ->
@@ -301,7 +303,7 @@ class ApplyConfiguredCatalogMirrorDefault(
  */
 data class FollowCatalogMirrorDefault(
     override val tenantKey: TenantKey,
-    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
+    val connectionId: UUID,
 ) : Command<CatalogMirrorDefault>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE

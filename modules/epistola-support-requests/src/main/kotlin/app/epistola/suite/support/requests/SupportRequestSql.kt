@@ -4,8 +4,6 @@
 
 package app.epistola.suite.support.requests
 
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
-
 /**
  * SQL every read of a support request shares (ADR 0053 §3–4): the request (alias `f`), its question
  * (`q`, the message whose id is the request's) as the description, and its delivery (`d`) to
@@ -24,8 +22,11 @@ internal fun selectSupportRequest(connection: String = HANDLER_CONNECTION_SQL): 
         AND d.connection_id = $connection
 """
 
-/** The connection that handles a request (alias `f`), or Epistola support's while none does. */
-internal val HANDLER_CONNECTION_SQL = "COALESCE(f.handler_connection, $REQUESTS_CONNECTION_SQL)"
+/** The connection that handles a request (alias `f`); NULL while the installation's inbox does. */
+internal const val HANDLER_CONNECTION_SQL = "f.handler_connection"
+
+/** The connection that handles the request of the message aliased `c`; NULL while the inbox does. */
+internal const val REPLY_HANDLER_CONNECTION_SQL = "(SELECT r.handler_connection FROM support_requests r WHERE r.tenant_key = c.tenant_key AND r.id = c.request_id)"
 
 /** [selectSupportRequest] with the delivery to the connection that handles the request. */
 internal val SELECT_SUPPORT_REQUEST = selectSupportRequest()
@@ -35,7 +36,7 @@ internal val SELECT_SUPPORT_REQUEST = selectSupportRequest()
  * connection [connection], an SQL expression): written here is LOCAL, arriving over a connection
  * EXTERNAL; the external id is the connection's id for it either way. Add a `WHERE` on `c`.
  */
-internal fun selectSupportRequestReply(connection: String = REQUESTS_CONNECTION_SQL): String = """
+internal fun selectSupportRequestReply(connection: String = REPLY_HANDLER_CONNECTION_SQL): String = """
     SELECT c.tenant_key, c.request_id, c.id, c.body, c.author_name, c.author_email, c.author_id,
            CASE WHEN c.from_connection IS NULL THEN 'LOCAL' ELSE 'EXTERNAL' END AS source,
            COALESCE(c.remote_id, dm.remote_id) AS external_comment_id, c.created_at,

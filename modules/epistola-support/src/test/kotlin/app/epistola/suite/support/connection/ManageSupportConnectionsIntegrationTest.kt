@@ -6,6 +6,7 @@ package app.epistola.suite.support.connection
 
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.privacy.TelemetryDetail
 import app.epistola.suite.support.privacy.TenantIdentity
@@ -89,10 +90,18 @@ class ManageSupportConnectionsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `Epistola support's connection cannot be removed here, and an unknown one changes nothing`() {
-        assertThat(withMediator { RemoveSupportConnection(SupportConnections.DISCOVERED_ID).execute() }).isFalse()
+    fun `Epistola support's connection is removed like any other and stored again as the configuration asks, and an unknown one changes nothing`() {
+        val epistola = withMediator { EnsureConfiguredSupportConnection().execute() }
+
+        assertThat(withMediator { RemoveSupportConnection(epistola).execute() }).isTrue()
+        assertThat(connections.find(epistola)).isNull()
+
+        // What the next start does while epistola.support.enabled is on: stored anew, at the same endpoint.
+        val again = withMediator { EnsureConfiguredSupportConnection().execute() }
+        assertThat(again).isNotEqualTo(epistola)
+        assertThat(connections.find(again)!!.endpoint).isEqualTo(connections.configuredEndpoint().toString())
+
         assertThat(withMediator { RemoveSupportConnection(UUID.randomUUID()).execute() }).isFalse()
-        assertThat(connections.find(SupportConnections.DISCOVERED_ID)).isNotNull()
     }
 
     companion object {

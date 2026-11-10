@@ -147,7 +147,7 @@ data class SupportConnectionStatus(
  */
 interface SupportConnection {
     /** The connection this is (ADR 0053): its row in `support_connections`, which other tables refer to. */
-    val id: UUID get() = SupportConnections.DISCOVERED_ID
+    val id: UUID
 
     /** Cached; never network I/O, cheap enough to call per request or per export. */
     fun status(): SupportConnectionStatus

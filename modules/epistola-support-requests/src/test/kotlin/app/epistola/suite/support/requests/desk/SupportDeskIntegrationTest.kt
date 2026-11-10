@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.requests.RecordingSupportRequestSyncPort
 import app.epistola.suite.support.requests.SupportRequest
@@ -22,7 +23,6 @@ import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.commands.SyncSupportRequestStatus
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.WithdrawSupportRequestSyncConsent
 import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
 import app.epistola.suite.support.requests.queries.GetSupportRequest
@@ -101,7 +101,7 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
 
     private fun reload(request: SupportRequest): SupportRequest = withMediator { GetSupportRequest(SupportRequestId(request.id, TenantId(request.tenantKey))).query()!! }
 
-    private fun sharing(name: String): Tenant = createTenant(name).also { withMediator { GrantSupportRequestSyncConsent(it.id).execute() } }
+    private fun sharing(name: String): Tenant = createTenant(name).also { withMediator { GrantSupportRequestSyncConsent(it.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
 
     @Test
     fun `new requests stay in the inbox by default, also when the tenant shares them`() {
@@ -119,9 +119,9 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         assertThat(configured.fromConfiguration).isTrue()
         assertThat(configured.handledHere).`as`("the configuration's default: the inbox").isTrue()
 
-        val saved = withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
+        val saved = withMediator { SetSupportRequestHandling(withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(saved.fromConfiguration).isFalse()
-        assertThat(saved.connectionId).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(saved.connectionId).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(saved.connectionName).isEqualTo("Epistola support")
 
         val reset = withMediator { ResetSupportRequestHandling().execute() }
@@ -132,17 +132,17 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
     @Test
     fun `with Epistola handling new requests a new one goes there, and switching back leaves it there`() {
         val tenant = sharing("Desk Handling")
-        val handling = withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
-        assertThat(handling.connectionId).isEqualTo(REQUESTS_CONNECTION)
+        val handling = withMediator { SetSupportRequestHandling(withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
+        assertThat(handling.connectionId).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
 
         val atEpistola = submit(tenant, "Goes to Epistola")
-        assertThat(atEpistola.handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(atEpistola.handlerConnection).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(recording.createdTickets.map { it.id }).containsExactly(atEpistola.id)
 
         withMediator { SetSupportRequestHandling(null).execute() }
         val inInbox = submit(tenant, "Stays here")
 
-        assertThat(reload(atEpistola).handlerConnection).`as`("already at Epistola: stays there").isEqualTo(REQUESTS_CONNECTION)
+        assertThat(reload(atEpistola).handlerConnection).`as`("already at Epistola: stays there").isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(inInbox.handledHere).isTrue()
         assertThat(recording.createdTickets.map { it.id }).containsExactly(atEpistola.id)
     }
@@ -150,19 +150,19 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
     @Test
     fun `a request still waiting to go to Epistola comes back to the inbox when its tenant stops sharing`() {
         val tenant = sharing("Desk Withdrawn Waiting")
-        withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
+        withMediator { SetSupportRequestHandling(withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         recording.failCreate = true
         val waiting = submit(tenant)
-        assertThat(reload(waiting).handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(reload(waiting).handlerConnection).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
 
-        withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
         assertThat(reload(waiting).handlerConnection).`as`("never sent, so the inbox handles it").isNull()
     }
 
     @Test
     fun `with nothing to send them over, the desk says new requests stay here, as they do`() {
-        withMediator { SetSupportRequestHandling(REQUESTS_CONNECTION).execute() }
+        withMediator { SetSupportRequestHandling(withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         recording.enabled = false
 
         val handling = withMediator { GetSupportRequestHandling().query() }
@@ -183,14 +183,14 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         work.awaitIdle()
         assertThat(recording.createdTickets).`as`("not passed on yet").isEmpty()
 
-        withMediator { EscalateSupportRequest(tenant.id, request.id, REQUESTS_CONNECTION).execute() }
+        withMediator { EscalateSupportRequest(tenant.id, request.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         work.awaitIdle()
         sweep.retryPendingSync()
 
         assertThat(recording.createdTickets.map { it.id }).containsExactly(request.id)
         assertThat(recording.addedComments.map { it.second.body }).containsExactly("We reproduced it")
         assertThat(recording.addedComments.single().second.authorId).`as`("the desk's author, for the person reference").isNotNull()
-        assertThat(reload(request).handlerConnection).isEqualTo(REQUESTS_CONNECTION)
+        assertThat(reload(request).handlerConnection).isEqualTo(withMediator { EnsureConfiguredSupportConnection().execute() })
         val requesterSees = withMediator { GetSupportRequestComments(SupportRequestId(request.id, TenantId(tenant.id))).query() }
         assertThat(requesterSees.map { it.body }).`as`("the requester sees replies, not notes").containsExactly("We reproduced it")
         val deskSees = withMediator { GetSupportInboxRequest(tenant.id, request.id).query() }!!
@@ -204,14 +204,14 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         val view = withMediator { GetSupportInboxRequest(notSharing.id, before.id).query() }!!
         assertThat(view.canEscalate).isFalse()
         assertThat(view.escalationBlocked).contains("does not share support requests now")
-        assertThatThrownBy { withMediator { EscalateSupportRequest(notSharing.id, before.id, REQUESTS_CONNECTION).execute() } }
+        assertThatThrownBy { withMediator { EscalateSupportRequest(notSharing.id, before.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(SupportRequestNotEscalatedException::class.java)
 
         val stopped = sharing("Desk Stopped Sharing")
         val submitted = submit(stopped)
-        withMediator { WithdrawSupportRequestSyncConsent(stopped.id).execute() }
+        withMediator { WithdrawSupportRequestSyncConsent(stopped.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         assertThat(withMediator { GetSupportInboxRequest(stopped.id, submitted.id).query() }!!.escalationBlocked).contains("does not share support requests now")
-        assertThatThrownBy { withMediator { EscalateSupportRequest(stopped.id, submitted.id, REQUESTS_CONNECTION).execute() } }
+        assertThatThrownBy { withMediator { EscalateSupportRequest(stopped.id, submitted.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
             .isInstanceOf(SupportRequestNotEscalatedException::class.java)
         assertThat(recording.createdTickets).isEmpty()
     }
@@ -222,10 +222,10 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Desk Shares Later")
         val request = submit(tenant)
         withMediator { AddSupportDeskMessage(tenant.id, request.id, "Written before sharing", note = false).execute() }
-        withMediator { GrantSupportRequestSyncConsent(tenant.id).execute() }
+        withMediator { GrantSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
         assertThat(withMediator { GetSupportInboxRequest(tenant.id, request.id).query() }!!.canEscalate).isTrue()
-        withMediator { EscalateSupportRequest(tenant.id, request.id, REQUESTS_CONNECTION).execute() }
+        withMediator { EscalateSupportRequest(tenant.id, request.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         work.awaitIdle()
         sweep.retryPendingSync()
 
@@ -239,18 +239,18 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         val request = submit(tenant)
         val id = SupportRequestId(request.id, TenantId(tenant.id))
 
-        assertThat(withMediator { SyncSupportRequestStatus(id, SupportRequestStatus.RESOLVED).execute() }).`as`("a connection does not handle it").isFalse()
+        assertThat(withMediator { SyncSupportRequestStatus(id, SupportRequestStatus.RESOLVED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }).`as`("a connection does not handle it").isFalse()
         assertThat(withMediator { SetSupportDeskStatus(tenant.id, request.id, SupportRequestStatus.IN_PROGRESS).execute() }).isTrue()
         assertThat(reload(request).status).isEqualTo(SupportRequestStatus.IN_PROGRESS)
 
-        withMediator { EscalateSupportRequest(tenant.id, request.id, REQUESTS_CONNECTION).execute() }
+        withMediator { EscalateSupportRequest(tenant.id, request.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         work.awaitIdle()
 
         assertThatThrownBy { withMediator { SetSupportDeskStatus(tenant.id, request.id, SupportRequestStatus.CLOSED).execute() } }
             .isInstanceOf(SupportRequestHandledElsewhereException::class.java)
         assertThatThrownBy { withMediator { SetSupportDeskPriority(tenant.id, request.id, SupportRequestPriority.LOW).execute() } }
             .isInstanceOf(SupportRequestHandledElsewhereException::class.java)
-        assertThat(withMediator { SyncSupportRequestStatus(id, SupportRequestStatus.RESOLVED).execute() }).`as`("its handler sets it").isTrue()
+        assertThat(withMediator { SyncSupportRequestStatus(id, SupportRequestStatus.RESOLVED, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }).`as`("its handler sets it").isTrue()
         assertThat(reload(request).status).isEqualTo(SupportRequestStatus.RESOLVED)
     }
 
@@ -261,7 +261,7 @@ class SupportDeskIntegrationTest : IntegrationTestBase() {
         submit(first, "One a")
         submit(first, "One b")
         val passedOn = submit(second, "Two a")
-        withMediator { EscalateSupportRequest(second.id, passedOn.id, REQUESTS_CONNECTION).execute() }
+        withMediator { EscalateSupportRequest(second.id, passedOn.id, withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         work.awaitIdle()
 
         val ofFirst = withMediator { ListSupportInbox(tenant = first.id, page = PageRequest(limit = 1, offset = 0)).query() }

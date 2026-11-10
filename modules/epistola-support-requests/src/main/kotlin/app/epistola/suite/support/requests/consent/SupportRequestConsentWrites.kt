@@ -22,7 +22,7 @@ internal object SupportRequestConsentWrites {
      * choice or ([followsDefault]) by the installation default. [now] and [userId] are recorded only
      * when it was not in force; either way the row records whose choice it is now.
      */
-    fun grant(handle: Handle, tenantKey: TenantKey, userId: UUID?, now: OffsetDateTime, followsDefault: Boolean, connectionId: UUID = REQUESTS_CONNECTION) {
+    fun grant(handle: Handle, tenantKey: TenantKey, userId: UUID?, now: OffsetDateTime, followsDefault: Boolean, connectionId: UUID) {
         SharingRestrictions.requireAllowed(handle, REQUESTS_SECTION, connectionId)
         handle.createUpdate(
             """
@@ -51,7 +51,7 @@ internal object SupportRequestConsentWrites {
      *
      * @return the feedback items that were waiting and now stay here.
      */
-    fun withdrawOwn(handle: Handle, tenantKey: TenantKey, userId: UUID?, now: OffsetDateTime, connectionId: UUID = REQUESTS_CONNECTION): Int {
+    fun withdrawOwn(handle: Handle, tenantKey: TenantKey, userId: UUID?, now: OffsetDateTime, connectionId: UUID): Int {
         handle.createUpdate(
             """
             INSERT INTO support_sharing_choice (connection_id, section, tenant_key, given_at, withdrawn_at, withdrawn_by, follows_default)
@@ -78,7 +78,7 @@ internal object SupportRequestConsentWrites {
      *
      * @return the feedback items that were waiting.
      */
-    fun stopWaiting(handle: Handle, tenantKeys: List<TenantKey>, connectionId: UUID = REQUESTS_CONNECTION): Int {
+    fun stopWaiting(handle: Handle, tenantKeys: List<TenantKey>, connectionId: UUID): Int {
         if (tenantKeys.isEmpty()) return 0
         val connection = connectionSql(connectionId)
         val keys = tenantKeys.map { it.value }

@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.sharing.SetSharingRestriction
 import app.epistola.suite.support.sharing.SharingNotAllowedException
@@ -62,10 +63,10 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     fun resetPreset() {
         store.forgetServices()
         withMediator {
-            ForgetUsageSharing().execute()
-            app.epistola.suite.support.mirror.ForgetCatalogMirrorSharing().execute()
-            SetSharingRestriction("usage", null).execute()
-            SetSharingRestriction("mirror", null).execute()
+            ForgetUsageSharing(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            app.epistola.suite.support.mirror.ForgetCatalogMirrorSharing(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            SetSharingRestriction("usage", null, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
+            SetSharingRestriction("mirror", null, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
         }
     }
 
@@ -91,7 +92,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
 
     private fun setup(tenant: TenantKey, form: Map<String, String>) = post("/tenants/${tenant.value}/support/setup", form)
 
-    private fun usage(tenant: TenantKey) = withMediator { GetUsageChoice(tenant).query() }
+    private fun usage(tenant: TenantKey) = withMediator { GetUsageChoice(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
 
     @Test
     fun `with nothing set up, the Support page opens the setup wizard`() {
@@ -176,7 +177,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         val notAllowed = post("/platform/support/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
         assertThat(notAllowed).contains("data-testid=\"support-defaults-not-allowed\"")
         assertThat(usage(own).share).`as`("its own choice is forgotten too").isNull()
-        assertThatThrownBy { withMediator { SetUsageChoice(own, share = true).execute() } }.isInstanceOf(SharingNotAllowedException::class.java)
+        assertThatThrownBy { withMediator { SetUsageChoice(own, share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }.isInstanceOf(SharingNotAllowedException::class.java)
     }
 
     @Test
@@ -239,7 +240,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
             val refused = post("/platform/support/defaults", mapOf("mirror.default" to "ALL", "usage.default" to "NONE", "agree" to "true"))
 
             assertThat(refused).contains("data-testid=\"support-defaults-error\"").contains("keeps its tenants confidential to Epistola").contains("data-testid=\"support-defaults-form\"")
-            assertThat(withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorDefault().query() }.isSet).`as`("nothing saved").isFalse()
+            assertThat(withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorDefault(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.isSet).`as`("nothing saved").isFalse()
         } finally {
             withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.NAMED, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         }
@@ -260,7 +261,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         val done = setup(tenant, mapOf("step" to "3", "action" to "finish", "agree" to "true", "mirror.choice" to "MARKED", "usage.choice" to "NO"))
 
         assertThat(done).contains("data-testid=\"support-sharing-summary\"")
-        val mirror = withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorSettings(tenant).query() }
+        val mirror = withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorSettings(tenant, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
         assertThat(mirror.sharing).isTrue()
         assertThat(mirror.consent!!.shareByDefault).isFalse()
         assertThat(usage(tenant).share).isFalse()

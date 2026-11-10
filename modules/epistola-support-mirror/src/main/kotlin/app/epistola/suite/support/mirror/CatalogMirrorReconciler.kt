@@ -102,7 +102,7 @@ class CatalogMirrorReconciler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     /** The mirror may be used now over [connectionId]: gated by configuration and by the scope that connection granted. */
-    fun usable(connectionId: UUID = DEFAULT_MIRROR_CONNECTION): Boolean = registry.find(connectionId)?.let { Round(it).usable() } ?: false
+    fun usable(connectionId: UUID): Boolean = registry.find(connectionId)?.let { Round(it).usable() } ?: false
 
     /**
      * One scheduled round over every connection the mirror is selected for (ADR 0053 step 3i): each
@@ -119,16 +119,16 @@ class CatalogMirrorReconciler(
     }
 
     /** One round over every tenant with [connectionId]; with the mirror turned off, only the withdrawals. */
-    fun reconcileAll(connectionId: UUID = DEFAULT_MIRROR_CONNECTION): CatalogMirrorRoundReport = registry.find(connectionId)?.let { Round(it).reconcileAll() } ?: CatalogMirrorRoundReport(ran = false, tenants = emptyMap())
+    fun reconcileAll(connectionId: UUID): CatalogMirrorRoundReport = registry.find(connectionId)?.let { Round(it).reconcileAll() } ?: CatalogMirrorRoundReport(ran = false, tenants = emptyMap())
 
     /** "Sync now" for one tenant with [connectionId]: its set is sent whatever changed, or the tenant withdrawn when it does not share. */
-    fun syncTenant(tenantKey: TenantKey, connectionId: UUID = DEFAULT_MIRROR_CONNECTION): TenantReconcileResult {
+    fun syncTenant(tenantKey: TenantKey, connectionId: UUID): TenantReconcileResult {
         val connection = registry.find(connectionId) ?: return TenantReconcileResult.SKIPPED.also { store.clearSyncRequest(connectionId, tenantKey) }
         return Round(connection).syncTenant(tenantKey)
     }
 
     /** Another round with [connectionId] holds [tenantKey] now (a claim within its lease, by the database's clock). */
-    fun isClaimed(tenantKey: TenantKey, connectionId: UUID = DEFAULT_MIRROR_CONNECTION): Boolean = store.isClaimed(connectionId, tenantKey)
+    fun isClaimed(tenantKey: TenantKey, connectionId: UUID): Boolean = store.isClaimed(connectionId, tenantKey)
 
     /** The round interval, doubled per failure in a row, at most [CatalogMirror.MAX_BACKOFF]. */
     internal fun backoff(failures: Int): Duration = backoff(properties.interval, failures)

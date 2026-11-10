@@ -9,8 +9,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import org.jdbi.v3.core.Jdbi
@@ -25,7 +23,7 @@ data class UpdateSupportRequestSyncStatus(
     /** Not tried again before this; null clears it. */
     val nextAttemptAt: java.time.OffsetDateTime? = null,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 

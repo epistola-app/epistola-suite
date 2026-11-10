@@ -59,8 +59,8 @@ class RestSupportRequestSyncAdapter(
 ) : SupportRequestSyncPort {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    /** The support connection is on; whether it takes feedback now is [isReady]. */
-    override fun isEnabled(): Boolean = connection.status().state !is SupportConnectionState.Disabled
+    /** The installation selected support requests for this connection, which is on; whether it takes them now is [isReady]. */
+    override fun isEnabled(): Boolean = connection.status().state !is SupportConnectionState.Disabled && connection.isSelected(SupportScope.REQUESTS)
 
     /** The `requests` scope is granted now. Re-read on every call, so a revoked scope stops sending. */
     override fun isReady(): Boolean = connection.hasScope(SupportScope.REQUESTS)

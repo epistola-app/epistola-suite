@@ -6,6 +6,7 @@ package app.epistola.suite.support.connection
 
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.testing.FakeSupportResponse
 import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.IntegrationTestBase
@@ -213,7 +214,7 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
     private lateinit var serviceClient: SupportServiceClient
 
     @Autowired
-    private lateinit var productDiscovery: app.epistola.suite.productdomain.ProductDiscovery
+    private lateinit var supportConnections: SupportConnections
 
     @Autowired
     private lateinit var installations: app.epistola.suite.installation.InstallationService
@@ -249,7 +250,7 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
         // is a telemetry export or a gate check reading while the command's transaction is open.
         var onRead: (() -> Unit)? = null
         val racing = anotherNode(
-            object : SupportConnectionStore(jdbi, cipher, objectMapper, SupportConnections.DISCOVERED_ID) {
+            object : SupportConnectionStore(jdbi, cipher, objectMapper, withMediator { EnsureConfiguredSupportConnection().execute() }) {
                 override fun services(): StoredSupportServices? = super.services().also { onRead?.invoke() }
             },
         )
@@ -491,19 +492,18 @@ class SupportServiceSelectionIntegrationTest : IntegrationTestBase() {
     }
 
     /** A store whose refusals cannot be read while [failRefusals] is set, as when its pool times out. */
-    private inner class FlakyRefusalsStore : SupportConnectionStore(jdbi, cipher, objectMapper, SupportConnections.DISCOVERED_ID) {
+    private inner class FlakyRefusalsStore : SupportConnectionStore(jdbi, cipher, objectMapper, withMediator { EnsureConfiguredSupportConnection().execute() }) {
         @Volatile var failRefusals = false
 
         override fun refusals(): StoredSupportRefusals = if (failRefusals) throw IllegalStateException("simulated: no connection") else super.refusals()
     }
 
     /** A second connection over the same rows: another node of the installation. */
-    private fun anotherNode(store: SupportConnectionStore = SupportConnectionStore(jdbi, cipher, objectMapper, SupportConnections.DISCOVERED_ID)) = DefaultSupportConnection(
+    private fun anotherNode(store: SupportConnectionStore = supportConnections.configuredStore()) = DefaultSupportConnection(
         properties,
-        RegisteringConnectionSettings.of(properties),
+        RegisteringConnectionSettings.of(properties, supportConnections.configuredEndpoint()),
         store,
         serviceClient,
-        productDiscovery,
         installations,
         installation,
         nodeIdentity,

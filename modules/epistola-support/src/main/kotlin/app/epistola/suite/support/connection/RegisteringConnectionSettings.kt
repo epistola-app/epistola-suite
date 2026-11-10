@@ -7,7 +7,6 @@ package app.epistola.suite.support.connection
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.observability.NodeIdentity
-import app.epistola.suite.productdomain.ProductDiscovery
 import app.epistola.suite.support.SupportProperties
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.info.BuildProperties
@@ -21,23 +20,23 @@ import java.net.URI
  * `epistola.support.*` ([of]); another's from its row ([forEndpoint]).
  *
  * @property enabled false: the connection reads [SupportConnectionState.Disabled] and uses nothing.
- * @property issuer the support service's issuer; null: found through the product domain's discovery.
+ * @property issuer the support service's issuer: the connection's endpoint.
  * @property configuredServices the services used until an administrator saves a selection.
  * @property autoRegister the scheduled check registers on its own.
  * @property offReason what a call made while not [enabled] fails with.
  */
 data class RegisteringConnectionSettings(
     val enabled: Boolean,
-    val issuer: URI?,
+    val issuer: URI,
     val configuredServices: List<String>,
     val autoRegister: Boolean,
     val offReason: String = "The support connection is off",
 ) {
     companion object {
-        /** Epistola support's connection, as `epistola.support.*` configures it. */
-        fun of(properties: SupportProperties) = RegisteringConnectionSettings(
+        /** The connection `epistola.support.*` configures, at [endpoint] ([SupportConnections.configuredEndpoint]). */
+        fun of(properties: SupportProperties, endpoint: URI) = RegisteringConnectionSettings(
             enabled = properties.enabled,
-            issuer = properties.configuredIssuer,
+            issuer = endpoint,
             configuredServices = properties.configuredServices,
             autoRegister = properties.autoRegister,
             offReason = "The support connection is off (epistola.support.enabled=false)",
@@ -51,6 +50,12 @@ data class RegisteringConnectionSettings(
     }
 }
 
+/** On: [RegisteringConnectionSettings.enabled], and the connection's row exists (an administrator may have removed it). */
+internal fun DefaultSupportConnection.on(): Boolean = settings.enabled && store.exists()
+
+/** Why a call made while not [on] fails. */
+internal fun DefaultSupportConnection.offReason(): String = if (settings.enabled) "The support connection was removed" else settings.offReason
+
 /** Epistola support's connection, configured by `epistola.support.*`: the [DefaultSupportConnection] bean every module injects. */
 @Configuration(proxyBeanMethods = false)
 class DefaultSupportConnectionConfiguration {
@@ -59,7 +64,7 @@ class DefaultSupportConnectionConfiguration {
         properties: SupportProperties,
         store: SupportConnectionStore,
         client: SupportServiceClient,
-        productDiscovery: ProductDiscovery,
+        connections: SupportConnections,
         installations: InstallationService,
         installation: InstallationProperties,
         nodeIdentity: NodeIdentity,
@@ -67,10 +72,9 @@ class DefaultSupportConnectionConfiguration {
         supportHttp: SupportHttp,
     ): DefaultSupportConnection = DefaultSupportConnection(
         properties,
-        RegisteringConnectionSettings.of(properties),
+        RegisteringConnectionSettings.of(properties, connections.configuredEndpoint()),
         store,
         client,
-        productDiscovery,
         installations,
         installation,
         nodeIdentity,

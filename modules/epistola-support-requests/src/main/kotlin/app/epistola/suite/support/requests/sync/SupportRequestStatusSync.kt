@@ -14,8 +14,6 @@ import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWithConnection
 import app.epistola.suite.support.requests.selectSupportRequest
@@ -33,7 +31,7 @@ data class UnsentSupportRequestStatus(val supportRequest: SupportRequest, val at
  * Feedback at Epistola support whose status was changed here and not sent yet, and is due (its
  * back-off over), oldest change first; only feedback exchanged under the consent in force.
  */
-data class ListUnsentSupportRequestStatuses(val limit: Int = 20, val connectionId: UUID = REQUESTS_CONNECTION) :
+data class ListUnsentSupportRequestStatuses(val limit: Int = 20, val connectionId: UUID) :
     Query<List<UnsentSupportRequestStatus>>,
     SystemInternal
 
@@ -76,7 +74,7 @@ data class RecordSupportRequestStatusSync(
     val nextAttemptAt: OffsetDateTime? = null,
     val countAttempt: Boolean = false,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 

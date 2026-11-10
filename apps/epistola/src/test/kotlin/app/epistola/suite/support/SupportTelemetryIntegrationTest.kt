@@ -77,6 +77,8 @@ class SupportTelemetryIntegrationTest : BaseIntegrationTest() {
     private fun exportNow() {
         logs.refreshGate()
         logs.flush()
+        // Attached once a connection is selected for telemetry, checked every ten seconds: now, here.
+        supportRegistry.refresh()
         publish(supportRegistry.registries.single() as OtlpMeterRegistry)
     }
 
@@ -95,6 +97,8 @@ class SupportTelemetryIntegrationTest : BaseIntegrationTest() {
         meterRegistry.counter("epistola.support.telemetry.test", "tenant", tenant).increment()
         grantTelemetry()
 
+        // Attached once a connection is selected for telemetry, checked every ten seconds: now, here.
+        supportRegistry.refresh()
         publish(supportRegistry.registries.single() as OtlpMeterRegistry)
         publish(bootOtlp)
 

@@ -23,6 +23,7 @@ import javax.sql.DataSource
  * The feedback round's cluster lock. "Another node" is a second round holding the lock on a thread of
  * its own, as another node's round does: the lock is a lease row in the database, not a session.
  */
+@org.junit.jupiter.api.parallel.Isolated("It counts the borrowed connections of the pool every test class in this context shares")
 class SupportRequestRoundLockIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var lock: SupportRequestRoundLock

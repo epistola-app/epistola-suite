@@ -4,12 +4,11 @@
 
 package app.epistola.suite.support.requests.sync
 
+import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
-import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.TokenSupportConnection
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.requests.adapters.RestSupportRequestSyncAdapter
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -23,7 +22,9 @@ import java.util.UUID
  */
 @Component
 class SupportRequestSyncPorts(
+    /** The port of the connection `epistola.support.*` configures ([configured]): replaced by a test's stand-in. */
     private val discovered: SupportRequestSyncPort,
+    private val configured: SupportConnection,
     private val registry: SupportConnectionRegistry,
     private val objectMapper: ObjectMapper,
     private val references: TenantReferences,
@@ -35,15 +36,11 @@ class SupportRequestSyncPorts(
      * leaves nothing behind.
      */
     fun port(connectionId: UUID): SupportRequestSyncPort? {
-        if (connectionId == REQUESTS_CONNECTION) return discovered
-        val connection = registry.find(connectionId) as? TokenSupportConnection ?: return null
+        val connection = registry.find(connectionId) ?: return null
+        if (connection === configured) return discovered
         return RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi)
     }
 
-    /** The installation selected support requests for connection [connectionId] (another than Epistola support's). */
-    fun selectsRequests(connectionId: UUID): Boolean = registry.find(connectionId)?.isSelected(SupportScope.REQUESTS) == true
-
-    /** Every connection's port, Epistola support's first, with its connection id. */
-    fun all(): List<Pair<UUID, SupportRequestSyncPort>> = listOf(REQUESTS_CONNECTION to discovered) +
-        registry.tokenConnections().mapNotNull { c -> port(c.id)?.let { c.id to it } }
+    /** Every connection's port, by creation, with its connection id. */
+    fun all(): List<Pair<UUID, SupportRequestSyncPort>> = registry.entries().mapNotNull { (id, _) -> port(id)?.let { id to it } }
 }

@@ -19,7 +19,7 @@ import java.util.UUID
  * shares then is sent anew. Each catalog's own policy (share, never share) stays: it is about the
  * catalog, not a consent.
  */
-data class ForgetCatalogMirrorSharing(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
+data class ForgetCatalogMirrorSharing(val connectionId: UUID) :
     Command<ForgottenCatalogMirrorSharing>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR

@@ -18,10 +18,12 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.support.SupportProperties
+import app.epistola.suite.support.connection.SupportConnectionRegistry
+import app.epistola.suite.support.connection.SupportConnectionStore
+import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.mirror.CatalogMirrorConsentOutdatedException
 import app.epistola.suite.support.mirror.CatalogMirrorNotOptedInException
 import app.epistola.suite.support.mirror.CatalogMirrorPolicy
-import app.epistola.suite.support.mirror.DEFAULT_MIRROR_CONNECTION
 import app.epistola.suite.support.mirror.GetCatalogMirrorSettings
 import app.epistola.suite.support.mirror.OptInCatalogMirror
 import app.epistola.suite.support.mirror.OptOutCatalogMirror
@@ -74,7 +76,7 @@ class CatalogMirrorRoutes(private val handler: CatalogMirrorHandler) {
  * The mediator enforces the permissions; the page offers only what the viewer may do.
  */
 @Component
-class CatalogMirrorHandler {
+class CatalogMirrorHandler(private val registry: SupportConnectionRegistry) {
     fun show(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
@@ -122,8 +124,13 @@ class CatalogMirrorHandler {
         connectionId = connection(request),
     ).query()
 
-    /** The connection the page is about (`connection`, from the query or the form); Epistola support's when none or not a UUID. */
-    private fun connection(request: ServerRequest): UUID = request.param("connection").map { runCatching { UUID.fromString(it) }.getOrNull() }.orElse(null) ?: DEFAULT_MIRROR_CONNECTION
+    /**
+     * The connection the page is about (`connection`, from the query or the form); when none or not a
+     * UUID, the first that selects the mirror.
+     */
+    private fun connection(request: ServerRequest): UUID = request.param("connection").map { runCatching { UUID.fromString(it) }.getOrNull() }.orElse(null)
+        ?: registry.all().firstOrNull { it.isSelected(SupportScope.MIRROR) }?.id
+        ?: SupportConnectionStore.NO_CONNECTION
 
     private fun panel(request: ServerRequest, notice: String?): ServerResponse {
         val tenantId = request.tenantId()

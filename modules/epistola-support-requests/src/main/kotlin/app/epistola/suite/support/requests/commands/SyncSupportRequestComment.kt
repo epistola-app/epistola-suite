@@ -13,8 +13,6 @@ import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.support.requests.CommentSource
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.SupportRequestLedger
 import app.epistola.suite.support.requests.consent.connectionSql
 import org.jdbi.v3.core.Jdbi
@@ -30,7 +28,7 @@ data class SyncSupportRequestComment(
     val authorEmail: String?,
     val externalCommentId: String,
     /** The connection it came over; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<SupportRequestComment?>,
     SystemInternal
 

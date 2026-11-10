@@ -27,7 +27,7 @@ import java.util.UUID
 data class GrantSupportRequestSyncConsent(
     override val tenantKey: TenantKey,
     /** The connection the tenant shares support requests with. */
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Command<SupportRequestSyncConsent>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE

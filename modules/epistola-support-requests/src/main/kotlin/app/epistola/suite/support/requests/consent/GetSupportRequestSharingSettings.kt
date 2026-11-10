@@ -89,7 +89,7 @@ data class SupportRequestSharingSettings(
 data class GetSupportRequestSharingSettings(
     override val tenantKey: TenantKey,
     /** The connection the tenant would share support requests with. */
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Query<SupportRequestSharingSettings>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE

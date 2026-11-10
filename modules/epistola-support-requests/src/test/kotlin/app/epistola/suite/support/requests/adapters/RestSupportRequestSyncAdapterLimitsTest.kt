@@ -20,6 +20,7 @@ class RestSupportRequestSyncAdapterLimitsTest {
 
     private val adapter = RestSupportRequestSyncAdapter(
         object : SupportConnection {
+            override val id: java.util.UUID = java.util.UUID.randomUUID()
             override fun status() = SupportConnectionStatus(SupportConnectionState.Disabled, null, null, null)
             override fun hasScope(scope: SupportScope) = false
             override fun isSelected(scope: SupportScope) = false

@@ -7,6 +7,7 @@ package app.epistola.suite.support
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.TokenSupportConnectionCheckScheduler
 import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
@@ -87,7 +88,7 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         post(path, mapOf("requests.choice" to "SHARE", "agree" to "true"))
 
         assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id, id).query() }.inForce).isTrue()
-        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id).query() }.inForce).`as`("not with Epistola").isFalse()
+        assertThat(withMediator { app.epistola.suite.support.requests.consent.GetSupportRequestSyncConsent(tenant.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.inForce).`as`("not with Epistola").isFalse()
     }
 
     @Test

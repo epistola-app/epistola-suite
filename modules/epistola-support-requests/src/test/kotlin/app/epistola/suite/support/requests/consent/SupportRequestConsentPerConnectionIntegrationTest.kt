@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.requests.RecordingSupportRequestSyncPort
@@ -58,7 +59,7 @@ class SupportRequestConsentPerConnectionIntegrationTest : IntegrationTestBase() 
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    private val epistola = SupportConnections.DISCOVERED_ID
+    private val epistola get() = withMediator { EnsureConfiguredSupportConnection().execute() }
     private val author = UserKey.of("00000000-0000-0000-0000-c0e5e1700001")
 
     private val partner: UUID get() = registry.tokenConnections().single { it.endpoint.toString() == PARTNER }.id

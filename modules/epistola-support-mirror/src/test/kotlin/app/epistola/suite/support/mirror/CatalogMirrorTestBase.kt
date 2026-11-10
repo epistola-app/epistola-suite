@@ -25,6 +25,7 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
@@ -86,10 +87,10 @@ abstract class CatalogMirrorTestBase : IntegrationTestBase() {
     }
 
     protected fun optIn(tenant: TenantKey, shareByDefault: Boolean) = withMediator {
-        OptInCatalogMirror(tenant, shareByDefault, CatalogMirror.CONSENT_VERSION).execute()
+        OptInCatalogMirror(tenant, shareByDefault, CatalogMirror.CONSENT_VERSION, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
     }
 
-    protected fun policy(catalog: CatalogId, policy: CatalogMirrorPolicy) = withMediator { SetCatalogMirrorPolicy(catalog, policy).execute() }
+    protected fun policy(catalog: CatalogId, policy: CatalogMirrorPolicy) = withMediator { SetCatalogMirrorPolicy(catalog, policy, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
 
     /**
      * Opts in sharing every catalog but the system catalog, which is marked never to be shared: for
@@ -105,12 +106,12 @@ abstract class CatalogMirrorTestBase : IntegrationTestBase() {
         val all = mutableListOf<MirrorBinding>()
         var cursor: MirrorBindingCursor? = null
         do {
-            val page = ListMirrorBindings(tenant, cursor, pageSize).query()
+            val page = ListMirrorBindings(tenant, cursor, pageSize, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query()
             all += page.bindings
             cursor = page.next
         } while (cursor != null)
         all
     }
 
-    protected fun settings(tenant: TenantKey): CatalogMirrorSettings = withMediator { GetCatalogMirrorSettings(tenant, limit = GetCatalogMirrorSettings.MAX_LIMIT).query() }
+    protected fun settings(tenant: TenantKey): CatalogMirrorSettings = withMediator { GetCatalogMirrorSettings(tenant, limit = GetCatalogMirrorSettings.MAX_LIMIT, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }
 }

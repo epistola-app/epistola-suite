@@ -6,6 +6,7 @@ package app.epistola.suite.support.connection
 
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -52,7 +53,7 @@ class RegisteringSupportConnectionIntegrationTest : IntegrationTestBase() {
         assertThat((connection.status().state as SupportConnectionState.Active).clientId).isEqualTo(pending.clientId)
         assertThat(connection.hasScope(SupportScope.REQUESTS)).isTrue()
         assertThat(connection.accessToken()).isNotBlank()
-        assertThat(registry.find(SupportConnections.DISCOVERED_ID)!!.status().state).`as`("Epistola support's connection is untouched").isEqualTo(SupportConnectionState.Unregistered)
+        assertThat(registry.find(withMediator { EnsureConfiguredSupportConnection().execute() })!!.status().state).`as`("Epistola support's connection is untouched").isEqualTo(SupportConnectionState.Unregistered)
 
         withMediator { DisconnectSupportConnection(connectionId = id).execute() }
         assertThat(connection.status().state).isInstanceOf(SupportConnectionState.Disconnected::class.java)

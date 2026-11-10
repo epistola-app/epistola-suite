@@ -6,8 +6,9 @@
 
 - **Breaking: `support.hub.*` is removed; the support connection takes `support.endpoint`.** From Epistola 2.0 the installation connects to the Epistola support service
   over HTTPS with OAuth client credentials instead of the gRPC hub. `support.endpoint` is the
-  service's URL and renders `EPISTOLA_SUPPORT_ENDPOINT`; leave it empty to find the service through
-  `productDomain`. `EPISTOLA_SUPPORT_HUB_ENDPOINT` is no longer rendered, and the schema refuses `support.hub`, so a values file that still sets it fails
+  service's URL and renders `EPISTOLA_SUPPORT_ENDPOINT`; left empty, it is
+  `https://support.{productDomain}`. With `support.enabled` that connection is stored at startup when
+  it is not, also after an administrator removed it. `EPISTOLA_SUPPORT_HUB_ENDPOINT` is no longer rendered, and the schema refuses `support.hub`, so a values file that still sets it fails
   instead of being ignored: delete `support.hub.endpoint`, and set `support.endpoint` only if you
   used a self-hosted hub. The schema accepts only an `https:` URL there, since plaintext is a
   local-development setting the chart does not expose. After upgrading, an installation with
@@ -34,8 +35,8 @@
   `support.enabled`, so an installation can connect to its partner alone.
   Each entry may set `tenantIdentity` (`named`, `confidential`) and `telemetry` (`pseudonymised`,
   `full`); left out, the connection follows the installation's privacy settings. `escalatesTo`
-  (`epistola`, or another entry's endpoint) names the connection it escalates to when it asks the
-  installation to.
+  names the connection it escalates to when it asks the installation to, by its endpoint: another
+  entry's, or the one `support.endpoint` is set to.
 
 - **`support.usage.backlog`** sets how far back hours missed while the installation or the support
   service was down are still reported for billing once both are back, as a duration (renders

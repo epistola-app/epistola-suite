@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support.mirror
 
-import app.epistola.suite.support.connection.SupportConnections
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
@@ -85,13 +84,6 @@ enum class CatalogMirrorSharing(val label: String) {
         }
     }
 }
-
-/**
- * The connection the mirror's commands and queries act on when none is named: Epistola support's,
- * until every caller names one (ADR 0053 step 3i). The mirror is a service of every connection that
- * grants it; nothing in it is Epistola's alone.
- */
-val DEFAULT_MIRROR_CONNECTION: UUID get() = SupportConnections.DISCOVERED_ID
 
 /**
  * SQL predicate for the mirror's rows in `support_sharing_choice` and `support_sharing_default`, which

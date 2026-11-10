@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.requests.commands.AddSupportRequestAsset
 import app.epistola.suite.support.requests.commands.AddSupportRequestComment
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
@@ -40,6 +41,8 @@ import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SupportRequestIntegrationTest : IntegrationTestBase() {
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     // Feedback is authored by a dedicated user (feedback.created_by is mandatory
     // NOT NULL). Materialise it through the harness — same EnsureUser command
@@ -289,6 +292,7 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                     authorName = "GitHub User",
                     authorEmail = "github@example.com",
                     externalCommentId = "github-123",
+                    connectionId = withMediator { EnsureConfiguredSupportConnection().execute() },
                 ).execute()
 
                 assertThat(first).isNotNull
@@ -300,6 +304,7 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                     authorName = "GitHub User",
                     authorEmail = "github@example.com",
                     externalCommentId = "github-123",
+                    connectionId = withMediator { EnsureConfiguredSupportConnection().execute() },
                 ).execute()
 
                 assertThat(duplicate).isNull()
@@ -397,6 +402,12 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
         }
     }
 
+    /** The request's delivery row to [connection], read as the sync stored it. */
+    private fun delivery(id: SupportRequestId, connection: java.util.UUID): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> {
+        it.createQuery("SELECT state, remote_ref, remote_url, attempts FROM support_request_deliveries WHERE tenant_key = :t AND request_id = :r AND connection_id = :c")
+            .bind("t", id.tenantKey).bind("r", id.key.value).bind("c", connection).mapToMap().one()
+    }
+
     @Nested
     inner class SyncStatusTests {
         @Test
@@ -407,17 +418,20 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                 val fb = createTestSupportRequest(tenant)
                 val supportRequestId = SupportRequestId(fb.id, TenantId(tenant.id))
 
+                val connection = EnsureConfiguredSupportConnection().execute()
                 UpdateSupportRequestSyncRef(
                     id = supportRequestId,
                     externalRef = "42",
                     externalUrl = "https://github.com/test/repo/issues/42",
                     sentStatus = fb.status,
+                    connectionId = connection,
                 ).execute()
 
-                val synced = GetSupportRequest(supportRequestId).query()!!
-                assertThat(synced.syncStatus).isEqualTo(SyncStatus.SYNCED)
-                assertThat(synced.externalRef).isEqualTo("42")
-                assertThat(synced.externalUrl).isEqualTo("https://github.com/test/repo/issues/42")
+                // The request's delivery to that connection; the request view shows its handler's, and the inbox handles this one.
+                val delivery = delivery(supportRequestId, connection)
+                assertThat(delivery["state"]).isEqualTo(SyncStatus.SYNCED.name)
+                assertThat(delivery["remote_ref"]).isEqualTo("42")
+                assertThat(delivery["remote_url"]).isEqualTo("https://github.com/test/repo/issues/42")
             }
         }
 
@@ -429,14 +443,15 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                 val fb = createTestSupportRequest(tenant)
                 val supportRequestId = SupportRequestId(fb.id, TenantId(tenant.id))
 
+                val connection = EnsureConfiguredSupportConnection().execute()
                 UpdateSupportRequestSyncStatus(
                     id = supportRequestId,
                     syncStatus = SyncStatus.PENDING,
                     incrementAttempts = true,
+                    connectionId = connection,
                 ).execute()
 
-                val updated = GetSupportRequest(supportRequestId).query()!!
-                assertThat(updated.syncAttempts).isEqualTo(1)
+                assertThat(delivery(supportRequestId, connection)["attempts"]).isEqualTo(1)
             }
         }
 
@@ -454,10 +469,11 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
                         id = supportRequestId,
                         syncStatus = SyncStatus.PENDING,
                         incrementAttempts = true,
+                        connectionId = withMediator { EnsureConfiguredSupportConnection().execute() },
                     ).execute()
                 }
 
-                val pending = ListPendingSyncSupportRequest(limit = 50).query()
+                val pending = ListPendingSyncSupportRequest(limit = 50, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query()
                 assertThat(pending.none { it.id == fb.id }).isTrue()
             }
         }
@@ -472,9 +488,9 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
 
                 val fb = createTestSupportRequest(tenant)
                 val supportRequestId = SupportRequestId(fb.id, TenantId(tenant.id))
-                UpdateSupportRequestSyncRef(id = supportRequestId, externalRef = "99", externalUrl = "https://github.com/o/r/issues/99", sentStatus = fb.status).execute()
+                UpdateSupportRequestSyncRef(id = supportRequestId, externalRef = "99", externalUrl = "https://github.com/o/r/issues/99", sentStatus = fb.status, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute()
 
-                val found = GetSupportRequestByExternalRef(tenant.id, "99").query()
+                val found = GetSupportRequestByExternalRef(tenant.id, "99", connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query()
                 assertThat(found).isNotNull
                 assertThat(found!!.key).isEqualTo(fb.id)
             }
@@ -485,7 +501,7 @@ class SupportRequestIntegrationTest : IntegrationTestBase() {
             withMediator {
                 val tenant = createTenant("Unknown ExtRef")
 
-                val found = GetSupportRequestByExternalRef(tenant.id, "nonexistent").query()
+                val found = GetSupportRequestByExternalRef(tenant.id, "nonexistent", connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query()
                 assertThat(found).isNull()
             }
         }

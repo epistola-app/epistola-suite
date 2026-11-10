@@ -97,10 +97,10 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
         val release = CountDownLatch(1)
         val holder = CompletableFuture.runAsync {
             jdbi.useHandle<Exception> { handle ->
-                handle.createQuery("SELECT pg_advisory_lock(:key)").bind("key", SupportConnectionStore.LOCK_KEY).mapTo(String::class.java).one()
+                handle.createQuery("SELECT pg_advisory_lock(:key)").bind("key", store.lockKey()).mapTo(String::class.java).one()
                 locked.countDown()
                 release.await(6, TimeUnit.SECONDS)
-                handle.createQuery("SELECT pg_advisory_unlock(:key)").bind("key", SupportConnectionStore.LOCK_KEY).mapTo(Boolean::class.java).one()
+                handle.createQuery("SELECT pg_advisory_unlock(:key)").bind("key", store.lockKey()).mapTo(Boolean::class.java).one()
             }
         }
         locked.await(5, TimeUnit.SECONDS)

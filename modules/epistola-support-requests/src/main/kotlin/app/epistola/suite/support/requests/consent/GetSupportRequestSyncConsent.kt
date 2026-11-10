@@ -20,7 +20,7 @@ import java.util.UUID
 /** The tenant's consent to send feedback to Epistola support, for its settings page. */
 data class GetSupportRequestSyncConsent(
     override val tenantKey: TenantKey,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Query<SupportRequestSyncConsent>,
     RequiresPermission {
     override val permission get() = Permission.INTEGRATIONS_MANAGE
@@ -39,7 +39,7 @@ class GetSupportRequestSyncConsentHandler(
  */
 data class IsSupportRequestSyncConsentInForce(
     val tenantKey: TenantKey,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Query<Boolean>,
     SystemInternal
 
@@ -56,7 +56,7 @@ class IsSupportRequestSyncConsentInForceHandler(
  */
 data class IsSupportRequestExchangedUnderConsent(
     val id: SupportRequestId,
-    val connectionId: UUID = SupportConnections.DISCOVERED_ID,
+    val connectionId: UUID,
 ) : Query<Boolean>,
     SystemInternal
 

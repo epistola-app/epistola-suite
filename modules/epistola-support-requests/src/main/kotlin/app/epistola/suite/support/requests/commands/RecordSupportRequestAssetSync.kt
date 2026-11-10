@@ -8,8 +8,6 @@ import app.epistola.suite.common.ids.SupportRequestAssetId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import app.epistola.suite.time.EpistolaClock
@@ -22,7 +20,7 @@ import java.util.UUID
 data class MarkSupportRequestAssetSynced(
     val id: SupportRequestAssetId,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 
@@ -58,7 +56,7 @@ data class RecordSupportRequestAssetSyncFailure(
     val nextAttemptAt: java.time.OffsetDateTime? = null,
     val countAttempt: Boolean = true,
     /** The connection it was sent to; Epistola support's by default. */
-    val connectionId: UUID = REQUESTS_CONNECTION,
+    val connectionId: UUID,
 ) : Command<Boolean>,
     SystemInternal
 

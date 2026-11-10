@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
@@ -99,7 +101,7 @@ class CatalogMirrorRulesTest {
             offset = 0,
             limit = 50,
             canChangeSharing = canChange,
-            canWithhold = true,
+            canWithhold = true, connectionId = java.util.UUID.fromString("01900000-0000-7000-8000-000000000001"),
         )
         val sharing = CatalogMirrorConsent(true, CatalogMirror.CONSENT_VERSION, OffsetDateTime.parse("2026-11-06T10:00:00Z"), "Jane", null, null)
 
@@ -129,7 +131,7 @@ class CatalogMirrorRulesTest {
             releases = 1,
             lastSyncedAt = null,
         )
-        val base = CatalogMirrorSettings(TenantKey.of("acme"), CatalogMirrorAvailability.AVAILABLE, null, null, listOf(entry), 1, 0, 50, canChangeSharing = false, canWithhold = true)
+        val base = CatalogMirrorSettings(TenantKey.of("acme"), CatalogMirrorAvailability.AVAILABLE, null, null, listOf(entry), 1, 0, 50, canChangeSharing = false, canWithhold = true, connectionId = java.util.UUID.fromString("01900000-0000-7000-8000-000000000001"))
 
         assertThat(base.policyOptions(entry)).containsExactly(CatalogMirrorPolicy.NEVER)
         assertThat(base.canSetPolicy(entry)).isFalse()

@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.support.connection.DefaultSupportConnection
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportBackgroundWork
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportScope
@@ -104,7 +105,7 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
         support.clearFaults()
         support.start()
         work.awaitIdle()
-        withMediator { tenants.forEach { WithdrawSupportRequestSyncConsent(it.id).execute() } }
+        withMediator { tenants.forEach { WithdrawSupportRequestSyncConsent(it.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }
         tenants.clear()
     }
 
@@ -166,7 +167,7 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
 
     private fun sharingTenant(name: String): Tenant = createTenant(name).also {
         tenants += it
-        withMediator { GrantSupportRequestSyncConsent(it.id).execute() }
+        withMediator { GrantSupportRequestSyncConsent(it.id, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
     }
 
     /** Feedback already at the service, so replies to it can be applied. */

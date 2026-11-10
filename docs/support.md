@@ -38,10 +38,16 @@ support:
     environment: production
   services: [telemetry, requests, usage] # the first selection; Platform → Epistola support wins once saved
   autoRegister: false # true: register on its own instead of waiting for an administrator
-  endpoint: "" # empty: found through product discovery
+  endpoint: "" # empty: https://support.{product-domain}
 ```
 
 The page is **Platform → Epistola support** (`/platform/support`), for installation administrators.
+
+Epistola support is a support connection like any other (ADR 0053), named by its endpoint. With
+`support.enabled` the installation stores it at startup when it is not stored, at the first start and
+again after an administrator removed it; one that exists is left as it is. Changing `support.endpoint`
+stores a connection at the new endpoint beside the old one, which an administrator removes. Its privacy
+is the installation's (below) until an administrator saves settings of its own for it.
 
 ## Applying for support
 

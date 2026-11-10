@@ -5,6 +5,7 @@
 package app.epistola.suite.support.privacy
 
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.TokenSupportConnection
@@ -44,7 +45,7 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
     fun forget() {
         // Saved privacy is no command's to forget: each test starts from the configuration.
         jdbi.useHandle<Exception> {
-            it.createUpdate("UPDATE support_connections SET privacy = NULL WHERE endpoint IN (:a, :b)").bind("a", HOSTING).bind("b", ADVISING).execute()
+            it.createUpdate("UPDATE support_connections SET privacy = NULL").execute()
         }
         withMediator { SetSupportPrivacy(TenantIdentity.CONFIDENTIAL, TelemetryDetail.PSEUDONYMISED).execute() }
         privacy.refresh()
@@ -70,7 +71,7 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
         privacy.refresh()
         assertThat(privacy.forConnection(hosting).fromConfiguration).isTrue()
         assertThat(references.onWire("acme", hosting)).`as`("named in its configuration").isEqualTo("acme")
-        assertThat(references.onWire("acme", SupportConnections.DISCOVERED_ID)).`as`("Epistola support stays confidential").isEqualTo(references.reference("acme"))
+        assertThat(references.onWire("acme", withMediator { EnsureConfiguredSupportConnection().execute() })).`as`("Epistola support stays confidential").isEqualTo(references.reference("acme"))
 
         val saved = withMediator { SetSupportConnectionPrivacy(hosting, TenantIdentity.CONFIDENTIAL, TelemetryDetail.FULL).execute() }
 
@@ -82,9 +83,16 @@ class SupportConnectionPrivacyIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `Epistola support's privacy is the installation's, set where it always was`() {
-        assertThatThrownBy { withMediator { SetSupportConnectionPrivacy(SupportConnections.DISCOVERED_ID, TenantIdentity.NAMED, TelemetryDetail.FULL).execute() } }
-            .isInstanceOf(IllegalArgumentException::class.java)
+    fun `Epistola support's connection follows the installation's privacy until an administrator saves its own, as any connection`() {
+        val epistola = withMediator { EnsureConfiguredSupportConnection().execute() }
+        privacy.refresh()
+        assertThat(privacy.forConnection(epistola).followsInstallation).isTrue()
+        assertThat(references.onWire("acme", epistola)).isEqualTo(references.reference("acme"))
+
+        withMediator { SetSupportConnectionPrivacy(epistola, TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
+
+        assertThat(references.onWire("acme", epistola)).isEqualTo("acme")
+        assertThat(privacy.current().tenantIdentity).`as`("the installation's are unchanged").isEqualTo(TenantIdentity.CONFIDENTIAL)
     }
 
     @Test
