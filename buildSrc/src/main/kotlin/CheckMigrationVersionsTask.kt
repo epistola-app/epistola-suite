@@ -73,28 +73,48 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 ),
             "modules/epistola-support/src/main/resources/db/migration/support/V20261108192223__support_connections.sql" to
                 ReviewedModification(
-                    sha256 = "f662af8c8c31bc2281cf2c3067957a5ab3430215cc17e39b342f20920589c785",
+                    sha256 = "f6afab32b0263872bb3b23ae5d98ab9eab36bedeb0d7a4496de93ecf74709736",
                     reason =
                         "Unreleased when edited. The support connections table grew with ADR 0053 step 3 " +
                             "(partner connections: the configured endpoint, privacy per connection, connections " +
                             "added in the UI) and step 3i (no fixed connection and no source column: every connection is named by " +
-                            "its endpoint) before any release shipped it.",
-                ),
-            "modules/epistola-support/src/main/resources/db/migration/support/V20261108202810__support_sharing.sql" to
-                ReviewedModification(
-                    sha256 = "74dd4ac2b14deb77b31e6df950659a3f3dd8d38db57a696123a578ec67c2e5df",
-                    reason =
-                        "Unreleased when edited. Dropped support_sharing_choice.grant_id: with ADR 0053 step 3i " +
-                            "every connection reads one ledger, and nothing reads a grant's id, before any release shipped it.",
+                            "its endpoint) before any release shipped it. " +
+                            "Then combined with the sharing, usage and handle-new-requests migrations, without a CHECK on auth, before any release shipped them.",
                 ),
             "modules/epistola-support-requests/src/main/resources/db/migration/support-requests/V20261108213145__support_requests.sql" to
                 ReviewedModification(
-                    sha256 = "392841258852b496151166380f649c23f64ef1fa2bafcffb65c934f3bb07d64e",
+                    sha256 = "a6c8c4438b7d9127fff4b29092dee3343e5536e526404b3f83b39fd230e1a0d7",
                     reason =
                         "Unreleased when edited. Dropped the sync_consent_id columns: with ADR 0053 step 3i Epistola " +
                             "support's connection reads the same ledger as every other; and a message keeps the name of the connection " +
-                            "it came from (from_connection_name), before any release shipped it.",
+                            "it came from (from_connection_name), before any release shipped it. " +
+                            "Then the support desk migration folded in, without a CHECK on kind, and an index for what is unsent, before any release shipped them.",
                 ),
+            "modules/epistola-support-mirror/src/main/resources/db/migration/support-mirror/V20261108205504__support_mirror_catalog_mirror.sql" to
+                ReviewedModification(
+                    sha256 = "3d05520526ead34ee09956a71ae5474d186f468522b9330c81c88e17864833c7",
+                    reason =
+                        "Unreleased when edited. support_mirror_catalog_policies.set_by references users as every other " +
+                            "*_by column does, and a comment names the migration that holds the sharing tables, before any release shipped it.",
+                ),
+        )
+
+    /**
+     * A merged migration someone deliberately deleted, because its content was folded into another
+     * merged one before any release shipped either (combining a module's migrations while it is still
+     * unreleased). An installation that ran it fails Flyway's validation, so only disposable development
+     * databases may have; [reason] says where the content went.
+     */
+    private val reviewedDeletions =
+        mapOf(
+            "modules/epistola-support/src/main/resources/db/migration/support/V20261108202810__support_sharing.sql" to
+                "Unreleased; folded into V20261108192223__support_connections.sql (ADR 0053 step 3i).",
+            "modules/epistola-support/src/main/resources/db/migration/support/V20261108202811__support_usage.sql" to
+                "Unreleased; folded into V20261108192223__support_connections.sql (ADR 0053 step 3i).",
+            "modules/epistola-support/src/main/resources/db/migration/support/V20261108215634__support_connections_handle_new_requests.sql" to
+                "Unreleased; folded into V20261108192223__support_connections.sql (ADR 0053 step 3i).",
+            "modules/epistola-support-requests/src/main/resources/db/migration/support-requests/V20261108215636__support_requests_desk.sql" to
+                "Unreleased; folded into V20261108213145__support_requests.sql (ADR 0053 step 3i).",
         )
 
     @TaskAction
@@ -190,6 +210,8 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                     logger.lifecycle("Runtime migration that never reached main was rewritten: $line")
                 status == 'M' && oldIsMigration ->
                     failures += "Merged runtime migration was modified: $oldPath"
+                status == 'D' && oldIsMigration && oldPath in reviewedDeletions ->
+                    logger.lifecycle("Merged runtime migration was deleted as reviewed: $oldPath (${reviewedDeletions.getValue(requireNotNull(oldPath))})")
                 status == 'D' && oldIsMigration ->
                     failures += "Merged runtime migration was deleted: $oldPath"
                 status == 'R' && newPath in movedMigrationPaths ->
