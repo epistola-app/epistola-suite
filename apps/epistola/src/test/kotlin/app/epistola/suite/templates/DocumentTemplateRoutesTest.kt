@@ -1760,6 +1760,46 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         @Test
+        fun `POST preview tells the author which expression is refused for what it would cost`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val condition = "\$pad('x', 500)"
+                val body = """
+                    {"data": {}, "templateModel": {
+                      "modelVersion": 1, "root": "root",
+                      "nodes": {
+                        "root": {"id": "root", "type": "root", "slots": ["s"]},
+                        "c": {"id": "c", "type": "conditional", "slots": [], "props": {"condition": {"raw": "$condition"}}}
+                      },
+                      "slots": {"s": {"id": "s", "nodeId": "root", "name": "children", "children": ["c"]}}
+                    }}
+                """.trimIndent()
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/${template.id}/variants/$variantId/preview",
+                    HttpEntity(body, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.body).contains("errors").contains("\$pad('x', 500)").contains("100")
+            }
+        }
+
+        @Test
         fun `POST preview returns 400 with structured errors when data type is wrong`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate

@@ -62,8 +62,10 @@ data class PreviewVariant(
     val catalogKey: CatalogKey get() = catalog.key
 
     // Previewing content is reviewing it: the caller brings the data and nothing is stored, so whoever
-    // may view the template may preview it. Generating documents is a separate duty.
-    override val permission get() = Permission.TEMPLATE_VIEW
+    // may view the template may preview it. Generating documents is a separate duty. A live model is
+    // the caller's own content, expressions and all, run inside the suite: that is editing the
+    // template, so it needs permission to edit it.
+    override val permission get() = if (templateModel != null) Permission.TEMPLATE_EDIT else Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId
 }
 
