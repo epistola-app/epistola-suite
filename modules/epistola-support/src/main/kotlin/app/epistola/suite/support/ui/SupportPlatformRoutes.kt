@@ -27,6 +27,7 @@ import app.epistola.suite.support.connection.SupportConnectionPreset
 import app.epistola.suite.support.connection.SupportConnectionPresetUnavailableException
 import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportConnectionStatus
+import app.epistola.suite.support.connection.SupportConnectionStillRegisteredException
 import app.epistola.suite.support.connection.SupportConnections
 import app.epistola.suite.support.connection.SupportDisconnectOutcome
 import app.epistola.suite.support.connection.SupportRegistrationNotAllowedException
@@ -337,7 +338,11 @@ class SupportPlatformHandler(
     /** Removes a connection, any one. */
     fun removeConnection(request: ServerRequest): ServerResponse {
         val id = runCatching { UUID.fromString(request.pathVariable("connectionId")) }.getOrNull() ?: return ServerResponse.badRequest().build()
-        RemoveSupportConnection(id).execute()
+        try {
+            RemoveSupportConnection(id).execute()
+        } catch (_: SupportConnectionStillRegisteredException) {
+            return redirect("/platform/support/connections/$id")
+        }
         return redirect("/platform/support#support-connections")
     }
 

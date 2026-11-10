@@ -89,10 +89,11 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 ),
             "modules/epistola-support-requests/src/main/resources/db/migration/support-requests/V20261108213145__support_requests.sql" to
                 ReviewedModification(
-                    sha256 = "261dd3eb05633b85b93e771a3d5f79edf66fdeba6775e8cb69016816d00cf224",
+                    sha256 = "392841258852b496151166380f649c23f64ef1fa2bafcffb65c934f3bb07d64e",
                     reason =
                         "Unreleased when edited. Dropped the sync_consent_id columns: with ADR 0053 step 3i Epistola " +
-                            "support's connection reads the same ledger as every other, before any release shipped it.",
+                            "support's connection reads the same ledger as every other; and a message keeps the name of the connection " +
+                            "it came from (from_connection_name), before any release shipped it.",
                 ),
         )
 

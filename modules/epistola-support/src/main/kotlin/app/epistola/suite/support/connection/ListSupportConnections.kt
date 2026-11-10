@@ -54,6 +54,9 @@ data class SupportConnectionListing(
 ) {
     /** It registers with the installation's own key: its registration is on a page of its own. */
     val registers: Boolean get() = auth == SupportConnectionAuth.PRIVATE_KEY_JWT
+
+    /** It can be removed now: not while it is registered with the installation's own key, which a disconnect ends first. */
+    val canRemove: Boolean get() = !(registers && state in setOf("Pending", "Active", "Refused"))
 }
 
 /** The installation's support connections, oldest first. No network I/O. */

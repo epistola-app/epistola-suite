@@ -62,6 +62,9 @@ CREATE TABLE support_request_messages (
     body            TEXT        NOT NULL,
     -- NULL: written here. Otherwise the connection it came from, with that connection's id for it.
     from_connection UUID        REFERENCES support_connections (id) ON DELETE SET NULL,
+    -- The name of the connection it came from when it arrived: kept once that connection is removed,
+    -- so it never reads as written here. NULL: written here.
+    from_connection_name TEXT,
     remote_id       TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, request_id, id),

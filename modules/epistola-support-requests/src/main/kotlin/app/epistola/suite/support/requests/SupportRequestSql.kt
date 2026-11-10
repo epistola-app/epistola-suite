@@ -38,7 +38,7 @@ internal val SELECT_SUPPORT_REQUEST = selectSupportRequest()
  */
 internal fun selectSupportRequestReply(connection: String = REPLY_HANDLER_CONNECTION_SQL): String = """
     SELECT c.tenant_key, c.request_id, c.id, c.body, c.author_name, c.author_email, c.author_id,
-           CASE WHEN c.from_connection IS NULL THEN 'LOCAL' ELSE 'EXTERNAL' END AS source,
+           CASE WHEN c.from_connection IS NULL AND c.from_connection_name IS NULL THEN 'LOCAL' ELSE 'EXTERNAL' END AS source,
            COALESCE(c.remote_id, dm.remote_id) AS external_comment_id, c.created_at,
            COALESCE(dm.attempts, 0) AS sync_attempts
     FROM support_request_messages c

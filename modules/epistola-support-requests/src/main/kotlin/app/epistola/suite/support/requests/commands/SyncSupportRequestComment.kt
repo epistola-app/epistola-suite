@@ -42,10 +42,11 @@ class SyncSupportRequestCommentHandler(
         val inserted = handle.createUpdate(
             """
             INSERT INTO support_request_messages (
-                tenant_key, request_id, id, kind, body, author_name, author_email, from_connection, remote_id, created_at
+                tenant_key, request_id, id, kind, body, author_name, author_email, from_connection, from_connection_name, remote_id, created_at
             )
             VALUES (
-                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, ${connectionSql(command.connectionId)}, :externalCommentId, NOW()
+                :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail, ${connectionSql(command.connectionId)},
+                (SELECT name FROM support_connections WHERE id = ${connectionSql(command.connectionId)}), :externalCommentId, NOW()
             )
             ON CONFLICT (tenant_key, from_connection, remote_id) WHERE remote_id IS NOT NULL DO NOTHING
             """,

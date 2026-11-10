@@ -255,7 +255,7 @@ class GetSupportInboxRequestHandler(
             .one()
         val messages = handle.createQuery(
             """
-            SELECT m.id, m.kind, m.author_name, m.body, sc.name AS from_connection_name, m.created_at
+            SELECT m.id, m.kind, m.author_name, m.body, COALESCE(sc.name, m.from_connection_name || ' (removed)') AS from_connection_name, m.created_at
             FROM support_request_messages m
             LEFT JOIN support_connections sc ON sc.id = m.from_connection
             WHERE m.tenant_key = :tenant AND m.request_id = :id AND m.kind IN ('REPLY', 'NOTE')
