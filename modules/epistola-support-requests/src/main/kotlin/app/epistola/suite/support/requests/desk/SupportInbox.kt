@@ -20,7 +20,6 @@ import app.epistola.suite.support.requests.SupportRequestCategory
 import app.epistola.suite.support.requests.SupportRequestPriority
 import app.epistola.suite.support.requests.SupportRequestStatus
 import app.epistola.suite.support.requests.SyncStatus
-import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.connectionSql
 import app.epistola.suite.support.requests.consent.consentInForce
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPorts
@@ -240,8 +239,7 @@ class GetSupportInboxRequestHandler(
             .orElse(null) ?: return@withHandleUnchecked null
         val facts = handle.createQuery(
             """
-            SELECT t.name AS tenant_name, u.display_name AS created_by_name, sc.name AS handler_name,
-                   f.sync_consent_id IS NOT NULL AS submitted_under_grant, ${consentInForce("f.tenant_key")} AS sharing_now
+            SELECT t.name AS tenant_name, u.display_name AS created_by_name, sc.name AS handler_name
             FROM support_requests f
             JOIN tenants t ON t.id = f.tenant_key
             LEFT JOIN users u ON u.id = f.created_by
@@ -252,7 +250,7 @@ class GetSupportInboxRequestHandler(
             .bind("tenant", query.tenant)
             .bind("id", query.request.value)
             .map { rs, _ ->
-                RequestFacts(rs.getString("tenant_name"), rs.getString("created_by_name"), rs.getString("handler_name"), rs.getBoolean("submitted_under_grant"), rs.getBoolean("sharing_now"))
+                RequestFacts(rs.getString("tenant_name"), rs.getString("created_by_name"), rs.getString("handler_name"))
             }
             .one()
         val messages = handle.createQuery(
@@ -283,20 +281,14 @@ class GetSupportInboxRequestHandler(
             .map { rs, _ -> SupportDeskAsset(SupportRequestAssetKey.of(rs.getObject("id", UUID::class.java)), rs.getString("filename")) }
             .list()
         val targets = choices(handle, port).map { SupportEscalationTarget(it.connectionId, it.name) }
-        // Who it can go to now: Epistola support's connection when it was submitted while shared and is
-        // shared now, as before; another connection while the tenant shares with it (ADR 0053 step 3).
+        // Who it can go to now: a connection the tenant shares support requests with (ADR 0053 §4).
         val eligible = targets.filter { target ->
-            if (target.connectionId == REQUESTS_CONNECTION) {
-                facts.submittedUnderGrant && facts.sharingNow
-            } else {
-                handle.createQuery("SELECT ${consentInForce(":tenant", connectionSql(target.connectionId))}").bind("tenant", query.tenant).mapTo(Boolean::class.java).one()
-            }
+            handle.createQuery("SELECT ${consentInForce(":tenant", connectionSql(target.connectionId))}").bind("tenant", query.tenant).mapTo(Boolean::class.java).one()
         }
         val blocked = when {
             !request.handledHere -> null
             targets.isEmpty() -> "No support connection takes support requests now: connect to Epistola support on the platform's Epistola support page."
             eligible.isNotEmpty() -> null
-            targets.none { it.connectionId != REQUESTS_CONNECTION } && !facts.submittedUnderGrant -> "${facts.tenantName} did not share support requests when this one was submitted, so it stays in this installation."
             else -> "${facts.tenantName} does not share support requests now; its tenant administrator can change that on its Support page."
         }
         val attached = handle.createQuery(
@@ -327,7 +319,7 @@ class GetSupportInboxRequestHandler(
         )
     }
 
-    private class RequestFacts(val tenantName: String, val createdByName: String?, val handlerName: String?, val submittedUnderGrant: Boolean, val sharingNow: Boolean)
+    private class RequestFacts(val tenantName: String, val createdByName: String?, val handlerName: String?)
 }
 
 /** A screenshot's bytes for the support desk; null when it does not exist. */

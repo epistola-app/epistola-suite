@@ -79,6 +79,20 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                             "(partner connections: the configured endpoint, privacy per connection, connections " +
                             "added in the UI) before any release shipped it.",
                 ),
+            "modules/epistola-support/src/main/resources/db/migration/support/V20261108202810__support_sharing.sql" to
+                ReviewedModification(
+                    sha256 = "74dd4ac2b14deb77b31e6df950659a3f3dd8d38db57a696123a578ec67c2e5df",
+                    reason =
+                        "Unreleased when edited. Dropped support_sharing_choice.grant_id: with ADR 0053 step 3i " +
+                            "every connection reads one ledger, and nothing reads a grant's id, before any release shipped it.",
+                ),
+            "modules/epistola-support-requests/src/main/resources/db/migration/support-requests/V20261108213145__support_requests.sql" to
+                ReviewedModification(
+                    sha256 = "261dd3eb05633b85b93e771a3d5f79edf66fdeba6775e8cb69016816d00cf224",
+                    reason =
+                        "Unreleased when edited. Dropped the sync_consent_id columns: with ADR 0053 step 3i Epistola " +
+                            "support's connection reads the same ledger as every other, before any release shipped it.",
+                ),
         )
 
     @TaskAction

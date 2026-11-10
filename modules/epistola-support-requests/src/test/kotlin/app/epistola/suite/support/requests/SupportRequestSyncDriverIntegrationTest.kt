@@ -601,30 +601,6 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `support request the retired hub synced before any consent is not exchanged once consent is given`() {
-        val tenant = createTenant("Driver HubEra")
-        val supportRequest = createSupportRequest(tenant)
-        val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
-        // As the 1.x hub left it: synced, with the hub's id, and a comment it never sent.
-        withMediator {
-            UpdateSupportRequestSyncRef(supportRequestId, "hub-ticket-17", "https://hub.example/17", supportRequest.status).execute()
-            AddSupportRequestComment(SupportRequestCommentId(SupportRequestCommentKey.generate(), supportRequestId), "never sent to the hub", "Alice", "alice@example.com").execute()
-        }
-
-        consent(tenant)
-        retryScheduler.retryPendingSync()
-        withMediator {
-            AddSupportRequestComment(SupportRequestCommentId(SupportRequestCommentKey.generate(), supportRequestId), "after consent", "Alice", null).execute()
-            UpdateSupportRequestStatus(supportRequestId, SupportRequestStatus.CLOSED).execute()
-        }
-        addScreenshot(supportRequest)
-
-        assertThat(recording.addedComments.filter { it.first.id == supportRequest.id }).isEmpty()
-        assertThat(recording.statusUpdates.filter { it.first.id == supportRequest.id }).isEmpty()
-        assertThat(recording.uploadedAssets.filter { it.supportRequest.id == supportRequest.id }).isEmpty()
-    }
-
-    @Test
     fun `a comment the service refuses backs off, is kept locally, and is tried again later`() {
         val tenant = createTenant("Driver CommentRetry")
         val supportRequest = createSyncedSupportRequest(tenant)
@@ -897,34 +873,6 @@ class SupportRequestSyncDriverIntegrationTest : IntegrationTestBase() {
         assertThat(withdrawal.stoppedSupportRequest).isEqualTo(1)
         assertThat(recording.createdTickets.map { it.id }).doesNotContain(failed.id)
         assertThat(withMediator { GetSupportRequest(failedId).query()!! }.syncStatus).isEqualTo(SyncStatus.NOT_CONFIGURED)
-    }
-
-    @Test
-    fun `support request that read FAILED before any consent is not sent once consent is given`() {
-        // As an installation upgraded from the hub may hold it: refused five times, under no grant.
-        val tenant = createTenant("Driver HubFailed")
-        val supportRequest = createSupportRequest(tenant)
-        val supportRequestId = SupportRequestId(supportRequest.id, TenantId(tenant.id))
-        withMediator { UpdateSupportRequestSyncStatus(supportRequestId, SyncStatus.FAILED).execute() }
-
-        consent(tenant)
-        retryScheduler.retryPendingSync()
-
-        assertThat(recording.createdTickets.map { it.id }).doesNotContain(supportRequest.id)
-        assertThat(withMediator { ListPendingSyncSupportRequest(limit = 10_000).query() }.map { it.id }).doesNotContain(supportRequest.id)
-    }
-
-    @Test
-    fun `withdrawing does not count support request that read FAILED before any consent as stopped`() {
-        // As an installation upgraded from the hub may hold it: refused five times, under no grant.
-        val tenant = createTenant("Driver HubFailedWithdraw")
-        val supportRequest = createSupportRequest(tenant)
-        withMediator { UpdateSupportRequestSyncStatus(SupportRequestId(supportRequest.id, TenantId(tenant.id)), SyncStatus.FAILED).execute() }
-        consent(tenant)
-
-        val withdrawal = withMediator { WithdrawSupportRequestSyncConsent(tenant.id).execute() }
-
-        assertThat(withdrawal.stoppedSupportRequest).`as`("never waiting to be sent").isZero()
     }
 
     @Test

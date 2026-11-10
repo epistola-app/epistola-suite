@@ -13,7 +13,6 @@ import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
-import app.epistola.suite.support.requests.consent.exchangedUnderLockedConsent
 import app.epistola.suite.support.requests.consent.exchangedWithLocked
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked

@@ -294,8 +294,10 @@ can open requests through the same protocol.
        partner running the support service can register too;
      - **telemetry and the catalog mirror**: services, sent to every connection that grants them,
        each with its own privacy checks, as requests and usage already are;
-     - **what may be sent**: one ledger (`support_request_delivered_items`) for every connection;
-       Epistola's per-item grant (`sync_consent_id`) goes;
+     - **what may be sent** (built): one ledger (`support_request_delivered_items`) for every
+       connection; Epistola's per-item grant (`sync_consent_id`, and `support_sharing_choice.grant_id`)
+       is gone. A request the desk hands to Epistola support's connection later takes its history,
+       as with any connection, where before it went only when submitted while shared;
      - **escalation**: `escalates_to` names a connection; the configuration keyword `epistola` goes;
      - **the platform page**: one list of connections.
 

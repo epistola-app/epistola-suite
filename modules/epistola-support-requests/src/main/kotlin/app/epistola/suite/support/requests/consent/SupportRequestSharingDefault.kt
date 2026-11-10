@@ -159,7 +159,7 @@ private fun shareForFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?
     val regiven = handle.createUpdate(
         """
         UPDATE support_sharing_choice
-        SET grant_id = gen_random_uuid(), given_at = :now, given_by = (SELECT id FROM users WHERE id = :userId),
+        SET given_at = :now, given_by = (SELECT id FROM users WHERE id = :userId),
             withdrawn_at = NULL, withdrawn_by = NULL
         WHERE connection_id = ${connectionSql(connectionId)} AND section = '$REQUESTS_SECTION' AND follows_default AND withdrawn_at IS NOT NULL
         """,

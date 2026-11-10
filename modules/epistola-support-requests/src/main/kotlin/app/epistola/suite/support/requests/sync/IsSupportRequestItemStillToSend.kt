@@ -15,8 +15,6 @@ import app.epistola.suite.support.requests.SyncStatus
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION
 import app.epistola.suite.support.requests.consent.REQUESTS_CONNECTION_SQL
 import app.epistola.suite.support.requests.consent.connectionSql
-import app.epistola.suite.support.requests.consent.createdUnderConsent
-import app.epistola.suite.support.requests.consent.exchangedUnderConsent
 import app.epistola.suite.support.requests.consent.exchangedWith
 import app.epistola.suite.support.requests.consent.mayGoTo
 import org.jdbi.v3.core.Jdbi
@@ -80,7 +78,7 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                                    AND da.item_id = a.id AND da.connection_id = d.connection_id
                                WHERE a.tenant_key = :tenantKey AND a.request_id = :feedbackId AND a.id = :id
                                  AND da.sent_at IS NULL
-                                 AND ${mayGoTo("a", "da", "d")}
+                                 AND ${mayGoTo("da")}
                                  AND ${exchangedWith("f", "d")})
                 """,
             )
@@ -99,7 +97,7 @@ class IsSupportRequestItemStillToSendHandler(private val jdbi: Jdbi) : QueryHand
                                WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id
                                  AND c.kind = 'REPLY' AND c.from_connection IS DISTINCT FROM d.connection_id
                                  AND dm.remote_id IS NULL
-                                 AND ${mayGoTo("c", "dm", "d")}
+                                 AND ${mayGoTo("dm")}
                                  AND ${exchangedWith("f", "d")})
                 """,
             )

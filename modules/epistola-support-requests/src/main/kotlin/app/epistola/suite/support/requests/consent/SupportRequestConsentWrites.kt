@@ -19,7 +19,7 @@ import java.util.UUID
 internal object SupportRequestConsentWrites {
     /**
      * Gives [tenantKey]'s consent from [now], by [userId] (null when that user has no row), as its own
-     * choice or ([followsDefault]) by the installation default. A new grant (a new `grant_id`) only
+     * choice or ([followsDefault]) by the installation default. [now] and [userId] are recorded only
      * when it was not in force; either way the row records whose choice it is now.
      */
     fun grant(handle: Handle, tenantKey: TenantKey, userId: UUID?, now: OffsetDateTime, followsDefault: Boolean, connectionId: UUID = REQUESTS_CONNECTION) {
@@ -29,7 +29,6 @@ internal object SupportRequestConsentWrites {
             INSERT INTO support_sharing_choice (connection_id, section, tenant_key, given_at, given_by, follows_default)
             VALUES (:connectionId, '$REQUESTS_SECTION', :tenantKey, :now, (SELECT id FROM users WHERE id = :userId), :followsDefault)
             ON CONFLICT (connection_id, section, tenant_key) DO UPDATE SET
-                grant_id = CASE WHEN support_sharing_choice.withdrawn_at IS NULL THEN support_sharing_choice.grant_id ELSE gen_random_uuid() END,
                 given_at = CASE WHEN support_sharing_choice.withdrawn_at IS NULL THEN support_sharing_choice.given_at ELSE EXCLUDED.given_at END,
                 given_by = CASE WHEN support_sharing_choice.withdrawn_at IS NULL THEN support_sharing_choice.given_by ELSE EXCLUDED.given_by END,
                 withdrawn_at = NULL,
@@ -72,11 +71,10 @@ internal object SupportRequestConsentWrites {
     }
 
     /**
-     * Everything of [tenantKeys] still waiting to be sent stays here: feedback still
-     * [SyncStatus.PENDING] or [SyncStatus.FAILED] under a grant becomes [SyncStatus.NOT_CONFIGURED]
-     * (feedback that read FAILED under no grant, as the retired hub left it, was never waiting and is
-     * not counted), a status change not sent yet is no longer marked unsent, and comments and
-     * screenshots lose the grant they were written under, so a later grant does not send them either.
+     * Everything of [tenantKeys] still waiting to go to [connectionId] stays here: a request still
+     * [SyncStatus.PENDING] or [SyncStatus.FAILED] there becomes [SyncStatus.NOT_CONFIGURED], a status
+     * change not sent yet is no longer marked unsent, and messages and attachments still to go leave
+     * its ledger, so sharing again does not send them either ([SupportRequestLedger.forgetUnsent]).
      *
      * @return the feedback items that were waiting.
      */
@@ -87,11 +85,8 @@ internal object SupportRequestConsentWrites {
         // Waiting requests no longer go to the connection: their delivery goes, so they read NOT_CONFIGURED.
         val stopped = handle.createUpdate(
             """
-            DELETE FROM support_request_deliveries d
-            USING support_requests f
-            WHERE f.tenant_key = d.tenant_key AND f.id = d.request_id
-              AND d.connection_id = $connection AND d.tenant_key IN (<tenants>)
-              AND d.state IN (:pending, :failed) AND f.sync_consent_id IS NOT NULL
+            DELETE FROM support_request_deliveries
+            WHERE connection_id = $connection AND tenant_key IN (<tenants>) AND state IN (:pending, :failed)
             """,
         )
             .bindList("tenants", keys)
@@ -115,34 +110,8 @@ internal object SupportRequestConsentWrites {
         )
             .bindList("tenants", keys)
             .execute()
-        // Another connection reads its ledger, not an item's grant: what was still to go there stays
-        // here, and the grant Epistola support's connection reads is left as it is.
-        if (connectionId != REQUESTS_CONNECTION) {
-            SupportRequestLedger.forgetUnsent(handle, tenantKeys, connectionId)
-            return stopped
-        }
-        handle.createUpdate(
-            """
-            UPDATE support_request_messages c SET sync_consent_id = NULL
-            WHERE c.tenant_key IN (<tenants>) AND c.kind = 'REPLY' AND c.from_connection IS DISTINCT FROM $connection AND c.sync_consent_id IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM support_request_delivered_items dm
-                              WHERE dm.tenant_key = c.tenant_key AND dm.request_id = c.request_id AND dm.item_id = c.id
-                                AND dm.connection_id = $connection AND dm.remote_id IS NOT NULL)
-            """,
-        )
-            .bindList("tenants", keys)
-            .execute()
-        handle.createUpdate(
-            """
-            UPDATE support_request_assets a SET sync_consent_id = NULL
-            WHERE a.tenant_key IN (<tenants>) AND a.sync_consent_id IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM support_request_delivered_items da
-                              WHERE da.tenant_key = a.tenant_key AND da.request_id = a.request_id AND da.item_id = a.id
-                                AND da.connection_id = $connection AND da.sent_at IS NOT NULL)
-            """,
-        )
-            .bindList("tenants", keys)
-            .execute()
+        // What was still to go there stays here, also once the tenant shares again.
+        SupportRequestLedger.forgetUnsent(handle, tenantKeys, connectionId)
         return stopped
     }
 }

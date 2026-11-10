@@ -15,7 +15,6 @@ import app.epistola.suite.support.requests.CommentSource
 import app.epistola.suite.support.requests.SELECT_SUPPORT_REQUEST_REPLY
 import app.epistola.suite.support.requests.SupportRequestComment
 import app.epistola.suite.support.requests.consent.SupportRequestLedger
-import app.epistola.suite.support.requests.consent.lockedConsentInForceId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -47,11 +46,11 @@ class AddSupportRequestCommentHandler(
         handle.createUpdate(
             """
             INSERT INTO support_request_messages (
-                tenant_key, request_id, id, kind, body, author_name, author_email, author_id, created_at, sync_consent_id
+                tenant_key, request_id, id, kind, body, author_name, author_email, author_id, created_at
             )
             VALUES (
                 :tenantKey, :feedbackId, :id, 'REPLY', :body, :authorName, :authorEmail,
-                (SELECT id FROM users WHERE id = :authorId), NOW(), ${lockedConsentInForceId(":tenantKey")}
+                (SELECT id FROM users WHERE id = :authorId), NOW()
             )
             """,
         )
@@ -63,7 +62,7 @@ class AddSupportRequestCommentHandler(
             .bind("authorEmail", command.authorEmail)
             .bind("authorId", command.authorId?.value)
             .execute()
-        // It goes to every other connection the request is delivered to that the tenant shares with now.
+        // It goes to every connection the request is delivered to that the tenant shares with now.
         SupportRequestLedger.recordItem(handle, command.id.tenantKey, command.id.supportRequestKey.value, command.id.key.value)
         handle.createQuery("$SELECT_SUPPORT_REQUEST_REPLY WHERE c.tenant_key = :tenantKey AND c.request_id = :feedbackId AND c.id = :id")
             .bind("tenantKey", command.id.tenantKey)
