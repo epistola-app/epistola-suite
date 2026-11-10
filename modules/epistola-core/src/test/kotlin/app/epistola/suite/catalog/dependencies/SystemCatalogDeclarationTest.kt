@@ -15,7 +15,6 @@ import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListVisibleCatalogs
 import app.epistola.suite.catalog.queries.VisibleCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -28,22 +27,14 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * Every catalog can use the system catalog from the start: a new catalog declares it at its highest
- * release, the migration declares it on drafts from before, and what a version can use is its own
- * catalog and the catalogs it declares, each at the version its declaration names.
+ * release, and what a version can use is its own catalog and the catalogs it declares, each at the
+ * version its declaration names.
  */
 class SystemCatalogDeclarationTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
-    @Autowired
-    private lateinit var store: CatalogDependencyStore
 
     private val letters = CatalogKey.of("letters")
     private val shared = CatalogKey.of("shared")
@@ -135,42 +126,5 @@ class SystemCatalogDeclarationTest : IntegrationTestBase() {
         }
 
         assertThat(visible).containsExactly(testCatalog(tenant, letters), systemCatalog(tenant))
-    }
-
-    @Test
-    fun `the migration declares the system catalog on drafts without it, and leaves releases as they are`() {
-        val tenant = createTenant("system-migrated").id
-        withMediator {
-            CreateCatalog(tenant, letters, "Letters").execute()
-            CreateCatalog(tenant, shared, "Shared").execute()
-            // A catalog from before: it does not declare the system catalog, and was released so.
-            UpdateCatalogDependencies(testCatalog(tenant, letters), emptyList(), catalogVersion = null).execute()
-            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()
-            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", catalogVersion = null).execute()
-        }
-        assertThat(systemDeclarations(tenant, letters)).isEmpty()
-        val sharedBefore = declarations(tenant, shared)
-
-        // The statement is global, so it runs in a transaction that is rolled back, and what it did is
-        // read in that transaction: the other tests' tenants in this database are left as they were.
-        jdbi.useTransaction<Exception> { handle ->
-            val sql = javaClass.getResource(MIGRATION)!!.readText()
-            repeat(2) { handle.connection.createStatement().use { it.execute(sql) } }
-            fun declared(key: CatalogKey) = store.declarations(handle, ContentVersion.next(handle, testCatalog(tenant, key)))
-
-            val system = declared(letters).single { it.namespace == "epistola" && it.catalogKey == SYSTEM_CATALOG_KEY.value }
-            val catalog = withMediator { GetCatalog(systemCatalog(tenant)).query()!! }
-            assertThat(system.releaseVersion).isEqualTo(catalog.latestReleaseVersion)
-            assertThat(system.releaseFingerprint).isEqualTo(catalog.latestReleaseFingerprint)
-            assertThat(system.alias).isEqualTo(SYSTEM_CATALOG_KEY.value)
-            assertThat(declared(shared)).`as`("it declared the system catalog already, once").isEqualTo(sharedBefore)
-            assertThat(store.releasePins(handle, testCatalog(tenant, letters), "1.0.0")).`as`("a release is frozen").isEmpty()
-            assertThat(store.declarations(handle, ContentVersion.next(handle, systemCatalog(tenant)))).`as`("the system catalog declares nothing").isEmpty()
-            handle.rollback()
-        }
-    }
-
-    private companion object {
-        const val MIGRATION = "/db/migration/core/V20261110105832__core_declare_system_catalog.sql"
     }
 }

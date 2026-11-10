@@ -730,9 +730,9 @@ by pinning its highest release. A declaration already there is left as the autho
 **The system catalog is declared from the start.** A new catalog, and a tenant's default catalog,
 declares the system catalog at its highest release when it is created
 (`UsedCatalogDeclarer.declareSystemCatalog`), so its fonts, locales and themes are there to use
-before anything uses them. The author may remove that declaration while nothing uses it. Drafts from
-before this rule got the same declaration from the migration `V20261110105832`; releases were left
-as they are.
+before anything uses them. The author may remove that declaration while nothing uses it. A catalog
+created before this rule declares the system catalog once it uses something of it, or when its
+author declares it.
 
 **A picker offers what the version can use.** The template theme, variant attribute, editor font and
 catalog default-theme pickers list the catalog's own resources and those of each catalog it declares,
