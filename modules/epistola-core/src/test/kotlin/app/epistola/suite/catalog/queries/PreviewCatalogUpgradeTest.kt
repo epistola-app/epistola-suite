@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.BundledCatalogFingerprints
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -292,6 +293,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             // A template in another catalog pins the fixture's theme.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), defaultCatalogId)
             CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template", catalogVersion = null).execute()
+            declares(templateId.catalogId, testCatalog(templateId.tenantKey, depKey))
             UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(templateId.tenantKey, depKey), catalogVersion = null).execute()
 
             // Publisher removes that theme in the next release.

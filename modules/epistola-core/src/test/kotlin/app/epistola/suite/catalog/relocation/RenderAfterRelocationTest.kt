@@ -14,6 +14,7 @@ import app.epistola.suite.fonts.model.FontIntegrityException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.model.Node
+import app.epistola.suite.testing.declares
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -38,6 +39,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
     fun `a released document still renders after its theme's font family moves`() {
         val tenant = tenantWith("Render after font move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
+        withMediator { declares(catalogId(tenant, archive), catalogId(tenant, letters)) }
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, archive)), "Brand", documentStyles = fontStyle("acme", letters.value), catalogVersion = null).execute() }
         publishTemplate(tenant, archive, textModel(usesTheme("brand", archive.value).themeRef))
         releaseAll(tenant, catalogsOf(tenant))

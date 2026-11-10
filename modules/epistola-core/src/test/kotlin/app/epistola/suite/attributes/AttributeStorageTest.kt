@@ -33,6 +33,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.AttributeStorageConversion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.atNext
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
@@ -71,6 +72,7 @@ class AttributeStorageTest : IntegrationTestBase() {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, shared.key, "Shared").execute()
             CreateCodeList(CodeListId(CodeListKey.of("languages"), shared), "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
+            declares(letters, shared)
             val created = CreateAttributeDefinition(language, "Language", codeListId = CodeListId(CodeListKey.of("languages"), shared), catalogVersion = null).execute()
             assertThat(created).`as`("what a create returns is what a read gives").isEqualTo(GetAttributeDefinition(language, catalogVersion = null).query())
             assertThat(created.codeListId).isEqualTo(CodeListId(CodeListKey.of("languages"), shared))
@@ -125,6 +127,7 @@ class AttributeStorageTest : IntegrationTestBase() {
             CreateCatalog(tenant, shared.key, "Shared").execute()
             CreateCodeList(list, "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
             val version = mediator.releaseNext(shared)
+            declares(letters, shared)
             CreateAttributeDefinition(language, "Language", codeListId = list, catalogVersion = null).execute()
             // Letters uses shared's release, not its draft.
             val target = app.epistola.suite.catalog.queries.GetCatalog(shared).query()!!

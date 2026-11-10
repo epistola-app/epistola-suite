@@ -27,6 +27,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -44,6 +45,7 @@ class FindResourceUsagesTest : RelocationTestSupport() {
         withMediator {
             importFont(tenant, shared, "brandfont")
             CreateTheme(ThemeId(ThemeKey.of("corporate"), catalogId(tenant, shared)), "Corporate", catalogVersion = null).execute()
+            declares(catalogId(tenant, letters), catalogId(tenant, shared))
             CreateTheme(ThemeId(ThemeKey.of("plain"), catalogId(tenant, letters)), "Plain", documentStyles = fontStyle("brandfont", shared.value), catalogVersion = null).execute()
             CreateCodeList(CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared)), displayName = "Languages", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("nl", "Nederlands")), catalogVersion = null).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("lang"), catalogId(tenant, shared)), "Language", codeListId = CodeListId(CodeListKey.of("langs"), catalogId(tenant, shared)), catalogVersion = null).execute()

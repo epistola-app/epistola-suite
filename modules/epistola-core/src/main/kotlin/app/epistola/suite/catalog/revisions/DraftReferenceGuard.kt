@@ -15,9 +15,10 @@ import java.util.UUID
 
 /**
  * A write never leaves a version naming something it did not name before and cannot resolve: a
- * stencil nobody has, a catalog the tenant lacks, a pin on a release without the resource used. What
- * already dangled stays, so a draft upgraded from 1.x with such a reference can still be edited; only
- * releasing it refuses it.
+ * stencil nobody has, a catalog the tenant lacks, a pin on a release without the resource used. Nor
+ * one in a catalog the version does not declare: using another catalog is a deliberate step, its
+ * declaration first (contract ADR 0003), on every surface alike. What already dangled stays, so a
+ * draft upgraded from 1.x with such a reference can still be edited; only releasing it refuses it.
  *
  * Every writer of a version passes the freeze guard (`ContentVersions.writable`), which reports the
  * version here. Its first write in a transaction notes what of it is unresolved then; before the
@@ -30,8 +31,19 @@ object DraftReferenceGuard {
 
     private class Touched(val jdbi: Jdbi) : TransactionSynchronization {
         val before = LinkedHashMap<Version, Set<DraftResources.Unresolved>>()
+        val undeclaredBefore = LinkedHashMap<Version, Set<String>>()
 
         override fun beforeCommit(readOnly: Boolean) {
+            val undeclared = jdbi.withHandle<Set<String>, Exception> { handle ->
+                undeclaredBefore.flatMap { (version, was) -> DraftResources.undeclared(handle, version.tenantKey, version.versionId) - was }.toSortedSet()
+            }
+            if (undeclared.isNotEmpty()) {
+                throw ValidationException(
+                    "references",
+                    "This catalog does not depend on ${undeclared.joinToString(", ")}: declare ${if (undeclared.size == 1) "it" else "them"} as a dependency first, then use what ${if (undeclared.size == 1) "it has" else "they have"}.",
+                    ValidationCode.CATALOG_NOT_DECLARED,
+                )
+            }
             val added = jdbi.withHandle<Map<Version, Set<DraftResources.Unresolved>>, Exception> { handle ->
                 before.mapValues { (version, was) -> DraftResources.unresolved(handle, version.tenantKey, version.versionId) - was }
             }.values.flatten()
@@ -60,6 +72,9 @@ object DraftReferenceGuard {
                 TransactionSynchronizationManager.registerSynchronization(it)
             }
         val version = Version(tenantKey, versionId)
-        if (version !in touched.before) touched.before[version] = DraftResources.unresolved(handle, tenantKey, versionId)
+        if (version !in touched.before) {
+            touched.before[version] = DraftResources.unresolved(handle, tenantKey, versionId)
+            touched.undeclaredBefore[version] = DraftResources.undeclared(handle, tenantKey, versionId)
+        }
     }
 }

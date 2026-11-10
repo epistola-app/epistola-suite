@@ -87,6 +87,12 @@ enum class ValidationCode(val wire: String) {
     /** A write would make a version name a resource nothing it reads has (`DraftReferenceGuard`). */
     CATALOG_REFERENCE_UNRESOLVED("CATALOG_REFERENCE_UNRESOLVED"),
 
+    /**
+     * A write would make a version use a resource of a catalog it does not declare: declaring it is
+     * the step before using it (contract ADR 0003, `DraftReferenceGuard`).
+     */
+    CATALOG_NOT_DECLARED("CATALOG_NOT_DECLARED"),
+
     // Ready marks (contract ADR 0002).
     CATALOG_RESOURCES_NOT_READY("CATALOG_RESOURCES_NOT_READY"),
 

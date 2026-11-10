@@ -40,6 +40,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -109,6 +110,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val templateKey = TestIdHelpers.nextTemplateId()
                 val templateId = TemplateId(templateKey, catalogIdB)
                 CreateDocumentTemplate(id = templateId, name = "Dependent Template", catalogVersion = null).execute()
+                declares(templateId.catalogId, testCatalog(templateId.tenantKey, catalogKeyA))
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeKey,
@@ -138,6 +140,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             withMediator {
                 CreateStencil(StencilId(StencilKey.of("stencil-2"), catB), "Stencil 2", catalogVersion = null).execute()
                 CreateStencil(StencilId(StencilKey.of("stencil-1"), catA), "Stencil 1", catalogVersion = null).execute()
+                declares(catA, catB)
                 UpdateStencil(StencilId(StencilKey.of("stencil-1"), catA), content = buildTemplateModelWithStencil(StencilKey.of("stencil-2"), "cat-b"), catalogVersion = null).execute()
             }
 
@@ -155,6 +158,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             withMediator {
                 CreateStencil(StencilId(StencilKey.of("header"), shared), "Header", catalogVersion = null).execute()
                 CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute()
+                declares(letters, shared)
                 UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateModel = buildTemplateModelWithStencil(StencilKey.of("header"), "shared"), catalogVersion = null).execute()
             }
 
@@ -257,6 +261,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateTheme(theme, "Brand", catalogVersion = null).execute()
                 val template = TemplateId(TestIdHelpers.nextTemplateId(), letters)
                 CreateDocumentTemplate(template, "Branded Letter", catalogVersion = null).execute()
+                declares(letters, shared)
                 UpdateDocumentTemplate(template, themeId = theme.key, themeCatalog = shared, catalogVersion = null).execute()
             }
 

@@ -112,3 +112,23 @@ fun withoutSystemCatalog(catalog: CatalogId) {
         catalogVersion = null,
     ).execute()
 }
+
+/**
+ * Makes [catalog]'s next version depend on each of [dependencies], as a picker's "adds a dependency"
+ * or a client's declaration does before it uses one of their resources: a write using a catalog it
+ * does not declare is refused (`DraftReferenceGuard`). A dependency declared already is left as it
+ * is. Needs a mediator bound.
+ */
+fun declares(catalog: CatalogId, vararg dependencies: CatalogId) {
+    dependencies.filter { it != catalog }.forEach { app.epistola.suite.catalog.commands.DeclareCatalogDependency(catalog, it, catalogVersion = null).execute() }
+}
+
+/**
+ * [declares] for every catalog of the tenant [document] names (its stencils, images, theme and fonts
+ * by alias), for a setup that writes [document] into [catalog]: what an author declares before
+ * using those resources. An alias naming no catalog of the tenant is left undeclared.
+ */
+fun declaresUsed(catalog: CatalogId, document: app.epistola.suite.templates.model.TemplateDocument) {
+    val used = app.epistola.suite.catalog.DependencyScanner.crossCatalogRefs(document, catalog.key.value).map { it.catalogKey }.toSet()
+    used.mapNotNull { key -> FindCatalogsByKey(catalog.tenantKey, CatalogKey.of(key)).query().only }.forEach { declares(catalog, it) }
+}

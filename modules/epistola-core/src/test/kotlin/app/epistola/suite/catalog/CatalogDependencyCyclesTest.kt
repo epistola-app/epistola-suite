@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclareCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
@@ -54,8 +55,9 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
         tenant
     }
 
-    /** `user`'s letter takes `used`'s theme, which declares `used` on `user`'s draft [at]. */
+    /** `user`'s draft [at] declares `used`, the step before using it, and its letter takes `used`'s theme. */
     private fun useTheme(tenant: TenantKey, user: String, used: String, at: DraftRef = DraftRef.Next) = withMediator {
+        DeclareCatalogDependency(testCatalog(tenant, CatalogKey.of(user)), testCatalog(tenant, CatalogKey.of(used)), CatalogReleaseRef(testCatalog(tenant, CatalogKey.of(user)), at)).execute()
         UpdateDocumentTemplate(
             TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), CatalogKey.of(user))),
             themeId = ThemeKey.of("theme"),

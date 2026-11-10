@@ -303,6 +303,31 @@ object DraftResources {
     }
 
     /**
+     * The aliases [versionId]'s content uses that name a catalog of the tenant it does not declare:
+     * not its own catalog, no declaration under that alias, yet a catalog with that key exists (an
+     * alias naming none is [unresolved] instead). Using one is refused until it is declared
+     * ([DraftReferenceGuard]). A variant's references are its template's, as in [unresolved].
+     */
+    fun undeclared(handle: Handle, tenantKey: TenantKey, versionId: UUID): Set<String> = handle
+        .createQuery(
+            """
+            SELECT DISTINCT x.alias
+            FROM release_resources r
+            JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
+            JOIN catalog_versions ver ON ver.tenant_key = r.tenant_key AND ver.version_id = r.version_id
+            JOIN catalogs own ON own.tenant_key = ver.tenant_key AND own.catalog_id = ver.catalog_id
+            WHERE r.tenant_key = :t AND r.version_id = :v
+              AND x.alias IS NOT NULL AND x.alias <> own.catalog_key
+              AND NOT EXISTS (SELECT 1 FROM catalog_version_dependencies d WHERE d.tenant_key = ver.tenant_key AND d.version_id = ver.version_id AND d.alias = x.alias)
+              AND EXISTS (SELECT 1 FROM catalogs o WHERE o.tenant_key = ver.tenant_key AND o.catalog_key = x.alias)
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .mapTo(String::class.java)
+        .set()
+
+    /**
      * The references of [versionId]'s content that resolve to nothing: as the version renders them
      * ([app.epistola.suite.catalog.dependencies.DraftDependencyView]), its own catalog without an alias,
      * else the version its declaration names, the release it pins, or (pinning nothing, or undeclared)

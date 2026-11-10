@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.releases
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindVersion
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.ContentVersions
 import app.epistola.suite.catalog.releases.versionOf
@@ -25,6 +24,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -129,11 +129,6 @@ data class SetCatalogDefaultTheme(
     val catalog: CatalogId,
     val theme: CatalogDefaultTheme?,
     override val catalogVersion: CatalogReleaseRef?,
-    /**
-     * Whether a theme of a catalog not declared yet declares it. A merge writes the declarations it
-     * merged itself, and refuses a default theme they do not cover. Internal so no API can set it.
-     */
-    internal val declaresCatalog: Boolean = true,
 ) : Command<CatalogThemeSettings>,
     CatalogReleaseScoped,
     RequiresPermission {
@@ -145,13 +140,23 @@ data class SetCatalogDefaultTheme(
 @Component
 class SetCatalogDefaultThemeHandler(
     private val jdbi: Jdbi,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
 ) : CommandHandler<SetCatalogDefaultTheme, CatalogThemeSettings> {
     override fun handle(command: SetCatalogDefaultTheme): CatalogThemeSettings {
         requireCatalogEditable(command.catalog)
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.catalog, command) }
         jdbi.useHandle<Exception> { handle ->
+            // A theme of another catalog is a use of it: one the version does not declare is refused,
+            // as every reference to an undeclared catalog is (contract ADR 0003, DraftReferenceGuard).
+            command.theme?.catalog?.takeIf { it != command.catalog }?.let { other ->
+                if (dependencyStore.declarations(handle, at).none { it.catalogIn(command.tenantKey) == other }) {
+                    throw ValidationException(
+                        "defaultTheme",
+                        "This catalog does not depend on ${other.key.value}: declare it as a dependency first, then use what it has.",
+                        ValidationCode.CATALOG_NOT_DECLARED,
+                    )
+                }
+            }
             val resourceId = command.theme?.let { theme -> themeIdentity(handle, at, theme) }
             handle.writable(at)
             handle.createUpdate("UPDATE catalog_versions SET default_theme_resource_id = :theme WHERE tenant_key = :t AND version_id = :v")
@@ -160,8 +165,6 @@ class SetCatalogDefaultThemeHandler(
                 .bind("theme", resourceId)
                 .execute()
         }
-        // A theme of another catalog is a use of it, declared as any reference is.
-        if (command.declaresCatalog) command.theme?.catalog?.takeIf { it != command.catalog }?.let { usedCatalogs.declare(at, it) }
         return GetCatalogThemeSettings(command.catalog, command.catalogVersion).query()
     }
 

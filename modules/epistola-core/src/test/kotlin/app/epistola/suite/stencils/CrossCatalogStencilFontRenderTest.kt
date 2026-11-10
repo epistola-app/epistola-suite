@@ -24,6 +24,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
@@ -94,6 +95,7 @@ class CrossCatalogStencilFontRenderTest : IntegrationTestBase() {
             ).execute()
             mediator.releaseNext(parts)
             CreateDocumentTemplate(template, "Invoice", catalogVersion = null).execute()
+            declares(letters, parts)
             UpdateVariantContent(
                 variant,
                 document(Node(id = "header", type = "stencil", slots = listOf("header-slot"), props = mapOf("stencilKey" to "header", "catalogKey" to "parts"))),

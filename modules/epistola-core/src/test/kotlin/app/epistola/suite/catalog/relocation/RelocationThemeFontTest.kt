@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.queries.variants.GetVariantContent
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
@@ -63,6 +64,7 @@ class RelocationThemeFontTest : RelocationTestSupport() {
     }
 
     private fun createTheme(tenant: TenantKey, catalog: CatalogKey, fontCatalog: String?) = withMediator {
+        fontCatalog?.let { declares(catalogId(tenant, catalog), catalogId(tenant, CatalogKey.of(it))) }
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, catalog)), "Brand", documentStyles = fontStyle("acme", fontCatalog), catalogVersion = null).execute()
     }
 }

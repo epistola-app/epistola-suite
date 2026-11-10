@@ -52,6 +52,7 @@ import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.declares
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
@@ -116,6 +117,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     private fun invoiceOnSharedTheme(tenant: TenantKey) = withMediator {
         val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         CreateDocumentTemplate(templateId, "Invoice", catalogVersion = null).execute().withRequiredDataExample()
+        declares(templateId.catalogId, testCatalog(templateId.tenantKey, shared))
         UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared), catalogVersion = null).execute()
         val variant = VariantId(VariantKey.INITIAL, templateId)
         UpdateVariantContent(variant, plainModel(), catalogVersion = null).execute()

@@ -9,7 +9,6 @@ import app.epistola.suite.attributes.AttributeStore
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ContentVersion
@@ -81,14 +80,12 @@ data class CreateAttributeDefinition(
 class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val usedCatalogs: UsedCatalogDeclarer,
     private val attributes: AttributeStore,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
         // The code list's catalog is declared first: the binding names it by alias, and an alias means
         // only what a declaration says (ADR 0033), so the attribute saved reads its list at once.
         val at = jdbi.withHandle<ContentVersion, Exception> { it.versionOf(command.id.catalogId, command) }
-        usedCatalogs.declare(at, command.codeListId?.catalogId)
         return save(command, at)
     }
 
