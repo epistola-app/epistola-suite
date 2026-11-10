@@ -6,6 +6,7 @@ package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.ImageFields
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.UploadAsset
@@ -58,8 +59,9 @@ data class ImportAsset(
         // Column ceiling (#692): an image's name is at most 255 characters. Covers the re-import
         // path; the insert path additionally validates via UploadAsset.
         validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
-        // The re-import UPDATE path never reaches UploadAsset, so the SVG policy is checked here too.
+        // The re-import UPDATE path never reaches UploadAsset, so its content checks are made here too.
         SvgContentPolicy.requireSafe(mediaType, content)
+        ImagePixelPolicy.requireReasonable(mediaType, content)
     }
 
     override fun equals(other: Any?): Boolean {

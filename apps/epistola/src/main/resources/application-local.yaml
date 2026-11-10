@@ -194,6 +194,9 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:4002/realms/epistola
+          # Bearer tokens must be issued for Epistola (JwtAudiencePolicy); the dev realm's
+          # audience mapper puts the client id in `aud`.
+          audiences: epistola-suite
 
 epistola:
   auth:

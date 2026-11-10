@@ -75,6 +75,34 @@ Decided and closed:
 
 ## Touched
 
+### Four findings of the 2.0 security review (10 November; branch `fix/review-authz-authn-files`)
+
+- **Registry publish checks the namespace grant.** `PublishReleaseToRegistry` refuses a catalog
+  whose namespace the tenant does not hold (`CATALOG_NAMESPACE_NOT_HELD`), as releasing does, and
+  the release page withholds _Publish to registry_ and says why (`RegistryPublishOffer`). Tenants
+  keep adding domains themselves (ADR 0034's amendment stands): a domain namespace is a claim, not a
+  proof, and `docs/catalog-registry.md` says so. Installation-level domains for every tenant: #1377.
+- **Bearer tokens can be held to Epistola's `aud`.** `JwtAudiencePolicy` on both decoder paths
+  (backchannel and Spring Boot's). Optional, by the user's choice: without audiences only the issuer
+  is checked, as before, and the boot warns. Helm `oidc.audiences` (empty by default), the dev realm
+  has an audience mapper and the `keycloak` profile sets it; `docs/keycloak-setup.md` has the
+  steps. Not breaking.
+- **Image checks on every path that stores catalog images.** `ImportAsset` (re-import) applies the
+  pixel cap; a release recorded beside the installed one checks its images through the new
+  `ResourceType.requireAcceptable` hook (SVG and pixel policies), which keeps `CatalogBoundaryTest`.
+- **URL sources are bounded in all.** `OutboundBudget` caps the bytes and time of assembling one
+  release from a manifest URL (the expanded-archive limit, five minutes), and the fetcher gives up
+  on a response after 60 s, aborting the connection rather than draining it.
+
+**Coverage:** `CatalogRegistryIntegrationTest` (received catalog not published),
+`CatalogRegistryHandlerHtmxTest` (control withheld, reason shown), `ReceivedImageChecksTest`,
+`ImagePixelPolicyTest` (re-import), `OutboundHttpFetcherTest` (slow source, budget, deadline),
+`JwtAudiencePolicyTest`, `charts/epistola/tests/oidc-render.sh`. Each failed with its fix disabled.
+
+**Noticed, untouched:** closing an `OutboundHttpFetcher` response drains the body, so before this
+change the per-response size cap also waited for a slow source to finish; fixed by the abort.
+Code-list URL fetches get the per-response deadline but no budget (one response each).
+
 ### Applications own their keys and the documents they request (9 November; branch `feat/tenant-applications`, #749)
 
 ADR 0054, step 1 of three (step 2 machine OAuth, step 3 delegated OAuth for MCP). The user chose

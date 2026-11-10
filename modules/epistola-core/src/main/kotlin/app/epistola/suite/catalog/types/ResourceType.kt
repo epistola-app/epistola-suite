@@ -38,6 +38,13 @@ interface ResourceType<R : CatalogResource> {
     fun receive(at: ContentVersion, resource: R, arrival: Arrival): InstallStatus
 
     /**
+     * Refuses [resource] when the bytes it carries ([binaries], by archive path) are not safe to keep,
+     * as [receive] would. For a release recorded beside the others (ADR 0032), whose content is
+     * stored as published without passing through [receive]. Nothing to check by default.
+     */
+    fun requireAcceptable(resource: R, binaries: (String) -> ByteArray?) {}
+
+    /**
      * Marks [key] of the version [catalog]'s messages target ready through this type's own checks
      * (a template's or a stencil's command), and returns true; false for a type with no checks of its
      * own, whose ready mark the catalog sets itself.
@@ -128,6 +135,11 @@ class ResourceTypes(types: List<ResourceType<*>>) {
 
     /** [type]'s [ResourceType.receive] of [resource], which is of that type. */
     fun <R : CatalogResource> receive(type: ResourceType<R>, at: ContentVersion, resource: CatalogResource, arrival: Arrival): InstallStatus = type.receive(at, type.wireClass.cast(resource), arrival)
+
+    /** [ResourceType.requireAcceptable] of [resource], by its type. */
+    fun requireAcceptable(resource: CatalogResource, binaries: (String) -> ByteArray?) = acceptable(of(resource), resource, binaries)
+
+    private fun <R : CatalogResource> acceptable(type: ResourceType<R>, resource: CatalogResource, binaries: (String) -> ByteArray?) = type.requireAcceptable(type.wireClass.cast(resource), binaries)
 
     /** What changing [old] into [new] means, as their type says; empty when they are of different types. */
     fun changes(old: CatalogResource, new: CatalogResource): List<ResourceChange> {

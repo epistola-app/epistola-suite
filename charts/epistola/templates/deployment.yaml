@@ -152,6 +152,10 @@ spec:
               value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
               value: {{ .Values.oidc.issuerUri | quote }}
+            {{- if .Values.oidc.audiences }}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES
+              value: {{ join "," .Values.oidc.audiences | quote }}
+            {{- end }}
             {{- if .Values.oidc.userNameAttribute }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_{{ $reg }}_USERNAMEATTRIBUTE
               value: {{ .Values.oidc.userNameAttribute | quote }}

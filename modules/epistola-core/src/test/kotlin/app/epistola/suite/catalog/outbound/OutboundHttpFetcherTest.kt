@@ -15,6 +15,7 @@ import org.springframework.web.client.HttpClientErrorException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.UnknownHostException
+import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -53,12 +54,13 @@ class OutboundHttpFetcherTest {
         allowPrivate: Boolean = true,
         resolver: HostResolver = HostResolver.SYSTEM,
         maxBytes: Long = 1024 * 1024,
+        responseTimeout: Duration = Duration.ofSeconds(60),
     ): OutboundSourceReader {
         val guard = OutboundUrlGuard(
             CatalogSourceProperties(allowHttp = true, outbound = CatalogSourceProperties.Outbound(allowPrivateNetworks = allowPrivate)),
             resolver,
         )
-        return OutboundSourceReader(guard, OutboundHttpFetcher(guard), DefaultResourceLoader(), maxBytes)
+        return OutboundSourceReader(guard, OutboundHttpFetcher(guard, responseTimeout = responseTimeout), DefaultResourceLoader(), maxBytes)
     }
 
     @Test
@@ -151,6 +153,67 @@ class OutboundHttpFetcherTest {
         assertThatThrownBy { reader(maxBytes = 1024).readSource("http://127.0.0.1:$chunked/catalog.json", emptyMap(), allowHttp = true) }
             .isInstanceOf(OutboundFetchException::class.java)
             .hasMessageContaining("limit")
+    }
+
+    @Test
+    fun `a source answering a byte at a time is given up on once the response takes too long`() {
+        // Each byte arrives well within the read timeout, so only a limit on the whole response ends
+        // it. A raw socket, so nothing between the test and the client buffers the bytes.
+        val socket = java.net.ServerSocket(0, 0, InetAddress.getLoopbackAddress())
+        val dripping = Thread.ofVirtual().start {
+            runCatching {
+                socket.accept().use { connection ->
+                    connection.getInputStream().read(ByteArray(8192))
+                    val out = connection.getOutputStream()
+                    out.write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n".toByteArray())
+                    out.flush()
+                    repeat(100) {
+                        out.write('a'.code)
+                        out.flush()
+                        Thread.sleep(100)
+                    }
+                }
+            }
+        }
+
+        try {
+            val started = System.nanoTime()
+            assertThatThrownBy { reader(responseTimeout = Duration.ofSeconds(1)).readSource("http://127.0.0.1:${socket.localPort}/catalog.json", emptyMap(), allowHttp = true) }
+                .isInstanceOf(OutboundFetchException::class.java)
+                .hasMessageContaining("too long")
+            assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(3))
+        } finally {
+            socket.close()
+            dripping.interrupt()
+        }
+    }
+
+    @Test
+    fun `reads made within one budget stop once it is spent`() {
+        val port = server { it.respond(200, ByteArray(600) { 'a'.code.toByte() }) }
+        val reader = reader()
+
+        OutboundBudget.within(1000, Duration.ofMinutes(1)) {
+            assertThat(reader.readSource("http://127.0.0.1:$port/one.json", emptyMap(), allowHttp = true)).hasSize(600)
+            assertThatThrownBy { reader.readSource("http://127.0.0.1:$port/two.json", emptyMap(), allowHttp = true) }
+                .isInstanceOf(OutboundFetchException::class.java)
+                .hasMessageContaining("in all")
+        }
+        // Outside it, each response is held to its own cap only.
+        assertThat(reader.readSource("http://127.0.0.1:$port/three.json", emptyMap(), allowHttp = true)).hasSize(600)
+    }
+
+    @Test
+    fun `no read starts once a budget's time is up`() {
+        val port = server { it.respond(200, ByteArray(10)) }
+        val reader = reader()
+
+        OutboundBudget.within(1000, Duration.ZERO) {
+            assertThatThrownBy { reader.readSource("http://127.0.0.1:$port/one.json", emptyMap(), allowHttp = true) }
+                .isInstanceOf(OutboundFetchException::class.java)
+                .hasMessageContaining("longer than it may")
+        }
+        assertThat(requests).isEmpty()
     }
 
     @Test

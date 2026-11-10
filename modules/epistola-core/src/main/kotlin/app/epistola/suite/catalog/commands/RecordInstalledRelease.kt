@@ -129,6 +129,7 @@ class RecordInstalledReleaseHandler(
     private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
     private val receivedReleases: ReceivedReleases,
     private val metrics: CatalogMetrics,
+    private val types: app.epistola.suite.catalog.types.ResourceTypes,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -202,6 +203,11 @@ class RecordInstalledReleaseHandler(
         // bundled ones included (ADR 0033).
         // Else what the install put in place: the catalog's next version.
         val content = command.published ?: contentBuilder.build(jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, command.catalog) })
+        // Content as published is stored as it is, without passing through each type's receive: its
+        // bytes are checked here as receiving them would be (an image's SVG and pixel policies).
+        command.published?.let { published ->
+            published.resourceDetails.values.forEach { detail -> types.requireAcceptable(detail.resource) { path -> published.assetContents[path] } }
+        }
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent

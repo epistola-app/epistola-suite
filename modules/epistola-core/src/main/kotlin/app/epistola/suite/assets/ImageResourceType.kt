@@ -38,4 +38,12 @@ class ImageResourceType : ResourceType<ImageResource> {
             metadata = resource.metadata.orEmpty(),
         ).execute()
     }
+
+    /** The checks an upload makes: an SVG inert and self-contained, a raster image of a size a render can decode. */
+    override fun requireAcceptable(resource: ImageResource, binaries: (String) -> ByteArray?) {
+        val content = binaries(resource.contentPath()) ?: return
+        val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
+        SvgContentPolicy.requireSafe(mediaType, content)
+        ImagePixelPolicy.requireReasonable(mediaType, content)
+    }
 }

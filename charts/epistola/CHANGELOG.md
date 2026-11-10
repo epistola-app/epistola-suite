@@ -29,6 +29,12 @@
 
 ### Added
 
+- **`oidc.audiences`: hold bearer tokens to Epistola's audience.** Renders
+  `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES` when set; a JWT on the REST API is then
+  accepted only when its `aud` claim names one of them. Empty (the default) checks the issuer only,
+  as before, and the application warns at startup. Recommended whenever the identity provider's
+  realm serves other applications; Keycloak needs an audience mapper (docs/keycloak-setup.md).
+
 - **`support.connections`** declares further support connections besides Epistola support, such as
   a partner's (ADR 0053): `name`, `endpoint` (https), `services` and `tokenSecret` (a Secret holding
   the token that party issued). Rendered as `EPISTOLA_SUPPORT_CONNECTIONS_<n>_*`, independent of

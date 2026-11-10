@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.publishedContent
+import app.epistola.suite.catalog.outbound.OutboundBudget
 import app.epistola.suite.catalog.releases.ReleaseProvenance
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -91,6 +92,7 @@ class CatalogReleaseSources(private val sources: List<CatalogReleaseSource>) {
 class ManifestUrlReleaseSource(
     private val client: CatalogClient,
     private val archiveBuilder: CatalogArchiveBuilder,
+    private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
 ) : CatalogReleaseSource {
     override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl != null
 
@@ -107,8 +109,14 @@ class ManifestUrlReleaseSource(
 
     private fun build(catalog: Catalog, version: String): ByteArray = released(catalog, version).let { (content, release) -> archiveBuilder.build(content, release) }
 
-    /** Release [version] as its source describes it: its content, fetched, and its release record. */
-    private fun released(catalog: Catalog, version: String): Pair<app.epistola.suite.catalog.CatalogContent, app.epistola.catalog.protocol.ReleaseInfo> = fetch {
+    /**
+     * Release [version] as its source describes it: its content, fetched, and its release record.
+     * Every file it names is read within one [OutboundBudget]: no more in all than the archive it is
+     * assembled into may expand to, and within [ASSEMBLY_TIMEOUT].
+     */
+    private fun released(catalog: Catalog, version: String): Pair<app.epistola.suite.catalog.CatalogContent, app.epistola.catalog.protocol.ReleaseInfo> = OutboundBudget.within(sizeLimits.maxDecompressedSize.toBytes(), ASSEMBLY_TIMEOUT) { assemble(catalog, version) }
+
+    private fun assemble(catalog: Catalog, version: String): Pair<app.epistola.suite.catalog.CatalogContent, app.epistola.catalog.protocol.ReleaseInfo> = fetch {
         val url = requireNotNull(catalog.sourceUrl)
         val auth = catalog.sourceAuthType
         val credential = catalog.sourceAuthCredential?.value
@@ -143,5 +151,10 @@ class ManifestUrlReleaseSource(
         throw CatalogSourceUnavailableException("The catalog's source answered with an error: ${e.message}", badGateway = true, cause = e)
     } catch (e: tools.jackson.core.JacksonException) {
         throw CatalogSourceUnavailableException("The catalog's source answered with something that is not a catalog: ${e.message}", badGateway = true, cause = e)
+    }
+
+    private companion object {
+        /** How long assembling one release from its source may take in all. */
+        val ASSEMBLY_TIMEOUT: java.time.Duration = java.time.Duration.ofMinutes(5)
     }
 }

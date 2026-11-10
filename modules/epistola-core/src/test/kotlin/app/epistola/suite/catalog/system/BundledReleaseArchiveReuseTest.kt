@@ -43,7 +43,7 @@ class BundledReleaseArchiveReuseTest : IntegrationTestBase() {
     @Test
     fun `two tenants receive the system catalog as one archive`() {
         // Built here rather than injected, so it is the source production runs.
-        val source = ManifestUrlReleaseSource(client, archiveBuilder)
+        val source = ManifestUrlReleaseSource(client, archiveBuilder, app.epistola.suite.catalog.CatalogSizeLimits())
         val first = systemCatalogOf(createTenant("Bundled A"))
         val second = systemCatalogOf(createTenant("Bundled B"))
 
@@ -55,7 +55,7 @@ class BundledReleaseArchiveReuseTest : IntegrationTestBase() {
 
     @Test
     fun `a bundled archive is read once, so its binaries are the same arrays for every tenant`() {
-        val source = ManifestUrlReleaseSource(client, archiveBuilder)
+        val source = ManifestUrlReleaseSource(client, archiveBuilder, app.epistola.suite.catalog.CatalogSizeLimits())
         val first = systemCatalogOf(createTenant("Bundled C"))
         val second = systemCatalogOf(createTenant("Bundled D"))
         val archive = source.archive(first, first.latestReleaseVersion!!)
@@ -70,7 +70,7 @@ class BundledReleaseArchiveReuseTest : IntegrationTestBase() {
 
     @Test
     fun `an archive that is not a bundled release is read anew every time`() {
-        val source = ManifestUrlReleaseSource(client, archiveBuilder)
+        val source = ManifestUrlReleaseSource(client, archiveBuilder, app.epistola.suite.catalog.CatalogSizeLimits())
         val catalog = systemCatalogOf(createTenant("Bundled E"))
         // A copy: the same content, as an uploaded archive arrives, in an array of its own.
         val uploaded = source.archive(catalog, catalog.latestReleaseVersion!!).copyOf()

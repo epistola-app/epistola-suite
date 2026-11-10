@@ -98,8 +98,12 @@ class CatalogReleaseActionsHandler {
             "draftBar" to bar
             "liveIn" to bar.liveIn[version].orEmpty()
             "keywords" to release.catalog.keywords.sorted()
-            // Alpha: only when a registry is configured and the reader may publish.
-            "registryPublishAvailable" to CatalogRegistryHandler.canPublish(tenantId.key, app.epistola.suite.catalog.registry.ListReleaseRegistries(tenantId.key).query())
+            // Alpha: only when a registry is configured, the reader may publish, and the tenant holds the namespace.
+            "registryPublish" to CatalogRegistryHandler.publishOffer(
+                tenantId.key,
+                app.epistola.suite.catalog.registry.ListReleaseRegistries(tenantId.key).query(),
+                app.epistola.suite.catalog.namespaces.GetCatalogNamespaceHolding(catalog).query(),
+            )
         }
     }
 

@@ -60,6 +60,9 @@ class SecurityConfig(
     private val authProperties: AuthProperties,
     private val embeddingProperties: EmbeddingProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
+    // Present whenever Spring's resource-server support is on the classpath; its audiences are
+    // required once bearer tokens are accepted (JwtAudiencePolicy).
+    private val resourceServerProperties: org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties? = null,
     private val meterRegistry: MeterRegistry,
     private val objectMapper: ObjectMapper,
     // Filters that run ahead of the API-key filter, contributed by whatever modules are on the
@@ -72,6 +75,8 @@ class SecurityConfig(
     private val postLoginTargetResolver: app.epistola.suite.security.PostLoginTargetResolver? = null,
 ) {
     private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler(postLoginTargetResolver)
+
+    private val log = org.slf4j.LoggerFactory.getLogger(SecurityConfig::class.java)
 
     /**
      * Check if OAuth2 is configured (has client registrations).
@@ -163,6 +168,10 @@ class SecurityConfig(
 
         // Add JWT resource server support when OAuth2/OIDC is configured
         if (jwtResourceServerEnabled) {
+            // Bearer tokens are held to an audience when one is configured (JwtAudiencePolicy); the
+            // decoder applies it, Spring Boot's from the same property and the backchannel one
+            // itself. Without one only the issuer is checked, as before, and the boot says so.
+            JwtAudiencePolicy.warnIfMissing(resourceServerProperties?.jwt?.audiences, log)
             http.oauth2ResourceServer { oauth2 ->
                 oauth2.jwt { jwt ->
                     jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)

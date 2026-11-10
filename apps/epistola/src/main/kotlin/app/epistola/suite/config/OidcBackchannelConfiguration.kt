@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties
+import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.SimpleClientHttpRequestFactory
@@ -17,7 +18,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
 import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.security.oauth2.jwt.JwtDecoder
-import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.web.client.RestClient
 import java.time.Duration
@@ -46,10 +46,11 @@ import java.time.Duration
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty("epistola.auth.oidc.backchannel-base-url")
-@EnableConfigurationProperties(OAuth2ClientProperties::class)
+@EnableConfigurationProperties(OAuth2ClientProperties::class, OAuth2ResourceServerProperties::class)
 class OidcBackchannelConfiguration(
     private val authProperties: AuthProperties,
     private val oauth2ClientProperties: OAuth2ClientProperties,
+    private val resourceServerProperties: OAuth2ResourceServerProperties,
 ) {
     private val log = LoggerFactory.getLogger(OidcBackchannelConfiguration::class.java)
 
@@ -126,10 +127,11 @@ class OidcBackchannelConfiguration(
         val metadata = fetchOidcMetadata(issuerUri, backchannelBaseUrl)
         val backchannelJwkUri = rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!
 
-        log.info("JWT decoder: fetching JWK from {}, validating issuer against {}", backchannelJwkUri, issuerUri)
+        val audiences = JwtAudiencePolicy.audiences(resourceServerProperties.jwt.audiences)
+        log.info("JWT decoder: fetching JWK from {}, validating issuer against {} and audience against {}", backchannelJwkUri, issuerUri, audiences.ifEmpty { "(none)" })
 
         return NimbusJwtDecoder.withJwkSetUri(backchannelJwkUri).build().apply {
-            setJwtValidator(JwtValidators.createDefaultWithIssuer(issuerUri))
+            setJwtValidator(JwtAudiencePolicy.validator(issuerUri, audiences))
         }
     }
 

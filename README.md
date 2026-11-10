@@ -183,6 +183,7 @@ export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET=<your-se
 export SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE=openid,profile,email
 export SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI=https://sso.example.com/realms/epistola
 export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/realms/epistola
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=epistola-suite # recommended: see docs/keycloak-setup.md
 ```
 
 See [docs/auth.md](docs/auth.md) for full details on OIDC setup, auto-provisioning, and safety guards.

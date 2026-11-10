@@ -128,6 +128,13 @@ oidc:
   # backchannelBaseUrl: http://authentik:9000  # only for split-horizon networking
 ```
 
+Set `oidc.audiences: [<authentik-client-id>]` (recommended when other applications use the same
+authentik): a bearer token on the REST API is then accepted only when its `aud` names Epistola, and
+authentik puts the provider's client id in `aud`, so this provider's tokens pass as they are. A
+system calling the API with a token from another authentik provider names a different audience: add
+that provider's client id to `oidc.audiences`. Without it only the issuer is checked and the
+startup log warns.
+
 `autoProvision` defaults to `true`, so a user's local record is created on first login.
 Epistola uses the OIDC `name` claim as the signed-in user's display label and
 refreshes it together with `email` on every login. The stable account link remains
@@ -144,6 +151,7 @@ SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_AUTHENTIK_CLIENTSECRET=<client-secret
 SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_AUTHENTIK_SCOPE=openid,profile,email,epistola-roles
 SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_AUTHENTIK_ISSUERURI=https://sso.example.com/application/o/epistola/
 SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI=https://sso.example.com/application/o/epistola/
+SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=<client-id> # recommended
 EPISTOLA_AUTH_AUTOPROVISION=true
 EPISTOLA_AUTH_OIDC_SSOBUTTONLABEL=Sign in with authentik
 ```
