@@ -23,9 +23,10 @@
           data-testid="support-connection-add">
         <div th:replace="~{epistola-web/form-error :: form-error(id='add-connection-error')}"></div>
         <div class="ep-dialog-body ep-stack">
+            <div class="alert alert-error" role="alert" th:if="${addError != null}" data-testid="support-connection-add-error" th:text="${addError}">The token is required.</div>
             <div class="form-group">
                 <label class="ep-label" for="support-add-domain">Look up a domain</label>
-                <div class="ep-row ep-gap-2">
+                <div class="ep-row ep-gap-1">
                     <input class="ep-input" id="support-add-domain" type="text" name="domain" maxlength="253" placeholder="partner.example"
                            th:value="${addForm != null ? addForm.get('domain') : ''}">
                     <button type="button" class="ep-btn ep-btn-outline" data-testid="support-connection-lookup-submit"
@@ -47,8 +48,8 @@
             <div class="form-group" role="radiogroup" aria-labelledby="support-add-auth-label" data-testid="support-connection-add-auth"
                  th:with="auth=${addForm != null and addForm.get('auth') == 'PRIVATE_KEY_JWT'} ? 'PRIVATE_KEY_JWT' : 'BEARER_TOKEN'">
                 <span class="ep-label" id="support-add-auth-label">How this installation signs in</span>
-                <label class="ep-row ep-gap-2"><input type="radio" name="auth" value="BEARER_TOKEN" th:checked="${auth == 'BEARER_TOKEN'}"> With a token the other side issued</label>
-                <label class="ep-row ep-gap-2"><input type="radio" name="auth" value="PRIVATE_KEY_JWT" th:checked="${auth == 'PRIVATE_KEY_JWT'}"> By registering with this installation's own key</label>
+                <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="BEARER_TOKEN" th:checked="${auth == 'BEARER_TOKEN'}"> With a token the other side issued</label>
+                <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="PRIVATE_KEY_JWT" th:checked="${auth == 'PRIVATE_KEY_JWT'}"> By registering with this installation's own key</label>
             </div>
             <div class="form-group">
                 <label class="ep-label" for="support-add-token">Token</label>
@@ -58,7 +59,7 @@
             <div class="form-group" role="group" aria-labelledby="support-add-services-label">
                 <span class="ep-label" id="support-add-services-label">Services to use</span>
                 <div class="ep-row ep-row-wrap ep-gap-4">
-                    <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-2"><input type="checkbox" name="services" th:value="${sv}"
+                    <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}"
                            th:checked="${(pre != null and #lists.contains(pre.services, sv)) or (addServices != null and #lists.contains(addServices, sv))}"> <span th:text="${sv}">requests</span></label>
                 </div>
             </div>

@@ -114,13 +114,6 @@ data class TenantConnectionSharing(
     val ownChoice: Boolean get() = views.any { !it.followsPreset }
 }
 
-/** The installation's preset for one support connection other than Epistola support, for `/platform/support`. */
-data class ConnectionSharingPreset(
-    val connectionId: UUID,
-    val name: String,
-    val views: List<InstallationSharingView>,
-)
-
 /**
  * The setup wizard: an introduction, one step per [TenantSharingSection], and a review with the
  * agreement. The choices travel along as hidden fields; nothing is saved before "Finish setup".
@@ -188,10 +181,10 @@ class SupportSharingHandler(
         return TenantSharingOverview(tenantKey, tenantName, views, installationViews(epistola, restrictions), canManage = true)
     }
 
-    /** Every section's installation preset and restriction for the connection epistola.support.* configures, for `/platform/support`; empty while none is stored. */
-    fun installationViews(): List<InstallationSharingView> = connections.configuredId()?.let { installationViews(it, GetSharingRestrictions(it).query()) }.orEmpty()
+    /** Every section [connectionId] offers, with its installation preset and restriction: for that connection's page. */
+    fun installationViews(connectionId: UUID): List<InstallationSharingView> = installationViews(connectionId, GetSharingRestrictions(connectionId).query())
 
-    private fun installationViews(connectionId: UUID, restrictions: SharingRestrictionsResult): List<InstallationSharingView> = sections.map { it.installationView(connectionId).copy(restriction = restrictions.of(it.key)) }
+    private fun installationViews(connectionId: UUID, restrictions: SharingRestrictionsResult): List<InstallationSharingView> = sections.filter { it.offered(connectionId) }.map { it.installationView(connectionId).copy(restriction = restrictions.of(it.key)) }
 
     /** Every connection but the one epistola.support.* configures, which has panels of its own. */
     private fun otherConnections(): List<SupportConnection> = connections.configuredId().let { epistola -> registry.all().filter { it.id != epistola } }
@@ -214,13 +207,6 @@ class SupportSharingHandler(
             }
             views.takeIf { it.isNotEmpty() }?.let { TenantConnectionSharing(connection.id, nameOf(connection.id), it, canManage = true) }
         }
-    }
-
-    /** The installation's preset for each support connection other than Epistola support, for `/platform/support`. */
-    fun connectionPresets(): List<ConnectionSharingPreset> = otherConnections().mapNotNull { connection ->
-        val restrictions = GetSharingRestrictions(connection.id).query()
-        val views = sections.filter { it.offered(connection.id) }.map { it.installationView(connection.id).copy(restriction = restrictions.of(it.key)) }
-        views.takeIf { it.isNotEmpty() }?.let { ConnectionSharingPreset(connection.id, nameOf(connection.id), it) }
     }
 
     private fun nameOf(connectionId: UUID): String = connections.find(connectionId)?.name ?: connectionId.toString()
@@ -251,20 +237,6 @@ class SupportSharingHandler(
         val sharing = connectionSharing(tenantKey).firstOrNull { it.connectionId == connectionId } ?: return sharingPanel(request, null)
         sharing.views.forEach { it.section.followPreset(tenantKey, connectionId) }
         return sharingPanel(request, "This tenant uses the installation's setup for ${sharing.name} again.")
-    }
-
-    /** Saves the installation's preset for one support connection, as [saveInstallation] does for Epistola support. */
-    fun saveConnectionPreset(request: ServerRequest): ServerResponse {
-        requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
-        val connectionId = connectionIdOf(request) ?: return ServerResponse.badRequest().build()
-        if (otherConnections().none { it.id == connectionId }) return ServerResponse.notFound().build()
-        val form = request.params()
-        val offered = sections.filter { it.offered(connectionId) }
-        val chosen = offered.associate { it.key to form.field("${it.key}.default").orEmpty() }
-        val shares = offered.any { section -> chosen[section.key] == REQUIRED || section.choices.any { it.value == chosen[section.key] && it.shares } }
-        if (shares && form.field("agree") != "true") return redirect("/platform/support?presetError=$connectionId#support-connection-presets")
-        applyPreset(chosen, form, connectionId, offered)
-        return redirect("/platform/support#support-connection-presets")
     }
 
     /** Epistola support's connection is off: the panel shows the other connections alone. */
@@ -338,17 +310,21 @@ class SupportSharingHandler(
         return sharingPanel(request, "This tenant uses the installation's setup again.")
     }
 
-    /** The installation preset as a summary: what `/platform/support` shows, and where Cancel returns to. */
+    /** A connection's setup for every tenant as a summary: what its page shows, and where Cancel returns to. */
     fun installationPanel(request: ServerRequest): ServerResponse {
         requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
-        return defaultsPanel(request, editing = false)
+        val connectionId = knownConnection(request) ?: return ServerResponse.notFound().build()
+        return defaultsPanel(request, connectionId, editing = false)
     }
 
-    /** The installation preset as a form, with the current preset chosen. */
+    /** A connection's setup for every tenant as a form, with the current preset chosen. */
     fun editInstallation(request: ServerRequest): ServerResponse {
         requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
-        return defaultsPanel(request, editing = true)
+        val connectionId = knownConnection(request) ?: return ServerResponse.notFound().build()
+        return defaultsPanel(request, connectionId, editing = true)
     }
+
+    private fun knownConnection(request: ServerRequest): UUID? = connectionIdOf(request)?.takeIf { connections.find(it) != null }
 
     /**
      * Saves the installation preset; applied at once to every tenant without a choice of its own. A
@@ -357,19 +333,20 @@ class SupportSharingHandler(
      */
     fun saveInstallation(request: ServerRequest): ServerResponse {
         requirePlatformRole(PlatformRole.INSTALLATION_ADMINISTRATOR)
+        val connectionId = knownConnection(request) ?: return ServerResponse.notFound().build()
         val form = request.params()
-        val chosen = sections.associate { it.key to form.field("${it.key}.default").orEmpty() }
-        val shares = sections.any { section -> chosen[section.key] == REQUIRED || section.choices.any { it.value == chosen[section.key] && it.shares } }
+        val offered = sections.filter { it.offered(connectionId) }
+        val chosen = offered.associate { it.key to form.field("${it.key}.default").orEmpty() }
+        val shares = offered.any { section -> chosen[section.key] == REQUIRED || section.choices.any { it.value == chosen[section.key] && it.shares } }
         if (shares && form.field("agree") != "true") {
-            return defaultsPanel(request, editing = true, chosen = chosen, error = "To share anything, agree on behalf of the tenants that use this setup.")
+            return defaultsPanel(request, connectionId, editing = true, chosen = chosen, error = "To share anything, agree on behalf of the tenants that use this setup.")
         }
         // A choice the form withholds (it was disabled, or became unavailable after the form opened) is refused with its reason.
-        installationViews().firstNotNullOfOrNull { view -> view.withheld[chosen[view.section.key]] }?.let { reason ->
-            return defaultsPanel(request, editing = true, chosen = chosen, error = reason)
+        installationViews(connectionId).firstNotNullOfOrNull { view -> view.withheld[chosen[view.section.key]] }?.let { reason ->
+            return defaultsPanel(request, connectionId, editing = true, chosen = chosen, error = reason)
         }
-        val epistola = connections.configuredId() ?: return defaultsPanel(request, editing = false, error = "The support connection is not stored; it is when epistola.support.enabled is on.")
-        val notices = applyPreset(chosen, form, epistola)
-        return defaultsPanel(request, editing = false, notice = if (notices.isEmpty()) "Nothing changed." else "Saved. " + notices.joinToString(" "))
+        val notices = applyPreset(chosen, form, connectionId, offered)
+        return defaultsPanel(request, connectionId, editing = false, notice = if (notices.isEmpty()) "Nothing changed." else "Saved. " + notices.joinToString(" "))
     }
 
     /** Applies the [chosen] preset and restrictions of every section for [connectionId]; what changed, one notice per section. */
@@ -403,15 +380,16 @@ class SupportSharingHandler(
         }
     }
 
-    private fun defaultsPanel(request: ServerRequest, editing: Boolean, chosen: Map<String, String> = emptyMap(), notice: String? = null, error: String? = null): ServerResponse = request.htmx {
+    private fun defaultsPanel(request: ServerRequest, connectionId: UUID, editing: Boolean, chosen: Map<String, String> = emptyMap(), notice: String? = null, error: String? = null): ServerResponse = request.htmx {
         fragment("support/platform", "defaults") {
-            "defaults" to installationViews()
+            "connectionId" to connectionId
+            "defaults" to installationViews(connectionId)
             "defaultsEditing" to editing
             "defaultsChosen" to chosen
             "defaultsNotice" to notice
             "defaultsError" to error
         }
-        onFullPage { redirect("/platform/support") }
+        onFullPage { redirect("/platform/support/connections/$connectionId") }
     }
 
     private fun sharingPanel(request: ServerRequest, notice: String?, connectionError: Pair<UUID, String>? = null): ServerResponse {
@@ -462,9 +440,8 @@ class SupportSharingRoutes(private val handler: SupportSharingHandler) {
             POST("/connections/{connectionId}/sharing", handler::saveConnectionSharing)
             POST("/connections/{connectionId}/use-preset", handler::useConnectionPreset)
         }
-        POST("/platform/support/connections/{connectionId}/defaults", handler::saveConnectionPreset)
-        GET("/platform/support/defaults", handler::installationPanel)
-        GET("/platform/support/defaults/edit", handler::editInstallation)
-        POST("/platform/support/defaults", handler::saveInstallation)
+        GET("/platform/support/connections/{connectionId}/defaults", handler::installationPanel)
+        GET("/platform/support/connections/{connectionId}/defaults/edit", handler::editInstallation)
+        POST("/platform/support/connections/{connectionId}/defaults", handler::saveInstallation)
     }
 }

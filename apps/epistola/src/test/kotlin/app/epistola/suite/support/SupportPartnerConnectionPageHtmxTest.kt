@@ -67,7 +67,7 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         val saved = post(path, mapOf("tenantIdentity" to "NAMED", "telemetry" to "PSEUDONYMISED"))
 
         assertThat(saved.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(saved.body).contains("data-testid=\"support-connection-privacy-source\"").contains("Set by")
+        assertThat(saved.body).contains("data-testid=\"support-connection-privacy-source\"").contains("set by")
         assertThat(post(path, mapOf("tenantIdentity" to "ANONYMOUS", "telemetry" to "FULL")).statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
     }
 
@@ -93,7 +93,7 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
     @Test
     fun `an installation administrator sets the partner's preset for every tenant`() {
         val id = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
-        assertThat(restTemplate.getForEntity("/platform/support", String::class.java).body).contains("data-testid=\"support-connection-presets\"")
+        assertThat(restTemplate.getForEntity("/platform/support/connections/$id", String::class.java).body).contains("data-testid=\"support-defaults\"")
 
         post("/platform/support/connections/$id/defaults", mapOf("requests.default" to "SHARE", "agree" to "true"))
 
@@ -134,9 +134,8 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         }.id
 
         val list = restTemplate.getForEntity("/platform/support", String::class.java).body!!
-        assertThat(list.substringAfter("data-connection=\"$id\"").substringBefore("data-testid=\"support-connection-row\""))
-            .contains("Registering Partner").contains("Not registered").contains("/platform/support/connections/$id")
-            .doesNotContain("New token")
+        assertThat(list.substringAfter("data-connection=\"$id\"").substringBefore("</tr>"))
+            .contains("Registering Partner").contains("Not registered").contains("/platform/support/connections/$id").contains("Own key")
 
         val detail = restTemplate.getForEntity("/platform/support/connections/$id", String::class.java)
         assertThat(detail.statusCode).isEqualTo(HttpStatus.OK)
@@ -144,7 +143,9 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
             .contains("/platform/support/connections/$id/register")
 
         val token = registry.tokenConnections().single { it.endpoint.toString() == partner.baseUrl.trimEnd('/') }.id
-        assertThat(restTemplate.getForEntity("/platform/support/connections/$token", String::class.java).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        val tokenPage = restTemplate.getForEntity("/platform/support/connections/$token", String::class.java).body!!
+        assertThat(tokenPage).`as`("a token connection's page shows its state, not a registration").contains("data-testid=\"support-token-connection\"")
+            .doesNotContain("data-testid=\"support-register-form\"")
         withMediator { app.epistola.suite.support.connection.RemoveSupportConnection(id).execute() }
     }
 
@@ -158,7 +159,7 @@ class SupportPartnerConnectionPageHtmxTest : BaseIntegrationTest() {
         assertThat(missing.body).contains("data-testid=\"support-connection-add-error\"").contains("token")
 
         val added = post("/platform/support/connections", mapOf("name" to "Hand Partner", "endpoint" to "https://desk.hand.example", "token" to "hand-token", "services" to "requests"))
-        assertThat(added.body).contains("Hand Partner").contains("https://desk.hand.example")
+        assertThat(added.body).`as`("its own page").contains("Hand Partner").contains("data-testid=\"support-token-connection\"")
 
         val id = registry.tokenConnections().single { it.endpoint.toString() == "https://desk.hand.example" }.id
         post("/platform/support/connections/$id/remove", emptyMap())

@@ -133,7 +133,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     @Test
     fun `with an installation preset, a tenant is set up already and can change it or go back to the preset`() {
         val tenant = createTenant("Setup Preset").id
-        post("/platform/support/defaults", mapOf("usage.default" to "SHARE", "agree" to "true"))
+        post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "SHARE", "agree" to "true"))
 
         val preset = get("/tenants/${tenant.value}/support")
         assertThat(preset).contains("Epistola support is set up for Setup Preset").contains("Set up by your installation administrator")
@@ -156,15 +156,15 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         val own = createTenant("Setup Preset Own").id
         setup(own, mapOf("step" to "2", "action" to "finish", "agree" to "true", "usage.choice" to "NO"))
 
-        val notAgreed = post("/platform/support/defaults", mapOf("usage.default" to "SHARE"))
+        val notAgreed = post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "SHARE"))
         assertThat(notAgreed).`as`("sharing is agreed on the tenants' behalf").contains("data-testid=\"support-defaults-error\"")
             .contains("data-testid=\"support-defaults-form\"")
 
-        val panel = post("/platform/support/defaults", mapOf("usage.default" to "SHARE", "agree" to "true"))
+        val panel = post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "SHARE", "agree" to "true"))
 
         assertThat(panel).contains("data-testid=\"support-defaults-notice\"").contains("Saved.").contains("data-testid=\"support-defaults-summary\"")
         assertThat(usage(own).share).`as`("its own choice wins").isFalse()
-        assertThat(get("/platform/support")).contains("data-testid=\"support-defaults-summary\"").contains("Share usage counts with Epistola").contains("Set by ")
+        assertThat(get("/platform/support/connections/${epistola()}")).contains("data-testid=\"support-defaults-summary\"").contains("Share usage counts with Epistola").contains("Set by ")
     }
 
     @Test
@@ -172,12 +172,12 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         val own = createTenant("Usage Restricted").id
         setup(own, mapOf("step" to "2", "action" to "finish", "agree" to "true", "usage.choice" to "SHARE"))
 
-        val required = post("/platform/support/defaults", mapOf("usage.default" to "REQUIRED", "agree" to "true"))
+        val required = post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "REQUIRED", "agree" to "true"))
         assertThat(required).contains("data-testid=\"support-defaults-required\"")
         assertThat(get("/tenants/${own.value}/support")).`as`("a Required service is no tenant's choice").doesNotContain("data-testid=\"usage-statement\"")
             .doesNotContain("Share usage counts with Epistola")
 
-        val notAllowed = post("/platform/support/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
+        val notAllowed = post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
         assertThat(notAllowed).contains("data-testid=\"support-defaults-not-allowed\"")
         assertThat(usage(own).share).`as`("its own choice is forgotten too").isNull()
         assertThatThrownBy { withMediator { SetUsageChoice(own, share = true, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() } }.isInstanceOf(SharingNotAllowedException::class.java)
@@ -186,7 +186,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     @Test
     fun `required with no default leaves a tenant nothing to set up, and no wizard that never ends`() {
         val tenant = createTenant("Usage Required Only").id
-        post("/platform/support/defaults", mapOf("usage.default" to "REQUIRED", "agree" to "true"))
+        post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "REQUIRED", "agree" to "true"))
 
         val page = get("/tenants/${tenant.value}/support")
 
@@ -208,7 +208,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
     fun `finishing with a choice the installation forbade meanwhile says so in the wizard and saves nothing`() {
         val tenant = createTenant("Usage Forbidden Meanwhile").id
         setup(tenant, mapOf("step" to "1", "action" to "next", "usage.choice" to "SHARE"))
-        post("/platform/support/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
+        post("/platform/support/connections/${epistola()}/defaults", mapOf("usage.default" to "NOT_ALLOWED"))
 
         val finished = setup(tenant, mapOf("step" to "2", "action" to "finish", "agree" to "true", "usage.choice" to "SHARE"))
 
@@ -223,7 +223,7 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
             set("HX-Request", "true")
         }
 
-        for (path in listOf("/platform/support/defaults", "/platform/support/defaults/edit")) {
+        for (path in listOf("/platform/support/connections/${epistola()}/defaults", "/platform/support/connections/${epistola()}/defaults/edit")) {
             val response = restTemplate.exchange(path, org.springframework.http.HttpMethod.GET, HttpEntity<Void>(tenantAdministrator), String::class.java)
             assertThat(response.statusCode).`as`(path).isEqualTo(HttpStatus.FORBIDDEN)
         }
@@ -236,11 +236,11 @@ class SupportSharingSetupHtmxTest : BaseIntegrationTest() {
         connection.checkNow()
         withMediator { app.epistola.suite.support.privacy.SetSupportPrivacy(app.epistola.suite.support.privacy.TenantIdentity.CONFIDENTIAL, app.epistola.suite.support.privacy.TelemetryDetail.PSEUDONYMISED).execute() }
         try {
-            val form = get("/platform/support/defaults/edit", htmx = true)
+            val form = get("/platform/support/connections/${epistola()}/defaults/edit", htmx = true)
             assertThat(Regex("<input[^>]*data-testid=\"sharing-default-mirror-all\"[^>]*>").find(form)!!.value).contains("disabled")
             assertThat(form).contains("keeps its tenants confidential to Epistola")
 
-            val refused = post("/platform/support/defaults", mapOf("mirror.default" to "ALL", "usage.default" to "NONE", "agree" to "true"))
+            val refused = post("/platform/support/connections/${epistola()}/defaults", mapOf("mirror.default" to "ALL", "usage.default" to "NONE", "agree" to "true"))
 
             assertThat(refused).contains("data-testid=\"support-defaults-error\"").contains("keeps its tenants confidential to Epistola").contains("data-testid=\"support-defaults-form\"")
             assertThat(withMediator { app.epistola.suite.support.mirror.GetCatalogMirrorDefault(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).query() }.isSet).`as`("nothing saved").isFalse()

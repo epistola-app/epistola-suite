@@ -115,10 +115,7 @@ class SupportPlatformHandler(
         "pageTitle" to "Support connections - Epistola",
         "platformPage" to "Support connections",
         "privacy" to GetSupportPrivacy().query(),
-        "defaults" to sharing.installationViews(),
         "connections" to ListSupportConnections().query(),
-        "connectionPresets" to sharing.connectionPresets(),
-        "presetError" to request.param("presetError").orElse(null),
         "panels" to panelViews(),
     )
 
@@ -133,6 +130,7 @@ class SupportPlatformHandler(
             "pageTitle" to "${listing.name} - Epistola"
             "platformPage" to "Support connections"
             "c" to listing
+            "defaults" to sharing.installationViews(id)
             "allConnections" to supportConnections.all()
             "serviceNames" to SupportScope.entries.map { it.value }
             if (listing.registers) connectionModel(id, notice = null, offerLocalOnly = false).forEach { (k, v) -> k to v }

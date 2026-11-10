@@ -17,10 +17,6 @@
 
         <th:block th:replace="~{support/platform :: privacy}"></th:block>
 
-        <th:block th:replace="~{support/platform :: defaults}"></th:block>
-
-        <th:block th:replace="~{support/platform :: connection-presets}"></th:block>
-
         <!--/* What other support modules let an installation administrator set (SupportPlatformPanel). */-->
         <th:block th:each="panel : ${panels}" th:with="model=${panel.model}">
             <th:block th:replace="~{__${panel.fragment}__}"></th:block>
@@ -190,7 +186,7 @@
                     <div class="form-group" th:unless="${c.registers}" role="group" aria-labelledby="support-edit-services-label">
                         <span class="ep-label" id="support-edit-services-label">Services used</span>
                         <div class="ep-row ep-row-wrap ep-gap-4">
-                            <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-2"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
+                            <label th:each="sv : ${serviceNames}" class="ep-row ep-gap-1"><input type="checkbox" name="services" th:value="${sv}" th:checked="${#lists.contains(c.selected, sv)}"> <span th:text="${sv}">requests</span></label>
                         </div>
                     </div>
                     <!--/* A connection that registers selects its services in its Services panel; they are kept as they are. */-->
@@ -252,49 +248,21 @@
         </section>
     </th:block>
 
-    <!--/* The installation's preset per other support connection: what tenants share with it until they choose. */-->
-    <section th:fragment="connection-presets" th:if="${connectionPresets != null and !#lists.isEmpty(connectionPresets)}" id="support-connection-presets"
-             class="ep-panel detail-section" data-testid="support-connection-presets">
-        <div class="detail-section-header"><h2>Setup for every tenant, per connection</h2></div>
-        <div class="detail-section-body">
-            <p class="text-muted text-sm" style="margin-bottom: var(--ep-space-3);">
-                What tenants share with each other support connection until a tenant chooses itself on its Support page.
-            </p>
-            <form th:each="cp : ${connectionPresets}" th:action="@{/platform/support/connections/{id}/defaults(id=${cp.connectionId})}" method="post"
-                  class="form-section" data-testid="support-connection-preset" th:attr="data-connection=${cp.connectionId}">
-                <h3 style="font-size: var(--ep-text-base); margin: 0 0 var(--ep-space-2);" th:text="${cp.name}">Partner</h3>
-                <div class="alert alert-error" role="alert" th:if="${presetError != null and presetError == cp.connectionId.toString()}"
-                     data-testid="support-connection-preset-error">To share anything, agree on behalf of the tenants that use this setup.</div>
-                <div class="form-group" th:each="v : ${cp.views}">
-                    <label class="ep-label" th:for="|${cp.connectionId}-${v.section.key}|" th:text="${v.section.title}">Support requests</label>
-                    <select class="ep-select form-control-auto" th:id="|${cp.connectionId}-${v.section.key}|" th:name="${v.section.key} + '.default'">
-                        <option value="NONE" th:selected="${v.formValue == 'NONE'}">No preset: each tenant chooses</option>
-                        <option th:each="c : ${v.section.choices}" th:value="${c.value}" th:text="${c.label}" th:selected="${v.formValue == c.value}">Share support requests</option>
-                        <option th:if="${v.section.offersRequired}" value="REQUIRED" th:selected="${v.formValue == 'REQUIRED'}">Required for every tenant</option>
-                        <option value="NOT_ALLOWED" th:selected="${v.formValue == 'NOT_ALLOWED'}">Not allowed</option>
-                    </select>
-                </div>
-                <label class="ep-row ep-gap-3">
-                    <input type="checkbox" name="agree" value="true">
-                    <span th:text="|To share anything, I agree on behalf of the tenants that use this setup to share it with ${cp.name}.|">I agree.</span>
-                </label>
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top: var(--ep-space-2);" data-testid="support-connection-preset-save">Save</button>
-            </form>
-        </div>
-    </section>
-
     <section th:fragment="defaults" id="support-defaults" class="ep-panel detail-section" data-testid="support-defaults">
         <div class="detail-section-header">
             <h2>Setup for every tenant</h2>
-            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing}" data-testid="support-defaults-change"
-                    th:attr="hx-get=@{/platform/support/defaults/edit}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
+            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" th:unless="${defaultsEditing or #lists.isEmpty(defaults)}" data-testid="support-defaults-change"
+                    th:attr="hx-get=@{/platform/support/connections/{id}/defaults/edit(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML">Change</button>
         </div>
         <div class="detail-section-body ep-stack">
             <div class="alert alert-success" th:if="${defaultsNotice != null}" role="status" data-testid="support-defaults-notice"
                  th:text="${defaultsNotice}">Saved.</div>
             <p class="text-muted text-sm" style="margin: 0;">
-                Tenants that have not set up sharing themselves use this, and so do tenants created later. You agree on
-                their behalf; a tenant administrator can still change it for their own tenant on its Support page.
+                What tenants share with this connection until they set it up themselves, and tenants created later too.
+                You agree on their behalf; a tenant administrator can still change it for their own tenant on its Support page.
+            </p>
+            <p th:if="${#lists.isEmpty(defaults)}" class="text-muted" style="margin: 0;" data-testid="support-defaults-nothing">
+                Nothing to set up yet: this installation uses no service over this connection that tenants share.
             </p>
 
             <th:block th:unless="${defaultsEditing}">
@@ -304,7 +272,7 @@
                         <dd th:attr="data-section=${view.section.key}">
                             <span th:if="${view.notAllowed}" data-testid="support-defaults-not-allowed">Not allowed: no tenant shares it</span>
                             <span th:if="${view.required}" data-testid="support-defaults-required">Required: every tenant shares it, without a choice</span>
-                            <span th:if="${view.restriction == null and view.isSet}" th:text="${view.label}">Share support requests with Epistola support</span>
+                            <span th:if="${view.restriction == null and view.isSet}" th:text="${view.label}">Share support requests</span>
                             <span th:if="${view.restriction == null and !view.isSet}" class="text-muted"
                                   th:text="${view.section.offersNoPreset} ? 'Not set: each tenant sets it up' : 'Not set: not shared until set'">Not set</span>
                             <span th:if="${view.restriction == null and view.isSet}" class="text-muted text-xs" style="display: block;"
@@ -317,8 +285,8 @@
                 </p>
             </th:block>
 
-            <form th:if="${defaultsEditing}" th:attr="hx-post=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML"
-                  th:action="@{/platform/support/defaults}" method="post" class="ep-stack" data-testid="support-defaults-form">
+            <form th:if="${defaultsEditing}" th:attr="hx-post=@{/platform/support/connections/{id}/defaults(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML"
+                  th:action="@{/platform/support/connections/{id}/defaults(id=${connectionId})}" method="post" class="ep-stack" data-testid="support-defaults-form">
                 <div class="alert alert-error" th:if="${defaultsError != null}" role="alert" data-testid="support-defaults-error" th:text="${defaultsError}">Agree first.</div>
                 <fieldset th:each="view : ${defaults}" class="form-group"
                           style="border: 0; border-top: 1px solid var(--ep-border-color); padding: var(--ep-space-4) 0 0; margin: 0;"
@@ -363,7 +331,7 @@
                 <div class="ep-row">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="support-defaults-save">Save setup for every tenant</button>
                     <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="support-defaults-cancel"
-                            th:attr="hx-get=@{/platform/support/defaults}" hx-target="#support-defaults" hx-swap="outerHTML">Cancel</button>
+                            th:attr="hx-get=@{/platform/support/connections/{id}/defaults(id=${connectionId})}" hx-target="#support-defaults" hx-swap="outerHTML">Cancel</button>
                 </div>
             </form>
         </div>
