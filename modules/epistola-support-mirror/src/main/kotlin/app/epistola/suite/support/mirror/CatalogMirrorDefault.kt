@@ -71,7 +71,7 @@ data class CatalogMirrorDefault(
 }
 
 /** The installation's default for the catalog mirror, for the platform page and every tenant's page. */
-class GetCatalogMirrorDefault :
+data class GetCatalogMirrorDefault(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
     Query<CatalogMirrorDefault>,
     RequiresAuthentication
 
@@ -79,7 +79,7 @@ class GetCatalogMirrorDefault :
 class GetCatalogMirrorDefaultHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetCatalogMirrorDefault, CatalogMirrorDefault> {
-    override fun handle(query: GetCatalogMirrorDefault): CatalogMirrorDefault = jdbi.withHandle<CatalogMirrorDefault, Exception> { readMirrorDefault(it) }
+    override fun handle(query: GetCatalogMirrorDefault): CatalogMirrorDefault = jdbi.withHandle<CatalogMirrorDefault, Exception> { readMirrorDefault(it, query.connectionId) }
 }
 
 /** What setting the default did: the default as it now stands, and how many tenants it changed. */
@@ -94,6 +94,7 @@ data class CatalogMirrorDefaultResult(val default: CatalogMirrorDefault, val ten
  */
 data class SetCatalogMirrorDefault(
     val choice: CatalogMirrorDefaultChoice,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -105,15 +106,15 @@ class SetCatalogMirrorDefaultHandler(
     private val privacy: SupportPrivacy,
 ) : CommandHandler<SetCatalogMirrorDefault, CatalogMirrorDefaultResult> {
     override fun handle(command: SetCatalogMirrorDefault): CatalogMirrorDefaultResult {
-        if (command.choice != CatalogMirrorDefaultChoice.OFF && privacy.current().confidential) throw CatalogMirrorConfidentialException()
+        if (command.choice != CatalogMirrorDefaultChoice.OFF && privacy.forConnection(command.connectionId).confidential) throw CatalogMirrorConfidentialException()
         var stopped = emptyList<TenantKey>()
         val result = jdbi.withHandle<CatalogMirrorDefaultResult, Exception> { handle ->
-            val outcome = setMirrorDefault(handle, command.choice, SecurityContext.current().userId.value, fromConfiguration = false)
+            val outcome = setMirrorDefault(handle, command.connectionId, command.choice, SecurityContext.current().userId.value, fromConfiguration = false)
             stopped = outcome.stopped
-            CatalogMirrorDefaultResult(readMirrorDefault(handle), outcome.changed)
+            CatalogMirrorDefaultResult(readMirrorDefault(handle, command.connectionId), outcome.changed)
         }
         // Withdraw at once rather than at the next round, as a tenant's own opt-out does.
-        stopped.forEach { scheduleSync(jdbi, it) }
+        stopped.forEach { scheduleSync(jdbi, command.connectionId, it) }
         return result
     }
 }
@@ -122,7 +123,7 @@ class SetCatalogMirrorDefaultHandler(
  * Removes the installation preset: every tenant that followed it stops sharing, exactly as by its own
  * opt-out (withdrawn at the next reconcile), and has to set itself up.
  */
-class ClearCatalogMirrorDefault :
+data class ClearCatalogMirrorDefault(val connectionId: UUID = DEFAULT_MIRROR_CONNECTION) :
     Command<CatalogMirrorDefaultResult>,
     RequiresPlatformRole {
     override val platformRole = PlatformRole.INSTALLATION_ADMINISTRATOR
@@ -134,11 +135,11 @@ class ClearCatalogMirrorDefaultHandler(
 ) : CommandHandler<ClearCatalogMirrorDefault, CatalogMirrorDefaultResult> {
     override fun handle(command: ClearCatalogMirrorDefault): CatalogMirrorDefaultResult {
         val stopped = jdbi.withHandle<List<TenantKey>, Exception> { handle ->
-            optOutFollowers(handle, EpistolaClock.offsetDateTime(), SecurityContext.current().userId.value).also {
-                handle.createUpdate("DELETE FROM support_sharing_default WHERE ${mirrorSharing()}").execute()
+            optOutFollowers(handle, command.connectionId, EpistolaClock.offsetDateTime(), SecurityContext.current().userId.value).also {
+                handle.createUpdate("DELETE FROM support_sharing_default WHERE ${mirrorSharing()}").bind("connection", command.connectionId).execute()
             }
         }
-        stopped.forEach { scheduleSync(jdbi, it) }
+        stopped.forEach { scheduleSync(jdbi, command.connectionId, it) }
         return CatalogMirrorDefaultResult(CatalogMirrorDefault.NONE, stopped.size)
     }
 }
@@ -150,21 +151,22 @@ internal class MirrorDefaultOutcome(val changed: Int, val stopped: List<TenantKe
  * Stores the default as set by [userId] (null: by the configuration) and applies it to every tenant
  * that follows it: an opt-in with its choice, agreed to the current statement, or an opt-out.
  */
-internal fun setMirrorDefault(handle: Handle, choice: CatalogMirrorDefaultChoice, userId: UUID?, fromConfiguration: Boolean): MirrorDefaultOutcome {
+internal fun setMirrorDefault(handle: Handle, connectionId: UUID, choice: CatalogMirrorDefaultChoice, userId: UUID?, fromConfiguration: Boolean): MirrorDefaultOutcome {
     val now = EpistolaClock.offsetDateTime()
     val share = choice != CatalogMirrorDefaultChoice.OFF
-    if (share) SharingRestrictions.requireAllowed(handle, CatalogMirror.SECTION, MIRROR_CONNECTION)
+    if (share) SharingRestrictions.requireAllowed(handle, CatalogMirror.SECTION, connectionId)
     val shareByDefault = choice == CatalogMirrorDefaultChoice.ALL
     handle.createUpdate(
         """
         INSERT INTO support_sharing_default (connection_id, section, share, options, statement_version, set_at, set_by, from_configuration)
-        VALUES ($MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', :share, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
+        VALUES (:connection, '${CatalogMirror.SECTION}', :share, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
                 (SELECT id FROM users WHERE id = :userId), :fromConfiguration)
         ON CONFLICT (connection_id, section) DO UPDATE SET
             share = EXCLUDED.share, options = EXCLUDED.options, statement_version = EXCLUDED.statement_version,
             set_at = EXCLUDED.set_at, set_by = EXCLUDED.set_by, from_configuration = EXCLUDED.from_configuration
         """,
     )
+        .bind("connection", connectionId)
         .bind("share", share)
         .bind("shareByDefault", shareByDefault)
         .bind("version", CatalogMirror.CONSENT_VERSION)
@@ -173,23 +175,24 @@ internal fun setMirrorDefault(handle: Handle, choice: CatalogMirrorDefaultChoice
         .bind("fromConfiguration", fromConfiguration)
         .execute()
     if (!share) {
-        val stopped = optOutFollowers(handle, now, userId)
+        val stopped = optOutFollowers(handle, connectionId, now, userId)
         return MirrorDefaultOutcome(stopped.size, stopped)
     }
-    return MirrorDefaultOutcome(optInFollowers(handle, shareByDefault, now, userId), emptyList())
+    return MirrorDefaultOutcome(optInFollowers(handle, connectionId, shareByDefault, now, userId), emptyList())
 }
 
 /** Opts in every tenant without a record, and every follower, with the default's choice. */
-private fun optInFollowers(handle: Handle, shareByDefault: Boolean, now: OffsetDateTime, userId: UUID?): Int {
+private fun optInFollowers(handle: Handle, connectionId: UUID, shareByDefault: Boolean, now: OffsetDateTime, userId: UUID?): Int {
     val added = handle.createUpdate(
         """
         INSERT INTO support_sharing_choice (connection_id, section, tenant_key, options, statement_version, given_at, given_by, follows_default)
-        SELECT $MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', t.id, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
+        SELECT :connection, '${CatalogMirror.SECTION}', t.id, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
                (SELECT id FROM users WHERE id = :userId), TRUE
         FROM tenants t
         WHERE NOT EXISTS (SELECT 1 FROM support_sharing_choice m WHERE ${mirrorSharing("m")} AND m.tenant_key = t.id)
         """,
     )
+        .bind("connection", connectionId)
         .bind("shareByDefault", shareByDefault)
         .bind("version", CatalogMirror.CONSENT_VERSION)
         .bind("now", now)
@@ -205,6 +208,7 @@ private fun optInFollowers(handle: Handle, shareByDefault: Boolean, now: OffsetD
           AND (withdrawn_at IS NOT NULL OR ${shareByDefault()} IS DISTINCT FROM :shareByDefault OR statement_version IS DISTINCT FROM :version)
         """,
     )
+        .bind("connection", connectionId)
         .bind("shareByDefault", shareByDefault)
         .bind("version", CatalogMirror.CONSENT_VERSION)
         .bind("now", now)
@@ -214,7 +218,7 @@ private fun optInFollowers(handle: Handle, shareByDefault: Boolean, now: OffsetD
 }
 
 /** Opts out every follower that shares; the reconcile confirms each withdrawal. */
-private fun optOutFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?): List<TenantKey> = handle.createQuery(
+private fun optOutFollowers(handle: Handle, connectionId: UUID, now: OffsetDateTime, userId: UUID?): List<TenantKey> = handle.createQuery(
     """
     UPDATE support_sharing_choice
     SET withdrawn_at = :now, withdrawn_by = (SELECT id FROM users WHERE id = :userId), withdrawal_confirmed_at = NULL
@@ -222,6 +226,7 @@ private fun optOutFollowers(handle: Handle, now: OffsetDateTime, userId: UUID?):
     RETURNING tenant_key
     """,
 )
+    .bind("connection", connectionId)
     .bind("now", now)
     .bind("userId", userId)
     .mapTo(String::class.java)
@@ -248,8 +253,10 @@ class ApplyConfiguredCatalogMirrorDefault(
             else -> CatalogMirrorDefaultChoice.OFF
         }
         if (!properties.enabled) return
-        val settings = privacy.read() ?: return
-        if (settings.confidential) return
+        // `epistola.support.tenant-defaults` is the preset of the connection to Epistola support.
+        val connectionId = DEFAULT_MIRROR_CONNECTION
+        privacy.read() ?: return
+        if (privacy.forConnection(connectionId).confidential) return
         jdbi.inTransaction<Unit, Exception> { handle ->
             // Applied once per configured value: a preset an administrator cleared, or that a disconnect
             // forgot, does not come back at the next start.
@@ -261,22 +268,23 @@ class ApplyConfiguredCatalogMirrorDefault(
                     "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
             ).bind("key", APPLIED_KEY).bind("choice", choice.name).execute()
             // Not allowed wins over a configured default: nothing is stored or applied.
-            if (SharingRestrictions.isNotAllowed(handle, CatalogMirror.SECTION, MIRROR_CONNECTION)) return@inTransaction
+            if (SharingRestrictions.isNotAllowed(handle, CatalogMirror.SECTION, connectionId)) return@inTransaction
             val stored = handle.createUpdate(
                 """
                 INSERT INTO support_sharing_default (connection_id, section, share, statement_version, set_at, from_configuration)
-                VALUES ($MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', FALSE, :version, :now, TRUE) ON CONFLICT (connection_id, section) DO NOTHING
+                VALUES (:connection, '${CatalogMirror.SECTION}', FALSE, :version, :now, TRUE) ON CONFLICT (connection_id, section) DO NOTHING
                 """,
             )
+                .bind("connection", connectionId)
                 .bind("version", CatalogMirror.CONSENT_VERSION)
                 .bind("now", EpistolaClock.offsetDateTime())
                 .execute()
             // A preset the configuration stored and nobody replaced follows the configuration when it
             // changes (this value was not applied yet); one an administrator saved wins over it.
             val fromConfiguration = stored == 0 && handle.createQuery(
-                "SELECT from_configuration FROM support_sharing_default WHERE connection_id = $MIRROR_CONNECTION_SQL AND section = '${CatalogMirror.SECTION}'",
-            ).mapTo(Boolean::class.java).findOne().orElse(false)
-            if (stored == 1 || fromConfiguration) setMirrorDefault(handle, choice, userId = null, fromConfiguration = true)
+                "SELECT from_configuration FROM support_sharing_default WHERE connection_id = :connection AND section = '${CatalogMirror.SECTION}'",
+            ).bind("connection", connectionId).mapTo(Boolean::class.java).findOne().orElse(false)
+            if (stored == 1 || fromConfiguration) setMirrorDefault(handle, connectionId, choice, userId = null, fromConfiguration = true)
         }
     }
 
@@ -293,6 +301,7 @@ class ApplyConfiguredCatalogMirrorDefault(
  */
 data class FollowCatalogMirrorDefault(
     override val tenantKey: TenantKey,
+    val connectionId: UUID = DEFAULT_MIRROR_CONNECTION,
 ) : Command<CatalogMirrorDefault>,
     RequiresPermission {
     override val permission = Permission.INTEGRATIONS_MANAGE
@@ -303,15 +312,15 @@ class FollowCatalogMirrorDefaultHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<FollowCatalogMirrorDefault, CatalogMirrorDefault> {
     override fun handle(command: FollowCatalogMirrorDefault): CatalogMirrorDefault {
-        val stopped = jdbi.withHandle<Boolean, Exception> { applyMirrorDefault(it, command.tenantKey) }
-        if (stopped) scheduleSync(jdbi, command.tenantKey)
-        return jdbi.withHandle<CatalogMirrorDefault, Exception> { readMirrorDefault(it) }
+        val stopped = jdbi.withHandle<Boolean, Exception> { applyMirrorDefault(it, command.connectionId, command.tenantKey) }
+        if (stopped) scheduleSync(jdbi, command.connectionId, command.tenantKey)
+        return jdbi.withHandle<CatalogMirrorDefault, Exception> { readMirrorDefault(it, command.connectionId) }
     }
 }
 
 /**
- * A new tenant follows the installation default from the start, in the transaction that creates it,
- * so its catalogs are shared from the first round when the default says so.
+ * A new tenant follows the installation default of every connection that has one from the start, in
+ * the transaction that creates it, so its catalogs are shared from the first round when it says so.
  */
 @Component
 class ApplyCatalogMirrorDefaultToNewTenant(
@@ -320,7 +329,11 @@ class ApplyCatalogMirrorDefaultToNewTenant(
     override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: CreateTenant, result: Any?) {
-        jdbi.withHandle<Boolean, Exception> { applyMirrorDefault(it, event.id) }
+        jdbi.useHandle<Exception> { handle ->
+            handle.createQuery("SELECT connection_id FROM support_sharing_default WHERE section = '${CatalogMirror.SECTION}' ORDER BY connection_id")
+                .mapTo(UUID::class.java).list()
+                .forEach { connectionId -> applyMirrorDefault(handle, connectionId, event.id) }
+        }
     }
 }
 
@@ -330,8 +343,9 @@ class ApplyCatalogMirrorDefaultToNewTenant(
  *
  * @return true when it stopped sharing, so a withdrawal is due.
  */
-private fun applyMirrorDefault(handle: Handle, tenantKey: TenantKey): Boolean {
+private fun applyMirrorDefault(handle: Handle, connectionId: UUID, tenantKey: TenantKey): Boolean {
     val default = handle.createQuery("SELECT share, COALESCE(${shareByDefault()}, FALSE) AS share_by_default, statement_version, set_by FROM support_sharing_default WHERE ${mirrorSharing()}")
+        .bind("connection", connectionId)
         .map { rs, _ -> MirrorDefaultRow(rs.getBoolean("share"), rs.getBoolean("share_by_default"), rs.getString("statement_version"), rs.getObject("set_by", UUID::class.java)) }
         .findOne()
         .orElse(null)
@@ -340,7 +354,7 @@ private fun applyMirrorDefault(handle: Handle, tenantKey: TenantKey): Boolean {
         handle.createUpdate(
             """
             INSERT INTO support_sharing_choice (connection_id, section, tenant_key, options, statement_version, given_at, given_by, follows_default)
-            VALUES ($MIRROR_CONNECTION_SQL, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
+            VALUES (:connection, '${CatalogMirror.SECTION}', :t, jsonb_build_object('shareByDefault', :shareByDefault), :version, :now,
                     (SELECT id FROM users WHERE id = :by), TRUE)
             ON CONFLICT (connection_id, section, tenant_key) DO UPDATE SET
                 follows_default = TRUE, options = EXCLUDED.options, statement_version = EXCLUDED.statement_version,
@@ -348,6 +362,7 @@ private fun applyMirrorDefault(handle: Handle, tenantKey: TenantKey): Boolean {
                 withdrawn_at = NULL, withdrawn_by = NULL, withdrawal_confirmed_at = NULL
             """,
         )
+            .bind("connection", connectionId)
             .bind("t", tenantKey.value)
             .bind("shareByDefault", default.shareByDefault)
             .bind("version", default.consentVersion)
@@ -367,6 +382,7 @@ private fun applyMirrorDefault(handle: Handle, tenantKey: TenantKey): Boolean {
         RETURNING withdrawal_confirmed_at IS NULL
         """,
     )
+        .bind("connection", connectionId)
         .bind("t", tenantKey.value)
         .bind("by", default?.setBy)
         .bind("now", now)
@@ -378,13 +394,14 @@ private fun applyMirrorDefault(handle: Handle, tenantKey: TenantKey): Boolean {
 private class MirrorDefaultRow(val share: Boolean, val shareByDefault: Boolean, val consentVersion: String, val setBy: UUID?)
 
 /** The default as it stands, with the name of who set it; [CatalogMirrorDefault.NONE] when never set. */
-internal fun readMirrorDefault(handle: Handle): CatalogMirrorDefault = handle.createQuery(
+internal fun readMirrorDefault(handle: Handle, connectionId: UUID): CatalogMirrorDefault = handle.createQuery(
     """
     SELECT d.share, COALESCE(${shareByDefault("d")}, FALSE) AS share_by_default, d.statement_version, d.set_at, u.display_name AS set_by, d.from_configuration
     FROM support_sharing_default d LEFT JOIN users u ON u.id = d.set_by
     WHERE ${mirrorSharing("d")}
     """,
 )
+    .bind("connection", connectionId)
     .map { rs, _ ->
         val choice = when {
             !rs.getBoolean("share") -> CatalogMirrorDefaultChoice.OFF

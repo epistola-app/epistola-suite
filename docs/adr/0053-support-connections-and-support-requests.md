@@ -293,9 +293,10 @@ can open requests through the same protocol.
      - **signing in**: `auth` alone (`PRIVATE_KEY_JWT` registers, `BEARER_TOKEN` uses a token), so a
        partner running the support service can register too;
      - **telemetry and the catalog mirror**: services, sent to every connection that grants them,
-       each with its own privacy checks, as requests and usage already are (telemetry built: a log
+       each with its own privacy checks, as requests and usage already are (built. Telemetry: a log
        exporter per connection and one metrics registry whose sender fans out, rewritten per
-       connection; a token connection's OTLP endpoint is `{endpoint}/otlp`);
+       connection; a token connection's OTLP endpoint is `{endpoint}/otlp`. The catalog mirror: a
+       round, choices, preset, policies, state and confidentiality per connection);
      - **what may be sent** (built): one ledger (`support_request_delivered_items`) for every
        connection; Epistola's per-item grant (`sync_consent_id`, and `support_sharing_choice.grant_id`)
        is gone. A request the desk hands to Epistola support's connection later takes its history,

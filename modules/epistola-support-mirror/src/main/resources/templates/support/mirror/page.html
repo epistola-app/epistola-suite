@@ -18,9 +18,16 @@
 
         <section class="ep-panel form-section" data-testid="mirror-availability">
             <h2>Connection</h2>
+            <!--/* Every connection the mirror is selected for has its own sharing and policies. */-->
+            <nav class="ep-row ep-row-wrap" th:if="${s.connections.size() > 1}" aria-label="Support connections" data-testid="mirror-connections">
+                <a th:each="c : ${s.connections}" class="ep-btn ep-btn-sm"
+                   th:classappend="${c.id == s.connectionId} ? 'ep-btn-primary' : 'ep-btn-ghost'"
+                   th:attr="aria-current=${c.id == s.connectionId} ? 'page' : null, data-connection=${c.id}"
+                   th:href="${base + '?connection=' + c.id}" th:text="${c.name}" data-testid="mirror-connection">Epistola support</a>
+            </nav>
             <p th:if="${a == 'AVAILABLE'}" data-testid="mirror-availability-state">
                 <span class="badge badge-success">Available</span>
-                This installation is connected to Epistola support, which keeps a catalog mirror for it.
+                This installation is connected to <th:block th:text="${s.connectionName}">Epistola support</th:block>, which keeps a catalog mirror for it.
             </p>
             <p th:if="${a == 'SUPPORT_OFF'}" data-testid="mirror-availability-state">
                 <span class="badge badge-muted">Support off</span>
@@ -149,6 +156,7 @@
 
             <form th:if="${s.canSyncNow}" th:attr="hx-post=${base + '/sync'}" hx-target="#catalog-mirror" hx-swap="outerHTML"
                   th:action="${base + '/sync'}" method="post">
+                <input type="hidden" name="connection" th:value="${s.connectionId}">
                 <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="mirror-sync-now">Sync now</button>
             </form>
             <p th:if="${s.syncWithheldReason != null}" class="text-muted" data-testid="mirror-sync-withheld" th:text="${s.syncWithheldReason}">
@@ -190,6 +198,7 @@
                         <td>
                             <form th:if="${s.canSetPolicy(e)}" th:attr="hx-post=${base + '/policy'}" hx-target="#catalog-mirror" hx-swap="outerHTML"
                                   th:action="${base + '/policy'}" method="post" class="ep-row">
+                                <input type="hidden" name="connection" th:value="${s.connectionId}">
                                 <input type="hidden" name="namespace" th:value="${e.catalog.namespace}">
                                 <input type="hidden" name="key" th:value="${e.key}">
                                 <select name="policy" class="ep-select" th:attr="aria-label='Policy of ' + ${e.address}" data-testid="mirror-catalog-policy">
@@ -207,8 +216,8 @@
             </table>
             </div>
             <div class="ep-row" th:if="${s.hasPrevious or s.hasNext}">
-                <a th:if="${s.hasPrevious}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?offset=' + s.previousOffset}">Previous</a>
-                <a th:if="${s.hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?offset=' + s.nextOffset}">Next</a>
+                <a th:if="${s.hasPrevious}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?connection=' + s.connectionId + '&offset=' + s.previousOffset}">Previous</a>
+                <a th:if="${s.hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${base + '?connection=' + s.connectionId + '&offset=' + s.nextOffset}">Next</a>
             </div>
         </section>
     </div>
