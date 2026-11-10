@@ -4,8 +4,12 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_NAMESPACE
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
@@ -43,7 +47,7 @@ enum class SystemCatalogSetup {
  * "Test tenants and the system catalog template".
  */
 @Component
-class SystemCatalogTemplate(private val jdbi: Jdbi) {
+class SystemCatalogTemplate(private val jdbi: Jdbi, private val usedCatalogs: UsedCatalogDeclarer) {
 
     /**
      * Runs [command] for a tenant whose system catalog comes as [setup] says. Needs a mediator and a
@@ -54,7 +58,16 @@ class SystemCatalogTemplate(private val jdbi: Jdbi) {
         val template = template()
         val tenant = command.copy(installSystemCatalog = false).execute()
         copy(template, tenant.id)
+        // As CreateTenant does once it installed the system catalog: the default catalog declares it.
+        usedCatalogs.declareSystemCatalog(defaultCatalog(tenant.id))
         return tenant
+    }
+
+    private fun defaultCatalog(tenant: TenantKey): CatalogId = jdbi.withHandle<CatalogId, Exception> { handle ->
+        handle.createQuery("SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :key")
+            .bind("t", tenant.value).bind("key", CatalogKey.DEFAULT.value)
+            .mapTo(String::class.java).one()
+            .let { CatalogId(it, CatalogKey.DEFAULT, TenantId(tenant)) }
     }
 
     private data class Template(val catalogId: UUID)

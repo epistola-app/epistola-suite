@@ -37,6 +37,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -206,11 +207,14 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         val (sharedZip, version) = withMediator {
             CreateCatalog(tenantKey = a, id = shared, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(a, shared))
             CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), shared)), "Brand", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(a, shared), catalogVersion = null).execute()
             ReleaseCatalogDraft(testCatalog(a, shared), "1.0.0", catalogVersion = null).execute()
 
             CreateCatalog(tenantKey = a, id = letters, name = "Letters").execute()
+
+            withoutSystemCatalog(testCatalog(a, letters))
             declareDependency(a, letters, on = shared)
             val template = TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), letters))
             CreateDocumentTemplate(template, "Letter", catalogVersion = null).execute().withRequiredDataExample()

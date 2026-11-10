@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.system.systemCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,6 +44,17 @@ class UsedCatalogDeclarer(
     private val store: CatalogDependencyStore,
     private val editing: CatalogEditingProperties,
 ) {
+    /**
+     * Declares the system catalog in [catalog]'s next version, at its highest release: where a new
+     * catalog starts, so the system fonts, locales and themes are there to use at once. Not for the
+     * system catalog, nor a catalog under its key, which it would shadow. @return the declarations added.
+     */
+    fun declareSystemCatalog(catalog: CatalogId): List<CatalogDependencyDeclaration> {
+        if (catalog.key == SYSTEM_CATALOG_KEY) return emptyList()
+        val next = jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) }
+        return declare(next, systemCatalog(catalog.tenantKey))
+    }
+
     /** [declareAliases] for the catalogs [references] point into. @return the declarations added. */
     fun declare(at: ContentVersion, references: Collection<DependencyRef>): List<CatalogDependencyDeclaration> = declareAliases(at, references.map { CatalogKey.of(it.catalogKey) })
 

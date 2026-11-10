@@ -6,6 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.handlers.acrossVisibleCatalogs
 import app.epistola.suite.mediator.query
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.stereotype.Component
@@ -19,7 +20,9 @@ class SettingsTabHandler(
     fun settings(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
-        val themes = ListThemes(tenantId = ctx.templateId.tenantId, catalogVersion = ctx.catalogVersion).query()
+        val themes = acrossVisibleCatalogs(ctx.templateId.catalogId, ctx.catalogVersion) { catalog, version ->
+            ListThemes(tenantId = ctx.templateId.tenantId, catalog = catalog, catalogVersion = version).query()
+        }
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return detailHelper.renderDetailPage(

@@ -128,7 +128,7 @@ class CatalogInvariantsTest : IntegrationTestBase() {
         "catalogs-never-use-each-other",
         """
         UPDATE catalog_version_dependencies SET dependency_key = 'letters', alias = 'letters'
-        WHERE tenant_key = :t AND version_id = (SELECT next_version_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'shared')
+        WHERE tenant_key = :t AND dependency_key <> 'system' AND version_id = (SELECT next_version_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'shared')
         """,
     )
 

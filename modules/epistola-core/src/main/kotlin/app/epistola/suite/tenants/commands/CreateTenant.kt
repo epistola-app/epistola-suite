@@ -4,6 +4,7 @@
 
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.namespaces.NamespaceGrantSource
 import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
@@ -11,6 +12,9 @@ import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.namespaces.validateNamespaceName
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -29,7 +33,8 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * Creates a tenant, with its default catalog and the system catalog. [namespaces] are granted to it
+ * Creates a tenant, with its default catalog and the system catalog, which the default catalog
+ * declares at its highest release as every new catalog does. [namespaces] are granted to it
  * at once (ADR 0034, section 3), by the administrator creating it, and its default catalog is named in
  * the first; without one it is named under `local`, in [LocalAuthority.DEFAULT_NAMESPACE], since
  * nothing is derived from the tenant key.
@@ -68,6 +73,7 @@ data class CreateTenant(
 class CreateTenantHandler(
     private val jdbi: Jdbi,
     private val grants: NamespaceGrantStore,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateTenant, Tenant> {
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
         val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
@@ -113,7 +119,12 @@ class CreateTenantHandler(
         // boundary, so a failure to install rolls back the tenant creation — a
         // tenant should never exist without its system catalog.
         // `InstallSystemCatalog` is idempotent.
-        if (command.installSystemCatalog) InstallSystemCatalog(tenantKey = command.id).execute()
+        val defaultCatalog = CatalogId(command.namespaces.firstOrNull()?.namespace ?: LocalAuthority.DEFAULT_NAMESPACE, CatalogKey.DEFAULT, TenantId(command.id))
+        if (command.installSystemCatalog) {
+            InstallSystemCatalog(tenantKey = command.id).execute()
+            // Its default catalog can use the system catalog from the start, as any new catalog can.
+            usedCatalogs.declareSystemCatalog(defaultCatalog)
+        }
 
         tenant
     }

@@ -93,7 +93,7 @@ class RelocationWithSeveralDraftsTest : RelocationTestSupport() {
         val onShared = withMediator { ListCatalogDependencies(catalogId(tenant, letters), catalogVersion = null).query() }.single { it.catalogKey == "shared" }
         assertThat(onShared.releaseVersion).isNull()
         assertThat(onShared.draftId).isNotNull
-        assertThat(withMediator { ListCatalogDependencies(catalogId(tenant, letters), hotfix(tenant)).query() }).describedAs("the hotfix is left alone").isEmpty()
+        assertThat(withMediator { ListCatalogDependencies(catalogId(tenant, letters), hotfix(tenant)).query() }.map { it.catalogKey }).describedAs("the hotfix is left alone").doesNotContain("shared")
     }
 
     @Test

@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -218,6 +219,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             val sharedId = testCatalog(TenantId(tenant), shared)
             CreateTheme(id = ThemeId(ThemeKey.of("base"), sharedId), name = "Base", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
@@ -227,6 +229,8 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.1.0", catalogVersion = null).execute()
 
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
+
+            withoutSystemCatalog(testCatalog(tenant, letters))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand", catalogVersion = null).execute()
             if (dependsOnShared) declareDependency(tenant, letters, shared, "1.0.0")
             MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = null).execute()

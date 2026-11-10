@@ -51,6 +51,7 @@ import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -95,6 +96,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     private fun released(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateTheme(brand(tenant), "Brand", catalogVersion = null).execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice", catalogVersion = null).execute().withRequiredDataExample()
         UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters), catalogVersion = null).execute()
@@ -398,6 +400,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         lateinit var redesign: DraftRef
         withMediator {
             CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, CatalogKey.of("shared")))
             CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), CatalogKey.of("shared"))), "House", catalogVersion = null).execute()
             mediator.releaseNext(testCatalog(TenantId(tenant), CatalogKey.of("shared")))
         }

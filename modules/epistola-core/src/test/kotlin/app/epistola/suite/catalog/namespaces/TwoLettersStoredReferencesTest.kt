@@ -111,7 +111,8 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
             // The theme of bureau's letters: declared on use, under its key.
             UpdateDocumentTemplate(variant.templateId, themeId = ThemeKey.of("brand"), themeCatalog = letters(tenant, "bureau"), catalogVersion = null).execute()
 
-            val borrowed = GetCatalogBorrowing(forms, catalogVersion = null).query().catalogs.single()
+            // Every catalog uses the system catalog too, declared when it was made.
+            val borrowed = GetCatalogBorrowing(forms, catalogVersion = null).query().catalogs.single { it.catalogKey != "system" }
             assertThat(borrowed.address).isEqualTo("bureau/letters")
             assertThat(borrowed.uses.map { it.type to it.key }).contains("theme" to "brand")
 

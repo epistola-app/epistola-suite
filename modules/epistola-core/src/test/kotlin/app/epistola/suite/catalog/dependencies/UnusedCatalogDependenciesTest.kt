@@ -27,6 +27,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -47,10 +48,12 @@ class UnusedCatalogDependenciesTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
+            withoutSystemCatalog(testCatalog(tenant, shared))
             CreateTheme(id = ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant), shared)), name = "Base", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0", catalogVersion = null).execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
+            withoutSystemCatalog(testCatalog(tenant, letters))
             declareDependency(tenant, letters, shared, "1.0.0")
         }
         return tenant

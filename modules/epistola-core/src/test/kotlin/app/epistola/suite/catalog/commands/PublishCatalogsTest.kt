@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -38,8 +39,11 @@ class PublishCatalogsTest : IntegrationTestBase() {
     private fun tenant(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateCatalog(tenant, forms, "Forms").execute()
+        withoutSystemCatalog(testCatalog(tenant, forms))
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", catalogVersion = null).execute()
         val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         CreateDocumentTemplate(invoice, "Invoice", catalogVersion = null).execute().withRequiredDataExample()

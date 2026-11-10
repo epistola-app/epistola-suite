@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.invariants.SkipCatalogInvariants
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -182,6 +183,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
             CreateEnvironment(production, "Production").execute()
             listOf(base, shared, letters).forEachIndexed { index, catalog ->
                 CreateCatalog(tenantKey = tenant, id = catalog, name = catalog.value).execute()
+                withoutSystemCatalog(testCatalog(tenant, catalog))
                 CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand", catalogVersion = null).execute()
                 if (index > 0) declareDependency(tenant, catalog, on = listOf(base, shared)[index - 1])
                 MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()

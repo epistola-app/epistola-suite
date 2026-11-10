@@ -6,7 +6,6 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
-import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogPreset
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
@@ -91,11 +90,9 @@ class CatalogThemeSettingsHandler {
     }
 
     private fun themeOptions(tenantKey: app.epistola.suite.common.ids.TenantKey, segment: CatalogSegment): List<ThemeOption> {
-        val own = ListThemes(TenantId(tenantKey), catalog = segment.catalogIn(tenantKey), catalogVersion = segment.ref(tenantKey)).query()
-        val others = ListCatalogDependencies(segment.catalogIn(tenantKey), segment.ref(tenantKey)).query()
-            .map { it.catalogIn(tenantKey) }
-            .distinct()
-            .flatMap { ListThemes(TenantId(tenantKey), catalog = it, catalogVersion = null).query() }
-        return (own + others).map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
+        val themes = acrossVisibleCatalogs(segment.catalogIn(tenantKey), segment.ref(tenantKey)) { catalog, version ->
+            ListThemes(TenantId(tenantKey), catalog = catalog, catalogVersion = version).query()
+        }
+        return themes.map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
     }
 }

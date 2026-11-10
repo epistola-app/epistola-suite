@@ -11,7 +11,6 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -31,6 +30,7 @@ import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.handlers.acrossVisibleCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogParam
@@ -392,31 +392,26 @@ class FontHandler(
         val catalogFilter = segment?.catalogIn(tenantId)
         val version = segment?.ref(tenantKey)
 
-        // Fonts visible to the editing context = the owning catalog + the
-        // system catalog. Query both, then merge with `system` last and
-        // dedupe by (catalogKey, slug) so an owning-catalog override of a
-        // system slug wins.
-        val owningFonts = if (catalogFilter != null && catalogFilter.key != SYSTEM_CATALOG_KEY) {
-            ListFonts(tenantId = tenantId, catalog = catalogFilter, catalogVersion = version).query()
+        // The fonts the editing context can use: its own catalog's and those of each catalog it
+        // declares, each read at the release or draft its declaration names, which is what renders.
+        // Without a catalog (an editor opened outside one), the system catalog's.
+        val visible: List<Pair<Font, CatalogReleaseRef?>> = if (catalogFilter != null) {
+            acrossVisibleCatalogs(catalogFilter, version) { catalog, at ->
+                ListFonts(tenantId = tenantId, catalog = catalog, catalogVersion = at).query().map { it to at }
+            }
         } else {
-            emptyList()
-        }
-        val systemFonts = ListFonts(tenantId = tenantId, catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key), catalogVersion = null).query()
-
-        val merged = LinkedHashMap<Pair<String, String>, Font>()
-        for (font in owningFonts + systemFonts) {
-            merged.putIfAbsent(font.catalogKey.value to font.slug.value, font)
+            ListFonts(tenantId = tenantId, catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key), catalogVersion = null).query().map { it to null }
         }
 
-        val fontInfoList = merged.values.map { font ->
+        val fontInfoList = visible.map { (font, at) ->
             val rows = GetFontVariants(
                 fontId = FontId(font.slug, font.catalogId),
-                catalogVersion = version,
+                catalogVersion = at,
             ).query()
 
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
-            // A draft's own face bytes are served from the draft (and cached under its URL).
-            val faceSegment = segment?.linkFor(font.catalogId) ?: font.catalogId.address
+            // Face bytes are served from the version the font was read at (and cached under its URL).
+            val faceSegment = at?.let { CatalogSegment(it.catalogKey, it.draft.toString(), it.catalog.namespace).value } ?: font.catalogId.address
             mapOf(
                 "slug" to font.slug.value,
                 "name" to font.name,

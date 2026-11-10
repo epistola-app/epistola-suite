@@ -35,6 +35,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.atNext
 import app.epistola.suite.testing.testCatalog
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -71,6 +72,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         val catalog = CatalogKey.of(name.lowercase().replace(' ', '-'))
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
+            withoutSystemCatalog(testCatalog(a, catalog))
             listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it", catalogVersion = null).execute() }
             MarkCatalogReady(testCatalog(a, catalog), catalogVersion = null).execute()
             ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0", catalogVersion = null).execute()
@@ -208,6 +210,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("merge-lines")
         withMediator {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Merge lines").execute()
+            withoutSystemCatalog(testCatalog(tenant, catalog))
             CreateTheme(id = theme(tenant, catalog, "thx"), name = "base x", catalogVersion = null).execute()
             MarkCatalogReady(testCatalog(tenant, catalog), catalogVersion = null).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0", catalogVersion = null).execute()

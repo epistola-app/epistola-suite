@@ -36,6 +36,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -56,8 +57,11 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     private fun setUp(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateCatalog(tenant, forms, "Forms").execute()
+        withoutSystemCatalog(testCatalog(tenant, forms))
         val catalog = testCatalog(TenantId(tenant), shared)
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", catalogVersion = null).execute()

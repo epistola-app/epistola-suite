@@ -35,6 +35,11 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
+/**
+ * Creates an authored catalog. Its next version starts with the tenant's house theme as its default
+ * theme and declares the system catalog at its highest release, so the system fonts, locales and
+ * themes are there to use at once; the author may remove that declaration while nothing uses it.
+ */
 data class CreateCatalog(
     override val tenantKey: TenantKey,
     val id: CatalogKey,
@@ -105,6 +110,8 @@ class CreateCatalogHandler(
         }
         // A house theme of another catalog is a use of that catalog, declared as any reference is.
         houseThemeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(nextVersion!!, it) }
+        // It can use the system catalog's fonts, locales and themes from the start.
+        usedCatalogs.declareSystemCatalog(catalog!!)
         created
     }
 

@@ -43,6 +43,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.validation.ValidationException
@@ -65,12 +66,14 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         val catalog = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", catalogVersion = null).execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", catalogVersion = null).execute()
         CreateCodeList(CodeListId(CodeListKey.of("colours"), catalog), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = null).execute()
         MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
         ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0", catalogVersion = null).execute()
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         tenant
     }
 

@@ -55,6 +55,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -85,7 +86,9 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     private fun setUp(name: String, vararg releases: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, shared, "Shared").execute()
+        withoutSystemCatalog(testCatalog(tenant, shared))
         CreateCatalog(tenant, letters, "Letters").execute()
+        withoutSystemCatalog(testCatalog(tenant, letters))
         CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", documentStyles = mapOf("color" to "#000000"), catalogVersion = null).execute()
         releases.forEach {
             MarkCatalogReady(testCatalog(tenant, shared), catalogVersion = null).execute()
