@@ -32,6 +32,7 @@ import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.handlers.TenantContentCaching
 import app.epistola.suite.handlers.offersDeclaring
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
@@ -458,9 +459,12 @@ class FontHandler(
             catalogVersion = segment.ref(tenantKey),
         ).query() ?: return ServerResponse.notFound().build()
 
+        val etag = TenantContentCaching.etagOf(bytes)
+        TenantContentCaching.notModified(request, etag)?.let { return it }
         return ServerResponse.ok()
             .contentType(MediaType.parseMediaType("font/ttf"))
-            .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .header(HttpHeaders.CACHE_CONTROL, TenantContentCaching.CACHE_CONTROL)
+            .header(HttpHeaders.ETAG, etag)
             .body(bytes)
     }
 

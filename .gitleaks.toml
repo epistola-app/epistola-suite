@@ -1,7 +1,7 @@
 # gitleaks configuration — https://github.com/gitleaks/gitleaks
 #
-# Extends the bundled ruleset and exempts known-benign matches: documented
-# example/placeholder API keys, and the clearly-marked dev/local Spring profile
+# Extends the bundled ruleset with a rule for Epistola API keys, and exempts the
+# clearly-marked dev/local Spring profile
 # files (which legitimately carry throwaway, non-production secrets — the same
 # policy the NoHardcodedSecretsTest allowlist encodes).
 #
@@ -12,7 +12,7 @@
 useDefault = true
 
 [allowlist]
-description = "Epistola example placeholders and dev-only profile secrets"
+description = "Dev-only profile secrets and two API-key placeholders"
 paths = [
   # Dev/local Spring profiles — throwaway secrets only, never production.
   '''apps/epistola/src/main/resources/application-(local|localauth|keycloak|demo)\.ya?ml''',
@@ -21,6 +21,18 @@ paths = [
   '''modules/feedback/.*''',
 ]
 regexes = [
-  # Documented/example/test API-key placeholders (real keys are never stored — only hashed).
-  '''epk_[A-Za-z0-9]+''',
+  # The two API-key placeholders the default rules flag, by their exact shape: `epk_abc123` in an
+  # old docs/auth.md example (still in history), and ApiKeyServiceTest's prefix example. Any other
+  # epk_ value is scanned, and a real key is caught by the epistola-api-key rule below.
+  '''epk_abc123\b''',
+  '''epk_abcdefgh[0-9]+''',
 ]
+
+# Epistola API keys: `epk_` and 43 URL-safe base64 characters (32 random bytes, ApiKeyService).
+# Caught wherever they appear, not only where the default rules see a key assignment. The
+# placeholders in docs and tests are shorter or plainly fake, and so do not match.
+[[rules]]
+id = "epistola-api-key"
+description = "Epistola API key"
+regex = '''\bepk_[A-Za-z0-9_-]{43}(?:[^A-Za-z0-9_-]|$)'''
+keywords = ["epk_"]

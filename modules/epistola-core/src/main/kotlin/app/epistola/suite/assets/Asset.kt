@@ -86,6 +86,8 @@ data class AssetContent(
     val catalogKey: CatalogKey,
     val mediaType: AssetMediaType,
     val content: ByteArray,
+    /** The SHA-256 its bytes are stored under; names this content, for an entity tag. */
+    val contentHash: String,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

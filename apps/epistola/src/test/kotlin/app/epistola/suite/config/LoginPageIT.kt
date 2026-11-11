@@ -30,6 +30,9 @@ import java.net.http.HttpResponse
         "epistola.logs.enabled=false",
         "epistola.catalog.upstream-check.enabled=false",
         "epistola.generation.polling.enabled=false",
+        // localauth refuses the passwords it ships with outside local development.
+        "LOCAL_AUTH_ADMIN_PASSWORD=it-admin-password",
+        "LOCAL_AUTH_USER_PASSWORD=it-user-password",
     ],
 )
 @ActiveProfiles(profiles = ["localauth"], inheritProfiles = false)

@@ -119,6 +119,58 @@ class AssetRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET image content is cached by the browser only, and revalidated with its entity tag`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Cached Image Tenant")
+            withMediator {
+                UploadAsset(
+                    catalog = testCatalog(testTenant.id, CatalogKey.DEFAULT),
+                    name = "Mark",
+                    mediaType = AssetMediaType.SVG,
+                    content = SVG,
+                    width = null,
+                    height = null,
+                    id = AssetKey.of("cached-mark"),
+                    catalogVersion = null,
+                ).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/images/cached-mark/content", ByteArray::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<ByteArray>>()
+            // Not public: a shared cache would serve a tenant's image to anyone. Not immutable: the
+            // address names the image, not its bytes.
+            assertThat(response.headers.cacheControl).isEqualTo("private, no-cache")
+            val etag = response.headers.eTag
+            assertThat(etag).isEqualTo("\"${java.security.MessageDigest.getInstance("SHA-256").digest(SVG).joinToString("") { "%02x".format(it) }}\"")
+
+            val held = restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/default/images/cached-mark/content",
+                org.springframework.http.HttpMethod.GET,
+                org.springframework.http.HttpEntity<Void>(org.springframework.http.HttpHeaders().apply { ifNoneMatch = listOf(etag!!) }),
+                ByteArray::class.java,
+            )
+            assertThat(held.statusCode).isEqualTo(HttpStatus.NOT_MODIFIED)
+            assertThat(held.body).isNull()
+
+            val stale = restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/default/images/cached-mark/content",
+                org.springframework.http.HttpMethod.GET,
+                org.springframework.http.HttpEntity<Void>(org.springframework.http.HttpHeaders().apply { ifNoneMatch = listOf("\"another\"") }),
+                ByteArray::class.java,
+            )
+            assertThat(stale.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(stale.body).isEqualTo(SVG)
+        }
+    }
+
+    @Test
     fun `POST assets refuses an SVG that references an external resource`() = fixture {
         lateinit var testTenant: Tenant
 

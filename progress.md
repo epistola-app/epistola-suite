@@ -75,6 +75,33 @@ Decided and closed:
 
 ## Touched
 
+### Quick wins of the 2.0 security review (10 November; branch `fix/security-quick-wins`)
+
+- **Tenant images and fonts** are `private, no-cache` with an entity tag (`TenantContentCaching`),
+  answered 304 while unchanged; before, `public, max-age=31536000, immutable` let a shared cache
+  serve them to anyone and kept a replaced image stale. Static resources are unchanged.
+- **The `test` profile's permit-all chain** moved from `SecurityConfig` to the test-only library
+  (`modules/testing`, `TestSecurityConfiguration`); `NoTestProfileInProductionTest` keeps
+  `@Profile("test")` out of production code.
+- **`localauth` refuses its shipped passwords** (`admin`, `user`) unless `local` is active
+  (`AuthenticationSafetyValidator`). Breaking for deployments that relied on them; the Kind smoke
+  values set their own.
+- **The chart refuses encryption without keys**, or with a `primaryKeyId` naming none of them
+  (`encryption-render.sh`).
+- **gitleaks**: the blanket `epk_[A-Za-z0-9]+` exemption is gone; an `epistola-api-key` rule
+  catches the real key shape anywhere, and only two placeholders are exempt. Full history scans
+  clean.
+- **cosign docs** verify the exact signing identity (`build.yml` at the release tag), checked
+  against the published 1.5.1 image and its `-demo` variant.
+
+**Coverage:** `AssetRoutesTest` (cache headers, 304), `FontRoutesTest`,
+`AuthenticationSafetyValidatorTest` (4 new), `NoTestProfileInProductionTest`,
+`charts/epistola/tests/encryption-render.sh`, gitleaks history and tree scans, `cosign verify`.
+
+**Noticed, untouched:** `config.env` takes plain values only, so the chart cannot source the
+`localauth` passwords from a Secret; the chart's example values files do not render on their own
+(they need encryption keys), before and after this change.
+
 ### Pre-2.0.0 release test: 1.5.1 → main, flows, UI publishing (10 November; branch `fix/address-block-two-pass`)
 
 v1.5.1 and main `678e51ab5` from source on one Postgres 17, seeded on 1.5.1 with the demo, Utrecht

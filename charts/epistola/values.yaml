@@ -573,6 +573,8 @@ config:
   # Production:    "prod"
   # Staging/Test:  "demo" or "demo,localauth" — requires the `-demo` image tag; the default image
   #                does not contain demo mode and will refuse to start with that profile.
+  #                With localauth, set LOCAL_AUTH_ADMIN_PASSWORD and LOCAL_AUTH_USER_PASSWORD in
+  #                env below: the passwords it ships with are refused outside local development.
   profiles: ""
   # Additional environment variables
   env: {}

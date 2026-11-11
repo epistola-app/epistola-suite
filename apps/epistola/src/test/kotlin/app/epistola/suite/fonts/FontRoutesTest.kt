@@ -95,7 +95,9 @@ class FontRoutesTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<ByteArray>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.contentType.toString()).isEqualTo("font/ttf")
-            assertThat(response.headers.cacheControl).isEqualTo("public, max-age=31536000, immutable")
+            // A tenant's font: cached by the browser only, revalidated by its entity tag.
+            assertThat(response.headers.cacheControl).isEqualTo("private, no-cache")
+            assertThat(response.headers.eTag).startsWith("\"").hasSize(66)
             assertThat(response.body).isNotNull()
             assertThat(response.body!!.size).isGreaterThan(0)
         }

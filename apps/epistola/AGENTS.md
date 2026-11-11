@@ -7,6 +7,8 @@ bootstrap, the migration launcher, observability and the page chrome (`layout/sh
 The repo-wide source guards live in `modules/guards`; the ones needing the Spring context (`MediatorWiringTest`) stay here.
 Every entry point running the suite's application hands `EPISTOLA_MIGRATION_MODE=migrate` to
 `MigrationLauncher` first, as the chart's migration Job needs (`MigrationEntryPointTest`).
+Beans for the `test` profile, such as the permit-all security chain, live in `modules/testing`,
+never in production sources, so no profile name can switch one on (`NoTestProfileInProductionTest`).
 
 ## Two endpoint layers that never mix
 

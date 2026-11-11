@@ -203,6 +203,15 @@ material in the pod spec or the Helm release.
 */}}
 {{- define "epistola.encryptionEnv" -}}
 {{- if .Values.encryption.enabled }}
+{{- /* Refused here rather than at the app's boot: encryption on with no key to encrypt with. */}}
+{{- if not .Values.encryption.keys }}
+{{- fail "encryption.keys must name at least one key when encryption.enabled is true (docs/encryption.md)" }}
+{{- end }}
+{{- $ids := list }}
+{{- range .Values.encryption.keys }}{{ $ids = append $ids .id }}{{ end }}
+{{- if and .Values.encryption.primaryKeyId (not (has .Values.encryption.primaryKeyId $ids)) }}
+{{- fail (printf "encryption.primaryKeyId %q names none of encryption.keys (%s)" .Values.encryption.primaryKeyId (join ", " $ids)) }}
+{{- end }}
 - name: EPISTOLA_ENCRYPTION_ENABLED
   value: "true"
 - name: EPISTOLA_ENCRYPTION_PRIMARYKEYID
