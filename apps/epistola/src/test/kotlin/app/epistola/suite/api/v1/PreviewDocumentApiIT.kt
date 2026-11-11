@@ -126,7 +126,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         val response = preview(tenantKey, apiKey, "{}")
 
         assertThat(response.statusCode.value()).isEqualTo(404)
-        assertThat(response.body).contains("errors/not-found").contains("\"catalogId\":\"default\"")
+        assertThat(response.body).contains("errors/not-found").contains("\"catalogKey\":\"default\"")
     }
 
     @Test

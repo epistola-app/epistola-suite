@@ -208,6 +208,12 @@ A refused REST request answers `https://epistola.app/errors/forbidden` with `req
 ([`authorization.md`](authorization.md#what-a-denied-api-caller-receives)). Update integrations that
 match on the old types or on `tenantId` and `requiredRole`.
 
+Every other REST problem names a resource by its key, as 2.0 bodies do: `tenantKey`, `catalogKey`,
+`templateKey`, `variantKey`, `environmentKey`, `stencilKey`, `themeKey`, `attributeKey`, `fontKey`,
+`codeListKey` and `assetKey`, where 1.x said `tenantId`, `catalogId` and so on. `requestId`,
+`documentId`, `releaseId` and `versionId` keep their names. To tell which resource a `not-found` was
+about, read its `missing` member, which the contract defines.
+
 ## From 2.0.0-alpha.1
 
 After alpha.1, step 9 of the upgrade from 1.x (`V20261101000900`) was corrected. 1.x let you archive

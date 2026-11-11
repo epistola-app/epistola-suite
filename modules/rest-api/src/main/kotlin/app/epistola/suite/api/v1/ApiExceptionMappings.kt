@@ -131,14 +131,14 @@ object ApiExceptionMappings {
         builder.register<ThemeNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Theme not found",
-            extensions = { mapOf("themeId" to it.themeId.value) },
+            extensions = { mapOf("themeKey" to it.themeId.value) },
             logMessage = { "Theme not found: ${it.themeId}" },
         )
 
         builder.register<TenantNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Tenant not found",
-            extensions = { mapOf("tenantId" to it.tenantId.value, missing(MissingResource.Kind.TENANT)) },
+            extensions = { mapOf("tenantKey" to it.tenantId.value, missing(MissingResource.Kind.TENANT)) },
             logMessage = { "Tenant not found: ${it.tenantId}" },
         )
 
@@ -147,9 +147,9 @@ object ApiExceptionMappings {
             defaultDetail = "Attribute not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "attributeId" to it.attributeId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "catalogKey" to it.catalogId.value,
+                    "attributeKey" to it.attributeId.value,
                 )
             },
             logMessage = { "Attribute not found: tenant=${it.tenantId} catalog=${it.catalogId} attribute=${it.attributeId}" },
@@ -160,9 +160,9 @@ object ApiExceptionMappings {
             defaultDetail = "Code list not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "codeListId" to it.codeListId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "catalogKey" to it.catalogId.value,
+                    "codeListKey" to it.codeListId.value,
                 )
             },
             logMessage = { "Code list not found: tenant=${it.tenantId} catalog=${it.catalogId} codeList=${it.codeListId}" },
@@ -173,8 +173,8 @@ object ApiExceptionMappings {
             defaultDetail = "Template not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "templateId" to it.templateId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "templateKey" to it.templateId.value,
                     missing(MissingResource.Kind.TEMPLATE, template = it.templateId.value),
                 )
             },
@@ -186,8 +186,8 @@ object ApiExceptionMappings {
             defaultDetail = "Stencil not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "stencilId" to it.stencilId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "stencilKey" to it.stencilId.value,
                 )
             },
             logMessage = { "Stencil not found: tenant=${it.tenantId} stencil=${it.stencilId}" },
@@ -198,9 +198,9 @@ object ApiExceptionMappings {
             defaultDetail = "Stencil version not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "stencilId" to it.stencilId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "catalogKey" to it.catalogId.value,
+                    "stencilKey" to it.stencilId.value,
                     "versionId" to it.versionId.value,
                 )
             },
@@ -212,9 +212,9 @@ object ApiExceptionMappings {
             defaultDetail = "Font not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "fontId" to it.fontId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "catalogKey" to it.catalogId.value,
+                    "fontKey" to it.fontId.value,
                 )
             },
             logMessage = { "Font not found: tenant=${it.tenantId} catalog=${it.catalogId} font=${it.fontId}" },
@@ -225,7 +225,7 @@ object ApiExceptionMappings {
             defaultDetail = "Generation job not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
+                    "tenantKey" to it.tenantId.value,
                     "requestId" to it.requestId.value.toString(),
                 )
             },
@@ -237,7 +237,7 @@ object ApiExceptionMappings {
             defaultDetail = "Generation job cannot be cancelled",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
+                    "tenantKey" to it.tenantId.value,
                     "requestId" to it.requestId.value.toString(),
                 )
             },
@@ -249,7 +249,7 @@ object ApiExceptionMappings {
             defaultDetail = "Document not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
+                    "tenantKey" to it.tenantId.value,
                     "documentId" to it.documentId.value.toString(),
                 )
             },
@@ -259,14 +259,14 @@ object ApiExceptionMappings {
         builder.register<ThemeInUseException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Theme is in use and cannot be deleted",
-            extensions = { mapOf("themeId" to it.themeId.value) },
+            extensions = { mapOf("themeKey" to it.themeId.value) },
             logMessage = { "Theme in use, cannot delete: ${it.themeId}" },
         )
 
         builder.register<DefaultVariantDeletionException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Cannot delete the default variant",
-            extensions = { mapOf("variantId" to it.variantId.value) },
+            extensions = { mapOf("variantKey" to it.variantId.value) },
             logMessage = { "Cannot delete default variant: ${it.variantId}" },
         )
 
@@ -275,7 +275,7 @@ object ApiExceptionMappings {
             defaultDetail = "No matching variant found",
             extensions = {
                 mapOf(
-                    "templateId" to it.templateId.value,
+                    "templateKey" to it.templateId.value,
                     "requiredAttributes" to it.criteria.requiredAttributes,
                 )
             },
@@ -287,7 +287,7 @@ object ApiExceptionMappings {
             defaultDetail = "Ambiguous variant resolution",
             extensions = {
                 mapOf(
-                    "templateId" to it.templateId.value,
+                    "templateKey" to it.templateId.value,
                     "tiedVariants" to it.tiedVariantIds.map { id -> id.value },
                 )
             },
@@ -299,7 +299,7 @@ object ApiExceptionMappings {
             defaultDetail = "Attribute is in use and cannot be deleted",
             extensions = {
                 mapOf(
-                    "attributeId" to it.attributeId.key,
+                    "attributeKey" to it.attributeId.key,
                     "variantCount" to it.variantCount,
                 )
             },
@@ -311,7 +311,7 @@ object ApiExceptionMappings {
             defaultDetail = "Cannot remove allowed values that are in use by existing variants",
             extensions = {
                 mapOf(
-                    "attributeId" to it.attributeId.key,
+                    "attributeKey" to it.attributeId.key,
                     "valuesInUse" to it.removedValues,
                 )
             },
@@ -323,9 +323,9 @@ object ApiExceptionMappings {
             defaultDetail = "Template variant not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "templateId" to it.templateId.value,
-                    "variantId" to it.variantId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "templateKey" to it.templateId.value,
+                    "variantKey" to it.variantId.value,
                     missing(MissingResource.Kind.VARIANT, template = it.templateId.value, variant = it.variantId.value),
                 )
             },
@@ -337,8 +337,8 @@ object ApiExceptionMappings {
             defaultDetail = "Version not found",
             extensions = {
                 mapOf(
-                    "templateId" to it.templateId.value,
-                    "variantId" to it.variantId.value,
+                    "templateKey" to it.templateId.value,
+                    "variantKey" to it.variantId.value,
                     "versionId" to it.versionId.value,
                 )
             },
@@ -350,8 +350,8 @@ object ApiExceptionMappings {
             defaultDetail = "Environment not found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "environmentId" to it.environmentId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "environmentKey" to it.environmentId.value,
                     missing(MissingResource.Kind.ENVIRONMENT, environment = it.environmentId.value),
                 )
             },
@@ -362,7 +362,7 @@ object ApiExceptionMappings {
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "The catalog has no release to generate from",
             extensions = {
-                mapOf("tenantId" to it.tenantKey.value, "catalogId" to it.catalogKey.value, missing(MissingResource.Kind.RELEASE))
+                mapOf("tenantKey" to it.tenantKey.value, "catalogKey" to it.catalogKey.value, missing(MissingResource.Kind.RELEASE))
             },
             logMessage = { "Catalog not released: ${it.message}" },
         )
@@ -372,11 +372,11 @@ object ApiExceptionMappings {
             defaultDetail = "The release does not contain the requested template or variant",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantKey.value,
-                    "catalogId" to it.catalogKey.value,
+                    "tenantKey" to it.tenantKey.value,
+                    "catalogKey" to it.catalogKey.value,
                     "releaseVersion" to it.releaseVersion,
-                    "templateId" to it.templateId.value,
-                    "variantId" to it.variantId?.value,
+                    "templateKey" to it.templateId.value,
+                    "variantKey" to it.variantId?.value,
                     missing(
                         if (it.variantId == null) MissingResource.Kind.TEMPLATE else MissingResource.Kind.VARIANT,
                         // A draft has no version, and the exception names it by label, not release id.
@@ -394,9 +394,9 @@ object ApiExceptionMappings {
             defaultDetail = "No published version found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "templateId" to it.templateId.value,
-                    "variantId" to it.variantId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "templateKey" to it.templateId.value,
+                    "variantKey" to it.variantId.value,
                 )
             },
             logMessage = { "No published version: ${it.message}" },
@@ -407,8 +407,8 @@ object ApiExceptionMappings {
             defaultDetail = "No default variant found",
             extensions = {
                 mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "templateId" to it.templateId.value,
+                    "tenantKey" to it.tenantId.value,
+                    "templateKey" to it.templateId.value,
                 )
             },
             logMessage = { "Default variant not found: ${it.message}" },
@@ -441,7 +441,7 @@ object ApiExceptionMappings {
             defaultDetail = "Asset is in use and cannot be deleted",
             extensions = {
                 mapOf(
-                    "assetId" to it.assetId.value,
+                    "assetKey" to it.assetId.value,
                     "usages" to it.usages.map { usage ->
                         mapOf(
                             "templateName" to usage.templateName,
@@ -458,7 +458,7 @@ object ApiExceptionMappings {
             defaultDetail = "Environment is in use and cannot be deleted",
             extensions = {
                 mapOf(
-                    "environmentId" to it.environmentId.value,
+                    "environmentKey" to it.environmentId.value,
                     "deploymentCount" to it.deploymentCount,
                 )
             },
@@ -470,8 +470,8 @@ object ApiExceptionMappings {
             defaultDetail = "No release of the catalog is deployed to the environment",
             extensions = {
                 mapOf(
-                    "environmentId" to it.environmentKey.value,
-                    "catalogId" to it.catalogKey.value,
+                    "environmentKey" to it.environmentKey.value,
+                    "catalogKey" to it.catalogKey.value,
                     missing(MissingResource.Kind.RELEASE, environment = it.environmentKey.value, versionRange = it.versionSelector),
                 )
             },
@@ -483,7 +483,7 @@ object ApiExceptionMappings {
             defaultDetail = "The catalog has no such release that can be rendered",
             extensions = {
                 mapOf(
-                    "catalogId" to it.catalogKey.value,
+                    "catalogKey" to it.catalogKey.value,
                     "releaseVersion" to it.releaseVersion,
                     missing(MissingResource.Kind.RELEASE, versionRange = it.releaseVersion),
                 )
@@ -494,7 +494,7 @@ object ApiExceptionMappings {
         builder.register<ReleaseNotDeployableException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The release cannot be deployed",
-            extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.version) },
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "releaseVersion" to it.version) },
             logMessage = { "Release not deployable: ${it.message}" },
         )
 
@@ -607,7 +607,7 @@ object ApiExceptionMappings {
             defaultDetail = "The release is in use",
             extensions = {
                 mapOf(
-                    "catalogId" to it.catalogKey.value,
+                    "catalogKey" to it.catalogKey.value,
                     "releaseVersion" to it.version,
                     "environments" to it.environments,
                     "pinnedBy" to it.pinnedBy,
@@ -668,14 +668,14 @@ object ApiExceptionMappings {
         builder.register<CatalogNotFoundException>(
             problemType = ApiProblemTypes.NOT_FOUND,
             defaultDetail = "Catalog not found",
-            extensions = { mapOf("catalogId" to it.catalogKey.value, missing(MissingResource.Kind.CATALOG)) },
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, missing(MissingResource.Kind.CATALOG)) },
             logMessage = { "Catalog not found: ${it.catalogKey}" },
         )
 
         builder.register<CatalogNotUpgradeableException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Catalog cannot be upgraded",
-            extensions = { mapOf("catalogId" to it.catalogKey.value) },
+            extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Catalog not upgradeable: ${it.message}" },
         )
 

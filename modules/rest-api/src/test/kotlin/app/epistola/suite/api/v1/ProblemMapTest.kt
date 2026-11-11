@@ -36,6 +36,6 @@ class ProblemMapTest {
         val body = problemDetail(request, mapping.problemType, mapping.detail(ex), mapping.extensions(ex)).toProblemMap()
 
         assertThat(body["status"]).isEqualTo(404)
-        assertThat(body).containsEntry("templateId", "absent").doesNotContainKey("variantId")
+        assertThat(body).containsEntry("templateKey", "absent").doesNotContainKey("variantKey")
     }
 }

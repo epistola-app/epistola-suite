@@ -588,8 +588,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Not Found")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
-        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo(slug)
-        assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(problem, "$.templateKey")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(problem, "$.tenantKey")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(problem, "$.instance"))
             .isEqualTo("${draft(tenantKey)}/templates/$slug")
     }
@@ -609,7 +609,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val problem = response.body!!
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
-        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
+        assertThat(JsonPath.read<String>(problem, "$.templateKey")).isEqualTo("non-existent")
     }
 
     @Test
@@ -627,7 +627,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val problem = response.body!!
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
-        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
+        assertThat(JsonPath.read<String>(problem, "$.templateKey")).isEqualTo("non-existent")
     }
 
     @Test
