@@ -106,14 +106,12 @@ class IconUsageTest {
         .map(repoRoot::resolve)
         .filter(Files::exists)
         .flatMap { base ->
-            Files.walk(base).use { stream ->
-                stream
-                    .filter { it.name.endsWith(".html") }
-                    .filter { path ->
-                        val relative = relativize(path)
-                        "/src/main/resources/templates/" in relative && "/build/" !in relative
-                    }
-                    .toList()
-            }
+            RepoSources.filesUnder(base)
+                .filter { it.name.endsWith(".html") }
+                .filter { path ->
+                    val relative = relativize(path)
+                    "/src/main/resources/templates/" in relative && "/build/" !in relative
+                }
+                .toList()
         }
 }
