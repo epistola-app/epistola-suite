@@ -63,7 +63,7 @@ class StaleConsumerNodeReaper(
     fun reap() = meterRegistry.recordScheduledTask("stale-consumer-reaper") {
         val deleted = deleteStaleNodes()
         if (deleted > 0) {
-            log.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, collect.staleNodeRetentionHours)
+            log.info("Reaped stale consumer_node_assignments rows count={} retentionHours={}", deleted, collect.staleNodeRetentionHours)
         } else {
             log.debug("No stale consumer_node_assignments rows to reap (retentionHours={})", collect.staleNodeRetentionHours)
         }

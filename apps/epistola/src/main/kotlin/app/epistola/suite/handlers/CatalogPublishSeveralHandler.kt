@@ -92,7 +92,7 @@ class CatalogPublishSeveralHandler {
                 DeployCatalogRelease(EnvironmentId(environment.id, tenantId), catalog.catalogId, version, includeDependencies = true).execute()
                 null
             } catch (e: RuntimeException) {
-                log.info("Deploying {} {} to {} after publishing several was refused: {}", catalog.catalogId.address, version, environment.id.value, e.message)
+                log.info("Deploying after publishing several was refused catalog={} version={} environment={} reason=\"{}\"", catalog.catalogId.address, version, environment.id.value, e.message)
                 e.message ?: "It was refused."
             }
             DeploymentView(catalog.name, version, refusal)

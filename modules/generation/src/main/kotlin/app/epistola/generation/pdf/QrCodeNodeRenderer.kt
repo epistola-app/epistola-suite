@@ -96,7 +96,7 @@ class QrCodeNodeRenderer : NodeRenderer {
 
         return when (resolved) {
             null -> {
-                log.debug("QR code node {} resolved to null, skipping", node.id)
+                log.debug("Skipping QR code node that resolved to null node={}", node.id)
                 null
             }
 
@@ -106,7 +106,7 @@ class QrCodeNodeRenderer : NodeRenderer {
 
             else -> {
                 log.warn(
-                    "QR code node {} resolved to unsupported type {}, skipping",
+                    "Skipping QR code node that resolved to an unsupported type node={} type={}",
                     node.id,
                     resolved::class.simpleName,
                 )

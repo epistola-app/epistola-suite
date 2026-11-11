@@ -115,7 +115,7 @@ class DefaultSupportConnection(
         val unknown = settings.configuredServices.filter { it !in SupportScope.NAMES }
         if (settings.enabled && unknown.isNotEmpty()) {
             log.warn(
-                "epistola.support.services names {} which this version does not know (it knows {}); kept, but not used",
+                "epistola.support.services names services this version does not know; kept, but not used unknown={} known={}",
                 unknown,
                 SupportScope.NAMES.sorted(),
             )
@@ -211,13 +211,13 @@ class DefaultSupportConnection(
             store.recordRefusal(scope.value)
         } catch (e: RuntimeException) {
             // Not shared: at least this node stops using the token; the next one says what is granted.
-            log.warn("Support connection: could not store that the support service refused the {} scope: {}", scope.value, e.message)
+            log.warn("Support connection: could not store that the support service refused a scope scope={} reason=\"{}\"", scope.value, e.message)
             if (token === current) token = null
             return
         } finally {
             invalidate()
         }
-        log.info("Support connection: the support service refused the {} scope (Epistola withdrew it); not using {} on any node until a check or a newer token finds it granted again", scope.value, scope.value)
+        log.info("Support connection: the support service refused a scope (Epistola withdrew it); not using it on any node until a check or a newer token finds it granted again scope={} withheld={}", scope.value, scope.value)
     }
 
     /**
@@ -259,7 +259,7 @@ class DefaultSupportConnection(
                 },
             )
         }
-        log.info("Support connection: services selected: {}", SupportScope.normalize(services).ifEmpty { listOf("none") })
+        log.info("Support connection: services selected services={}", SupportScope.normalize(services).ifEmpty { listOf("none") })
         return selectedServices()
     }
 
@@ -348,7 +348,7 @@ class DefaultSupportConnection(
         val now = EpistolaClock.instant()
         val previous = rejections
         if (previous != null && previous.until.isAfter(now)) {
-            log.debug("Support connection: the support service refused this node's token again; not asking for another before {}", previous.until)
+            log.debug("Support connection: the support service refused this node's token again; not asking for another yet until={}", previous.until)
             return false
         }
         val failures = (previous?.failures ?: 0) + 1
@@ -381,7 +381,7 @@ class DefaultSupportConnection(
             }
         } catch (e: RuntimeException) {
             renewing.set(false)
-            log.debug("Support connection: could not start renewing the token: {}", e.message)
+            log.debug("Support connection: could not start renewing the token reason=\"{}\"", e.message)
         }
     }
 
@@ -583,7 +583,7 @@ class DefaultSupportConnection(
         try {
             fetchToken()
         } catch (e: RuntimeException) {
-            log.debug("Support connection: could not refresh the token on this node: {}", e.message)
+            log.debug("Support connection: could not refresh the token on this node reason=\"{}\"", e.message)
         } finally {
             tokenLock.unlock()
         }
@@ -682,10 +682,10 @@ class DefaultSupportConnection(
             localFailure = null
             // The grants were just learned: they settle the refusals stored before, on every node.
             clearRefusals(learnedAt, SupportScope.entries.toSet())
-            if (previous?.state != state || previous.clientId != clientId) log.info("Support connection: {} ({})", state, clientId)
+            if (previous?.state != state || previous.clientId != clientId) log.info("Support connection: state changed state={} registration={}", state, clientId)
         } catch (e: RuntimeException) {
             val message = e.message ?: e.javaClass.simpleName
-            log.warn("Support connection check failed: {}", message)
+            log.warn("Support connection check failed reason=\"{}\"", message)
             if (generateSequence<Throwable>(e) { it.cause.takeIf { cause -> cause !== it } }.take(MAX_CAUSE_DEPTH).any { it is SupportNodeClockException }) {
                 // This node's clock, not the installation's connection: fetchToken stored it as this
                 // node's own failure and clock error, which hold only this node back. The status row
@@ -710,10 +710,10 @@ class DefaultSupportConnection(
         localFailure = null
         invalidate()
         if (allowRegister) {
-            log.info("Support connection: registration {} was never activated and the support service no longer knows it (its claim code expired, or staff removed it); registering again with a new key", clientId)
+            log.info("Support connection: a registration was never activated and the support service no longer knows it (its claim code expired, or staff removed it); registering again with a new key registration={}", clientId)
             register(serviceMetadata, null, replacedExpiredAt = now)
         } else {
-            log.info("Support connection: registration {} was never activated and the support service no longer knows it (its claim code expired, or staff removed it); an installation administrator can register again under Platform → Support connections", clientId)
+            log.info("Support connection: a registration was never activated and the support service no longer knows it (its claim code expired, or staff removed it); an installation administrator can register again under Platform → Support connections registration={}", clientId)
             store.saveStatus(
                 StoredSupportStatus(
                     issuer = serviceMetadata.issuer.toString(),
@@ -754,7 +754,7 @@ class DefaultSupportConnection(
     private fun readableCredentials(): StoredSupportCredentials? = try {
         store.credentials()
     } catch (e: UnreadableSupportCredentialsException) {
-        log.warn("Support connection: {}; forgetting it and registering again with a new key", e.message)
+        log.warn("Support connection: the stored registration cannot be read; forgetting it and registering again with a new key reason=\"{}\"", e.message)
         store.forget()
         token = null
         invalidate()
@@ -790,7 +790,7 @@ class DefaultSupportConnection(
                 replacedExpiredAt = replacedExpiredAt,
             ),
         )
-        log.info("Support connection: registered as {} with {}; status {}", registration.clientId, issuer, registration.status)
+        log.info("Support connection: registered registration={} issuer={} status={}", registration.clientId, issuer, registration.status)
         return credentials
     }
 
@@ -898,10 +898,10 @@ class DefaultSupportConnection(
         try {
             if (store.clearRefusals(upTo, scopes.map { it.value })) {
                 invalidate()
-                log.info("Support connection: {} granted again; using it again on every node", settled.ifEmpty { scopes }.joinToString { it.value })
+                log.info("Support connection: scopes granted again; using them again on every node scopes=\"{}\"", settled.ifEmpty { scopes }.joinToString { it.value })
             }
         } catch (e: RuntimeException) {
-            log.warn("Support connection: could not clear the stored refusals: {}", e.message)
+            log.warn("Support connection: could not clear the stored refusals reason=\"{}\"", e.message)
         }
     }
 

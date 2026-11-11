@@ -150,7 +150,7 @@ class InstallReleaseFromRegistryHandler(
         ).execute()
 
         if (imported.aborted) {
-            log.warn("Install of {} {} into tenant {} aborted", source, version, command.tenantKey.value)
+            log.warn("Install aborted source={} version={} tenant={}", source, version, command.tenantKey.value)
             // A catalog the import created is removed again by the import itself.
             return RegistryInstallResult(catalogKey, version, pulled.digest, newlyInstalled = false, aborted = true, imported = imported)
         }

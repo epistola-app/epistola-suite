@@ -150,7 +150,7 @@ class ApiKeyAuthenticationFilter(
         try {
             RecordApiKeyUsage(apiKey.id).execute()
         } catch (e: Exception) {
-            log.debug("Failed to update API key last_used_at: {}", e.message)
+            log.debug("Failed to update API key last_used_at reason=\"{}\"", e.message)
         }
 
         // Every API key is its own non-human service identity. Audit columns
@@ -211,7 +211,7 @@ class ApiKeyAuthenticationFilter(
         message: String,
         type: app.epistola.suite.api.v1.ApiProblemType = ApiProblemTypes.UNAUTHORIZED,
     ) {
-        log.debug("API key authentication failed: {}", message)
+        log.debug("API key authentication failed reason=\"{}\"", message)
         writeProblemDetail(response, objectMapper, request, type, message)
     }
 

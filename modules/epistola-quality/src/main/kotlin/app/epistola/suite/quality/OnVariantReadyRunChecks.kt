@@ -45,7 +45,7 @@ class OnVariantReadyRunChecks : EventHandler<MarkVariantReady> {
     ) {
         if (!QualityCheckTimer.enabledFor(event.variantId.tenantKey)) return
 
-        log.debug("Checking {} after it was marked ready", event.variantId.toUrn())
+        log.debug("Checking a variant marked ready variant={}", event.variantId.toUrn())
         QualityCheckTimer.schedule(event.variantId, Duration.ZERO, CheckTrigger.READY, event.catalogVersion?.draft ?: app.epistola.suite.catalog.releases.DraftRef.Next)
     }
 

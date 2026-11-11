@@ -79,7 +79,7 @@ class StartLoadTestHandler(
 
     override fun handle(command: StartLoadTest): LoadTestRun {
         log.info(
-            "Starting load test for tenant {} template {} - {} docs",
+            "Starting load test tenant={} template={} documents={}",
             command.tenantId,
             command.templateId,
             command.targetCount,
@@ -154,7 +154,7 @@ class StartLoadTestHandler(
                 .mapTo<LoadTestRun>()
                 .one()
 
-            log.info("Created load test run {} for tenant {}", run.id, command.tenantId)
+            log.info("Created load test run run={} tenant={}", run.id, command.tenantId)
 
             // Run stays in PENDING status - the LoadTestPoller will pick it up
             run

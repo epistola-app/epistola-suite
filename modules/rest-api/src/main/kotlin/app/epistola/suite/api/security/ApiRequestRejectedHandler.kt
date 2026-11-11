@@ -34,7 +34,7 @@ class ApiRequestRejectedHandler(
 
     override fun handle(request: HttpServletRequest, response: HttpServletResponse, ex: RequestRejectedException) {
         if (!request.requestURI.startsWith("/api/")) return fallback.handle(request, response, ex)
-        log.warn("API request rejected by the firewall: {}", sanitizeForLog(ex.message.orEmpty()))
+        log.warn("API request rejected by the firewall reason=\"{}\"", sanitizeForLog(ex.message.orEmpty()))
         writeProblemDetail(response, objectMapper, request, ApiProblemTypes.BAD_REQUEST, ApiExceptionHandler.REQUEST_REJECTED_DETAIL)
     }
 }

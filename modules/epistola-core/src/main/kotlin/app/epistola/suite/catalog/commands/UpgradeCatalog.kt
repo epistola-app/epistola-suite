@@ -100,11 +100,11 @@ class UpgradeCatalogHandler(
             (before - analyzer.installedResources(analyzer.nextOf(command.catalog))).map { RemovedResource(it.type, it.slug) }
         }
         log.info(
-            "Upgraded catalog '{}': {} -> {}{}",
+            "Upgraded catalog catalog={} previousVersion={} version={} result=\"{}\"",
             command.catalogKey,
             previousVersion,
             imported.releaseVersion,
-            if (imported.aborted) " (aborted)" else ", ${removed.size} removed",
+            if (imported.aborted) "aborted" else "${removed.size} removed",
         )
         UpgradeCatalogResult(
             previousVersion = previousVersion,

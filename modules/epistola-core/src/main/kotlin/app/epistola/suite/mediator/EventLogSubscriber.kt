@@ -89,12 +89,12 @@ class EventLogSubscriber(
                 }.execute()
             }
 
-            log.debug("Event logged: {} (tenant={})", eventType, tenantId)
+            log.debug("Event logged event={} tenant={}", eventType, tenantId)
         } catch (e: Exception) {
             outcome = "failure"
             persistFailures.increment()
             // Failure to log should not affect the command
-            log.error("Failed to persist event log: {}", e.message, e)
+            log.error("Failed to persist event log reason=\"{}\"", e.message, e)
         } finally {
             sample.stop(
                 Timer.builder("epistola.eventlog.persist.duration")

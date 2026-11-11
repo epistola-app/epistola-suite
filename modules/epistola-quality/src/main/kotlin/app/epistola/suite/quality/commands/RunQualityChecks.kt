@@ -166,7 +166,7 @@ class RunQualityChecksHandler(
             // Deliberately not rethrown: a broken source must not resolve its own findings by
             // appearing to report nothing, nor take down the sources that work.
             log.error(
-                "Quality source {} failed for {} — leaving its findings untouched",
+                "Quality source failed, leaving its findings untouched source={} subject={}",
                 source.sourceId,
                 input.subject.urn,
                 e,

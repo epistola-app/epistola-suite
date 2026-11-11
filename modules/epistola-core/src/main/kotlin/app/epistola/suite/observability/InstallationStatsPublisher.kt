@@ -102,7 +102,7 @@ class InstallationStatsPublisher(
                     .one()
                 values.getValue(entity).set(count.toDouble())
             }
-            log.debug("Published installation stats: {}", values.mapKeys { it.key.metric }.mapValues { it.value.get() })
+            log.debug("Published installation stats stats={}", values.mapKeys { it.key.metric }.mapValues { it.value.get() })
         }
     }
 

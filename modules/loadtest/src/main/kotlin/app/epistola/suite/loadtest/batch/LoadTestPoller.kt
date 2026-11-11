@@ -79,7 +79,7 @@ class LoadTestPoller(
 
     fun poll() {
         if (activeTests.get() >= maxConcurrentTests) {
-            log.debug("Max concurrent tests reached ({}), skipping poll", maxConcurrentTests)
+            log.debug("Max concurrent tests reached, skipping poll maxConcurrentTests={}", maxConcurrentTests)
             return
         }
 
@@ -89,7 +89,7 @@ class LoadTestPoller(
         val run = claimNextPendingRun()
         if (run != null) {
             activeTests.incrementAndGet()
-            log.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
+            log.info("Claimed load test run run={} activeTests={}", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
             executor.submit(
@@ -97,7 +97,7 @@ class LoadTestPoller(
                     try {
                         loadTestExecutor.execute(run)
                     } catch (e: Exception) {
-                        log.error("Load test execution failed for run {}: {}", run.id, e.message, e)
+                        log.error("Load test execution failed run={} reason=\"{}\"", run.id, e.message, e)
                         markRunFailed(run.id, e.message)
                     } finally {
                         activeTests.decrementAndGet()
@@ -204,7 +204,7 @@ class LoadTestPoller(
         }
 
         if (recovered > 0) {
-            log.warn("Recovered {} stale load test runs (no progress within {} min)", recovered, staleTimeoutMinutes)
+            log.warn("Recovered stale load test runs runs={} staleTimeoutMinutes={}", recovered, staleTimeoutMinutes)
         }
     }
 

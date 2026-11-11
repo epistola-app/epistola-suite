@@ -39,7 +39,7 @@ object JwtAudiencePolicy {
     /** Logs [MISSING_WARNING] when no audience is configured; true when it did. */
     fun warnIfMissing(configured: List<String>?, log: Logger): Boolean {
         if (audiences(configured).isNotEmpty()) return false
-        log.warn("{}", MISSING_WARNING)
+        log.warn("JWT audience not configured reason=\"{}\"", MISSING_WARNING)
         return true
     }
 

@@ -44,7 +44,7 @@ object FlatRoleParser {
                 raw.startsWith(PREFIX_PLATFORM) -> parsePlatform(raw.removePrefix(PREFIX_PLATFORM), raw, platformRoles)
                 raw.startsWith(PREFIX_GLOBAL) -> parseGlobal(raw.removePrefix(PREFIX_GLOBAL), raw, globalRoles)
                 raw.startsWith(PREFIX_TENANT) -> parseTenant(raw.removePrefix(PREFIX_TENANT), raw, tenantRoles)
-                else -> log.debug("Ignoring flat role '{}': no recognised prefix", raw)
+                else -> log.debug("Ignoring flat role with no recognised prefix role={}", raw)
             }
         }
 
@@ -61,7 +61,7 @@ object FlatRoleParser {
         if (role != null) {
             into.add(role)
         } else {
-            log.debug("Ignoring flat role '{}': unrecognised platform role '{}'", raw, rest)
+            log.debug("Ignoring flat role with an unrecognised platform role role={} platformRole={}", raw, rest)
         }
     }
 
@@ -70,7 +70,7 @@ object FlatRoleParser {
         if (role != null) {
             into.add(role)
         } else {
-            log.debug("Ignoring flat role '{}': unrecognised global role '{}'", raw, rest)
+            log.debug("Ignoring flat role with an unrecognised global role role={} globalRole={}", raw, rest)
         }
     }
 
@@ -81,21 +81,21 @@ object FlatRoleParser {
     ) {
         val segments = rest.split('_')
         if (segments.size != 2) {
-            log.debug("Ignoring flat role '{}': expected ept_<tenantKey>_<role>", raw)
+            log.debug("Ignoring flat role, expected ept_<tenantKey>_<role> role={}", raw)
             return
         }
         val (tenantPart, rolePart) = segments
 
         val role = KNOWN_TENANT_ROLES[rolePart]
         if (role == null) {
-            log.debug("Ignoring flat role '{}': unrecognised tenant role '{}'", raw, rolePart)
+            log.debug("Ignoring flat role with an unrecognised tenant role role={} tenantRole={}", raw, rolePart)
             return
         }
 
         val tenantKey = try {
             TenantKey.of(tenantPart)
         } catch (e: IllegalArgumentException) {
-            log.debug("Ignoring flat role '{}': invalid tenant key '{}'", raw, tenantPart)
+            log.debug("Ignoring flat role with an invalid tenant key role={} tenant={}", raw, tenantPart)
             return
         }
 

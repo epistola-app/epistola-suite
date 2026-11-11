@@ -106,7 +106,7 @@ class ExchangeCatalogBrowser(
             val page = client.searchCatalogs(session.baseUrl, session.token, query, cursor, SEARCH_PAGE_SIZE)
             ExchangeBrowseResult(page.items, page.nextCursor)
         } catch (e: RestClientException) {
-            log.warn("Browsing Exchange failed for tenant {}: {}", tenantKey.value, e.message)
+            log.warn("Browsing Exchange failed tenant={} reason=\"{}\"", tenantKey.value, e.message)
             ExchangeBrowseResult(unavailable = ExchangeBrowseUnavailable.UNREACHABLE)
         }
     }

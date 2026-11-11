@@ -30,7 +30,7 @@ class OnSupportRequestCreated(
 
     override fun on(event: CreateSupportRequest, result: Any?) {
         val supportRequest = result as? SupportRequest ?: run {
-            log.warn("Expected Feedback result from CreateFeedback but got {}", result?.javaClass?.name)
+            log.warn("Expected Feedback result from CreateFeedback but got another type={}", result?.javaClass?.name)
             return
         }
         // PENDING only when sending was allowed at creation (consent and a wired target).

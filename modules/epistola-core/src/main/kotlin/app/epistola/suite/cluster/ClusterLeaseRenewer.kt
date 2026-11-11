@@ -56,7 +56,7 @@ class ClusterLeaseRenewer(
         try {
             renew(keys)
         } catch (e: Exception) {
-            log.warn("Lease renewal failed for {} in-flight key(s): {}", keys.size, e.message, e)
+            log.warn("Lease renewal failed for in-flight keys keys={} reason=\"{}\"", keys.size, e.message, e)
         }
     }
 

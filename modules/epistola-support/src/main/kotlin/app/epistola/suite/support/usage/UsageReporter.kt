@@ -116,7 +116,7 @@ class UsageReporter(
         /** Whether an hour waits to be reported to this connection; run by [UsageReporter.tick]. */
         fun tick(now: Instant) {
             if (now.isBefore(notBefore) || !waiting(now)) return
-            val round = runCatching { report() }.onFailure { log.warn("Usage report round failed: {}", it.javaClass.simpleName) }.getOrNull()
+            val round = runCatching { report() }.onFailure { log.warn("Usage report round failed exception={}", it.javaClass.simpleName) }.getOrNull()
             notBefore = when {
                 round == null -> now.plus(RETRY_AFTER)
                 round.stoppedBecause == STATISTICS_BEHIND -> now.plus(Duration.ofMinutes(1))
@@ -203,12 +203,12 @@ class UsageReporter(
                     }
                     if (!e.isSupportUnavailable() && e.refusedForGood()) {
                         // Refused for good (a 4xx): skipped, so the hours after it still go; their running totals carry it.
-                        log.warn("Usage report for {} refused by the support service ({}); skipping that hour", hour, e.javaClass.simpleName)
+                        log.warn("Usage report refused by the support service; skipping that hour hour={} exception={}", hour, e.javaClass.simpleName)
                         markReported(hour)
                         continue
                     }
                     val why = if (e.isSupportUnavailable()) "the support service is unavailable" else "the support service refused $hour: ${e.javaClass.simpleName}"
-                    log.info("Usage report stopped: {}", why)
+                    log.info("Usage report stopped reason=\"{}\"", why)
                     return UsageReportRound(sent, why)
                 }
                 markReported(hour)

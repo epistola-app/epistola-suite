@@ -140,7 +140,7 @@ class ExchangeCredentialService(
         }
         if (stored == 0) {
             // Another node rotated the same credential first; its token is the live one.
-            log.debug("Exchange refresh for tenant {} lost a rotation race; reloading", connection.tenantKey)
+            log.debug("Exchange refresh lost a rotation race; reloading tenant={}", connection.tenantKey)
             return activeConnection(connection.tenantKey)?.accessToken?.value
         }
         return token.accessToken
@@ -165,7 +165,7 @@ class ExchangeCredentialService(
         }
         due.forEach { connection ->
             runCatching { accessToken(connection, renewWithin = RENEW_AHEAD) }.onFailure {
-                log.warn("Exchange credential refresh failed for tenant {}: {}", connection.tenantKey, it.message)
+                log.warn("Exchange credential refresh failed tenant={} reason=\"{}\"", connection.tenantKey, it.message)
             }
         }
     }
@@ -192,7 +192,7 @@ class ExchangeCredentialService(
         val context = try {
             client.context(connection.endpoints, token)
         } catch (failure: Exception) {
-            log.warn("Could not re-read Exchange grants for tenant {}: {}", tenantKey, failure.message)
+            log.warn("Could not re-read Exchange grants tenant={} reason=\"{}\"", tenantKey, failure.message)
             return null
         }
         jdbi.useHandle<Exception> { handle ->

@@ -73,7 +73,7 @@ class DemoLoginMembershipResolver(
         }
         persistMemberships(user, memberships)
 
-        log.info("Demo mode: assigned user {} to {} with all roles", email, tenantKey.value)
+        log.info("Demo mode: assigned user with all roles user={} tenant={}", email, tenantKey.value)
         return ResolvedMemberships(tenantMemberships = memberships)
     }
 
@@ -96,7 +96,7 @@ class DemoLoginMembershipResolver(
         val sharedKey = TenantKey.of(DemoLoader.DEMO_TENANT_ID)
         val exists = SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) { mediator.query(GetTenant(sharedKey)) != null }
         if (!exists) {
-            log.warn("Demo mode: shared tenant {} does not exist; granting personal access only", sharedKey.value)
+            log.warn("Demo mode: shared tenant does not exist; granting personal access only tenant={}", sharedKey.value)
             return null
         }
         return sharedKey to SHARED_DEMO_ROLES
@@ -116,7 +116,7 @@ class DemoLoginMembershipResolver(
     }
 
     private fun createTenant(tenantKey: TenantKey, email: String) {
-        log.info("Demo mode: auto-creating personal tenant {} for {}", tenantKey.value, email)
+        log.info("Demo mode: auto-creating personal tenant tenant={} user={}", tenantKey.value, email)
         try {
             // Tenant and environments commit together: a half-built tenant would be worse than none,
             // and every later login would skip past it as already existing.
@@ -129,7 +129,7 @@ class DemoLoginMembershipResolver(
         } catch (e: DuplicateIdException) {
             // Two tabs finishing OIDC at once. First login is now the common case rather than a rare
             // one, so losing this race must not fail the login — the winner built the same tenant.
-            log.info("Demo mode: tenant {} was created concurrently: {}", tenantKey.value, e.message)
+            log.info("Demo mode: tenant was created concurrently tenant={} reason=\"{}\"", tenantKey.value, e.message)
         }
     }
 
@@ -143,9 +143,9 @@ class DemoLoginMembershipResolver(
         try {
             val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DemoLoader.DEMO_CATALOG_URL))
             mediator.deployDemoCatalog(result.catalog, result.newVersion)
-            log.debug("Demo mode: catalog {} in {} is {}", result.catalogKey.value, tenantKey.value, result.status)
+            log.debug("Demo mode: demo catalog seeded catalog={} tenant={} status={}", result.catalogKey.value, tenantKey.value, result.status)
         } catch (e: Exception) {
-            log.warn("Demo mode: could not seed the demo catalog into {}: {}", tenantKey.value, e.message)
+            log.warn("Demo mode: could not seed the demo catalog tenant={} reason=\"{}\"", tenantKey.value, e.message)
         }
     }
 
@@ -163,7 +163,7 @@ class DemoLoginMembershipResolver(
             mediator.send(SyncTenantMemberships(user.id, memberships))
         } catch (e: Exception) {
             // The session principal already carries the grants, so the login still works.
-            log.warn("Demo mode: could not persist memberships for {}: {}", user.email, e.message)
+            log.warn("Demo mode: could not persist memberships user={} reason=\"{}\"", user.email, e.message)
         }
     }
 

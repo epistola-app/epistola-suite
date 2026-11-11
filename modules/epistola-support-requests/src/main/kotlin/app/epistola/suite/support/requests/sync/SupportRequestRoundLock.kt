@@ -67,7 +67,7 @@ class SupportRequestRoundLock(
         try {
             round()
         } finally {
-            if (!release(holder)) log.warn("Feedback sync: this round outlived its lease of {} and another round may have run alongside it", lease)
+            if (!release(holder)) log.warn("Feedback sync: this round outlived its lease and another round may have run alongside it lease={}", lease)
         }
         return true
     }

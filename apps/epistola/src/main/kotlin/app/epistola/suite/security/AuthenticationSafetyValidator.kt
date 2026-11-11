@@ -49,7 +49,7 @@ class AuthenticationSafetyValidator(
         validateNoShippedPasswordsOutsideLocal()
 
         log.info(
-            "Authentication configured — form login: {}, OAuth2: {}",
+            "Authentication configured formLogin={} oauth2={}",
             userDetailsService != null,
             clientRegistrationRepository != null,
         )

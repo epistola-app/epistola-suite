@@ -170,7 +170,7 @@ class GenerationStatisticsRollup(
             .bind("complete", complete)
             .bind("settle", "${properties.settle.toSeconds()} seconds")
             .execute()
-        if (rows > 0) log.debug("Generation statistics: counted {} results up to sequence {}", rows, lastSequence)
+        if (rows > 0) log.debug("Generation statistics counted results results={} sequence={}", rows, lastSequence)
         return rows
     }
 
@@ -269,7 +269,7 @@ class PreviewStatisticsCounter(
         } catch (e: Exception) {
             // Kept for the next flush rather than lost.
             taken.forEach { (key, count) -> pending.merge(key, count, Long::plus) }
-            log.warn("Preview statistics could not be written; kept for the next flush: {}", e.message ?: e.javaClass.simpleName)
+            log.warn("Preview statistics could not be written; kept for the next flush reason=\"{}\"", e.message ?: e.javaClass.simpleName)
         }
     }
 

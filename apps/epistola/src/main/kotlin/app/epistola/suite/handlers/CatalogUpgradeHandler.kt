@@ -50,7 +50,7 @@ class CatalogUpgradeHandler {
         val check = try {
             CheckCatalogUpstream(catalogId).execute()
         } catch (e: Exception) {
-            log.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+            log.warn("Upgrade check failed catalog={} reason=\"{}\"", catalogKey, e.message)
             null
         }
         val status = CatalogReleaseStatusView.of(
@@ -81,7 +81,7 @@ class CatalogUpgradeHandler {
         try {
             model["available"] = ListAvailableCatalogReleases(catalog).query()
         } catch (e: Exception) {
-            log.warn("Listing the releases available for catalog {} failed: {}", catalogKey, e.message)
+            log.warn("Listing the available releases failed catalog={} reason=\"{}\"", catalogKey, e.message)
             model["available"] = null
             if (error == null) model["error"] = e.message ?: "The catalog's source could not be asked. It may be unavailable."
         }
@@ -126,7 +126,7 @@ class CatalogUpgradeHandler {
         } catch (e: CatalogUpgradeConflictException) {
             upgradeDialog(request, catalog, e.message ?: "Installing it is blocked: resources are still in use.", refused = true)
         } catch (e: Exception) {
-            log.warn("Failed to install a release of catalog: {}", e.message, e)
+            log.warn("Failed to install a release of catalog reason=\"{}\"", e.message, e)
             upgradeDialog(request, catalog, e.message ?: "Failed to install the release.", refused = true)
         }
     }

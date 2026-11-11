@@ -219,7 +219,7 @@ class ApplicationLogIngestor(
         } catch (e: Exception) {
             // Fail-open: never let the worker die and never break the request that logged.
             persistFailures.increment()
-            log.warn("Application log batch insert failed; dropping {} record(s): {}", batch.size, e.message)
+            log.warn("Application log batch insert failed; dropping records records={} reason=\"{}\"", batch.size, e.message)
         }
     }
 

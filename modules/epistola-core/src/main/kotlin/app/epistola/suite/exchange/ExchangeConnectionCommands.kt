@@ -120,7 +120,7 @@ class StartExchangeConnectionHandler(
             // Exchange names the refusal in a `code` field; the substring check tolerates it
             // appearing there or in the human-readable detail beside it.
             if (!failure.responseBodyAsString.contains("unknown_client_identity")) throw failure
-            log.warn("Exchange does not recognise the stored identity for tenant {}; enrolling afresh", command.tenantKey)
+            log.warn("Exchange does not recognise the stored identity; enrolling afresh tenant={}", command.tenantKey)
             enrolledAfresh = true
             startAuthorization(null, null, null)
         }
@@ -283,7 +283,7 @@ class CompleteExchangeConnectionHandler(
         namespaces.filter(CatalogNamespaces::isValid).forEach { namespace ->
             val outcome = grants.grant(handle, tenantKey, NamespaceName(identity.defaultRegistry, namespace), NamespaceGrantSource.EXCHANGE_CONNECTION, grantedBy = null)
             if (outcome is GrantOutcome.TakenUnder) {
-                log.warn("Exchange grants tenant {} the namespace {}, which it holds under {}; not granted again", tenantKey, namespace, outcome.authority)
+                log.warn("Exchange grants a namespace the tenant holds under another authority; not granted again tenant={} namespace={} authority={}", tenantKey, namespace, outcome.authority)
             }
         }
     }

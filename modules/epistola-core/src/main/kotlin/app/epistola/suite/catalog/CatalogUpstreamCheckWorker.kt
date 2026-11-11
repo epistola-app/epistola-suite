@@ -79,7 +79,7 @@ class CatalogUpstreamCheckWorker(
         } catch (e: Exception) {
             // A probe that throws something it did not translate is a bug in that probe, not a
             // reason to stop checking every other catalog.
-            log.warn("Upstream check for {}/{} failed unexpectedly", catalog.tenantKey.value, catalog.id.value, e)
+            log.warn("Upstream check failed unexpectedly tenant={} catalog={}", catalog.tenantKey.value, catalog.id.value, e)
             store.recordFailure(
                 catalog.catalogId,
                 CatalogUpstreamCheckFailure.PROTOCOL_ERROR,

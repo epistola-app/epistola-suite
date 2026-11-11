@@ -27,7 +27,7 @@ internal class TelemetryOutageLog(private val leg: String, private val log: Logg
 
     /** An export reached the support service. */
     fun succeeded() {
-        if (failing.compareAndSet(true, false)) log.info("Support telemetry {}: exports reach the support service again", leg)
+        if (failing.compareAndSet(true, false)) log.info("Support telemetry exports reach the support service again leg={}", leg)
     }
 
     /** An export failed for [failure] (null when the exporter gave no reason). */
@@ -35,18 +35,18 @@ internal class TelemetryOutageLog(private val leg: String, private val log: Logg
         val reason = describe(failure)
         if (failing.compareAndSet(false, true)) {
             if (isExpected(failure)) {
-                log.warn("Support telemetry {}: exports to the support service fail ({}); {} are dropped until they succeed again", leg, reason, leg)
+                log.warn("Support telemetry exports to the support service fail; they are dropped until they succeed again leg={} reason=\"{}\" dropped={}", leg, reason, leg)
             } else {
-                log.warn("Support telemetry {}: exports to the support service fail ({}); {} are dropped until they succeed again", leg, reason, leg, failure)
+                log.warn("Support telemetry exports to the support service fail; they are dropped until they succeed again leg={} reason=\"{}\" dropped={}", leg, reason, leg, failure)
             }
         } else {
-            log.debug("Support telemetry {}: export failed again ({})", leg, reason)
+            log.debug("Support telemetry export failed again leg={} reason=\"{}\"", leg, reason)
         }
     }
 
     /** An export the support service answered, but refused for this token or scope; the connection handles it. */
     fun refused(reason: String) {
-        log.debug("Support telemetry {}: export refused ({})", leg, reason)
+        log.debug("Support telemetry export refused leg={} reason=\"{}\"", leg, reason)
     }
 
     companion object {

@@ -65,7 +65,7 @@ class NavMenuAggregator(
             .mapNotNull { (groupKey, groupItems) ->
                 val decl = groupDecls[groupKey]
                 if (decl == null) {
-                    log.warn("Nav item(s) reference unknown group '{}'; skipping. Sections: {}", groupKey, groupItems.map { it.sectionKey })
+                    log.warn("Skipping nav items that reference an unknown group group={} sections={}", groupKey, groupItems.map { it.sectionKey })
                     return@mapNotNull null
                 }
                 val views = groupItems

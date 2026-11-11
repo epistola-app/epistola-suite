@@ -381,7 +381,7 @@ class ReleaseCatalogDraftHandler(
 
         if (unchanged) {
             log.warn(
-                "Releasing catalog '{}' v{} with content identical to a previous release (fingerprint {})",
+                "Releasing catalog with content identical to a previous release catalog={} version={} fingerprint={}",
                 command.catalogKey.value,
                 newVersion,
                 fingerprint,
@@ -506,7 +506,7 @@ class ReleaseCatalogDraftHandler(
         }
 
         log.info(
-            "Released catalog '{}': {} -> {} (fingerprint {})",
+            "Released catalog catalog={} previousVersion={} version={} fingerprint={}",
             command.catalogKey.value,
             latest?.toString() ?: "—",
             newVersion,

@@ -21,7 +21,10 @@ log.warn("Catalog upgrade failed catalog={} tenant={} reason=\"{}\"", catalogKey
   Enforced by `LogMessageTemplateTest`.
 - **Every value is named: `key={}`.** A short sentence first, then the pairs. The name tells a
   reader what the value is, makes `catalog=acme` searchable, and survives in the pattern telemetry
-  sends. Keys are lower camelCase nouns: `tenant`, `catalog`, `templateId`.
+  sends. Keys are lower camelCase nouns, reused rather than reinvented: `tenant`, `catalog`,
+  `release`, `version`, `template`, `variant`, `document`, `job`, `request`, `user`, `node`; a count
+  is a plural noun or `count`; a unit goes in the key (`durationMs`, `sizeBytes`); an exception's
+  class name is `exception`.
 - **Quote free text, and put it last: `reason="{}"`.** Names, titles, `e.message` and anything a user
   typed may hold spaces or be empty. Identifiers, numbers and enums stay bare.
 - **Keep values in the message, not in `addKeyValue`.** The in-app Logs page stores only the
@@ -32,8 +35,8 @@ log.warn("Catalog upgrade failed catalog={} tenant={} reason=\"{}\"", catalogKey
 - **The field is `log`.**
 
 Line breaks in values cannot forge an entry: the console pattern escapes them and JSON output
-encodes them (`ConsoleLogPatternTest`). `DriftRatchetTest` holds the field name at zero
-exceptions and ratchets unnamed placeholders: their count may fall, never rise.
+encodes them (`ConsoleLogPatternTest`). `DriftRatchetTest` holds both the field name and
+unnamed placeholders at zero; code migrations are exempt, since their source is checksummed.
 
 ## Verify
 

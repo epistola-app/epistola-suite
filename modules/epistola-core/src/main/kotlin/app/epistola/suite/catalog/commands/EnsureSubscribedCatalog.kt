@@ -86,14 +86,14 @@ class EnsureSubscribedCatalogHandler(
             val failed = results.filter { it.status == InstallStatus.FAILED }
             if (failed.isNotEmpty()) {
                 log.warn(
-                    "Catalog '{}' installed for tenant {} with {} failures: {}",
+                    "Catalog installed with failures catalog={} tenant={} failures={} details=\"{}\"",
                     catalogKey.value,
                     command.tenantKey.value,
                     failed.size,
                     failed.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
                 )
             }
-            log.info("Catalog '{}' installed for tenant {} at version {}", catalogKey.value, command.tenantKey.value, bundledVersion)
+            log.info("Catalog installed catalog={} tenant={} version={}", catalogKey.value, command.tenantKey.value, bundledVersion)
             return@runAsImport EnsureSubscribedCatalogResult(EnsureCatalogStatus.INSTALLED, catalogKey, null, bundledVersion, catalog)
         }
 
@@ -106,7 +106,7 @@ class EnsureSubscribedCatalogHandler(
                 jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, catalog, bundledVersion, bundledFingerprint) }
         } else {
             log.warn(
-                "Catalog '{}' manifest has no release.fingerprint — using version-string change detection (no content drift detection) for tenant {}",
+                "Catalog manifest has no release.fingerprint — using version-string change detection (no content drift detection) catalog={} tenant={}",
                 catalogKey.value,
                 command.tenantKey.value,
             )
@@ -131,7 +131,7 @@ class EnsureSubscribedCatalogHandler(
             throw CatalogUpgradeAbortedException(catalogKey, upgrade.installResults.filter { it.status == InstallStatus.FAILED })
         }
         log.info(
-            "Catalog '{}' upgraded for tenant {}: {} -> {}",
+            "Catalog upgraded catalog={} tenant={} previousVersion={} version={}",
             catalogKey.value,
             command.tenantKey.value,
             previousVersion,

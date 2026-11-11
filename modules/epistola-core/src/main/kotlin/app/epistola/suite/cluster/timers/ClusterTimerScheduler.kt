@@ -107,7 +107,7 @@ class ClusterTimerScheduler(
                 if (stillOurs) {
                     leaseRenewer.withRenewal(timer.timerKey) { dispatch(timer) }
                 } else {
-                    log.info("Skipping cluster timer '{}': its lease was taken over before it could start", timer.timerKey)
+                    log.info("Skipping cluster timer: its lease was taken over before it could start timer={}", timer.timerKey)
                 }
                 stillOurs
             }
@@ -132,7 +132,7 @@ class ClusterTimerScheduler(
         if (handler == null) {
             val retryAt = EpistolaClock.offsetDateTime().plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
             timerRegistry.retryAfterFailure(timer.timerKey, retryAt, "No handler registered for timer type '${timer.timerType}'")
-            log.warn("No handler registered for cluster timer type '{}'", timer.timerType)
+            log.warn("No handler registered for cluster timer type timerType={}", timer.timerType)
             return
         }
 
@@ -155,7 +155,7 @@ class ClusterTimerScheduler(
         } catch (e: Exception) {
             val retryAt = EpistolaClock.offsetDateTime().plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
             timerRegistry.retryAfterFailure(timer.timerKey, retryAt, e.message ?: e.javaClass.name)
-            log.warn("Cluster timer '{}' failed; retry scheduled for {}", timer.timerKey, retryAt, e)
+            log.warn("Cluster timer failed; retry scheduled timer={} retryAt={}", timer.timerKey, retryAt, e)
         }
     }
 

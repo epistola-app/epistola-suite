@@ -129,7 +129,7 @@ class PartitionMaintenanceScheduler(
                         createRequiredPartitions(config)
                         dropOldPartitions(config)
                     } catch (e: Exception) {
-                        log.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+                        log.error("Failed to maintain partitions table={} reason=\"{}\"", config.tableName, e.message, e)
                     }
                 }
                 log.info("Partition maintenance completed")
@@ -175,10 +175,10 @@ class PartitionMaintenanceScheduler(
                     .mapTo(String::class.java)
                     .one()
             }
-            log.debug("Ensured partition exists: {}", partitionName)
+            log.debug("Ensured partition exists partition={}", partitionName)
         } catch (e: Exception) {
             // This is critical - we need the partition!
-            log.error("CRITICAL: Failed to create partition for {} {}: {}", config.tableName, month, e.message, e)
+            log.error("CRITICAL: Failed to create partition table={} month={} reason=\"{}\"", config.tableName, month, e.message, e)
             throw e
         }
     }
@@ -220,9 +220,9 @@ class PartitionMaintenanceScheduler(
         }
 
         if (dropped.isNotEmpty()) {
-            log.info("Dropped {} old partition(s) for table {} (older than {} months): {}", dropped.size, config.tableName, retentionMonths, dropped)
+            log.info("Dropped old partitions count={} table={} olderThanMonths={} partitions={}", dropped.size, config.tableName, retentionMonths, dropped)
         } else {
-            log.debug("No old partitions to drop for table {}", config.tableName)
+            log.debug("No old partitions to drop table={}", config.tableName)
         }
     }
 

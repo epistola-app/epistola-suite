@@ -173,7 +173,7 @@ class SupportPrivacy(
                 .toMap()
         }
     } catch (e: RuntimeException) {
-        log.warn("Support connection privacy settings could not be read; keeping the settings last read: {}", e.message)
+        log.warn("Support connection privacy settings could not be read; keeping the settings last read reason=\"{}\"", e.message)
         null
     }
 
@@ -236,7 +236,7 @@ class TenantReferences(
         try {
             secret()
         } catch (e: RuntimeException) {
-            log.warn("The tenant reference secret could not be loaded yet; telemetry sends no tenant until it is: {}", e.message)
+            log.warn("The tenant reference secret could not be loaded yet; telemetry sends no tenant until it is reason=\"{}\"", e.message)
         }
     }
 

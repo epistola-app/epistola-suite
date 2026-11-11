@@ -146,7 +146,7 @@ class CatalogUpgradeAnalyzer(
                     // Every type is a draft row naming its content (ADR 0033).
                     app.epistola.suite.catalog.revisions.DraftResources.delete(handle, at, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))
-                    log.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
+                    log.info("Removed stale resource type={} key={} catalog={}", resource.type, resource.slug, catalog.key)
                     continue
                 }
             }

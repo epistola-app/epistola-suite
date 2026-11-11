@@ -62,7 +62,7 @@ class SupportDisconnector(
                     ),
                 )
                 connection.forgetNodeState()
-                log.info("Support connection: disconnected by an installation administrator ({})", outcome)
+                log.info("Support connection: disconnected by an installation administrator outcome={}", outcome)
                 outcome
             } ?: throw SupportConnectionBusyException()
         } finally {

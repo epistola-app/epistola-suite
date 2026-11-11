@@ -108,13 +108,13 @@ class ExchangeHandler {
     } catch (failure: ValidationException) {
         renderSettings(tenantKey, failure.message)
     } catch (failure: RestClientException) {
-        log.warn("Exchange call failed for tenant {}: {}", tenantKey, failure.message)
+        log.warn("Exchange call failed tenant={} reason=\"{}\"", tenantKey, failure.message)
         renderSettings(tenantKey, "Exchange could not be reached or refused the request. Try again, or forget the connection locally.")
     } catch (failure: ExchangeProtocolException) {
         // Reached Exchange, cannot use its answer — a version, issuer or endpoint problem an
         // operator has to act on. The message names what disagreed, so it is shown as-is:
         // "connect failed" without the reason is the least useful thing this page could say.
-        log.warn("Exchange returned an unusable response for tenant {}: {}", tenantKey, failure.message)
+        log.warn("Exchange returned an unusable response tenant={} reason=\"{}\"", tenantKey, failure.message)
         renderSettings(tenantKey, failure.message)
     }
 

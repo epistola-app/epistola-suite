@@ -72,7 +72,7 @@ object CredentialCipherFactory {
         }
 
         log.info(
-            "Credential encryption enabled with {} key(s); primary key id '{}'.",
+            "Credential encryption enabled keys={} primaryKey={}",
             keys.size,
             properties.primaryKeyId,
         )

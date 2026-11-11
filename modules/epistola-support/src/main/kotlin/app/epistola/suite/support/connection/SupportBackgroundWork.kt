@@ -140,7 +140,7 @@ class SupportBackgroundWork(private val mediator: Mediator) {
                     work()
                 } catch (e: Exception) {
                     if (closed) return
-                    log.warn("Support work '{}' failed: {}", key, e.message, e)
+                    log.warn("Support work failed work={} reason=\"{}\"", key, e.message, e)
                 }
                 if (closed || !goesOn(key)) break
             }
@@ -178,7 +178,7 @@ class SupportBackgroundWork(private val mediator: Mediator) {
         closed = true
         executor.shutdownNow()
         if (!executor.awaitTermination(SHUTDOWN_WAIT_MS, TimeUnit.MILLISECONDS)) {
-            log.info("Support work still running at shutdown was left to end with the process: {}", running.filterValues { !it.isDone }.keys)
+            log.info("Support work still running at shutdown was left to end with the process work={}", running.filterValues { !it.isDone }.keys)
         }
     }
 

@@ -100,7 +100,7 @@ class UploadAssetHandler(
             throw AssetTooLargeException(sizeBytes)
         }
         val id = command.id ?: AssetKey.generate()
-        log.info("Uploading image {} ({}, {} bytes) for tenant {}", command.name, command.mediaType.mimeType, sizeBytes, command.tenantId)
+        log.info("Uploading image name=\"{}\" mediaType={} sizeBytes={} tenant={}", command.name, command.mediaType.mimeType, sizeBytes, command.tenantId)
 
         // Bytes first, once per installation: a blob nothing names yet is harmless (the reaper takes
         // it), a content naming bytes that are not there is not.

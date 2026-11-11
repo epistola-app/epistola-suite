@@ -136,7 +136,7 @@ class TokenSupportConnection(
     }
 
     private fun failed(before: StoredSupportStatus?, now: java.time.Instant, error: String) {
-        log.info("Support connection {} check failed: {}", id, error)
+        log.info("Support connection check failed connection={} reason=\"{}\"", id, error)
         store.saveStatus((before ?: StoredSupportStatus(issuer = endpoint.toString())).copy(checkedAt = now, lastError = error))
     }
 

@@ -69,7 +69,7 @@ class HeartbeatFailureLogTest {
         assertThat(events(Level.DEBUG)).allSatisfy { assertThat(it.throwableProxy).isNull() }
         // One recovery INFO; counter reset.
         assertThat(events(Level.INFO)).hasSize(1)
-        assertThat(events(Level.INFO).single().formattedMessage).contains("recovered after 3")
+        assertThat(events(Level.INFO).single().formattedMessage).contains("recovered failedAttempts=3")
         assertThat(throttle.consecutiveFailures).isZero()
     }
 

@@ -160,7 +160,7 @@ class AuditRecorder(
         } catch (e: Exception) {
             persistFailures.increment()
             log.error(
-                "Failed to persist audit log entry for {}: {}",
+                "Failed to persist audit log entry message={} reason=\"{}\"",
                 message::class.simpleName,
                 e.message,
                 e,

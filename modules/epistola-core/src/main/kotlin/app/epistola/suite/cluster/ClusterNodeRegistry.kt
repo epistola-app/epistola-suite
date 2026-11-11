@@ -88,7 +88,7 @@ class ClusterNodeRegistry(
         if (capabilityContributors.isEmpty()) return configured
         val added = capabilityContributors.flatMap { contributor ->
             runCatching { contributor.capabilities(configured) }
-                .onFailure { log.warn("Cluster capability contributor {} failed; it adds nothing this heartbeat: {}", contributor.javaClass.simpleName, it.message) }
+                .onFailure { log.warn("Cluster capability contributor failed; it adds nothing this heartbeat contributor={} reason=\"{}\"", contributor.javaClass.simpleName, it.message) }
                 .getOrDefault(emptySet())
         }
         return (configured + added.map(String::trim).filter(String::isNotEmpty)).distinct()

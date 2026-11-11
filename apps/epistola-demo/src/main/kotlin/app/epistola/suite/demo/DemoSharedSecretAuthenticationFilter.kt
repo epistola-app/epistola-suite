@@ -99,7 +99,7 @@ class DemoSharedSecretAuthenticationFilter(
         authCounter().increment()
         // Sanitized: both come straight from the caller, and a newline in either would let them
         // forge log lines — including a plausible "authentication succeeded" for someone else.
-        log.debug("Demo shared secret accepted for {} {}", sanitizeForLog(request.method), sanitizeForLog(request.requestURI))
+        log.debug("Demo shared secret accepted method={} path={}", sanitizeForLog(request.method), sanitizeForLog(request.requestURI))
 
         filterChain.doFilter(request, response)
     }

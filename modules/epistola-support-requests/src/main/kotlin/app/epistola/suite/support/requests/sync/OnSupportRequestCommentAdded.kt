@@ -37,7 +37,7 @@ class OnSupportRequestCommentAdded(
 
     override fun on(event: AddSupportRequestComment, result: Any?) {
         if (result !is SupportRequestComment) {
-            log.warn("Expected FeedbackComment result from AddFeedbackComment but got {}", result?.javaClass?.name)
+            log.warn("Expected FeedbackComment result from AddFeedbackComment but got another type={}", result?.javaClass?.name)
             return
         }
         val supportRequest = GetSupportRequest(SupportRequestId(event.id.supportRequestKey, TenantId(event.id.tenantKey))).query() ?: return

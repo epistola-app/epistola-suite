@@ -70,12 +70,12 @@ class LoadTestCleanupScheduler(
             }
 
             log.info(
-                "Cleaned up {} old load test runs (older than {} days)",
+                "Cleaned up old load test runs runs={} retentionDays={}",
                 deleted,
                 runsRetentionDays,
             )
         } catch (e: Exception) {
-            log.error("Failed to cleanup old load test runs: {}", e.message, e)
+            log.error("Failed to clean up old load test runs reason=\"{}\"", e.message, e)
         }
     }
 

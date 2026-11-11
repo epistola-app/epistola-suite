@@ -48,7 +48,7 @@ class SsoLoginFailureHandler : AuthenticationFailureHandler {
             defaultFailureHandler.onAuthenticationFailure(request, response, exception)
             return
         }
-        log.debug("Silent SSO login declined by the identity provider ({}); showing the login page", errorCode)
+        log.debug("Silent SSO login declined by the identity provider; showing the login page error={}", errorCode)
         val isPopup = request.getSession(false)?.getAttribute(POPUP_SESSION_ATTR) == true
         redirectStrategy.sendRedirect(request, response, if (isPopup) "/login?popup=true" else "/login")
     }

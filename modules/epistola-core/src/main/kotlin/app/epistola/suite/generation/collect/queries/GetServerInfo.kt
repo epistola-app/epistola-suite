@@ -80,7 +80,7 @@ class GetServerInfoHandler(
             val probeClassName = "app.epistola.api.SystemApi"
             val probeClass = runCatching { Class.forName(probeClassName) }.getOrNull()
             if (probeClass == null) {
-                log.warn("Contract probe class {} not on classpath; apiVersion=\"unknown\"", probeClassName)
+                log.warn("Contract probe class not on classpath; apiVersion=\"unknown\" probeClass={}", probeClassName)
                 return "unknown"
             }
             probeClass.`package`?.implementationVersion
@@ -88,7 +88,7 @@ class GetServerInfoHandler(
                 ?.let { return it }
             return readVersionFromJarManifest(probeClass) ?: run {
                 log.warn(
-                    "Contract JAR for {} carries no Implementation-Version manifest entry; apiVersion=\"unknown\"",
+                    "Contract JAR carries no Implementation-Version manifest entry; apiVersion=\"unknown\" probeClass={}",
                     probeClassName,
                 )
                 "unknown"

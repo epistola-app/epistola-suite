@@ -275,7 +275,7 @@ class CatalogReleaseActionsHandler {
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
-                    log.warn("Making v{} of '{}' live in {} failed: {}", result.version, catalogKey.value, environment, e.message)
+                    log.warn("Making a release live failed version={} catalog={} environment={} reason=\"{}\"", result.version, catalogKey.value, environment, e.message)
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message ?: "it was refused."} Deploy it under Deployments.")
                 }
             }
@@ -300,7 +300,7 @@ class CatalogReleaseActionsHandler {
                     e.behind.joinToString { "v$it" } + ", which it is behind.",
             )
         } catch (e: Exception) {
-            log.warn("Failed to release catalog: {}", e.message, e)
+            log.warn("Failed to release catalog reason=\"{}\"", e.message, e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
         }
     }
@@ -314,7 +314,7 @@ class CatalogReleaseActionsHandler {
             CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalog.address}/settings")
         } catch (failure: ValidationException) {
-            log.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
+            log.warn("Cancelling a publication was rejected catalog={} reason=\"{}\"", catalogKey.value, failure.message)
             section(request, "catalogs/settings", failure.message)
         }
     }
@@ -330,7 +330,7 @@ class CatalogReleaseActionsHandler {
         } catch (failure: ReleaseInUseException) {
             section(request, "catalogs/releases", failure.message)
         } catch (failure: ValidationException) {
-            log.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            log.warn("Deleting a release was rejected catalog={} reason=\"{}\"", catalogKey.value, failure.message)
             section(request, "catalogs/releases", failure.message)
         }
     }
@@ -355,7 +355,7 @@ class CatalogReleaseActionsHandler {
             ).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalog.address}/settings")
         } catch (failure: ValidationException) {
-            log.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            log.warn("Publishing the current release was rejected catalog={} reason=\"{}\"", catalogKey.value, failure.message)
             section(request, "catalogs/settings", failure.message)
         }
     }

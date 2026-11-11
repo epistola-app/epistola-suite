@@ -71,7 +71,7 @@ class DriftRatchetTest {
                 declared != null && !declared.endsWith(".handlers")
             }
         },
-        Counter("log placeholders without a key", 755, "key={} or key=\"{}\" (.agents/rules/logging.md)") {
+        Counter("log placeholders without a key", 0, "key={} or key=\"{}\" (.agents/rules/logging.md)") {
             unnamedLogPlaceholders()
         },
         Counter("logger fields not named log", 0, "private val log = LoggerFactory.getLogger(javaClass)") {
@@ -129,20 +129,28 @@ class DriftRatchetTest {
         handlerClass.containsMatchIn(text) && pattern.containsMatchIn(text)
     }
 
-    /** A `{}` in a log message that no `key=` or `key="` names. */
-    private fun unnamedLogPlaceholders(): Int = RepoSources.mainKotlinFiles().sumOf { path ->
+    /**
+     * A `{}` in a log message that no `key=` or `key="` names. In source a quoted value reads
+     * `key=\"{}\"`. Code migrations are left out: their source is checksummed (ADR 0035), so their
+     * messages stay as they were written.
+     */
+    private fun unnamedLogPlaceholders(): Int = RepoSources.mainKotlinFiles().filterNot { "/db/migration/" in RepoSources.relativize(it) }.sumOf { path ->
         LOG_MESSAGE.findAll(RepoSources.stripComments(Files.readString(path))).sumOf { call ->
             val message = call.groupValues[1]
             PLACEHOLDER.findAll(message).count { placeholder ->
                 val before = message.substring(0, placeholder.range.first)
-                !before.endsWith("=") && !before.endsWith("=\"")
+                !before.endsWith("=") && !before.endsWith("=\\\"")
             }
         }
     }
 
     private companion object {
         private val PACKAGE = Regex("""^package\s+([\w.]+)""", RegexOption.MULTILINE)
-        private val LOG_MESSAGE = Regex("""\b(?:log|logger|LOG|LOGGER)\.(?:trace|debug|info|warn|error)\(\s*("(?:[^"\\]|\\.)*")""")
+
+        /** The message: one string literal, or literals joined with `+`. */
+        private val LOG_MESSAGE = Regex(
+            """\b(?:log|logger|LOG|LOGGER)\.(?:trace|debug|info|warn|error)\(\s*("(?:[^"\\]|\\.)*"(?:\s*\+\s*"(?:[^"\\]|\\.)*")*)""",
+        )
         private val PLACEHOLDER = Regex("""\{\}""")
     }
 }

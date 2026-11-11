@@ -169,7 +169,7 @@ class FetchGenerationResultsHandler(
         while (EmitsInFlight.anyStillInFlight(handle, tenant, holders)) {
             if (System.nanoTime() > deadline) {
                 recordWait(started, OUTCOME_TIMED_OUT)
-                log.warn("Results are still being emitted after {}; this poll delivers none", wait)
+                log.warn("Results are still being emitted; this poll delivers none waited={}", wait)
                 return false
             }
             Thread.sleep(IN_FLIGHT_POLL)

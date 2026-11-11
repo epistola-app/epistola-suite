@@ -33,7 +33,7 @@ class OnSupportRequestAssetAdded(
 
     override fun on(event: AddSupportRequestAsset, result: Any?) {
         if (result !is SupportRequestAsset) {
-            log.warn("Expected FeedbackAsset result from AddFeedbackAsset but got {}", result?.javaClass?.name)
+            log.warn("Expected FeedbackAsset result from AddFeedbackAsset but got another type={}", result?.javaClass?.name)
             return
         }
         val supportRequest = GetSupportRequest(SupportRequestId(event.id.supportRequestKey, TenantId(event.id.tenantKey))).query() ?: return

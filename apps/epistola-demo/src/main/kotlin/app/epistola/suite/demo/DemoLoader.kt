@@ -82,7 +82,7 @@ class DemoLoader(
                 }
             }
         } catch (e: Exception) {
-            log.error("Failed to load demo: {}", e.message, e)
+            log.error("Failed to load demo reason=\"{}\"", e.message, e)
         }
     }
 
@@ -109,7 +109,7 @@ class DemoLoader(
 
         transactionTemplate.executeWithoutResult {
             val tenant = mediator.send(CreateTenant(id = tenantKey, name = DEMO_TENANT_NAME, namespaces = listOf(NamespaceName(identity.defaultRegistry, DEMO_NAMESPACE))))
-            log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+            log.info("Created demo tenant name=\"{}\" tenant={}", tenant.name, tenant.id)
 
             val tenantId = TenantId(tenant.id)
             ensureDemoApiKey(tenantId)
@@ -131,7 +131,7 @@ class DemoLoader(
             val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
             mediator.deployDemoCatalog(result.catalog, result.newVersion)
             log.info(
-                "Demo catalog {} ({}): {} -> {}",
+                "Demo catalog seeded catalog={} status={} previousVersion={} version={}",
                 result.catalogKey.value,
                 result.status,
                 result.previousVersion,
@@ -195,11 +195,11 @@ class DemoLoader(
             val subject = QualitySubject.of(variantId)
             seedManualFindingIfAbsent(tenantKey, subject)
             seedIgnoreIfPresent(tenantKey)
-            log.info("Seeded quality demo on {}", templateId.toUrn())
+            log.info("Seeded quality demo template={}", templateId.toUrn())
         } catch (e: Exception) {
             // The rest of the demo is worth having even if the showcase is missing (an older
             // catalog, say). Never fail the boot over it.
-            log.warn("Could not seed the quality demo: {}", e.message)
+            log.warn("Could not seed the quality demo reason=\"{}\"", e.message)
         }
     }
 
@@ -294,7 +294,7 @@ class DemoLoader(
             .param(keyPrefix)
             .param(id)
             .update()
-        log.info("Created demo API key: {}", DEMO_API_KEY)
+        log.info("Created demo API key key={}", DEMO_API_KEY)
     }
 
     companion object {

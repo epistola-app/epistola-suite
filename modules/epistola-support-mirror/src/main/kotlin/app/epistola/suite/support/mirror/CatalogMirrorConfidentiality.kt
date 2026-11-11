@@ -45,7 +45,7 @@ class CatalogMirrorConfidentiality(
                 .toMap()
         }
         shared.filterKeys { privacy.forConnection(it).confidential }.forEach { (connectionId, choices) ->
-            log.info("Tenants are confidential to support connection {}: the catalog mirror forgets {} tenant choices with it and withdraws what it holds", connectionId, choices)
+            log.info("Tenants are confidential to a support connection: the catalog mirror forgets its tenant choices and withdraws what it holds connection={} choices={}", connectionId, choices)
             jdbi.useTransaction<Exception> { forgetMirrorSharing(it, connectionId) }
         }
     }

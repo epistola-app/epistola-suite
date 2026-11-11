@@ -56,7 +56,7 @@ internal class SupportNodeClock(private val store: SupportConnectionStore, priva
         val first = failure == null
         failure = SupportNodeFailure(EpistolaClock.instant(), message)
         if (first) {
-            log.warn("Support connection: {}. Until it is, this node sends nothing to the support service and leaves the scheduled support work to the other nodes", message)
+            log.warn("Support connection: this node's clock is off. Until it is right, this node sends nothing to the support service and leaves the scheduled support work to the other nodes reason=\"{}\"", message)
         }
         val storedAt = storedAtNanos
         if (!first && storedAt != null && System.nanoTime() - storedAt < RESTORE_NANOS) return false
@@ -65,7 +65,7 @@ internal class SupportNodeClock(private val store: SupportConnectionStore, priva
             storedAtNanos = System.nanoTime()
             true
         } catch (e: RuntimeException) {
-            log.warn("Support connection: could not store that this node's clock is off: {}", e.message)
+            log.warn("Support connection: could not store that this node's clock is off reason=\"{}\"", e.message)
             false
         }
     }
@@ -81,7 +81,7 @@ internal class SupportNodeClock(private val store: SupportConnectionStore, priva
         val cleared = try {
             store.clearNodeClockError(nodeId)
         } catch (e: RuntimeException) {
-            log.warn("Support connection: could not clear this node's stored clock error: {}", e.message)
+            log.warn("Support connection: could not clear this node's stored clock error reason=\"{}\"", e.message)
             false
         }
         if (was != null) log.info("Support connection: the support service accepts this node's client assertions again; this node takes on support work again")

@@ -123,7 +123,7 @@ class FontCache(
             val familyKey = "${ref.catalogKey.orEmpty()}|${ref.key}"
             if (warnedUnresolved.add(familyKey)) {
                 log.warn(
-                    "Font ref '{}' (catalog '{}', weight {}, italic {}) could not be resolved; falling back to the built-in font",
+                    "Font ref could not be resolved, falling back to the built-in font font={} catalog={} weight={} italic={}",
                     ref.key,
                     ref.catalogKey ?: "<owning>",
                     weight,

@@ -123,7 +123,7 @@ class ClusterScheduledTaskScheduler(
                 if (stillOurs) {
                     leaseRenewer.withRenewal(task.taskKey) { dispatch(task) }
                 } else {
-                    log.info("Skipping cluster scheduled task '{}': its lease was taken over before it could start", task.taskKey)
+                    log.info("Skipping cluster scheduled task: its lease was taken over before it could start task={}", task.taskKey)
                 }
                 stillOurs
             }
@@ -180,7 +180,7 @@ class ClusterScheduledTaskScheduler(
             taskRegistry.complete(task.taskKey, nextDueAt)
         } catch (e: Exception) {
             fail(task, e.message ?: e.javaClass.name)
-            log.warn("Cluster scheduled task '{}' failed", task.taskKey, e)
+            log.warn("Cluster scheduled task failed task={}", task.taskKey, e)
         }
     }
 
@@ -201,7 +201,7 @@ class ClusterScheduledTaskScheduler(
         val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
         if (taskRegistry.deleteIfOrphaned(task.taskKey, seenSince)) {
             log.info(
-                "Deleted orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node carries it)",
+                "Deleted orphaned cluster scheduled task on dispatch; no handler and no live node carries it task={} taskType={}",
                 task.taskKey,
                 task.taskType,
             )
@@ -209,7 +209,7 @@ class ClusterScheduledTaskScheduler(
         }
 
         log.warn(
-            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that carries it can run it",
+            "No handler on this node for cluster scheduled task type; advancing so a node that carries it can run it taskType={}",
             task.taskType,
         )
         taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))

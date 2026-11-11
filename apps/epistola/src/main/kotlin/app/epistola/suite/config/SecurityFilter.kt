@@ -101,7 +101,7 @@ class SecurityFilter : OncePerRequestFilter() {
 
             else -> {
                 log.warn(
-                    "Authenticated but unrecognized principal type: {} (interfaces: {})",
+                    "Authenticated but unrecognized principal type principalType={} interfaces={}",
                     authPrincipal?.javaClass?.name,
                     authPrincipal?.javaClass?.interfaces?.map { it.name },
                 )

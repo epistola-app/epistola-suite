@@ -41,7 +41,7 @@ class CancelGenerationJobHandler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: CancelGenerationJob): Boolean {
-        log.info("Cancelling generation job {} for tenant {}", command.requestId, command.tenantId)
+        log.info("Cancelling generation job request={} tenant={}", command.requestId, command.tenantId)
 
         // Another application's job is not found, as another tenant's is (ADR 0054). The check
         // below guards the update: both run in this transaction.
@@ -68,7 +68,7 @@ class CancelGenerationJobHandler(
 
             // 2. Check if request can be cancelled
             if (requestStatus !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
-                log.warn("Request {} cannot be cancelled (status: {})", command.requestId, requestStatus)
+                log.warn("Request cannot be cancelled request={} status={}", command.requestId, requestStatus)
                 throw GenerationJobNotCancellableException(
                     command.tenantId,
                     command.requestId,
@@ -95,7 +95,7 @@ class CancelGenerationJobHandler(
                 .execute()
 
             if (updated == 0) {
-                log.warn("Request {} was already completed or cancelled", command.requestId)
+                log.warn("Request was already completed or cancelled request={}", command.requestId)
                 throw GenerationJobNotCancellableException(
                     command.tenantId,
                     command.requestId,
@@ -103,7 +103,7 @@ class CancelGenerationJobHandler(
                 )
             }
 
-            log.info("Cancelled generation job {}", command.requestId)
+            log.info("Cancelled generation job request={}", command.requestId)
             true
         }
     }

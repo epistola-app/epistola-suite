@@ -153,7 +153,7 @@ class ImportTemplatesHandler(
             validateTemplateModels(input)
             importSingleTemplate(command, input)
         } catch (e: Exception) {
-            log.error("Failed to import template '{}': {}", input.slug, e.message, e)
+            log.error("Failed to import template template={} reason=\"{}\"", input.slug, e.message, e)
             ImportTemplateResult(
                 slug = input.slug,
                 status = ImportStatus.FAILED,

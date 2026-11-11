@@ -66,7 +66,7 @@ class AdaptiveBatchSizer(
         val currentEma = emaProcessingTimeMs.get()
         val newEma = if (currentEma == 0L) {
             // First data point - use actual value as initial EMA
-            log.debug("First job completed in {}ms, initializing EMA", durationMs)
+            log.debug("First job completed, initializing EMA durationMs={}", durationMs)
             durationMs
         } else {
             // EMA formula: newEMA = alpha * current + (1 - alpha) * oldEMA
@@ -75,7 +75,7 @@ class AdaptiveBatchSizer(
 
         emaProcessingTimeMs.set(newEma)
         log.debug(
-            "Job completed in {}ms, EMA updated: {}ms → {}ms",
+            "Job completed, EMA updated durationMs={} previousEmaMs={} emaMs={}",
             durationMs,
             currentEma,
             newEma,
@@ -125,7 +125,7 @@ class AdaptiveBatchSizer(
         if (newSize != current) {
             currentBatchSize.set(newSize)
             log.info(
-                "Batch size adjusted: {} → {} | {} | Last job: {}ms",
+                "Batch size adjusted previousBatchSize={} batchSize={} reason=\"{}\" lastJobDurationMs={}",
                 current,
                 newSize,
                 reason,
@@ -133,7 +133,7 @@ class AdaptiveBatchSizer(
             )
         } else {
             log.debug(
-                "Batch size unchanged: {} | {} | Last job: {}ms",
+                "Batch size unchanged batchSize={} reason=\"{}\" lastJobDurationMs={}",
                 current,
                 reason,
                 lastJobDurationMs,

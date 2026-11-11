@@ -16,9 +16,9 @@ internal object SupportRefusalLog {
     fun log(log: Logger, previous: StoredSupportStatus?, clientId: String?, reason: String) {
         val stillRefused = previous?.state == StoredConnectionState.REFUSED && previous.clientId == clientId
         if (stillRefused) {
-            log.debug("Support connection: registration {} is still refused: {}", clientId, reason)
+            log.debug("Support connection: a registration is still refused registration={} reason=\"{}\"", clientId, reason)
         } else {
-            log.warn("Support connection: the support service refused registration {}: {}", clientId, reason)
+            log.warn("Support connection: the support service refused a registration registration={} reason=\"{}\"", clientId, reason)
         }
     }
 }
