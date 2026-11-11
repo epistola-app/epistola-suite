@@ -34,6 +34,7 @@ import app.epistola.suite.support.requests.queries.GetSupportRequestDelivered
 import app.epistola.suite.support.requests.queries.ListPendingSyncSupportRequest
 import app.epistola.suite.support.requests.queries.ListUnsyncedComments
 import app.epistola.suite.support.requests.queries.ListUnsyncedSupportRequestAssets
+import app.epistola.suite.support.time.SupportTime
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -77,6 +78,7 @@ class SupportRequestSyncScheduler(
     private val meterRegistry: MeterRegistry,
     private val work: SupportBackgroundWork,
     private val roundLock: SupportRequestRoundLock,
+    private val time: SupportTime,
 ) : ClusterScheduledTaskHandler {
     private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
@@ -108,7 +110,7 @@ class SupportRequestSyncScheduler(
             // One node at a time: a round elsewhere sends what this one would. Waits for it (its budget
             // plus the call under way) rather than skipping, so what changed here is not left for the sweep.
             val ran = roundLock.runExclusively(Duration.ofMillis(2 * properties.roundBudgetMs)) {
-                val round = Round(System.nanoTime() + properties.roundBudgetMs * 1_000_000)
+                val round = Round(time.nanoTime() + properties.roundBudgetMs * 1_000_000)
                 // Every connection in turn, within one budget. Again, after the wait: the round before
                 // may have ended with a scope refused or a connection found down.
                 for ((connectionId, port) in ports.all()) {
@@ -135,7 +137,7 @@ class SupportRequestSyncScheduler(
             }
 
         /** The budget is spent: no connection goes on. */
-        fun spent(): Boolean = System.nanoTime() >= deadline
+        fun spent(): Boolean = time.nanoTime() >= deadline
 
         /**
          * Asked before every item. False once the budget is spent, and once the connection no longer
@@ -144,7 +146,7 @@ class SupportRequestSyncScheduler(
          * service was found down. The rest waits for the next round; nothing more is sent.
          */
         fun mayGoOn(): Boolean {
-            if (System.nanoTime() >= deadline) {
+            if (time.nanoTime() >= deadline) {
                 log.debug("Feedback sync round budget spent; the rest waits for the next round")
                 return false
             }

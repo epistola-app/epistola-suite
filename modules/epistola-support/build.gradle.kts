@@ -3,6 +3,7 @@ plugins {
     id("epistola-kover-conventions")
     kotlin("plugin.spring")
     id("io.spring.dependency-management")
+    `java-test-fixtures`
 }
 
 the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
@@ -37,6 +38,10 @@ dependencies {
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
+
+    // ManualSupportTime, for the support modules' tests: a SupportTime a test advances.
+    testFixturesApi("org.springframework.boot:spring-boot-test")
+    testFixturesImplementation("org.springframework:spring-context")
 
     // Testing
     testImplementation(project(":modules:testing"))

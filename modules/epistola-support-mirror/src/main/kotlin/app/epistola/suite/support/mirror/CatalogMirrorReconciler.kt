@@ -21,6 +21,7 @@ import app.epistola.suite.support.connection.isInsufficientScope
 import app.epistola.suite.support.connection.isSupportUnavailable
 import app.epistola.suite.support.connection.lastContactFailed
 import app.epistola.suite.support.privacy.SupportPrivacy
+import app.epistola.suite.support.time.SupportTime
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -98,6 +99,7 @@ class CatalogMirrorReconciler(
     private val store: CatalogMirrorStateStore,
     private val mediator: Mediator,
     private val privacy: SupportPrivacy,
+    private val time: SupportTime,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -183,7 +185,7 @@ class CatalogMirrorReconciler(
             }
             for (tenant in if (confidential) emptyList() else local.sharing) {
                 // usable() again per tenant: deselected or turned off meanwhile, no further set leaves.
-                if (!usable() || System.nanoTime() > deadline) break
+                if (!usable() || time.nanoTime() > deadline) break
                 val result = guarded(tenant.value) { reconcileTenant(tenant, forced = false, held = tenant.value in held, deadline = deadline) }
                 report[tenant.value] = result
                 if (result.stopsRound()) break
@@ -207,8 +209,8 @@ class CatalogMirrorReconciler(
             return guarded(tenantKey.value) { if (sharing) reconcileTenant(tenantKey, forced = true, held = true, deadline = deadline()) else withdraw(tenantKey.value) }
         }
 
-        /** When a round must stop uploading: [CatalogMirrorProperties.roundBudget] from now, in [System.nanoTime]. */
-        private fun deadline(): Long = System.nanoTime() + properties.roundBudget.toNanos()
+        /** When a round must stop uploading: [CatalogMirrorProperties.roundBudget] from now, in [SupportTime]. */
+        private fun deadline(): Long = time.nanoTime() + properties.roundBudget.toNanos()
 
         /**
          * One tenant's work, never failing the round: anything unexpected (a release that cannot be
@@ -271,7 +273,7 @@ class CatalogMirrorReconciler(
                         continue
                     }
                     // Out of time: the rest stays missing and goes next round.
-                    if (System.nanoTime() > deadline) {
+                    if (time.nanoTime() > deadline) {
                         log.info("Catalog mirror: round budget spent; releases left for the next round tenant={} releases={}", tenantKey.value, missing.size - index)
                         missing.drop(index).forEach { left -> failures += earlier[left] ?: CatalogMirrorFailedRelease(left, "Not uploaded yet: left for the next round", attempts = 0) }
                         break

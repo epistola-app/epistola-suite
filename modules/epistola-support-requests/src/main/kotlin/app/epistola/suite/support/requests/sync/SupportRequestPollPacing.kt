@@ -8,7 +8,7 @@ package app.epistola.suite.support.requests.sync
  * When the next poll for support request changes is due. The scheduler ticks every [intervalMs];
  * a poll runs on a tick once [currentWaitMs] has passed since the last round. That wait is
  * [intervalMs] while changes come in, and after a round that found nothing twice the last one, up to
- * [maxIntervalMs]. Times are [System.nanoTime] readings, never wall-clock. Kept by the node that owns
+ * [maxIntervalMs]. Times are [app.epistola.suite.support.time.SupportTime] readings, never wall-clock. Kept by the node that owns
  * the poll; a node that takes it over starts at [intervalMs].
  */
 class SupportRequestPollPacing(private val intervalMs: Long, private val maxIntervalMs: Long) {

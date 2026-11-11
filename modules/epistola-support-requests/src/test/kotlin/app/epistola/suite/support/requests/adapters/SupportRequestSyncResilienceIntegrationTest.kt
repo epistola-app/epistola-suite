@@ -56,7 +56,12 @@ import kotlin.system.measureTimeMillis
  * neither storms nor runs on. The real REST adapter against [FakeSupportServer]; `read-timeout` is
  * one second, a sweep round's budget two.
  */
+@org.springframework.context.annotation.Import(app.epistola.suite.support.time.ManualSupportTimeConfiguration::class)
 class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
+    /** A round's budget counts on this: a test advances it, a slow machine does not. */
+    @Autowired
+    private lateinit var time: app.epistola.suite.support.time.ManualSupportTime
+
     @Autowired
     private lateinit var connection: DefaultSupportConnection
 
@@ -136,7 +141,10 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
     fun `submitting support request and commenting never wait on a hanging service`() {
         val tenant = sharingTenant("Feedback Hang")
         val supportRequest = synced(tenant)
-        support.fault(FakeSupportFault.Hang(maxMillis = 5_000), "PUT")
+        // Held far past the one-second read timeout. The read timeout is the yardstick, and it is real
+        // time: a call that waited on the service would come back only when it cut the call off, after
+        // a second; one handed to the background comes back at once. Each is held to that second.
+        support.fault(FakeSupportFault.Hang(maxMillis = 60_000), "PUT")
 
         val tookCreate = measureTimeMillis { create(tenant) }
         val tookComments = measureTimeMillis {
@@ -145,9 +153,9 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
         }
         val tookStatus = measureTimeMillis { withMediator { UpdateSupportRequestStatus(SupportRequestId(supportRequest.id, TenantId(supportRequest.tenantKey)), SupportRequestStatus.CLOSED).execute() } }
 
-        assertThat(tookCreate).`as`("submit").isLessThan(300)
-        assertThat(tookComments).`as`("two comments").isLessThan(300)
-        assertThat(tookStatus).`as`("status").isLessThan(300)
+        assertThat(tookCreate).`as`("submit").isLessThan(READ_TIMEOUT_MS)
+        assertThat(tookComments).`as`("two comments").isLessThan(2 * READ_TIMEOUT_MS)
+        assertThat(tookStatus).`as`("status").isLessThan(READ_TIMEOUT_MS)
     }
 
     @Test
@@ -294,14 +302,18 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
     fun `a sweep against a slow service keeps to its round budget`() {
         val tenant = sharingTenant("Feedback Slow")
         pendingWhileDown { repeat(20) { create(tenant, "Slow $it") } }
+        val sent = AtomicInteger()
+        // Each send takes 0.7 s of the 2 s budget: sends start at 0, 0.7 and 1.4 s, and the fourth,
+        // at 2.1 s, waits for the next round.
         support.route("PUT", "/api/v2/requests/${tenant.id.value}/") { r ->
-            Thread.sleep(700)
+            sent.incrementAndGet()
+            time.advance(Duration.ofMillis(700))
             scoped(r) { FakeSupportResponse.json(201, """{"requestId":"fb-${r.path.substringAfterLast('/')}","url":null}""") }
         }
 
-        val took = measureTimeMillis { sweep.retryPendingSync() }
+        sweep.retryPendingSync()
 
-        assertThat(took).isLessThan(5_000)
+        assertThat(sent.get()).`as`("sends in the round").isEqualTo(3)
     }
 
     @Test
@@ -364,6 +376,8 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
     }
 
     companion object {
+        private const val READ_TIMEOUT_MS = 1_000L
+
         private val support = FakeSupportServer()
 
         @JvmStatic
@@ -378,7 +392,7 @@ class SupportRequestSyncResilienceIntegrationTest : IntegrationTestBase() {
             registry.add("epistola.support.endpoint") { support.baseUrl }
             registry.add("epistola.support.allow-http") { "true" }
             registry.add("epistola.support.connect-timeout") { "1s" }
-            registry.add("epistola.support.read-timeout") { "1s" }
+            registry.add("epistola.support.read-timeout") { "${READ_TIMEOUT_MS}ms" }
             registry.add("epistola.support.requests.sync.enabled") { "true" }
             registry.add("epistola.support.requests.sync.retry-interval-ms") { "3600000" }
             registry.add("epistola.support.requests.sync.round-budget-ms") { "2000" }
