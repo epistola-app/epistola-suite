@@ -4,8 +4,9 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.mediator.query
 
 /**
@@ -16,20 +17,24 @@ data class FromOtherCatalog(val name: String, val href: String, val catalogName:
 
 object FromOtherCatalogs {
     /**
-     * What the catalogs [bar]'s version depends on hold, as [list] finds it in each (its current
-     * version, as the editor resolves it), each made a row by [row]. Empty outside a catalog, and
-     * for a dependency this tenant does not have.
+     * What [bar]'s version can use of one kind from the catalogs it depends on, each made a row by
+     * [row]. [visible] is that kind's `ListVisible…` query (`Reach.DECLARED`): it reads each
+     * dependency at the version the declaration pins, as the editor and rendering do, not at its
+     * next version; [catalogOf] names the catalog a resource is in, so this catalog's own are left
+     * out. Empty outside a catalog.
      */
     fun <T> of(
         bar: CatalogDraftBar?,
-        list: (app.epistola.suite.common.ids.CatalogId) -> List<T>,
-        row: (T, app.epistola.suite.common.ids.CatalogId, String) -> FromOtherCatalog,
+        visible: (CatalogId, CatalogReleaseRef?) -> List<T>,
+        catalogOf: (T) -> CatalogId,
+        row: (T, CatalogId, String) -> FromOtherCatalog,
     ): List<FromOtherCatalog> {
         bar ?: return emptyList()
-        val local = ListCatalogs(bar.tenantKey).query()
-        return ListCatalogDependencies(bar.catalog, bar.ref).query()
-            .mapNotNull { dependency -> local.firstOrNull { it.catalogId == dependency.catalogIn(bar.tenantKey) } }
-            .flatMap { catalog -> list(catalog.catalogId).map { row(it, catalog.catalogId, catalog.name) } }
+        val others = visible(bar.catalog, bar.ref).filter { catalogOf(it) != bar.catalog }
+        if (others.isEmpty()) return emptyList()
+        val names = ListCatalogs(bar.tenantKey).query().associate { it.catalogId to it.name }
+        return others
+            .map { resource -> catalogOf(resource).let { catalog -> row(resource, catalog, names[catalog] ?: catalog.key.value) } }
             .sortedWith(compareBy({ it.catalogName.lowercase() }, { it.name.lowercase() }))
     }
 }

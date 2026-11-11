@@ -130,7 +130,6 @@
              element — th:replace (precedence 100) runs before th:if (300), so
              the two on the SAME element would include the dialog unconditionally.
              See docs/dialog-forms.md. -->
-        <div th:replace="~{fragments/from-other-catalogs :: section(${fromOtherCatalogs}, 'templates')}"></div>
 
         <div id="dialog-mount" data-dialog-mount>
             <th:block th:if="${openDialog}">

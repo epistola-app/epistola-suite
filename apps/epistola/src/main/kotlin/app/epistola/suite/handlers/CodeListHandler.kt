@@ -77,7 +77,7 @@ class CodeListHandler(
         "draftSegment" to segment
         "draftBar" to bar
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/code-lists/${l.slug.value}", n) }
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { c, v -> app.epistola.suite.attributes.codelists.queries.ListVisibleCodeLists(c, v).query() }, { it.catalogId }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/code-lists/${l.slug.value}", n) }
         "codeLists" to ListCodeLists(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
     }
 
