@@ -70,6 +70,7 @@ Read the guide for the area you are touching first.
 - **Bundled system/demo catalogs** — [`.agents/rules/bundled-catalogs.md`](.agents/rules/bundled-catalogs.md) — enforced by the fingerprint tests
 - **Configuration properties** — [`.agents/rules/config-properties.md`](.agents/rules/config-properties.md) — enforced by `NoHardcodedSecretsTest`
 - **Application time** — [`docs/clock.md`](docs/clock.md) — enforced by `ApplicationClockUsageTest`
+- **Log messages** — [`.agents/rules/logging.md`](.agents/rules/logging.md) — enforced by `LogMessageTemplateTest`, `DriftRatchetTest`
 - **The editor** — [`modules/editor/AGENTS.md`](modules/editor/AGENTS.md) — enforced by `registry-examples.test.ts`, `check-component-registry.mjs`
 - **REST endpoints, contract bumps** — [`modules/rest-api/AGENTS.md`](modules/rest-api/AGENTS.md) — enforced by `checkContractVersionAlignment`, `ApiExceptionMappingsConsistencyTest`
 - **Feature toggles** — [`docs/feature-toggles.md`](docs/feature-toggles.md) — enforced by `KnownFeaturesTest`
