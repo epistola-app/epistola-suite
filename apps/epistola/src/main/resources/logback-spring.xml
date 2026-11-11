@@ -5,9 +5,12 @@
     <conversionRule conversionWord="cleanEx"
                     class="app.epistola.suite.config.CleanStackTraceConverter"/>
 
-    <!-- Override Spring Boot's default pattern to use %cleanEx instead of %wEx -->
+    <!-- Override Spring Boot's default pattern to use %cleanEx instead of %wEx, and to escape line
+         breaks in the message: a logged value carrying one would otherwise start a new line that
+         reads as a separate, forged entry (CWE-117). The stack trace (%cleanEx) stays multi-line.
+         Structured (JSON) output does not use this pattern; its encoder escapes line breaks. -->
     <property name="CONSOLE_LOG_PATTERN"
-              value="%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr(${LOGGED_APPLICATION_NAME:-}[%15.15t]){faint} %clr(${LOG_CORRELATION_PATTERN:-}){faint}%clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%cleanEx"/>
+              value="%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr(${LOGGED_APPLICATION_NAME:-}[%15.15t]){faint} %clr(${LOG_CORRELATION_PATTERN:-}){faint}%clr(%-40.40logger{39}){cyan} %clr(:){faint} %replace(%m){'[\r\n]+', '\\n'}%n%cleanEx"/>
 
     <!-- Select the appender from logging.structured.format.console, independently of profiles. -->
     <condition class="app.epistola.suite.config.StructuredConsoleLoggingCondition"/>
