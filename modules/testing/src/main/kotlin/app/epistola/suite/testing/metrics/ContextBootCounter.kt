@@ -8,6 +8,7 @@ import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.springframework.context.ApplicationContextInitializer
 import org.springframework.context.ApplicationListener
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.context.event.ContextClosedEvent
 import org.springframework.context.event.ContextRefreshedEvent
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -30,6 +31,13 @@ class ContextBootCounter : ApplicationContextInitializer<ConfigurableApplication
         TestRuntimeLifecycle.registerContext(applicationContext)
         val startNanos = System.nanoTime()
         TestRunMetrics.contextBoots.incrementAndGet()
+        TestRunMetrics.contextOpened()
+        val closed = AtomicBoolean(false)
+        applicationContext.addApplicationListener(
+            ApplicationListener<ContextClosedEvent> {
+                if (closed.compareAndSet(false, true)) TestRunMetrics.contextClosed()
+            },
+        )
         val recorded = AtomicBoolean(false)
         applicationContext.addApplicationListener(
             ApplicationListener<ContextRefreshedEvent> {

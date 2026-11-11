@@ -73,6 +73,7 @@ class TestTimingListener : TestExecutionListener {
             |  "contextBoots": ${TestRunMetrics.contextBoots.get()},
             |  "contextBootMillisTotal": ${TestRunMetrics.contextBootMillis.sum()},
             |  "contextBootMillisMax": ${TestRunMetrics.contextBootMillis.maxOrNull() ?: 0},
+            |  "contextsAliveMax": ${TestRunMetrics.contextsAliveMax.get()},
             |  "postgresStartupMillis": ${TestRunMetrics.postgresStartupMillis.get()},
             |  "tenantsCreated": ${TestRunMetrics.tenantsCreated()},
             |  "invariantChecks": ${TestRunMetrics.invariantChecks.count.get()},

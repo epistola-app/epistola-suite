@@ -33,6 +33,12 @@ object TestRunMetrics {
     /** Boot time (millis) of each fresh ApplicationContext — initializer → context refreshed. */
     val contextBootMillis = CopyOnWriteArrayList<Long>()
 
+    /** ApplicationContexts booted and not closed yet: each holds its beans, pools and caches in the heap. */
+    val contextsAlive = AtomicLong(0)
+
+    /** The most [contextsAlive] at any one time: what the test JVM's heap has to hold at its peak. */
+    val contextsAliveMax = AtomicLong(0)
+
     /** One-off Testcontainers Postgres container startup time (millis); 0 if never started. */
     val postgresStartupMillis = AtomicLong(0)
 
@@ -50,6 +56,14 @@ object TestRunMetrics {
 
     fun recordClassDuration(className: String, millis: Long) {
         classDurationsMs.merge(className, millis, ::maxOf)
+    }
+
+    fun contextOpened() {
+        contextsAliveMax.accumulateAndGet(contextsAlive.incrementAndGet(), ::maxOf)
+    }
+
+    fun contextClosed() {
+        contextsAlive.decrementAndGet()
     }
 
     fun recordContextBootNanos(nanos: Long) {
@@ -74,6 +88,8 @@ object TestRunMetrics {
     fun reset() {
         contextBoots.set(0)
         contextBootMillis.clear()
+        contextsAlive.set(0)
+        contextsAliveMax.set(0)
         postgresStartupMillis.set(0)
         classDurationsMs.clear()
         commandStats.clear()
