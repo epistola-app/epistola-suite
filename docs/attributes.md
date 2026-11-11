@@ -148,6 +148,7 @@ POST /api/tenants/acme-corp/documents/generate
 Content-Type: application/vnd.epistola.v2+json
 
 {
+  "registry": "local",
   "namespace": "acme",
   "catalogKey": "letters",
   "templateKey": "invoice",
@@ -159,6 +160,8 @@ Content-Type: application/vnd.epistola.v2+json
   "data": { ... }
 }
 ```
+
+The catalog is named in full, as in [`generation.md`](generation.md#requesting-a-document): a tenant's own catalog is on registry `local`.
 
 The same `attributes` field is available on `BatchGenerationItem` for batch generation. Within a batch, each item can use either `variantKey` or `attributes` independently.
 

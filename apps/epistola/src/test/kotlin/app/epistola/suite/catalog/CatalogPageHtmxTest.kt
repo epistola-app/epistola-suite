@@ -111,8 +111,11 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(status.substringAfter("data-environment=\"test\"")).contains(">v1.0.0<")
         assertThat(status).contains("catalog <code>letters</code>").contains("template <code>invoice</code>").contains("environment <code>test</code>")
-        val namespace = withMediator { app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenant.id, letters)).query()!!.namespace }
-        assertThat(status).`as`("the API refuses a request without it").contains("namespace <code>$namespace</code>")
+        val named = withMediator { app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenant.id, letters)).query()!! }
+        assertThat(status).`as`("the API refuses a request without it").contains("namespace <code>${named.namespace}</code>")
+        // Omitted, the registry is the installation's default, where a tenant's own catalog (`local`)
+        // is not; the request names the one the catalog is on.
+        assertThat(status).contains("registry <code>${named.registry}</code>")
     }
 
     @Test
