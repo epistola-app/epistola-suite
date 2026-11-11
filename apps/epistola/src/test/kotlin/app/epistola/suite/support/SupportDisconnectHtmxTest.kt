@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.support.connection.DefaultSupportConnection
@@ -20,9 +19,7 @@ import app.epistola.suite.support.usage.SetUsageChoice
 import app.epistola.suite.support.usage.USAGE_SECTION
 import app.epistola.suite.testing.FakeSupportFault
 import app.epistola.suite.testing.FakeSupportResponse
-import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
@@ -32,8 +29,6 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 
 /**
@@ -42,7 +37,7 @@ import org.springframework.util.LinkedMultiValueMap
  * register again by itself although auto-register is on. Against a stand-in service.
  */
 @Isolated("Disconnecting clears the sharing choices of every tenant in the database")
-class SupportDisconnectHtmxTest : BaseIntegrationTest() {
+class SupportDisconnectHtmxTest : AutoRegisteringSupportTestBase() {
     /** The connection epistola.support.* configures, as startup stores it. */
     private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
 
@@ -146,24 +141,5 @@ class SupportDisconnectHtmxTest : BaseIntegrationTest() {
 
         assertThat(panel).contains("Epistola support no longer accepted this registration")
         assertThat(support.requests.count { it.method == "DELETE" }).isEqualTo(deletes)
-    }
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            registry.add("epistola.support.auto-register") { "true" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
     }
 }

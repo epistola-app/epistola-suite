@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionCheckScheduler
 import app.epistola.suite.support.connection.SupportConnectionState
@@ -12,14 +11,10 @@ import app.epistola.suite.support.connection.SupportTokenRefreshScheduler
 import app.epistola.suite.support.requests.adapters.RestSupportRequestSyncAdapter
 import app.epistola.suite.support.requests.sync.SupportRequestPollScheduler
 import app.epistola.suite.support.requests.sync.SupportRequestSyncPort
-import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * Boots the full app with the **support connection enabled**, pointed at a stand-in support
@@ -28,7 +23,7 @@ import org.springframework.test.context.DynamicPropertySource
  * registered both a no-op and a remote adapter and failed startup with "a single bean, but 2 were
  * found". Nothing is registered at startup: the scheduled check does that.
  */
-class SupportTierContextTest : BaseIntegrationTest() {
+class SupportTierContextTest : ManualSupportTestBase() {
     @Autowired
     private lateinit var supportRequestSyncPorts: List<SupportRequestSyncPort>
 
@@ -57,24 +52,5 @@ class SupportTierContextTest : BaseIntegrationTest() {
         assertThat(checkScheduler).hasSize(1)
         assertThat(tokenScheduler).hasSize(1)
         assertThat(connections.single().status().state).isNotEqualTo(SupportConnectionState.Disabled)
-    }
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            // Every service selected, as an administrator would; the selection itself is tested in SupportServiceSelectionIntegrationTest.
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
     }
 }
