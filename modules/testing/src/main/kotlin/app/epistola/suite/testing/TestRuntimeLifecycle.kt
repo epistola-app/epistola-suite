@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * then stop the shared Postgres container.
  */
 object TestRuntimeLifecycle {
-    private val logger = LoggerFactory.getLogger(TestRuntimeLifecycle::class.java)
+    private val log = LoggerFactory.getLogger(TestRuntimeLifecycle::class.java)
     private val lock = Any()
     private val shutdownStarted = AtomicBoolean(false)
     private val contexts = Collections.newSetFromMap(IdentityHashMap<ConfigurableApplicationContext, Boolean>())
@@ -122,7 +122,7 @@ object TestRuntimeLifecycle {
             try {
                 context.close()
             } catch (e: Exception) {
-                logger.warn("Failed to close Spring test context during ordered test shutdown", e)
+                log.warn("Failed to close Spring test context during ordered test shutdown", e)
             }
         }
 
@@ -141,7 +141,7 @@ object TestRuntimeLifecycle {
         try {
             container.stop()
         } catch (e: Exception) {
-            logger.warn("Failed to stop shared test Postgres container", e)
+            log.warn("Failed to stop shared test Postgres container", e)
         }
     }
 

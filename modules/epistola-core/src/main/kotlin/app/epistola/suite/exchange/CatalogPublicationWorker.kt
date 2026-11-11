@@ -39,7 +39,7 @@ class CatalogPublicationWorker(
     private val metrics: ExchangeMetrics,
     private val jdbi: Jdbi,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Bean
@@ -165,7 +165,7 @@ class CatalogPublicationWorker(
      */
     private fun giveUpOnSubmission(publication: CatalogReleasePublication) {
         store.abandon(publication.id, ExchangeFailureCode.SUBMISSION_UNDECIDED)
-        logger.error(
+        log.error(
             "Exchange publication {} was submitted as {} but undecided after {}; giving up",
             publication.id,
             publication.remotePublicationId,
@@ -206,7 +206,7 @@ class CatalogPublicationWorker(
                     ExchangeFailureCode.EXCHANGE_UNREACHABLE,
                     failure.message,
                 )
-                logger.warn("Exchange unreachable; publication {} waits without spending a retry", publication.id)
+                log.warn("Exchange unreachable; publication {} waits without spending a retry", publication.id)
                 return
             }
 
@@ -221,14 +221,14 @@ class CatalogPublicationWorker(
             delay = backoff(publication.attempts),
         )
         if (status == CatalogPublicationStatus.FAILED) {
-            logger.error(
+            log.error(
                 "Exchange publication {} gave up after {} attempts: {}",
                 publication.id,
                 publication.attempts + 1,
                 failure.message,
             )
         } else {
-            logger.warn("Exchange publication {} failed, will retry: {}", publication.id, failure.message)
+            log.warn("Exchange publication {} failed, will retry: {}", publication.id, failure.message)
         }
     }
 
@@ -249,7 +249,7 @@ class CatalogPublicationWorker(
             return false
         }
         store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
-        logger.warn(
+        log.warn(
             "Exchange withdrew namespace '{}' from tenant {}; publication {} is waiting",
             publication.namespace,
             publication.tenantKey,

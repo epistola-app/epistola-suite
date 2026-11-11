@@ -50,7 +50,7 @@ class DeleteAssetHandler(
     private val images: ImageStore,
 ) : CommandHandler<DeleteAsset, Boolean> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteAsset): Boolean {
         // The image's catalog: an image key names one image of the version addressed and every other catalog's next version.
@@ -77,7 +77,7 @@ class DeleteAssetHandler(
             throw AssetInUseException(command.assetId, usages)
         }
 
-        logger.info("Deleting image {} for tenant {}", command.assetId, command.tenantId)
+        log.info("Deleting image {} for tenant {}", command.assetId, command.tenantId)
         // Its bytes go when no content names them any more (the content reaper, #738).
         return jdbi.withHandle<Boolean, Exception> { images.delete(it, it.versionOf(catalog, command), command.assetId.value) }
     }

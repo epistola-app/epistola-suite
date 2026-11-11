@@ -54,7 +54,7 @@ class PartitionMaintenanceScheduler(
     private val partitions: PartitionProperties,
 ) : ClusterScheduledTaskHandler,
     SmartInitializingSingleton {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Volatile
@@ -62,7 +62,7 @@ class PartitionMaintenanceScheduler(
 
     @PreDestroy
     fun shutdown() {
-        logger.info("Partition maintenance scheduler shutting down")
+        log.info("Partition maintenance scheduler shutting down")
         shuttingDown = true
     }
 
@@ -90,7 +90,7 @@ class PartitionMaintenanceScheduler(
      * partitions.
      */
     override fun afterSingletonsInstantiated() {
-        logger.info("Initializing partitions after singletons instantiated (Flyway migrations completed)")
+        log.info("Initializing partitions after singletons instantiated (Flyway migrations completed)")
         maintainPartitions()
     }
 
@@ -119,20 +119,20 @@ class PartitionMaintenanceScheduler(
                     .mapTo(Boolean::class.java)
                     .one()
                 if (!acquired) {
-                    logger.debug("Partition maintenance skipped — another instance holds the lock")
+                    log.debug("Partition maintenance skipped — another instance holds the lock")
                     return@useTransaction
                 }
 
-                logger.info("Starting partition maintenance")
+                log.info("Starting partition maintenance")
                 partitionConfigs.forEach { config ->
                     try {
                         createRequiredPartitions(config)
                         dropOldPartitions(config)
                     } catch (e: Exception) {
-                        logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+                        log.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
                     }
                 }
-                logger.info("Partition maintenance completed")
+                log.info("Partition maintenance completed")
             }
         }
     }
@@ -175,10 +175,10 @@ class PartitionMaintenanceScheduler(
                     .mapTo(String::class.java)
                     .one()
             }
-            logger.debug("Ensured partition exists: {}", partitionName)
+            log.debug("Ensured partition exists: {}", partitionName)
         } catch (e: Exception) {
             // This is critical - we need the partition!
-            logger.error("CRITICAL: Failed to create partition for {} {}: {}", config.tableName, month, e.message, e)
+            log.error("CRITICAL: Failed to create partition for {} {}: {}", config.tableName, month, e.message, e)
             throw e
         }
     }
@@ -220,9 +220,9 @@ class PartitionMaintenanceScheduler(
         }
 
         if (dropped.isNotEmpty()) {
-            logger.info("Dropped {} old partition(s) for table {} (older than {} months): {}", dropped.size, config.tableName, retentionMonths, dropped)
+            log.info("Dropped {} old partition(s) for table {} (older than {} months): {}", dropped.size, config.tableName, retentionMonths, dropped)
         } else {
-            logger.debug("No old partitions to drop for table {}", config.tableName)
+            log.debug("No old partitions to drop for table {}", config.tableName)
         }
     }
 

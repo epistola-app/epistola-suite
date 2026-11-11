@@ -64,7 +64,7 @@ class SpringMediator(
     private val transactionManager: PlatformTransactionManager?,
 ) : Mediator {
 
-    private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
+    private val log = LoggerFactory.getLogger(SpringMediator::class.java)
 
     // Cache handlers but allow lazy discovery for late-initialized beans
     // Thread-safe: use ConcurrentHashMap to prevent data races under concurrent requests
@@ -85,13 +85,13 @@ class SpringMediator(
         refuseWriteToRelease(command)
 
         val commandName = command::class.simpleName ?: "Unknown"
-        logger.debug("Dispatching command: {}", commandName)
+        log.debug("Dispatching command: {}", commandName)
 
         val handler = commandHandlersCache.computeIfAbsent(command::class) {
             findCommandHandler(command::class)
         } as? CommandHandler<Command<R>, R>
             ?: throw IllegalArgumentException("No handler found for command: $commandName").also {
-                logger.error("No handler found for command: {}", commandName)
+                log.error("No handler found for command: {}", commandName)
             }
 
         val sample = Timer.start(meterRegistry)
@@ -103,7 +103,7 @@ class SpringMediator(
             val result = handlingIfAuthorized(command) {
                 inCommandTransaction(command) {
                     val handled = handler.handle(command)
-                    logger.debug("Command {} completed successfully", commandName)
+                    log.debug("Command {} completed successfully", commandName)
 
                     // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
                     invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
@@ -123,7 +123,7 @@ class SpringMediator(
             result
         } catch (e: Exception) {
             outcome = "failure"
-            logger.warn("Command {} failed: {}", commandName, e.message)
+            log.warn("Command {} failed: {}", commandName, e.message)
             notifyCommandListeners(command, DispatchOutcome.FAILURE, e)
             throw e
         } finally {
@@ -145,20 +145,20 @@ class SpringMediator(
         enforceAuthorization(query, isQuery = true)
 
         val queryName = query::class.simpleName ?: "Unknown"
-        logger.debug("Dispatching query: {}", queryName)
+        log.debug("Dispatching query: {}", queryName)
 
         val handler = queryHandlersCache.computeIfAbsent(query::class) {
             findQueryHandler(query::class)
         } as? QueryHandler<Query<R>, R>
             ?: throw IllegalArgumentException("No handler found for query: $queryName").also {
-                logger.error("No handler found for query: {}", queryName)
+                log.error("No handler found for query: {}", queryName)
             }
 
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         return try {
             val result = handler.handle(query)
-            logger.debug("Query {} completed successfully", queryName)
+            log.debug("Query {} completed successfully", queryName)
 
             // Notify cross-cutting query listeners (read auditing, …). Fired for
             // every query; listeners record only the subset they care about.
@@ -167,7 +167,7 @@ class SpringMediator(
             result
         } catch (e: Exception) {
             outcome = "failure"
-            logger.warn("Query {} failed: {}", queryName, e.message)
+            log.warn("Query {} failed: {}", queryName, e.message)
             notifyQueryListeners(query, DispatchOutcome.FAILURE, e)
             throw e
         } finally {
@@ -245,7 +245,7 @@ class SpringMediator(
                     throw e
                 } else {
                     // AFTER_COMMIT handlers log but don't propagate
-                    logger.error(
+                    log.error(
                         "Event handler failed for {}: {}",
                         command::class.simpleName,
                         e.message,
@@ -267,7 +267,7 @@ class SpringMediator(
             try {
                 listener.onCommand(command, outcome, error)
             } catch (e: Exception) {
-                logger.error(
+                log.error(
                     "Command listener {} failed for {}: {}",
                     listener::class.simpleName,
                     command::class.simpleName,
@@ -284,7 +284,7 @@ class SpringMediator(
             try {
                 listener.onQuery(query, outcome, error)
             } catch (e: Exception) {
-                logger.error(
+                log.error(
                     "Query listener {} failed for {}: {}",
                     listener::class.simpleName,
                     query::class.simpleName,

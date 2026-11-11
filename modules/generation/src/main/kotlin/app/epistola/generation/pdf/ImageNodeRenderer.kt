@@ -45,7 +45,7 @@ class ImageNodeRenderer(
         }
     }
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun render(
         node: Node,
@@ -56,13 +56,13 @@ class ImageNodeRenderer(
         val props = node.props
         val assetId = props?.get("imageKey") as? String
         if (assetId.isNullOrBlank()) {
-            logger.debug("Image node {} has no assetId, skipping", node.id)
+            log.debug("Image node {} has no assetId, skipping", node.id)
             return emptyList()
         }
 
         val resolver = context.assetResolver
         if (resolver == null) {
-            logger.warn("No asset resolver available, cannot render image node {}", node.id)
+            log.warn("No asset resolver available, cannot render image node {}", node.id)
             return emptyList()
         }
 
@@ -71,14 +71,14 @@ class ImageNodeRenderer(
         val catalogKey = (props["catalogKey"] as? String)?.takeIf { it.isNotBlank() }
         val resolution = resolver.resolve(assetId, catalogKey)
         if (resolution == null) {
-            logger.warn("Asset {} not found, skipping image node {}", assetId, node.id)
+            log.warn("Asset {} not found, skipping image node {}", assetId, node.id)
             return emptyList()
         }
 
         val image = try {
             createImageElement(resolution)
         } catch (e: Exception) {
-            logger.warn("Failed to decode image asset {} ({}): {}", assetId, resolution.mimeType, e.message)
+            log.warn("Failed to decode image asset {} ({}): {}", assetId, resolution.mimeType, e.message)
             return when (context.renderMode) {
                 RenderMode.STRICT -> throw ImageRenderException(
                     "Failed to render image node '${node.id}' (asset=$assetId, type=${resolution.mimeType}): ${e.message}",

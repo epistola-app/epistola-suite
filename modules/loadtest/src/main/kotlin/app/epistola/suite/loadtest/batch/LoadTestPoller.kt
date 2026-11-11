@@ -54,7 +54,7 @@ class LoadTestPoller(
     @Value("\${epistola.loadtest.polling.interval-ms:5000}")
     private val intervalMs: Long,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeTests = AtomicInteger(0)
@@ -79,7 +79,7 @@ class LoadTestPoller(
 
     fun poll() {
         if (activeTests.get() >= maxConcurrentTests) {
-            logger.debug("Max concurrent tests reached ({}), skipping poll", maxConcurrentTests)
+            log.debug("Max concurrent tests reached ({}), skipping poll", maxConcurrentTests)
             return
         }
 
@@ -89,7 +89,7 @@ class LoadTestPoller(
         val run = claimNextPendingRun()
         if (run != null) {
             activeTests.incrementAndGet()
-            logger.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
+            log.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
             executor.submit(
@@ -97,7 +97,7 @@ class LoadTestPoller(
                     try {
                         loadTestExecutor.execute(run)
                     } catch (e: Exception) {
-                        logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
+                        log.error("Load test execution failed for run {}: {}", run.id, e.message, e)
                         markRunFailed(run.id, e.message)
                     } finally {
                         activeTests.decrementAndGet()
@@ -204,7 +204,7 @@ class LoadTestPoller(
         }
 
         if (recovered > 0) {
-            logger.warn("Recovered {} stale load test runs (no progress within {} min)", recovered, staleTimeoutMinutes)
+            log.warn("Recovered {} stale load test runs (no progress within {} min)", recovered, staleTimeoutMinutes)
         }
     }
 

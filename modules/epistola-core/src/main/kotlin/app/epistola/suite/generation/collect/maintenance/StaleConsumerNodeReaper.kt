@@ -44,7 +44,7 @@ class StaleConsumerNodeReaper(
     private val meterRegistry: MeterRegistry,
     private val collect: CollectProperties,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Bean
@@ -63,9 +63,9 @@ class StaleConsumerNodeReaper(
     fun reap() = meterRegistry.recordScheduledTask("stale-consumer-reaper") {
         val deleted = deleteStaleNodes()
         if (deleted > 0) {
-            logger.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, collect.staleNodeRetentionHours)
+            log.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, collect.staleNodeRetentionHours)
         } else {
-            logger.debug("No stale consumer_node_assignments rows to reap (retentionHours={})", collect.staleNodeRetentionHours)
+            log.debug("No stale consumer_node_assignments rows to reap (retentionHours={})", collect.staleNodeRetentionHours)
         }
     }
 

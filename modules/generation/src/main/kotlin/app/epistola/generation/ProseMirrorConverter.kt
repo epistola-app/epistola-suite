@@ -526,7 +526,7 @@ class ProseMirrorConverter(
         for (block in blocks) {
             val blockType = block["type"] as? String
             if (blockType != "paragraph") {
-                LOGGER.debug("Dropping block-level rich-text node '{}' from inline context", blockType)
+                log.debug("Dropping block-level rich-text node '{}' from inline context", blockType)
                 continue
             }
             val inline = block["content"] as? kotlin.collections.List<Map<String, Any>> ?: continue
@@ -618,7 +618,7 @@ class ProseMirrorConverter(
     }
 
     companion object {
-        private val LOGGER = org.slf4j.LoggerFactory.getLogger(ProseMirrorConverter::class.java)
+        private val log = org.slf4j.LoggerFactory.getLogger(ProseMirrorConverter::class.java)
 
         /** Standard link color (blue) used for hyperlinks in PDF output. */
         private val LINK_COLOR = DeviceRgb(0, 0, 238)

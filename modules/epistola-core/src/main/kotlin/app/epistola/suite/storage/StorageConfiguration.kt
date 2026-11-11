@@ -21,7 +21,7 @@ import java.nio.file.Path
 @EnableConfigurationProperties(StorageProperties::class)
 class StorageConfiguration {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * The pluggable **document** content store (ephemeral generated PDFs, issue #738).
@@ -34,24 +34,24 @@ class StorageConfiguration {
         val backendName = properties.backend.name.lowercase()
         val store: DocumentContentStore = when (properties.backend) {
             StorageBackend.POSTGRES -> {
-                logger.info("Using PostgreSQL document content store (document_content)")
+                log.info("Using PostgreSQL document content store (document_content)")
                 PostgresDocumentContentStore(jdbi)
             }
 
             StorageBackend.S3 -> {
                 require(properties.s3.bucket.isNotBlank()) { "epistola.storage.s3.bucket must be set when using S3 backend" }
-                logger.info("Using S3 document content store (bucket={})", properties.s3.bucket)
+                log.info("Using S3 document content store (bucket={})", properties.s3.bucket)
                 S3DocumentContentStore(buildS3Client(properties), properties.s3.bucket)
             }
 
             StorageBackend.FILESYSTEM -> {
                 val basePath = Path.of(properties.filesystem.basePath)
-                logger.info("Using filesystem document content store (basePath={})", basePath.toAbsolutePath())
+                log.info("Using filesystem document content store (basePath={})", basePath.toAbsolutePath())
                 FilesystemDocumentContentStore(basePath)
             }
 
             StorageBackend.MEMORY -> {
-                logger.info("Using in-memory document content store")
+                log.info("Using in-memory document content store")
                 InMemoryDocumentContentStore()
             }
         }
@@ -93,7 +93,7 @@ class StorageConfiguration {
                 )
 
             StorageBackend.MEMORY ->
-                logger.warn("Storage backend MEMORY is for tests only and does not persist content across restarts.")
+                log.warn("Storage backend MEMORY is for tests only and does not persist content across restarts.")
 
             StorageBackend.POSTGRES -> Unit
         }

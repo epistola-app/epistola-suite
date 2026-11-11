@@ -53,7 +53,7 @@ class GetServerInfoHandler(
     }
 
     private companion object {
-        private val logger = LoggerFactory.getLogger(GetServerInfoHandler::class.java)
+        private val log = LoggerFactory.getLogger(GetServerInfoHandler::class.java)
 
         /**
          * The Epistola contract spec version exposed via `/ping`. Resolved once
@@ -80,14 +80,14 @@ class GetServerInfoHandler(
             val probeClassName = "app.epistola.api.SystemApi"
             val probeClass = runCatching { Class.forName(probeClassName) }.getOrNull()
             if (probeClass == null) {
-                logger.warn("Contract probe class {} not on classpath; apiVersion=\"unknown\"", probeClassName)
+                log.warn("Contract probe class {} not on classpath; apiVersion=\"unknown\"", probeClassName)
                 return "unknown"
             }
             probeClass.`package`?.implementationVersion
                 ?.takeIf { it.isNotBlank() }
                 ?.let { return it }
             return readVersionFromJarManifest(probeClass) ?: run {
-                logger.warn(
+                log.warn(
                     "Contract JAR for {} carries no Implementation-Version manifest entry; apiVersion=\"unknown\"",
                     probeClassName,
                 )

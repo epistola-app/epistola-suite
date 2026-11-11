@@ -73,7 +73,7 @@ class SchemaBehindException(
 @Configuration
 class FlywayConfig {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Bean
     fun flywayMigrationStrategy(
@@ -119,10 +119,10 @@ class FlywayConfig {
         try {
             UpgradePreflights.require(flyway.configuration.dataSource, skippedPreflight)
         } catch (e: UpgradePreflightRefused) {
-            logger.error("{}", e.report.describe())
+            log.error("{}", e.report.describe())
             throw e
         }
-        if (skippedPreflight.isNotEmpty()) logger.warn("Upgrade preflight checks skipped by configuration: {}", skippedPreflight.sorted())
+        if (skippedPreflight.isNotEmpty()) log.warn("Upgrade preflight checks skipped by configuration: {}", skippedPreflight.sorted())
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {
@@ -130,7 +130,7 @@ class FlywayConfig {
             // deterministic exit code (SchemaBehindException) and audience-neutral
             // guidance: local dev recreates its throwaway DB container; a deployed
             // environment must investigate a modified released migration.
-            logger.error("Flyway migration validation failed: {}", e.message)
+            log.error("Flyway migration validation failed: {}", e.message)
             throw SchemaBehindException(
                 "Flyway validation failed during migrate — the schema does not match the migrations " +
                     "(a previously applied migration was modified, or the database diverged). This process " +
@@ -142,7 +142,7 @@ class FlywayConfig {
     }
 
     private fun validate(flyway: Flyway) {
-        logger.info(
+        log.info(
             "Flyway validate-only mode: the schema must be migrated by a separate step; " +
                 "this process will not migrate or clean the database",
         )
@@ -155,7 +155,7 @@ class FlywayConfig {
         try {
             flyway.validate()
         } catch (e: FlywayValidateException) {
-            logger.error("Flyway validation failed: {}", e.message)
+            log.error("Flyway validation failed: {}", e.message)
             throw SchemaBehindException(schemaBehindMessage(flyway), e)
         }
         if (flyway.info().pending().isNotEmpty()) {

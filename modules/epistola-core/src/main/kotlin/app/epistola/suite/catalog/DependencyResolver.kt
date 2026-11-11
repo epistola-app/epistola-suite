@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
 class DependencyResolver(
     private val catalogClient: CatalogClient,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun resolve(
         selected: List<ResourceEntry>,
@@ -155,7 +155,7 @@ class DependencyResolver(
 
         if (result.size > selected.size) {
             val added = result.keys - selected.map { "${it.type}:${it.key}" }.toSet()
-            logger.info("Auto-including {} dependencies: {}", added.size, added)
+            log.info("Auto-including {} dependencies: {}", added.size, added)
         }
 
         return result.values.toList()

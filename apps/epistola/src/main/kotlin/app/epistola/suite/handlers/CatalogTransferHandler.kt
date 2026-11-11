@@ -25,7 +25,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogTransferHandler {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     fun resourceUsages(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -70,7 +70,7 @@ class CatalogTransferHandler {
                 ),
             )
         } catch (e: Exception) {
-            logger.warn("Failed to preview install: {}", e.message, e)
+            log.warn("Failed to preview install: {}", e.message, e)
             fragmentOrPage(request, "catalogs/browse", "install-preview-error", mapOf("error" to (e.message ?: "Failed to resolve dependencies.")))
         }
     }
@@ -99,7 +99,7 @@ class CatalogTransferHandler {
 
             browseFragment(request, catalog, message.first, message.second)
         } catch (e: Exception) {
-            logger.warn("Failed to install from catalog: {}", e.message, e)
+            log.warn("Failed to install from catalog: {}", e.message, e)
             browseFragment(request, catalog, errorMessage = e.message ?: "Failed to install resources from catalog.")
         }
     }
@@ -138,7 +138,7 @@ class CatalogTransferHandler {
                 .header("Content-Disposition", "attachment; filename=\"${result.filename}\"")
                 .body(result.zipBytes)
         } catch (e: Exception) {
-            logger.warn("Failed to export catalog: {}", e.message, e)
+            log.warn("Failed to export catalog: {}", e.message, e)
             ServerResponse.badRequest()
                 .header("Content-Type", "application/json")
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))

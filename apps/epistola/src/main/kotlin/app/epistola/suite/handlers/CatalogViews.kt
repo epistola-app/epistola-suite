@@ -62,7 +62,7 @@ import org.springframework.web.servlet.function.ServerResponse
  */
 internal object CatalogViews {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     /** The dependency drawing; each catalog links to its own Dependencies page, which narrows the drawing to it. */
     internal fun catalogGraph(tenantKey: TenantKey, focus: String?): CatalogGraphView = CatalogGraphView.of(
@@ -264,7 +264,7 @@ internal object CatalogViews {
                 }
             }
         } catch (e: Exception) {
-            logger.warn("Failed to browse catalog: {}", e.message, e)
+            log.warn("Failed to browse catalog: {}", e.message, e)
             listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
         }
     }

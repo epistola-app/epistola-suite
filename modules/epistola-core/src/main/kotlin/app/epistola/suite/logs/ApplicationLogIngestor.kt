@@ -55,7 +55,7 @@ class ApplicationLogIngestor(
     // This logger is excluded from capture by the appender's recursion guard
     // (ApplicationLogAppender.INGESTOR_LOGGER), so persistence-failure warnings below
     // cannot feed back into the queue.
-    private val logger = LoggerFactory.getLogger(ApplicationLogIngestor::class.java)
+    private val log = LoggerFactory.getLogger(ApplicationLogIngestor::class.java)
 
     private val queue = ArrayBlockingQueue<ApplicationLogRecord>(properties.queueCapacity.coerceAtLeast(1))
 
@@ -134,7 +134,7 @@ class ApplicationLogIngestor(
             start()
         }
         attachAppender()
-        logger.info("Application log capture started (level={}, queueCapacity={})", properties.level, properties.queueCapacity)
+        log.info("Application log capture started (level={}, queueCapacity={})", properties.level, properties.queueCapacity)
     }
 
     @PreDestroy
@@ -150,7 +150,7 @@ class ApplicationLogIngestor(
 
     private fun attachAppender() {
         val loggerContext = LoggerFactory.getILoggerFactory() as? LoggerContext ?: run {
-            logger.warn("Logger factory is not Logback; application log capture disabled")
+            log.warn("Logger factory is not Logback; application log capture disabled")
             return
         }
         val threshold = ThresholdFilter().apply {
@@ -219,7 +219,7 @@ class ApplicationLogIngestor(
         } catch (e: Exception) {
             // Fail-open: never let the worker die and never break the request that logged.
             persistFailures.increment()
-            logger.warn("Application log batch insert failed; dropping {} record(s): {}", batch.size, e.message)
+            log.warn("Application log batch insert failed; dropping {} record(s): {}", batch.size, e.message)
         }
     }
 

@@ -49,7 +49,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogRegistryHandler {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** The _Get a release_ dialog; with registry, namespace and key given (an update link), its versions too. */
     fun getDialog(request: ServerRequest): ServerResponse {
@@ -190,7 +190,7 @@ class CatalogRegistryHandler {
         is IllegalArgumentException -> e.message ?: unexpected
 
         else -> {
-            logger.warn("{}: {}", unexpected, e.message, e)
+            log.warn("{}: {}", unexpected, e.message, e)
             "$unexpected. ${e.message.orEmpty()}".trim()
         }
     }

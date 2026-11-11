@@ -204,7 +204,7 @@ class SchemaRollbackGuard(
     private val buildVersion: String? = BUILD_VERSION,
     private val enforced: Boolean = true,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** The headers of the SQL migrations this build ships, by version. */
     private val declarations: Map<String, Boolean?> by lazy {
@@ -228,7 +228,7 @@ class SchemaRollbackGuard(
         when (val verdict = RollbackCompatibility.judge(applied, shipped, recorded())) {
             RollbackVerdict.Shipped -> Unit
 
-            is RollbackVerdict.AheadCompatible -> logger.warn(
+            is RollbackVerdict.AheadCompatible -> log.warn(
                 "Database schema is ahead of this build by {} migration(s) it does not ship ({}), each recorded " +
                     "as rollback-compatible, so this build starts. This is a rolled-back deployment.",
                 verdict.unshipped.size,
@@ -238,7 +238,7 @@ class SchemaRollbackGuard(
             is RollbackVerdict.AheadIncompatible -> {
                 val refusal = aheadException(verdict)
                 if (enforced) throw refusal
-                logger.warn(
+                log.warn(
                     "Rollback guard disabled (epistola.migration.rollback-guard.enabled=false), so this build starts " +
                         "although it would have refused: {}",
                     refusal.description,
@@ -268,7 +268,7 @@ class SchemaRollbackGuard(
         }
         val floor = recorded().filterValues { !it.rollbackCompatible }.maxByOrNull { it.key }
         if (floor != null) {
-            logger.info(
+            log.info(
                 "Rollback floor: a build must ship migration {} (recorded by {}), the newest applied migration " +
                     "that is not rollback-compatible, to start against this database",
                 floor.key,

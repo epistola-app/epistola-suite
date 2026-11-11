@@ -229,7 +229,7 @@ class ImportCatalogZipHandler(
     private val legacyPins: app.epistola.suite.catalog.dependencies.LegacyDependencyPins,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
         if (command.intoDraft != null || command.restore) return importArchive(command)
@@ -500,7 +500,7 @@ class ImportCatalogZipHandler(
                 // Abort: do NOT prune stale or advance installed_* — the catalog stays on its
                 // previous release and a re-import retries (never a silent half-upgrade).
                 val failed = results.filter { it.status == InstallStatus.FAILED }
-                logger.error(
+                log.error(
                     "Receiving '{}' {} ABORTED — {} resource(s) failed; not pruning stale, not advancing installed version: {}",
                     catalogKey.value,
                     manifest.release.version,
@@ -547,14 +547,14 @@ class ImportCatalogZipHandler(
             // pruning the version's other resources (already conflict-checked above). On a failed
             // install we DON'T prune (avoid a half-replace).
             if (anyFailed) {
-                logger.warn(
+                log.warn(
                     "REPLACE of '{}' — {} resource(s) failed; NOT pruning local-only resources (avoiding a half-replace)",
                     catalogKey.value,
                     results.count { it.status == InstallStatus.FAILED },
                 )
             } else {
                 val removed = analyzer.removeStale(at, staleBefore)
-                logger.info("REPLACE of '{}' — {} local-only resource(s) pruned", catalogKey.value, removed.size)
+                log.info("REPLACE of '{}' — {} local-only resource(s) pruned", catalogKey.value, removed.size)
             }
         }
 

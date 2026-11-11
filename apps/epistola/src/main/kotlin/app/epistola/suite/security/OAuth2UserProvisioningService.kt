@@ -54,7 +54,7 @@ class OAuth2UserProvisioningService(
 ) : OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private val delegate = DefaultOAuth2UserService()
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun loadUser(request: OAuth2UserRequest): OAuth2User {
         val oauth2User = delegate.loadUser(request)
@@ -87,7 +87,7 @@ class OAuth2UserProvisioningService(
             )
         }
 
-        logger.info("Auto-provisioning new user: {} (provider: {})", email, provider)
+        log.info("Auto-provisioning new user: {} (provider: {})", email, provider)
 
         return mediator.send(
             CreateUser(
@@ -124,7 +124,7 @@ class OAuth2UserProvisioningService(
             is List<*> -> raw.filterIsInstance<String>()
 
             else -> {
-                logger.warn("Unexpected '{}' attribute type: {}", attributeName, raw::class.simpleName)
+                log.warn("Unexpected '{}' attribute type: {}", attributeName, raw::class.simpleName)
                 emptyList()
             }
         }
@@ -154,7 +154,7 @@ class OAuth2UserProvisioningService(
         val storedUser = try {
             getOrCreateUser(externalId, email, displayName, provider)
         } catch (e: Exception) {
-            logger.error("Failed to provision user: {}", email, e)
+            log.error("Failed to provision user: {}", email, e)
             throw OAuth2AuthenticationException(
                 OAuth2Error("user_provisioning_failed"),
                 "Failed to provision user",
@@ -194,7 +194,7 @@ class OAuth2UserProvisioningService(
             try {
                 mediator.send(SyncTenantMemberships(user.id, tokenMemberships))
             } catch (e: Exception) {
-                logger.warn("Failed to sync tenant memberships for user {}: {}", user.email, e.message)
+                log.warn("Failed to sync tenant memberships for user {}: {}", user.email, e.message)
             }
         }
 
@@ -230,7 +230,7 @@ class OAuth2UserProvisioningService(
         return OAuth2UserService<OidcUserRequest, OidcUser> { request ->
             val oidcUser = oidcDelegate.loadUser(request)
             val principal = provision(oidcUser, request.clientRegistration.registrationId)
-            logger.info("OIDC login: provisioned user {} with {} memberships", principal.email, principal.tenantMemberships.size)
+            log.info("OIDC login: provisioned user {} with {} memberships", principal.email, principal.tenantMemberships.size)
             OidcUserWrapper(oidcUser, principal)
         }
     }

@@ -51,7 +51,7 @@ class ReencryptCredentialsHandler(
     contributors: List<EncryptedCredentialContributor>,
 ) : CommandHandler<ReencryptCredentials, ReencryptResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     private val credentialColumns = contributors.flatMap { it.columns() }.sortedBy { it.qualifiedName }
 
@@ -59,7 +59,7 @@ class ReencryptCredentialsHandler(
         val credentials = credentialColumns.associate { it.qualifiedName to reencryptColumn(handle, it) }
         val metadata = command.metadataKeys.count { reencryptMetadata(it) }
         ReencryptResult(credentials, metadata).also {
-            logger.info(
+            log.info(
                 "Re-encrypted credentials under primary key '{}': {} credential column(s), {} metadata key(s)",
                 cipher.primaryKeyId,
                 it.credentialsReencrypted.values.sum(),

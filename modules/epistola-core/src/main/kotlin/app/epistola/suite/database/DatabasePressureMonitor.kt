@@ -34,7 +34,7 @@ class DatabasePressureMonitor(
     private data class Observation(val atMs: Long, val durationMs: Long)
     private data class Timers(val success: Timer, val failure: Timer)
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     private val observations = ArrayDeque<Observation>()
     private var lastCriticalFailureAtMs: Long = Long.MIN_VALUE
     private val hikari = dataSource as? HikariDataSource
@@ -42,9 +42,9 @@ class DatabasePressureMonitor(
 
     init {
         if (hikari != null) {
-            logger.info("Database pressure monitor: Hikari pool-waiter detection is active")
+            log.info("Database pressure monitor: Hikari pool-waiter detection is active")
         } else {
-            logger.warn(
+            log.warn(
                 "Database pressure monitor: DataSource is not a HikariDataSource ({}) — " +
                     "pool-waiter detection is disabled; pressure detection relies on statement latency only",
                 dataSource::class.qualifiedName,

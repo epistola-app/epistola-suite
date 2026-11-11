@@ -74,8 +74,8 @@ class DriftRatchetTest {
         Counter("log placeholders without a key", 755, "key={} or key=\"{}\" (.agents/rules/logging.md)") {
             unnamedLogPlaceholders()
         },
-        Counter("logger fields not named log", 88, "private val log = LoggerFactory.getLogger(javaClass)") {
-            mainLines(Regex("""\bval\s+(?:logger|LOGGER|LOG)\s*(?::\s*Logger\s*)?="""))
+        Counter("logger fields not named log", 0, "private val log = LoggerFactory.getLogger(javaClass)") {
+            mainLines(Regex("""\bval\s+(?:logger|LOGGER|LOG)\s*(?::\s*Logger\s*)?=\s*(?:org\.slf4j\.)?LoggerFactory"""))
         },
         Counter("Kotlin main files over 1000 lines", 0, "split the file") {
             RepoSources.mainKotlinFiles().count { Files.readAllLines(it).size > 1000 }

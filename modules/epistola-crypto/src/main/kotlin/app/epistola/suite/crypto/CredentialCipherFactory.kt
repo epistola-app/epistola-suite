@@ -24,12 +24,12 @@ import javax.crypto.spec.SecretKeySpec
 object CredentialCipherFactory {
     const val DEV_KEY_ID = "dev-ephemeral"
 
-    private val logger = LoggerFactory.getLogger(CredentialCipherFactory::class.java)
+    private val log = LoggerFactory.getLogger(CredentialCipherFactory::class.java)
     private val secureRandom = SecureRandom()
 
     fun create(properties: EncryptionProperties, isProdProfile: Boolean): CredentialCipher {
         if (!properties.enabled) {
-            logger.warn(
+            log.warn(
                 "Credential encryption is DISABLED (epistola.encryption.enabled=false) — credentials are stored as plaintext.",
             )
             return CredentialCipher(enabled = false, keys = emptyMap(), primaryKeyId = "").also { it.selfTest() }
@@ -40,7 +40,7 @@ object CredentialCipherFactory {
                 "epistola.encryption.keys must be configured in the prod profile " +
                     "(generate one with `openssl rand -base64 32`)"
             }
-            logger.warn(
+            log.warn(
                 "No encryption keys configured — generating an EPHEMERAL in-memory dev key. " +
                     "Encrypted data will NOT be readable after a restart. Configure epistola.encryption.keys " +
                     "for any persistent environment.",
@@ -71,7 +71,7 @@ object CredentialCipherFactory {
             "epistola.encryption.primary-key-id '${properties.primaryKeyId}' is not among the configured keys ${keys.keys}"
         }
 
-        logger.info(
+        log.info(
             "Credential encryption enabled with {} key(s); primary key id '{}'.",
             keys.size,
             properties.primaryKeyId,

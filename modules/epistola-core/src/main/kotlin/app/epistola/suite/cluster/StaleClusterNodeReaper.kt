@@ -59,7 +59,7 @@ class StaleClusterNodeReaper(
     private val meterRegistry: MeterRegistry,
     private val properties: ClusterProperties,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override val taskType: String = TASK_TYPE
 
@@ -80,9 +80,9 @@ class StaleClusterNodeReaper(
         val retention = properties.effectiveStaleNodeRetention()
         val purge = deleteStaleNodes()
         if (purge.isEmpty) {
-            logger.debug("No cluster nodes stale beyond {} to reap", retention)
+            log.debug("No cluster nodes stale beyond {} to reap", retention)
         } else {
-            logger.info(
+            log.info(
                 "Reaped {} cluster node(s) unseen for longer than {}, " +
                     "cascading {} scheduled-task registration(s) and {} per-node task state row(s)",
                 purge.nodes,

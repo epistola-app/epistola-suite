@@ -84,7 +84,7 @@ class StartExchangeConnectionHandler(
     private val properties: ExchangeProperties,
 ) : CommandHandler<StartExchangeConnection, String> {
     private val random = SecureRandom()
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: StartExchangeConnection): String {
         // Enrolling is what creates the remote relationship, so it needs both switches — the
@@ -120,7 +120,7 @@ class StartExchangeConnectionHandler(
             // Exchange names the refusal in a `code` field; the substring check tolerates it
             // appearing there or in the human-readable detail beside it.
             if (!failure.responseBodyAsString.contains("unknown_client_identity")) throw failure
-            logger.warn("Exchange does not recognise the stored identity for tenant {}; enrolling afresh", command.tenantKey)
+            log.warn("Exchange does not recognise the stored identity for tenant {}; enrolling afresh", command.tenantKey)
             enrolledAfresh = true
             startAuthorization(null, null, null)
         }
@@ -186,7 +186,7 @@ class CompleteExchangeConnectionHandler(
     private val grants: NamespaceGrantStore,
     private val identity: CatalogIdentityProperties,
 ) : CommandHandler<CompleteExchangeConnection, ExchangeTenantConnection> {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: CompleteExchangeConnection): ExchangeTenantConnection {
         val pending = jdbi.withHandle<ExchangeAuthorizationTransaction?, Exception> { handle ->
@@ -283,7 +283,7 @@ class CompleteExchangeConnectionHandler(
         namespaces.filter(CatalogNamespaces::isValid).forEach { namespace ->
             val outcome = grants.grant(handle, tenantKey, NamespaceName(identity.defaultRegistry, namespace), NamespaceGrantSource.EXCHANGE_CONNECTION, grantedBy = null)
             if (outcome is GrantOutcome.TakenUnder) {
-                logger.warn("Exchange grants tenant {} the namespace {}, which it holds under {}; not granted again", tenantKey, namespace, outcome.authority)
+                log.warn("Exchange grants tenant {} the namespace {}, which it holds under {}; not granted again", tenantKey, namespace, outcome.authority)
             }
         }
     }

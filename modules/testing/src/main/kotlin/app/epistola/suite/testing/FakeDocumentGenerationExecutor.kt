@@ -57,7 +57,7 @@ class FakeDocumentGenerationExecutor(
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     private val localJdbi = jdbi
     private val localContentStore = contentStore
     private val localRetentionDays = retentionDays
@@ -80,7 +80,7 @@ class FakeDocumentGenerationExecutor(
     )
 
     override fun execute(request: DocumentGenerationRequest) {
-        logger.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)
+        log.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)
 
         // Mirror production's generation meters through the same shared code path
         // (like emitTerminalResult below) so tests exercise the per-tenant tagging.
@@ -126,7 +126,7 @@ class FakeDocumentGenerationExecutor(
                     .execute()
 
                 if (updated == 0) {
-                    logger.debug("Request {} was cancelled during processing, skipping", request.id.value)
+                    log.debug("Request {} was cancelled during processing, skipping", request.id.value)
                     return@useTransaction
                 }
                 emitTerminalResult(
@@ -178,10 +178,10 @@ class FakeDocumentGenerationExecutor(
                 finalizeBatchIfComplete(batchId)
             }
 
-            logger.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
+            log.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
         } catch (e: Exception) {
             outcome = "failure"
-            logger.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
+            log.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
             markRequestFailed(request, e.message)
             request.batchId?.let { finalizeBatchIfComplete(it) }
         } finally {
@@ -247,7 +247,7 @@ class FakeDocumentGenerationExecutor(
                 ),
             )
         } catch (e: Exception) {
-            logger.error(
+            log.error(
                 "FAKE: failed to emit generation result for request {} (status {}): {}",
                 request.id.value,
                 status,

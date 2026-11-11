@@ -50,7 +50,7 @@ class StaleJobRecovery(
     private val meterRegistry: MeterRegistry,
     private val polling: JobPollingProperties,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Volatile
@@ -58,7 +58,7 @@ class StaleJobRecovery(
 
     @PreDestroy
     fun shutdown() {
-        logger.info("Stale job recovery shutting down")
+        log.info("Stale job recovery shutting down")
         shuttingDown = true
     }
 
@@ -114,7 +114,7 @@ class StaleJobRecovery(
             }
 
             if (recovered.isNotEmpty()) {
-                logger.warn("Recovered {} stale jobs (reset to PENDING): {}", recovered.size, recovered)
+                log.warn("Recovered {} stale jobs (reset to PENDING): {}", recovered.size, recovered)
             }
         }
     }

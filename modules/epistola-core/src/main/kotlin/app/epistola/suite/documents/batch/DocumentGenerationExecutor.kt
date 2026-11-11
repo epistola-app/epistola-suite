@@ -82,7 +82,7 @@ class DocumentGenerationExecutor(
     @Value("\${epistola.generation.polling.max-recoveries:3}")
     private val maxRecoveries: Int = 3,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * Execute a document generation job.
@@ -94,13 +94,13 @@ class DocumentGenerationExecutor(
     fun execute(request: DocumentGenerationRequest) {
         // Check if request was cancelled before starting
         if (request.status == RequestStatus.CANCELLED) {
-            logger.info("Request {} was cancelled, skipping execution", request.id.value)
+            log.info("Request {} was cancelled, skipping execution", request.id.value)
             return
         }
 
         val templateName = request.templateKey.value
 
-        logger.info(
+        log.info(
             "Processing request {} for template {}/{}/{}",
             request.id.value,
             templateName,
@@ -161,10 +161,10 @@ class DocumentGenerationExecutor(
                 finalizeBatchIfComplete(batchId)
             }
 
-            logger.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
+            log.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
         } catch (e: Exception) {
             outcome = "failure"
-            GenerationFailureLog.log(logger, request.id.value, e)
+            GenerationFailureLog.log(log, request.id.value, e)
             val transitioned = markRequestFailed(request.id, e.message ?: "Unknown error")
 
             if (transitioned) {
@@ -225,7 +225,7 @@ class DocumentGenerationExecutor(
      * Returns the document metadata, raw PDF bytes, and the render path used (snapshot/legacy).
      */
     private fun generateDocument(request: DocumentGenerationRequest): Triple<Document, ByteArray, String> {
-        logger.debug(
+        log.debug(
             "Generating document for request {} (template {}/{}/{})",
             request.id.value,
             request.templateKey.value,
@@ -385,7 +385,7 @@ class DocumentGenerationExecutor(
                 .execute()
 
             if (updated == 0) {
-                logger.info("Request {} was cancelled during processing, skipping document storage", requestId)
+                log.info("Request {} was cancelled during processing, skipping document storage", requestId)
                 return@inTransaction false
             }
 
@@ -430,7 +430,7 @@ class DocumentGenerationExecutor(
                 .bind("createdBy", document.createdBy?.value)
                 .execute()
 
-            logger.debug("Created document {} for tenant {}", document.id.value, document.tenantKey.value)
+            log.debug("Created document {} for tenant {}", document.id.value, document.tenantKey.value)
             true
         }
     }
@@ -461,7 +461,7 @@ class DocumentGenerationExecutor(
                 .execute()
 
             if (updated == 0) {
-                logger.info("Request {} was cancelled during processing, not marking as failed", requestId)
+                log.info("Request {} was cancelled during processing, not marking as failed", requestId)
                 false
             } else {
                 true
@@ -498,7 +498,7 @@ class DocumentGenerationExecutor(
                 ),
             )
         } catch (e: Exception) {
-            logger.error(
+            log.error(
                 "Failed to emit generation result for request {} (status {}): {}",
                 request.id.value,
                 status,
@@ -573,7 +573,7 @@ class DocumentGenerationExecutor(
                     .execute()
 
                 if (updated > 0) {
-                    logger.info(
+                    log.info(
                         "Batch {} completed: {} succeeded, {} failed",
                         batchId.value,
                         counts.completed,

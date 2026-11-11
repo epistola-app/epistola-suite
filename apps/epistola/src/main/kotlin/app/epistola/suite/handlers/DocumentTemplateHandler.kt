@@ -164,7 +164,7 @@ class DocumentTemplateHandler(
     private val detailHelper: TemplateDetailHelper,
     private val localeResolver: TenantLocaleResolver,
 ) {
-    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     private companion object {
         const val PAGE_SIZE = 10

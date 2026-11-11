@@ -39,7 +39,7 @@ class CodeListClient(
     private val objectMapper: ObjectMapper,
     @Value("\${epistola.codelists.allow-http:false}") private val allowHttp: Boolean = false,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * Refuses a source URL a user is about to store, as a [ValidationException] on `sourceUrl` that
@@ -57,7 +57,7 @@ class CodeListClient(
     }
 
     fun fetchEntries(url: String, authType: AuthType, credential: String?): List<CodeListEntry> {
-        logger.debug("Fetching code list entries from {}", url)
+        log.debug("Fetching code list entries from {}", url)
         return try {
             validateUrl(url, SOURCE_SCHEMES)
             guard.checkSource(url, allowHttp)

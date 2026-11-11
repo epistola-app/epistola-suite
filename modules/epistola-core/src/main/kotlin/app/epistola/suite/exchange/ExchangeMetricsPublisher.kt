@@ -39,7 +39,7 @@ class ExchangeMetricsPublisher(
     private val properties: ExchangeProperties,
     meterRegistry: MeterRegistry,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     private val publications: Map<CatalogPublicationStatus, AtomicReference<Double>> =
@@ -98,7 +98,7 @@ class ExchangeMetricsPublisher(
             connections.forEach { (status, value) -> value.set((connectionCounts[status] ?: 0L).toDouble()) }
             oldestActiveAgeSeconds.set(store.installationOldestActiveAgeSeconds())
             retainedArchiveBytes.set(store.installationRetainedArchiveBytes())
-            logger.debug("Published Exchange publication gauges: {}", publicationCounts)
+            log.debug("Published Exchange publication gauges: {}", publicationCounts)
         }
     }
 

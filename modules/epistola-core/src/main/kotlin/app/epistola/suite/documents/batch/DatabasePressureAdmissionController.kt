@@ -36,7 +36,7 @@ class DatabasePressureAdmissionController(
     private val pressureSource: DatabasePressureSource,
     meterRegistry: MeterRegistry,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     private val effectiveLimit = AtomicInteger(properties.maxConcurrentJobs)
     private val state = AtomicReference(DatabasePressureState.NORMAL)
     private var healthySinceMs: Long? = null
@@ -183,9 +183,9 @@ class DatabasePressureAdmissionController(
         if (previous == next) return
         if (next == DatabasePressureState.PAUSED) {
             pausedCounter.increment()
-            logger.warn("Document generation admissions paused: database pressure critical")
+            log.warn("Document generation admissions paused: database pressure critical")
         } else if (previous == DatabasePressureState.PAUSED) {
-            logger.info("Document generation admissions resuming: database pressure easing")
+            log.info("Document generation admissions resuming: database pressure easing")
         }
         state.set(next)
     }

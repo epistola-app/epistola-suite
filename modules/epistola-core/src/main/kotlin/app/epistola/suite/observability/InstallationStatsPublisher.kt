@@ -54,7 +54,7 @@ class InstallationStatsPublisher(
     private val intervalMs: Long,
     meterRegistry: MeterRegistry,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     // NaN until this replica is the lock holder for a round — Micrometer omits
@@ -102,7 +102,7 @@ class InstallationStatsPublisher(
                     .one()
                 values.getValue(entity).set(count.toDouble())
             }
-            logger.debug("Published installation stats: {}", values.mapKeys { it.key.metric }.mapValues { it.value.get() })
+            log.debug("Published installation stats: {}", values.mapKeys { it.key.metric }.mapValues { it.value.get() })
         }
     }
 

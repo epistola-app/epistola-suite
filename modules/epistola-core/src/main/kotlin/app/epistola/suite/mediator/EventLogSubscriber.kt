@@ -42,7 +42,7 @@ class EventLogSubscriber(
     private val meterRegistry: MeterRegistry,
 ) {
 
-    private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
+    private val log = LoggerFactory.getLogger(EventLogSubscriber::class.java)
 
     /**
      * Writes a command as the event stream records it: a byte array (an uploaded image, a font face)
@@ -89,12 +89,12 @@ class EventLogSubscriber(
                 }.execute()
             }
 
-            logger.debug("Event logged: {} (tenant={})", eventType, tenantId)
+            log.debug("Event logged: {} (tenant={})", eventType, tenantId)
         } catch (e: Exception) {
             outcome = "failure"
             persistFailures.increment()
             // Failure to log should not affect the command
-            logger.error("Failed to persist event log: {}", e.message, e)
+            log.error("Failed to persist event log: {}", e.message, e)
         } finally {
             sample.stop(
                 Timer.builder("epistola.eventlog.persist.duration")

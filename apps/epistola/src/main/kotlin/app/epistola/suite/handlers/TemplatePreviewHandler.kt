@@ -56,7 +56,7 @@ class TemplatePreviewHandler(
     private val generationService: GenerationService,
 ) {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -140,7 +140,7 @@ class TemplatePreviewHandler(
         } catch (e: IllegalStateException) {
             // The variant, its template or the tenant is gone (deleted meanwhile, or in another
             // version than the one open). Said in a sentence the editor shows, not a bare 404.
-            logger.info("Preview of {}/{} refused: {}", templateId, variantId, e.message)
+            log.info("Preview of {}/{} refused: {}", templateId, variantId, e.message)
             return ServerResponse.status(HttpStatus.NOT_FOUND)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(

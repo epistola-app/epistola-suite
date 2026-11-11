@@ -43,7 +43,7 @@ class CatalogUpgradeAnalyzer(
         val TYPE_WORDS = mapOf("codeList" to "Code list")
     }
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** [catalog]'s next version: what a subscribed catalog holds, and what an upgrade replaces. */
     fun nextOf(catalog: CatalogId): ContentVersion = jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) }
@@ -146,7 +146,7 @@ class CatalogUpgradeAnalyzer(
                     // Every type is a draft row naming its content (ADR 0033).
                     app.epistola.suite.catalog.revisions.DraftResources.delete(handle, at, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))
-                    logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
+                    log.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
                     continue
                 }
             }

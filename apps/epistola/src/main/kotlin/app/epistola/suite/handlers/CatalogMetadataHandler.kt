@@ -42,7 +42,7 @@ private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 @Component
 class CatalogMetadataHandler {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     fun metadataForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -111,7 +111,7 @@ class CatalogMetadataHandler {
                 onFullPage { redirect(back) }
             }
         } catch (e: Exception) {
-            logger.warn("Failed to update catalog metadata: {}", e.message)
+            log.warn("Failed to update catalog metadata: {}", e.message)
             // Into the dialog's error slot; what was typed stays.
             request.htmx {
                 globalFormError("catalog-metadata-error", e.message ?: "Failed to save catalog metadata.")

@@ -50,7 +50,7 @@ class ControllableDocumentGenerationExecutor(
     private val jdbi: Jdbi,
     private val mediator: Mediator,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** Requests that have been parked but not yet terminated. Sanity tracking only. */
     private val parked: MutableMap<GenerationRequestKey, DocumentGenerationRequest> = ConcurrentHashMap()
@@ -254,7 +254,7 @@ class ControllableDocumentGenerationExecutor(
             // Test harness — surface the failure loudly rather than silently
             // dropping the emit (production code logs and moves on; in tests
             // we want to know).
-            logger.error("ControllableExecutor emit failed for request {}: {}", request.id.value, e.message, e)
+            log.error("ControllableExecutor emit failed for request {}: {}", request.id.value, e.message, e)
             throw e
         }
     }

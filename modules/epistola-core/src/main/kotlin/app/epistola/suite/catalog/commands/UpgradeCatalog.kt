@@ -83,7 +83,7 @@ class UpgradeCatalogHandler(
     private val source: ManifestUrlReleaseSource,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: UpgradeCatalog): UpgradeCatalogResult = CatalogImportContext.runAsImport {
         val catalog = GetCatalog(command.catalog).query()
@@ -99,7 +99,7 @@ class UpgradeCatalogHandler(
         } else {
             (before - analyzer.installedResources(analyzer.nextOf(command.catalog))).map { RemovedResource(it.type, it.slug) }
         }
-        logger.info(
+        log.info(
             "Upgraded catalog '{}': {} -> {}{}",
             command.catalogKey,
             previousVersion,
