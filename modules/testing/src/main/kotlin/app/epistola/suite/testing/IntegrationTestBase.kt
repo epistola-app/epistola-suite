@@ -15,6 +15,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.invariants.CatalogInvariantsExtension
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -102,6 +103,16 @@ abstract class IntegrationTestBase {
     @BeforeEach
     fun bindCatalogLookup() {
         TestCatalogLookup.jdbi = catalogLookupJdbi
+    }
+
+    /**
+     * JUnit reuses its worker threads, so a binding left behind is what the next class on the thread
+     * reads: a Spring test that does not extend this class then reads this context's database, and
+     * fails once the context has closed after its last class (ReleaseContextWhenDoneExtension).
+     */
+    @AfterEach
+    fun unbindCatalogLookup() {
+        TestCatalogLookup.jdbi = null
     }
 
     /**
