@@ -56,7 +56,12 @@ class DeclareDependencyUiTest : BasePlaywrightTest() {
 
         page.locator("#theme-select").selectOption("${testCatalog(tenant, shared).address}/brand")
         assertThat(page.getByTestId("confirm-dialog-confirm")).hasText("Add dependency")
-        page.getByTestId("confirm-dialog-confirm").click()
+        // Confirming declares the dependency with a plain fetch, which htmxSettle does not see, and only
+        // then saves the theme over HTMX. Waiting for HTMX to look idle can fall in between, and the
+        // reads below then race the save; wait for the save itself.
+        page.waitForResponse({ it.request().method() == "PATCH" && it.url().endsWith("/templates/invoice/theme") }) {
+            page.getByTestId("confirm-dialog-confirm").click()
+        }
         page.htmxSettle()
 
         assertThat(page.locator("#theme-select")).hasValue("${testCatalog(tenant, shared).address}/brand")
