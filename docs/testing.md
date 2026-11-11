@@ -481,7 +481,11 @@ What makes a configuration distinct, and what to do instead:
   (`SharedFakeExchange`) behind a base class that owns the single `@DynamicPropertySource`, holds a
   `@ResourceLock` so the classes that script the fake never overlap, resets it and purges the
   installation-wide rows before every test (`ExchangeIntegrationTestBase`,
-  `ExchangeDiscoveryIntegrationTestBase`, the app's `ExchangeHandlerTestBase`).
+  `ExchangeDiscoveryIntegrationTestBase`, the app's `ExchangeHandlerTestBase`). The support
+  service works the same way (`SharedFakeSupport`, the app's `AutoRegisteringSupportTestBase` and
+  `ManualSupportTestBase`), except that it resets once per class, as a server of its own did,
+  because those classes build their registration up from test to test. Before these shared it, the
+  apps test JVM booted a context per support class and ran out of heap.
 - A nested `@TestConfiguration` that several classes need: one shared configuration class imported
   by all of them (`ClusterRecordingHandlersConfiguration`). Whether they can then share the context
   is a separate question, answered by the next point.

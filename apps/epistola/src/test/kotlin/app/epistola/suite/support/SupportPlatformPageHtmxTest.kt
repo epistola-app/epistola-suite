@@ -4,16 +4,13 @@
 
 package app.epistola.suite.support
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.testing.FakeSupportFault
 import app.epistola.suite.testing.FakeSupportResponse
-import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,8 +19,6 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 import java.time.Duration
 import java.time.Instant
@@ -36,7 +31,7 @@ import java.time.format.DateTimeFormatter
  * registered until an administrator presses Register, the claim code and its expiry while pending,
  * an expired code, the services once activated, and the way back from a refusal.
  */
-class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
+class SupportPlatformPageHtmxTest : ManualSupportTestBase() {
     /** The connection epistola.support.* configures, as startup stores it. */
     private fun epistola() = withMediator { EnsureConfiguredSupportConnection().execute() }
 
@@ -266,23 +261,4 @@ class SupportPlatformPageHtmxTest : BaseIntegrationTest() {
     }
 
     private fun utc(instant: Instant): String = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC).format(instant) + " UTC"
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            // Every service selected, as an administrator would; the selection itself is tested in SupportServiceSelectionIntegrationTest.
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
-    }
 }

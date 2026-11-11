@@ -4,22 +4,20 @@
 
 package app.epistola.suite.support.requests
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.ids.SupportRequestId
 import app.epistola.suite.common.ids.SupportRequestKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.AutoRegisteringSupportTestBase
 import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.requests.commands.CreateSupportRequest
 import app.epistola.suite.support.requests.desk.ResetSupportRequestHandling
 import app.epistola.suite.support.requests.desk.SetSupportRequestHandling
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.TEST_PLATFORM_ROLES_HEADER
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -31,13 +29,11 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 
 /** Platform → Support requests: the support desk's inbox and one request's page (ADR 0053 §3–4). */
 @Isolated("Who handles new support requests applies to the whole installation")
-class SupportDeskPageHtmxTest : BaseIntegrationTest() {
+class SupportDeskPageHtmxTest : AutoRegisteringSupportTestBase() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -245,24 +241,5 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         assertThat(getAs("/platform/support-requests", "INSTALLATION_ADMINISTRATOR").statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         assertThat(getAs("/platform/support-requests/${tenant.id.value}/${key.value}", "").statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         assertThat(getAs("/platform/banner", "INSTALLATION_ADMINISTRATOR").body).doesNotContain("data-testid=\"ws-platform-support-requests\"")
-    }
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            registry.add("epistola.support.auto-register") { "true" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
     }
 }

@@ -335,6 +335,37 @@ class FakeSupportServer : AutoCloseable {
         routes.clear()
     }
 
+    /**
+     * Back to a service that has never been called: no registrations, tokens or recorded requests,
+     * every setting at its default, no faults or routes, listening. For a server shared by several
+     * test classes ([SharedFakeSupport]), so each class meets the fresh service a server of its own
+     * gave it. Client ids keep counting, so one never comes back.
+     */
+    fun reset() {
+        clearFaults()
+        clearRoutes()
+        start()
+        requests.clear()
+        registrationRequests.clear()
+        registrations.clear()
+        issuedTokens.clear()
+        tokenScopeRequests.clear()
+        seenJtis.clear()
+        faulted.clear()
+        usageReports.clear()
+        bytesWritten.set(0)
+        tokenLifetimeSeconds = 600
+        now = { Instant.now() }
+        checksAssertionTimes = false
+        claimCodeLifetime = Duration.ofDays(7)
+        metadataIssuer = null
+        endpointBaseUrl = null
+        registrationResponse = null
+        tokenResponse = null
+        scopesSupported = listOf("telemetry", "requests", "mirror", "usage")
+        olderScopeHandling = false
+    }
+
     /** The registration made last. */
     val latestRegistration: Registration get() = registrations.values.last()
 
