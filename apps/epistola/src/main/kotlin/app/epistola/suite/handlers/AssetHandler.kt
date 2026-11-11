@@ -209,7 +209,7 @@ class AssetHandler(
         val assets = listImages(tenantId = tenantId, catalog = segment.catalogIn(tenantId), version = segment.ref(tenantId))
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId, s) { "/tenants/${tenantId.value}/catalogs/${it.value}/images" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { listImages(tenantId = tenantId, catalog = it) }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/catalogs/${c.address}/images", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { c, v -> app.epistola.suite.assets.queries.ListVisibleImages(c, v).query() }, { it.catalogId }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/catalogs/${c.address}/images", n) }
         "pageTitle" to "Images - Epistola"
         "tenantId" to tenantId.value
         "tenant" to tenant

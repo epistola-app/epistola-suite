@@ -327,7 +327,7 @@ class AttributeHandler {
         val attributes = ListAttributeDefinitions(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { draftBarFor(tenantId, it) }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = it.tenantId, catalog = it, catalogVersion = null).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/attributes", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { c, v -> app.epistola.suite.attributes.queries.ListVisibleAttributeDefinitions(c, v).query() }, { it.catalogId }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/attributes", n) }
         "pageTitle" to "Attributes - Epistola"
         "tenant" to tenant
         "tenantId" to tenantId.key

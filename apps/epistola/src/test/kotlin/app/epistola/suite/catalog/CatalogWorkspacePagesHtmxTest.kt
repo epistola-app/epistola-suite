@@ -24,6 +24,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
@@ -32,6 +33,7 @@ import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.testing.withoutSystemCatalog
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -99,6 +101,25 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/stencils", String::class.java).statusCode.value())
             .`as`("there is no list across catalogs").isEqualTo(404)
         assertThat(get(tenant, "/catalogs/${tenant.id}/shared/stencils")).`as`("Shared depends on nothing").doesNotContain("data-testid=\"from-other-catalogs\"")
+    }
+
+    @Test
+    fun `what the catalogs it depends on hold is shown at the version it pins, not at their next one`() {
+        val tenant = seed("Workspace Lists Pinned")
+        val sharedId = testCatalog(TenantId(tenant.id), shared)
+        // Shared's next version moves on; Letters still pins 1.0.0, which holds Footer and Brand.
+        withMediator {
+            CreateStencil(StencilId(StencilKey.of("seal"), sharedId), "Seal", catalogVersion = null).execute()
+            UpdateStencil(StencilId(StencilKey.of("footer"), sharedId), name = "Legal footer", catalogVersion = null).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), sharedId), name = "Brand 2", catalogVersion = null).execute()
+        }
+
+        val stencils = get(tenant, "/catalogs/${tenant.id}/letters/stencils").substringAfter("data-testid=\"from-other-catalogs\"")
+        assertThat(stencils).contains(">Footer<").doesNotContain("Legal footer").doesNotContain(">Seal<")
+        val themes = get(tenant, "/catalogs/${tenant.id}/letters/themes").substringAfter("data-testid=\"from-other-catalogs\"")
+        assertThat(themes).contains(">Brand<").doesNotContain("Brand 2")
+        assertThat(get(tenant, "/catalogs/${tenant.id}/letters/templates")).`as`("a template is not something another catalog uses")
+            .doesNotContain("data-testid=\"from-other-catalogs\"")
     }
 
     @Test
