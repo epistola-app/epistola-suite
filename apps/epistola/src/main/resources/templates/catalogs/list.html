@@ -102,7 +102,8 @@
                                 class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-row-check-updates"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/upgrade-check|}"
                                 th:attr="hx-target=${'#catver-' + catalog.namespace + '--' + catalog.id}" hx-swap="innerHTML">Check for updates</button>
-                        <button type="button"
+                        <!--/* Deleting needs CATALOG_MANAGE (DeleteCatalog); nobody else is offered it. */-->
+                        <button type="button" th:if="${auth.has('CATALOG_MANAGE')}"
                                 class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm" data-testid="catalog-row-delete"
                                 th:disabled="${catalog.id == 'system'}"
                                 th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : null"
