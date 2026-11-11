@@ -75,6 +75,22 @@ Decided and closed:
 
 ## Touched
 
+### Server log per support connection (11 November; branch `fix/support-log-per-connection`)
+
+SUP-1 of the 2.0 security review. The attached server log was pseudonymised once at submit with the
+installation default and then sent verbatim to every handling, attached or escalated connection.
+Now kept as recorded (each line with its `pattern`) and shaped per reader by `ServerLogExcerpt`: the
+adapter with `SupportPrivacy.forConnection`, the request and desk pages with the configured default.
+
+**Coverage:** `ServerLogExcerptTest` (unit); `RestSupportRequestSyncAdapterIntegrationTest` (a
+pseudonymised and a full connection, while the default stays pseudonymised: fails both with the
+excerpt sent verbatim and with the default used instead of the connection's setting);
+`SupportRequestSubmitHtmxTest` and `SupportDeskPageHtmxTest` (pages show the default's shape: fail
+when they render the stored text).
+
+**Noticed, untouched:** ADR 0052 §2 still says the excerpt follows the installation's telemetry; it is
+a record, so the current rule is in `docs/support-requests.md` and `docs/support-protocol.md`.
+
 ### Quick wins of the 2.0 security review (10 November; branch `fix/security-quick-wins`)
 
 - **Tenant images and fonts** are `private, no-cache` with an entity tag (`TenantContentCaching`),

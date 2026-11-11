@@ -7,6 +7,7 @@ package app.epistola.suite.support.requests.sync
 import app.epistola.suite.support.connection.SupportConnection
 import app.epistola.suite.support.connection.SupportConnectionRegistry
 import app.epistola.suite.support.connection.TokenSupportConnection
+import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.requests.adapters.RestSupportRequestSyncAdapter
 import org.jdbi.v3.core.Jdbi
@@ -29,6 +30,7 @@ class SupportRequestSyncPorts(
     private val objectMapper: ObjectMapper,
     private val references: TenantReferences,
     private val jdbi: Jdbi,
+    private val privacy: SupportPrivacy,
 ) {
     /**
      * [connectionId]'s port; null for a connection that does not exist or that this version cannot send to.
@@ -38,7 +40,7 @@ class SupportRequestSyncPorts(
     fun port(connectionId: UUID): SupportRequestSyncPort? {
         val connection = registry.find(connectionId) ?: return null
         if (connection === configured) return discovered
-        return RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi)
+        return RestSupportRequestSyncAdapter(connection, objectMapper, references, jdbi, privacy)
     }
 
     /** Every connection's port, by creation, with its connection id. */

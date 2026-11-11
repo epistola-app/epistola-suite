@@ -20,6 +20,7 @@ import app.epistola.suite.support.privacy.TelemetryDetail
 import app.epistola.suite.support.privacy.TenantIdentity
 import app.epistola.suite.support.privacy.TenantReferences
 import app.epistola.suite.support.requests.CommentSource
+import app.epistola.suite.support.requests.ServerLogExcerpt
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SupportRequestAssetContent
 import app.epistola.suite.support.requests.SupportRequestCategory
@@ -140,11 +141,37 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an attached server log goes as the connection's own telemetry setting allows, not as it was submitted`() {
+        val connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }
+        // As the request keeps it: each line with its values and, beside it, its message as written in the code.
+        val serverLogs = """[{"level":"ERROR","logger":"app.epistola.suite.Example","message":"Render failed for jan@example.org","pattern":"Render failed for {}",""" +
+            """"exception":"java.lang.IllegalStateException: customer Jan Jansen not found\n\tat app.epistola.suite.Example.render(Example.kt:12)"},""" +
+            """{"level":"WARN","logger":"org.springframework.web.Resolver","message":"Invalid UUID string: jan@example.org"}]"""
+        try {
+            withMediator { SetSupportConnectionPrivacy(connectionId, TenantIdentity.NAMED, TelemetryDetail.PSEUDONYMISED).execute() }
+            port.createTicket(supportRequest(serverLogs = serverLogs))
+            val pseudonymised = support.requests.last { it.method == "PUT" && it.path.startsWith("/api/v2/requests/acme-fb/") }.json().path("serverLogs").stringValue()
+            assertThat(pseudonymised).doesNotContain("jan@example.org").doesNotContain("Jan Jansen").doesNotContain("pattern")
+                .contains("Render failed for {}").contains(ServerLogExcerpt.LIBRARY_MESSAGE_WITHHELD).contains("java.lang.IllegalStateException")
+
+            // Full for this connection, while the configured default every other connection follows stays pseudonymised.
+            withMediator { SetSupportConnectionPrivacy(connectionId, TenantIdentity.NAMED, TelemetryDetail.FULL).execute() }
+            assertThat(privacy.current().pseudonymised).isTrue()
+            port.createTicket(supportRequest(serverLogs = serverLogs))
+            val full = support.requests.last { it.method == "PUT" && it.path.startsWith("/api/v2/requests/acme-fb/") }.json().path("serverLogs").stringValue()
+            assertThat(full).contains("Render failed for jan@example.org").contains("customer Jan Jansen not found").doesNotContain("pattern")
+        } finally {
+            jdbi.useHandle<Exception> { it.createUpdate("UPDATE support_connections SET privacy = NULL").execute() }
+            privacy.refresh()
+        }
+    }
+
+    @Test
     fun `a support request is sent with its own id, every field and a bearer token, then its question`() {
         val supportRequest = supportRequest(
             consoleLogs = """[{"level":"error","message":"boom"}]""",
             metadata = """{"viewport":"1280x800"}""",
-            serverLogs = """[{"level":"ERROR","message":"Render failed for {}"}]""",
+            serverLogs = """[{"level":"ERROR","logger":"app.epistola.suite.Example","message":"Render failed for INV-7","pattern":"Render failed for {}"}]""",
         )
 
         val result = port.createTicket(supportRequest)
@@ -163,7 +190,8 @@ class RestSupportRequestSyncAdapterIntegrationTest : IntegrationTestBase() {
         assertThat(request.header("Content-Type")).startsWith("application/json")
         val body = request.json()
         assertThat(body.path("title").stringValue()).isEqualTo("Preview does not load")
-        assertThat(body.path("serverLogs").stringValue()).isEqualTo("""[{"level":"ERROR","message":"Render failed for {}"}]""")
+        assertThat(body.path("serverLogs").stringValue()).`as`("pseudonymised, as the configured default the connection follows")
+            .isEqualTo("""[{"level":"ERROR","logger":"app.epistola.suite.Example","message":"Render failed for {}"}]""")
         assertThat(body.has("description")).`as`("the description is the question, a message of its own").isFalse()
         assertThat(body.path("kind").stringValue()).isEqualTo("BUG")
         assertThat(body.path("requestedPriority").stringValue()).isEqualTo("HIGH")

@@ -11,7 +11,9 @@ import app.epistola.suite.support.connection.SupportConnectionState
 import app.epistola.suite.support.connection.SupportScope
 import app.epistola.suite.support.connection.SupportUnavailableException
 import app.epistola.suite.support.connection.isInsufficientScope
+import app.epistola.suite.support.privacy.SupportPrivacy
 import app.epistola.suite.support.privacy.TenantReferences
+import app.epistola.suite.support.requests.ServerLogExcerpt
 import app.epistola.suite.support.requests.SupportRequest
 import app.epistola.suite.support.requests.SupportRequestAssetContent
 import app.epistola.suite.support.requests.SupportRequestComment
@@ -56,6 +58,7 @@ class RestSupportRequestSyncAdapter(
     private val objectMapper: ObjectMapper,
     private val references: TenantReferences? = null,
     private val jdbi: Jdbi? = null,
+    private val privacy: SupportPrivacy? = null,
 ) : SupportRequestSyncPort {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -76,8 +79,9 @@ class RestSupportRequestSyncAdapter(
             put("status", supportRequest.status.name)
             supportRequest.sourceUrl?.let { put("sourceUrl", fitChars(hide(it), MAX_SOURCE_URL_CHARS)) }
             fitConsoleLogs(supportRequest.consoleLogs?.let(hide))?.let { put("consoleLogs", it) }
-            // The suite's own log lines may name the tenant anywhere in their text, not only in a path.
-            fitConsoleLogs(supportRequest.serverLogs?.let { confidentialText(it, supportRequest.tenantKey.value, wireKey) })?.let { put("serverLogs", it) }
+            // The server log as this connection's own telemetry setting allows, never another's (ADR 0053 §1);
+            // the suite's own log lines may name the tenant anywhere in their text, not only in a path.
+            fitConsoleLogs(supportRequest.serverLogs?.let { confidentialText(serverLogsFor(it), supportRequest.tenantKey.value, wireKey) })?.let { put("serverLogs", it) }
             fitMetadata(supportRequest.metadata?.let(hide))?.let { put("metadata", it) }
             put("createdAt", supportRequest.createdAt.toInstant().toString())
             // Who submitted it, as a person reference: never the name or address (ADR 0053 §3).
@@ -355,6 +359,9 @@ class RestSupportRequestSyncAdapter(
     } else {
         text.replace(Regex("(?<![A-Za-z0-9_-])" + Regex.escape(tenantKey) + "(?![A-Za-z0-9_-])"), wireKey)
     }
+
+    /** [stored] as this connection may receive it: pseudonymised unless its settings say full, also while they cannot be read. */
+    internal fun serverLogsFor(stored: String): String = ServerLogExcerpt.shaped(stored, (privacy?.forConnection(connection.id) ?: SupportPrivacy.STRICTEST).pseudonymised, objectMapper)
 
     /** The browser metadata, or nothing when it is over the protocol's limit. */
     internal fun fitMetadata(raw: String?): String? = raw?.takeIf { it.utf8Size() <= MAX_METADATA_BYTES }

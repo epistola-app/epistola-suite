@@ -6,22 +6,20 @@ package app.epistola.suite.support.requests.adapters
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.logs.queries.GetTenantLogExcerpt
-import app.epistola.suite.logs.queries.TenantLogLine
 import app.epistola.suite.mediator.query
-import app.epistola.suite.support.privacy.SupportPrivacy
+import app.epistola.suite.support.requests.ServerLogExcerpt
 import app.epistola.suite.support.requests.SupportRequestLogSource
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 /**
  * The suite's [SupportRequestLogSource]: the tenant's application log lines of the submitter's recent
- * requests, by trace id (`GetTenantLogExcerpt`). Pseudonymised like telemetry when the installation
- * pseudonymises telemetry (ADR 0052 §2): a line's message as written in the code, without its values,
- * and an exception's types and frames, without its messages.
+ * requests, by trace id (`GetTenantLogExcerpt`), as recorded. Each line keeps its message as written in
+ * the code beside it, so every reader can be given the excerpt its own privacy allows
+ * ([ServerLogExcerpt.shaped]): pseudonymising here, once, would decide it for every support connection.
  */
 @Component
 class ApplicationLogSupportRequestSource(
-    private val privacy: SupportPrivacy,
     private val objectMapper: ObjectMapper,
 ) : SupportRequestLogSource {
     override fun excerpt(tenantKey: TenantKey, traceIds: List<String>): String? {
@@ -29,56 +27,26 @@ class ApplicationLogSupportRequestSource(
         if (ids.isEmpty()) return null
         val excerpt = GetTenantLogExcerpt(tenantKey, ids).query()
         if (excerpt.lines.isEmpty()) return null
-        val pseudonymised = privacy.current().pseudonymised
         val lines = objectMapper.createArrayNode()
         excerpt.lines.forEach { line ->
             lines.addObject().apply {
                 put("time", line.occurredAt.toInstant().toString())
                 put("level", line.level)
                 put("logger", line.logger)
-                // Pseudonymised: the suite's own message as written in the code; a library's not at all, as it
-                // may have built the values into it itself (the same rule as telemetry).
-                put(
-                    "message",
-                    if (!pseudonymised) {
-                        line.message
-                    } else if (line.logger.startsWith(OWN_PACKAGE)) {
-                        line.pattern()
-                    } else {
-                        LIBRARY_MESSAGE_WITHHELD
-                    },
-                )
-                line.exception?.let { put("exception", if (pseudonymised) withoutMessages(it) else it) }
+                put("message", line.message)
+                line.messagePattern?.let { put(ServerLogExcerpt.PATTERN, it) }
+                line.exception?.let { put("exception", it) }
                 put("traceId", line.traceId)
             }
         }
-        if (excerpt.truncated) lines.addObject().put("level", "INFO").put("message", "… more lines were left out")
+        if (excerpt.truncated) {
+            lines.addObject().put("level", "INFO").put("message", MORE_LEFT_OUT).put(ServerLogExcerpt.PATTERN, MORE_LEFT_OUT)
+        }
         return objectMapper.writeValueAsString(lines)
     }
 
-    /** The pattern; never absent from an excerpt, but nothing of the text goes if it ever were. */
-    private fun TenantLogLine.pattern(): String = messagePattern ?: "(message not kept)"
-
     companion object {
         private val TRACE_ID = Regex("[0-9a-f]{32}")
-        private const val OWN_PACKAGE = "app.epistola."
-        const val LIBRARY_MESSAGE_WITHHELD = "(library message withheld)"
-
-        /**
-         * A rendered stack trace with only its exception types and frames: "Type: message" and
-         * "Caused by: Type: message" lines lose the message, frames stay.
-         */
-        internal fun withoutMessages(trace: String): String = trace.lineSequence().joinToString("\n") { line ->
-            val trimmed = line.trimStart()
-            when {
-                trimmed.startsWith("at ") || trimmed.startsWith("...") || trimmed.isEmpty() -> line
-
-                else -> {
-                    val prefix = line.takeWhile { it.isWhitespace() } + listOf("Caused by: ", "Suppressed: ").firstOrNull { trimmed.startsWith(it) }.orEmpty()
-                    val type = trimmed.removePrefix("Caused by: ").removePrefix("Suppressed: ").substringBefore(':').substringBefore(' ')
-                    prefix + type
-                }
-            }
-        }
+        private const val MORE_LEFT_OUT = "… more lines were left out"
     }
 }

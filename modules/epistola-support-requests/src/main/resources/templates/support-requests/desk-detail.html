@@ -112,11 +112,11 @@
             </div>
         </div>
 
-        <div th:if="${req.serverLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+        <div th:if="${serverLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
             <div class="card-content">
                 <h3 style="margin-bottom: var(--ep-space-3);">Server log</h3>
                 <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
-                     th:text="${req.serverLogs}">Server log</pre>
+                     th:text="${serverLogs}">Server log</pre>
             </div>
         </div>
 

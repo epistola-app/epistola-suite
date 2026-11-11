@@ -113,8 +113,10 @@ never sent; a comment's author goes by reference alone while tenants are confide
 
 ² The suite's log lines of the submitter's last 20 requests on the page, only this tenant's, at most
 200 lines, when the submitter leaves "Attach the server log of my last requests" ticked (it is by
-default). Pseudonymised when the installation pseudonymises telemetry: each line's message as written
-in the code without its values, and exceptions without their messages. The application log keeps its
+default). The request keeps the lines as recorded; each support connection is given them as its own
+telemetry setting allows, and the installation's pages show them as the configured default does.
+Pseudonymised: each line's message as written in the code without its values, a library's line
+without its message, and exceptions without their messages. The application log keeps its
 lines for about a week, so it covers requests sent soon after the problem.
 
 Not sent: who submitted the item (neither name nor id). Epistola's replies (comments, status
@@ -301,15 +303,15 @@ Support requests are a module of the suite today, but it is meant to be movable 
 on its own (ADR 0052 §7). What it needs from the application hosting it is kept to this list, so that a
 move is a move and not a rewrite:
 
-| Need                        | How the suite provides it                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| The page's request trace    | `<meta name="traceparent" content="00-…">` in every page (W3C Trace Context; the shell renders it)                                  |
-| Each answer's request trace | a `traceresponse` header on every answer (W3C Trace Context level 2, set by `TraceFilter`)                                          |
-| The browser console         | `support-request-capture.js` keeps the last 100 entries in `window.__epistola_console_buffer`                                       |
-| The last requests           | `support-request-capture.js` keeps the last 20 trace ids in `window.__epistola_trace_buffer`, from the two above                    |
-| The server log of a request | `SupportRequestLogSource`: lines of a tenant by trace id, shaped by the host's privacy rules (`ApplicationLogSupportRequestSource`) |
-| Where requests go           | `SupportRequestSyncPort`: the connector to Epistola support (`RestSupportRequestSyncAdapter`), or none                              |
-| Who may do what             | `SUPPORT_REQUEST_SUBMIT`, `SUPPORT_REQUEST_HANDLE`, `INTEGRATIONS_MANAGE`, per tenant                                               |
+| Need                        | How the suite provides it                                                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The page's request trace    | `<meta name="traceparent" content="00-…">` in every page (W3C Trace Context; the shell renders it)                                                      |
+| Each answer's request trace | a `traceresponse` header on every answer (W3C Trace Context level 2, set by `TraceFilter`)                                                              |
+| The browser console         | `support-request-capture.js` keeps the last 100 entries in `window.__epistola_console_buffer`                                                           |
+| The last requests           | `support-request-capture.js` keeps the last 20 trace ids in `window.__epistola_trace_buffer`, from the two above                                        |
+| The server log of a request | `SupportRequestLogSource`: lines of a tenant by trace id, as recorded (`ApplicationLogSupportRequestSource`); `ServerLogExcerpt` shapes them per reader |
+| Where requests go           | `SupportRequestSyncPort`: the connector to Epistola support (`RestSupportRequestSyncAdapter`), or none                                                  |
+| Who may do what             | `SUPPORT_REQUEST_SUBMIT`, `SUPPORT_REQUEST_HANDLE`, `INTEGRATIONS_MANAGE`, per tenant                                                                   |
 
 Anything else the module uses of the suite (the mediator, the tenant model, the page chrome) is how it
 is built today, not part of what it needs. A new dependency on the host goes in this table, or it is a

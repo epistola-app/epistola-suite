@@ -51,7 +51,7 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         withMediator { ResetSupportRequestHandling().execute() }
     }
 
-    private fun submit(tenant: Tenant, title: String): SupportRequestKey = withMediator {
+    private fun submit(tenant: Tenant, title: String, serverLogs: String? = null): SupportRequestKey = withMediator {
         CreateSupportRequest(
             id = SupportRequestId(SupportRequestKey.generate(), TenantId(tenant.id)),
             title = title,
@@ -62,6 +62,7 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
             consoleLogs = null,
             metadata = null,
             createdBy = author,
+            serverLogs = serverLogs,
         ).execute().id
     }
 
@@ -124,6 +125,20 @@ class SupportDeskPageHtmxTest : BaseIntegrationTest() {
         val inbox = getAs("/platform/support-requests", "SUPPORT_DESK").body!!
 
         assertThat(inbox).contains("value=\"${tenant.id.value}\"").contains(">Desk Filter Stranger<").doesNotContain("Desk Filter Silent")
+    }
+
+    @Test
+    fun `the desk shows an attached server log as the configured default allows, without the kept patterns`() {
+        val tenant = createTenant("Desk Page Server Log")
+        val key = submit(
+            tenant,
+            "Server log",
+            serverLogs = """[{"level":"ERROR","logger":"app.epistola.suite.Example","message":"Render failed for jan@example.org","pattern":"Render failed for {}"}]""",
+        )
+
+        val desk = get("/platform/support-requests/${tenant.id.value}/${key.value}")
+
+        assertThat(desk).contains("Render failed for {}").doesNotContain("jan@example.org").doesNotContain("pattern")
     }
 
     @Test
