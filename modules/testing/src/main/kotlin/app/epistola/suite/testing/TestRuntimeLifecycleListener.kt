@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.testing.logging.SharedLogbackLoggingSystem
 import org.junit.platform.launcher.LauncherSession
 import org.junit.platform.launcher.LauncherSessionListener
 import org.slf4j.LoggerFactory
@@ -21,6 +22,8 @@ class TestRuntimeLifecycleListener : LauncherSessionListener {
         // SubstituteLoggerFactory instances, which caused the intermittent parallel-only flakes
         // (ClassCastException casting to a Logback Logger, and log events silently dropped).
         LoggerFactory.getILoggerFactory()
+        // Before any Spring Boot context: logging is configured once and survives contexts closing.
+        SharedLogbackLoggingSystem.install()
     }
 
     override fun launcherSessionClosed(session: LauncherSession) {
