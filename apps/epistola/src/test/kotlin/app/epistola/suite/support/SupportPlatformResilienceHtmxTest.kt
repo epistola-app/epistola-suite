@@ -104,7 +104,9 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
             jdbi.useHandle<Exception> { handle ->
                 handle.createQuery("SELECT pg_advisory_lock(:key)").bind("key", store.lockKey()).mapTo(String::class.java).one()
                 locked.countDown()
-                release.await(6, TimeUnit.SECONDS)
+                // Held until the block ends, and far longer than a page waits (three seconds): an
+                // action that queued for the lock would answer that its work goes on in the background.
+                release.await(60, TimeUnit.SECONDS)
                 handle.createQuery("SELECT pg_advisory_unlock(:key)").bind("key", store.lockKey()).mapTo(Boolean::class.java).one()
             }
         }
@@ -122,24 +124,24 @@ class SupportPlatformResilienceHtmxTest : BaseIntegrationTest() {
         post("/platform/support/connections/${epistola()}/register")
 
         whileAnotherNodeChecks {
-            var answer = 0 to ""
-            val took = measureTimeMillis { answer = post("/platform/support/connections/${epistola()}/check") }
+            val answer = post("/platform/support/connections/${epistola()}/check")
 
-            assertThat(took).isLessThan(2_000)
+            // Refused at once, not queued: a check that waited for the lock would still be waiting when
+            // the page stopped waiting, and say its work goes on in the background.
             assertThat(answer.first).isEqualTo(HttpStatus.OK.value())
-            assertThat(answer.second).contains("id=\"support-connection\"").contains("already running")
+            assertThat(answer.second).contains("id=\"support-connection\"").contains("already running").doesNotContain("goes on in the background")
         }
     }
 
     @Test
     fun `register while another node checks says so at once instead of waiting on the lock`() {
         whileAnotherNodeChecks {
-            var answer = 0 to ""
-            val took = measureTimeMillis { answer = post("/platform/support/connections/${epistola()}/register") }
+            val answer = post("/platform/support/connections/${epistola()}/register")
 
-            assertThat(took).isLessThan(2_000)
+            // Refused at once, not queued: a registration that waited for the lock would still be
+            // waiting when the page stopped waiting, and say its work goes on in the background.
             assertThat(answer.first).isEqualTo(HttpStatus.OK.value())
-            assertThat(answer.second).contains("already running")
+            assertThat(answer.second).contains("already running").doesNotContain("goes on in the background")
         }
     }
 
