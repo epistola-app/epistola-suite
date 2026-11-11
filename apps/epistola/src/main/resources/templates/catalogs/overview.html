@@ -148,7 +148,7 @@
                 </div>
             </div>
             <div th:if="${gs != null and gs.live}" class="text-muted text-sm" style="margin-top: var(--ep-space-3);" data-testid="catalog-step-application">
-                Your application asks for namespace <code th:text="${gs.namespace}">acme</code>, catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,
+                Your application asks for registry <code th:text="${gs.registry}">local</code>, namespace <code th:text="${gs.namespace}">acme</code>, catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,
                 template <code th:text="${gs.templateKey}">invoice</code></th:block> and environment <code th:text="${gs.exampleEnvironment}">test</code>.
             </div>
         </div>

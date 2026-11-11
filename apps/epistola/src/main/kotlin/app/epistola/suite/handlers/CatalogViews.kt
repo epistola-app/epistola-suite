@@ -193,6 +193,7 @@ internal object CatalogViews {
             // From a new catalog to an application generating from it; until something is live.
             val gettingStarted = if (editable) {
                 CatalogGettingStarted(
+                    registry = result.catalog.registry,
                     namespace = result.catalog.namespace,
                     catalogKey = catalogKey.value,
                     templateKey = result.resources.firstOrNull { it.type == "template" }?.slug,

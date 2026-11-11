@@ -65,28 +65,35 @@ Epistola Suite uses **server-side rendering in Kotlin** for all document generat
 | Editor preview      | WebSocket to server  | Real-time preview with server rendering   |
 | MVP approach        | Synchronous          | Simple first, async later                 |
 
-## MVP: Synchronous PDF Preview
+## Requesting a document
 
-For MVP, we start with a simple synchronous endpoint using iText Core for direct PDF generation.
-
-### API Endpoint
+An application asks an environment for a document and gets it from the release deployed there
+(`POST /api/tenants/{tenantKey}/documents/generate`, or `/documents/preview` for a PDF straight back,
+media type `application/vnd.epistola.v2+json`):
 
 ```http
-POST /api/v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/preview
-Content-Type: application/json
+POST /api/tenants/acme-corp/documents/generate
+Content-Type: application/vnd.epistola.v2+json
 
 {
-  "customer": { "name": "John Doe" },
-  "items": [
-    { "description": "Widget", "price": 10.00 }
-  ]
+  "registry": "local",
+  "namespace": "acme",
+  "catalogKey": "letters",
+  "templateKey": "invoice",
+  "variantKey": "default",
+  "environmentKey": "production",
+  "data": { "customer": { "name": "John Doe" } }
 }
-
-Response 200:
-Content-Type: application/pdf
-Content-Disposition: inline; filename="preview.pdf"
-[PDF bytes]
 ```
+
+The catalog is named in full: `registry`, `namespace` and `catalogKey`. **Name the registry.** Omitted
+or null, it is the installation's default registry (contract `GenerateDocumentRequest`), which is where
+the catalogs Epistola ships and those installed from the Exchange live, not a tenant's own: those are
+on `local`. A request for a tenant's own catalog without `registry: "local"` is answered 404
+`not-found` with `missing.kind = catalog`. The catalog page and a template's API tab show the values
+to send. `versionRange` picks among the releases deployed to the environment; without it, the highest.
+
+## Rendering a document
 
 ### Components
 

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogKey
@@ -18,11 +17,9 @@ import app.epistola.suite.support.mirror.CatalogMirror
 import app.epistola.suite.support.mirror.CatalogMirrorSharing
 import app.epistola.suite.support.mirror.GetCatalogMirrorSettings
 import app.epistola.suite.support.mirror.OptInCatalogMirror
-import app.epistola.suite.testing.FakeSupportServer
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,8 +29,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 
 /**
@@ -41,7 +36,7 @@ import org.springframework.util.LinkedMultiValueMap
  * the statement and explicit choice before opting in, per-catalog policies, and "Sync now" only once
  * Epistola granted the mirror.
  */
-class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
+class CatalogMirrorPageHtmxTest : AutoRegisteringSupportTestBase() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -163,26 +158,5 @@ class CatalogMirrorPageHtmxTest : BaseIntegrationTest() {
         val body = restTemplate.getForEntity("/tenants/${tenant.value}/support", String::class.java).body!!
 
         assertThat(body).contains("data-testid=\"support-settings-mirror\"").contains("href=\"/tenants/${tenant.value}/support/mirror\"")
-    }
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            // Every service selected, as an administrator would; the selection itself is tested in SupportServiceSelectionIntegrationTest.
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            // These tests let the check register; without it, an installation administrator registers.
-            registry.add("epistola.support.auto-register") { "true" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
     }
 }

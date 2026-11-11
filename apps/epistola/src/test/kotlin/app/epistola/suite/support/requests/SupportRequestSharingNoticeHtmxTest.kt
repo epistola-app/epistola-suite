@@ -4,28 +4,24 @@
 
 package app.epistola.suite.support.requests
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.support.AutoRegisteringSupportTestBase
 import app.epistola.suite.support.connection.DefaultSupportConnection
 import app.epistola.suite.support.connection.EnsureConfiguredSupportConnection
 import app.epistola.suite.support.connection.SupportConnectionStore
 import app.epistola.suite.support.requests.consent.GrantSupportRequestSyncConsent
-import app.epistola.suite.testing.FakeSupportServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpStatus
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * The tenant's Support page is the one place for what it shares, support requests included: a tenant
  * that shares them sees there why nothing is sent yet, against a stand-in support service.
  */
-class SupportRequestSharingNoticeHtmxTest : BaseIntegrationTest() {
+class SupportRequestSharingNoticeHtmxTest : AutoRegisteringSupportTestBase() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
@@ -72,24 +68,5 @@ class SupportRequestSharingNoticeHtmxTest : BaseIntegrationTest() {
 
         assertThat(supportPage(tenant.id.value)).doesNotContain("support/request-sharing").doesNotContain("Support request sharing")
         assertThat(restTemplate.getForEntity("/tenants/${tenant.id.value}/support/request-sharing", String::class.java).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-    }
-
-    companion object {
-        private val support = FakeSupportServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun supportService(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.support.enabled") { "true" }
-            registry.add("epistola.support.privacy.tenant-identity") { "named" }
-            registry.add("epistola.support.services") { "telemetry,requests,mirror" }
-            registry.add("epistola.support.auto-register") { "true" }
-            registry.add("epistola.support.endpoint") { support.baseUrl }
-            registry.add("epistola.support.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stop() = support.close()
     }
 }
