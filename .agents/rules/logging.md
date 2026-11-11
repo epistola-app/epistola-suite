@@ -32,8 +32,8 @@ log.warn("Catalog upgrade failed catalog={} tenant={} reason=\"{}\"", catalogKey
 - **The field is `log`.**
 
 Line breaks in values cannot forge an entry: the console pattern escapes them and JSON output
-encodes them (`ConsoleLogPatternTest`). Named values and the field name are ratcheted by
-`DriftRatchetTest`: the count of unnamed placeholders and of other field names may fall, never rise.
+encodes them (`ConsoleLogPatternTest`). `DriftRatchetTest` holds the field name at zero
+exceptions and ratchets unnamed placeholders: their count may fall, never rise.
 
 ## Verify
 

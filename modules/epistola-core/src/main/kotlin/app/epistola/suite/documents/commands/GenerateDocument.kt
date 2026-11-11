@@ -90,7 +90,7 @@ class GenerateDocumentHandler(
     private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         // Every request renders a release: the one it names, the one its environment serves for the
@@ -107,7 +107,7 @@ class GenerateDocumentHandler(
             command.releaseVersion,
         )
 
-        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
+        log.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             val requestId = GenerationRequestKey.generate()
@@ -152,7 +152,7 @@ class GenerateDocumentHandler(
                 .mapTo<DocumentGenerationRequest>()
                 .one()
 
-            logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
+            log.info("Created generation request {} for tenant {}", request.id, command.tenantId)
             request
         }.also {
             // How much the deployed version is used, for deciding when to undeploy it.

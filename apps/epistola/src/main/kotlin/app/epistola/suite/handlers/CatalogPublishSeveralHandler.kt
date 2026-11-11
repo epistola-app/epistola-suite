@@ -42,7 +42,7 @@ import org.springframework.web.servlet.function.ServerResponse
  */
 @Component
 class CatalogPublishSeveralHandler {
-    private val logger = LoggerFactory.getLogger(CatalogPublishSeveralHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogPublishSeveralHandler::class.java)
 
     /** One catalog with something to publish: what it becomes, and what stops it, in words; null when nothing does. */
     data class Row(
@@ -92,7 +92,7 @@ class CatalogPublishSeveralHandler {
                 DeployCatalogRelease(EnvironmentId(environment.id, tenantId), catalog.catalogId, version, includeDependencies = true).execute()
                 null
             } catch (e: RuntimeException) {
-                logger.info("Deploying {} {} to {} after publishing several was refused: {}", catalog.catalogId.address, version, environment.id.value, e.message)
+                log.info("Deploying {} {} to {} after publishing several was refused: {}", catalog.catalogId.address, version, environment.id.value, e.message)
                 e.message ?: "It was refused."
             }
             DeploymentView(catalog.name, version, refusal)

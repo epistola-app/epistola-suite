@@ -37,7 +37,7 @@ class ApplicationLogRetentionScheduler(
     private val meterRegistry: MeterRegistry,
     private val properties: ApplicationLogProperties,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Bean
@@ -67,9 +67,9 @@ class ApplicationLogRetentionScheduler(
                 .execute()
         }
         if (deleted > 0) {
-            logger.info("Application log retention deleted {} row(s) older than {}", deleted, cutoff)
+            log.info("Application log retention deleted {} row(s) older than {}", deleted, cutoff)
         } else {
-            logger.debug("Application log retention found no rows older than {}", cutoff)
+            log.debug("Application log retention found no rows older than {}", cutoff)
         }
         return deleted
     }

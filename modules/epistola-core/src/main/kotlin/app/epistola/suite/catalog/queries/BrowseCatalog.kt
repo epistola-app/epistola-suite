@@ -60,7 +60,7 @@ class BrowseCatalogHandler(
     private val catalogClient: CatalogClient,
 ) : QueryHandler<BrowseCatalog, BrowseResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(query: BrowseCatalog): BrowseResult {
         val catalog = jdbi.withHandle<Catalog, Exception> { handle ->
@@ -123,7 +123,7 @@ class BrowseCatalogHandler(
         val manifest = try {
             catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         } catch (e: Exception) {
-            logger.warn(
+            log.warn(
                 "Browsing catalog '{}' — source {} unreachable ({}); showing installed resources only",
                 query.catalogKey.value,
                 sourceUrl,

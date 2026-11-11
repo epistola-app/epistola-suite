@@ -83,7 +83,7 @@ class FetchGenerationResultsHandler(
     private val meterRegistry: MeterRegistry,
 ) : QueryHandler<FetchGenerationResults, FetchResultsPage> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(query: FetchGenerationResults): FetchResultsPage {
         if (query.partitions.isEmpty()) return FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
@@ -169,7 +169,7 @@ class FetchGenerationResultsHandler(
         while (EmitsInFlight.anyStillInFlight(handle, tenant, holders)) {
             if (System.nanoTime() > deadline) {
                 recordWait(started, OUTCOME_TIMED_OUT)
-                logger.warn("Results are still being emitted after {}; this poll delivers none", wait)
+                log.warn("Results are still being emitted after {}; this poll delivers none", wait)
                 return false
             }
             Thread.sleep(IN_FLIGHT_POLL)

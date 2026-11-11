@@ -205,7 +205,7 @@ class ReleaseCatalogDraftHandler(
     private val draftLifecycle: List<CatalogDraftLifecycle>,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ReleaseCatalogDraft): ReleaseCatalogDraftResult {
         val catalog = GetCatalog(command.catalog).query()
@@ -380,7 +380,7 @@ class ReleaseCatalogDraftHandler(
         val unchanged = existing.any { it.contentHash == contentHash || fingerprintService.matchesFingerprint(content, it.fingerprint) }
 
         if (unchanged) {
-            logger.warn(
+            log.warn(
                 "Releasing catalog '{}' v{} with content identical to a previous release (fingerprint {})",
                 command.catalogKey.value,
                 newVersion,
@@ -505,7 +505,7 @@ class ReleaseCatalogDraftHandler(
             }
         }
 
-        logger.info(
+        log.info(
             "Released catalog '{}': {} -> {} (fingerprint {})",
             command.catalogKey.value,
             latest?.toString() ?: "—",

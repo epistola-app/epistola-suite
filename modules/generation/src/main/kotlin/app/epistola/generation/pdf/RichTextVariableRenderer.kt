@@ -54,7 +54,7 @@ class RichTextVariableRenderer : NodeRenderer {
 
         val binding = (node.props?.get("binding") as? String)?.trim().orEmpty()
         if (binding.isEmpty()) {
-            LOGGER.debug("richTextVariable node {} has no binding", node.id)
+            log.debug("richTextVariable node {} has no binding", node.id)
             return listOf(div)
         }
 
@@ -70,7 +70,7 @@ class RichTextVariableRenderer : NodeRenderer {
         )
 
         if (!isRichTextDoc(value)) {
-            LOGGER.debug(
+            log.debug(
                 "richTextVariable binding '{}' did not resolve to a rich-text doc (got {})",
                 binding,
                 value?.javaClass?.simpleName,
@@ -124,6 +124,6 @@ class RichTextVariableRenderer : NodeRenderer {
     }
 
     companion object {
-        private val LOGGER = LoggerFactory.getLogger(RichTextVariableRenderer::class.java)
+        private val log = LoggerFactory.getLogger(RichTextVariableRenderer::class.java)
     }
 }

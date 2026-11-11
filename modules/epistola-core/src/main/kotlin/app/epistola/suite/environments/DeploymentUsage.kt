@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference
 class DeploymentUsage(
     private val jdbi: Jdbi,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     private data class Key(val environmentKey: EnvironmentKey, val catalog: CatalogId, val version: String) {
@@ -78,7 +78,7 @@ class DeploymentUsage(
     override fun handle(task: ClusterScheduledTask) = flush()
 
     @PreDestroy
-    fun flushOnShutdown() = runCatching { flush() }.onFailure { logger.warn("Could not record deployment usage on shutdown: {}", it.message) }
+    fun flushOnShutdown() = runCatching { flush() }.onFailure { log.warn("Could not record deployment usage on shutdown: {}", it.message) }
 
     /** Adds this node's tallies to the deployments, and starts new ones. */
     fun flush() {

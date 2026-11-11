@@ -39,7 +39,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogListHandler {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     fun list(request: ServerRequest): ServerResponse {
         val saved = request.param("saved").isPresent
@@ -216,7 +216,7 @@ class CatalogListHandler {
             // The URL itself was refused (scheme, file roots, address): say why, it is the user's input.
             registerError(request, "Failed to register catalog: ${e.message}")
         } catch (e: Exception) {
-            logger.warn("Failed to register catalog: {}", e.message, e)
+            log.warn("Failed to register catalog: {}", e.message, e)
             registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
         }
     }
@@ -269,7 +269,7 @@ class CatalogListHandler {
                 listWithError(request, e.message ?: "Catalog is in use by other catalogs")
             }
         } catch (e: Exception) {
-            logger.warn("Failed to unregister catalog: {}", e.message, e)
+            log.warn("Failed to unregister catalog: {}", e.message, e)
             if (request.isHtmx) {
                 ServerResponse.status(422)
                     .header("Content-Type", "application/json")

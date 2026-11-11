@@ -94,7 +94,7 @@ class ExportCatalogZipHandler(
     private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
         if (command.catalogKey == SYSTEM_CATALOG_KEY) throw SystemCatalogNotExportableException()

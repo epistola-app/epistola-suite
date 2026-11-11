@@ -40,7 +40,7 @@ class AuthenticationSafetyValidator(
     private val authProperties: AuthProperties = AuthProperties(),
 ) : SmartInitializingSingleton {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun afterSingletonsInstantiated() {
         validateProdAndLocalAreExclusive()
@@ -48,7 +48,7 @@ class AuthenticationSafetyValidator(
         validateAuthMechanismExists()
         validateNoShippedPasswordsOutsideLocal()
 
-        logger.info(
+        log.info(
             "Authentication configured — form login: {}, OAuth2: {}",
             userDetailsService != null,
             clientRegistrationRepository != null,

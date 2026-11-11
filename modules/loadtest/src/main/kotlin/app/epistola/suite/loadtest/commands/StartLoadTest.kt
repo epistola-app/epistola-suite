@@ -75,10 +75,10 @@ class StartLoadTestHandler(
     private val releaseTargetResolver: ReleaseTargetResolver,
 ) : CommandHandler<StartLoadTest, LoadTestRun> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: StartLoadTest): LoadTestRun {
-        logger.info(
+        log.info(
             "Starting load test for tenant {} template {} - {} docs",
             command.tenantId,
             command.templateId,
@@ -154,7 +154,7 @@ class StartLoadTestHandler(
                 .mapTo<LoadTestRun>()
                 .one()
 
-            logger.info("Created load test run {} for tenant {}", run.id, command.tenantId)
+            log.info("Created load test run {} for tenant {}", run.id, command.tenantId)
 
             // Run stays in PENDING status - the LoadTestPoller will pick it up
             run

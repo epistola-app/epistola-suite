@@ -62,7 +62,7 @@ class RefreshCodeListHandler(
     private val codeListClient: CodeListClient,
     private val codeLists: CodeListStore,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: RefreshCodeList): CodeList? {
         requireCatalogEditable(command.id.catalogId)
@@ -86,7 +86,7 @@ class RefreshCodeListHandler(
             // The detail stays in the server log. What is stored is shown to everyone who can see the
             // code list, and a fetch error can carry whatever the source answered, or reveal what a
             // URL reached — so the stored text says only that the fetch failed.
-            logger.warn("Refreshing code list {} from {} failed: {}", command.id, sourceUrl, e.message, e)
+            log.warn("Refreshing code list {} from {} failed: {}", command.id, sourceUrl, e.message, e)
             recordRefresh(command, succeeded = false, error = REFRESH_FAILED_MESSAGE)
             return load(command)
         }

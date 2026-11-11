@@ -31,7 +31,7 @@ import kotlin.math.roundToInt
  */
 class QrCodeNodeRenderer : NodeRenderer {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun render(
         node: Node,
@@ -96,7 +96,7 @@ class QrCodeNodeRenderer : NodeRenderer {
 
         return when (resolved) {
             null -> {
-                logger.debug("QR code node {} resolved to null, skipping", node.id)
+                log.debug("QR code node {} resolved to null, skipping", node.id)
                 null
             }
 
@@ -105,7 +105,7 @@ class QrCodeNodeRenderer : NodeRenderer {
             is Number, is Boolean -> resolved.toString()
 
             else -> {
-                logger.warn(
+                log.warn(
                     "QR code node {} resolved to unsupported type {}, skipping",
                     node.id,
                     resolved::class.simpleName,

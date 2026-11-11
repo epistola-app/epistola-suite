@@ -68,7 +68,7 @@ class MetricsConfig {
     ): MeterFilter {
         val installationId = runCatching { installations.get().id.toString() }
             .getOrElse {
-                logger.warn("Could not resolve installation id for metric tags; using \"unknown\"", it)
+                log.warn("Could not resolve installation id for metric tags; using \"unknown\"", it)
                 "unknown"
             }
         return commonTagsFilter(
@@ -93,7 +93,7 @@ class MetricsConfig {
             Tag.of("environment", environment),
             Tag.of("version", version),
         )
-        logger.info("Tagging all metrics with: {}", tags.joinToString { "${it.key}=${it.value}" })
+        log.info("Tagging all metrics with: {}", tags.joinToString { "${it.key}=${it.value}" })
         return MeterFilter.commonTags(tags)
     }
 
@@ -114,6 +114,6 @@ class MetricsConfig {
 
     private companion object {
         const val INSTALLATION_METRIC_PREFIX = "epistola.installation."
-        private val logger = LoggerFactory.getLogger(MetricsConfig::class.java)
+        private val log = LoggerFactory.getLogger(MetricsConfig::class.java)
     }
 }

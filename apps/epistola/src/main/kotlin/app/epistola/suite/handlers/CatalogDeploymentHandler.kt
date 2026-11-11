@@ -32,7 +32,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogDeploymentHandler {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     /**
      * Deploys a release of this catalog to an environment, beside what it serves. With

@@ -54,7 +54,7 @@ class DeleteFontHandler(
     private val fonts: FontStore,
 ) : CommandHandler<DeleteFont, Boolean> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteFont): Boolean {
         val catalog = command.fontId.catalogId
@@ -68,7 +68,7 @@ class DeleteFontHandler(
 
         // Its faces' files are its binaries: they go when nothing names them any more (the content collector).
         val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, at, command.fontId) }
-        logger.info("Deleted font {} ({}) for tenant {}", command.fontId.key, catalog.key, command.fontId.tenantKey)
+        log.info("Deleted font {} ({}) for tenant {}", command.fontId.key, catalog.key, command.fontId.tenantKey)
         return deleted
     }
 }

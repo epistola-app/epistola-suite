@@ -65,7 +65,7 @@ class CatalogInvariantsExtension :
             lines.joinToString("\n") { "  $it" }
         when (mode) {
             Mode.REPORT -> {
-                logger.warn("{}", message)
+                log.warn("{}", message)
                 val dir = Path.of("build", "invariant-violations").also { Files.createDirectories(it) }
                 Files.writeString(dir.resolve("${testClass.name}.txt"), lines.joinToString("\n") + "\n")
             }
@@ -83,7 +83,7 @@ class CatalogInvariantsExtension :
     private enum class Mode { FAIL, REPORT, OFF }
 
     private companion object {
-        val logger = LoggerFactory.getLogger(CatalogInvariantsExtension::class.java)
+        val log = LoggerFactory.getLogger(CatalogInvariantsExtension::class.java)
         val mode: Mode = (System.getProperty("epistola.test.invariants") ?: System.getenv("EPISTOLA_TEST_INVARIANTS"))
             ?.let { Mode.valueOf(it.uppercase()) } ?: Mode.FAIL
     }

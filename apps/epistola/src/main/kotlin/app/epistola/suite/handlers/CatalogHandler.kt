@@ -36,7 +36,7 @@ import java.net.URI
 @Component
 class CatalogHandler {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** `GET /catalogs/graph`: which catalogs of the tenant use which, as a drawing. */
     fun graph(request: ServerRequest): ServerResponse {

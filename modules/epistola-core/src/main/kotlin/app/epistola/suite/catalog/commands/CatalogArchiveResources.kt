@@ -35,7 +35,7 @@ class CatalogArchiveResources(
     }
 
     // Logs under the import handler, the name these lines had before it was split.
-    private val logger = LoggerFactory.getLogger(ImportCatalogZipHandler::class.java)
+    private val log = LoggerFactory.getLogger(ImportCatalogZipHandler::class.java)
 
     /** Installs [parsed]'s resources into draft [at] of its catalog. */
     internal fun install(at: ContentVersion, parsed: ParsedCatalogArchive, receiving: Boolean): InstalledArchiveResources {
@@ -102,7 +102,7 @@ class CatalogArchiveResources(
                         // FAILED resource by the generic catch below.
                         throw e
                     } catch (e: Exception) {
-                        logger.error("Failed to import {} '{}': {}", entry.type, entry.key, e.message, e)
+                        log.error("Failed to import {} '{}': {}", entry.type, entry.key, e.message, e)
                         InstallResult(type = entry.type, slug = entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
                     }
                 }.also { results -> if (receiving && results.any { it.status == InstallStatus.FAILED }) savepoint.setRollbackOnly() }

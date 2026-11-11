@@ -35,7 +35,7 @@ class LoadTestExecutor(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * Track job submissions.
@@ -77,28 +77,28 @@ class LoadTestExecutor(
 
         // Check if run was cancelled before starting
         if (isRunCancelled(run.id)) {
-            logger.info("Load test run {} was cancelled, skipping execution", run.id)
+            log.info("Load test run {} was cancelled, skipping execution", run.id)
             return
         }
 
-        logger.info(
+        log.info(
             "Executing load test run {} - {} documents",
             run.id,
             run.targetCount,
         )
 
-        logger.info("Submitting {} generation jobs in a single batch...", run.targetCount)
+        log.info("Submitting {} generation jobs in a single batch...", run.targetCount)
 
         // Submit entire batch at once
         val batchId = try {
             mediator.send(batchFor(run))
         } catch (e: Exception) {
-            logger.error("Failed to submit batch for load test run {}: {}", run.id, e.message)
+            log.error("Failed to submit batch for load test run {}: {}", run.id, e.message)
             finalizeRun(run.id, null, createEmptyMetrics(), 0, run.targetCount, wasCancelled = true)
             return
         }
 
-        logger.info("Submitted batch {} with {} requests for load test run {}", batchId.value, run.targetCount, run.id)
+        log.info("Submitted batch {} with {} requests for load test run {}", batchId.value, run.targetCount, run.id)
 
         // Store batch_id in load test run for linking to document_generation_requests
         storeBatchId(run.id, batchId)
@@ -106,7 +106,7 @@ class LoadTestExecutor(
         // Query back the created request IDs
         val submittedJobs = queryBatchRequests(batchId, run.id)
 
-        logger.info("Retrieved {} job IDs, waiting for async processing to complete...", submittedJobs.size)
+        log.info("Retrieved {} job IDs, waiting for async processing to complete...", submittedJobs.size)
 
         // Poll database to wait for all jobs to reach terminal state
         val (jobResults, wasCancelled) = pollForJobCompletion(run.id, batchId, submittedJobs)
@@ -138,7 +138,7 @@ class LoadTestExecutor(
         val avgQueueWaitMs = if (queueWaits.isEmpty()) 0.0 else queueWaits.average()
         val p95QueueWaitMs = percentile(queueWaits, 0.95)
 
-        logger.info(
+        log.info(
             "Load test run {} completed: {}/{} succeeded, {} failed in {}ms (avg queue wait {}ms, p95 {}ms)",
             run.id,
             completedCount,
@@ -257,22 +257,22 @@ class LoadTestExecutor(
 
         while (true) {
             if (isRunCancelled(runId)) {
-                logger.warn("Load test run {} cancelled while waiting for jobs", runId)
+                log.warn("Load test run {} cancelled while waiting for jobs", runId)
                 wasCancelled = true
                 break
             }
             if (System.currentTimeMillis() - startTime > maxWaitTimeMs) {
-                logger.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
+                log.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
                 break
             }
 
             val (completed, failed, inProgress) = counts()
-            logger.debug("Load test progress: {} completed, {} failed, {} in progress", completed, failed, inProgress)
+            log.debug("Load test progress: {} completed, {} failed, {} in progress", completed, failed, inProgress)
             updateProgress(runId, completed, failed)
 
             // in_progress == 0 means every request is terminal (COMPLETED/FAILED/CANCELLED).
             if (inProgress == 0) {
-                logger.info("All jobs terminal for load test run {} ({} completed, {} failed)", runId, completed, failed)
+                log.info("All jobs terminal for load test run {} ({} completed, {} failed)", runId, completed, failed)
                 return Pair(fetchResults(), wasCancelled)
             }
 
@@ -539,7 +539,7 @@ class LoadTestExecutor(
             LoadTestStatus.COMPLETED
         }
 
-        logger.info("Finalized load test run {} with status {}", runId, finalStatus)
+        log.info("Finalized load test run {} with status {}", runId, finalStatus)
     }
 
     /**

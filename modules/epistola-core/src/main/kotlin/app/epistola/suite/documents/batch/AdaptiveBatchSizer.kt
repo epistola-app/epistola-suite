@@ -28,7 +28,7 @@ class AdaptiveBatchSizer(
     pollingProperties: JobPollingProperties,
     private val meterRegistry: MeterRegistry,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     private val properties = pollingProperties.adaptiveBatch
 
     // EMA of job processing time (milliseconds)
@@ -45,7 +45,7 @@ class AdaptiveBatchSizer(
         meterRegistry.gauge("epistola.jobs.processing_time_ema_ms", emaProcessingTimeMs) { it.get().toDouble() }
         meterRegistry.gauge("epistola.jobs.batch_size", currentBatchSize) { it.get().toDouble() }
 
-        logger.info(
+        log.info(
             "Adaptive batch sizer initialized: minBatchSize={}, maxBatchSize={}, fastThreshold={}ms, slowThreshold={}ms",
             properties.minBatchSize,
             properties.maxBatchSize,
@@ -66,7 +66,7 @@ class AdaptiveBatchSizer(
         val currentEma = emaProcessingTimeMs.get()
         val newEma = if (currentEma == 0L) {
             // First data point - use actual value as initial EMA
-            logger.debug("First job completed in {}ms, initializing EMA", durationMs)
+            log.debug("First job completed in {}ms, initializing EMA", durationMs)
             durationMs
         } else {
             // EMA formula: newEMA = alpha * current + (1 - alpha) * oldEMA
@@ -74,7 +74,7 @@ class AdaptiveBatchSizer(
         }
 
         emaProcessingTimeMs.set(newEma)
-        logger.debug(
+        log.debug(
             "Job completed in {}ms, EMA updated: {}ms → {}ms",
             durationMs,
             currentEma,
@@ -124,7 +124,7 @@ class AdaptiveBatchSizer(
 
         if (newSize != current) {
             currentBatchSize.set(newSize)
-            logger.info(
+            log.info(
                 "Batch size adjusted: {} → {} | {} | Last job: {}ms",
                 current,
                 newSize,
@@ -132,7 +132,7 @@ class AdaptiveBatchSizer(
                 lastJobDurationMs,
             )
         } else {
-            logger.debug(
+            log.debug(
                 "Batch size unchanged: {} | {} | Last job: {}ms",
                 current,
                 reason,

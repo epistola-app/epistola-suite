@@ -64,7 +64,7 @@ data class CatalogPublishOutcome(
 
 @Component
 class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsResult> {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: PublishCatalogs): PublishCatalogsResult {
         val selection = command.catalogs.distinct()
@@ -88,7 +88,7 @@ class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsRe
             } catch (_: CatalogDraftUnchangedException) {
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.UNCHANGED)
             } catch (e: RuntimeException) {
-                logger.info("Publishing {} along with others was refused: {}", catalog.address, e.message)
+                log.info("Publishing {} along with others was refused: {}", catalog.address, e.message)
                 failed += catalog
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.REFUSED, reason = e.message ?: "It was refused")
             }

@@ -26,7 +26,7 @@ class CatalogClient(
     /** The bundled catalogs as read from the classpath: one per JVM unless a test brings its own. */
     private val classpathCache: ClasspathCatalogCache = ClasspathCatalogCache.SHARED,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     private val allowHttp: Boolean get() = properties.allowHttp
 
@@ -50,7 +50,7 @@ class CatalogClient(
 
     /** The bound manifest plus the size of the bytes it came from (the cache weight). */
     private fun loadManifest(url: String, authType: AuthType, credential: String?): Pair<MigratedManifest, Int> {
-        logger.debug("Fetching catalog manifest from {}", url)
+        log.debug("Fetching catalog manifest from {}", url)
         // Fetch raw bytes and route through the schema migrator (version gate +
         // wire-format upgrade chain) before binding. This is the single remote
         // chokepoint, so every consumer — install, browse, upgrade-check,
@@ -96,7 +96,7 @@ class CatalogClient(
         credential: String?,
         catalog: CatalogMigrationContext,
     ): Pair<ResourceDetail, Int> {
-        logger.debug("Fetching resource detail from {}", resolvedUrl)
+        log.debug("Fetching resource detail from {}", resolvedUrl)
         val bytes = sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
         return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog) to bytes.size
     }
@@ -120,7 +120,7 @@ class CatalogClient(
     }
 
     private fun loadBinary(resolvedUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
-        logger.debug("Fetching binary content from {}", resolvedUrl)
+        log.debug("Fetching binary content from {}", resolvedUrl)
         return sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
     }
 

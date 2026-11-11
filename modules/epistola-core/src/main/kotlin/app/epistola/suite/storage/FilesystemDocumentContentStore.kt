@@ -30,7 +30,7 @@ class FilesystemDocumentContentStore(
 ) : DocumentContentStore,
     ContentRetentionMaintainer {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /** Normalized storage root; every resolved key is checked to stay within it. */
     private val root: Path = basePath.normalize()
@@ -101,11 +101,11 @@ class FilesystemDocumentContentStore(
                 Files.deleteIfExists(metaPath(file))
                 if (Files.deleteIfExists(file)) deleted++
             } catch (e: Exception) {
-                logger.warn("Failed to sweep stale document blob {}: {}", file, e.message)
+                log.warn("Failed to sweep stale document blob {}: {}", file, e.message)
             }
         }
         if (deleted > 0) {
-            logger.info("Swept {} stale document blob(s) older than {} months from {}", deleted, retentionMonths, documentsRoot)
+            log.info("Swept {} stale document blob(s) older than {} months from {}", deleted, retentionMonths, documentsRoot)
         }
     }
 

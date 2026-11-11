@@ -43,7 +43,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class ExchangeCatalogHandler {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun browse(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
@@ -143,10 +143,10 @@ class ExchangeCatalogHandler {
             // The import refuses this way for things the reader can act on — an unmet cross-catalog
             // dependency above all. Its own branch so a refusal is not logged as a failure: a stack
             // trace at WARN says something unexpected happened, and this is the import working.
-            logger.info("Install of {}/{} refused: {}", namespace, catalogKey, e.message)
+            log.info("Install of {}/{} refused: {}", namespace, catalogKey, e.message)
             installError(request, e.message ?: "Epistola Exchange refused this catalog.")
         } catch (e: Exception) {
-            logger.warn("Installing {}/{} failed: {}", namespace, catalogKey, e.message, e)
+            log.warn("Installing {}/{} failed: {}", namespace, catalogKey, e.message, e)
             installError(request, "The catalog could not be installed from Epistola Exchange. ${e.message ?: ""}".trim())
         }
     }
@@ -214,10 +214,10 @@ class ExchangeCatalogHandler {
         } catch (e: ValidationException) {
             installError(request, e.message)
         } catch (e: IllegalArgumentException) {
-            logger.info("Upgrade of {} refused: {}", catalogKey, e.message)
+            log.info("Upgrade of {} refused: {}", catalogKey, e.message)
             installError(request, e.message ?: "Epistola Exchange refused this release.")
         } catch (e: Exception) {
-            logger.warn("Upgrading {} failed: {}", catalogKey, e.message, e)
+            log.warn("Upgrading {} failed: {}", catalogKey, e.message, e)
             installError(request, "The catalog could not be upgraded. ${e.message ?: ""}".trim())
         }
     }

@@ -73,7 +73,7 @@ class ResourceContentCollector(
     private val properties: StorageGcProperties,
     private val meterRegistry: MeterRegistry,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     private val orphans = AtomicLong(0)
     private val orphanedBlobs = AtomicLong(0)
@@ -89,7 +89,7 @@ class ResourceContentCollector(
         val credentials = collectCredentials(null)
         val blobs = collectBlobs()
         recordOrphans()
-        if (contents + blobs + credentials > 0) logger.info("Collected {} resource content(s), {} credential(s) and {} blob(s) nothing points at", contents, credentials, blobs)
+        if (contents + blobs + credentials > 0) log.info("Collected {} resource content(s), {} credential(s) and {} blob(s) nothing points at", contents, credentials, blobs)
         ContentCollection(contents, blobs, credentials)
     }
 

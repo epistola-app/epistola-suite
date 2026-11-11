@@ -83,7 +83,7 @@ class AuditRecorder(
     meterRegistry: MeterRegistry,
 ) : CommandListener,
     QueryListener {
-    private val logger = LoggerFactory.getLogger(AuditRecorder::class.java)
+    private val log = LoggerFactory.getLogger(AuditRecorder::class.java)
     private val persistFailures = Counter.builder("epistola.auditlog.persist.failures")
         .description("Audit log persistence failures (audit trail gaps)")
         .register(meterRegistry)
@@ -159,7 +159,7 @@ class AuditRecorder(
             }
         } catch (e: Exception) {
             persistFailures.increment()
-            logger.error(
+            log.error(
                 "Failed to persist audit log entry for {}: {}",
                 message::class.simpleName,
                 e.message,

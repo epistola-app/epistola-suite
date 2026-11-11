@@ -132,7 +132,7 @@ class RecordInstalledReleaseHandler(
     private val types: app.epistola.suite.catalog.types.ResourceTypes,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * The next version moves to installed release [version]: it is based on it, as of now, and the
@@ -308,7 +308,7 @@ class RecordInstalledReleaseHandler(
         }
 
         if (command.release == null) advanceNextVersion(command.catalog, version)
-        logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
+        log.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
 }

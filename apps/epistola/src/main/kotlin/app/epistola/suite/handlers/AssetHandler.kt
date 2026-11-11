@@ -54,7 +54,7 @@ class AssetHandler(
     private val assetTypeCatalog: app.epistola.suite.assets.AssetTypeCatalog,
 ) {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     /**
      * The Images UI lists every asset *except* fonts — font binaries are managed

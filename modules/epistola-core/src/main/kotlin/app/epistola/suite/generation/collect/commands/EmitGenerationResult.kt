@@ -59,7 +59,7 @@ class EmitGenerationResultHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<EmitGenerationResult, GenerationResultRow> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: EmitGenerationResult): GenerationResultRow {
         val req = command.request
@@ -119,7 +119,7 @@ class EmitGenerationResultHandler(
                 .mapTo<GenerationResultRow>()
                 .one()
         }
-        logger.debug(
+        log.debug(
             "Emitted generation result requestId={} partition={} sequence={} status={}",
             req.id.value,
             partition,

@@ -41,7 +41,7 @@ class DocumentRetentionReaper(
     @Value("\${epistola.storage.reaper.cron:0 30 3 * * ?}")
     private val reaperCron: String,
 ) : ClusterScheduledTaskHandler {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Bean
@@ -63,7 +63,7 @@ class DocumentRetentionReaper(
                 try {
                     maintainer.reclaim(partitions.retentionMonths)
                 } catch (e: Exception) {
-                    logger.error("Content retention maintainer {} failed: {}", maintainer.javaClass.simpleName, e.message, e)
+                    log.error("Content retention maintainer {} failed: {}", maintainer.javaClass.simpleName, e.message, e)
                 }
             }
         }

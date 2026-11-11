@@ -44,7 +44,7 @@ import kotlin.system.exitProcess
  */
 object MigrationLauncher {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     const val MIGRATION_MODE_ENV = "EPISTOLA_MIGRATION_MODE"
     private const val MIGRATE = "migrate"
@@ -113,7 +113,7 @@ object MigrationLauncher {
      * exit contract — the thing the deploy gate depends on — is testable.
      */
     fun runMigration(args: Array<String>): Int {
-        logger.info("Starting in migration mode — isolated context, no web server")
+        log.info("Starting in migration mode — isolated context, no web server")
         return try {
             migrationApplication()
                 // Passed as command-line args (high precedence) so they
@@ -139,10 +139,10 @@ object MigrationLauncher {
                     "--spring.datasource.hikari.leak-detection-threshold=0",
                 )
                 .close()
-            logger.info("Database migration completed successfully")
+            log.info("Database migration completed successfully")
             0
         } catch (e: Throwable) {
-            logger.error("Database migration failed", e)
+            log.error("Database migration failed", e)
             1
         }
     }

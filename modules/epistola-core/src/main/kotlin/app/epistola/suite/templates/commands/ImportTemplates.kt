@@ -146,14 +146,14 @@ class ImportTemplatesHandler(
     private val templates: TemplateStore,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
             validateTemplateModels(input)
             importSingleTemplate(command, input)
         } catch (e: Exception) {
-            logger.error("Failed to import template '{}': {}", input.slug, e.message, e)
+            log.error("Failed to import template '{}': {}", input.slug, e.message, e)
             ImportTemplateResult(
                 slug = input.slug,
                 status = ImportStatus.FAILED,

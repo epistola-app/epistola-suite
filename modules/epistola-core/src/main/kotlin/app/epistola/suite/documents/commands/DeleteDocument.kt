@@ -38,10 +38,10 @@ class DeleteDocumentHandler(
     private val contentStore: DocumentContentStore,
 ) : CommandHandler<DeleteDocument, Boolean> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteDocument): Boolean {
-        logger.info("Deleting document {} for tenant {}", command.documentId, command.tenantId)
+        log.info("Deleting document {} for tenant {}", command.documentId, command.tenantId)
 
         // Another application's document is not found, as another tenant's is (ADR 0054).
         val visibility = DocumentVisibility.current()
@@ -65,9 +65,9 @@ class DeleteDocumentHandler(
 
         if (deleted) {
             contentStore.delete(ContentKey.document(command.tenantId, command.documentId))
-            logger.info("Deleted document {}", command.documentId)
+            log.info("Deleted document {}", command.documentId)
         } else {
-            logger.warn("Document {} not found for tenant {}", command.documentId, command.tenantId)
+            log.warn("Document {} not found for tenant {}", command.documentId, command.tenantId)
         }
 
         return deleted

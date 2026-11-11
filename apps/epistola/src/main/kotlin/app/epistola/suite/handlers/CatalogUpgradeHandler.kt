@@ -31,7 +31,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class CatalogUpgradeHandler {
     // Logs under CatalogHandler, the name these lines had before the handler was split.
-    private val logger = LoggerFactory.getLogger(CatalogHandler::class.java)
+    private val log = LoggerFactory.getLogger(CatalogHandler::class.java)
 
     /**
      * The per-row "check for updates" button.
@@ -50,7 +50,7 @@ class CatalogUpgradeHandler {
         val check = try {
             CheckCatalogUpstream(catalogId).execute()
         } catch (e: Exception) {
-            logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+            log.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
             null
         }
         val status = CatalogReleaseStatusView.of(
@@ -81,7 +81,7 @@ class CatalogUpgradeHandler {
         try {
             model["available"] = ListAvailableCatalogReleases(catalog).query()
         } catch (e: Exception) {
-            logger.warn("Listing the releases available for catalog {} failed: {}", catalogKey, e.message)
+            log.warn("Listing the releases available for catalog {} failed: {}", catalogKey, e.message)
             model["available"] = null
             if (error == null) model["error"] = e.message ?: "The catalog's source could not be asked. It may be unavailable."
         }
@@ -126,7 +126,7 @@ class CatalogUpgradeHandler {
         } catch (e: CatalogUpgradeConflictException) {
             upgradeDialog(request, catalog, e.message ?: "Installing it is blocked: resources are still in use.", refused = true)
         } catch (e: Exception) {
-            logger.warn("Failed to install a release of catalog: {}", e.message, e)
+            log.warn("Failed to install a release of catalog: {}", e.message, e)
             upgradeDialog(request, catalog, e.message ?: "Failed to install the release.", refused = true)
         }
     }

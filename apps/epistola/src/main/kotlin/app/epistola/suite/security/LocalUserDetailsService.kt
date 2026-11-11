@@ -38,7 +38,7 @@ class LocalUserDetailsService(
     private val membershipResolver: LoginMembershipResolver? = null,
 ) : UserDetailsService {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     private val passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()
 
@@ -98,7 +98,7 @@ class LocalUserDetailsService(
     private fun sandboxPrincipal(localUser: LocalUserProperties, userId: UserKey): EpistolaPrincipal? {
         if (!localUser.sandbox) return null
         if (membershipResolver == null) {
-            logger.warn(
+            log.warn(
                 "Local user {} asks for a sandbox tenant but no LoginMembershipResolver is present " +
                     "(the demo profile supplies one); falling back to the configured tenant '{}'.",
                 localUser.username,

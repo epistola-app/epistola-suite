@@ -36,7 +36,7 @@ class S3DocumentRetentionInitializer(
     private val bucket: String,
     private val documentRetentionDays: Int,
 ) : SmartInitializingSingleton {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun afterSingletonsInstantiated() {
         val ourRule = LifecycleRule.builder()
@@ -54,7 +54,7 @@ class S3DocumentRetentionInitializer(
                     .lifecycleConfiguration(BucketLifecycleConfiguration.builder().rules(others + ourRule).build())
                     .build(),
             )
-            logger.info(
+            log.info(
                 "Ensured S3 lifecycle rule '{}' on bucket {} — expire prefix '{}' after {} days (preserved {} other rule(s))",
                 RULE_ID,
                 bucket,
@@ -63,7 +63,7 @@ class S3DocumentRetentionInitializer(
                 others.size,
             )
         } catch (e: Exception) {
-            logger.warn(
+            log.warn(
                 "Could not set S3 lifecycle rule on bucket {} (document blobs will not auto-expire): {}",
                 bucket,
                 e.message,

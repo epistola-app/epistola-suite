@@ -35,7 +35,7 @@ class LoadTestCleanupScheduler(
     private val cron: String,
 ) : ClusterScheduledTaskHandler {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
     @Bean
@@ -52,7 +52,7 @@ class LoadTestCleanupScheduler(
     }
 
     fun cleanupOldRuns() {
-        logger.info("Starting cleanup of old load test runs...")
+        log.info("Starting cleanup of old load test runs...")
 
         try {
             val cutoffDate = EpistolaClock.offsetDateTime().minusDays(runsRetentionDays.toLong())
@@ -69,13 +69,13 @@ class LoadTestCleanupScheduler(
                     .execute()
             }
 
-            logger.info(
+            log.info(
                 "Cleaned up {} old load test runs (older than {} days)",
                 deleted,
                 runsRetentionDays,
             )
         } catch (e: Exception) {
-            logger.error("Failed to cleanup old load test runs: {}", e.message, e)
+            log.error("Failed to cleanup old load test runs: {}", e.message, e)
         }
     }
 

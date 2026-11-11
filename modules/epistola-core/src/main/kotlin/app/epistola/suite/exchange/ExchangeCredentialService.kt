@@ -49,7 +49,7 @@ class ExchangeCredentialService(
     private val client: ExchangeClient,
     private val metrics: ExchangeMetrics,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun connection(tenantKey: TenantKey): ExchangeTenantConnection? = jdbi.withHandle<ExchangeTenantConnection?, Exception> { handle ->
         handle.createQuery("SELECT * FROM exchange_tenant_connections WHERE tenant_key = :tenantKey")
@@ -140,7 +140,7 @@ class ExchangeCredentialService(
         }
         if (stored == 0) {
             // Another node rotated the same credential first; its token is the live one.
-            logger.debug("Exchange refresh for tenant {} lost a rotation race; reloading", connection.tenantKey)
+            log.debug("Exchange refresh for tenant {} lost a rotation race; reloading", connection.tenantKey)
             return activeConnection(connection.tenantKey)?.accessToken?.value
         }
         return token.accessToken
@@ -165,7 +165,7 @@ class ExchangeCredentialService(
         }
         due.forEach { connection ->
             runCatching { accessToken(connection, renewWithin = RENEW_AHEAD) }.onFailure {
-                logger.warn("Exchange credential refresh failed for tenant {}: {}", connection.tenantKey, it.message)
+                log.warn("Exchange credential refresh failed for tenant {}: {}", connection.tenantKey, it.message)
             }
         }
     }
@@ -192,7 +192,7 @@ class ExchangeCredentialService(
         val context = try {
             client.context(connection.endpoints, token)
         } catch (failure: Exception) {
-            logger.warn("Could not re-read Exchange grants for tenant {}: {}", tenantKey, failure.message)
+            log.warn("Could not re-read Exchange grants for tenant {}: {}", tenantKey, failure.message)
             return null
         }
         jdbi.useHandle<Exception> { handle ->

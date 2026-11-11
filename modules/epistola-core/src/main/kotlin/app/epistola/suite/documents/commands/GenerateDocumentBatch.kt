@@ -140,10 +140,10 @@ class GenerateDocumentBatchHandler(
     private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocumentBatch): BatchKey {
-        logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
+        log.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
         // Every item renders a release, resolved once per (version selector, environment, catalog) for
         // the whole batch: the highest candidate satisfying the selector, among the releases its
         // environment serves or, without one, every release that kept its content. A release cut or
@@ -225,7 +225,7 @@ class GenerateDocumentBatchHandler(
             }
 
             val inserted = batch.execute().sum()
-            logger.info("Created batch {} with {} requests for tenant {}", batchId.value, inserted, command.tenantId)
+            log.info("Created batch {} with {} requests for tenant {}", batchId.value, inserted, command.tenantId)
 
             // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
