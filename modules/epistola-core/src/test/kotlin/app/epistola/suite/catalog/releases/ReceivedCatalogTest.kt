@@ -9,10 +9,12 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
@@ -242,6 +244,98 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             assertThat(own.latestReleaseVersion).isEqualTo("1.0.0")
             assertThat(ListCatalogReleaseSummaries(testCatalog(author, catalog)).query().map { it.version }).containsExactly("1.0.0")
             assertThat(next(author, catalog).base).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `a release with exactly what a never-released next version holds moves it along, and so do later ones`() {
+        // Test and acceptance upgraded from the same 1.x data: each catalog's next version holds the
+        // same content and has no base, as the 2.0 upgrade cuts no release. Test releases, acceptance
+        // imports that release.
+        val author = createTenant("Received Same A").id
+        val receiver = createTenant("Received Same B").id
+        val catalog = CatalogKey.of("received-same")
+        withMediator {
+            val archive = authored(author, catalog)
+            val namespace = GetCatalog(testCatalog(author, catalog)).query()!!.namespace
+            TestNamespaces.share(author, receiver).execute()
+            CreateCatalog(tenantKey = receiver, id = catalog, name = catalog.value, namespace = namespace).execute()
+            withoutSystemCatalog(testCatalog(receiver, catalog))
+            CreateTheme(id = theme(receiver, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+
+            ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            assertThat(next(receiver, catalog).base).`as`("nothing of its own to keep, so it moves to the release").isEqualTo("1.0.0")
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).isEmpty()
+
+            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2"), provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            assertThat(next(receiver, catalog).base).isEqualTo("1.0.1")
+            assertThat(themeName(receiver, catalog)).isEqualTo("Brand 2")
+        }
+    }
+
+    @Test
+    fun `a never-released next version that leaves a dependency to be chosen at release moves to the release that pinned it`() {
+        // As the 2.0 upgrade leaves a 1.x catalog's declarations: the release each uses is chosen
+        // when it is released. Test released, which pinned them; acceptance has the same content.
+        val author = createTenant("Received Pin A").id
+        val receiver = createTenant("Received Pin B").id
+        val dependency = CatalogKey.of("received-pin-dep")
+        val catalog = CatalogKey.of("received-pin")
+        withMediator {
+            val dependencyArchive = authored(author, dependency)
+            val dependencyName = GetCatalog(testCatalog(author, dependency)).query()!!
+            CreateCatalog(tenantKey = author, id = catalog, name = catalog.value).execute()
+            withoutSystemCatalog(testCatalog(author, catalog))
+            CreateTheme(id = theme(author, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            val pinned = DeclaredCatalogDependency(dependencyName.registry, dependencyName.namespace, dependency.value, releaseVersion = "1.0.0")
+            UpdateCatalogDependencies(testCatalog(author, catalog), listOf(pinned), catalogVersion = null).execute()
+            MarkCatalogReady(testCatalog(author, catalog), catalogVersion = null).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0", catalogVersion = null).execute()
+            val archive = ExportCatalogZip(testCatalog(author, catalog), "1.0.0").execute().zipBytes
+
+            ImportCatalogZip(receiver, dependencyArchive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+            TestNamespaces.share(author, receiver).execute()
+            val namespace = GetCatalog(testCatalog(author, catalog)).query()!!.namespace
+            CreateCatalog(tenantKey = receiver, id = catalog, name = catalog.value, namespace = namespace).execute()
+            withoutSystemCatalog(testCatalog(receiver, catalog))
+            CreateTheme(id = theme(receiver, catalog, "brand"), name = "Brand", catalogVersion = null).execute()
+            UpdateCatalogDependencies(testCatalog(receiver, catalog), listOf(pinned), catalogVersion = null).execute()
+            // No command declares a dependency without a release or a draft; only the 2.0 upgrade
+            // writes one (a 1.x catalog's, chosen when it is released), so the test unpins it in SQL.
+            jdbi.useHandle<Exception> { h ->
+                h.createUpdate(
+                    "UPDATE catalog_version_dependencies SET release_version = NULL, release_fingerprint = NULL " +
+                        "WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} " +
+                        "AND version_id IN (SELECT v.version_id FROM catalog_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version_key = :v)",
+                ).bind("t", receiver).bindCatalog("c", testCatalog(receiver, catalog)).bind("v", next(receiver, catalog).versionId).execute()
+            }
+
+            ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).isEmpty()
+        }
+    }
+
+    @Test
+    fun `a never-released next version with content of its own still keeps it when a release arrives`() {
+        val author = createTenant("Received Own A").id
+        val receiver = createTenant("Received Own B").id
+        val catalog = CatalogKey.of("received-own")
+        withMediator {
+            val archive = authored(author, catalog)
+            val namespace = GetCatalog(testCatalog(author, catalog)).query()!!.namespace
+            TestNamespaces.share(author, receiver).execute()
+            CreateCatalog(tenantKey = receiver, id = catalog, name = catalog.value, namespace = namespace).execute()
+            withoutSystemCatalog(testCatalog(receiver, catalog))
+            CreateTheme(id = theme(receiver, catalog, "brand"), name = "Brand, edited here", catalogVersion = null).execute()
+
+            ImportCatalogZip(receiver, archive, provenance = ReleaseProvenance(ReleaseChannel.UPLOAD)).execute()
+
+            assertThat(next(receiver, catalog).base).isNull()
+            assertThat(themeName(receiver, catalog)).isEqualTo("Brand, edited here")
         }
     }
 

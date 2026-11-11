@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
@@ -43,6 +44,29 @@ class NextVersionChanges(
 ) {
 
     fun hasChanges(catalog: CatalogId): Boolean = changed(catalog).isNotEmpty()
+
+    /**
+     * Whether the next version has changes of its own that receiving [incoming] would throw away,
+     * which decides between a fast-forward and recording the release beside it. As [hasChanges],
+     * except that a next version without a base holding what [incoming] holds has none: it loses
+     * nothing by moving to it. A dependency it declares without a release (chosen when it is
+     * released) holds whichever release [incoming] pins of that catalog, as releasing it would have
+     * pinned one. That is every catalog of an installation upgraded from 1.x, whose next version
+     * holds the 1.x content under no release with its dependencies unpinned, receiving the release
+     * another installation upgraded from the same content cut (test to acceptance).
+     */
+    fun hasChangesOver(catalog: CatalogId, incoming: CatalogContent): Boolean {
+        if (!hasChanges(catalog)) return false
+        val next = jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog) } ?: return false
+        if (next.base != null) return true
+        val held = contentBuilder.build(ContentVersion(catalog, next.versionId))
+        val ours = fingerprints.entryFingerprints(catalog.key, held)
+        val theirs = fingerprints.entryFingerprints(catalog.key, incoming)
+        val chosenAtRelease = held.catalogDependencies.orEmpty()
+            .filter { it.releaseVersion == null }
+            .mapTo(mutableSetOf()) { app.epistola.suite.catalog.merge.CatalogSetting.dependencyKey(it.catalogKey) }
+        return (ours.keys + theirs.keys).any { key -> ours[key] != theirs[key] && !(key in chosenAtRelease && key in theirs) }
+    }
 
     /**
      * The entries (`type/key`) the next version changed since its base: added, changed or removed.
