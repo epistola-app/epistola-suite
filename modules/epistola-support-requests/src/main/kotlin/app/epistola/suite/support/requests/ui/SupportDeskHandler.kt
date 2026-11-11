@@ -65,7 +65,7 @@ class SupportDeskRoutes(private val handler: SupportDeskHandler) {
 }
 
 @Component
-class SupportDeskHandler {
+class SupportDeskHandler(private val serverLogView: ServerLogView) {
     fun inbox(request: ServerRequest): ServerResponse {
         val status = request.param("status").orElse(null)?.let { runCatching { SupportRequestStatus.valueOf(it) }.getOrNull() }
         val priority = request.param("priority").orElse(null)?.let { runCatching { SupportRequestPriority.valueOf(it) }.getOrNull() }
@@ -191,6 +191,7 @@ class SupportDeskHandler {
             "pageTitle" to "${view.request.title} - Support requests - Epistola"
             "platformPage" to "Support requests"
             "view" to view
+            "serverLogs" to serverLogView.of(view.request)
             "statuses" to SupportRequestStatus.entries
             "priorities" to SupportRequestPriority.entries
             "error" to error

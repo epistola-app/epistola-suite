@@ -15,7 +15,8 @@ import app.epistola.suite.common.ids.TenantKey
 fun interface SupportRequestLogSource {
     /**
      * The lines of [tenantKey] written for [traceIds], as a JSON array of lines, oldest first; null
-     * when there are none. Shaped by the host's privacy rules (pseudonymised when its telemetry is).
+     * when there are none. As recorded, each line with its message as written in the code beside it
+     * (`pattern`): every reader is given it through [ServerLogExcerpt.shaped], with its own privacy.
      */
     fun excerpt(tenantKey: TenantKey, traceIds: List<String>): String?
 }

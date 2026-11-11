@@ -99,7 +99,7 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the server log of the submitter's last requests is attached when they choose, pseudonymised by default`() {
+    fun `the server log of the submitter's last requests is attached when they choose, kept as recorded and shown pseudonymised by default`() {
         val tenant = createTenant("Feedback Server Log").id
         val trace = "4bf92f3577b34da6a3ce929d0e0e" + (1000..9999).random()
         // A line the tenant's request logged, as the logging appender records it.
@@ -117,13 +117,16 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
         assertThat(submit(tenant, "With log", mapOf("attachServerLogs" to "true", "traceIds" to "[\"$trace\"]")).statusCode.is2xxSuccessful).isTrue()
         assertThat(submit(tenant, "Without log", mapOf("traceIds" to "[\"$trace\"]")).statusCode.is2xxSuccessful).isTrue()
 
-        val withLog = submitted(tenant, "With log").serverLogs
-        assertThat(withLog).contains("Render failed for {}").contains(trace).doesNotContain("jan@example.org")
+        val withLog = submitted(tenant, "With log")
+        // Kept as recorded, so each support connection can be given what its own setting allows.
+        assertThat(withLog.serverLogs).contains("Render failed for jan@example.org").contains("\"pattern\":\"Render failed for {}\"").contains(trace)
+        val page = restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${withLog.id.value}", String::class.java).body!!
+        assertThat(page).contains("Render failed for {}").contains(trace).doesNotContain("jan@example.org")
         assertThat(submitted(tenant, "Without log").serverLogs).`as`("not chosen, not attached").isNull()
     }
 
     @Test
-    fun `pseudonymised, a library's log line goes into the attached server log without its message`() {
+    fun `pseudonymised, a library's log line shows in the attached server log without its message`() {
         val tenant = createTenant("Support Request Library Log").id
         val trace = "4bf92f3577b34da6a3ce929d0e0e" + (1000..9999).random()
         ingestor.enqueue(
@@ -138,8 +141,9 @@ class SupportRequestSubmitHtmxTest : BaseIntegrationTest() {
 
         assertThat(submit(tenant, "Library log", mapOf("attachServerLogs" to "true", "traceIds" to "[\"$trace\"]")).statusCode.is2xxSuccessful).isTrue()
 
-        val serverLogs = submitted(tenant, "Library log").serverLogs
-        assertThat(serverLogs).contains("org.springframework.web.Resolver").doesNotContain("jan@example.org")
+        val request = submitted(tenant, "Library log")
+        val page = restTemplate.getForEntity("/tenants/${tenant.value}/support/requests/${request.id.value}", String::class.java).body!!
+        assertThat(page).contains("org.springframework.web.Resolver").contains("(library message withheld)").doesNotContain("jan@example.org")
     }
 
     @Test

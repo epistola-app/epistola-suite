@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit
 class SupportRequestHandler(
     private val buildProperties: BuildProperties?,
     private val logSource: SupportRequestLogSource,
+    private val serverLogView: ServerLogView,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -143,6 +144,7 @@ class SupportRequestHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "supportRequest" to supportRequest
+            "serverLogs" to serverLogView.of(supportRequest)
             "comments" to comments
             "assets" to assets
             "activeNavSection" to "requests"
@@ -265,6 +267,7 @@ class SupportRequestHandler(
             fragment("support-requests/detail", "support-request-content") {
                 "tenantId" to tenantId.key
                 "supportRequest" to updated
+                "serverLogs" to serverLogView.of(updated)
                 "comments" to comments
                 "assets" to assets
                 "mayManageSupportRequest" to principal.hasPermission(tenantId.key, Permission.SUPPORT_REQUEST_HANDLE)

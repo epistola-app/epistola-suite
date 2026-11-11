@@ -402,7 +402,7 @@ submitter's; `status` ∈ `OPEN IN_PROGRESS RESOLVED CLOSED`. `title` is at most
 4096 characters, `consoleLogs` and `serverLogs` at most 256 KiB, `metadata` at most 16 KiB).
 `serverLogs` is the installation's log lines of the requests the submitter made just before
 submitting, when they chose to attach it: a JSON array of lines, oldest first, pseudonymised when the
-installation's telemetry is. Characters are UTF-16 code units, sizes are UTF-8 bytes. A value over its
+telemetry setting of the connection it goes to is (ADR 0053 §1), whatever another connection's. Characters are UTF-16 code units, sizes are UTF-8 bytes. A value over its
 limit is `400`, so the installation fits it before sending: it cuts text and drops what cannot be cut.
 
 `requesterRef` is who submitted it, as the installation's **person reference** (ADR 0053 §3): `p-` and
