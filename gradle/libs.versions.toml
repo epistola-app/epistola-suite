@@ -21,7 +21,7 @@ epistola-contract = "2.0.0-rc.2"
 # The support connection's keys and client assertions; the version Spring Security 7.1 uses.
 nimbus-jose-jwt = "10.10"
 # Checks the stand-in support service against docs/support-api.yaml (tests only).
-swagger-request-validator = "2.46.1"
+swagger-request-validator = "3.0.0"
 # Test only: decodes the OTLP payloads the support telemetry leg sends. The version Micrometer's
 # OTLP registry ships with (outside the Spring Boot BOM).
 otlp-proto = "1.10.0-alpha"
