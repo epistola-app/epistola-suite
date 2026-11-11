@@ -20,6 +20,8 @@ interface, it needs a contract release first.
   status — a missing theme is `NOT_FOUND`, a theme in use `CONFLICT`, with members naming it.
   `ProblemTypeRegistryTest` enforces it. The UI's finer types (`catalog-version-released`, a
   validation code as the slug) are `UiProblemTypes`, never answered on `/api`.
+- **A problem member names a key `…Key`**, as contract 2.0 bodies do; `…Id` only for a real id
+  (`requestId`, `documentId`, `releaseId`, `versionId`). `ProblemMemberNamesTest` enforces it.
 - **Every contract operation is answered.** One the suite does not support throws
   `ApiOperationNotImplementedException` (501), never an unmapped route (404);
   `ContractOperationCoverageTest` fails on a generated interface no controller implements.
