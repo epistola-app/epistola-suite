@@ -200,8 +200,12 @@ tasks.register<Test>("unitTest") {
 // 270 MB with 1 cached context to about 470 MB in its 12 largest classes alone with
 // 24, beside the coverage agent's data. At 1g a test allocating on top of that ran
 // out of memory (ExchangeCatalogInstallTest reading a blob) and passed on its own.
-// The heap is sized for the cache, rather than the cache cut, because evicting a
-// context only means booting it again for the next class that needs it.
+// The cache is not cut, because evicting a context only means booting it again for
+// the next class that needs it. Instead a context closes once the last class of the
+// run that uses it is done (ReleaseContextWhenDoneExtension), and the classes of one
+// context start together (ContextGroupingClassOrderer). Measured on the apps test JVM
+// (11 November): at most 38 contexts alive at once before, 15 after; at 1g the run
+// ran out of heap after 757 of 1368 tests before, and passed whole after.
 val springTestJvmArgs = listOf("-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx1536m")
 
 tasks.register<Test>("integrationTest") {

@@ -14,6 +14,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.contexts.ReleaseContextWhenDoneExtension
 import app.epistola.suite.testing.invariants.CatalogInvariantsExtension
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -56,7 +57,9 @@ import org.springframework.test.context.TestPropertySource
 @TestPropertySource(properties = ["epistola.cluster.scheduling-substrate=test"])
 @ActiveProfiles("test")
 @Tag("integration")
-@ExtendWith(EpistolaClockExtension::class, CatalogInvariantsExtension::class)
+// ReleaseContextWhenDoneExtension first: JUnit runs afterAll callbacks in reverse, so it closes the
+// context only after every other afterAll (the invariants check reads it).
+@ExtendWith(ReleaseContextWhenDoneExtension::class, EpistolaClockExtension::class, CatalogInvariantsExtension::class)
 abstract class IntegrationTestBase {
     @Autowired
     protected lateinit var mediator: Mediator
