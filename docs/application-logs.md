@@ -17,6 +17,11 @@ environment uses human-readable output by default and can opt into Logstash, ECS
 `SecurityContext` source used by database capture whenever a tenant is bound. Selecting a console
 format does not change which events are stored or forwarded over OTLP.
 
+Human-readable output writes a line break inside a message as the two characters `\n`, so a logged
+value that carries one cannot start a line that reads as a separate entry (log forging, CWE-117).
+Stack traces stay multi-line. Structured formats need no such step, since their JSON encoding
+escapes line breaks, and the database capture stores each event as its own row, message unchanged.
+
 Around every command and query, the mediator puts what the line was written for in the MDC:
 `command` or `query` (the message's name) and, for a message on one catalog version, `catalog`
 (`namespace/key`). A nested dispatch names itself and restores its caller's values when it returns,
