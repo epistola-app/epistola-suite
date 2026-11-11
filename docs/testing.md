@@ -504,6 +504,22 @@ What makes a configuration distinct, and what to do instead:
 The `contextBoots` figure in `build/test-metrics/<module>-<task>.json` is the number to watch; a
 class that adds one should be able to say which configuration it is testing.
 
+### A context closes after its last class
+
+Spring's cache keeps a context until the JVM exits, because it cannot know whether a later class
+will ask for it again. A test run can know: before the first test, `ContextUsageListener` works out
+each class's context the way Spring's cache keys it, and counts the classes per context. After each
+class, `ReleaseContextWhenDoneExtension` (registered first on `IntegrationTestBase`, so it runs after
+every other `afterAll`, the invariants check included) counts it off, and closes the context once the
+last class using it is done. `ContextGroupingClassOrderer` (`junit.jupiter.testclass.order.default`)
+starts each context's classes together, so a context is alive only while its own classes run.
+
+The test JVM's heap has to hold the contexts alive at once, not every context the run boots:
+`contextsAliveMax` in the metrics report is that figure. On the apps test JVM it went from 38 to 15.
+At 1g the run ran out of heap after 757 of 1368 tests before, and passed whole after. A context
+booted twice (`contextBoots` rising with no new configuration) means a class outside the count used
+it after it closed.
+
 ## Test-run metrics (cross-cutting)
 
 Test performance is captured automatically on **every** run by a cross-cutting
