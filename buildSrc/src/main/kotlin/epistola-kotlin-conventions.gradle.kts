@@ -137,6 +137,12 @@ tasks.withType<Test>().configureEach {
     // opposite (uiTest thought it had dropped -XX:TieredStopAtLevel=1; it had not).
     jvmArgs("-XX:+UseParallelGC")
 
+    // A test JVM that runs out of heap leaves a dump to say what filled it, rather than a
+    // context-load failure in whichever class happened to boot last. CI uploads it on failure.
+    val heapDumps = layout.buildDirectory.dir("heapdumps").get().asFile
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=$heapDumps")
+    doFirst { heapDumps.mkdirs() }
+
     // Cross-cutting test-run metrics (see modules/testing .../metrics). A JUnit
     // Platform listener + Spring context-boot counter write a per-task JSON report
     // here so test performance (wall time, context boots, tenant bootstraps, slowest
