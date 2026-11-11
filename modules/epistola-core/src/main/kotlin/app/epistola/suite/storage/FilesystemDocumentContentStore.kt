@@ -101,11 +101,11 @@ class FilesystemDocumentContentStore(
                 Files.deleteIfExists(metaPath(file))
                 if (Files.deleteIfExists(file)) deleted++
             } catch (e: Exception) {
-                log.warn("Failed to sweep stale document blob {}: {}", file, e.message)
+                log.warn("Failed to sweep stale document blob file=\"{}\" reason=\"{}\"", file, e.message)
             }
         }
         if (deleted > 0) {
-            log.info("Swept {} stale document blob(s) older than {} months from {}", deleted, retentionMonths, documentsRoot)
+            log.info("Swept stale document blobs count={} olderThanMonths={} store=\"{}\"", deleted, retentionMonths, documentsRoot)
         }
     }
 

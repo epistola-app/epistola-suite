@@ -37,7 +37,7 @@ class VersionCheckService(
     private fun readStatus(): VersionCheckStatus? = try {
         metadata.getAs<VersionCheckStatus>(STATUS_KEY)
     } catch (e: Exception) {
-        log.debug("Ignoring unreadable cached version-check status: {}", e.message)
+        log.debug("Ignoring unreadable cached version-check status reason=\"{}\"", e.message)
         null
     }
 
@@ -72,7 +72,7 @@ class VersionCheckService(
                 metadataAvailable = false,
                 lastError = null,
             )
-            log.info("Version check metadata unavailable: {}", e.message)
+            log.info("Version check metadata unavailable reason=\"{}\"", e.message)
             unavailable
         } catch (e: Exception) {
             val failed = (previous ?: VersionCheckStatus(currentVersion = currentVersion)).copy(
@@ -81,7 +81,7 @@ class VersionCheckService(
                 metadataAvailable = false,
                 lastError = e.message ?: e.javaClass.simpleName,
             )
-            log.warn("Version check failed: {}", e.message)
+            log.warn("Version check failed reason=\"{}\"", e.message)
             failed
         }
         if (status.updateAvailable) {

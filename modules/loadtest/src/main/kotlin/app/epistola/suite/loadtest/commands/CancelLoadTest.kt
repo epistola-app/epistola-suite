@@ -38,7 +38,7 @@ class CancelLoadTestHandler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: CancelLoadTest) {
-        log.info("Cancelling load test run {} for tenant {}", command.runId, command.tenantId)
+        log.info("Cancelling load test run run={} tenant={}", command.runId, command.tenantId)
 
         val updated = jdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
@@ -60,10 +60,10 @@ class CancelLoadTestHandler(
         }
 
         if (updated == 0) {
-            log.warn("Load test run {} not found or already completed", command.runId)
+            log.warn("Load test run not found or already completed run={}", command.runId)
             throw IllegalStateException("Load test run ${command.runId} cannot be cancelled (not found or already completed)")
         }
 
-        log.info("Successfully cancelled load test run {}", command.runId)
+        log.info("Cancelled load test run run={}", command.runId)
     }
 }

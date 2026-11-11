@@ -92,7 +92,7 @@ class ReceiveOneXSubscribedReleasesHandler(
                 .onSuccess { received += it }
                 .onFailure {
                     failed[catalog] = it.message ?: it::class.simpleName.orEmpty()
-                    log.warn("Catalog {} of tenant {} did not receive its release from its source, will retry at the next boot: {}", catalog.address, command.tenantKey.value, it.message)
+                    log.warn("Catalog did not receive its release from its source, will retry at the next boot catalog={} tenant={} reason=\"{}\"", catalog.address, command.tenantKey.value, it.message)
                 }
         }
         return ReceivedOneXSubscribedReleases(received, failed)
@@ -141,7 +141,7 @@ class ReceiveOneXSubscribedReleasesHandler(
                 .bind("k", catalog.key.value)
                 .execute()
         }
-        log.info("Catalog {} of tenant {} takes the name its source gives it, {}/{}", catalog.address, catalog.tenantKey.value, registry, namespace)
+        log.info("Catalog takes the name its source gives it catalog={} tenant={} registry={} namespace={}", catalog.address, catalog.tenantKey.value, registry, namespace)
         return catalog.copy(namespace = namespace)
     }
 }

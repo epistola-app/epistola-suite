@@ -68,7 +68,7 @@ class DeleteFontHandler(
 
         // Its faces' files are its binaries: they go when nothing names them any more (the content collector).
         val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, at, command.fontId) }
-        log.info("Deleted font {} ({}) for tenant {}", command.fontId.key, catalog.key, command.fontId.tenantKey)
+        log.info("Deleted font font={} catalog={} tenant={}", command.fontId.key, catalog.key, command.fontId.tenantKey)
         return deleted
     }
 }

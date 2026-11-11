@@ -351,7 +351,7 @@ private fun measureBandHeights(
             } catch (e: Exception) {
                 // Measurement must never make a previously-working render fail;
                 // fall back to the configured/default height (the prior behaviour).
-                log.warn("Failed to measure band height for node {} ({}); using configured height", node.id, node.type, e)
+                log.warn("Failed to measure band height, using configured height node={} nodeType={}", node.id, node.type, e)
                 configured ?: defaultHeight
             }
         }

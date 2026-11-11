@@ -21,9 +21,9 @@ class RequestPredatesReleasesException(message: String) : IllegalStateException(
 internal object GenerationFailureLog {
     fun log(logger: Logger, requestId: Any, e: Exception) {
         if (e is RequestPredatesReleasesException) {
-            logger.warn("Request {} not generated: {}", requestId, e.message)
+            logger.warn("Request not generated request={} reason=\"{}\"", requestId, e.message)
         } else {
-            logger.error("Failed to process request {}: {}", requestId, e.message, e)
+            logger.error("Failed to process request request={} reason=\"{}\"", requestId, e.message, e)
         }
     }
 }

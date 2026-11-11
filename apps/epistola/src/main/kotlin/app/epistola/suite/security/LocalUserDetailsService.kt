@@ -99,8 +99,8 @@ class LocalUserDetailsService(
         if (!localUser.sandbox) return null
         if (membershipResolver == null) {
             log.warn(
-                "Local user {} asks for a sandbox tenant but no LoginMembershipResolver is present " +
-                    "(the demo profile supplies one); falling back to the configured tenant '{}'.",
+                "Local user asks for a sandbox tenant but no LoginMembershipResolver is present " +
+                    "(the demo profile supplies one); falling back to the configured tenant user={} tenant={}",
                 localUser.username,
                 localUser.tenant,
             )

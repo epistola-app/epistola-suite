@@ -254,7 +254,7 @@ class ControllableDocumentGenerationExecutor(
             // Test harness — surface the failure loudly rather than silently
             // dropping the emit (production code logs and moves on; in tests
             // we want to know).
-            log.error("ControllableExecutor emit failed for request {}: {}", request.id.value, e.message, e)
+            log.error("ControllableExecutor emit failed request={} reason=\"{}\"", request.id.value, e.message, e)
             throw e
         }
     }

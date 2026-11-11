@@ -81,16 +81,16 @@ private const val MAX_FIELD = 200
 internal fun readSupportRows(store: SupportConnectionStore, issuer: URI?, previousServices: StoredSupportServices?, version: Long?, log: Logger): SupportRowsSnapshot {
     var partial = false
     val read = SupportRowsSnapshot(
-        credentials = runCatching { store.credentials() }.onFailure { log.warn("Support connection: cannot read the stored registration: {}", it.message) }.getOrNull(),
+        credentials = runCatching { store.credentials() }.onFailure { log.warn("Support connection: cannot read the stored registration reason=\"{}\"", it.message) }.getOrNull(),
         status = runCatching { store.status() }.getOrNull(),
         issuer = issuer,
         // Unreadable: the selection last read on this node stands, or none — never more than was chosen.
-        services = runCatching { store.services() }.onFailure { log.warn("Support connection: cannot read the selected services: {}", it.message) }
+        services = runCatching { store.services() }.onFailure { log.warn("Support connection: cannot read the selected services reason=\"{}\"", it.message) }
             .getOrElse {
                 partial = true
                 previousServices ?: StoredSupportServices()
             },
-        refusals = runCatching { store.refusals() }.onFailure { log.warn("Support connection: cannot read the refused scopes: {}", it.message) }
+        refusals = runCatching { store.refusals() }.onFailure { log.warn("Support connection: cannot read the refused scopes reason=\"{}\"", it.message) }
             .map { stored -> stored.refusals.mapNotNull { (name, seq) -> SupportScope.parse(name)?.let { it to seq } }.toMap() }
             // Unreadable: every scope counts as refused, and no token settles it, until they can be
             // read again — never more than was granted. The refusals read before may lack the one

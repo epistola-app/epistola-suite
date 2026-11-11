@@ -64,11 +64,11 @@ class ProductDiscovery(
         val status = try {
             val discovered = DiscoveredEndpoints.parse(client.fetch(domain.discoveryUrl), domain)
             if (discovered.rejected.isNotEmpty()) {
-                log.warn("Product discovery at {} named endpoints the Suite refuses: {}", domain.discoveryUrl, discovered.rejected)
+                log.warn("Product discovery named endpoints the Suite refuses url={} endpoints={}", domain.discoveryUrl, discovered.rejected)
             }
             ProductDiscoveryStatus(domain.productDomain, now, now, discovered)
         } catch (e: Exception) {
-            log.info("Product discovery at {} failed, using {}: {}", domain.discoveryUrl, if (previous?.discovered != null) "the last good copy" else "the built-in defaults", e.message)
+            log.info("Product discovery failed url={} fallback=\"{}\" reason=\"{}\"", domain.discoveryUrl, if (previous?.discovered != null) "the last good copy" else "the built-in defaults", e.message)
             (previous ?: ProductDiscoveryStatus(domain.productDomain)).copy(lastAttemptAt = now, lastError = e.message ?: e.javaClass.simpleName)
         }
         metadata.setAs(STATUS_KEY, status)
@@ -93,7 +93,7 @@ class ProductDiscovery(
     private fun readStatus(): ProductDiscoveryStatus? = try {
         metadata.getAs<ProductDiscoveryStatus>(STATUS_KEY)
     } catch (e: Exception) {
-        log.debug("Ignoring unreadable cached product discovery status: {}", e.message)
+        log.debug("Ignoring unreadable cached product discovery status reason=\"{}\"", e.message)
         null
     }
 

@@ -78,7 +78,7 @@ class TextQualityChecks {
         val readiness = try {
             checker.readiness(locale)
         } catch (e: Exception) {
-            log.warn("Language checker {} is unavailable: {}", checker.checkerId, e.message)
+            log.warn("Language checker unavailable checker={} reason=\"{}\"", checker.checkerId, e.message)
             return TextCheckOutcome.Failed(checker, "unavailable")
         }
         val configuration = when (readiness) {
@@ -94,7 +94,7 @@ class TextQualityChecks {
             val answers = try {
                 checker.check(missing.map { texts.getValue(it) }, locale, configuration)
             } catch (e: Exception) {
-                log.warn("Language checker {} failed for {}: {}", checker.checkerId, subject.urn, e.message)
+                log.warn("Language checker failed checker={} subject={} reason=\"{}\"", checker.checkerId, subject.urn, e.message)
                 return TextCheckOutcome.Failed(checker, "failed while checking")
             }
             check(answers.size == missing.size) { "${checker.checkerId} answered for ${answers.size} of ${missing.size} texts" }

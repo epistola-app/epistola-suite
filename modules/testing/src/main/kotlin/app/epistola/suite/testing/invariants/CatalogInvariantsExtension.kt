@@ -65,7 +65,7 @@ class CatalogInvariantsExtension :
             lines.joinToString("\n") { "  $it" }
         when (mode) {
             Mode.REPORT -> {
-                log.warn("{}", message)
+                log.warn("Catalog invariant violations left by a test class report=\"{}\"", message)
                 val dir = Path.of("build", "invariant-violations").also { Files.createDirectories(it) }
                 Files.writeString(dir.resolve("${testClass.name}.txt"), lines.joinToString("\n") + "\n")
             }

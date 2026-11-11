@@ -308,7 +308,7 @@ class RecordInstalledReleaseHandler(
         }
 
         if (command.release == null) advanceNextVersion(command.catalog, version)
-        log.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
+        log.info("Recorded installed release catalog={} version={} tenant={}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
 }

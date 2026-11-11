@@ -35,7 +35,7 @@ internal object SupportClockSkew {
         try {
             retry(serviceTime)
         } catch (again: SupportRefusedException) {
-            log.info("Support connection: {}, but the support service also refused an assertion dated by its own clock: a refusal", clock)
+            log.info("Support connection: this node's clock is off, but the support service also refused an assertion dated by its own clock: a refusal clock=\"{}\"", clock)
             throw again
         } catch (e: SupportUnavailableException) {
             throw SupportUnavailableException("The support service refused this node's client assertion (${refused.message}), and $clock; confirming the refusal failed: ${e.message}", e)

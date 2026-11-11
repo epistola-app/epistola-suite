@@ -57,7 +57,7 @@ class CodeListClient(
     }
 
     fun fetchEntries(url: String, authType: AuthType, credential: String?): List<CodeListEntry> {
-        log.debug("Fetching code list entries from {}", url)
+        log.debug("Fetching code list entries url={}", url)
         return try {
             validateUrl(url, SOURCE_SCHEMES)
             guard.checkSource(url, allowHttp)

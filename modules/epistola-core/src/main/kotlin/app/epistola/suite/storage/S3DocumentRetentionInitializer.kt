@@ -55,7 +55,7 @@ class S3DocumentRetentionInitializer(
                     .build(),
             )
             log.info(
-                "Ensured S3 lifecycle rule '{}' on bucket {} — expire prefix '{}' after {} days (preserved {} other rule(s))",
+                "Ensured S3 lifecycle rule rule={} bucket={} prefix={} expireDays={} otherRules={}",
                 RULE_ID,
                 bucket,
                 DOCUMENTS_PREFIX,
@@ -64,7 +64,7 @@ class S3DocumentRetentionInitializer(
             )
         } catch (e: Exception) {
             log.warn(
-                "Could not set S3 lifecycle rule on bucket {} (document blobs will not auto-expire): {}",
+                "Could not set S3 lifecycle rule; document blobs will not auto-expire bucket={} reason=\"{}\"",
                 bucket,
                 e.message,
             )

@@ -77,7 +77,7 @@ class DeleteAssetHandler(
             throw AssetInUseException(command.assetId, usages)
         }
 
-        log.info("Deleting image {} for tenant {}", command.assetId, command.tenantId)
+        log.info("Deleting image asset={} tenant={}", command.assetId, command.tenantId)
         // Its bytes go when no content names them any more (the content reaper, #738).
         return jdbi.withHandle<Boolean, Exception> { images.delete(it, it.versionOf(catalog, command), command.assetId.value) }
     }

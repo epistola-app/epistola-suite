@@ -113,7 +113,7 @@ class CatalogMirrorReconciler(
         connection.id to try {
             Round(connection).reconcileAll()
         } catch (e: Exception) {
-            log.warn("Catalog mirror: the round for support connection {} failed", connection.id, e)
+            log.warn("Catalog mirror: the round for a support connection failed connection={}", connection.id, e)
             CatalogMirrorRoundReport(ran = false, tenants = emptyMap())
         }
     }
@@ -164,7 +164,7 @@ class CatalogMirrorReconciler(
                     return CatalogMirrorRoundReport(ran = false, tenants = emptyMap())
                 }
                 if (!e.isSupportUnavailable()) throw e
-                log.info("Catalog mirror: support service unavailable ({}); trying next round", e.message)
+                log.info("Catalog mirror: support service unavailable; trying next round reason=\"{}\"", e.message)
                 return CatalogMirrorRoundReport(ran = false, tenants = emptyMap())
             }
             val local = withMediator { ListMirrorTenants(id).query() }
@@ -218,7 +218,7 @@ class CatalogMirrorReconciler(
             block()
         } catch (e: Exception) {
             if (e.isRegistrationRefused()) return registrationRefused()
-            log.warn("Catalog mirror: unexpected failure for tenant {}", tenant, e)
+            log.warn("Catalog mirror: unexpected failure tenant={}", tenant, e)
             val key = TenantKey.validateOrNull(tenant)
             if (key != null && store.exists(key)) fail(key, "Unexpected failure: ${describe(e)}", EpistolaClock.offsetDateTime()) else TenantReconcileResult.FAILED
         }
@@ -261,7 +261,7 @@ class CatalogMirrorReconciler(
                     // Deselected (on any node: seen here within a second), turned off, or no longer granted
                     // while this round ran: nothing more leaves; the rest stays missing for a later round.
                     if (!usable()) {
-                        log.info("Catalog mirror: tenant {}: the mirror can no longer be used (deselected, turned off or not granted); {} release(s) not uploaded", tenantKey.value, missing.size - index)
+                        log.info("Catalog mirror: the mirror can no longer be used (deselected, turned off or not granted); releases not uploaded tenant={} releases={}", tenantKey.value, missing.size - index)
                         missing.drop(index).forEach { left -> failures += earlier[left] ?: CatalogMirrorFailedRelease(left, "Not uploaded: the mirror could no longer be used", attempts = 0) }
                         break
                     }
@@ -272,7 +272,7 @@ class CatalogMirrorReconciler(
                     }
                     // Out of time: the rest stays missing and goes next round.
                     if (System.nanoTime() > deadline) {
-                        log.info("Catalog mirror: tenant {}: round budget spent; {} release(s) left for the next round", tenantKey.value, missing.size - index)
+                        log.info("Catalog mirror: round budget spent; releases left for the next round tenant={} releases={}", tenantKey.value, missing.size - index)
                         missing.drop(index).forEach { left -> failures += earlier[left] ?: CatalogMirrorFailedRelease(left, "Not uploaded yet: left for the next round", attempts = 0) }
                         break
                     }
@@ -321,14 +321,14 @@ class CatalogMirrorReconciler(
                     }
                     // Another round took the tenant over (this one outlived its lease): stop, and leave it to that one.
                     claim = store.renew(id, tenantKey, claim) ?: run {
-                        log.warn("Catalog mirror: tenant {}: another round took the tenant over; stopping this one", tenantKey.value)
+                        log.warn("Catalog mirror: another round took the tenant over; stopping this one tenant={}", tenantKey.value)
                         return TenantReconcileResult.BUSY
                     }
                 }
                 if (!store.shares(id, tenantKey)) return withdrawClaimed(tenantKey, now)
                 store.recordAccepted(id, tenantKey, CatalogMirrorRoundOutcome(set.digest, bindings.map { it.catalogRowId }.toSet(), bindings.size, uploaded, failures), EpistolaClock.offsetDateTime())
                 log.info(
-                    "Catalog mirror: tenant {} sent {} binding(s), {} release(s) uploaded, {} removed there, {} failed",
+                    "Catalog mirror: tenant sent tenant={} bindings={} uploaded={} removed={} failed={}",
                     tenantKey.value,
                     bindings.size,
                     uploaded,
@@ -372,17 +372,17 @@ class CatalogMirrorReconciler(
                 if (e.isInsufficientScope()) return notGranted()
                 if (e.isRegistrationRefused()) return registrationRefused()
                 if (local != null) return failed(local, "Withdrawing the tenant failed: ${describe(e)}", e, now)
-                log.warn("Catalog mirror: withdrawing tenant {} failed: {}", tenant, describe(e))
+                log.warn("Catalog mirror: withdrawing a tenant failed tenant={} reason=\"{}\"", tenant, describe(e))
                 return if (e.isSupportUnavailable()) TenantReconcileResult.UNAVAILABLE else TenantReconcileResult.FAILED
             }
             if (response.bindings != 0) {
                 val message = "The mirror still holds ${response.bindings} binding(s) after the withdrawal"
                 if (local != null) return fail(local, message, now)
-                log.warn("Catalog mirror: tenant {}: {}", tenant, message)
+                log.warn("Catalog mirror: tenant failed tenant={} reason=\"{}\"", tenant, message)
                 return TenantReconcileResult.FAILED
             }
             if (local != null) store.recordWithdrawn(id, local, EpistolaClock.offsetDateTime())
-            log.info("Catalog mirror: tenant {} withdrawn ({} binding(s) removed there)", tenant, response.removed)
+            log.info("Catalog mirror: tenant withdrawn tenant={} bindingsRemoved={}", tenant, response.removed)
             return TenantReconcileResult.WITHDRAWN
         }
 
@@ -421,7 +421,7 @@ class CatalogMirrorReconciler(
         private fun failed(tenantKey: TenantKey, message: String, e: Exception, now: OffsetDateTime): TenantReconcileResult {
             if (e.isInsufficientScope()) return notGranted()
             if (e.isRegistrationRefused()) return registrationRefused()
-            if (!e.isSupportUnavailable() && e !is RestClientResponseException) log.warn("Catalog mirror: unexpected failure for tenant {}", tenantKey.value, e)
+            if (!e.isSupportUnavailable() && e !is RestClientResponseException) log.warn("Catalog mirror: unexpected failure tenant={}", tenantKey.value, e)
             fail(tenantKey, message, now)
             return if (e.isSupportUnavailable()) TenantReconcileResult.UNAVAILABLE else TenantReconcileResult.FAILED
         }
@@ -464,7 +464,7 @@ class CatalogMirrorReconciler(
         private fun fail(tenantKey: TenantKey, message: String, now: OffsetDateTime, atLeast: Duration = Duration.ZERO): TenantReconcileResult {
             val failures = store.consecutiveFailures(id, tenantKey) + 1
             store.recordFailure(id, tenantKey, message, now, now.plus(maxOf(backoff(failures), atLeast)))
-            log.warn("Catalog mirror: tenant {}: {}", tenantKey.value, message)
+            log.warn("Catalog mirror: tenant failed tenant={} reason=\"{}\"", tenantKey.value, message)
             return TenantReconcileResult.FAILED
         }
 

@@ -103,7 +103,7 @@ class SupportTelemetryLogs @Autowired constructor(
         val granted = current.filter { it.granted() }.map { target -> legs.getOrPut(target.connectionId) { Leg(target, provider(target)) } }
         val was = forwarding.isNotEmpty()
         forwarding = granted.map { it.output }
-        if (forwarding.isNotEmpty() != was) log.info("Support telemetry logs: {}", if (forwarding.isNotEmpty()) "forwarding (telemetry granted)" else "not forwarding (telemetry not granted)")
+        if (forwarding.isNotEmpty() != was) log.info("Support telemetry logs forwarding state=\"{}\"", if (forwarding.isNotEmpty()) "forwarding (telemetry granted)" else "not forwarding (telemetry not granted)")
     }
 
     private fun provider(target: SupportOtlpTarget): SdkLoggerProvider {
@@ -143,7 +143,7 @@ class SupportTelemetryLogs @Autowired constructor(
         attachedTo = loggerName
         refreshGate()
         context.getLogger(loggerName).addAppender(forwardingAppender)
-        log.info("Support telemetry logs leg attached (level {}); it forwards to each connection that grants telemetry", properties.logLevel)
+        log.info("Support telemetry logs leg attached; it forwards to each connection that grants telemetry level={}", properties.logLevel)
     }
 
     /** Sends what is queued, waiting at most the export timeout; for shutdown and tests. */

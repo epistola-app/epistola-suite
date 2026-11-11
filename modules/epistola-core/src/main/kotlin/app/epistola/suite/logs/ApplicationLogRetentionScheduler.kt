@@ -67,9 +67,9 @@ class ApplicationLogRetentionScheduler(
                 .execute()
         }
         if (deleted > 0) {
-            log.info("Application log retention deleted {} row(s) older than {}", deleted, cutoff)
+            log.info("Application log retention deleted rows rows={} cutoff={}", deleted, cutoff)
         } else {
-            log.debug("Application log retention found no rows older than {}", cutoff)
+            log.debug("Application log retention found no rows to delete cutoff={}", cutoff)
         }
         return deleted
     }

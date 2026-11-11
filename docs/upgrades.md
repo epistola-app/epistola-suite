@@ -290,7 +290,7 @@ then one you have not checked yet. Default `true`.
 
 To know in advance how far back you can go, look at the **rollback floor** — the newest applied
 migration that is not rollback-compatible. The migration step logs it on every run
-(`Rollback floor: a build must ship migration … (recorded by 2.1.0) …`), or ask the database:
+(`Rollback floor: a build must ship … migration=… recordedBy="2.1.0"`), or ask the database:
 
 ```sql
 SELECT version, recorded_by

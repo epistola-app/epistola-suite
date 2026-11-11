@@ -67,7 +67,7 @@ class SystemCatalogBootstrap(
                 }
             }
         } catch (e: Exception) {
-            log.error("System catalog auto-upgrade failed: {}", e.message, e)
+            log.error("System catalog auto-upgrade failed reason=\"{}\"", e.message, e)
         }
     }
 
@@ -91,7 +91,7 @@ class SystemCatalogBootstrap(
             } catch (e: Exception) {
                 failed++
                 log.error(
-                    "System catalog auto-upgrade failed for tenant '{}': {}",
+                    "System catalog auto-upgrade failed tenant={} reason=\"{}\"",
                     tenant.id.value,
                     e.message,
                     e,
@@ -102,7 +102,7 @@ class SystemCatalogBootstrap(
             try {
                 mediator.send(ReceiveOneXSubscribedReleases(tenant.id))
             } catch (e: Exception) {
-                log.error("Receiving the releases of 1.x subscribed catalogs failed for tenant '{}': {}", tenant.id.value, e.message, e)
+                log.error("Receiving the releases of 1.x subscribed catalogs failed tenant={} reason=\"{}\"", tenant.id.value, e.message, e)
             }
         }
 
@@ -111,7 +111,7 @@ class SystemCatalogBootstrap(
         // otherwise produce a noisy "checked N tenants" line every restart.
         if (upgraded > 0 || installed > 0 || failed > 0) {
             log.info(
-                "System catalog auto-upgrade — upgraded: {}, installed: {}, already current: {}, failed: {}",
+                "System catalog auto-upgrade done upgraded={} installed={} current={} failed={}",
                 upgraded,
                 installed,
                 current,

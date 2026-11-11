@@ -143,10 +143,10 @@ class ExchangeCatalogHandler {
             // The import refuses this way for things the reader can act on — an unmet cross-catalog
             // dependency above all. Its own branch so a refusal is not logged as a failure: a stack
             // trace at WARN says something unexpected happened, and this is the import working.
-            log.info("Install of {}/{} refused: {}", namespace, catalogKey, e.message)
+            log.info("Install refused namespace={} catalog={} reason=\"{}\"", namespace, catalogKey, e.message)
             installError(request, e.message ?: "Epistola Exchange refused this catalog.")
         } catch (e: Exception) {
-            log.warn("Installing {}/{} failed: {}", namespace, catalogKey, e.message, e)
+            log.warn("Install failed namespace={} catalog={} reason=\"{}\"", namespace, catalogKey, e.message, e)
             installError(request, "The catalog could not be installed from Epistola Exchange. ${e.message ?: ""}".trim())
         }
     }
@@ -214,10 +214,10 @@ class ExchangeCatalogHandler {
         } catch (e: ValidationException) {
             installError(request, e.message)
         } catch (e: IllegalArgumentException) {
-            log.info("Upgrade of {} refused: {}", catalogKey, e.message)
+            log.info("Upgrade refused catalog={} reason=\"{}\"", catalogKey, e.message)
             installError(request, e.message ?: "Epistola Exchange refused this release.")
         } catch (e: Exception) {
-            log.warn("Upgrading {} failed: {}", catalogKey, e.message, e)
+            log.warn("Upgrade failed catalog={} reason=\"{}\"", catalogKey, e.message, e)
             installError(request, "The catalog could not be upgraded. ${e.message ?: ""}".trim())
         }
     }

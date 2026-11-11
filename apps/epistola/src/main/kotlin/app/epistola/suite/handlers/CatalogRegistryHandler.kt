@@ -190,7 +190,7 @@ class CatalogRegistryHandler {
         is IllegalArgumentException -> e.message ?: unexpected
 
         else -> {
-            log.warn("{}: {}", unexpected, e.message, e)
+            log.warn("Catalog registry action failed action=\"{}\" reason=\"{}\"", unexpected, e.message, e)
             "$unexpected. ${e.message.orEmpty()}".trim()
         }
     }

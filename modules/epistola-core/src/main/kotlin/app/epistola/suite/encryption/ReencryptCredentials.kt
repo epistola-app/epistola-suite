@@ -60,7 +60,7 @@ class ReencryptCredentialsHandler(
         val metadata = command.metadataKeys.count { reencryptMetadata(it) }
         ReencryptResult(credentials, metadata).also {
             log.info(
-                "Re-encrypted credentials under primary key '{}': {} credential column(s), {} metadata key(s)",
+                "Re-encrypted credentials under the primary key key={} credentialColumns={} metadataKeys={}",
                 cipher.primaryKeyId,
                 it.credentialsReencrypted.values.sum(),
                 it.metadataReencrypted,

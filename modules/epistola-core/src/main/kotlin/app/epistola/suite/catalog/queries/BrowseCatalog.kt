@@ -124,7 +124,7 @@ class BrowseCatalogHandler(
             catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         } catch (e: Exception) {
             log.warn(
-                "Browsing catalog '{}' — source {} unreachable ({}); showing installed resources only",
+                "Browsing catalog: source unreachable; showing installed resources only catalog={} url={} reason=\"{}\"",
                 query.catalogKey.value,
                 sourceUrl,
                 e.message,

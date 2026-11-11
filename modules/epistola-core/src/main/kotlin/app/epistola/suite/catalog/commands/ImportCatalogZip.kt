@@ -501,7 +501,7 @@ class ImportCatalogZipHandler(
                 // previous release and a re-import retries (never a silent half-upgrade).
                 val failed = results.filter { it.status == InstallStatus.FAILED }
                 log.error(
-                    "Receiving '{}' {} ABORTED — {} resource(s) failed; not pruning stale, not advancing installed version: {}",
+                    "Receiving ABORTED — resources failed; not pruning stale, not advancing installed version catalog={} version={} failures={} details=\"{}\"",
                     catalogKey.value,
                     manifest.release.version,
                     failed.size,
@@ -548,13 +548,13 @@ class ImportCatalogZipHandler(
             // install we DON'T prune (avoid a half-replace).
             if (anyFailed) {
                 log.warn(
-                    "REPLACE of '{}' — {} resource(s) failed; NOT pruning local-only resources (avoiding a half-replace)",
+                    "REPLACE had failed resources; NOT pruning local-only resources (avoiding a half-replace) catalog={} failures={}",
                     catalogKey.value,
                     results.count { it.status == InstallStatus.FAILED },
                 )
             } else {
                 val removed = analyzer.removeStale(at, staleBefore)
-                log.info("REPLACE of '{}' — {} local-only resource(s) pruned", catalogKey.value, removed.size)
+                log.info("REPLACE pruned local-only resources catalog={} pruned={}", catalogKey.value, removed.size)
             }
         }
 

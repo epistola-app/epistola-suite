@@ -78,7 +78,7 @@ class DeploymentUsage(
     override fun handle(task: ClusterScheduledTask) = flush()
 
     @PreDestroy
-    fun flushOnShutdown() = runCatching { flush() }.onFailure { log.warn("Could not record deployment usage on shutdown: {}", it.message) }
+    fun flushOnShutdown() = runCatching { flush() }.onFailure { log.warn("Could not record deployment usage on shutdown reason=\"{}\"", it.message) }
 
     /** Adds this node's tallies to the deployments, and starts new ones. */
     fun flush() {

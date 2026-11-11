@@ -72,7 +72,7 @@ class OidcBackchannelConfiguration(
     fun clientRegistrationRepository(): ClientRegistrationRepository {
         val backchannelBaseUrl = requireBackchannelBaseUrl()
 
-        log.info("Configuring OIDC backchannel: server-to-server calls will use {}", backchannelBaseUrl)
+        log.info("Configuring OIDC backchannel for server-to-server calls url={}", backchannelBaseUrl)
 
         val registrations = oauth2ClientProperties.registration.map { (registrationId, reg) ->
             val providerName = reg.provider ?: registrationId
@@ -128,7 +128,7 @@ class OidcBackchannelConfiguration(
         val backchannelJwkUri = rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!
 
         val audiences = JwtAudiencePolicy.audiences(resourceServerProperties.jwt.audiences)
-        log.info("JWT decoder: fetching JWK from {}, validating issuer against {} and audience against {}", backchannelJwkUri, issuerUri, audiences.ifEmpty { "(none)" })
+        log.info("JWT decoder configured jwkUrl={} issuer={} audiences={}", backchannelJwkUri, issuerUri, audiences.ifEmpty { "(none)" })
 
         return NimbusJwtDecoder.withJwkSetUri(backchannelJwkUri).build().apply {
             setJwtValidator(JwtAudiencePolicy.validator(issuerUri, audiences))
@@ -149,7 +149,7 @@ class OidcBackchannelConfiguration(
 
     private fun discoverOidcMetadata(externalIssuer: String, backchannelBaseUrl: String): OidcMetadata {
         val internalWellKnown = rewriteUrl(wellKnownUrl(externalIssuer), backchannelBaseUrl)!!
-        log.info("Discovering OIDC metadata from {}", internalWellKnown)
+        log.info("Discovering OIDC metadata url={}", internalWellKnown)
 
         val doc = try {
             restClient.get().uri(internalWellKnown).retrieve().body(Map::class.java)

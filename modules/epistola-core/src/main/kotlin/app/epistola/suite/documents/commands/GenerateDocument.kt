@@ -107,7 +107,7 @@ class GenerateDocumentHandler(
             command.releaseVersion,
         )
 
-        log.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
+        log.info("Generating single document tenant={} template={} variant={} catalog={} version={}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             val requestId = GenerationRequestKey.generate()
@@ -152,7 +152,7 @@ class GenerateDocumentHandler(
                 .mapTo<DocumentGenerationRequest>()
                 .one()
 
-            log.info("Created generation request {} for tenant {}", request.id, command.tenantId)
+            log.info("Created generation request request={} tenant={}", request.id, command.tenantId)
             request
         }.also {
             // How much the deployed version is used, for deciding when to undeploy it.

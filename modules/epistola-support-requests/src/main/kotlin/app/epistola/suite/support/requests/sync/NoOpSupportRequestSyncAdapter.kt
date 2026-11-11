@@ -22,21 +22,21 @@ class NoOpSupportRequestSyncAdapter : SupportRequestSyncPort {
     override fun isEnabled(): Boolean = false
 
     override fun createTicket(supportRequest: SupportRequest): SyncResult {
-        log.debug("No-op sync: createTicket called for feedback {}", supportRequest.id)
+        log.debug("No-op sync: createTicket called feedback={}", supportRequest.id)
         return SyncResult(externalRef = "noop", externalUrl = "")
     }
 
     override fun uploadAsset(supportRequest: SupportRequest, assetKey: SupportRequestAssetKey, asset: SupportRequestAssetContent) {
-        log.debug("No-op sync: uploadAsset called for feedback {}", supportRequest.id)
+        log.debug("No-op sync: uploadAsset called feedback={}", supportRequest.id)
     }
 
     override fun addComment(supportRequest: SupportRequest, comment: SupportRequestComment): ExternalCommentRef {
-        log.debug("No-op sync: addComment called for feedback {}", supportRequest.id)
+        log.debug("No-op sync: addComment called feedback={}", supportRequest.id)
         return ExternalCommentRef(externalCommentId = "0")
     }
 
     override fun updateStatus(supportRequest: SupportRequest, status: SupportRequestStatus) {
-        log.debug("No-op sync: updateStatus called for feedback {}", supportRequest.id)
+        log.debug("No-op sync: updateStatus called feedback={}", supportRequest.id)
     }
 
     override fun fetchUpdates(acknowledgeUpTo: Long?): ExternalUpdatePage {

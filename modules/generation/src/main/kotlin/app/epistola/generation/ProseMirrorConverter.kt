@@ -526,7 +526,7 @@ class ProseMirrorConverter(
         for (block in blocks) {
             val blockType = block["type"] as? String
             if (blockType != "paragraph") {
-                log.debug("Dropping block-level rich-text node '{}' from inline context", blockType)
+                log.debug("Dropping block-level rich-text node from inline context nodeType={}", blockType)
                 continue
             }
             val inline = block["content"] as? kotlin.collections.List<Map<String, Any>> ?: continue

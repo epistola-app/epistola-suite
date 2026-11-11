@@ -119,10 +119,10 @@ class FlywayConfig {
         try {
             UpgradePreflights.require(flyway.configuration.dataSource, skippedPreflight)
         } catch (e: UpgradePreflightRefused) {
-            log.error("{}", e.report.describe())
+            log.error("Upgrade preflight refused report=\"{}\"", e.report.describe())
             throw e
         }
-        if (skippedPreflight.isNotEmpty()) log.warn("Upgrade preflight checks skipped by configuration: {}", skippedPreflight.sorted())
+        if (skippedPreflight.isNotEmpty()) log.warn("Upgrade preflight checks skipped by configuration checks={}", skippedPreflight.sorted())
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {
@@ -130,7 +130,7 @@ class FlywayConfig {
             // deterministic exit code (SchemaBehindException) and audience-neutral
             // guidance: local dev recreates its throwaway DB container; a deployed
             // environment must investigate a modified released migration.
-            log.error("Flyway migration validation failed: {}", e.message)
+            log.error("Flyway migration validation failed reason=\"{}\"", e.message)
             throw SchemaBehindException(
                 "Flyway validation failed during migrate — the schema does not match the migrations " +
                     "(a previously applied migration was modified, or the database diverged). This process " +
@@ -155,7 +155,7 @@ class FlywayConfig {
         try {
             flyway.validate()
         } catch (e: FlywayValidateException) {
-            log.error("Flyway validation failed: {}", e.message)
+            log.error("Flyway validation failed reason=\"{}\"", e.message)
             throw SchemaBehindException(schemaBehindMessage(flyway), e)
         }
         if (flyway.info().pending().isNotEmpty()) {

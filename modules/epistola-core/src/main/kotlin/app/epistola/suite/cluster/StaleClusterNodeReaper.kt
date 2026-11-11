@@ -80,11 +80,11 @@ class StaleClusterNodeReaper(
         val retention = properties.effectiveStaleNodeRetention()
         val purge = deleteStaleNodes()
         if (purge.isEmpty) {
-            log.debug("No cluster nodes stale beyond {} to reap", retention)
+            log.debug("No stale cluster nodes to reap retention={}", retention)
         } else {
             log.info(
-                "Reaped {} cluster node(s) unseen for longer than {}, " +
-                    "cascading {} scheduled-task registration(s) and {} per-node task state row(s)",
+                "Reaped cluster nodes unseen beyond the retention, cascading their task registrations and state " +
+                    "nodes={} retention={} registrations={} nodeStates={}",
                 purge.nodes,
                 retention,
                 purge.registrations,

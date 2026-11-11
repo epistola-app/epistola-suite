@@ -35,7 +35,7 @@ class ClusterScheduledTaskRegistrar(
     fun registerDefinitions() {
         registry.registerAll(definitions)
         log.debug(
-            "Registered {} cluster scheduled task definition(s) for node {}",
+            "Registered cluster scheduled task definitions count={} node={}",
             definitions.size,
             nodeIdentity.nodeId,
         )

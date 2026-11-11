@@ -95,7 +95,7 @@ object GroupMembershipParser {
                 TENANTS_SEGMENT -> {
                     // /epistola/tenants/{tenant}/{role} → 5 segments
                     if (segments.size != 5) {
-                        log.debug("Ignoring group '{}': expected /epistola/tenants/{{tenant}}/{{role}}", group)
+                        log.debug("Ignoring group, expected /epistola/tenants/{{tenant}}/{{role}} group={}", group)
                         continue
                     }
                     val tenantPart = segments[3]
@@ -103,14 +103,14 @@ object GroupMembershipParser {
 
                     val role = KNOWN_TENANT_ROLES[rolePart]
                     if (role == null) {
-                        log.debug("Ignoring group '{}': unrecognized role '{}'", group, rolePart)
+                        log.debug("Ignoring group with an unrecognized role group={} role={}", group, rolePart)
                         continue
                     }
 
                     val tenantKey = try {
                         TenantKey.of(tenantPart)
                     } catch (e: IllegalArgumentException) {
-                        log.debug("Ignoring group '{}': invalid tenant key '{}'", group, tenantPart)
+                        log.debug("Ignoring group with an invalid tenant key group={} tenant={}", group, tenantPart)
                         continue
                     }
 
@@ -120,7 +120,7 @@ object GroupMembershipParser {
                 GLOBAL_SEGMENT -> {
                     // /epistola/global/{role} → 4 segments
                     if (segments.size != 4) {
-                        log.debug("Ignoring group '{}': expected /epistola/global/{{role}}", group)
+                        log.debug("Ignoring group, expected /epistola/global/{{role}} group={}", group)
                         continue
                     }
                     val rolePart = segments[3]
@@ -129,14 +129,14 @@ object GroupMembershipParser {
                     if (tenantRole != null) {
                         globalRoles.add(tenantRole)
                     } else {
-                        log.debug("Ignoring group '{}': unrecognized global role '{}'", group, rolePart)
+                        log.debug("Ignoring group with an unrecognized global role group={} globalRole={}", group, rolePart)
                     }
                 }
 
                 PLATFORM_SEGMENT -> {
                     // /epistola/platform/{role} → 4 segments
                     if (segments.size != 4) {
-                        log.debug("Ignoring group '{}': expected /epistola/platform/{{role}}", group)
+                        log.debug("Ignoring group, expected /epistola/platform/{{role}} group={}", group)
                         continue
                     }
                     val rolePart = segments[3]
@@ -145,11 +145,11 @@ object GroupMembershipParser {
                     if (platformRole != null) {
                         platformRoles.add(platformRole)
                     } else {
-                        log.debug("Ignoring group '{}': unrecognized platform role '{}'", group, rolePart)
+                        log.debug("Ignoring group with an unrecognized platform role group={} platformRole={}", group, rolePart)
                     }
                 }
 
-                else -> log.debug("Ignoring group '{}': unrecognized category '{}'", group, segments[2])
+                else -> log.debug("Ignoring group with an unrecognized category group={} category={}", group, segments[2])
             }
         }
 

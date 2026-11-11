@@ -140,7 +140,7 @@ class TemplatePreviewHandler(
         } catch (e: IllegalStateException) {
             // The variant, its template or the tenant is gone (deleted meanwhile, or in another
             // version than the one open). Said in a sentence the editor shows, not a bare 404.
-            log.info("Preview of {}/{} refused: {}", templateId, variantId, e.message)
+            log.info("Preview refused template={} variant={} reason=\"{}\"", templateId, variantId, e.message)
             return ServerResponse.status(HttpStatus.NOT_FOUND)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(

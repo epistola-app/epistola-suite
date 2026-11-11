@@ -50,7 +50,7 @@ class CatalogClient(
 
     /** The bound manifest plus the size of the bytes it came from (the cache weight). */
     private fun loadManifest(url: String, authType: AuthType, credential: String?): Pair<MigratedManifest, Int> {
-        log.debug("Fetching catalog manifest from {}", url)
+        log.debug("Fetching catalog manifest url={}", url)
         // Fetch raw bytes and route through the schema migrator (version gate +
         // wire-format upgrade chain) before binding. This is the single remote
         // chokepoint, so every consumer — install, browse, upgrade-check,
@@ -96,7 +96,7 @@ class CatalogClient(
         credential: String?,
         catalog: CatalogMigrationContext,
     ): Pair<ResourceDetail, Int> {
-        log.debug("Fetching resource detail from {}", resolvedUrl)
+        log.debug("Fetching resource detail url={}", resolvedUrl)
         val bytes = sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
         return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog) to bytes.size
     }
@@ -120,7 +120,7 @@ class CatalogClient(
     }
 
     private fun loadBinary(resolvedUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
-        log.debug("Fetching binary content from {}", resolvedUrl)
+        log.debug("Fetching binary content url={}", resolvedUrl)
         return sourceReader.readDerived(resolvedUrl, manifestUrl, authType.headers(credential), allowHttp)
     }
 

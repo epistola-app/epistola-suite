@@ -88,7 +88,7 @@ class PublishCatalogsHandler : CommandHandler<PublishCatalogs, PublishCatalogsRe
             } catch (_: CatalogDraftUnchangedException) {
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.UNCHANGED)
             } catch (e: RuntimeException) {
-                log.info("Publishing {} along with others was refused: {}", catalog.address, e.message)
+                log.info("Publishing along with others was refused catalog={} reason=\"{}\"", catalog.address, e.message)
                 failed += catalog
                 CatalogPublishOutcome(catalog, CatalogPublishOutcome.Kind.REFUSED, reason = e.message ?: "It was refused")
             }

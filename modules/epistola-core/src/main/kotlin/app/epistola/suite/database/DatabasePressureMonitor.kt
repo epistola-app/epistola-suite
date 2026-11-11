@@ -45,8 +45,8 @@ class DatabasePressureMonitor(
             log.info("Database pressure monitor: Hikari pool-waiter detection is active")
         } else {
             log.warn(
-                "Database pressure monitor: DataSource is not a HikariDataSource ({}) — " +
-                    "pool-waiter detection is disabled; pressure detection relies on statement latency only",
+                "Database pressure monitor: DataSource is not a HikariDataSource; pool-waiter detection is disabled, " +
+                    "pressure detection relies on statement latency only dataSourceClass={}",
                 dataSource::class.qualifiedName,
             )
         }

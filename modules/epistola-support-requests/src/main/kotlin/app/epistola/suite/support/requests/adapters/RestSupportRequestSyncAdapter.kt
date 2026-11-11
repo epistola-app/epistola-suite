@@ -191,7 +191,7 @@ class RestSupportRequestSyncAdapter(
         val tenantKey = node.text("suiteRequestId")?.let(::localTenant)
             ?: node.text("tenantKey")?.let { runCatching { TenantKey.of(it) }.getOrNull() }
         if (seq == null || remoteId == null || tenantKey == null) {
-            log.warn("Skipping a support request change without a usable sequence, requestId or tenantKey: {}", node)
+            log.warn("Skipping a support request change without a usable sequence, requestId or tenantKey change=\"{}\"", node)
             return null
         }
         val occurredAt = node.text("occurredAt")?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: Instant.EPOCH
@@ -201,7 +201,7 @@ class RestSupportRequestSyncAdapter(
                 val messageId = message.text("messageId")
                 val body = message.text("body")
                 if (messageId == null || body == null || message.text("kind") != "REPLY") {
-                    log.warn("Skipping support request change {}: not a reply with a messageId and a body", seq)
+                    log.warn("Skipping a support request change: not a reply with a messageId and a body seq={}", seq)
                     return null
                 }
                 ExternalUpdate.Comment(
@@ -219,7 +219,7 @@ class RestSupportRequestSyncAdapter(
             "STATUS" -> {
                 val status = node.text("status")?.let { value -> SupportRequestStatus.entries.firstOrNull { it.name == value } }
                 if (status == null) {
-                    log.warn("Skipping support request change {}: unknown status {}", seq, node.text("status"))
+                    log.warn("Skipping a support request change with an unknown status seq={} status=\"{}\"", seq, node.text("status"))
                     return null
                 }
                 ExternalUpdate.StatusChange(seq = seq, tenantKey = tenantKey, externalRef = remoteId, occurredAt = occurredAt, newStatus = status)
@@ -228,7 +228,7 @@ class RestSupportRequestSyncAdapter(
             "PRIORITY" -> {
                 val priority = node.text("priority")?.let { value -> SupportRequestPriority.entries.firstOrNull { it.name == value } }
                 if (priority == null) {
-                    log.warn("Skipping support request change {}: unknown priority {}", seq, node.text("priority"))
+                    log.warn("Skipping a support request change with an unknown priority seq={} priority=\"{}\"", seq, node.text("priority"))
                     return null
                 }
                 ExternalUpdate.PriorityChange(seq = seq, tenantKey = tenantKey, externalRef = remoteId, occurredAt = occurredAt, newPriority = priority)
@@ -237,7 +237,7 @@ class RestSupportRequestSyncAdapter(
             "ESCALATION" -> ExternalUpdate.EscalationRequest(seq = seq, tenantKey = tenantKey, externalRef = remoteId, occurredAt = occurredAt, reason = node.text("reason"))
 
             else -> {
-                log.debug("Skipping support request change {} of a type this suite does not know: {}", seq, node.text("type"))
+                log.debug("Skipping a support request change of a type this suite does not know seq={} type=\"{}\"", seq, node.text("type"))
                 null
             }
         }

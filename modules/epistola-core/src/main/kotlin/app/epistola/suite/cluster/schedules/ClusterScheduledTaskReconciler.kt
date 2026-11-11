@@ -56,7 +56,7 @@ class ClusterScheduledTaskReconciler(
         val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
         val deleted = taskRegistry.deleteOrphanedTasks(seenSince)
         if (deleted.isNotEmpty()) {
-            log.info("Deleted {} orphaned cluster scheduled task(s): {}", deleted.size, deleted)
+            log.info("Deleted orphaned cluster scheduled tasks count={} tasks={}", deleted.size, deleted)
         }
     }
 

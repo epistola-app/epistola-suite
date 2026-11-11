@@ -111,7 +111,7 @@ class CatalogMetadataHandler {
                 onFullPage { redirect(back) }
             }
         } catch (e: Exception) {
-            log.warn("Failed to update catalog metadata: {}", e.message)
+            log.warn("Failed to update catalog metadata reason=\"{}\"", e.message)
             // Into the dialog's error slot; what was typed stays.
             request.htmx {
                 globalFormError("catalog-metadata-error", e.message ?: "Failed to save catalog metadata.")

@@ -159,7 +159,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         // two different ways. Surface the bound property so both paths name the field.
         val field = ex.bindingFieldName()
         if (field != null) {
-            log.warn("Request body rejected: property '{}' is missing or not bindable", field)
+            log.warn("Request body rejected, a property is missing or not bindable property={}", field)
             return problemEntity(
                 request,
                 headers,
@@ -177,7 +177,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             )
         }
 
-        log.warn("Unreadable request body: {}", ex.message)
+        log.warn("Unreadable request body reason=\"{}\"", ex.message)
 
         return problemEntity(request, headers, ApiProblemTypes.BAD_REQUEST, "Request body is malformed or unreadable")
     }
@@ -206,7 +206,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         status: HttpStatusCode,
         request: WebRequest,
     ): ResponseEntity<Any> {
-        log.warn("Validation failed on request body: {} errors", ex.bindingResult.errorCount)
+        log.warn("Validation failed on request body errors={}", ex.bindingResult.errorCount)
 
         val fieldErrors = ex.bindingResult.fieldErrors.map {
             ValidationError(
@@ -242,7 +242,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         status: HttpStatusCode,
         request: WebRequest,
     ): ResponseEntity<Any> {
-        log.warn("Required parameter '{}' is missing", ex.parameterName)
+        log.warn("Required parameter is missing parameter={}", ex.parameterName)
         return problemEntity(
             request,
             headers,
@@ -260,7 +260,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     ): ResponseEntity<Any> {
         val typeMismatch = ex as? MethodArgumentTypeMismatchException
             ?: return super.handleTypeMismatch(ex, headers, status, request)!!
-        log.warn("Type mismatch for parameter '{}': expected {}, got {}", typeMismatch.name, typeMismatch.requiredType?.simpleName, typeMismatch.value)
+        log.warn("Type mismatch for parameter parameter={} expected={} value=\"{}\"", typeMismatch.name, typeMismatch.requiredType?.simpleName, typeMismatch.value)
 
         val expected = typeMismatch.requiredType?.simpleName
         return problemEntity(
@@ -333,7 +333,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(ReleaseRenderingDefaultsTooNewException::class)
     fun handleRenderingDefaultsTooNew(ex: ReleaseRenderingDefaultsTooNewException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Catalog release refused — rendering defaults too new: {}", ex.message)
+        log.warn("Catalog release refused, rendering defaults too new reason=\"{}\"", ex.message)
         val problem = ContractProblemDetails.catalogRenderingDefaultsTooNew(
             renderingDefaultsVersion = ex.renderingDefaultsVersion,
             supportedVersion = ex.supported,
@@ -351,7 +351,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(CatalogSourceUnavailableException::class)
     fun handleCatalogSourceUnavailable(ex: CatalogSourceUnavailableException, request: WebRequest): ResponseEntity<Any> {
-        log.warn("Catalog source unavailable: {}", ex.message)
+        log.warn("Catalog source unavailable reason=\"{}\"", ex.message)
         val headers = HttpHeaders()
         ex.retryAfterSeconds?.let { headers.set(HttpHeaders.RETRY_AFTER, it.toString()) }
         val type = if (ex.badGateway) ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE.copy(status = HttpStatus.BAD_GATEWAY) else ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE
@@ -451,7 +451,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             ?: throw IllegalStateException("No ApiExceptionMapping registered for ${ex.javaClass.name}")
 
         // The mapping's text names ids from the request: an argument, so pseudonymised telemetry leaves it out.
-        log.warn("API request refused ({}): {}", ex.javaClass.simpleName, mapping.logMessage(ex))
+        log.warn("API request refused exception={} reason=\"{}\"", ex.javaClass.simpleName, mapping.logMessage(ex))
 
         return problemResponse(
             request = request,
@@ -468,7 +468,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(BatchValidationException::class)
     fun handleBatchValidationException(ex: BatchValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Batch validation failed: {}", ex.message)
+        log.warn("Batch validation failed reason=\"{}\"", ex.message)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
@@ -476,7 +476,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(DataModelValidationException::class)
     fun handleDataModelValidationException(ex: DataModelValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Data model validation failed: {} examples with errors", ex.validationErrors.size)
+        log.warn("Data model validation failed examplesWithErrors={}", ex.validationErrors.size)
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
@@ -485,7 +485,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(TemplateDataInvalidException::class)
     fun handleTemplateDataInvalidException(ex: TemplateDataInvalidException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn(
-            "Preview data invalid: {} missing, {} invalid",
+            "Preview data invalid missing={} invalid={}",
             ex.analysis.missingFields.count { it.required },
             ex.analysis.invalidFields.size,
         )
@@ -501,7 +501,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(ConstraintViolationException::class)
     fun handleConstraintViolation(ex: ConstraintViolationException, request: WebRequest): ResponseEntity<Any> {
-        log.warn("Parameter validation failed: {}", ex.message)
+        log.warn("Parameter validation failed reason=\"{}\"", ex.message)
         val errors = ex.constraintViolations.sortedBy { it.propertyPath.toString() }.map {
             ValidationError(field = parameterName(it), message = it.message ?: "Invalid value", rejectedValue = it.invalidValue?.toString(), code = ApiValidationCodes.of(it))
         }
@@ -537,7 +537,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(ValidationException::class)
     fun handleValidationException(ex: ValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Validation failed [{}] for field '{}': {}", ex.code.wire, ex.field, ex.message)
+        log.warn("Validation failed code={} field={} reason=\"{}\"", ex.code.wire, ex.field, ex.message)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toValidationProblemDetail(request))
@@ -588,13 +588,13 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException::class)
     fun handleAccessDeniedException(ex: org.springframework.security.access.AccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Access denied: {}", ex.message)
+        log.warn("Access denied reason=\"{}\"", ex.message)
         return problemResponse(request, ApiProblemTypes.FORBIDDEN, "Access denied")
     }
 
     @ExceptionHandler(org.springframework.security.core.AuthenticationException::class)
     fun handleAuthenticationException(ex: org.springframework.security.core.AuthenticationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Authentication failed: {}", ex.message)
+        log.warn("Authentication failed reason=\"{}\"", ex.message)
         return problemResponse(request, ApiProblemTypes.UNAUTHORIZED, "Authentication required")
     }
 
@@ -610,7 +610,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(InvalidParameterException::class)
     fun handleInvalidParameter(ex: InvalidParameterException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Unparseable request parameters: {}", sanitizeForLog(ex.message.orEmpty()))
+        log.warn("Unparseable request parameters reason=\"{}\"", sanitizeForLog(ex.message.orEmpty()))
         if (ex.errorCode == HttpStatus.CONTENT_TOO_LARGE.value()) {
             return problemResponse(request, ApiProblemTypes.CONTENT_TOO_LARGE, "The request has too many parameters")
         }
@@ -625,13 +625,13 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(RequestRejectedException::class)
     fun handleRequestRejected(ex: RequestRejectedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Request rejected by the firewall: {}", sanitizeForLog(ex.message.orEmpty()))
+        log.warn("Request rejected by the firewall reason=\"{}\"", sanitizeForLog(ex.message.orEmpty()))
         return problemResponse(request, ApiProblemTypes.BAD_REQUEST, REQUEST_REJECTED_DETAIL)
     }
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(ex: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
-        log.warn("Bad request: {}", ex.message)
+        log.warn("Bad request reason=\"{}\"", ex.message)
         return problemResponse(request, ApiProblemTypes.BAD_REQUEST, ex.message ?: "Invalid request")
     }
 
@@ -645,13 +645,13 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         // column identity, so the message stays form-level rather than a field error, and the
         // raw driver text is never echoed to the caller.
         findSqlState(ex, "22001")?.let { truncation ->
-            log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
+            log.warn("Over-length input rejected by the database (SQLSTATE 22001) reason=\"{}\"", truncation.message)
             return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "A value in the request is too long.")
         }
         // A NUL character (`\u0000`) in a string: PostgreSQL stores no NUL in text (SQLSTATE 22021,
         // "invalid byte sequence"). The input is wrong, not the server.
         findSqlState(ex, "22021")?.let { encoding ->
-            log.warn("Input the database cannot store rejected (SQLSTATE 22021): {}", encoding.message)
+            log.warn("Input the database cannot store rejected (SQLSTATE 22021) reason=\"{}\"", encoding.message)
             return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "A value in the request contains a character that cannot be stored, such as a NUL.")
         }
         log.error("Unexpected error in API controller", ex)

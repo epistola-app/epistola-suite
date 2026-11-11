@@ -114,9 +114,9 @@ class QualityCheckTimerHandler : ClusterTimerHandler {
                 RunQualityChecks(variantId, triggers = QualityCheckTimer.triggersOf(timer), catalogVersion = version).execute()
             } catch (e: CatalogReleaseNotFoundException) {
                 // The draft was released or discarded since: what is left of it is checked elsewhere or not at all.
-                log.debug("Not checking {}: {}", variantId.toUrn(), e.message)
+                log.debug("Not checking variant variant={} reason=\"{}\"", variantId.toUrn(), e.message)
             } catch (e: CatalogReleaseIsReleasedException) {
-                log.debug("Not checking {}: {}", variantId.toUrn(), e.message)
+                log.debug("Not checking variant variant={} reason=\"{}\"", variantId.toUrn(), e.message)
             }
         }
         return ClusterTimerResult.Complete
@@ -154,7 +154,7 @@ class OnVariantSavedScheduleChecks(
     ) {
         if (!properties.checkOnSave) return
         if (!QualityCheckTimer.enabledFor(event.variantId.tenantKey)) return
-        log.debug("Checking {} after its save", event.variantId.toUrn())
+        log.debug("Checking a variant after its save variant={}", event.variantId.toUrn())
         QualityCheckTimer.schedule(event.variantId, properties.checkOnSaveDelay, CheckTrigger.SAVE, event.catalogVersion?.draft ?: DraftRef.Next)
     }
 

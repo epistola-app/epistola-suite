@@ -354,7 +354,7 @@ object StyleApplicator {
         if (value == null) return null
         val ref = FontRefs.parse(value)
         if (ref == null) {
-            log.warn("Ignoring malformed fontFamily (expected {{slug, catalogKey}} with a non-blank slug): {}", value)
+            log.warn("Ignoring malformed fontFamily, expected an object with a non-blank slug and catalogKey value=\"{}\"", value)
         }
         return ref
     }

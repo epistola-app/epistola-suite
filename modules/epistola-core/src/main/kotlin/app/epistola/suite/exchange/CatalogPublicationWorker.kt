@@ -166,7 +166,7 @@ class CatalogPublicationWorker(
     private fun giveUpOnSubmission(publication: CatalogReleasePublication) {
         store.abandon(publication.id, ExchangeFailureCode.SUBMISSION_UNDECIDED)
         log.error(
-            "Exchange publication {} was submitted as {} but undecided after {}; giving up",
+            "Exchange publication still undecided after submission; giving up publication={} remotePublication={} timeout={}",
             publication.id,
             publication.remotePublicationId,
             properties.submittedTimeout,
@@ -206,7 +206,7 @@ class CatalogPublicationWorker(
                     ExchangeFailureCode.EXCHANGE_UNREACHABLE,
                     failure.message,
                 )
-                log.warn("Exchange unreachable; publication {} waits without spending a retry", publication.id)
+                log.warn("Exchange unreachable; publication waits without spending a retry publication={}", publication.id)
                 return
             }
 
@@ -222,13 +222,13 @@ class CatalogPublicationWorker(
         )
         if (status == CatalogPublicationStatus.FAILED) {
             log.error(
-                "Exchange publication {} gave up after {} attempts: {}",
+                "Exchange publication gave up publication={} attempts={} reason=\"{}\"",
                 publication.id,
                 publication.attempts + 1,
                 failure.message,
             )
         } else {
-            log.warn("Exchange publication {} failed, will retry: {}", publication.id, failure.message)
+            log.warn("Exchange publication failed, will retry publication={} reason=\"{}\"", publication.id, failure.message)
         }
     }
 
@@ -250,7 +250,7 @@ class CatalogPublicationWorker(
         }
         store.defer(publication.id, properties.setupRetryInterval, ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
         log.warn(
-            "Exchange withdrew namespace '{}' from tenant {}; publication {} is waiting",
+            "Exchange withdrew the namespace; publication is waiting namespace={} tenant={} publication={}",
             publication.namespace,
             publication.tenantKey,
             publication.id,

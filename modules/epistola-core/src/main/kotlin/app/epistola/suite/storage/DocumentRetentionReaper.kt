@@ -63,7 +63,7 @@ class DocumentRetentionReaper(
                 try {
                     maintainer.reclaim(partitions.retentionMonths)
                 } catch (e: Exception) {
-                    log.error("Content retention maintainer {} failed: {}", maintainer.javaClass.simpleName, e.message, e)
+                    log.error("Content retention maintainer failed maintainer={} reason=\"{}\"", maintainer.javaClass.simpleName, e.message, e)
                 }
             }
         }

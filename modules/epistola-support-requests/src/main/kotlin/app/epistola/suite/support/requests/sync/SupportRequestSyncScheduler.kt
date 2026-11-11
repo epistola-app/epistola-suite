@@ -164,13 +164,13 @@ class SupportRequestSyncScheduler(
             val now = EpistolaClock.offsetDateTime()
             return when (e.supportRequestSyncFailure()) {
                 SupportRequestSyncFailure.STOP_ROUND -> {
-                    log.warn("Sending {} deferred; ending this round: {}", what, e.message)
+                    log.warn("Sending deferred; ending this round item=\"{}\" reason=\"{}\"", what, e.message)
                     syncAttempts("deferred").increment()
                     false
                 }
 
                 SupportRequestSyncFailure.ITEM_SERVER_ERROR -> {
-                    log.warn("The support service failed on {}; trying it again later: {}", what, e.message)
+                    log.warn("The support service failed on an item; trying it again later item=\"{}\" reason=\"{}\"", what, e.message)
                     syncAttempts("deferred").increment()
                     defer(false, now.plus(SupportRequestSyncBackoff.FIRST))
                     ++serverErrors < SupportRequestSyncBackoff.MAX_ITEM_SERVER_ERRORS_IN_A_ROW
@@ -178,7 +178,7 @@ class SupportRequestSyncScheduler(
 
                 SupportRequestSyncFailure.REFUSED -> {
                     serverErrors = 0
-                    log.error("The support service refused {} (attempt {}): {}", what, attempts + 1, e.message)
+                    log.error("The support service refused an item item=\"{}\" attempt={} reason=\"{}\"", what, attempts + 1, e.message)
                     syncAttempts("failure").increment()
                     defer(true, now.plus(SupportRequestSyncBackoff.afterRefusals(attempts + 1)))
                     true
@@ -226,7 +226,7 @@ class SupportRequestSyncScheduler(
                     port.uploadAsset(supportRequest, asset.assetId.key, content)
                     MarkSupportRequestAssetSynced(asset.assetId, round.connectionId).execute()
                     round.succeeded()
-                    log.info("Sent asset {} of feedback {} to Epistola support", asset.id, supportRequest.id)
+                    log.info("Sent an asset to Epistola support asset={} feedback={}", asset.id, supportRequest.id)
                     true
                 } catch (e: Exception) {
                     round.failed("asset ${asset.id} of feedback ${supportRequest.id}", e, asset.syncAttempts) { count, next ->
@@ -265,7 +265,7 @@ class SupportRequestSyncScheduler(
                         val ref = port.addComment(supportRequest, comment)
                         UpdateSupportRequestCommentExternalRef(id = commentId, externalCommentId = ref.externalCommentId, connectionId = round.connectionId).execute()
                         round.succeeded()
-                        log.info("Sent comment {} of feedback {}", comment.id, supportRequest.id)
+                        log.info("Sent a comment comment={} feedback={}", comment.id, supportRequest.id)
                     } catch (e: Exception) {
                         val goOn = round.failed("comment ${comment.id}", e, comment.syncAttempts) { count, next ->
                             RecordSupportRequestCommentSyncFailure(commentId, next, count, round.connectionId).execute()
@@ -291,7 +291,7 @@ class SupportRequestSyncScheduler(
                     port.updateStatus(supportRequest, supportRequest.status)
                     RecordSupportRequestStatusSync(supportRequestId, sent = supportRequest.status, connectionId = round.connectionId).execute()
                     round.succeeded()
-                    log.info("Sent status {} of feedback {}", supportRequest.status, supportRequest.id)
+                    log.info("Sent a status status={} feedback={}", supportRequest.status, supportRequest.id)
                     true
                 } catch (e: Exception) {
                     round.failed("the status of feedback ${supportRequest.id}", e, attempts) { count, next ->
@@ -309,7 +309,7 @@ class SupportRequestSyncScheduler(
      * its batch stops what it has not started. A call already on its way still completes.
      */
     private fun stillToSend(item: OutboundSupportRequestItem, connectionId: java.util.UUID): Boolean = IsSupportRequestItemStillToSend(item, connectionId).query().also {
-        if (!it) log.debug("Not sending {}: no longer to be sent (consent withdrawn meanwhile)", item)
+        if (!it) log.debug("Not sending an item: no longer to be sent (consent withdrawn meanwhile) item={}", item)
     }
 
     private fun syncSupportRequest(supportRequest: SupportRequest, port: SupportRequestSyncPort, connectionId: java.util.UUID) {
@@ -325,7 +325,7 @@ class SupportRequestSyncScheduler(
             connectionId = connectionId,
         ).execute()
 
-        log.info("Successfully synced feedback {} to external ticket {}", supportRequest.id, syncResult.externalRef)
+        log.info("Synced feedback to an external ticket feedback={} ticket={}", supportRequest.id, syncResult.externalRef)
     }
 
     companion object {

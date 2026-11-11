@@ -114,7 +114,7 @@ class StaleJobRecovery(
             }
 
             if (recovered.isNotEmpty()) {
-                log.warn("Recovered {} stale jobs (reset to PENDING): {}", recovered.size, recovered)
+                log.warn("Recovered stale jobs, reset to PENDING count={} requests={}", recovered.size, recovered)
             }
         }
     }

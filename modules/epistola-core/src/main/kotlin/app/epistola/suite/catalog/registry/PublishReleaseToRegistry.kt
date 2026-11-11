@@ -129,7 +129,7 @@ class PublishReleaseToRegistryHandler(
         val config = client.pushBlob(repository, OciMediaTypes.CONFIG, ReleaseArtifact.config(mapper, labels))
         val layer = client.pushBlob(repository, OciMediaTypes.ARCHIVE, archive.zipBytes, mapOf(OciAnnotations.IMAGE_TITLE to archive.filename))
         val digest = client.pushManifest(repository, version, ReleaseArtifact.manifest(mapper, labels, config, layer))
-        log.info("Published {} {} of tenant {} to {} as {}@{}", catalog.id.value, version, command.tenantKey.value, registry.name, repository, digest)
+        log.info("Published release to registry catalog={} version={} tenant={} registry=\"{}\" repository={} digest={}", catalog.id.value, version, command.tenantKey.value, registry.name, repository, digest)
         return result(digest, already = false)
     }
 }

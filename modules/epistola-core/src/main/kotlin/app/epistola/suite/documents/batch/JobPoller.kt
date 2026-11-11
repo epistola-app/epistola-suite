@@ -148,7 +148,7 @@ class JobPoller(
         val latch = idleLatch
         if (activeJobs.get() == 0) return
         if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-            log.warn("Timed out waiting for {} active jobs to complete", activeJobs.get())
+            log.warn("Timed out waiting for active jobs to complete activeJobs={}", activeJobs.get())
         }
     }
 
@@ -161,13 +161,13 @@ class JobPoller(
     @EventListener(ContextClosedEvent::class)
     fun onContextClosed() {
         if (shuttingDown.compareAndSet(false, true)) {
-            log.info("Shutdown started: no new generation jobs are claimed (active jobs: {})", activeJobs.get())
+            log.info("Shutdown started: no new generation jobs are claimed activeJobs={}", activeJobs.get())
         }
     }
 
     @PreDestroy
     fun shutdown() {
-        log.info("Job poller shutting down... (active jobs: {})", activeJobs.get())
+        log.info("Job poller shutting down activeJobs={}", activeJobs.get())
         shuttingDown.set(true)
 
         // Let in-flight renders finish; whatever outlasts the drain timeout is interrupted and
@@ -180,15 +180,15 @@ class JobPoller(
         try {
             val released = releaseOwnInProgressClaims()
             if (released > 0) {
-                log.info("Released {} in-progress claims back to PENDING on shutdown", released)
+                log.info("Released in-progress claims back to PENDING on shutdown claims={}", released)
             }
         } catch (e: Exception) {
             // Datasource may already be closing during shutdown. Don't fail the shutdown
             // path on this — StaleJobRecovery is the safety net.
-            log.warn("Failed to release in-progress claims on shutdown: {}", e.message)
+            log.warn("Failed to release in-progress claims on shutdown reason=\"{}\"", e.message)
         }
 
-        log.info("Job poller shut down (remaining active jobs: {})", activeJobs.get())
+        log.info("Job poller shut down activeJobs={}", activeJobs.get())
     }
 
     /**
@@ -291,7 +291,7 @@ class JobPoller(
                     drainEmptyCounter.increment()
                     pendingCount.set(0)
                     log.debug(
-                        "No pending jobs available | Batch size: {}, Active: {}/{}",
+                        "No pending jobs available batchSize={} activeJobs={} jobLimit={}",
                         requestedBatchSize,
                         activeJobs.get(),
                         effectiveLimit,
@@ -301,7 +301,7 @@ class JobPoller(
                 drainFoundCounter.increment()
 
                 log.info(
-                    "Claimed {} job(s) | Requested batch: {}, Available slots: {}, Active: {}/{}",
+                    "Claimed jobs count={} batchSize={} availableSlots={} activeJobs={} jobLimit={}",
                     requests.size,
                     requestedBatchSize,
                     availableSlots,
@@ -320,7 +320,7 @@ class JobPoller(
                         }
                     }
 
-                    log.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
+                    log.debug("Processing request request={} activeJobs={}", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
                     jobThreadExecutor.submit(
@@ -335,7 +335,7 @@ class JobPoller(
                                     }
                                     count
                                 }
-                                log.debug("Slot freed after {} (active jobs: {})", request.id.value, newActiveCount)
+                                log.debug("Slot freed request={} activeJobs={}", request.id.value, newActiveCount)
                                 // Signal: slot freed, check for more work immediately
                                 requestDrain()
                             }
@@ -398,10 +398,10 @@ class JobPoller(
                 // Interrupted by shutdown, not a render failure: leave the row alone so
                 // releaseOwnInProgressClaims returns it to PENDING for another instance.
                 outcome = "interrupted"
-                log.info("Job {} interrupted by shutdown; its claim is released to PENDING", request.id.value)
+                log.info("Job interrupted by shutdown; its claim is released to PENDING request={}", request.id.value)
             } else {
                 outcome = "failure"
-                log.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+                log.error("Job execution failed request={} reason=\"{}\"", request.id.value, e.message, e)
                 jobsFailedCounter.increment()
                 markRequestFailed(request.id, e.message)
             }
@@ -410,7 +410,7 @@ class JobPoller(
             Timer.builder("epistola.jobs.duration").tag("outcome", outcome).register(meterRegistry),
         ) / 1_000_000
         batchSizer.recordJobCompletion(durationMs)
-        log.info("Job completed: {} in {}ms (outcome={})", request.id.value, durationMs, outcome)
+        log.info("Job completed request={} durationMs={} outcome={}", request.id.value, durationMs, outcome)
     }
 
     private fun isInterruption(e: Exception): Boolean = Thread.currentThread().isInterrupted ||
@@ -439,7 +439,7 @@ class JobPoller(
             }
             pendingCount.set(count)
         } catch (e: Exception) {
-            log.debug("Failed to update pending count: {}", e.message)
+            log.debug("Failed to update pending count reason=\"{}\"", e.message)
         }
     }
 

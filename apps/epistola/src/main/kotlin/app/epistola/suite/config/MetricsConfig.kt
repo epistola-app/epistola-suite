@@ -93,7 +93,7 @@ class MetricsConfig {
             Tag.of("environment", environment),
             Tag.of("version", version),
         )
-        log.info("Tagging all metrics with: {}", tags.joinToString { "${it.key}=${it.value}" })
+        log.info("Tagging all metrics tags=\"{}\"", tags.joinToString { "${it.key}=${it.value}" })
         return MeterFilter.commonTags(tags)
     }
 

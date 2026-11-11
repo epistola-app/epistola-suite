@@ -98,7 +98,7 @@ class ExchangeMetricsPublisher(
             connections.forEach { (status, value) -> value.set((connectionCounts[status] ?: 0L).toDouble()) }
             oldestActiveAgeSeconds.set(store.installationOldestActiveAgeSeconds())
             retainedArchiveBytes.set(store.installationRetainedArchiveBytes())
-            log.debug("Published Exchange publication gauges: {}", publicationCounts)
+            log.debug("Published Exchange publication gauges counts=\"{}\"", publicationCounts)
         }
     }
 

@@ -70,7 +70,7 @@ class CatalogTransferHandler {
                 ),
             )
         } catch (e: Exception) {
-            log.warn("Failed to preview install: {}", e.message, e)
+            log.warn("Failed to preview install reason=\"{}\"", e.message, e)
             fragmentOrPage(request, "catalogs/browse", "install-preview-error", mapOf("error" to (e.message ?: "Failed to resolve dependencies.")))
         }
     }
@@ -99,7 +99,7 @@ class CatalogTransferHandler {
 
             browseFragment(request, catalog, message.first, message.second)
         } catch (e: Exception) {
-            log.warn("Failed to install from catalog: {}", e.message, e)
+            log.warn("Failed to install from catalog reason=\"{}\"", e.message, e)
             browseFragment(request, catalog, errorMessage = e.message ?: "Failed to install resources from catalog.")
         }
     }
@@ -138,7 +138,7 @@ class CatalogTransferHandler {
                 .header("Content-Disposition", "attachment; filename=\"${result.filename}\"")
                 .body(result.zipBytes)
         } catch (e: Exception) {
-            log.warn("Failed to export catalog: {}", e.message, e)
+            log.warn("Failed to export catalog reason=\"{}\"", e.message, e)
             ServerResponse.badRequest()
                 .header("Content-Type", "application/json")
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))

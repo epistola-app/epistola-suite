@@ -229,8 +229,8 @@ class SchemaRollbackGuard(
             RollbackVerdict.Shipped -> Unit
 
             is RollbackVerdict.AheadCompatible -> log.warn(
-                "Database schema is ahead of this build by {} migration(s) it does not ship ({}), each recorded " +
-                    "as rollback-compatible, so this build starts. This is a rolled-back deployment.",
+                "Database schema is ahead of this build by migrations it does not ship, each recorded " +
+                    "as rollback-compatible, so this build starts. This is a rolled-back deployment. count={} migrations={}",
                 verdict.unshipped.size,
                 verdict.unshipped.joinToString(", "),
             )
@@ -240,7 +240,7 @@ class SchemaRollbackGuard(
                 if (enforced) throw refusal
                 log.warn(
                     "Rollback guard disabled (epistola.migration.rollback-guard.enabled=false), so this build starts " +
-                        "although it would have refused: {}",
+                        "although it would have refused reason=\"{}\"",
                     refusal.description,
                 )
             }
@@ -269,8 +269,8 @@ class SchemaRollbackGuard(
         val floor = recorded().filterValues { !it.rollbackCompatible }.maxByOrNull { it.key }
         if (floor != null) {
             log.info(
-                "Rollback floor: a build must ship migration {} (recorded by {}), the newest applied migration " +
-                    "that is not rollback-compatible, to start against this database",
+                "Rollback floor: a build must ship the newest applied migration " +
+                    "that is not rollback-compatible to start against this database migration={} recordedBy=\"{}\"",
                 floor.key,
                 floor.value.recordedBy ?: "an unversioned build",
             )

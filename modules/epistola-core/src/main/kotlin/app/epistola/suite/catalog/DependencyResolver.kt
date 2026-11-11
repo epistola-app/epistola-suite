@@ -155,7 +155,7 @@ class DependencyResolver(
 
         if (result.size > selected.size) {
             val added = result.keys - selected.map { "${it.type}:${it.key}" }.toSet()
-            log.info("Auto-including {} dependencies: {}", added.size, added)
+            log.info("Auto-including dependencies count={} dependencies=\"{}\"", added.size, added)
         }
 
         return result.values.toList()

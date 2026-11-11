@@ -94,7 +94,7 @@ class ExchangeCatalogInstaller(
             // Nothing was advanced, so nothing about the upstream state should be either: the next
             // run must retry this same release rather than believe it is installed.
             log.warn(
-                "Install of {} {} into tenant {} aborted; {} resource(s) failed",
+                "Install aborted; resources failed source={} version={} tenant={} failures={}",
                 sourceUri,
                 release.version,
                 tenantKey.value,

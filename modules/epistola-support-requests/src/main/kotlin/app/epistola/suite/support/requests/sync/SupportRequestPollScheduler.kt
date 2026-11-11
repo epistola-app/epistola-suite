@@ -93,7 +93,7 @@ class SupportRequestPollScheduler(
         // Not wired, no `requests` scope, or the connection known unreachable: skip its poll rather
         // than fail the fetch.
         if (!gate.canSendNow(connectionId)) {
-            log.debug("Support requests cannot be fetched from connection {} now; skipping its poll", connectionId)
+            log.debug("Support requests cannot be fetched from a connection now; skipping its poll connection={}", connectionId)
             return false
         }
 
@@ -111,14 +111,14 @@ class SupportRequestPollScheduler(
             } catch (e: Exception) {
                 if (e.isSupportRequestSyncDeferred()) {
                     // Unreachable: what was handled is acknowledged by the next poll, not retried now.
-                    log.debug("Epistola support service unavailable while polling support request changes: {}", e.message)
+                    log.debug("Epistola support service unavailable while polling support request changes reason=\"{}\"", e.message)
                     return found
                 }
                 throw e
             }
             if (page.lastSequence == null) break
             found = true
-            log.info("Fetched {} support request changes up to {}", page.updates.size, page.lastSequence)
+            log.info("Fetched support request changes count={} upToSeq={}", page.updates.size, page.lastSequence)
 
             var lastProcessed: Long? = null
             for (update in page.updates) {
@@ -127,7 +127,7 @@ class SupportRequestPollScheduler(
                     lastProcessed = update.seq
                 } catch (e: Exception) {
                     log.error(
-                        "Failed to process update seq {} for tenant {} (ref={}): {}",
+                        "Failed to process a support request update seq={} tenant={} ref={} reason=\"{}\"",
                         update.seq,
                         update.tenantKey,
                         update.externalRef,
@@ -156,7 +156,7 @@ class SupportRequestPollScheduler(
             supportRequestSyncPort.fetchUpdates(sequence)
         } catch (e: Exception) {
             if (!e.isSupportRequestSyncDeferred()) throw e
-            log.debug("Epistola support service unavailable while acknowledging support request changes: {}", e.message)
+            log.debug("Epistola support service unavailable while acknowledging support request changes reason=\"{}\"", e.message)
         }
     }
 
@@ -171,11 +171,11 @@ class SupportRequestPollScheduler(
     private fun applyUpdate(tenantKey: TenantKey, update: ExternalUpdate, connectionId: java.util.UUID) {
         // A tenant that withdrew its consent no longer takes replies from that connection either.
         if (!IsSupportRequestSyncConsentInForce(tenantKey, connectionId).query()) {
-            log.debug("Skipping feedback update seq {}: tenant {} has no consent in force", update.seq, tenantKey)
+            log.debug("Skipping a feedback update: the tenant has no consent in force seq={} tenant={}", update.seq, tenantKey)
             return
         }
         val supportRequestId = GetSupportRequestByExternalRef(tenantKey, update.externalRef, connectionId).query() ?: run {
-            log.debug("No feedback found for external ref {} in tenant {}", update.externalRef, tenantKey)
+            log.debug("No feedback found for an external ref ref={} tenant={}", update.externalRef, tenantKey)
             return
         }
 
@@ -190,23 +190,23 @@ class SupportRequestPollScheduler(
                     externalCommentId = update.externalCommentId,
                     connectionId = connectionId,
                 ).execute()
-                log.debug("Synced comment {} for feedback {}", update.externalCommentId, supportRequestId.key)
+                log.debug("Synced a comment comment={} feedback={}", update.externalCommentId, supportRequestId.key)
             }
 
             is ExternalUpdate.StatusChange -> {
                 // SyncSupportRequestStatus (not UpdateSupportRequestStatus) so this does not bounce back out.
                 SyncSupportRequestStatus(id = supportRequestId, status = update.newStatus, connectionId = connectionId).execute()
-                log.debug("Updated feedback {} status to {}", supportRequestId.key, update.newStatus)
+                log.debug("Updated feedback status feedback={} status={}", supportRequestId.key, update.newStatus)
             }
 
             is ExternalUpdate.EscalationRequest -> {
                 EscalateFromConnection(tenantKey, supportRequestId.key, connectionId, update.reason).execute()
-                log.debug("Connection {} asked to escalate support request {}", connectionId, supportRequestId.key)
+                log.debug("A connection asked to escalate a support request connection={} request={}", connectionId, supportRequestId.key)
             }
 
             is ExternalUpdate.PriorityChange -> {
                 SyncSupportRequestPriority(id = supportRequestId, priority = update.newPriority, connectionId = connectionId).execute()
-                log.debug("Updated support request {} priority to {}", supportRequestId.key, update.newPriority)
+                log.debug("Updated support request priority request={} priority={}", supportRequestId.key, update.newPriority)
             }
         }
     }

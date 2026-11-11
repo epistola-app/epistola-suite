@@ -139,7 +139,7 @@ class ConfiguredSupportConnections(
             } ?: return@forEach
             val store = connections.store(id)
             if (!configured.registers && runCatching { store.bearerToken() }.getOrNull() != configured.token) store.saveBearerToken(configured.token)
-            log.info("Support connection {} configured at {}", configured.name, configured.baseUrl)
+            log.info("Support connection configured connection=\"{}\" url={}", configured.name, configured.baseUrl)
         }
         // Where each escalates to, once all exist: another connection, named by its endpoint.
         properties.connections.forEach { configured ->
@@ -169,7 +169,7 @@ class ConfiguredSupportConnections(
         try {
             MediatorContext.runWithMediator(mediator) { EnsureConfiguredSupportConnection().execute() }
         } catch (e: SupportEndpointTakenException) {
-            log.warn("{}; an administrator removes that connection, or epistola.support.endpoint names another", e.message)
+            log.warn("Support endpoint already taken; an administrator removes that connection, or epistola.support.endpoint names another reason=\"{}\"", e.message)
         }
     }
 }
@@ -207,7 +207,7 @@ class TokenSupportConnectionCheckScheduler(
     /** Checks every connection but the discovered one; one that fails does not hold back the others. */
     fun checkAll() {
         registry.others().forEach { connection ->
-            runCatching { connection.checkNow() }.onFailure { log.warn("Support connection {} check failed: {}", connection.id, it.javaClass.simpleName) }
+            runCatching { connection.checkNow() }.onFailure { log.warn("Support connection check failed connection={} exception={}", connection.id, it.javaClass.simpleName) }
         }
     }
 

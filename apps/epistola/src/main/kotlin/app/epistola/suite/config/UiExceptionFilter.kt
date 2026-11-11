@@ -92,61 +92,61 @@ class UiExceptionFilter(
         // this stays a form-level message rather than a field error. Checked against the
         // full chain (not the unwrapped leaf) so the SQLException is found wherever it sits.
         findSqlState(ex, "22001")?.let { truncation ->
-            log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
+            log.warn("Over-length input rejected by the database (SQLSTATE 22001) reason=\"{}\"", truncation.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
         }
         // A NUL character (`\u0000`) in a value: PostgreSQL stores none in text (SQLSTATE 22021,
         // "invalid byte sequence"). The input is wrong, not the server, as on the REST API.
         findSqlState(ex, "22021")?.let { encoding ->
-            log.warn("Input the database cannot store rejected (SQLSTATE 22021): {}", encoding.message)
+            log.warn("Input the database cannot store rejected (SQLSTATE 22021) reason=\"{}\"", encoding.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered contains a character that cannot be stored.")
         }
         val cause = unwrap(ex)
         return when (cause::class.simpleName) {
             "TenantAccessDeniedException" -> {
-                log.warn("Tenant access denied: {}", cause.message)
+                log.warn("Tenant access denied reason=\"{}\"", cause.message)
                 UiError(403, ApiProblemTypes.FORBIDDEN, "You don't have access to this tenant.")
             }
 
             "PermissionDeniedException" -> {
-                log.warn("Permission denied: {}", cause.message)
+                log.warn("Permission denied reason=\"{}\"", cause.message)
                 UiError(403, ApiProblemTypes.FORBIDDEN, "You don't have permission to perform this action.")
             }
 
             "PlatformAccessDeniedException" -> {
-                log.warn("Platform access denied: {}", cause.message)
+                log.warn("Platform access denied reason=\"{}\"", cause.message)
                 UiError(403, ApiProblemTypes.FORBIDDEN, "This action requires platform administrator access.")
             }
 
             "ValidationException" -> {
                 // Command validation that a handler chose not to catch and re-render: the input
                 // was wrong, not the server. Without this it would surface as an opaque 500.
-                log.warn("Validation failed on UI request: {}", cause.message)
+                log.warn("Validation failed on UI request reason=\"{}\"", cause.message)
                 UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
             }
 
             "CatalogReleaseNotFoundException" -> {
-                log.warn("Catalog version not found: {}", cause.message)
+                log.warn("Catalog version not found reason=\"{}\"", cause.message)
                 UiError(404, UiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
             }
 
             "CatalogReleaseIsReleasedException" -> {
-                log.warn("Write to a released catalog version: {}", cause.message)
+                log.warn("Write to a released catalog version reason=\"{}\"", cause.message)
                 UiError(409, UiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
             }
 
             "CatalogReleaseHeldException" -> {
-                log.warn("Discarding a draft refused: {}", cause.message)
+                log.warn("Discarding a draft refused reason=\"{}\"", cause.message)
                 UiError(409, UiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
             }
 
             "CatalogReadOnlyException" -> {
-                log.warn("Catalog read-only: {}", cause.message)
+                log.warn("Catalog read-only reason=\"{}\"", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
             }
 
             else -> {
-                log.error("Unhandled exception on UI request: {} {}", cause::class.simpleName, cause.message, cause)
+                log.error("Unhandled exception on UI request exception={} reason=\"{}\"", cause::class.simpleName, cause.message, cause)
                 UiError(500, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred.")
             }
         }

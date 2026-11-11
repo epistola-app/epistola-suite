@@ -80,7 +80,7 @@ class FakeDocumentGenerationExecutor(
     )
 
     override fun execute(request: DocumentGenerationRequest) {
-        log.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)
+        log.debug("FAKE execution, no real PDF generation request={}", request.id.value)
 
         // Mirror production's generation meters through the same shared code path
         // (like emitTerminalResult below) so tests exercise the per-tenant tagging.
@@ -126,7 +126,7 @@ class FakeDocumentGenerationExecutor(
                     .execute()
 
                 if (updated == 0) {
-                    log.debug("Request {} was cancelled during processing, skipping", request.id.value)
+                    log.debug("Request was cancelled during processing, skipping request={}", request.id.value)
                     return@useTransaction
                 }
                 emitTerminalResult(
@@ -178,10 +178,10 @@ class FakeDocumentGenerationExecutor(
                 finalizeBatchIfComplete(batchId)
             }
 
-            log.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
+            log.debug("FAKE document created document={} request={}", documentId.value, request.id.value)
         } catch (e: Exception) {
             outcome = "failure"
-            log.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
+            log.error("FAKE execution failed request={} reason=\"{}\"", request.id.value, e.message, e)
             markRequestFailed(request, e.message)
             request.batchId?.let { finalizeBatchIfComplete(it) }
         } finally {
@@ -248,7 +248,7 @@ class FakeDocumentGenerationExecutor(
             )
         } catch (e: Exception) {
             log.error(
-                "FAKE: failed to emit generation result for request {} (status {}): {}",
+                "FAKE: failed to emit generation result request={} status={} reason=\"{}\"",
                 request.id.value,
                 status,
                 e.message,

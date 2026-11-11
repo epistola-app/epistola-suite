@@ -195,7 +195,7 @@ class SupportRequestHandler(
         // The server log of the submitter's recent requests, only when they chose to attach it.
         val serverLogs = if (form.formData["attachServerLogs"] == "true") {
             runCatching { logSource.excerpt(tenantId.key, traceIds(form.formData["traceIds"])) }
-                .onFailure { log.warn("The server log could not be attached to feedback: {}", it.javaClass.simpleName) }
+                .onFailure { log.warn("The server log could not be attached to feedback exception={}", it.javaClass.simpleName) }
                 .getOrNull()
         } else {
             null
@@ -223,7 +223,7 @@ class SupportRequestHandler(
                 try {
                     command.execute()
                 } catch (e: Exception) {
-                    log.warn("Failed to store feedback screenshot: {}", e.message)
+                    log.warn("Failed to store feedback screenshot reason=\"{}\"", e.message)
                 }
             }
         }

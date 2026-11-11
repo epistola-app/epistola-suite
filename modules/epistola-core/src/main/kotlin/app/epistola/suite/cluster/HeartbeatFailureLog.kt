@@ -29,7 +29,7 @@ internal class HeartbeatFailureLog(private val log: Logger) {
 
     fun recordSuccess() {
         if (consecutiveFailures > 0) {
-            log.info("Cluster node heartbeat recovered after {} failed attempt(s)", consecutiveFailures)
+            log.info("Cluster node heartbeat recovered failedAttempts={}", consecutiveFailures)
             consecutiveFailures = 0
         }
     }
@@ -38,8 +38,8 @@ internal class HeartbeatFailureLog(private val log: Logger) {
         consecutiveFailures++
         when {
             shuttingDown -> log.debug("Cluster node heartbeat interrupted during shutdown")
-            consecutiveFailures == 1 -> log.warn("Cluster node heartbeat failed: {}", error.message, error)
-            else -> log.debug("Cluster node heartbeat still failing (attempt {}): {}", consecutiveFailures, error.message)
+            consecutiveFailures == 1 -> log.warn("Cluster node heartbeat failed reason=\"{}\"", error.message, error)
+            else -> log.debug("Cluster node heartbeat still failing attempt={} reason=\"{}\"", consecutiveFailures, error.message)
         }
     }
 }

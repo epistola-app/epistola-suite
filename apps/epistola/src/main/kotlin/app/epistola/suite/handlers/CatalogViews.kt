@@ -265,7 +265,7 @@ internal object CatalogViews {
                 }
             }
         } catch (e: Exception) {
-            log.warn("Failed to browse catalog: {}", e.message, e)
+            log.warn("Failed to browse catalog reason=\"{}\"", e.message, e)
             listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
         }
     }

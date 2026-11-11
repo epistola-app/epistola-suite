@@ -103,7 +103,7 @@ class CheckCatalogUpgradeHandler(
             !held && (offered == latest || SemVer.isNewer(offered, latest))
         } else {
             log.warn(
-                "Catalog '{}' manifest has no release.fingerprint — using version-string change detection for upgrade availability (tenant {})",
+                "Catalog manifest has no release.fingerprint — using version-string change detection for upgrade availability catalog={} tenant={}",
                 query.catalogKey.value,
                 query.tenantKey.value,
             )

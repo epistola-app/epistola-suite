@@ -37,7 +37,7 @@ class InstallationCheckService(
     fun status(): InstallationCheckStatus? = try {
         metadata.getAs<InstallationCheckStatus>(STATUS_KEY)
     } catch (e: Exception) {
-        log.debug("Ignoring unreadable cached installation-check status: {}", e.message)
+        log.debug("Ignoring unreadable cached installation-check status reason=\"{}\"", e.message)
         null
     }
 
@@ -77,12 +77,12 @@ class InstallationCheckService(
             if (result != null) {
                 previous.copy(lastAttemptAt = now, lastSuccessAt = now, lastError = null, result = result, lastRequest = sent)
             } else {
-                log.warn("Installation check answered HTTP {}", code)
+                log.warn("Installation check answered with an HTTP error status={}", code)
                 previous.copy(lastAttemptAt = now, lastError = "HTTP $code", lastRequest = sent)
             }
         } catch (e: Exception) {
             val message = e.message ?: e.javaClass.simpleName
-            log.warn("Installation check failed: {}", message)
+            log.warn("Installation check failed reason=\"{}\"", message)
             previous.copy(
                 lastAttemptAt = now,
                 lastError = message,
