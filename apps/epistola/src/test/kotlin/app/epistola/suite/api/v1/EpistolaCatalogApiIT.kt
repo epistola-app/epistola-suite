@@ -132,7 +132,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
-        assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo("missing-catalog")
+        assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("missing-catalog")
     }
 
     @Test

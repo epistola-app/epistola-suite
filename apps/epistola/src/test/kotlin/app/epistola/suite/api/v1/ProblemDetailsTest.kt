@@ -19,7 +19,7 @@ class ProblemDetailsTest {
             request = request("/api/tenants/acme/catalogs/default/code-lists", "q=iso"),
             type = ApiProblemTypes.CATALOG_READ_ONLY,
             detail = "Cannot modify resources in read-only catalog 'system'.",
-            extensions = mapOf("catalogId" to "system"),
+            extensions = mapOf("catalogKey" to "system"),
         )
 
         assertThat(body).containsEntry("type", "https://epistola.app/errors/catalog-read-only")
@@ -27,7 +27,7 @@ class ProblemDetailsTest {
         assertThat(body).containsEntry("status", 409)
         assertThat(body).containsEntry("detail", "Cannot modify resources in read-only catalog 'system'.")
         assertThat(body).containsEntry("instance", "/api/tenants/acme/catalogs/default/code-lists?q=iso")
-        assertThat(body).containsEntry("catalogId", "system")
+        assertThat(body).containsEntry("catalogKey", "system")
         assertThat(body).doesNotContainKey("code")
         assertThat(body).doesNotContainKey("details")
     }

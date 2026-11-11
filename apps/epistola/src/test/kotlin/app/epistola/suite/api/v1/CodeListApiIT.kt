@@ -204,9 +204,9 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Not Found")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
-        assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
-        assertThat(JsonPath.read<String>(problem, "$.catalogId")).isEqualTo("default")
-        assertThat(JsonPath.read<String>(problem, "$.codeListId")).isEqualTo("missing-list")
+        assertThat(JsonPath.read<String>(problem, "$.tenantKey")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(problem, "$.catalogKey")).isEqualTo("default")
+        assertThat(JsonPath.read<String>(problem, "$.codeListKey")).isEqualTo("missing-list")
         assertThat(JsonPath.read<String>(problem, "$.instance"))
             .isEqualTo("${versionPath(tenantKey, "default")}/code-lists/missing-list")
     }
