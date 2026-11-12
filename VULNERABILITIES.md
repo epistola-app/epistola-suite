@@ -22,9 +22,9 @@ exported as OSV and never mirrored to GitHub Security Advisories. See
 | ---------- | ------------------------------------------------------------ | -------- | -------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
 | 2026-11-06 | [EPIS-2026-005](vulnerabilities/2026-11-06-epis-2026-005.md) | Medium   | 0.6.0 through 1.5.0  | 1.5.1           | Removing a user's identity-provider roles does not remove their tenant access                           |
 | 2026-11-06 | [EPIS-2026-006](vulnerabilities/2026-11-06-epis-2026-006.md) | Medium   | 0.18.0 through 1.5.0 | 1.5.1           | Tenant administrators can create API keys with roles they do not hold                                   |
-| 2026-10-12 | [EPIS-2026-002](vulnerabilities/2026-10-12-epis-2026-002.md) | Medium   | 0.12.0 through 1.3.0 | Unreleased      | Authenticated local file read and server-side request forgery through catalog and code-list source URLs |
-| 2026-10-12 | [EPIS-2026-003](vulnerabilities/2026-10-12-epis-2026-003.md) | Medium   | 0.0.0 through 1.3.0  | Unreleased      | Unbounded JavaScript expression evaluation allows render-worker denial of service                       |
-| 2026-10-12 | [EPIS-2026-004](vulnerabilities/2026-10-12-epis-2026-004.md) | Medium   | 0.18.0 through 1.3.0 | Unreleased      | SVG assets make the PDF renderer fetch external resources and read local image files                    |
+| 2026-10-12 | [EPIS-2026-002](vulnerabilities/2026-10-12-epis-2026-002.md) | Medium   | 0.12.0 through 1.3.0 | 1.4.0           | Authenticated local file read and server-side request forgery through catalog and code-list source URLs |
+| 2026-10-12 | [EPIS-2026-003](vulnerabilities/2026-10-12-epis-2026-003.md) | Medium   | 0.0.0 through 1.3.0  | 1.4.0           | Unbounded JavaScript expression evaluation allows render-worker denial of service                       |
+| 2026-10-12 | [EPIS-2026-004](vulnerabilities/2026-10-12-epis-2026-004.md) | Medium   | 0.18.0 through 1.3.0 | 1.4.0           | SVG assets make the PDF renderer fetch external resources and read local image files                    |
 | 2026-06-25 | [EPIS-2026-001](vulnerabilities/2026-06-25-epis-2026-001.md) | Medium   | 0.0.0 through 1.0.1  | 1.1.0           | Stored HTML injection in editor resource pickers                                                        |
 
 To validate the records and generated index, run `pnpm vulnerabilities:check`. To
