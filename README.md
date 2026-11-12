@@ -8,13 +8,13 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 > [!NOTE]
-> **Epistola Suite 1.0.0 is generally available (31 July 2026).** GA REST APIs, catalog formats,
-> configuration, and architecture follow SemVer compatibility. Explicitly labelled alpha and beta
-> features remain experimental and may change in a minor release. Review the
-> [changelog](CHANGELOG.md) before updating and see the
-> [Release & Support Policy](SUPPORT_POLICY.md) for supported versions and upgrades. Published
-> security issues and their affected releases are listed in the
-> [vulnerability history](VULNERABILITIES.md).
+> **Epistola Suite 2.0.0 is generally available (12 November 2026).** 1.5 is supported until
+> 12 February 2027; upgrade from 1.5.x as the [upgrade guide](docs/upgrades.md#from-1x-to-20)
+> describes. GA REST APIs, catalog formats, configuration, and architecture follow SemVer
+> compatibility. Explicitly labelled alpha and beta features remain experimental and may change in a
+> minor release. Review the [changelog](CHANGELOG.md) before updating and see the [Release & Support
+> Policy](SUPPORT_POLICY.md) for supported versions and upgrades. Published security issues and
+> their affected releases are listed in the [vulnerability history](VULNERABILITIES.md).
 
 A document suite application built with Spring Boot 4 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
@@ -223,7 +223,7 @@ Customize the deployment with values:
 ```bash
 helm install epistola oci://ghcr.io/epistola-app/charts/epistola \
   --version <version> \
-  --set image.tag=1.0.0 \
+  --set image.tag=2.0.0 \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=epistola.example.com
 ```
