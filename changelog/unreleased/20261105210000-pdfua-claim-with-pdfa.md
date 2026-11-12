@@ -1,13 +1,9 @@
 ---
 type: fix
-scopes: [generation]
+scopes: [generation, editor]
 audience: user
-issues: [1308]
-title: Only PDF/A documents claim PDF/UA-1 conformance.
+issues: [752, 1307, 1308]
+title: Generated PDFs are more accessible, and only PDF/A documents claim PDF/UA-1.
 ---
 
-Every generated document carried the PDF/UA-1 identifier, but a template with PDF/A turned off renders
-with the standard fonts without embedding them, which PDF/UA-1 does not allow. Those documents no
-longer carry the identifier; they are still tagged for screen readers exactly as before. PDF/A
-documents, the default for templates, are unchanged and are now validated against PDF/UA-1 and
-PDF/A-2b with veraPDF in the build. Turn PDF/A on for a template whose documents must claim PDF/UA.
+The address block is tagged content, read first by screen readers. A QR code takes alt text or can be marked decorative; without alt text a web link is read out and anything else is announced as "QR code". A template with PDF/A turned off does not embed its fonts, so its documents no longer claim PDF/UA-1, though they are tagged as before; PDF/A documents, the default, are validated against PDF/UA-1 and PDF/A-2b in the build. A PDF's metadata names the iText version that made it.

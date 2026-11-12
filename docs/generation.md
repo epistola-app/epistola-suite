@@ -102,13 +102,13 @@ to send. `versionRange` picks among the releases deployed to the environment; wi
 │                         Spring Boot                                  │
 │                                                                      │
 │  ┌────────────────────┐                                              │
-│  │ PreviewController  │                                              │
-│  │ POST .../preview   │                                              │
+│  │ UI, REST, MCP or   │                                              │
+│  │ render worker      │                                              │
 │  └─────────┬──────────┘                                              │
 │            │                                                         │
 │            ▼                                                         │
 │  ┌────────────────────┐    ┌─────────────────────────────────────┐  │
-│  │ TemplateService    │───►│ Load TemplateVersion + TemplateModel│  │
+│  │ GenerationService  │───►│ Release content + resolved theme    │  │
 │  └─────────┬──────────┘    └─────────────────────────────────────┘  │
 │            │                                                         │
 │            ▼                                                         │

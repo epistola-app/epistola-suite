@@ -1,11 +1,7 @@
 ---
 type: fix
-scopes: [security, assets, fonts]
-title: A tenant's images and fonts are cached by the browser only, and revalidated when used.
+scopes: [security]
+title: Smaller security fixes to caching, logging and remote sources.
 ---
 
-They were served as public and immutable for a year: a shared cache such as a proxy could keep an
-image or font read with a session and serve it to anyone, and a replaced image could stay stale in
-the browser. They are now `private, no-cache` with an entity tag, so the browser keeps them and asks
-again with a small request answered 304 while they are unchanged. The suite's static resources keep
-their long-lived caching.
+A tenant's images and fonts were served as public and cacheable for a year, so a shared proxy could keep one read with a session and serve it to anyone. They are now `private, no-cache` with an entity tag. A logged value with a line break, such as a typed name, could start what looked like a separate entry in the console log; line breaks are now written as `\n`. A catalog or code-list source that sends its answer slowly is given up on after 60 seconds in all, instead of holding a thread for as long as it keeps sending.

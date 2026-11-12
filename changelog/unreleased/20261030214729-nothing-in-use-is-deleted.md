@@ -1,8 +1,9 @@
 ---
 type: fix
 scopes: [catalog, api]
+audience: user
 breaking: true
-title: A catalog can no longer be left naming what it does not have.
+title: Nothing that is still in use can be deleted.
 ---
 
-Deleting a stencil, font, image or catalog that something still used could be forced, a theme another catalog used could be deleted, so could a stencil a stencil of another catalog contained, saving content could name a stencil, image or catalog nobody has, and removing a dependency or deleting a release a draft read was accepted: each left a draft pointing at nothing, found only when its next release was refused. Each is now refused when it happens, naming what is missing or what uses it. A draft upgraded from 1.x that already names something missing can still be edited; publishing it asks for the fix, as before. The REST image delete still accepts `force`, but ignores it.
+Deleting a stencil, font, image, theme, release or catalog that something still used could be forced or went unchecked, leaving a draft naming something that was gone, found only when publishing failed. Each delete is now refused, naming what uses it, for every kind of use: a theme's fonts, a variant's attributes, a stencil inside a stencil, another catalog's drafts. **Used by** shows the same uses. The REST image delete still accepts `force`, but ignores it. The default catalog can now be deleted like any other; only the system catalog cannot, and it is no longer offered for export.

@@ -1,5 +1,10 @@
 # Catalog wire format — v5
 
+> **Status:** Record of wire version 5. 2.0 writes version 8, whose JSON Schemas ship in the
+> `epistola-catalog` artifact (`META-INF/epistola-catalog/schemas/`); see
+> [Parts & contract versions](../README.md#parts--contract-versions). The "Exported by" lines name
+> classes from before 2.0: export now reads every resource through `CatalogContentBuilder`.
+
 > Part of [catalog import/export](../README.md). This folder documents the **catalog-wide wire format at `schemaVersion` 5** — one file per part.
 
 A catalog export/import is a `catalog.json` [manifest](manifest.md) plus one detail file per resource. **All parts share a single, catalog-wide `schemaVersion`** (`5`): the manifest is authoritative for it and every resource detail carries the same number, so each file is self-describing but the whole bundle moves together. There is no independent per-resource version. See [ADR 0007](../../adr/0007-catalog-wire-format-migrations.md).

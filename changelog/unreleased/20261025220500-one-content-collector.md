@@ -1,11 +1,8 @@
 ---
-type: refactor
-scopes: [storage, catalog]
-title: One collector deletes stored content and the image and font bytes nothing holds; deleting a release or a catalog leaves their content to it.
+type: feat
+scopes: [storage]
+audience: dev
+title: One nightly collector deletes stored content and files nothing uses any more.
 ---
 
-The content collector (`epistola.storage.gc.*`) is now the only thing that deletes image and font bytes: after the catalog content nothing points at, it deletes the bytes no content holds, past the same grace period (default one day), and publishes `epistola.storage.orphaned_blobs{namespace=asset}` beside `epistola.storage.orphaned_contents`. The content reaper's own sweep of those bytes is gone, and with it the setting `epistola.storage.reaper.asset-grace-minutes`.
-
-The reaper is now the document retention task (`core.document-retention`): it only drives the filesystem document backend's age sweep, still configured with `epistola.storage.reaper.enabled` and `epistola.storage.reaper.cron`. Its scheduled-task metric is `document-retention` instead of `content-reaper`.
-
-Deleting a release or a catalog removes their rows at once and no longer deletes the content only they held inside the same transaction; the collector takes it on its next run past the grace period, as it does any other orphan. That keeps the delete from scanning the whole tenant, and from taking content a concurrent save was about to point at.
+Release content, images and font files that nothing points at are deleted after a grace period by a nightly collector (`epistola.storage.gc.enabled`, `.cron`, default 02:00, `.grace`, default one day, `.batch-size`, `.pause`). An installation administrator can also start it under Platform → Cluster. `epistola.storage.orphaned_contents` and `epistola.storage.orphaned_blobs` show what is left. Removed: `epistola.storage.reaper.asset-grace-minutes` and `epistola.storage.backfill.*`, since the upgrade moves the last 1.x stored files itself. The event log records an uploaded file by size and hash instead of its bytes.

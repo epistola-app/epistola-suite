@@ -1,10 +1,8 @@
 ---
-type: fix
+type: build
 scopes: [deps]
-title: The embedded Tomcat is no longer held below the version Spring Boot ships.
+audience: dev
+title: Dependencies are brought up to date, and the images ship no Guava.
 ---
 
-An old security override pinned the embedded Tomcat to 11.0.25. Spring Boot now ships 11.0.27, so
-the override was pulling every image two patch releases back. It is gone, along with Jackson
-overrides that had become redundant. The epistola-contract dependency moves to its 2.0.0 release,
-and the build toolchain, npm and JVM dependencies are brought up to date.
+The suite builds against epistola-contract 2.0.0. An old security override that held the embedded Tomcat two patch releases behind Spring Boot is gone, and so is the support hub's gRPC client, which brought in Guava. OpenTelemetry is 1.67.0. The toolchain, npm and JVM dependencies are current.

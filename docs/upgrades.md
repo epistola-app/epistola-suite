@@ -89,6 +89,17 @@ anything substantial.
 
 ## From 1.x to 2.0
 
+**Start from 1.5.x and take a backup.** Upgrade from the supported 1.x line, 1.5.x
+([support policy](../SUPPORT_POLICY.md#upgrade-philosophy)); every 1.x release since 1.3.0 ends at
+the last 1.x migration (`V20260923150918`), where the 2.0 chain starts. The upgrade only goes
+forward and drops the 1.x tables, so a [database backup](#backups-and-upgrades) taken before it is
+the only way back to 1.x. A 1.x build does not check the schema before it starts (it predates the
+[rollback guard](#rollback)): never start one on the upgraded database, restore the backup instead.
+
+**Document storage must be PostgreSQL.** 2.0 refuses to start with `epistola.storage.backend` set to
+`s3` or `filesystem` (see [`storage.md`](storage.md)); set it to `postgres`. Documents 1.x stored in a
+bucket or on disk are not moved, and 2.0 does not read them.
+
 2.0 renders catalog releases deployed to environments, where 1.x rendered template versions
 activated per environment. What each author was working on becomes the working copy, the catalog's
 next draft, and what was last published becomes a draft beside it, **Published in 1.x**. The upgrade

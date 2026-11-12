@@ -76,7 +76,8 @@ PRs for the test jobs). On the tag it:
    equals `gradle.properties` `version`** — a mismatch (e.g. the file still says
    `-SNAPSHOT`) fails the release loudly instead of shipping a wrong image.
 2. Builds the image with `gradle :apps:epistola:bootBuildImage`.
-3. Pushes `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, `:latest`.
+3. Pushes `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, and `:latest`
+   unless the version is a pre-release (it contains a `-`).
 4. Signs with Cosign (keyless OIDC), attaches the SBOM attestation, and uploads the
    SBOM artifacts to the GitHub Release.
 
@@ -194,7 +195,8 @@ The project uses [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH):
 
 ### Conventional Commits
 
-Version bumps are determined automatically from commit messages:
+Commit types do not set the version: the version file does (see below). The
+[`release`](../.agents/skills/release) skill checks a planned version against them:
 
 | Commit Prefix                           | Version Bump |
 | --------------------------------------- | ------------ |
@@ -203,6 +205,9 @@ Version bumps are determined automatically from commit messages:
 | `docs:`, `chore:`, `refactor:`, `test:` | PATCH        |
 | `feat!:` or `fix!:`                     | MAJOR        |
 | Footer contains `BREAKING CHANGE:`      | MAJOR        |
+
+A breaking change confined to a feature labelled alpha or beta is a MINOR
+([stability contract](../AGENTS.md#stability-contract)).
 
 ### Release Process
 

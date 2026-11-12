@@ -5,7 +5,7 @@
 **Role:** the visual styling a template renders with — document-level typography/colour, page settings, and named block-style presets.
 
 **DTO:** `ThemeResource` (`CatalogResource` subtype, `epistola-catalog`).
-**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt).
+**Exported by:** `ExportResources.kt` (removed in 2.0).
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 4 (before stencils/templates that reference it).
 **Wire location:** `./resources/theme/{slug}.json`.

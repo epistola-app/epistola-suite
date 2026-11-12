@@ -156,8 +156,9 @@ undeploy, naming the release and who made the change, recorded in the same trans
 
 ### REST API
 
-- Versioned under `/api/v1/` — separate from internal UI endpoints.
-- OpenAPI 3.1 specification (managed with Redocly).
+- Under `/api/`, separate from internal UI endpoints. The version is in the media type
+  (`application/vnd.epistola.v2+json`), not the path.
+- OpenAPI 3.1 specification, owned by the external `epistola-contract` repository.
 - RFC 9457 problem detail error responses.
 - Supports single and batch document generation with job tracking.
 

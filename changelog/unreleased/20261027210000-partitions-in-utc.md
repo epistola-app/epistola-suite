@@ -1,10 +1,7 @@
 ---
 type: fix
 scopes: [operations]
-title: Monthly partitions are bounded at UTC midnights on nodes whose JVM runs in another time zone.
+title: Monthly partitions are bounded in UTC, the demo image's migration Job exits, and a saved site banner shows at once.
 ---
 
-Partition maintenance created the monthly partitions of documents, generated content, generation
-results, the event log and the audit log with bounds read in the JVM's time zone. On a node outside
-UTC those bounds were shifted by its offset, so rows near the start of a month could land in the
-wrong partition or in none. Partitions are now always created in UTC.
+On a node whose JVM ran outside UTC, monthly partitions of documents, results and logs were bounded at local midnights, so rows near the start of a month could land in the wrong partition. The `-demo` image started as the Helm chart's migration Job now migrates and exits instead of failing the install. A site banner saved while another page was being drawn no longer shows the old text on that node for a minute.

@@ -5,7 +5,7 @@
 **Role:** a customer-authored font family and its asset-backed faces (variants). Only **asset-backed** fonts are exchanged — the bundled `CLASSPATH` system fonts (Inter, Roboto, …) are part of the runtime, never exported.
 
 **DTO:** `FontResource` (`CatalogResource` subtype, `epistola-catalog`).
-**Exported by:** [`ExportResources.kt` → `ExportFonts`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) — filters `font_variants.source = 'ASSET'` (system faces excluded).
+**Exported by:** `ExportResources.kt` → `ExportFonts` (removed in 2.0) — filters `font_variants.source = 'ASSET'` (system faces excluded).
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 2 (after the assets its faces point at; before themes that reference it).
 **Wire location:** `./resources/font/{slug}.json`.

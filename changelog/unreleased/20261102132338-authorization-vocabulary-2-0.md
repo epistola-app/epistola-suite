@@ -3,14 +3,7 @@ type: feat
 scopes: [security, api]
 audience: user
 breaking: true
-title: Roles grant what the 2.0 contract says they grant, and generated documents are no longer every viewer's to read.
+title: Roles grant what the 2.0 contract says, and generated documents are no longer every viewer's to read.
 ---
 
-Content viewers no longer read generated documents, which carry personal data. Document generators
-read what they generate, and a new role, `document-reader`, reads documents without generating. A
-new platform role, `installation-administrator`, takes the site banner, data sharing and cluster
-maintenance from `tenant-manager`. `platform-observer` now reads diagnostics and the audit trail in
-every tenant. The Exchange connection and quality providers need their own permission
-(`INTEGRATIONS_MANAGE`), and so do feedback and load tests. `TENANT_USERS` is now
-`CREDENTIALS_MANAGE`. Review who holds which role in your identity provider, and which scopes your
-API keys have, before upgrading (see the upgrade notes).
+Content viewers no longer read generated documents, which carry personal data; `document-reader` reads them without generating. `installation-administrator` takes the site banner, data sharing and the cluster page, now Platform → Cluster, from `tenant-manager`, and `platform-observer` reads diagnostics and audit in every tenant. `CATALOG_RELEASE` and `ENVIRONMENT_DEPLOY` replace `TEMPLATE_PUBLISH` and `STENCIL_PUBLISH`; the content publisher holds both. `TENANT_USERS` is `CREDENTIALS_MANAGE`, and the Exchange connection, quality providers, feedback and load tests need `INTEGRATIONS_MANAGE`. Every REST operation, MCP tool and UI control asks exactly the permission it declares; previewing in the editor needs `TEMPLATE_VIEW`. **Action on upgrade:** review role assignments and API key scopes.

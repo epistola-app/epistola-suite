@@ -55,10 +55,10 @@ The module reads core through core's **queries** (`GetEditorContext`) rather tha
 so a core migration can't silently break quality execution.
 
 Typed keys (`QualityFindingKey`, `QualityFindingCommentKey`) and `KnownFeatures.QUALITY` stay in
-core, mirroring `FeedbackKey` — feedback is likewise its own module.
+core, mirroring `SupportRequestKey` — support requests are likewise their own module.
 
 The module ships its **own UI** (`ui/QualityHandler` + `templates/quality/`), following
-`epistola-support-feedback`: Spring merges classpath templates from every JAR, so a feature
+`epistola-support-requests`: Spring merges classpath templates from every JAR, so a feature
 module hosts its handlers and templates while the host app keeps owning the chrome
 (`layout/shell`, `layout/nav`). Quality is about a catalog's templates, so it is an item of the
 catalog's own nav (`CatalogNav`, docs/workspace-shell.md), shown while the feature is available:

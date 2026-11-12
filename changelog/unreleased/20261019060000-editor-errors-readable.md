@@ -1,7 +1,8 @@
 ---
 type: fix
 scopes: [editor]
-title: A failed save or preview in the editor says so plainly.
+audience: user
+title: The editor says what failed, shows all its tabs, and its guided tour is on by default.
 ---
 
-When saving fails, the toolbar now says "Not saved:" with the reason, visible and announced to screen readers, and the button reads "Retry save"; before, only an icon changed and the reason was in a tooltip. When the server answers with a web page instead of an error (a sign-in page after the session ended, a proxy's error page), the editor says what probably happened instead of showing the page's markup. A preview of a variant that no longer exists says so instead of "Not Found".
+A failed save reads "Not saved:" with the reason and offers "Retry save", and a sign-in or proxy page in place of an answer is explained instead of shown as markup. The side panel's tabs wrap instead of hiding Quality. The canvas no longer shows internal block ids, the unit menus explain "sp" and "pt", and the formatting menu no longer covers a block's delete button. The `editor-walkthrough` toggle defaults to on, so new users see the Guide button; switch it off per tenant or with `epistola.features.editor-walkthrough=false`.

@@ -5,7 +5,7 @@
 **Role:** a reusable, parameterised document fragment (e.g. a company header) that templates embed. Stencils are **published** — the carried content is pinned to a published version number.
 
 **DTO:** `StencilResource` (`CatalogResource` subtype, `epistola-catalog`).
-**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) — selects the **latest published** stencil version and stamps its number into `version`.
+**Exported by:** `ExportResources.kt` (removed in 2.0) — selects the **latest published** stencil version and stamps its number into `version`.
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt); conflict handling in [`ImportCatalogZip`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ImportCatalogZip.kt).
 **Install order:** 5 (before templates; after theme/asset).
 **Wire location:** `./resources/stencil/{slug}.json`.

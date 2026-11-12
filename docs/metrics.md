@@ -164,12 +164,11 @@ its job. See [`docs/storage.md`](storage.md#the-content-collector).
 
 | Meter                              | Type    | Tags                                                                                                                                             |
 | ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `epistola.catalog.releases`        | Counter | `via` (`released`, `upload`, `api`, `registry`, `exchange`, `source`, `bundled`, `upgrade-1x`, `snapshot`)                                       |
+| `epistola.catalog.releases`        | Counter | `via` (`released`, `upload`, `api`, `registry`, `exchange`, `source`, `bundled`, `upgrade-1x`)                                                   |
 | `epistola.catalog.upstream.checks` | Counter | `outcome` (`ok`, or the failure recorded: `unreachable`, `not_found`, `unauthorized`, `schema_too_new`, `withdrawn`, `paused`, `protocol_error`) |
 
 `releases{via}` counts every release that came to be in a tenant, cut here (`released`) or
-received, once its transaction commits; `snapshot` names releases a tenant snapshot restored, before
-2.0 withdrew snapshots. `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
+received, once its transaction commits (the channels of `ReleaseChannel`). `upstream.checks{outcome}` counts each check of a subscribed catalog's source, by
 the background worker or the "check for updates" button.
 
 What the command timers already count is not repeated here. Read it from
@@ -265,11 +264,11 @@ cost.
 > **Why no per-tenant on/off toggle?** Metrics are operational telemetry the
 > operator needs to run the fleet; a per-tenant kill switch would only create
 > monitoring blind spots. The original "disable metrics per tenant" idea was
-> really about _not forwarding a tenant's data to the external hub_ — a
-> data-residency concern that travels with the [hub leg](#hub-leg)
+> really about _not forwarding a tenant's data to the Epistola support service_ — a
+> data-residency concern that travels with the [support service leg](#support-service-leg)
 > (and is more naturally per-installation, or solved by stripping the `tenant`
-> tag before forwarding). Feedback, by contrast, _is_ per-tenant toggleable
-> because it forwards user-submitted content — see
+> tag before forwarding). Support requests, by contrast, _are_ per-tenant toggleable
+> because they forward user-submitted content — see
 > [feature-toggles.md](feature-toggles.md).
 
 ## Exporting metrics

@@ -82,7 +82,7 @@ whose identities are its own, a move stays a removal and an addition.
 
 Follows the move:
 
-- the resource's own rows — a template's variants, environment activations, quality findings and
+- the resource's own rows — a template's variants, quality findings and
   load-test runs; a code list's entries; a font's faces — because they name the resource by
   identity;
 - working models and stencils that reference it, variant attribute keys, and theme styles naming a
@@ -116,7 +116,7 @@ rewrite a reference to where a resource lives now.
 
 ## Generation history does not move
 
-Moving a template carries its variants, data contract, environment activations, quality findings and
+Moving a template carries its variants, data contract, quality findings and
 load-test runs with it — those describe the template's current state. Its generation history does
 not: `documents` and `document_generation_requests` record the catalog the template lived in when a
 document was produced, and that stays true afterwards.

@@ -195,7 +195,7 @@ between administering a tenant and publishing its content.
 The IdP wire vocabulary is kebab-case and maps 1:1 to the enum constants
 (`GroupMembershipParser` / `FlatRoleParser`): `content-viewer`, `content-author`,
 `document-generator`, `document-reader`, `content-publisher`, `tenant-administrator`, plus platform
-`tenant-manager`, `installation-administrator` and `platform-observer`. Both hierarchical Keycloak groups (`/epistola/tenants/{t}/{role}`) and
+`tenant-manager`, `installation-administrator`, `platform-observer` and `support-desk`. Both hierarchical Keycloak groups (`/epistola/tenants/{t}/{role}`) and
 flat prefixed claims (`ept_{tenant}_{role}`, `epg_{role}`, `eps_{platformRole}`) are supported.
 See [`keycloak-setup.md`](keycloak-setup.md).
 

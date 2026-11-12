@@ -176,7 +176,7 @@ stays in `epistola-core`, because core domain types depend on it:
 
 The module depends on core + `epistola-web`; the host app depends on the module so
 Spring picks up its beans, templates, and migration. This mirrors
-`epistola-support-feedback`.
+`epistola-support-requests`.
 
 ## Demo catalog
 

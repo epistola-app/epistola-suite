@@ -68,8 +68,8 @@ under its title. That banner, not this table, is authoritative.
 | Doc                                                                   | Status   | What it covers                                                                                                 |
 | --------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
 | [Catalogs & resource exchange](exchange/README.md)                    | Current  | Architecture, data model and import/export flows. Root of the exchange docs.                                   |
-| [Wire format v5](exchange/v5/README.md)                               | Current  | Current catalog wire contract, one page per resource part.                                                     |
-| [Wire format v4](exchange/v4/README.md)                               | Current  | Previous wire contract, retained for compatibility.                                                            |
+| [Wire format v5](exchange/v5/README.md)                               | Current  | Wire version 5, one page per part; 2.0 writes v8, defined by the `epistola-catalog` schemas.                   |
+| [Wire format v4](exchange/v4/README.md)                               | Current  | Wire version 4, the oldest version still migrated on import.                                                   |
 | [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version, how "is this new?" is decided, and ready marks.                              |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.                                            |
 | [Resource reference graph](resource-reference-graph.md)               | Current  | Which resources use which: the data behind organising catalogs and merges (no page of its own).                |
@@ -126,7 +126,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | Doc                                                        | Status   | What it covers                                                           |
 | ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
 | [Deployment](deployment.md)                                | Current  | Deploying with the `charts/epistola` Helm chart.                         |
-| [Upgrades](upgrades.md)                                    | Current  | Additive vs breaking upgrades, maintenance windows, and rollback.        |
+| [Upgrades](upgrades.md)                                    | Current  | Additive vs breaking upgrades, rollback, and upgrading 1.x to 2.0.       |
 | [Load test results](load-test-results.md)                  | Current  | Running log of measured throughput, by named hardware profile.           |
 | [Metrics & observability](metrics.md)                      | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.              |
 | [Application logs](application-logs.md)                    | Current  | Persisting Logback events into a bounded, queryable table.               |
