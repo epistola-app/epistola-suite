@@ -68,6 +68,12 @@
   function isValidSlug(value) {
     return typeof value === 'string' && SLUG_PATTERN.test(value);
   }
+  // A resource's own key follows the contract's resource-key rule (CatalogKeys.RESOURCE), which
+  // allows a leading digit; tenant, catalog and namespace keys keep the stricter slug rule.
+  const RESOURCE_KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  function isValidResourceKey(value) {
+    return typeof value === 'string' && RESOURCE_KEY_PATTERN.test(value);
+  }
 
   const RESOURCE_PATH_SEGMENT = { template: 'templates', theme: 'themes', stencil: 'stencils' };
   const RESOURCE_TYPE_BY_SEGMENT = { templates: 'template', themes: 'theme', stencils: 'stencil' };
@@ -88,7 +94,7 @@
     if (
       !isValidSlug(resource.tenantId) ||
       !isValidSlug(resource.catalogKey) ||
-      !isValidSlug(resource.key)
+      !isValidResourceKey(resource.key)
     )
       return null;
     // A resource names its catalog's namespace when it has one; without, the catalog's key alone

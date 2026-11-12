@@ -8,7 +8,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.ReservedResourceKeys
+import app.epistola.suite.common.ids.NewResourceKeys
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -183,9 +183,10 @@ class FieldSpec(val fieldName: String) {
     }
 
     /**
-     * Mark this field as the key a new [kind] resource ("Theme", "Code list") is created with:
-     * one of the [ReservedResourceKeys] is refused, after the format checks pass. Only on create
-     * forms — a field selecting an existing resource must accept every stored key.
+     * Mark this field as the key a new [kind] resource ("Theme", "Code list") is created with: a key
+     * the suite may not choose ([NewResourceKeys]: the contract's format, no reserved word) is
+     * refused, after the field's own rules pass. Only on create forms — a field selecting an
+     * existing resource must accept every stored key.
      */
     fun newResourceKey(kind: String) {
         this.newResourceKeyKind = kind
@@ -432,8 +433,8 @@ class FormBuilder {
             }
 
             val newKeyKind = spec.newResourceKeyKind
-            if (newKeyKind != null && errors[fieldName] == null && ReservedResourceKeys.isReserved(value)) {
-                errors[fieldName] = ReservedResourceKeys.refusal(newKeyKind, value)
+            if (newKeyKind != null && value.isNotBlank() && errors[fieldName] == null) {
+                NewResourceKeys.refusal(newKeyKind, value)?.let { errors[fieldName] = it }
             }
         }
 

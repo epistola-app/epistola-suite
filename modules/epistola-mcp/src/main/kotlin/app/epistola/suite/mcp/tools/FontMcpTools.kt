@@ -106,7 +106,7 @@ class FontMcpTools(
     fun uploadFont(
         @McpToolParam(description = "Catalog key to upload into. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
-        @McpToolParam(description = "Family slug: starts with a letter, then lowercase letters, digits, hyphens, e.g. `acme-sans`.")
+        @McpToolParam(description = "Family key: 3 to 50 lowercase letters and digits in hyphen-separated parts, e.g. `acme-sans`.")
         fontId: String,
         @McpToolParam(description = "Display name, e.g. `Acme Sans`.")
         name: String,

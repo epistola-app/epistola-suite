@@ -11,12 +11,12 @@ import kotlin.test.assertTrue
 
 /**
  * Every command that lets an author choose a resource key refuses the suite's reserved words
- * (`ReservedResourceKeys`) by calling `validateResourceKey` — so a new resource type, or a new way to
+ * (`NewResourceKeys`) by calling `validateResourceKey` — so a new resource type, or a new way to
  * create one, cannot forget the rule. A create command is one named `Create…` or `Upload…` whose
  * constructor takes the new resource's id. Import commands are left alone: they bring keys chosen
  * elsewhere, which must keep reading.
  */
-class ReservedResourceKeysGuardTest {
+class NewResourceKeysGuardTest {
     private val command = Regex("""data class ((?:Create|Upload)\w+)\((.*?)\n\)""", RegexOption.DOT_MATCHES_ALL)
     private val resourceId = Regex("""\bval id: (TemplateId|VariantId|StencilId|ThemeId|AttributeId|CodeListId|EnvironmentId|AssetKey|FontId)\b""")
 

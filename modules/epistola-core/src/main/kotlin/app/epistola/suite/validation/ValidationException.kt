@@ -4,7 +4,7 @@
 
 package app.epistola.suite.validation
 
-import app.epistola.suite.common.ids.ReservedResourceKeys
+import app.epistola.suite.common.ids.NewResourceKeys
 import app.epistola.suite.common.ids.SlugKey
 
 /**
@@ -42,8 +42,11 @@ inline fun validate(
 }
 
 /**
- * Refuses [key] for a new [kind] resource ("Theme", "Code list") when it is one of the
- * [ReservedResourceKeys]. Every command that lets an author choose a resource key calls it in its
- * `init` (`ReservedResourceKeysGuardTest`).
+ * Refuses [key] for a new [kind] resource ("Theme", "Code list") unless it is one the suite may
+ * choose ([NewResourceKeys]): the contract's format, and not a reserved word. Every command that
+ * lets an author choose a resource key calls it in its `init` (`NewResourceKeysGuardTest`).
  */
-fun validateResourceKey(kind: String, key: SlugKey<*>) = validate("key", !ReservedResourceKeys.isReserved(key.value), ValidationCode.KEY_RESERVED) { ReservedResourceKeys.refusal(kind, key.value) }
+fun validateResourceKey(kind: String, key: SlugKey<*>) {
+    validate("key", NewResourceKeys.fitsFormat(key.value), ValidationCode.KEY_FORMAT_INVALID) { NewResourceKeys.formatRefusal(kind) }
+    validate("key", !NewResourceKeys.isReserved(key.value), ValidationCode.KEY_RESERVED) { NewResourceKeys.reservedRefusal(kind, key.value) }
+}

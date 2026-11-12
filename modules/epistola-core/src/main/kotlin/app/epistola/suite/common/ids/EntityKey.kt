@@ -4,6 +4,7 @@
 
 package app.epistola.suite.common.ids
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.common.UUIDv7
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
@@ -33,24 +34,39 @@ interface NumericKey<T : NumericKey<T>> : EntityKey<T, Int>
 interface UuidKey<T : UuidKey<T>> : EntityKey<T, UUID>
 
 /**
- * The words a resource key chosen in this suite may not be: one list for every resource type.
+ * What a resource key chosen in this suite must be: one rule for every resource type.
  *
- * A resource key's format is the contract's (`CatalogKeys.RESOURCE`), checked by the key types when
- * a key is read. These words are the suite's own: its pages put `…/new` beside `…/{key}`, and `null`
- * or `undefined` is what a script sends for a missing value. They are refused where an author
- * chooses a key — every create command, through [app.epistola.suite.validation.validateResourceKey],
- * and the create forms — never where one is read, so a key stored before, or arriving in a catalog
- * import, still reads. Fonts have no create command of their own (`ImportFont` also installs
- * catalogs), so their upload form and MCP tool check it. Tenant keys keep their own list in
- * [TenantKey]; a catalog's key is not a resource key.
+ * Its format is the contract's (`CatalogKeys.RESOURCE`): 3 to 50 lowercase letters and digits in
+ * hyphen-separated parts, so whatever is created here can be released. On top of that come the
+ * suite's own reserved words: its pages put `…/new` beside `…/{key}`, and `null` or `undefined` is
+ * what a script sends for a missing value.
+ *
+ * The rule holds where an author chooses a key — every create command, through
+ * [app.epistola.suite.validation.validateResourceKey], and the create forms — never where one is
+ * read: the key types accept every key the contract does, and every key stored before, so a key
+ * kept from an earlier version, or arriving in a catalog import, still reads. Fonts have no create
+ * command of their own (`ImportFont` also installs catalogs), so their upload form and MCP tool
+ * check it. Tenant keys keep their own rule in [TenantKey]; a catalog's key is not a resource key.
  */
-object ReservedResourceKeys {
-    val WORDS: Set<String> = setOf("admin", "api", "www", "system", "internal", "null", "undefined", "new", "create", "edit", "delete")
+object NewResourceKeys {
+    val RESERVED_WORDS: Set<String> = setOf("admin", "api", "www", "system", "internal", "null", "undefined", "new", "create", "edit", "delete")
 
-    fun isReserved(key: String): Boolean = key in WORDS
+    fun fitsFormat(key: String): Boolean = CatalogKeys.isValid(key)
 
-    /** The refusal for a new [kind] ("Theme", "Code list") keyed [key]. */
-    fun refusal(kind: String, key: String): String = "$kind ID '$key' is reserved and cannot be used"
+    fun isReserved(key: String): Boolean = key in RESERVED_WORDS
+
+    /** The refusal for a new [kind] ("Theme", "Code list") whose key breaks the format. */
+    fun formatRefusal(kind: String): String = "$kind ID must be ${CatalogKeys.MIN_LENGTH} to ${CatalogKeys.MAX_LENGTH} characters: lowercase letters and digits in hyphen-separated parts"
+
+    /** The refusal for a new [kind] keyed with the reserved word [key]. */
+    fun reservedRefusal(kind: String, key: String): String = "$kind ID '$key' is reserved and cannot be used"
+
+    /** Why [key] cannot name a new [kind], or null when it can. */
+    fun refusal(kind: String, key: String): String? = when {
+        !fitsFormat(key) -> formatRefusal(kind)
+        isReserved(key) -> reservedRefusal(kind, key)
+        else -> null
+    }
 }
 
 /**
@@ -107,12 +123,13 @@ value class AttributeKey(@JsonValue override val value: String) : SlugKey<Attrib
             "Attribute ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Attribute ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Attribute ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): AttributeKey = AttributeKey(value)
 
@@ -136,12 +153,13 @@ value class TemplateKey(@JsonValue override val value: String) : SlugKey<Templat
             "Template ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Template ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Template ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): TemplateKey = TemplateKey(value)
 
@@ -165,12 +183,13 @@ value class VariantKey(@JsonValue override val value: String) : SlugKey<VariantK
             "Variant ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Variant ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Variant ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         /**
          * Id of the default variant auto-created with every template. A fixed,
@@ -257,12 +276,13 @@ value class ThemeKey(@JsonValue override val value: String) : SlugKey<ThemeKey> 
             "Theme ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Theme ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Theme ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): ThemeKey = ThemeKey(value)
 
@@ -286,12 +306,13 @@ value class StencilKey(@JsonValue override val value: String) : SlugKey<StencilK
             "Stencil ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Stencil ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Stencil ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): StencilKey = StencilKey(value)
 
@@ -563,12 +584,13 @@ value class CodeListKey(@JsonValue override val value: String) : SlugKey<CodeLis
             "Code list ID must be 3-64 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Code list ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Code list ID must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): CodeListKey = CodeListKey(value)
 
@@ -592,12 +614,13 @@ value class FontKey(@JsonValue override val value: String) : SlugKey<FontKey> {
             "Font slug must be 2-64 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
-            "Font slug must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+            "Font slug must be lowercase letters and digits in hyphen-separated parts"
         }
     }
 
     companion object {
-        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        /** The contract's resource-key pattern; a leading digit is allowed. */
+        private val SLUG_PATTERN = Regex(CatalogKeys.PATTERN)
 
         fun of(value: String): FontKey = FontKey(value)
 

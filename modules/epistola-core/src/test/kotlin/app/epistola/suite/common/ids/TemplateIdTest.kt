@@ -87,8 +87,8 @@ class TemplateIdTest {
         }
 
         @Test
-        fun `should reject slug starting with number`() {
-            assertThrows<IllegalArgumentException> { TemplateKey.of("123abc") }
+        fun `should accept slug starting with number, as the contract's resource keys do`() {
+            assertEquals("123abc", TemplateKey.of("123abc").value)
         }
 
         @Test
@@ -135,7 +135,7 @@ class TemplateIdTest {
 
         @Test
         fun `reads a reserved word, which is refused only where a key is chosen`() {
-            // ReservedResourceKeys: a template keyed `new` may arrive in a catalog import.
+            // NewResourceKeys: a template keyed `new` may arrive in a catalog import.
             assertEquals("new", TemplateKey.of("new").value)
         }
 

@@ -35,8 +35,9 @@ import org.junit.jupiter.api.Test
  * limit. Existing tests only ever used short, auto-generated slugs, so nothing exercised
  * the limit — this test does, for every slug entity.
  *
- * The lengths below are the upper bound of each key's `require(value.length in ..)` in
- * [EntityKey]; an all-letter slug is a valid slug and never a reserved word.
+ * The lengths below are the longest key each create path accepts: the key's `require(value.length in ..)`
+ * in [EntityKey], capped at 50 by `NewResourceKeys` for a command that creates a resource; an all-letter
+ * slug is a valid slug and never a reserved word.
  */
 class MaxLengthSlugCreationTest : IntegrationTestBase() {
 
@@ -76,9 +77,9 @@ class MaxLengthSlugCreationTest : IntegrationTestBase() {
                     catalogVersion = null,
                 ).execute()
 
-                // Code list — CodeListKey max 64
+                // Code list — a new resource key's max, 50 (NewResourceKeys); CodeListKey reads up to 64
                 CreateCodeList(
-                    id = CodeListId(CodeListKey.of("l".repeat(64)), catalogId),
+                    id = CodeListId(CodeListKey.of("l".repeat(50)), catalogId),
                     displayName = "Max Code List",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("en", "English")),

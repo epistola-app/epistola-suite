@@ -38,8 +38,8 @@
             <div class="form-group">
                 <label class="ep-label" for="slug">Slug</label>
                 <input type="text" id="slug" name="slug" class="ep-input"
-                       placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
-                       minlength="2" maxlength="64" required />
+                       placeholder="acme-sans" pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                       minlength="3" maxlength="50" required />
                 <span class="form-hint">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
                 <span th:replace="~{epistola-web/form-error :: field-error(id='font-slug-error', message=${errors?.get('slug')}, oob=${false})}"></span>
             </div>

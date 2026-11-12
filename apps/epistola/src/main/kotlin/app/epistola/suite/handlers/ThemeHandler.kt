@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.ApplyHouseTheme
@@ -162,7 +163,7 @@ class ThemeHandler(
         val form = request.form {
             field("slug") {
                 required()
-                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                pattern(CatalogKeys.PATTERN)
                 minLength(3)
                 maxLength(20)
                 // Folds the old "invalid ThemeKey" branch into field validation

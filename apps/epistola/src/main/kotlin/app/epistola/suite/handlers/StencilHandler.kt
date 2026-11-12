@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.dependencies.Reach
 import app.epistola.suite.catalog.queries.CatalogResourceState
@@ -222,14 +223,14 @@ class StencilHandler(
         val form = request.form {
             field("slug") {
                 required()
-                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                pattern(CatalogKeys.PATTERN)
                 minLength(3)
                 maxLength(50)
                 // Folds the old "invalid StencilKey" branch into field validation
                 // (same "Invalid stencil ID format" error) so all three failure
                 // modes share one error path. Reported only when no rule above
-                // failed first, so the specific message wins. Reserved words
-                // (ReservedResourceKeys) come from newResourceKey.
+                // failed first, so the specific message wins. What a new key may
+                // be beyond its format (NewResourceKeys) comes from newResourceKey.
                 asStencilId()
                 newResourceKey("Stencil")
             }

@@ -305,11 +305,15 @@ The standard slug pattern used in this codebase:
 - **No consecutive hyphens**
 - **Regex**: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
 - **Reserved words** (tenant keys): `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `tenants`, `global`, `platform`
-- **Reserved words** for resource keys (`ReservedResourceKeys`, one list for every resource type):
-  `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `new`, `create`, `edit`,
-  `delete`. They are refused where an author chooses a key — every create command calls
-  `validateResourceKey`, every create form `newResourceKey(kind)` — never where a key is read, so a
-  key stored before or arriving in a catalog import still reads. The key types check the format only.
+- **Resource keys** (templates, variants, stencils, themes, attributes, code lists, images, fonts)
+  follow the contract's rule (`CatalogKeys.RESOURCE`) instead: 3 to 50 characters, lowercase letters
+  and digits in hyphen-separated parts, a leading digit allowed. One rule says what a new one may be
+  (`NewResourceKeys`): that format, and none of the reserved words `admin`, `api`, `www`, `system`,
+  `internal`, `null`, `undefined`, `new`, `create`, `edit`, `delete`. It holds where an author
+  chooses a key — every create command calls `validateResourceKey`, every create form
+  `newResourceKey(kind)` — never where a key is read: the key types accept every contract key and
+  every key stored before (code lists and fonts up to 64 characters), so a catalog import or an
+  older key still reads.
 
 This format is DNS subdomain compatible, suitable for use in URLs.
 
