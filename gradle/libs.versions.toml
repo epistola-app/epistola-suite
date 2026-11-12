@@ -31,11 +31,11 @@ guava = "33.8.0-jre"
 spring-ai = "2.0.2"
 archunit = "1.5.1"
 # Generates and shrinks the command sequences of the catalog model test.
-kotest = "6.2.6"
+kotest = "6.2.7"
 # One iText for the renderer and for every test that reads the PDFs it writes.
 itext = "9.8.0"
 # PDF/A and PDF/UA validation in tests only (GPL-3.0 or MPL-2.0; used under MPL-2.0)
-verapdf = "1.30.3"
+verapdf = "1.30.4"
 # Declared here because modules:generation is outside the Spring Boot BOM.
 caffeine = "3.3.1"
 # The Jackson line the Spring Boot BOM manages, for code outside the BOM (modules:generation test

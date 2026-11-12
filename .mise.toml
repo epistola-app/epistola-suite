@@ -1,7 +1,7 @@
 [tools]
 java = "temurin-25.0.5+8.0.LTS"
 gradle = "9.7.1"
-node = "26.13.0"
+node = "26.13.1"
 pnpm = "12.18.0"
 helm = "4.3.1"
 kind = "0.33.0"

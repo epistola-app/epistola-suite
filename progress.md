@@ -84,13 +84,15 @@ uses networknt 3.x), now held below 3 in `renovate.json`; #1089's single failure
 `SupportPlatformResilienceHtmxTest` register race fixed on main since. Beyond Renovate: JDK
 25.0.3 → 25.0.5 (never proposed although on the dashboard), the Tomcat override that pinned
 11.0.25 below Spring Boot 4.1.2's 11.0.27 removed, the Jackson overrides (equal to the BOM) removed,
-epistola-contract 2.0.0, and the Renovate config migration.
+epistola-contract 2.0.0, kotest 6.2.7, veraPDF 1.30.4 and Node 26.13.1 (taken inside the 7-day
+release-age gate on request), and the Renovate config migration.
 
 **Coverage:** frontend CI steps all green locally (lint, stylelint 18, format, license, agents,
 2306 editor tests); `compileTestKotlin`, `ktlintCheck`, `:modules:guards:test` and every
 `unitTest` except epistola-core green; `:modules:epistola-support:test` and
 `:apps:epistola:integrationTest --tests "*Api*IT*"` green (321 tests); resolved `runtimeClasspath`
-of the three apps compared before and after (only Tomcat moves). Full `test uiTest` left to CI.
+of the three apps compared before and after (only Tomcat moves); `PdfConformanceTest` (veraPDF) and
+`:modules:epistola-core:modelTest -PmodelRuns=20` (kotest) green. Full `test uiTest` left to CI.
 
 **Noticed, untouched:**
 
@@ -98,8 +100,6 @@ of the three apps compared before and after (only Tomcat moves). Full `test uiTe
   `origin/main` as well (CI green); the test JVM heap is likely too small for this machine.
 - `modules:generation` resolves Jackson outside the Spring Boot BOM, so its own tests run on the
   contract's Jackson (3.2.4 now, 3.1.5 before) rather than the 3.1.7 the apps ship.
-- Renovate held back kotest 6.2.7, veraPDF 1.30.4 and Node 26.13.1 (a security release) by the
-  7-day release-age gate; they arrive on their own after 17 November.
 - `#1364`'s `SupportPlatformResilienceHtmxTest` failed on a Logback `%clr` configuration error when
   loading the context: a test-isolation flake, not a dependency effect (main is green on the same
   code).
