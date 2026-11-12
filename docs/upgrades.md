@@ -97,6 +97,15 @@ the 2.0 chain starts, but going straight from them to 2.0 is untested. The upgra
 forward and drops the 1.x tables, so a [database backup](#backups-and-upgrades) taken before it is
 the only way back to 1.x. A 1.x build does not check the schema before it starts (it predates the
 [rollback guard](#rollback)): never start one on the upgraded database, restore the backup instead.
+That includes `helm rollback` to a chart 1.x revision, which starts the 1.x image on the migrated
+database.
+
+**Move to chart 2.0, and drop a pinned 1.x image tag.** Chart 2.x deploys Epistola 2.x. Chart 1.1.0
+defaults to app 1.4.0, so a 1.5.x installation pins `image.tag`; remove that pin when moving to chart
+2.0.0, which refuses a 1.x tag rather than run 1.x under 2.x settings.
+
+**Scale to zero first.** Nothing stops 1.x pods that still run while the migration drops the 1.x
+tables, so follow [Running a breaking upgrade](#running-a-breaking-upgrade) steps 1 and 2.
 
 **Document storage must be PostgreSQL.** 2.0 refuses to start with `epistola.storage.backend` set to
 `s3` or `filesystem` (see [`storage.md`](storage.md)); set it to `postgres`. Documents 1.x stored in a
@@ -269,7 +278,9 @@ Migrations are forward-only and never undone ([`migrations.md`](migrations.md)).
 back leaves the newer schema in place, so a rollback works only when the older code can run on it —
 and each migration declares whether it can ([rollback compatibility](migrations.md#rollback-compatibility)).
 
-Every build checks this at startup, before it touches the schema. When the database holds migrations
+Every build from 2.0 checks this at startup, before it touches the schema. A 1.x build predates the
+check and starts on a 2.x database: never roll back to 1.x, by image or by `helm rollback` to a chart
+1.x revision; restore the backup taken before the upgrade. When the database holds migrations
 the build does not ship, each must be recorded as rollback-compatible. If one is not, the build
 refuses to start, in every migration mode — the app pod, the migration Job and the init container
 all exit non-zero, and the log leads with the way back:
