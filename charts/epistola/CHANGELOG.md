@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-12
+
+Chart 2.0.0 deploys Epistola 2.0.0. Moving from chart 1.x: back up the database, scale the release
+to zero, remove a pinned 1.x `image.tag`, set the `localauth` passwords if you use that profile,
+replace `support.hub.*` with `support.endpoint`, and follow the Epistola upgrade guide
+(`docs/upgrades.md`, "From 1.x to 2.0"). Never `helm rollback` to a chart 1.x revision afterwards:
+restore the backup instead.
+
 ### Changed
 
 - **Breaking: a 1.x `image.tag` is refused.** Chart 2.x deploys Epistola 2.x. Chart 1.1.0 defaulted
