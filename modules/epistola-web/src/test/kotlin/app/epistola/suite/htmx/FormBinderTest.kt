@@ -209,6 +209,24 @@ class FormBinderTest {
     }
 
     @Test
+    fun `a new resource key follows the contract - a leading digit is fine, a code list longer than 50 is not`() {
+        val form = requestWith("theme" to "2024-letter", "codeList" to "a" + "b".repeat(59)).form {
+            field("theme") {
+                asThemeId()
+                newResourceKey("Theme")
+            }
+            field("codeList") {
+                asCodeListId()
+                newResourceKey("Code list")
+            }
+        }
+
+        assertThat(form.errors).containsExactlyEntriesOf(
+            mapOf("codeList" to "Code list ID must be 3 to 50 characters: lowercase letters and digits in hyphen-separated parts"),
+        )
+    }
+
+    @Test
     fun `a field selecting an existing resource accepts a reserved word`() {
         val form = requestWith("variant" to "new").form {
             field("variant") { asVariantId() }

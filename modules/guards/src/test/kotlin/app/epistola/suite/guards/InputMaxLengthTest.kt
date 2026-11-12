@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * Build-time gate for issue #633 (UI side): every name/title input in a
  * create/edit form must carry `maxlength="100"`, and each slug input carries its
  * own min/max length bounds (the template-variant slug at `minlength="3"
- * maxlength="50"`, the font slug at `minlength="2" maxlength="64"`). Plain unit
+ * maxlength="50"`, the font slug at `minlength="3" maxlength="50"`, as every new resource key). Plain unit
  * test — no Spring, no Docker — so it runs in the fast `unitTest` cycle and gates
  * every PR (same posture as [IconUsageTest]).
  *
@@ -72,11 +72,11 @@ class InputMaxLengthTest {
             "slug",
             listOf("minlength" to "3", "maxlength" to "50"),
         ),
-        // Font slug carries its own bounds (2..64) — pin them like the variant slug.
+        // Font slug carries its own bounds — a new resource key's, 3..50 (NewResourceKeys) — pinned like the variant slug.
         Target(
             "$base/fonts/new.html",
             "slug",
-            listOf("minlength" to "2", "maxlength" to "64"),
+            listOf("minlength" to "3", "maxlength" to "50"),
         ),
         // Every remaining slug a user can type into. These bounds are not decoration: slug-auto.js
         // truncates a derived slug to the target field's maxLength, so a limit that drifts here
@@ -89,7 +89,7 @@ class InputMaxLengthTest {
         slug("$base/attributes/new.html", "slug", 50),
         slug("$base/stencils/new.html", "slug", 50),
         slug("$base/catalogs/new.html", "catalogSlug", 50),
-        slug("$base/code-lists/new.html", "slug", 64),
+        slug("$base/code-lists/new.html", "slug", 50),
         slug("$base/tenants/new.html", "slug", 63),
     )
 

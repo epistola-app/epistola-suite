@@ -16,7 +16,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
-import app.epistola.suite.common.ids.ReservedResourceKeys
+import app.epistola.suite.common.ids.NewResourceKeys
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.DeleteFont
@@ -161,8 +161,8 @@ class FontHandler(
 
             else -> try {
                 FontKey.of(slugStr).also {
-                    // ImportFont also installs catalogs, so the reserved words are checked here.
-                    if (ReservedResourceKeys.isReserved(it.value)) errors["slug"] = ReservedResourceKeys.refusal("Font", it.value)
+                    // ImportFont also installs catalogs, so the rule for a new key is checked here.
+                    NewResourceKeys.refusal("Font", it.value)?.let { refusal -> errors["slug"] = refusal }
                 }
             } catch (e: IllegalArgumentException) {
                 errors["slug"] = e.message ?: "Invalid slug"

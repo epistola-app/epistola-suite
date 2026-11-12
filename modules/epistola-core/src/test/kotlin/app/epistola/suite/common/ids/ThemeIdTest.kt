@@ -87,8 +87,8 @@ class ThemeIdTest {
         }
 
         @Test
-        fun `should reject slug starting with number`() {
-            assertThrows<IllegalArgumentException> { ThemeKey.of("123abc") }
+        fun `should accept slug starting with number, as the contract's resource keys do`() {
+            assertEquals("123abc", ThemeKey.of("123abc").value)
         }
 
         @Test

@@ -20,8 +20,8 @@ registered by hand; `SpringMediator` resolves handlers by generic type. Copy
   the problem body. Use `FieldLimits` constants. `require(...)` throws the wrong type — it is not
   validation.
 - **A command that creates a resource under a chosen key** calls `validateResourceKey(kind, id.key)`
-  in `init`: one list of reserved words for every resource, refused where a key is chosen, never
-  where one is read (`ReservedResourceKeysGuardTest`).
+  in `init`: one rule for every resource — the contract's format, no reserved word — held where a
+  key is chosen, never where one is read (`NewResourceKeysGuardTest`).
 - **Data access lives in the handler**, with raw JDBI. Commands already run in one transaction, so
   do not add `@Transactional` (`HandlerTransactionTest`); implement `SelfManagedTransaction` when you
   truly must manage it.

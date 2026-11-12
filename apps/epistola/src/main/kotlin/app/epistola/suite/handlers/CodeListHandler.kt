@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.attributes.codelists.commands.CodeListInUseException
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.commands.DeleteCodeList
@@ -111,9 +112,9 @@ class CodeListHandler(
         val form = request.form {
             field("slug") {
                 required()
-                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                pattern(CatalogKeys.PATTERN)
                 minLength(3)
-                maxLength(64)
+                maxLength(50)
                 // Folds the old "invalid CodeListKey" branch into field validation
                 // (same "Invalid code-list ID format" error) so all failure modes
                 // share one error path. Layered ON TOP of the pattern/length rules

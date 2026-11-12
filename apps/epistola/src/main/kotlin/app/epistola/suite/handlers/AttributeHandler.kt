@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -93,7 +94,7 @@ class AttributeHandler {
             field("constraintKind") {}
             field("slug") {
                 required()
-                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                pattern(CatalogKeys.PATTERN)
                 minLength(3)
                 maxLength(50)
                 // Folds the old "invalid AttributeKey" branch into field validation

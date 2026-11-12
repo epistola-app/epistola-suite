@@ -163,10 +163,16 @@ enum class ValidationCode(val wire: String) {
     SOURCE_URL_NOT_ALLOWED("SOURCE_URL_NOT_ALLOWED"),
 
     /**
-     * A new resource key is one of the suite's reserved words (`ReservedResourceKeys`). Not registered by the contract yet, so
-     * the API sends it as a plain validation error.
+     * A new resource key is one of the suite's reserved words (`NewResourceKeys`). Not registered by
+     * the contract yet, so the API sends it as a plain validation error.
      */
     KEY_RESERVED("KEY_RESERVED"),
+
+    /**
+     * A new resource key breaks the contract's format (`NewResourceKeys`), so its catalog could not
+     * be released. Not registered by the contract yet, so the API sends it as a plain validation error.
+     */
+    KEY_FORMAT_INVALID("KEY_FORMAT_INVALID"),
 
     // Cluster operations.
     CLUSTER_NODE_NOT_FOUND("CLUSTER_NODE_NOT_FOUND"),

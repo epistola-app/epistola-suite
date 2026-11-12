@@ -4,6 +4,7 @@
 
 package app.epistola.suite.common.ids
 
+import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
@@ -23,10 +24,10 @@ import org.assertj.core.api.SoftAssertions.assertSoftly
 import org.junit.jupiter.api.Test
 
 /**
- * One list of reserved words for every resource key, refused where an author chooses a key and
- * never where one is read ([ReservedResourceKeys]).
+ * One rule for what a new resource key may be — the contract's format, no reserved word — held where
+ * an author chooses a key and never where one is read ([NewResourceKeys]).
  */
-class ReservedResourceKeysTest {
+class NewResourceKeysTest {
 
     private val tenant = TenantId(TenantKey.of("acme"))
     private val catalog = CatalogId("acme", CatalogKey.of("letters"), tenant)
@@ -56,7 +57,7 @@ class ReservedResourceKeysTest {
     fun `no resource can be created with a reserved word as its key`() {
         assertSoftly { softly ->
             for ((kind, create) in creates) {
-                for (word in ReservedResourceKeys.WORDS) {
+                for (word in NewResourceKeys.RESERVED_WORDS) {
                     softly.assertThatThrownBy { create(word) }
                         .`as`("$kind keyed $word")
                         .isInstanceOfSatisfying(ValidationException::class.java) {
@@ -79,9 +80,42 @@ class ReservedResourceKeysTest {
     @Test
     fun `a key stored as a reserved word still reads`() {
         // Themes, code lists, attributes and images accepted these words before; a catalog import may bring any.
-        for (word in ReservedResourceKeys.WORDS) {
+        for (word in NewResourceKeys.RESERVED_WORDS) {
             listOf(TemplateKey.of(word), VariantKey.of(word), StencilKey.of(word), ThemeKey.of(word), AttributeKey.of(word), CodeListKey.of(word), AssetKey.of(word), FontKey.of(word), EnvironmentKey.of(word))
                 .forEach { assertThat(it.value).isEqualTo(word) }
         }
+    }
+
+    @Test
+    fun `a new key may start with a digit, as the contract allows`() {
+        for ((kind, create) in creates - "Image" - "Environment") {
+            assertThat(create("2024-letter")).`as`(kind).isNotNull()
+        }
+    }
+
+    @Test
+    fun `a new key the contract refuses is refused when chosen, not when its catalog is released`() {
+        val tooLong = "a" + "b".repeat(CatalogKeys.MAX_LENGTH)
+        assertSoftly { softly ->
+            for ((kind, key) in listOf("Code list" to tooLong, "Image" to "ab")) {
+                softly.assertThatThrownBy { creates.getValue(kind)(key) }
+                    .`as`("$kind keyed $key")
+                    .isInstanceOfSatisfying(ValidationException::class.java) {
+                        assertThat(it.field).isEqualTo("key")
+                        assertThat(it.code).isEqualTo(ValidationCode.KEY_FORMAT_INVALID)
+                    }
+                    .hasMessage("$kind ID must be 3 to 50 characters: lowercase letters and digits in hyphen-separated parts")
+            }
+        }
+    }
+
+    @Test
+    fun `every key the contract allows, and every key stored before, still reads`() {
+        // A leading digit, as the contract allows and a catalog import may bring.
+        listOf(TemplateKey.of("2024-letter"), VariantKey.of("2024-letter"), StencilKey.of("2024-letter"), ThemeKey.of("2024-letter"), AttributeKey.of("2024-letter"), CodeListKey.of("2024-letter"), AssetKey.of("2024-letter"), FontKey.of("2024-letter"))
+            .forEach { assertThat(it.value).isEqualTo("2024-letter") }
+        // Lengths the suite allowed before the contract's rule: kept readable.
+        assertThat(CodeListKey.of("a" + "b".repeat(63)).value).hasSize(64)
+        assertThat(FontKey.of("ab").value).isEqualTo("ab")
     }
 }
