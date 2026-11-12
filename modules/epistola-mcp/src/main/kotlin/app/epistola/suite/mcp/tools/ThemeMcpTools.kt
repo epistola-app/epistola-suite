@@ -326,6 +326,7 @@ class ThemeMcpTools(
         name = "apply_house_theme",
         description = "Make the tenant's house theme (its default theme, never used while rendering) the default theme " +
             "of every catalog the tenant authors, in each one's next release. Each takes it on its next publish. " +
+            "A catalog stops declaring the catalog its replaced theme came from when nothing else in it uses that catalog. " +
             "Returns which catalogs took it and which had no next release, each by its `address`, `namespace/key`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )

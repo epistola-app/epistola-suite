@@ -184,7 +184,7 @@ class GetCatalogBorrowingHandler(
         val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
             store.declarations(handle, at).map { store.asPublished(handle, query.tenantKey, it) }
         }
-        val references = (content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)).filter { it.first != own }
+        val references = catalogUses(content).filter { it.first != own }
         val catalogs = ListCatalogs(query.tenantKey).query().filter { it.catalogId != query.catalog }
 
         // By alias, as content names another catalog (ADR 0034, section 9): the catalog its declaration
@@ -244,31 +244,39 @@ class GetCatalogBorrowingHandler(
 
     private fun latestRelease(catalog: CatalogId): String? = ListCatalogReleaseSummaries(catalog, limit = 1).query().firstOrNull()?.version
 
-    /**
-     * What the version uses of other catalogs outside its resources' references: the default theme the
-     * catalog settings name, and the attributes of another catalog its variants carry
-     * (`<alias>.<key>`, as [attributeCatalogs] reads them).
-     */
-    private fun settingUses(content: app.epistola.suite.catalog.CatalogContent): List<Pair<String, BorrowedResource>> {
-        val theme = content.catalog.defaultTheme?.let { ref -> ref.catalogKey?.let { it to BorrowedResource("theme", ref.key, null) } }
-        val attributes = content.resourceDetails.values.map { it.resource }
-            .filterIsInstance<app.epistola.catalog.protocol.TemplateResource>()
-            .flatMap { template -> template.variants.orEmpty().flatMap { it.attributes.orEmpty().keys } }
-            .mapNotNull { key -> attributeCatalogs(listOf(key)).singleOrNull()?.let { it.value to BorrowedResource("attribute", key.substringAfter('.'), null) } }
-        return listOfNotNull(theme) + attributes
-    }
-
-    private fun DependencyRef.toBorrowed(): Pair<String, BorrowedResource> = when (this) {
-        is DependencyRef.Theme -> catalogKey to BorrowedResource("theme", key, null)
-        is DependencyRef.Stencil -> catalogKey to BorrowedResource("stencil", key, null)
-        is DependencyRef.Image -> catalogKey to BorrowedResource("image", key, null)
-        is DependencyRef.CodeList -> catalogKey to BorrowedResource("codeList", key, null)
-        is DependencyRef.Font -> catalogKey to BorrowedResource("font", key, null)
-        is DependencyRef.QualityProfile -> catalogKey to BorrowedResource("qualityProfile", key, null)
-    }
-
     private companion object {
         /** The kinds a template can use from another catalog, in the order the page lists them. */
         val BORROWABLE = listOf("stencil", "theme", "image", "font", "codeList")
     }
+}
+
+/**
+ * What [content] uses of other catalogs, by the alias it names each by: its references (themes,
+ * stencils, images, code lists, fonts, quality profiles), its default theme and its variants'
+ * attributes. One definition for [CatalogBorrowing] and for whatever else decides that a declaration
+ * is no longer used.
+ */
+internal fun catalogUses(content: app.epistola.suite.catalog.CatalogContent): List<Pair<String, BorrowedResource>> = content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)
+
+/**
+ * What the version uses of other catalogs outside its resources' references: the default theme the
+ * catalog settings name, and the attributes of another catalog its variants carry
+ * (`<alias>.<key>`, as [attributeCatalogs] reads them).
+ */
+private fun settingUses(content: app.epistola.suite.catalog.CatalogContent): List<Pair<String, BorrowedResource>> {
+    val theme = content.catalog.defaultTheme?.let { ref -> ref.catalogKey?.let { it to BorrowedResource("theme", ref.key, null) } }
+    val attributes = content.resourceDetails.values.map { it.resource }
+        .filterIsInstance<app.epistola.catalog.protocol.TemplateResource>()
+        .flatMap { template -> template.variants.orEmpty().flatMap { it.attributes.orEmpty().keys } }
+        .mapNotNull { key -> attributeCatalogs(listOf(key)).singleOrNull()?.let { it.value to BorrowedResource("attribute", key.substringAfter('.'), null) } }
+    return listOfNotNull(theme) + attributes
+}
+
+private fun DependencyRef.toBorrowed(): Pair<String, BorrowedResource> = when (this) {
+    is DependencyRef.Theme -> catalogKey to BorrowedResource("theme", key, null)
+    is DependencyRef.Stencil -> catalogKey to BorrowedResource("stencil", key, null)
+    is DependencyRef.Image -> catalogKey to BorrowedResource("image", key, null)
+    is DependencyRef.CodeList -> catalogKey to BorrowedResource("codeList", key, null)
+    is DependencyRef.Font -> catalogKey to BorrowedResource("font", key, null)
+    is DependencyRef.QualityProfile -> catalogKey to BorrowedResource("qualityProfile", key, null)
 }

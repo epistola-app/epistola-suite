@@ -4,12 +4,17 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.bindVersion
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.dependencies.catalogUses
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.releases.ContentVersion
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_NAMESPACE
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -70,6 +75,10 @@ data class ApplyHouseThemeResult(val applied: List<CatalogId>, val skipped: List
  * Makes the house theme the default theme of every catalog of the tenant that can be changed here
  * (ADR 0032), in each one's next version; each takes it into a published version on its next
  * publish. Does nothing without a house theme.
+ *
+ * The catalog the replaced default theme came from stays declared only while something else in the
+ * version uses it. A declaration left behind would still be pinned, and, naming that catalog's
+ * draft, hold publishing until that catalog is published too, for a theme nothing uses any more.
  */
 data class ApplyHouseTheme(
     override val tenantKey: TenantKey,
@@ -82,13 +91,25 @@ data class ApplyHouseTheme(
 class ApplyHouseThemeHandler(
     private val jdbi: Jdbi,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val contentBuilder: CatalogContentBuilder,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<ApplyHouseTheme, ApplyHouseThemeResult> {
     override fun handle(command: ApplyHouseTheme): ApplyHouseThemeResult {
         val editable = ListCatalogEditability(command.tenantKey).query().editableCatalogs.sortedWith(compareBy({ it.key.value }, { it.namespace }))
-        val outcome = editable.map { catalog ->
+        // Two passes. The first gives every catalog the house theme and drops what the theme it replaced
+        // alone used; only then is the theme's catalog declared. In one pass, a catalog declaring the
+        // new theme's catalog while that catalog still declares it, for the theme it is replacing, would
+        // be refused as catalogs using each other.
+        val applied = editable.map { catalog ->
             // Each catalog's next version: the house theme is the default, by name.
             val at = jdbi.withHandle<ContentVersion, Exception> { ContentVersion.next(it, catalog) }
+            // The catalog the default theme it replaces came from, by the alias the version names it by.
+            val replacedFrom = contentBuilder.build(at).catalog.defaultTheme?.catalogKey
             val themeCatalog = jdbi.inTransaction<CatalogId?, Exception> { handle -> HouseTheme.applyTo(handle, at) }
+            if (themeCatalog != null && replacedFrom != null) dropIfUnused(at, replacedFrom)
+            Triple(catalog, at, themeCatalog)
+        }
+        val outcome = applied.map { (catalog, at, themeCatalog) ->
             // A house theme of another catalog is a use of that catalog, declared as any reference is.
             themeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(at, it) }
             catalog to themeCatalog
@@ -97,5 +118,20 @@ class ApplyHouseThemeHandler(
             applied = outcome.filter { it.second != null }.map { it.first },
             skipped = outcome.filter { it.second == null }.map { it.first },
         )
+    }
+
+    /**
+     * Removes version [at]'s declaration of [alias] when nothing in it uses that catalog any more
+     * (as `CatalogBorrowing.unused` judges it). The system catalog stays: every catalog declares it
+     * from the start, used or not.
+     */
+    private fun dropIfUnused(at: ContentVersion, alias: String) {
+        if (catalogUses(contentBuilder.build(at)).any { it.first == alias }) return
+        jdbi.useTransaction<Exception> { handle ->
+            val declarations = dependencyStore.declarations(handle, at)
+            val declaration = declarations.firstOrNull { it.alias == alias } ?: return@useTransaction
+            if (declaration.namespace == SYSTEM_CATALOG_NAMESPACE && declaration.catalogKey == SYSTEM_CATALOG_KEY.value) return@useTransaction
+            dependencyStore.replace(handle, at, declarations - declaration)
+        }
     }
 }

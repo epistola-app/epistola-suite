@@ -732,7 +732,10 @@ clients declare first, with the catalog's dependencies endpoint or `update_catal
 Declaring one catalog (`DeclareCatalogDependency`, as `UsedCatalogDeclarer` does it) names its
 **next release** when it can be changed here, which the draft then renders it from, and pins its
 highest release when it cannot. Choosing a house theme when a catalog is created, or applying one,
-declares its catalog itself: that choice is the step.
+declares its catalog itself: that choice is the step. Applying one also removes the declaration of
+the catalog the replaced default theme came from, when nothing else in the version uses it
+(`catalogUses`, as the Dependencies page judges it), before declaring the new one, so moving the house
+theme to a catalog made under the old one is not refused as catalogs using each other.
 
 **The system catalog is declared from the start.** A new catalog, and a tenant's default catalog,
 declares the system catalog at its highest release when it is created
