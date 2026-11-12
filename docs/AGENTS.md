@@ -18,9 +18,3 @@ Technical documentation: how the suite is built, deployed and extended. User-fac
 - A **Record** page is a point-in-time artefact: correct when written, not maintained. Do not
   retro-edit one to match later reality — write a new one.
 - Run `pnpm format` — Markdown is formatted too, and CI checks it.
-
-## Known gaps
-
-Being fixed as they are touched, listed so they are not rediscovered: the per-part wire-format
-pages stop at `exchange/v5/` while 2.0 writes v8, and the protocol examples in `exchange/README.md`
-show the v4 shape (see its "Parts & contract versions").

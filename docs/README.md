@@ -68,8 +68,8 @@ under its title. That banner, not this table, is authoritative.
 | Doc                                                                   | Status   | What it covers                                                                                                 |
 | --------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
 | [Catalogs & resource exchange](exchange/README.md)                    | Current  | Architecture, data model and import/export flows. Root of the exchange docs.                                   |
-| [Wire format v5](exchange/v5/README.md)                               | Current  | Wire version 5, one page per part; 2.0 writes v8, defined by the `epistola-catalog` schemas.                   |
-| [Wire format v4](exchange/v4/README.md)                               | Current  | Wire version 4, the oldest version still migrated on import.                                                   |
+| [Wire format v5](exchange/v5/README.md)                               | Record   | Wire version 5, one page per part. 2.0 writes v8, defined by the contract's schemas.                           |
+| [Wire format v4](exchange/v4/README.md)                               | Record   | Wire version 4, the oldest version still migrated on import.                                                   |
 | [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version, how "is this new?" is decided, and ready marks.                              |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.                                            |
 | [Resource reference graph](resource-reference-graph.md)               | Current  | Which resources use which: the data behind organising catalogs and merges (no page of its own).                |

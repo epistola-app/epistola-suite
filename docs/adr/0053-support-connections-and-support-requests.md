@@ -1,6 +1,6 @@
 # ADR 0053: Support connections in the plural, and support requests
 
-- **Status:** Proposed (rollout step 1 built)
+- **Status:** Accepted (rollout steps 1–3 built, in 2.0; step 4 is outside the suite)
 - **Date:** 2026-11-08
 - **Deciders:** Epistola team
 - **Tags:** support, feedback, partners, saas, privacy
@@ -283,10 +283,10 @@ can open requests through the same protocol.
    - **3h, built:** one place for what a tenant shares. The read-only Support request sharing page
      goes; the Support page says, per connection, why support requests a tenant shares are not sent
      yet.
-   - **3i, planned (#1361): Epistola's connection like any other** (§1, amended 2026-11-09). Steps 1–3 still
-     single it out: a fixed id (`SupportConnections.DISCOVERED_ID`, used as `REQUESTS_CONNECTION` and
-     `MIRROR_CONNECTION`), a `source` column (`DISCOVERED` / `CONFIGURED`), and behaviour only it has.
-     Each becomes a property every connection has:
+   - **3i, built (#1361): Epistola's connection like any other** (§1, amended 2026-11-09). Steps 1–3
+     singled it out: a fixed id (`SupportConnections.DISCOVERED_ID`, used as `REQUESTS_CONNECTION` and
+     `MIRROR_CONNECTION`), a `source` column (`DISCOVERED` / `CONFIGURED`), and behaviour only it had.
+     Each became a property every connection has:
      - **identity** (built): no fixed id and no `source`; every connection is named by its endpoint
        (`UNIQUE (endpoint)`). `epistola.support.endpoint` has a default, `https://support.{product-domain}`
        (the product domain's discovery no longer names it), and with `epistola.support.enabled` that

@@ -392,7 +392,10 @@ def check_docs() -> list[Problem]:
 
 
 def index_entries(index: Path) -> dict[str, str]:
-    """Map the filename of each indexed page to its Status column."""
+    """Map each indexed page, as a path relative to the index, to its Status column.
+
+    Keyed by path, not filename: `exchange/v5/README.md` is not `README.md` beside the index.
+    """
     if not index.exists():
         return {}
     entries: dict[str, str] = {}
@@ -403,7 +406,7 @@ def index_entries(index: Path) -> dict[str, str]:
         target, status = match.group(2), match.group(3).strip()
         if target.startswith(("http", "#", "..")):
             continue
-        entries[Path(target.split("#", 1)[0]).name] = status
+        entries[Path(target.split("#", 1)[0]).as_posix()] = status
     return entries
 
 

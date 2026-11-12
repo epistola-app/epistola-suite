@@ -94,6 +94,24 @@ class IndexEntriesTest(unittest.TestCase):
             self.assertEqual("Accepted", entries["0001-stencil-placeholders.md"])
             self.assertNotIn("x", entries, "external links are not repository pages")
 
+    def test_a_page_in_a_subfolder_is_keyed_by_its_path(self) -> None:
+        """`exchange/v5/README.md` marked Record must not be read as the index's own README.md."""
+        with TemporaryDirectory() as tmp:
+            index = Path(tmp) / "README.md"
+            index.write_text(
+                "| Doc | Status | What |\n"
+                "| --- | --- | --- |\n"
+                "| [Exchange](exchange/README.md) | Current | Root. |\n"
+                "| [Wire format v5](exchange/v5/README.md#parts) | Record | A record. |\n",
+                encoding="utf-8",
+            )
+
+            entries = agents_check.index_entries(index)
+
+            self.assertEqual("Current", entries["exchange/README.md"])
+            self.assertEqual("Record", entries["exchange/v5/README.md"])
+            self.assertNotIn("README.md", entries)
+
     def test_a_missing_index_is_empty_rather_than_fatal(self) -> None:
         self.assertEqual({}, agents_check.index_entries(Path("/nonexistent/README.md")))
 
