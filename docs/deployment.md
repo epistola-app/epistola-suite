@@ -110,7 +110,6 @@ published image without rebuilding locally, pass `--image-tag <tag>`.
 
 ```bash
 helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
-  --set image.tag=v0.20.0 \
   --set config.profiles=prod \
   --set database.type=external \
   --set database.external.host=pg.internal \

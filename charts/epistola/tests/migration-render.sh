@@ -54,3 +54,19 @@ if [[ "$(guard_values "$(source_of deployment.yaml "${init}")" | wc -l | tr -d '
   exit 1
 fi
 expect_guard 'an initContainer-mode pod when disabled' '"false"' "$(source_of deployment.yaml "${init}")"
+
+# A 1.x image tag is refused: chart 2.x deploys Epistola 2.x, and an installation that kept its 1.x
+# pin while moving to chart 2.x would run 1.x under the 2.x chart instead of upgrading. A 2.x tag,
+# including the -demo image, renders.
+for refused in 1.5.1 v1.4.0 1.5.0-demo; do
+  if helm template migration-test "${chart_dir}" --set encryption.enabled=false --set-string "image.tag=${refused}" >/dev/null 2>&1; then
+    echo "Expected image.tag=${refused} (Epistola 1.x) to be refused by chart 2.x" >&2
+    exit 1
+  fi
+done
+for allowed in 2.0.0 2.0.0-demo; do
+  if ! grep -Fq "image: \"ghcr.io/epistola-app/epistola-suite:${allowed}\"" <<<"$(helm template migration-test "${chart_dir}" --set encryption.enabled=false --set-string "image.tag=${allowed}")"; then
+    echo "Expected image.tag=${allowed} to render" >&2
+    exit 1
+  fi
+done

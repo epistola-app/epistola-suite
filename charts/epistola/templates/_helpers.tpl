@@ -279,6 +279,19 @@ Handles CNPG's asynchronous provisioning. Rendered as a container list item.
 {{- end }}
 
 {{/*
+The application image. A 1.x tag is refused: chart 2.x deploys Epistola 2.x, and an installation that
+moved to chart 2.x while still pinning its 1.x tag would run 1.x under the 2.x chart's settings
+instead of upgrading (docs/upgrades.md, "From 1.x to 2.0").
+*/}}
+{{- define "epistola.image" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion | toString -}}
+{{- if regexMatch "^v?1\\." $tag -}}
+{{- fail (printf "image.tag %q is Epistola 1.x, and chart %s deploys Epistola 2.x. Remove image.tag to deploy the chart's appVersion (%s), or set a 2.x tag; follow docs/upgrades.md, \"From 1.x to 2.0\". To stay on Epistola 1.x, stay on chart 1.x." $tag .Chart.Version .Chart.AppVersion) -}}
+{{- end -}}
+{{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- end }}
+
+{{/*
 Migration container — same app image, EPISTOLA_MIGRATION_MODE=migrate. Used by the
 hook Job (job mode) and the app pod init container (initContainer mode).
 Rendered as a container list item.
@@ -287,7 +300,7 @@ Rendered as a container list item.
 - name: migrate
   securityContext:
     {{- toYaml .Values.securityContext | nindent 4 }}
-  image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  image: {{ include "epistola.image" . | quote }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   env:
     - name: EPISTOLA_MIGRATION_MODE

@@ -4,6 +4,17 @@
 
 ### Changed
 
+- **Breaking: a 1.x `image.tag` is refused.** Chart 2.x deploys Epistola 2.x. Chart 1.1.0 defaulted
+  to app 1.4.0, so a 1.5.x installation pinned `image.tag`; kept while moving to chart 2.0, that pin
+  would run 1.x under the 2.x chart's settings instead of upgrading. Rendering now fails, naming
+  the tag: remove `image.tag` to deploy the chart's `appVersion`, or set a 2.x tag. To stay on 1.x,
+  stay on chart 1.x.
+
+- **After every upgrade the notes warn against `helm rollback` to a chart 1.x revision.** It starts
+  Epistola 1.x on a database Epistola 2.x migrated, and 1.x, which predates the rollback guard, runs
+  on it. Restore the backup taken before the upgrade instead. The notes also say to scale to zero
+  before upgrading from 1.x: the upgrade does not stop 1.x pods that still run (#906).
+
 - **Breaking: with `config.profiles` including `localauth`, set the local users' passwords.**
   From Epistola 2.0 the application refuses to start while a `localauth` user still has the password
   it ships with (`admin`, `user`), unless the `local` profile is active. Set

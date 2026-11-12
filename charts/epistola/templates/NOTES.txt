@@ -51,6 +51,15 @@
    for multi-replica use migration.mode=job.
 {{- end }}
 
+{{- if .Release.IsUpgrade }}
+
+UPGRADE: never `helm rollback` to a chart 1.x revision. It would start Epistola 1.x
+   on a database Epistola 2.x has migrated, which 1.x does not check for and must
+   not run on. To go back to 1.x, restore the database backup taken before the
+   upgrade (docs/upgrades.md, "Rollback"). Moving from 1.x, scale the release to
+   zero before upgrading: the upgrade does not stop 1.x pods that still run.
+{{- end }}
+
 {{- with include "epistola.hpa.deprecatedKeys" . }}
 
 DEPRECATED: autoscaling.{{ "{" }}{{ . }}{{ "}" }} configure the HPA through the
