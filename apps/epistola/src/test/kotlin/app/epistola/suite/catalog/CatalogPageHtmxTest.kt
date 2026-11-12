@@ -119,6 +119,27 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `discarding a draft an environment serves names that environment before it is done`() {
+        lateinit var nextDraft: String
+        val tenant = catalog("Page Discard Served") { tenant, catalog ->
+            invoice(catalog)
+            val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id))
+            CreateEnvironment(test, "Test").execute()
+            nextDraft = app.epistola.suite.catalog.releases.ListCatalogReleases(catalog).query().single { it.isNext }.versionId
+            DeployCatalogRelease(test, catalog, nextDraft).execute()
+        }
+        val stops = "Test uses it and will serve nothing of this catalog until a release is deployed there."
+
+        val draftPage = get(tenant, "/catalogs/${tenant.id}/letters/draft").body!!
+        assertThat(draftPage.substringAfter("data-testid=\"catalog-draft-discard\"").substringBefore("</button>"))
+            .`as`("the draft's own Discard").contains(stops)
+
+        val versions = get(tenant, "/catalogs/${tenant.id}/letters/releases").body!!
+        assertThat(versions.substringAfter("data-testid=\"catalog-version-remove\"").substringBefore("</button>"))
+            .`as`("Discard on the Versions list").contains(stops)
+    }
+
+    @Test
     fun `a production environment is marked unless its name says so already`() {
         val tenant = catalog("Page Production Mark") { tenant, _ ->
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production", production = true).execute()

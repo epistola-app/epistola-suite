@@ -138,8 +138,9 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         description = "Discard a draft of a catalog that can be changed here and everything changed in it. Discarding the next release " +
             "(`next`) throws its changes away: it starts again as a copy of the latest release. Releases cannot be " +
             "deleted here. Refused while another catalog's draft builds on it, and while the draft alone holds something " +
-            "used outside it, such as the tenant's default theme; the error names it. Confirm with the user first: this " +
-            "cannot be undone. Requires the CATALOG_RELEASE permission.",
+            "used outside it, such as the tenant's default theme; the error names it. An environment serving the draft " +
+            "(`list_environments`) stops serving it and serves nothing of the catalog until a release is deployed there. " +
+            "Confirm with the user first, naming those environments: this cannot be undone. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
     )
     @McpPermission(Permission.CATALOG_RELEASE)

@@ -72,19 +72,48 @@ data class CatalogDraftBar(
     val mayDeleteReleases: Boolean = false,
     /** The viewer holds `ENVIRONMENT_DEPLOY`, which pointing an environment at a version needs. */
     val mayDeploy: Boolean = false,
-    /** The environments that follow [chosen], live (an override naming it), by name. */
-    val followedBy: List<String> = emptyList(),
+    /**
+     * The environments serving each draft live (an override naming it), by name, keyed by the draft's
+     * id. Discarding a draft stops them serving it (contract ADR 0003), so its confirmation names them.
+     */
+    val draftFollowers: Map<String, List<String>> = emptyMap(),
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
+    /** The environments that follow [chosen], live (an override naming it), by name. */
+    val followedBy: List<String> get() = chosen?.versionId?.let { draftFollowers[it] }.orEmpty()
+
     /** Whether to offer trying [chosen] on an environment, which then follows it as it is changed. */
     val offerFollow: Boolean get() = editable && chosen != null && mayDeploy
 
     /** "Test and Acceptance follow it", or null when no environment does. */
     val followedByText: String? get() = followedBy.takeIf { it.isNotEmpty() }?.let { names ->
-        (if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()) +
-            (if (names.size == 1) " follows it" else " follow it")
+        joined(names) + (if (names.size == 1) " follows it" else " follow it")
     }
+
+    /** What discarding [chosen] does, for its confirmation; null when nothing is chosen. */
+    val discardMessage: String? get() = chosen?.let(::discardMessageFor)
+
+    /**
+     * What discarding [draft] does, said before it is done: its changes go, and every environment
+     * serving it stops (contract ADR 0003), serving nothing of the catalog until a release is deployed
+     * there. Discarding cannot be refused for that, so the confirmation is where it is said.
+     */
+    private fun discardMessageFor(draft: CatalogRelease): String {
+        val what = if (draft.isNext) {
+            "Every change in the next release is thrown away; it starts again from the latest published release. " +
+                "Published releases and parallel work are not affected."
+        } else {
+            "${draft.label} is discarded with every change made in it. Published releases and the next release are not affected."
+        }
+        val serving = draftFollowers[draft.versionId].orEmpty().takeIf { it.isNotEmpty() }?.let { names ->
+            " " + joined(names) + (if (names.size == 1) " uses it" else " use it") +
+                " and will serve nothing of this catalog until a release is deployed there."
+        }.orEmpty()
+        return "$what$serving This cannot be undone."
+    }
+
+    private fun joined(names: List<String>): String = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
 
     /** The catalog's current version: its next version, or the release a read-only catalog is on. */
     val current: CatalogRelease? get() = if (editable) drafts.firstOrNull { it.isNext } else installed
@@ -162,6 +191,7 @@ data class CatalogDraftBar(
                 offerRemove = mayDiscardDrafts,
                 removeWithheld = !mayDiscardDrafts,
                 removeAction = "/tenants/${tenantKey.value}/catalogs/${at.value}/drafts/discard",
+                discardMessage = discardMessageFor(draft),
             )
         } + releases.map { release ->
             val version = requireNotNull(release.version)
@@ -201,6 +231,8 @@ data class CatalogDraftBar(
         val removeWithheld: Boolean = false,
         /** Where removing it posts: a draft is discarded at its segment, a published version deleted. */
         val removeAction: String = "",
+        /** For a draft, what discarding it does, environments that stop serving it included; null for a published version. */
+        val discardMessage: String? = null,
     )
 
     /** Some row's removal is withheld, so the Versions page says what it needs. */
@@ -303,15 +335,17 @@ data class CatalogDraftBar(
                 }
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
-            val followedBy = chosen?.versionId?.takeIf { editable && chosen.status == CatalogReleaseStatus.DRAFT }?.let { draftId ->
-                val following = ListDraftDeployments(tenantKey, catalog = segment.catalogIn(tenantKey)).query().filter { it.draftId == draftId }.map { it.environmentKey }
+            val draftFollowers = if (editable && drafts.isNotEmpty()) {
+                val following = ListDraftDeployments(tenantKey, catalog = segment.catalogIn(tenantKey)).query()
                 if (following.isEmpty()) {
-                    emptyList()
+                    emptyMap()
                 } else {
                     val names = ListEnvironments(TenantId(tenantKey)).query().associate { it.id to it.name }
-                    following.map { names[it] ?: it.value }
+                    following.groupBy({ it.draftId }, { names[it.environmentKey] ?: it.environmentKey.value })
                 }
-            }.orEmpty()
+            } else {
+                emptyMap()
+            }
             return CatalogDraftBar(
                 tenantKey = tenantKey,
                 catalogKey = segment.key,
@@ -328,7 +362,7 @@ data class CatalogDraftBar(
                 suppliedByEpistola = catalog?.suppliedByEpistola == true,
                 mayDeleteReleases = auth.has(Permission.CATALOG_MANAGE),
                 mayDeploy = auth.has(Permission.ENVIRONMENT_DEPLOY),
-                followedBy = followedBy,
+                draftFollowers = draftFollowers,
                 pageAt = pageAt,
             )
         }
