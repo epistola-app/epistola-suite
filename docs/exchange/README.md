@@ -65,12 +65,12 @@ imported or registered from a source.
 
 Catalogs contain seven resource types, installed in dependency order (see [`RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt)):
 
-1. **Assets** — Binary images (PNG, JPEG, WebP, SVG) used in templates
+1. **Images** — Binary images (PNG, JPEG, WebP, SVG) used in templates
 2. **Code lists** — Reusable enumerations (e.g. BCP-47 languages) bound by attributes
 3. **Fonts** — Asset-backed font families (system/`CLASSPATH` fonts are not exchanged)
 4. **Attributes** — Variant attribute definitions (e.g., language, region)
 5. **Themes** — Document styles, page settings, block style presets
-6. **Stencils** — Reusable content blocks with versioning
+6. **Stencils** — Reusable content blocks, inserted by reference (no stencil versions since 2.0)
 7. **Templates** — Document templates with variants and a data contract, edited in place (no template or contract versions since 2.0)
 
 The wire contract of each (and the manifest) is documented per part under [Parts & contract versions](#parts--contract-versions).
@@ -101,35 +101,33 @@ adapters around `epistola-catalog`, not an independent portable specification:
 
 ```
 catalog/
-  Catalog.kt                          # Data model (CatalogType, AuthType)
+  Catalog.kt                          # Data model (Catalog, CatalogMetadata, AuthType)
   CatalogClient.kt                    # HTTP/file/classpath fetching
+  CatalogContentBuilder.kt            # A version's content: manifest entries, details, binaries
   CatalogImportContext.kt             # ScopedValue for import bypass
   CatalogReadOnlyException.kt         # requireCatalogEditable()
   DependencyResolver.kt               # Transitive dependency resolution
-  DependencyScanner.kt                # Scan template model for refs
-  MultipleStencilVersionsInUseException.kt  # Export-side stencil pin drift
+  DependencyScanner.kt                # Scan content for references
   commands/
     CreateCatalog.kt                  # Create a catalog
     RegisterCatalog.kt                # Subscribe to remote catalog
-    DeleteCatalog.kt              # Remove catalog + all resources
-    InstallFromCatalog.kt             # Import orchestrator
-    ExportCatalog.kt                  # Export by template dependencies
-    ExportCatalogZip.kt               # Export entire catalog as ZIP
-    OnStencilConflict.kt              # Import conflict policy + renumber map
-    Import*.kt                        # Per-type importers
+    DeleteCatalog.kt                  # Remove catalog + all resources
+    InstallFromCatalog.kt             # Install from a source (receives an archive)
+    UpgradeCatalog.kt                 # Upgrade from a source (receives an archive)
+    ExportCatalogZip.kt               # Export a release as ZIP
+    ImportCatalogZip.kt               # Receive a release from an archive
+    ImportArchiveReader.kt            # Read, validate and migrate an archive
+  dependencies/                       # Declared catalog dependencies and their pins
+  releases/                           # Drafts, releases, theme settings
+  sources/                            # Where releases can come from
   queries/
     BrowseCatalog.kt                  # List resources in catalog
-    ExportAssets.kt                   # Query assets for export
-    ExportResources.kt                # Query themes/stencils/attributes for export
-    FindStencilVersionExportConflicts.kt  # Export precheck
+    CheckCatalogUpgrade.kt            # Is a newer release available?
     GetCatalog.kt, ListCatalogs.kt
     PreviewInstall.kt                 # Dependency resolution preview
 ```
 
-UI handlers and routes are in `apps/epistola`:
-
-- `CatalogHandler.kt` — list, create, register, unregister, browse, install, export
-- `CatalogRoutes.kt` — route bindings under `/tenants/{tenantId}/catalogs`
+UI handlers and routes are in `apps/epistola`, in the `Catalog*Handler.kt` files (`CatalogTransferHandler.kt` holds install and export), bound in `CatalogRoutes.kt` under `/tenants/{tenantId}/catalogs`.
 
 See [Catalog contract upgrade compatibility](../catalog-contract-compatibility.md)
 for the exact ownership boundary, production implications, and the catalog-v5
@@ -175,112 +173,120 @@ own) naming its JSON content in `resource_contents`, stored once by hash; binari
 
 ## Protocol Specification
 
-The catalog exchange protocol defines the wire format for sharing catalogs between Epistola instances. It is used for remote catalog URLs, ZIP exports, and classpath-bundled demo catalogs.
-
-> **Note:** the examples and field tables below show the wire version 4 shape. Version 8, the one
-> 2.0 writes, addresses a catalog by `registry`, `namespace` and `key` instead of `slug`, adds
-> catalog `attributes`, `keywords`, `license`, `presentation`, `defaultTheme`, `presets` and
-> `quality`, and a top-level `catalogDependencies`. The `epistola-catalog` schemas and the
-> `fixtures/v1/wire-v8/catalog.json` fixture in that artifact are authoritative.
+The catalog exchange protocol defines the wire format for sharing catalogs between Epistola instances. It is used for remote catalog URLs, ZIP exports, and the catalogs Epistola bundles. The examples and tables below show wire version 8, the one 2.0 writes; the [schemas](#parts--contract-versions) are authoritative where they say more.
 
 ### Catalog Manifest (`catalog.json`)
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 8,
   "catalog": {
-    "slug": "acme-templates",
+    "registry": "exchange.epistola.app",
+    "namespace": "acme",
+    "key": "acme-templates",
     "name": "Acme Corp Templates",
-    "description": "Official templates for Acme Corp documents."
+    "description": "Official templates for Acme Corp documents.",
+    "defaultTheme": { "key": "corporate" }
   },
   "publisher": {
     "name": "Acme Corp"
   },
   "release": {
     "version": "1.0.0",
-    "fingerprint": "9f3a1c2b…"
+    "releasedAt": "2026-11-12T00:00:00Z",
+    "fingerprint": "v6:9f3a1c2b…"
   },
+  "catalogDependencies": [
+    {
+      "alias": "shared-components",
+      "registry": "exchange.epistola.app",
+      "namespace": "acme",
+      "catalogKey": "shared-components",
+      "releaseVersion": "2.3.0",
+      "releaseFingerprint": "v6:4be17d0e…"
+    }
+  ],
   "resources": [
     {
       "type": "template",
-      "slug": "invoice-standard",
+      "key": "invoice-standard",
       "name": "Standard Invoice",
       "detailUrl": "./resources/template/invoice-standard.json"
     },
     {
       "type": "theme",
-      "slug": "corporate",
+      "key": "corporate",
       "name": "Corporate Theme",
       "detailUrl": "./resources/theme/corporate.json"
     },
     {
-      "type": "asset",
-      "slug": "01966a00-0000-7000-8000-000000000001",
+      "type": "image",
+      "key": "company-logo",
       "name": "Company Logo",
-      "detailUrl": "./resources/asset/01966a00-0000-7000-8000-000000000001.json"
+      "detailUrl": "./resources/image/company-logo.json"
     }
   ],
   "dependencies": [
-    { "type": "theme", "catalogKey": "shared-styles", "slug": "base-theme" },
-    { "type": "stencil", "catalogKey": "shared-components", "slug": "company-header" },
-    { "type": "asset", "slug": "01966a00-0000-7000-8000-000000000002" }
+    { "type": "stencil", "catalogKey": "shared-components", "key": "company-header" },
+    { "type": "font", "catalogKey": "shared-components", "key": "brand-sans" }
   ]
 }
 ```
 
-| Field                       | Type    | Required | Description                                                                                                                                                                                               |
-| --------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes      | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `8`. |
-| `catalog.slug`              | string  | yes      | Catalog identifier (URL-safe slug).                                                                                                                                                                       |
-| `catalog.name`              | string  | yes      | Display name.                                                                                                                                                                                             |
-| `publisher.name`            | string  | yes      | Publisher name.                                                                                                                                                                                           |
-| `release.version`           | string  | yes      | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.                                                     |
-| `release.fingerprint`       | string  | no       | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md).                                                 |
-| `resources`                 | array   | yes      | List of available resources.                                                                                                                                                                              |
-| `resources[].type`          | string  | yes      | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                                                                              |
-| `resources[].slug`          | string  | yes      | Unique identifier within the catalog.                                                                                                                                                                     |
-| `resources[].name`          | string  | yes      | Display name.                                                                                                                                                                                             |
-| `resources[].detailUrl`     | string  | yes      | URL to the resource detail JSON. Relative to the manifest URL.                                                                                                                                            |
-| `dependencies`              | array   | no       | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                                                                       |
-| `dependencies[].type`       | string  | yes      | `theme`, `stencil`, `image`, `codeList`, or `font`.                                                                                                                                                       |
-| `dependencies[].catalogKey` | string  | yes      | Source catalog slug. Required for every kind from wire v7; an image reference used to be tenant-global and unqualified.                                                                                   |
-| `dependencies[].slug`       | string  | yes      | Resource slug in the source catalog.                                                                                                                                                                      |
+| Field                                                         | Type    | Required | Description                                                                                                                                                                                               |
+| ------------------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`                                               | integer | yes      | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `8`. |
+| `catalog.registry`, `.namespace`, `.key`                      | string  | yes      | The catalog's name: the registry it is published to, the namespace within it, and its key within the namespace. Until wire v8 the key was `slug`, and registry and namespace did not exist.               |
+| `catalog.name`                                                | string  | yes      | Display name.                                                                                                                                                                                             |
+| `catalog.description`                                         | string  | no       | Description for people.                                                                                                                                                                                   |
+| `catalog.attributes`, `.keywords`, `.presentation`            | various | no       | Discovery labels, keywords, and which of its images are the catalog's icon and gallery. Presentation only: the fingerprint does not cover them.                                                           |
+| `catalog.license`                                             | object  | no       | The terms the content is licensed under (SPDX expression, URL, copyright text).                                                                                                                           |
+| `catalog.defaultTheme`, `.presets`                            | various | no       | The theme a template that names none renders with, and the block style presets the content may use ([theming](../epistola.md#theming)).                                                                   |
+| `catalog.quality`                                             | object  | no       | The quality profiles every template uses, and the catalog's overrides of their rules. This installation does not store quality profiles yet and refuses a release that carries any.                       |
+| `publisher.name`                                              | string  | yes      | Publisher name; `publisher.url` is optional.                                                                                                                                                              |
+| `release.version`                                             | string  | yes      | `MAJOR.MINOR.PATCH`, or `MAJOR.MINOR.PATCH-<namespace>.<n>` for a patch release by someone who does not hold the catalog's namespace. See [`catalog-versioning.md`](../catalog-versioning.md).            |
+| `release.fingerprint`                                         | string  | yes      | `v6:` and the lowercase hex SHA-256 of the release's canonical content: the release's identity. Required at wire v8; absent only in a catalog migrated from v7.                                           |
+| `release.releasedAt`, `.releaseId`, `.base`                   | various | no       | When it was released, its id, and the release it was cut from.                                                                                                                                            |
+| `catalogDependencies`                                         | array   | no       | The catalogs this one depends on, each pinned to one release. Content names a dependency by its `alias`.                                                                                                  |
+| `catalogDependencies[].alias`                                 | string  | yes      | How the content names the catalog. A producer uses the catalog's key unless two dependencies share one.                                                                                                   |
+| `catalogDependencies[].registry`, `.namespace`, `.catalogKey` | string  | yes      | The dependency's name.                                                                                                                                                                                    |
+| `catalogDependencies[].releaseFingerprint`                    | string  | yes      | The pin: the fingerprint of the release this catalog renders with. `releaseVersion` is that release's number, a hint for people.                                                                          |
+| `resources`                                                   | array   | yes      | The resource index.                                                                                                                                                                                       |
+| `resources[].type`                                            | string  | yes      | `template`, `theme`, `stencil`, `attribute`, `image`, `codeList`, `font`, or `qualityProfile`.                                                                                                            |
+| `resources[].key`                                             | string  | yes      | Unique within the catalog and type. Until wire v8 this was `slug`.                                                                                                                                        |
+| `resources[].name`                                            | string  | yes      | Display name; `description` and `updatedAt` are optional.                                                                                                                                                 |
+| `resources[].detailUrl`                                       | string  | yes      | Path of the resource detail JSON, relative to the manifest.                                                                                                                                               |
+| `dependencies`                                                | array   | no       | The resources in other catalogs the content uses, derived from the content on export.                                                                                                                     |
+| `dependencies[].type`                                         | string  | yes      | `theme`, `stencil`, `image`, `codeList`, `font`, or `qualityProfile`.                                                                                                                                     |
+| `dependencies[].catalogKey`                                   | string  | yes      | The alias `catalogDependencies` declares for the catalog that holds it.                                                                                                                                   |
+| `dependencies[].key`                                          | string  | yes      | The resource's key in that catalog.                                                                                                                                                                       |
 
 ### Cross-Catalog Dependencies
 
-Templates may reference resources from other catalogs:
+Content may use resources from the catalogs it depends on. Every such reference names the catalog by its alias in `catalogKey`; a reference with no `catalogKey` is to the catalog's own resource:
 
-- **Themes**: via `themeRef.catalogKey` in the template model
-- **Stencils**: via `node.props.catalogKey` in stencil nodes
-- **Assets**: via `node.props.assetId` in image nodes; a cross-catalog image also carries `node.props.catalogKey` to mark the catalog the asset lives in (a same-catalog image leaves it bare and is auto-pulled). The recorded dependency stays catalog-less on the wire — asset slugs are UUIDs, tenant-global.
-- **Code lists**: via `codeListBinding.catalogKey` on an attribute
-- **Fonts**: via `fontFamily.catalogKey` in a theme or template's document styles
+- **Themes**: `themeRef` in a template model (`themeKey` with `catalogKey`), and a template's `themeKey` with `themeCatalogKey`
+- **Stencils**: a `stencil` node's `props.stencilKey` with `props.catalogKey`
+- **Images**: an `image` node's `props.imageKey` with `props.catalogKey`
+- **Code lists**: an attribute's `codeListBinding` (`key` with `catalogKey`)
+- **Fonts**: `fontFamily` (`key` with `catalogKey`) in a theme's or template's document styles
 
-During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
+On export, Epistola scans the content against the catalog's own resources and lists every reference to another catalog in `dependencies`. Since wire v7 every kind is catalog-scoped, images included.
 
-During a **ZIP import**, Epistola validates that all declared dependencies exist in the target tenant before installing. If any are missing, the import is rejected with a clear error listing what's needed. The **URL-subscribed** install path does not yet run this check ([#917](https://github.com/epistola-app/epistola-suite/issues/917)).
-
-Dependencies use a sealed type hierarchy:
-
-| Type       | Fields               | Scope                                                |
-| ---------- | -------------------- | ---------------------------------------------------- |
-| `theme`    | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `stencil`  | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `codeList` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `font`     | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `asset`    | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
+A dependency carries no version: the release it renders with is the one `catalogDependencies` pins. On **import**, every pinned release must already be installed in the tenant, or be carried in the archive; otherwise the import is refused (`CatalogImportDependenciesMissingException`), naming what is missing. An archive exported with _Include the catalogs it uses_ carries them under `dependencies/`, and importing it receives those first ([catalog versioning](../catalog-versioning.md#with-what-it-uses)). Showing the dependencies in the install dialog before installing is [#917](https://github.com/epistola-app/epistola-suite/issues/917).
 
 ### Resource Detail Files
 
-Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` as the manifest (`8` today; the example shows the version 4 shape), so each file is self-describing:
+Each resource has a detail JSON file (`./resources/{type}/{key}.json`) containing the full resource payload. Every detail echoes the catalog-wide `schemaVersion`, so each file is self-describing:
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "invoice-standard",
+    "key": "invoice-standard",
     "name": "Standard Invoice",
+    "themeKey": "corporate",
     "templateModel": { ... },
     "variants": [ ... ],
     "dataModel": { ... },
@@ -289,22 +295,25 @@ Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containi
 }
 ```
 
-Resource types use Jackson polymorphic serialization (`@JsonTypeInfo` on `CatalogResource`):
+The `type` member selects the resource kind. Beyond `type`, `key`, `name` and the optional `tags` and `metadata` every kind has:
 
-- **TemplateResource**: `templateModel`, `variants` (with per-variant `templateModel`, `attributes`, `isDefault`), `dataModel`, `dataExamples`
-- **ThemeResource**: `documentStyles`, `pageSettings`, `blockStylePresets`, `spacingUnit`
-- **StencilResource**: `content` (TemplateDocument), `version` (Int, required — the published version number of the carried content), `tags`
-- **AttributeResource**: `allowedValues`
-- **AssetResource**: `mediaType`, `width`, `height`, `contentUrl` (relative path to binary file)
+- **template**: `templateModel`, `variants` (each with `key`, `attributes`, `isDefault` and its own `templateModel`), and optionally `description`, `themeKey`/`themeCatalogKey`, `dataModel`, `dataExamples`, `pdfaEnabled`, `quality`
+- **theme**: `documentStyles`, `pageSettings`, `blockStylePresets`, `defaultBlockStyles`, `spacingUnit`
+- **stencil**: `content` (a template document), and optionally `parameterSchema` and `readsTemplateData`
+- **attribute**: `allowedValues` or a `codeListBinding`
+- **image**: `mediaType`, `contentHash`, and optionally `width` and `height`
+- **codeList**: `entries`
+- **font**: `kind` and `variants`
+- **qualityProfile**: `rules` and optionally `acceptedWords`. The contract defines it, but this installation refuses a release that carries quality profiles or a quality binding (ADR 0046)
 
 ### Asset Binary Content
 
-Asset resources reference their binary content via `contentUrl`:
+An image's detail names its binary by hash:
 
 ```json
 {
   "type": "image",
-  "slug": "company-logo",
+  "key": "company-logo",
   "name": "Company Logo",
   "mediaType": "image/png",
   "contentHash": "9950f04a086b80b18a7a9ee7a0cc69a6f65739c4b564445c0d584e8ae74d9c20"
@@ -451,26 +460,21 @@ The schema mismatch takes **priority** over the release-version upgrade state �
 
 **Operator surfaces for a rejected, confirmable, or out-of-sync payload:**
 
-- **Web UI** (import dialog): a **rejection** renders inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation — upgrade this instance, or re-export from a current source. A **confirmable** migration renders an inline "Update available — Import & update to v*N*" prompt (`import-migration-confirm`) whose button re-submits the same form with `confirmMigration=true`. A source's **out-of-sync** state shows as the amber / "upgrade Epistola" badge in the catalog list's Version cell (`version-status` fragment).
+- **Web UI** (import dialog): a **rejection** renders inline in the dialog (its `alert-error` slot) with the actionable remediation — upgrade this instance, or re-export from a current source. A **confirmable** migration renders an inline "Update available — Import & update to v*N*" prompt (`import-migration-confirm`) whose button re-submits the same form with `confirmMigration=true`. A source's **out-of-sync** state shows as the amber / "upgrade Epistola" badge in the catalog list's Version cell (`version-status` fragment).
 - **REST** (`POST /api/tenants/{id}/catalogs/import`): non-interactive, so it sets `confirmMigration = true` implicitly — a migratable-old import migrates without a round-trip. A **rejection** is an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
-- **MCP**: catalog import is not an MCP surface (MCP writes stop at drafts), so there is no MCP change.
+- **MCP**: catalog import is not an MCP surface.
 
 ### Dependency Resolution
 
-`DependencyScanner` scans template models for references to other resources:
+`DependencyScanner` scans content for references to other resources, through the reference sites listed under [Cross-Catalog Dependencies](#cross-catalog-dependencies): themes, stencils, images, code lists and fonts, plus the attribute keys a variant uses.
 
-- **Themes**: via `themeRef` overrides (with `catalogKey`)
-- **Stencils**: via `stencilId` in stencil node props (with `catalogKey`)
-- **Assets**: via `assetId` in image node props (UUID)
-- **Attributes**: via variant attribute keys
-
-`DependencyResolver` takes selected resources and the full manifest, then iteratively adds missing dependencies until the set is complete. It validates that all dependencies exist in the manifest.
+`DependencyResolver`, behind the install preview, takes selected resources and the full manifest, then iteratively adds missing dependencies until the set is complete. It validates that all dependencies exist in the manifest.
 
 ## Export
 
 ### ZIP Export
 
-`ExportCatalogZip` exports all resources in a catalog as a self-contained ZIP:
+`ExportCatalogZip` exports one release of a catalog as a self-contained ZIP:
 
 ```
 catalog.json
@@ -479,79 +483,21 @@ resources/
   theme/corporate.json
   stencil/company-header.json
   attribute/language.json
-  asset/01966a00-0000-7000-8000-000000000001.json
-  assets/01966a00-0000-7000-8000-000000000001      (binary)
+  image/company-logo.json
+bin/<contentHash>        (image and font binaries)
+dependencies/…           (only with "Include the catalogs it uses")
 ```
 
-The ZIP structure matches the protocol layout, so it can be served as a static catalog. Available via `GET /tenants/{tenantId}/catalogs/{catalogId}/export`.
+The ZIP structure matches the protocol layout, so it can be served as a static catalog. Available via `GET /tenants/{tenantId}/catalogs/{catalogId}/export`, with `version` naming the release (the highest when omitted) and `includeDependencies=true` to carry the releases it pins.
 
-Every catalog with a release can be exported; an export carries a release (see [`catalog-versioning.md`](../catalog-versioning.md#exporting-a-release)).
+An export carries a release exactly as it was released, whatever the drafts have done since; a catalog with no release has nothing to export (see [`catalog-versioning.md`](../catalog-versioning.md#exporting-a-release)). Stencils travel by reference: 2.0 has no stencil versions to preserve ([version-axes.md](../version-axes.md)).
 
-The export stamps `release.version` with the catalog's latest released SemVer
-and `release.fingerprint` with the fingerprint of the actual exported bytes. A
-never-released catalog exports as `0.0.0-dev`; a working copy that drifted from
-its latest release exports as `<version>-dev`. Catalog-version drift is never
-blocked — see [`catalog-versioning.md`](../catalog-versioning.md). Stencil-version
-drift _is_ blocked at export time — see [Stencil version
-preservation](#stencil-version-preservation) below.
-
-Cross-catalog dependencies are automatically detected during export by scanning template models against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
+Cross-catalog dependencies are automatically detected during export by scanning the content against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
 
 Configurable size limits protect against oversized exports:
 
 - `epistola.catalog.max-zip-size`: Maximum compressed ZIP size (default 10MB)
 - `epistola.catalog.max-decompressed-size`: Maximum decompressed size (default 20MB)
-
-### Stencil version preservation
-
-Templates reference stencils through a stencil node whose
-`props.version: Int` pins the consumer to a specific published version of
-that stencil. To preserve those pins across an export/import round-trip, the
-wire format carries the published version number alongside the content
-(`StencilResource.version`, originally required in `epistola-model 0.6.0`). The
-exporter ships the **latest** published version of each stencil and stamps
-its number; the importer installs the stencil at that exact number in
-target. The architecture and rationale are recorded in
-[ADR 0003](../adr/0003-stencil-version-in-export.md).
-
-#### Export precheck
-
-Because each catalog ZIP carries only the latest published version of each
-stencil, every template in the catalog must pin **that** version for the
-round-trip to be safe. Before assembling the ZIP, `ExportCatalogZip` runs
-`FindStencilVersionExportConflicts` over the catalog's latest-published
-template versions and flags any own-catalog stencil where some template
-pins a version other than the latest published. The check fires in two
-failure modes — folded into the same rejection:
-
-- **Inconsistent** — different templates pin different versions of the same
-  stencil.
-- **Stale** — every template pins the same version, but that version is not
-  the latest published.
-
-When the check finds anything, the export is blocked with
-`MultipleStencilVersionsInUseException` carrying every affected stencil
-along with the pinned versions and the latest-published version. The UI
-surfaces this:
-
-- The **catalog browse** view marks every affected stencil with a
-  `badge-warning` (`pinned vX (latest vY)`) so the operator sees the
-  problem at-a-glance before clicking export.
-- The **Export as ZIP** button runs a precheck endpoint
-  (`GET /tenants/{tenantId}/catalogs/{catalogId}/export-check`) that
-  either returns `HX-Redirect` to the real download URL (no conflicts) or
-  opens a modal listing the affected stencils with remediation guidance
-  (republish the templates against the latest stencil version).
-
-To fix a conflict, open the affected templates and republish them with the
-stencil instance upgraded to the latest published version. No content needs
-to be re-typed — the upgrade is structural.
-
-The exception is also thrown by `ExportCatalogZip` itself, so REST or MCP
-callers that hit `/api/tenants/{tenantId}/catalogs/{catalogId}/export`
-directly (without going through the UI precheck) still get the same hard
-block as a JSON 400. The cheap conflict check runs before any ZIP bytes
-are assembled.
 
 ### ZIP Import
 
@@ -569,101 +515,6 @@ Available via:
 - REST API: `POST /api/tenants/{tenantId}/catalogs/import` (multipart, API key auth)
 
 The REST API endpoint is used by the Valtimo plugin for catalog sync on startup.
-
-### Stencil version conflict handling
-
-`ImportStencil` installs each stencil at the version number carried on the
-wire (`StencilResource.version`), not at `MAX(target.version) + 1`. This
-keeps templates from the same ZIP that pinned that version still resolving
-in target. Pre-`0.6.0` ZIPs lack the field, fail Jackson deserialisation,
-and abort the import explicitly — they must be re-exported before they can
-be imported. There is no compatibility shim.
-
-For each `(slug, version)` pair carried in the ZIP, the importer checks
-target for a row with the same key:
-
-| Target state                                    | Behaviour                                                                                                    |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Missing                                         | Install at the carried version. `InstallStatus.INSTALLED` (or `UPDATED` if the stencil row already existed). |
-| Present, **byte-identical** content (JSONB `=`) | No-op; idempotent. `InstallStatus.SKIPPED`. A re-import of an unchanged ZIP never churns.                    |
-| Present, **different** content                  | **Conflict** — resolution depends on `onStencilConflict` (see below).                                        |
-
-Conflicts are collected in one read-only pre-scan **before any mutation** so
-the operator sees every affected stencil at once rather than failing on the
-first one.
-
-#### Resolution policy: `OnStencilConflict`
-
-`ImportCatalogZip` takes an `onStencilConflict: OnStencilConflict`
-parameter that controls what happens when a conflict is detected. The
-default is `FAIL`. The `RENUMBER` mode is opt-in and **only valid for
-AUTHORED MERGE** imports; the orchestrator rejects it for SUBSCRIBED and
-AUTHORED REPLACE up front with a clear `IllegalArgumentException`. Those
-modes are mirror semantics — letting the target diverge from source would
-contradict their import contract.
-
-##### `FAIL` (default)
-
-The whole import aborts before any mutation. The catalog is left exactly
-as it was. The operator receives a `StencilVersionImportConflictsException`
-listing every conflicting stencil:
-
-```text
-Cannot import catalog 'shared': 2 stencil version-conflict(s) —
-  'company-header' v3
-  'letter-shell' v2
-```
-
-The web UI renders this inline in the Import dialog as a structured alert
-that names every affected stencil. To resolve, the operator either:
-
-1. Fixes the divergence at source (republishing the source catalog so the
-   conflicting versions match target's, then re-exporting), or
-2. Re-uploads the ZIP with **Allow renumber on stencil version conflict**
-   enabled (see below).
-
-##### `RENUMBER` (opt-in, AUTHORED MERGE only)
-
-For every conflicting stencil, the importer assigns
-`MAX(target.stencil_versions.id) + 1` and writes the source content at that
-new version. `ImportStencil` reports the assignment back; the orchestrator
-collects a `Map<StencilKey, StencilRenumber>` across the install pass and
-hands it to `ImportTemplates`.
-
-`ImportTemplates` then walks every imported template document's nodes and
-rewrites `props.version` for any stencil node whose `stencilId` is in the
-map **and** whose source pin equals the recorded `sourceVersion`. The
-templates from the same ZIP now point at the freshly-renumbered target
-version. Cross-catalog stencil refs (those with `props.catalogKey !=
-ownCatalog`) and templates that were already in target are deliberately not
-touched — they continue to resolve their own pre-renumber version.
-
-Worked example. Target has `stencil-a` at `v1` with content `X`. The ZIP
-brings `stencil-a` at `v1` with content `Y`, plus a template `T` whose
-stencil node pins `stencil-a@v1`:
-
-- Without renumber (FAIL): import aborts, catalog unchanged.
-- With renumber: target now has `stencil-a@v1` (still content `X`) and
-  `stencil-a@v2` (content `Y`). Template `T` is imported with its pin
-  rewritten to `stencil-a@v2`. Any pre-existing template in target that
-  pinned `stencil-a@v1` keeps that pin — it still renders content `X`.
-
-##### UI flow
-
-The Import dialog exposes the policy via a checkbox: **Allow renumber on
-stencil version conflict** (default off). When the checkbox is off and a
-conflict happens, the dialog stays open and the response renders inline
-inside `#import-error` as an `alert-error` structured list. The user can
-then either close the dialog and fix the source, or re-tick the checkbox
-and re-upload the ZIP for a one-shot renumber-and-retry. There is no
-server-side stash of the upload bytes; a single-click retry would need one
-and is out of scope for this iteration.
-
-For non-UI callers (REST / MCP), the behaviour is identical: the command
-takes the same `onStencilConflict` parameter, `FAIL` raises
-`StencilVersionImportConflictsException`, and `RENUMBER` performs the
-renumber + template rewrite. SUBSCRIBED and AUTHORED REPLACE imports
-reject `RENUMBER` with `IllegalArgumentException`.
 
 ## UI
 
