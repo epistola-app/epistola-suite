@@ -4,9 +4,12 @@
 
 package app.epistola.suite.guards
 
+import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.name
 
 /**
@@ -68,17 +71,30 @@ internal object RepoSources {
     private fun sourceFiles(accept: (Path) -> Boolean): List<Path> = SOURCE_ROOTS
         .map(repoRoot::resolve)
         .filter(Files::exists)
-        .flatMap { base ->
-            Files.walk(base).use { stream ->
-                stream
-                    .filter { path ->
-                        val relative = relativize(path)
-                        "/build/" !in relative && "/node_modules/" !in relative
-                    }
-                    .filter(accept)
-                    .toList()
-            }
-        }
+        .flatMap { base -> filesUnder(base).filter(accept) }
+
+    /**
+     * Every file under [base], leaving out build output and installed dependencies. Those directories
+     * are not entered at all: other build tasks write and delete in them while the guards run, and a
+     * walk that lists one can fail on a file that is gone by the time it gets there.
+     */
+    fun filesUnder(base: Path): List<Path> {
+        val files = mutableListOf<Path>()
+        Files.walkFileTree(
+            base,
+            object : SimpleFileVisitor<Path>() {
+                override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = if (dir != base && dir.name in SKIPPED_DIRECTORIES) FileVisitResult.SKIP_SUBTREE else FileVisitResult.CONTINUE
+
+                override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                    if (attrs.isRegularFile) files.add(file)
+                    return FileVisitResult.CONTINUE
+                }
+            },
+        )
+        return files
+    }
+
+    private val SKIPPED_DIRECTORIES = setOf("build", "node_modules", ".gradle")
 
     private val SOURCE_ROOTS = listOf("apps", "modules")
     private val CONFIG_EXTENSIONS = listOf(".yaml", ".yml", ".properties")

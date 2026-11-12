@@ -50,14 +50,12 @@ class ThymeleafPrecedenceTest {
             .map(RepoSources.repoRoot::resolve)
             .filter(Files::isDirectory)
             .flatMap { base ->
-                Files.walk(base).use { stream ->
-                    stream.filter { it.name.endsWith(".html") }
-                        .filter { path ->
-                            val relative = RepoSources.relativize(path)
-                            "/src/main/resources/templates/" in relative && "/build/" !in relative && "/node_modules/" !in relative
-                        }
-                        .toList()
-                }
+                RepoSources.filesUnder(base).filter { it.name.endsWith(".html") }
+                    .filter { path ->
+                        val relative = RepoSources.relativize(path)
+                        "/src/main/resources/templates/" in relative && "/build/" !in relative && "/node_modules/" !in relative
+                    }
+                    .toList()
             }
     }
 }

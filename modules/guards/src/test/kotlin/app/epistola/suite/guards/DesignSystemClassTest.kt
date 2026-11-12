@@ -128,18 +128,16 @@ class DesignSystemClassTest {
             .map(RepoSources.repoRoot::resolve)
             .filter(Files::isDirectory)
             .flatMap { base ->
-                Files.walk(base).use { stream ->
-                    stream
-                        .filter { it.name.endsWith(extension) }
-                        .filter { path ->
-                            val relative = RepoSources.relativize(path)
-                            "/build/" !in relative &&
-                                "/node_modules/" !in relative &&
-                                "/dist/" !in relative &&
-                                (extension == ".css" || accept(relative))
-                        }
-                        .toList()
-                }
+                RepoSources.filesUnder(base)
+                    .filter { it.name.endsWith(extension) }
+                    .filter { path ->
+                        val relative = RepoSources.relativize(path)
+                        "/build/" !in relative &&
+                            "/node_modules/" !in relative &&
+                            "/dist/" !in relative &&
+                            (extension == ".css" || accept(relative))
+                    }
+                    .toList()
             }
     }
 }

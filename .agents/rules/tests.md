@@ -41,6 +41,9 @@ faster and deterministic. Reach for Playwright only when the behaviour lives in 
   creates a tenant without one (`SystemCatalogInstallUsageTest`). When a test behaves differently
   from production around a tenant's catalogs, read the known limits in
   [`docs/testing.md`](../../docs/testing.md#known-limits-and-what-to-suspect-when-a-test-misbehaves).
+- **A guard scans the repository through `RepoSources`**, not its own `Files.walk`: other build tasks
+  write into `build/` while the guards run, and `RepoSources.filesUnder` never enters it
+  (`RepoSourcesTest`). (unenforced)
 - Integration and UI tests need Docker (Testcontainers). App-level tasks need `pnpm build` once
   first.
 

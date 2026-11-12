@@ -24,6 +24,10 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 /**
  * The site banner is an installation-wide singleton (a single `app_metadata` row),
@@ -37,6 +41,9 @@ class SiteBannerIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var store: SiteBannerStore
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     @BeforeEach
     fun reset() {
@@ -55,6 +62,20 @@ class SiteBannerIntegrationTest : IntegrationTestBase() {
         assertThat(banner!!.message).isEqualTo("Maintenance tonight")
         assertThat(banner.severity).isEqualTo(SiteBannerSeverity.WARNING)
         assertThat(banner.enabled).isTrue()
+    }
+
+    @Test
+    fun `a page drawn while a change commits does not keep the old banner cached`(): Unit = withMediator {
+        SetSiteBanner("Before", SiteBannerSeverity.INFO, enabled = true).execute()
+
+        TransactionTemplate(transactionManager).executeWithoutResult {
+            SetSiteBanner("After", SiteBannerSeverity.WARNING, enabled = true).execute()
+            // Another request draws a page before the change commits: it reads, and caches, the committed banner.
+            val seen = CompletableFuture.supplyAsync { store.get() }.get(10, TimeUnit.SECONDS)
+            assertThat(seen?.message).`as`("the banner another request sees before the commit").isEqualTo("Before")
+        }
+
+        assertThat(store.get()?.message).`as`("the banner after the commit").isEqualTo("After")
     }
 
     @Test

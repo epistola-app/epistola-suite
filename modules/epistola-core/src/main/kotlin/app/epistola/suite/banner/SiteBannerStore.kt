@@ -10,6 +10,8 @@ import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
 import java.util.Optional
 
@@ -41,7 +43,7 @@ class SiteBannerStore(
     /** Upserts the banner and invalidates the cache so the change is visible at once. */
     fun set(banner: SiteBanner) {
         metadata.setAs(KEY, banner)
-        cache.invalidateAll()
+        invalidateNowAndOnCompletion()
     }
 
     /**
@@ -50,8 +52,25 @@ class SiteBannerStore(
      */
     fun seedIfAbsent(banner: SiteBanner): Boolean {
         val inserted = metadata.setIfAbsent(KEY, banner)
-        if (inserted) cache.invalidateAll()
+        if (inserted) invalidateNowAndOnCompletion()
         return inserted
+    }
+
+    /**
+     * Drops the cache now, and again once the surrounding transaction (a command's) completes. In
+     * between, the write is not committed: a page drawn by another request reads the old banner and
+     * caches it, which the drop at commit clears instead of letting it stand for the TTL. On a
+     * rollback the drop clears what this transaction itself read uncommitted.
+     */
+    private fun invalidateNowAndOnCompletion() {
+        cache.invalidateAll()
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCompletion(status: Int) = cache.invalidateAll()
+                },
+            )
+        }
     }
 
     /** Drops the cache. Exposed for tests that mutate `app_metadata` directly. */
