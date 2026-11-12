@@ -6,7 +6,7 @@ type: application
 # -SNAPSHOT; a release strips it, tags epistola-<version>, then re-opens the next
 # -SNAPSHOT (see the release-helm-chart skill). CI validates the tag == this value.
 # 2.x deploys Epistola 2.x: a new app major is a chart major.
-version: 2.0.0-SNAPSHOT
+version: 2.0.0
 # The Epistola release this chart deploys by default, chosen in this file and never taken from the
 # newest app tag. Publishing checks that it is a released app version, so this chart is released
 # once Epistola 2.0.0 is; until then the smoke test installs the newest 2.x image.
