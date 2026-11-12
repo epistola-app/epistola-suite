@@ -75,6 +75,35 @@ Decided and closed:
 
 ## Touched
 
+### Dependency review (12 November; branch `chore/dependency-review`)
+
+Folds the open Renovate PRs (#1051, #1089, #1336, #1364, #880) into one branch and fixes why they
+failed. #1364 failed on oxfmt 0.76 reformatting `docs/htmx.md`; #1336 on swagger-request-validator
+3.0.0 (a relocation to `openapi-request-validator-core`, which needs networknt 2.x while production
+uses networknt 3.x), now held below 3 in `renovate.json`; #1089's single failure was the
+`SupportPlatformResilienceHtmxTest` register race fixed on main since. Beyond Renovate: JDK
+25.0.3 → 25.0.5 (never proposed although on the dashboard), the Tomcat override that pinned
+11.0.25 below Spring Boot 4.1.2's 11.0.27 removed, the Jackson overrides (equal to the BOM) removed,
+epistola-contract 2.0.0, kotest 6.2.7, veraPDF 1.30.4 and Node 26.13.1 (taken inside the 7-day
+release-age gate on request), and the Renovate config migration.
+
+**Coverage:** frontend CI steps all green locally (lint, stylelint 18, format, license, agents,
+2306 editor tests); `compileTestKotlin`, `ktlintCheck`, `:modules:guards:test` and every
+`unitTest` except epistola-core green; `:modules:epistola-support:test` and
+`:apps:epistola:integrationTest --tests "*Api*IT*"` green (321 tests); resolved `runtimeClasspath`
+of the three apps compared before and after (only Tomcat moves); `PdfConformanceTest` (veraPDF) and
+`:modules:epistola-core:modelTest -PmodelRuns=20` (kotest) green. Full `test uiTest` left to CI.
+
+**Noticed, untouched:**
+
+- `:modules:epistola-core:unitTest` runs out of heap during JUnit discovery locally, on plain
+  `origin/main` as well (CI green); the test JVM heap is likely too small for this machine.
+- `modules:generation` resolves Jackson outside the Spring Boot BOM, so its own tests run on the
+  contract's Jackson (3.2.4 now, 3.1.5 before) rather than the 3.1.7 the apps ship.
+- `#1364`'s `SupportPlatformResilienceHtmxTest` failed on a Logback `%clr` configuration error when
+  loading the context: a test-isolation flake, not a dependency effect (main is green on the same
+  code).
+
 ### Server log per support connection (11 November; branch `fix/support-log-per-connection`)
 
 SUP-1 of the 2.0 security review. The attached server log was pseudonymised once at submit with the

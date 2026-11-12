@@ -20,27 +20,6 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
-// Security override: Spring Boot 4.1.1 manages tomcat-embed-core 11.0.24, which
-// Trivy flags CRITICAL for CVE-2026-65182 (security-constraint bypass),
-// CVE-2026-65905 (DIGEST replay) and CVE-2026-68525 (FORM auth bypass). None are
-// reachable here — the suite uses Spring Security filter chains, not container-
-// managed security (no web.xml, no DIGEST/FORM authenticator) — but 11.0.25 fixes
-// all three, so take the free upgrade rather than suppress. Drop this pin once the
-// Spring Boot BOM manages 11.0.25 or later.
-// Read by io.spring.dependency-management to override the managed version.
-extra["tomcat.version"] = "11.0.25"
-
-// Security override: Spring Boot 4.1.1 manages Jackson 3.1.5 (tools.jackson) and 2.21.5
-// (com.fasterxml, pulled in by transitive dependencies), and even pulls dependencies that ask for
-// 3.2.x down to 3.1.5. Trivy flags both lines: CVE-2026-68497, CVE-2026-89407, CVE-2026-89425,
-// CVE-2026-91776 and CVE-2026-91777 (denial of service while parsing) and CVE-2026-19032,
-// CVE-2026-83557 (Path deserialization). The REST API and catalog import parse untrusted JSON, so
-// take the patch releases. Drop these pins once the Spring Boot BOM manages 3.1.7 / 2.21.7 or later
-// — a stale pin here would hold a newer BOM back. The versions live in libs.versions.toml so Renovate
-// keeps them current. See vulnerabilities/2026-10-12-epis-dep-2026-002.md.
-extra["jackson-bom.version"] = libs.versions.jackson.get()
-extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
-
 // Security override: Spring Boot 4.1.2 manages OpenTelemetry 1.62.0, whose W3C tracestate parser
 // takes quadratic CPU (CVE-2026-118259). The tracing bridge is on the classpath even with export
 // off, so take the fix rather than establish whether incoming tracestate headers reach the parser.

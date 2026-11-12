@@ -5,7 +5,7 @@
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "ignorePaths": ["**/test/resources/**"],
-  "constraints": { "pnpm": "12.10.0", "node": "26.13.0" },
+  "constraints": { "pnpm": "12.18.0", "node": "26.13.1" },
   "minimumReleaseAge": "7 days",
   "lockFileMaintenance": {
     "enabled": true,
@@ -64,10 +64,18 @@
       "allowedVersions": "<9.8.0"
     },
     {
-      "description": "Jackson BOM overrides (libs.versions.toml): patch updates only. They pin the Spring Boot BOM's own Jackson line for security fixes; moving to a newer minor than the BOM manages is a Spring Boot upgrade, not a pin bump.",
-      "matchPackageNames": ["tools.jackson:jackson-bom", "com.fasterxml.jackson:jackson-bom"],
+      "description": "Jackson BOM (libs.versions.toml, for code outside the Spring Boot BOM): patch updates only. It follows the Spring Boot BOM's own Jackson line; moving to a newer minor than the BOM manages is a Spring Boot upgrade, not a version bump.",
+      "matchPackageNames": ["tools.jackson:jackson-bom"],
       "matchUpdateTypes": ["minor", "major"],
       "enabled": false
+    },
+    {
+      "description": "Hold swagger-request-validator below 3: 3.0.0 is a relocation to com.atlassian.oai:openapi-request-validator-core, which runs on networknt json-schema-validator 2.x (Jackson 2 API). The suite's production code uses networknt 3.x (Jackson 3) under the same coordinates, so the test classpath can only hold one and the support spec tests fail with NoSuchMethodError (#1336). Lift once the new artifact supports networknt 3.",
+      "matchPackageNames": [
+        "com.atlassian.oai:swagger-request-validator-core",
+        "com.atlassian.oai:openapi-request-validator-core"
+      ],
+      "allowedVersions": "<3.0.0"
     },
     {
       "description": "Group all GitHub Actions updates (minor, major, digests) into a single PR",
@@ -78,10 +86,10 @@
     }
   ],
   "gradle": {
-    "fileMatch": [
-      "(^|/)build\\.gradle\\.kts$",
-      "(^|/)settings\\.gradle\\.kts$",
-      "(^|/)gradle/libs\\.versions\\.toml$"
+    "managerFilePatterns": [
+      "/(^|/)build\\.gradle\\.kts$/",
+      "/(^|/)settings\\.gradle\\.kts$/",
+      "/(^|/)gradle/libs\\.versions\\.toml$/"
     ]
   }
 }

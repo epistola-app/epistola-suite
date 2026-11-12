@@ -9,15 +9,6 @@ plugins {
     id("org.cyclonedx.bom")
 }
 
-// Security override: mirrors apps:epistola. epistola-core pulls spring-boot-starter-web,
-// so the embedded Tomcat (CVE-2026-65182 / CVE-2026-65905 / CVE-2026-68525) must be pinned to
-// 11.0.25 here too until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
-extra["tomcat.version"] = "11.0.25"
-
-// Jackson security override — same pins and rationale as apps/epistola.
-extra["jackson-bom.version"] = libs.versions.jackson.get()
-extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
-
 dependencies {
     // The whole render/job pipeline (JobPoller, StaleJobRecovery, DocumentGenerationExecutor,
     // GenerationService) plus the pure PDF renderer, JDBI and Postgres come transitively from

@@ -320,7 +320,7 @@ Define reusable fragments in your Thymeleaf templates:
 
 ```html
 <!-- items/list.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html xmlns:th="http://www.thymeleaf.org">
   <head>
     ...
