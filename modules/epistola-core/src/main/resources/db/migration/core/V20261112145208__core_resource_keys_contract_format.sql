@@ -6,7 +6,10 @@
 --
 -- Only loosens: every value the old checks accepted, the new ones accept.
 --
--- rollback-compatible: true
+-- rollback-compatible: false
+-- reason: the previous release reads every key column through its own key types, which still
+-- require a leading letter, so a key created here such as `2024-letter` fails every read of its row
+-- there.
 
 ALTER DOMAIN template_key DROP CONSTRAINT template_key_check;
 ALTER DOMAIN template_key ADD CONSTRAINT template_key_check CHECK (VALUE ~ '^[a-z0-9]+(-[a-z0-9]+)*$');

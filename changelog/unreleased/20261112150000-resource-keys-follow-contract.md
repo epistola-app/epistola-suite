@@ -12,4 +12,5 @@ template. The other way round, a code list or font could be created with a key t
 does not allow — longer than 50 characters, or a font key of two — and the release then failed with
 "non-publishable content". A new key is now checked against that rule when it is created, in the
 create dialogs, the REST API and MCP, and a new key may start with a digit. Keys created before keep
-working.
+working. Rolling back to an earlier 2.0 pre-release is not possible after this upgrade,
+because that release cannot read a key that starts with a digit.
