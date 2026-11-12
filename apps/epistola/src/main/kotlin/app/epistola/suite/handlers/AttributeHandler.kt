@@ -100,6 +100,7 @@ class AttributeHandler {
                 // (same "Invalid attribute ID format" error) so all three failure
                 // modes share one error path — mirroring DocumentTemplateHandler.
                 asAttributeId()
+                newResourceKey("Attribute")
             }
             field("displayName") {
                 required()

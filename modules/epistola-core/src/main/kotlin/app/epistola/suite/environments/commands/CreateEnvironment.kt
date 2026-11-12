@@ -14,6 +14,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -29,6 +30,7 @@ data class CreateEnvironment(
     override val tenantKey get() = id.tenantKey
 
     init {
+        validateResourceKey("Environment", id.key)
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
     }

@@ -162,6 +162,12 @@ enum class ValidationCode(val wire: String) {
      */
     SOURCE_URL_NOT_ALLOWED("SOURCE_URL_NOT_ALLOWED"),
 
+    /**
+     * A new resource key is one of the suite's reserved words (`ReservedResourceKeys`). Not registered by the contract yet, so
+     * the API sends it as a plain validation error.
+     */
+    KEY_RESERVED("KEY_RESERVED"),
+
     // Cluster operations.
     CLUSTER_NODE_NOT_FOUND("CLUSTER_NODE_NOT_FOUND"),
     CLUSTER_NODE_NOT_FORGETTABLE("CLUSTER_NODE_NOT_FORGETTABLE"),

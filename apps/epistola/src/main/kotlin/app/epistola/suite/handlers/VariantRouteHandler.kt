@@ -68,6 +68,7 @@ class VariantRouteHandler {
             field("slug") {
                 required()
                 asVariantId()
+                newResourceKey("Variant")
             }
             field("title") {
                 required()

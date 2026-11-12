@@ -114,6 +114,7 @@ class EnvironmentHandler(
             field("slug") {
                 required()
                 asEnvironmentId()
+                newResourceKey("Environment")
             }
             field("name") {
                 required()

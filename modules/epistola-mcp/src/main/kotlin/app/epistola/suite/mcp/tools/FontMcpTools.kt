@@ -33,6 +33,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.validateResourceKey
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -122,7 +123,8 @@ class FontMcpTools(
         mcpOperation(this::uploadFont) {
             val tenantId = TenantId(mcpTenantKey())
             val catalog = mcpCatalog(catalogId)
-            val slug = FontKey.of(fontId)
+            // ImportFont also installs catalogs, so the reserved words are checked here.
+            val slug = FontKey.of(fontId).also { validateResourceKey("Font", it) }
             val version = catalogVersionRef(catalogId, catalogVersion)
             val fontKind = try {
                 FontKind.fromWire(kind)

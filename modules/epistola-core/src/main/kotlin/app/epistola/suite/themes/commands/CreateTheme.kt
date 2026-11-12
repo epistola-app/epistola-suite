@@ -29,6 +29,7 @@ import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -53,6 +54,7 @@ data class CreateTheme(
     override val tenantKey: TenantKey get() = id.tenantKey
 
     init {
+        validateResourceKey("Theme", id.key)
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         validate("blockStylePresets", blockStylePresets.orEmpty().size <= FieldLimits.MAX_BLOCK_STYLE_PRESETS) { "A theme has at most ${FieldLimits.MAX_BLOCK_STYLE_PRESETS} block style presets" }

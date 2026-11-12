@@ -27,6 +27,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -61,6 +62,7 @@ data class UploadAsset(
     override val tenantKey get() = tenantId
 
     init {
+        id?.let { validateResourceKey("Image", it) }
         // Column ceiling (#692): assets.name is VARCHAR(255). The blank check stays in
         // the handler; this bounds length so an over-long name never overflows the column.
         validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }

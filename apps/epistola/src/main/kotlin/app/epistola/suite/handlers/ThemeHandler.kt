@@ -170,6 +170,7 @@ class ThemeHandler(
                 // modes share one error path. Reported only when no rule above
                 // failed first, so the specific message wins.
                 asThemeId()
+                newResourceKey("Theme")
             }
             field("name") {
                 required()

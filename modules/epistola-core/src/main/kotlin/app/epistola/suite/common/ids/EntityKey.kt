@@ -33,6 +33,27 @@ interface NumericKey<T : NumericKey<T>> : EntityKey<T, Int>
 interface UuidKey<T : UuidKey<T>> : EntityKey<T, UUID>
 
 /**
+ * The words a resource key chosen in this suite may not be: one list for every resource type.
+ *
+ * A resource key's format is the contract's (`CatalogKeys.RESOURCE`), checked by the key types when
+ * a key is read. These words are the suite's own: its pages put `…/new` beside `…/{key}`, and `null`
+ * or `undefined` is what a script sends for a missing value. They are refused where an author
+ * chooses a key — every create command, through [app.epistola.suite.validation.validateResourceKey],
+ * and the create forms — never where one is read, so a key stored before, or arriving in a catalog
+ * import, still reads. Fonts have no create command of their own (`ImportFont` also installs
+ * catalogs), so their upload form and MCP tool check it. Tenant keys keep their own list in
+ * [TenantKey]; a catalog's key is not a resource key.
+ */
+object ReservedResourceKeys {
+    val WORDS: Set<String> = setOf("admin", "api", "www", "system", "internal", "null", "undefined", "new", "create", "edit", "delete")
+
+    fun isReserved(key: String): Boolean = key in WORDS
+
+    /** The refusal for a new [kind] ("Theme", "Code list") keyed [key]. */
+    fun refusal(kind: String, key: String): String = "$kind ID '$key' is reserved and cannot be used"
+}
+
+/**
  * Typed key for Tenant entities.
  */
 @JvmInline
@@ -117,17 +138,10 @@ value class TemplateKey(@JsonValue override val value: String) : SlugKey<Templat
         require(SLUG_PATTERN.matches(value)) {
             "Template ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
         }
-        require(value !in RESERVED_WORDS) {
-            "Template ID '$value' is reserved and cannot be used"
-        }
     }
 
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
-        private val RESERVED_WORDS = setOf(
-            "admin", "api", "www", "system", "internal", "null", "undefined",
-            "new", "create", "edit", "delete",
-        )
 
         fun of(value: String): TemplateKey = TemplateKey(value)
 
@@ -153,17 +167,10 @@ value class VariantKey(@JsonValue override val value: String) : SlugKey<VariantK
         require(SLUG_PATTERN.matches(value)) {
             "Variant ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
         }
-        require(value !in RESERVED_WORDS) {
-            "Variant ID '$value' is reserved and cannot be used"
-        }
     }
 
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
-        private val RESERVED_WORDS = setOf(
-            "admin", "api", "www", "system", "internal", "null", "undefined",
-            "new", "create", "edit", "delete",
-        )
 
         /**
          * Id of the default variant auto-created with every template. A fixed,
@@ -223,22 +230,10 @@ value class EnvironmentKey(@JsonValue override val value: String) : SlugKey<Envi
         require(SLUG_PATTERN.matches(value)) {
             "Environment ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
         }
-        require(value !in RESERVED_WORDS) {
-            "Environment ID '$value' is reserved and cannot be used"
-        }
     }
 
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
-        private val RESERVED_WORDS = setOf(
-            "admin",
-            "api",
-            "www",
-            "system",
-            "internal",
-            "null",
-            "undefined",
-        )
 
         fun of(value: String): EnvironmentKey = EnvironmentKey(value)
 
@@ -293,17 +288,10 @@ value class StencilKey(@JsonValue override val value: String) : SlugKey<StencilK
         require(SLUG_PATTERN.matches(value)) {
             "Stencil ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
         }
-        require(value !in RESERVED_WORDS) {
-            "Stencil ID '$value' is reserved and cannot be used"
-        }
     }
 
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
-        private val RESERVED_WORDS = setOf(
-            "admin", "api", "www", "system", "internal", "null", "undefined",
-            "new", "create", "edit", "delete",
-        )
 
         fun of(value: String): StencilKey = StencilKey(value)
 

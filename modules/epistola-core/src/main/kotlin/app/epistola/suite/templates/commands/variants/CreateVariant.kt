@@ -29,6 +29,7 @@ import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -48,6 +49,7 @@ data class CreateVariant(
     override val tenantKey: TenantKey get() = id.tenantKey
 
     init {
+        validateResourceKey("Variant", id.key)
         validate("title", title.isNotBlank()) { "Title is required" }
         validate("title", title.length <= MAX_NAME_LENGTH) { "Title must be $MAX_NAME_LENGTH characters or less" }
         validate("attributes", attributes.size <= FieldLimits.MAX_VARIANT_ATTRIBUTES) { "A variant has at most ${FieldLimits.MAX_VARIANT_ATTRIBUTES} attributes" }
