@@ -38,10 +38,9 @@ itext = "9.8.0"
 verapdf = "1.30.3"
 # Declared here because modules:generation is outside the Spring Boot BOM.
 caffeine = "3.3.1"
-# Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
-# apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
+# The Jackson line the Spring Boot BOM manages, for code outside the BOM (modules:generation test
+# fixtures). Keep it on the BOM's line; the apps take Jackson from the BOM itself.
 jackson = "3.1.7"
-jackson2 = "2.21.7"
 # Security override of the Spring Boot BOM's OpenTelemetry (1.62.0, CVE-2026-118259), applied by
 # apps/epistola and apps/epistola-demo (pdfrender has no OpenTelemetry API). Drop it once the BOM
 # manages this version or later.
@@ -77,9 +76,8 @@ verapdf-validation = { module = "org.verapdf:validation-model", version.ref = "v
 itext-svg = { module = "com.itextpdf:svg", version.ref = "itext" }
 itext-kernel = { module = "com.itextpdf:kernel", version.ref = "itext" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
-# Not dependencies: listed so Renovate tracks the Jackson BOM overrides the apps apply.
+# The Jackson BOM for code outside the Spring Boot BOM (see the `jackson` version above).
 jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson" }
-jackson2-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson2" }
 
 # Gradle plugins consumed by buildSrc as regular dependencies
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

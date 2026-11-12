@@ -6,14 +6,6 @@ plugins {
     id("io.spring.dependency-management")
 }
 
-// Same override and rationale as apps/epistola — this app produces its own boot jar, so it
-// resolves its own Tomcat. Keep the two in step.
-extra["tomcat.version"] = "11.0.25"
-
-// Jackson security override — same pins and rationale as apps/epistola.
-extra["jackson-bom.version"] = libs.versions.jackson.get()
-extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
-
 // OpenTelemetry security override — same pin and rationale as apps/epistola.
 extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
