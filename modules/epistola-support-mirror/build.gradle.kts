@@ -46,6 +46,7 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
+    testImplementation(testFixtures(project(":modules:epistola-support")))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("tools.jackson.module:jackson-module-kotlin")

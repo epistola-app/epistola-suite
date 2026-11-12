@@ -30,7 +30,7 @@ import kotlin.system.measureTimeMillis
 /**
  * The support connection when the support service is down, slow or misbehaving (the fault modes of
  * [FakeSupportServer]): no suite thread waits long, nothing local is lost, retries back off, and
- * everything works again once the fault clears. `read-timeout` is one second here, the deadline for
+ * everything works again once the fault clears. `read-timeout` is [DEADLINE_MS] here, the deadline for
  * a whole call.
  */
 class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
@@ -86,17 +86,17 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `a service that trickles its answer is cut off at the deadline for the whole call`() {
-        support.fault(FakeSupportFault.SlowDrip(intervalMillis = 300, totalMillis = 15_000, body = """{"issuer":"${"x".repeat(40)}"}"""), "GET", "/.well-known/")
+        support.fault(FakeSupportFault.SlowDrip(intervalMillis = 300, totalMillis = HANG_MS, body = """{"issuer":"${"x".repeat(40)}"}"""), "GET", "/.well-known/")
 
         val took = measureTimeMillis { connection.checkNow() }
 
-        assertThat(took).`as`("one second per call, not per read").isLessThan(3_000)
+        assertThat(took).`as`("one deadline per call, not per read").isLessThan(CUT_OFF_MS)
         assertThat(connection.status().lastError).isNotNull()
     }
 
     @Test
     fun `a service that never answers is named as too slow, not as a cancelled request`() {
-        support.fault(FakeSupportFault.Hang(maxMillis = 5_000), "GET", "/.well-known/")
+        support.fault(FakeSupportFault.Hang(maxMillis = HANG_MS), "GET", "/.well-known/")
 
         connection.checkNow()
 
@@ -444,7 +444,7 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
         activate()
         support.expireTokens()
         testClock.advanceBy(Duration.ofSeconds(support.tokenLifetimeSeconds))
-        support.fault(FakeSupportFault.Hang(maxMillis = 5_000))
+        support.fault(FakeSupportFault.Hang(maxMillis = HANG_MS))
 
         val took = measureTimeMillis {
             tokenScheduler.handle(dueScheduledTask(tokenScheduler.supportTokenRefreshTaskDefinition()))
@@ -452,7 +452,7 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
         }
 
         assertThat(took).isLessThan(500)
-        assertThat(work.awaitIdle(Duration.ofSeconds(10))).isTrue()
+        assertThat(work.awaitIdle(Duration.ofSeconds(30))).isTrue()
     }
 
     @Test
@@ -481,7 +481,7 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
 
         val took = measureTimeMillis { connection.checkNow() }
 
-        assertThat(took).isLessThan(3_000)
+        assertThat(took).`as`("cut off at the deadline at the latest").isLessThan(CUT_OFF_MS)
         assertThat((connection.status().state as SupportConnectionState.Active).clientId).isEqualTo(clientId)
         assertThat(connection.status().lastError).isNotNull()
 
@@ -508,6 +508,20 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
     }
 
     companion object {
+        /**
+         * The deadline for a whole call (`read-timeout`). Real time: it cuts off a hanging or trickling
+         * service, and an ordinary call has to finish within it too. At one second, a runner that
+         * stalled for a second failed the registration in `activate()` before any fault was set
+         * (CI, 11 November); five leaves an ordinary call ample room.
+         */
+        private const val DEADLINE_MS = 5_000L
+
+        /** How long a hanging or trickling service holds a call: far past [DEADLINE_MS]. */
+        private const val HANG_MS = 60_000L
+
+        /** A call cut off at [DEADLINE_MS] returns well within this; one that waited for [HANG_MS] does not. */
+        private const val CUT_OFF_MS = 15_000L
+
         private val support = FakeSupportServer()
 
         @JvmStatic
@@ -518,7 +532,7 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
             FakeSupportFault.tooManyRequests(),
             FakeSupportFault.malformedJson(),
             FakeSupportFault.TruncatedBody(),
-            FakeSupportFault.Hang(maxMillis = 5_000),
+            FakeSupportFault.Hang(maxMillis = HANG_MS),
         )
 
         @JvmStatic
@@ -531,7 +545,7 @@ class SupportConnectionResilienceIntegrationTest : IntegrationTestBase() {
             registry.add("epistola.support.endpoint") { support.baseUrl }
             registry.add("epistola.support.allow-http") { "true" }
             registry.add("epistola.support.connect-timeout") { "1s" }
-            registry.add("epistola.support.read-timeout") { "1s" }
+            registry.add("epistola.support.read-timeout") { "${DEADLINE_MS}ms" }
         }
 
         @JvmStatic

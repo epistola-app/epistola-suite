@@ -38,7 +38,12 @@ import java.util.concurrent.CopyOnWriteArrayList
  * The database is shared with other test classes, whose tenants may also be reconciled here; every
  * assertion is about this test's own tenants.
  */
+@org.springframework.context.annotation.Import(app.epistola.suite.support.time.ManualSupportTimeConfiguration::class)
 class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
+    /** The round budget counts on this: a test advances it, a slow machine does not. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var time: app.epistola.suite.support.time.ManualSupportTime
+
     @Autowired
     private lateinit var connection: DefaultSupportConnection
 
@@ -441,7 +446,7 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         optInOwnCatalogs(stopped)
         reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         optInOwnCatalogs(sharing)
-        val off = CatalogMirrorReconciler(registry, mirrorProperties.copy(enabled = false), mirrorClient, mirrorStore, mediator, privacy)
+        val off = CatalogMirrorReconciler(registry, mirrorProperties.copy(enabled = false), mirrorClient, mirrorStore, mediator, privacy, time)
         withMediator { OptOutCatalogMirror(stopped, connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }).execute() }
         // The opt-out's own "Sync now" is left to the reconciler with the mirror off.
         val report = off.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
@@ -481,13 +486,13 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror budget").id
         val catalog = releasedCatalog(tenant, "letters", "1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4")
         val mine = contentHashes(catalog).values.toSet()
-        mirror.onUpload = { if (it in mine) Thread.sleep(1_000) }
+        // Each upload takes a second of the three-second budget: the budget runs out before the last.
+        mirror.onUpload = { if (it in mine) time.advance(java.time.Duration.ofSeconds(1)) }
         optInOwnCatalogs(tenant)
 
-        val took = kotlin.system.measureTimeMillis { reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() }) }
+        reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
 
-        assertThat(took).isLessThan(4_500)
-        assertThat(mirror.uploadsOf(mine).size).isLessThan(mine.size)
+        assertThat(mirror.uploadsOf(mine).size).isGreaterThan(0).isLessThan(mine.size)
         mirror.onUpload = null
         reconciler.reconcileAll(connectionId = withMediator { EnsureConfiguredSupportConnection().execute() })
         assertThat(mirror.uploadsOf(mine)).containsExactlyInAnyOrderElementsOf(mine)
@@ -498,12 +503,20 @@ class CatalogMirrorReconcilerIntegrationTest : CatalogMirrorTestBase() {
         val tenant = createTenant("Mirror off thread").id
         val catalog = releasedCatalog(tenant, "letters", "1.0.0", "1.0.1")
         val mine = contentHashes(catalog).values.toSet()
-        mirror.onUpload = { if (it in mine) Thread.sleep(1_000) }
+        // An upload holds until the test lets it go: a round on the scheduler thread would hold the
+        // scheduler with it, and handle() would not return while it waits.
+        val held = java.util.concurrent.CountDownLatch(1)
+        mirror.onUpload = { if (it in mine) held.await(60, java.util.concurrent.TimeUnit.SECONDS) }
         optInOwnCatalogs(tenant)
 
-        val took = kotlin.system.measureTimeMillis { scheduler.handle(app.epistola.suite.testing.dueScheduledTask(scheduler.catalogMirrorReconcileTaskDefinition())) }
+        val handled = java.util.concurrent.CompletableFuture.runAsync {
+            scheduler.handle(app.epistola.suite.testing.dueScheduledTask(scheduler.catalogMirrorReconcileTaskDefinition()))
+        }
 
-        assertThat(took).isLessThan(500)
+        // Ten seconds against an upload held for sixty: returning at all is the point, not how fast.
+        handled.get(10, java.util.concurrent.TimeUnit.SECONDS)
+        assertThat(held.count).`as`("the upload is still held").isEqualTo(1)
+        held.countDown()
         assertThat(work.awaitIdle(java.time.Duration.ofSeconds(30))).isTrue()
     }
 

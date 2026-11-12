@@ -55,7 +55,12 @@ import kotlin.system.measureTimeMillis
  * and poll against [FakeSupportServer]; `read-timeout` is one second, a round's budget two, and the
  * fake feed answers two updates per page.
  */
+@org.springframework.context.annotation.Import(app.epistola.suite.support.time.ManualSupportTimeConfiguration::class)
 class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
+    /** A round's budget counts on this: a test advances it, a slow machine does not. */
+    @Autowired
+    private lateinit var time: app.epistola.suite.support.time.ManualSupportTime
+
     @Autowired
     private lateinit var connection: DefaultSupportConnection
 
@@ -126,7 +131,8 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
 
         @Volatile var beforePage: (Long) -> Unit = {}
 
-        @Volatile var pageDelayMillis = 0L
+        /** How much of the round's budget answering a page takes. */
+        @Volatile var pageTime: java.time.Duration = java.time.Duration.ZERO
 
         /** The `acknowledgeUpTo` of every call answered, in order; null when it carried none. */
         val asked = CopyOnWriteArrayList<Long?>()
@@ -140,7 +146,7 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
             if (ack != null) acknowledged = maxOf(acknowledged, ack)
             val after = acknowledged
             beforePage(after)
-            if (pageDelayMillis > 0) Thread.sleep(pageDelayMillis)
+            time.advance(pageTime)
             return page(after)
         }
 
@@ -205,9 +211,9 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
         when (fault) {
             "refused" -> support.stop()
 
-            "hang" -> support.fault(FakeSupportFault.Hang(maxMillis = 5_000), "POST", FEED_PATH, times)
+            "hang" -> support.fault(FakeSupportFault.Hang(maxMillis = HANG_MS), "POST", FEED_PATH, times)
 
-            "trickle" -> support.fault(FakeSupportFault.SlowDrip(intervalMillis = 100, totalMillis = 5_000, body = """{"changes":[],"hasMore":false,"lastSequence":null}"""), "POST", FEED_PATH, times)
+            "trickle" -> support.fault(FakeSupportFault.SlowDrip(intervalMillis = 100, totalMillis = HANG_MS, body = """{"changes":[],"hasMore":false,"lastSequence":null}"""), "POST", FEED_PATH, times)
 
             "5xx" -> support.fault(FakeSupportFault.serverError(), "POST", FEED_PATH, times)
 
@@ -256,7 +262,7 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
         } else {
             assertThat(support.requests.count { it.path == FEED_PATH }).`as`("the poll met the fault").isGreaterThan(feedRequests)
         }
-        assertThat(took).`as`("within the round budget").isLessThan(ROUND_BUDGET_MS)
+        assertThat(took).`as`("cut off by the read timeout, not the fault").isLessThan(CUT_OFF_MS)
         assertThat(applied(supportRequest)).`as`("nothing applied").isEmpty()
         assertThat(cursor()).`as`("nothing acknowledged").isEqualTo(base)
 
@@ -286,7 +292,7 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
 
         val took = measureTimeMillis { poll.pollForUpdates() }
 
-        assertThat(took).`as`("within the round budget").isLessThan(ROUND_BUDGET_MS)
+        assertThat(took).`as`("cut off by the read timeout, not the fault").isLessThan(CUT_OFF_MS)
         assertThat(applied(supportRequest)).`as`("the first page").containsExactlyElementsOf(expected().take(2))
         // The acknowledgement of the first page rides on the call that failed: it reached the service
         // only when the service went away after reading it.
@@ -304,21 +310,19 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
     fun `a slow feed stops at the round budget, and the next poll reads on from what was acknowledged`() {
         val supportRequest = synced(sharingTenant("Feedback Poll Slow"))
         reply(supportRequest, 10)
-        feed.pageDelayMillis = 700
+        feed.pageTime = java.time.Duration.ofMillis(700)
         val before = feed.asked.size
 
         poll.pollForUpdates()
 
-        // The budget is checked between pages: it ends a round at most one call past it. Counted in
-        // calls, not in wall-clock time, which a busy machine stretches with the work between pages.
-        val calls = feed.asked.size - before
-        assertThat(calls).`as`("calls in the round").isBetween(1, (ROUND_BUDGET_MS / 700 + 2).toInt())
-        val first = applied(supportRequest)
-        assertThat(first).`as`("not all of it in one round").hasSizeLessThan(10).isNotEmpty
-        // Every page but the last of the round is acknowledged; the last comes again and is not applied twice.
-        assertThat(cursor()).isBetween(base + first.size - PAGE_SIZE, base + first.size)
+        // The budget is checked before each page: pages start at 0, 0.7 and 1.4 s of the 2 s budget,
+        // the fourth would start at 2.1 s, so three pages are read and the round ends by acknowledging
+        // the last of them.
+        assertThat(feed.asked.size - before).`as`("three pages and the acknowledgement").isEqualTo(4)
+        assertThat(applied(supportRequest)).`as`("the three pages read").containsExactlyElementsOf(expected().take(6))
+        assertThat(cursor()).isEqualTo(base + 6)
 
-        feed.pageDelayMillis = 0
+        feed.pageTime = java.time.Duration.ZERO
         poll.pollForUpdates()
 
         assertThat(applied(supportRequest)).containsExactlyElementsOf(expected())
@@ -342,6 +346,14 @@ class SupportRequestPollResilienceIntegrationTest : IntegrationTestBase() {
         private const val PAGE_SIZE = 2
         private const val ROUND_BUDGET_MS = 2_000L
         private const val READ_TIMEOUT_MS = 1_000L
+
+        /**
+         * How long a hanging or trickling feed holds a call: far past [READ_TIMEOUT_MS] and [CUT_OFF_MS].
+         * The cut-off is a real socket timeout, so those tests stay on real time; a poll that waited for
+         * the fault instead would take this long, which no busy machine mistakes for [CUT_OFF_MS].
+         */
+        private const val HANG_MS = 30_000L
+        private const val CUT_OFF_MS = 10_000L
 
         private val support = FakeSupportServer()
 

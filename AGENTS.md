@@ -69,7 +69,7 @@ Read the guide for the area you are touching first.
 - **Flyway migrations** — [`.agents/rules/migrations.md`](.agents/rules/migrations.md) — enforced by `checkMigrationVersions`, `RollbackCompatibilityDeclarationTest`, plus the schema-drift guards
 - **Bundled system/demo catalogs** — [`.agents/rules/bundled-catalogs.md`](.agents/rules/bundled-catalogs.md) — enforced by the fingerprint tests
 - **Configuration properties** — [`.agents/rules/config-properties.md`](.agents/rules/config-properties.md) — enforced by `NoHardcodedSecretsTest`
-- **Application time** — [`docs/clock.md`](docs/clock.md) — enforced by `ApplicationClockUsageTest`
+- **Application time** — [`docs/clock.md`](docs/clock.md) — enforced by `ApplicationClockUsageTest`, `SupportTimeUsageTest`
 - **Log messages** — [`.agents/rules/logging.md`](.agents/rules/logging.md) — enforced by `LogMessageTemplateTest`, `DriftRatchetTest`
 - **The editor** — [`modules/editor/AGENTS.md`](modules/editor/AGENTS.md) — enforced by `registry-examples.test.ts`, `check-component-registry.mjs`
 - **REST endpoints, contract bumps** — [`modules/rest-api/AGENTS.md`](modules/rest-api/AGENTS.md) — enforced by `checkContractVersionAlignment`, `ApiExceptionMappingsConsistencyTest`

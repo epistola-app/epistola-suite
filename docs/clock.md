@@ -118,6 +118,24 @@ is intentionally not a dependency.
 Infrastructure liveness and metrics code may intentionally use real wall-clock
 time when the signal is elapsed process time rather than application time.
 
+## Elapsed Time in the Support Modules
+
+`EpistolaClock` names moments. The support modules also measure durations: how
+long a round may run (the poll's and the sync sweep's `round-budget-ms`, the
+catalog mirror's `round-budget`) and when the next poll is due. Those read
+`SupportTime` (`app.epistola.suite.support.time`), a monotonic source that is
+`System.nanoTime()` in production.
+
+A test that is about a budget imports `ManualSupportTimeConfiguration` from
+epistola-support's test fixtures and advances the `ManualSupportTime` it puts in
+the context: the budget runs out when the test says so. A test that is not about
+a budget is not affected by a slow machine, because the fake stands still.
+
+A wait on real work (another node's round lock, this node's background threads)
+and a real socket timeout stay on real time. `SupportTimeUsageTest` keeps
+`System.nanoTime()` and `Thread.sleep` out of support production code apart from
+the files it lists, each with its reason.
+
 ## Related Documentation
 
 - [`docs/timers.md`](timers.md)

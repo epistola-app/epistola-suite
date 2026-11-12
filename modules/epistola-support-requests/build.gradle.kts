@@ -53,6 +53,7 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
+    testImplementation(testFixtures(project(":modules:epistola-support")))
     // The requests sent to a partner are checked against docs/support-partner-api.yaml.
     testImplementation(libs.swagger.request.validator)
     testImplementation("org.springframework.boot:spring-boot-starter-test")

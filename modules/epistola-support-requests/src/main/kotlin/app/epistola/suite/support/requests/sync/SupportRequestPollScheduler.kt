@@ -24,6 +24,7 @@ import app.epistola.suite.support.requests.commands.SyncSupportRequestStatus
 import app.epistola.suite.support.requests.consent.IsSupportRequestSyncConsentInForce
 import app.epistola.suite.support.requests.desk.EscalateFromConnection
 import app.epistola.suite.support.requests.queries.GetSupportRequestByExternalRef
+import app.epistola.suite.support.time.SupportTime
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -53,6 +54,7 @@ class SupportRequestPollScheduler(
     private val mediator: Mediator,
     private val properties: SupportRequestSyncProperties,
     private val work: SupportBackgroundWork,
+    private val time: SupportTime,
 ) : ClusterScheduledTaskHandler {
     private val log = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
@@ -75,8 +77,8 @@ class SupportRequestPollScheduler(
      * scheduler thread never waits on the support service.
      */
     override fun handle(task: ClusterScheduledTask) {
-        if (!pacing.isDue(System.nanoTime())) return
-        work.launch(WORK_KEY) { pacing.round(System.nanoTime()) { pollForUpdates() } }
+        if (!pacing.isDue(time.nanoTime())) return
+        work.launch(WORK_KEY) { pacing.round(time.nanoTime()) { pollForUpdates() } }
     }
 
     /** One round; true when it found changes. */
@@ -104,8 +106,8 @@ class SupportRequestPollScheduler(
         var found = false
         var pages = 0
         // At most `round-budget-ms` per run: a slow service leaves the rest of the pages for the next.
-        val deadline = System.nanoTime() + properties.roundBudgetMs * 1_000_000
-        while (pages++ < MAX_PAGES_PER_RUN && System.nanoTime() < deadline) {
+        val deadline = time.nanoTime() + properties.roundBudgetMs * 1_000_000
+        while (pages++ < MAX_PAGES_PER_RUN && time.nanoTime() < deadline) {
             val page = try {
                 supportRequestSyncPort.fetchUpdates(acknowledge).also { acknowledge = null }
             } catch (e: Exception) {
