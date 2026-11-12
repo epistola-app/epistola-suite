@@ -56,6 +56,7 @@ class DeleteCatalogHandler(
 
             // Its releases go with it, so none of them may still be served or depended on.
             ReleaseInUse.requireCatalogUnused(handle, command.catalog)
+            requireNotHouseTheme(handle, command.catalog)
             // A draft an environment serves goes with the catalog, its deployment ended and logged.
             draftLifecycle.forEach { it.catalogDeleted(handle, command.catalog) }
             // Declarations in other catalogs' drafts that build on one of its drafts, and use none of
@@ -92,6 +93,27 @@ class DeleteCatalogHandler(
 
             deleted > 0
         }
+    }
+
+    /**
+     * Refuses deleting the catalog the tenant's house theme lives in, naming it: the tenant points at
+     * that theme (`tenants.default_theme_resource_id`), so the delete would otherwise fail on the
+     * foreign key at commit, with a database error that says nothing of what to change.
+     */
+    private fun requireNotHouseTheme(handle: Handle, catalog: CatalogId) {
+        val theme = handle.createQuery(
+            """
+            SELECT r.resource_key FROM tenants t
+            JOIN catalog_resources r ON r.tenant_key = t.id AND r.resource_id = t.default_theme_resource_id
+            WHERE t.id = :tenantKey AND r.catalog_id = ${catalogAt("tenantKey", "id")}
+            """,
+        )
+            .bind("tenantKey", catalog.tenantKey)
+            .bindCatalog("id", catalog)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null) ?: return
+        throw CatalogInUseException(catalog.key, listOf("the tenant's house theme '$theme' (choose another house theme first)"))
     }
 
     private data class Draft(val versionId: UUID, val label: String)

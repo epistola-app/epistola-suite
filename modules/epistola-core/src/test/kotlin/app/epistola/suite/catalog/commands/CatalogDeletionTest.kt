@@ -68,6 +68,22 @@ class CatalogDeletionTest : IntegrationTestBase() {
         }
 
         @Test
+        fun `the catalog the tenant's house theme lives in is refused by name, not by a database error`() {
+            val tenant = createTenant("Delete House Theme Catalog")
+            val brand = testCatalog(tenant.id, CatalogKey.of("brand"))
+            withMediator {
+                CreateCatalog(tenantKey = tenant.id, id = brand.key, name = "Brand").execute()
+                CreateTheme(ThemeId(ThemeKey.of("house"), brand), "House", catalogVersion = null).execute()
+                app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenant.id, themeId = ThemeKey.of("house"), catalog = brand).execute()
+            }
+
+            assertThatThrownBy { withMediator { DeleteCatalog(brand).execute() } }
+                .isInstanceOf(CatalogInUseException::class.java)
+                .hasMessageContaining("the tenant's house theme 'house'")
+            assertThat(withMediator { GetCatalog(brand).query() }).isNotNull
+        }
+
+        @Test
         fun `the system catalog cannot be deleted`() {
             val tenant = createTenant("Delete System")
 
