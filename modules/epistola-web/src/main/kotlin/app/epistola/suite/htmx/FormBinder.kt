@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.NewKeyRule
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -347,8 +348,9 @@ class FormBuilder {
             // message ("Slug must be at least 3 characters") with a generic one
             // ("Invalid theme ID format"). What these checks genuinely ADD beyond the
             // specs is the reserved-word rule on TemplateKey/StencilKey ("new",
-            // "edit", "admin", …), and that only ever fires when the format and
-            // length rules have already passed — i.e. exactly when this block runs.
+            // "edit", "admin", …) and NewKeyRule on theme, code-list and environment
+            // keys, and that only ever fires when the format and length rules have
+            // already passed — i.e. exactly when this block runs.
             if (value.isNotBlank() && errors[fieldName] == null) {
                 when {
                     spec.asAttributeId -> {
@@ -358,8 +360,11 @@ class FormBuilder {
                     }
 
                     spec.asEnvironmentId -> {
-                        if (EnvironmentKey.validateOrNull(value) == null) {
+                        val key = EnvironmentKey.validateOrNull(value)
+                        if (key == null) {
                             errors[fieldName] = "Invalid environment ID format"
+                        } else if (NewKeyRule.isReserved(key)) {
+                            errors[fieldName] = NewKeyRule.refusal("Environment")
                         }
                     }
 
@@ -371,8 +376,11 @@ class FormBuilder {
                     }
 
                     spec.asCodeListId -> {
-                        if (CodeListKey.validateOrNull(value) == null) {
+                        val key = CodeListKey.validateOrNull(value)
+                        if (key == null) {
                             errors[fieldName] = "Invalid code-list ID format"
+                        } else if (NewKeyRule.isReserved(key)) {
+                            errors[fieldName] = NewKeyRule.refusal("Code list")
                         }
                     }
 
@@ -389,8 +397,11 @@ class FormBuilder {
                     }
 
                     spec.asThemeId -> {
-                        if (ThemeKey.validateOrNull(value) == null) {
+                        val key = ThemeKey.validateOrNull(value)
+                        if (key == null) {
                             errors[fieldName] = "Invalid theme ID format"
+                        } else if (NewKeyRule.isReserved(key)) {
+                            errors[fieldName] = NewKeyRule.refusal("Theme")
                         }
                     }
 

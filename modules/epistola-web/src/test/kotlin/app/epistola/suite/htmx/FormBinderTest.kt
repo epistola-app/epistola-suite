@@ -36,6 +36,24 @@ class FormBinderTest {
     }
 
     @Test
+    fun `a theme, code-list or environment slug of new is refused by name, as it is where the create form lives`() {
+        val form = requestWith("theme" to "new", "codeList" to "new", "environment" to "new", "other" to "newsletter").form {
+            field("theme") { asThemeId() }
+            field("codeList") { asCodeListId() }
+            field("environment") { asEnvironmentId() }
+            field("other") { asThemeId() }
+        }
+
+        assertThat(form.errors).containsExactlyInAnyOrderEntriesOf(
+            mapOf(
+                "theme" to "Theme ID 'new' is reserved and cannot be used",
+                "codeList" to "Code list ID 'new' is reserved and cannot be used",
+                "environment" to "Environment ID 'new' is reserved and cannot be used",
+            ),
+        )
+    }
+
+    @Test
     fun `asAttributeId accepts a valid slug`() {
         val form = requestWith("slug" to "language").form {
             field("slug") { asAttributeId() }

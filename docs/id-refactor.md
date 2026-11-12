@@ -305,6 +305,10 @@ The standard slug pattern used in this codebase:
 - **No consecutive hyphens**
 - **Regex**: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
 - **Reserved words**: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
+- **`new`**: never a template, variant or stencil key (the type refuses it), nor a theme, code-list or
+  environment key chosen from now on (`NewKeyRule`): their list pages open the create form at
+  `…/new`, beside the resource at `…/{key}`. Those three accepted it before, so a key already stored
+  or arriving in a catalog import still reads; only the create commands and forms refuse it.
 
 This format is DNS subdomain compatible, suitable for use in URLs.
 

@@ -33,6 +33,24 @@ interface NumericKey<T : NumericKey<T>> : EntityKey<T, Int>
 interface UuidKey<T : UuidKey<T>> : EntityKey<T, UUID>
 
 /**
+ * The key a new theme, code list or environment may not take.
+ *
+ * Their list pages open the create form at `…/new`, beside the resource at `…/{key}`, so a resource
+ * keyed `new` is listed and never opened. [TemplateKey], [VariantKey] and [StencilKey] refuse the
+ * word in the type itself. These three accepted it until now, and stored data is never broken, so
+ * the word is refused where a key is chosen — the create commands and forms — and a key already
+ * stored, or arriving in a catalog import, still reads.
+ */
+object NewKeyRule {
+    const val RESERVED = "new"
+
+    fun isReserved(key: SlugKey<*>): Boolean = key.value == RESERVED
+
+    /** The refusal for a new [kind] ("Theme", "Code list") keyed [RESERVED]. */
+    fun refusal(kind: String): String = "$kind ID '$RESERVED' is reserved and cannot be used"
+}
+
+/**
  * Typed key for Tenant entities.
  */
 @JvmInline

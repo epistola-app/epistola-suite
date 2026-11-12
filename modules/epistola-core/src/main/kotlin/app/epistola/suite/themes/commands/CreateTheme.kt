@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.ContentVersion
 import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.NewKeyRule
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -27,6 +28,7 @@ import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.themes.crossCatalogRefs
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -57,6 +59,7 @@ data class CreateTheme(
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         validate("blockStylePresets", blockStylePresets.orEmpty().size <= FieldLimits.MAX_BLOCK_STYLE_PRESETS) { "A theme has at most ${FieldLimits.MAX_BLOCK_STYLE_PRESETS} block style presets" }
         validate("defaultBlockStyles", defaultBlockStyles.orEmpty().keys.all { it == "marginTop" || it == "marginBottom" }) { "A theme's default block styles set marginTop and marginBottom only" }
+        validate("key", !NewKeyRule.isReserved(id.key), ValidationCode.KEY_RESERVED) { NewKeyRule.refusal("Theme") }
     }
 }
 

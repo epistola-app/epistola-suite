@@ -19,6 +19,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.versionOf
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.NewKeyRule
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -26,6 +27,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -73,6 +75,7 @@ data class CreateCodeList(
             }
         }
         validateCodeListEntries(entries)
+        validate("key", !NewKeyRule.isReserved(id.key), ValidationCode.KEY_RESERVED) { NewKeyRule.refusal("Code list") }
     }
 }
 
