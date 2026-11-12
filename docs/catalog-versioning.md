@@ -1027,7 +1027,8 @@ it per catalog.
   the draft's exact content: a document says which draft it came from and when, not a fingerprint.
 - **A draft's lifecycle carries through.** Releasing a deployed draft keeps its `releaseId` on the
   release, so the deployment becomes one of that release, logged `RELEASED`; discarding it, or
-  discarding the next release by making another draft the next release, undeploys it, logged.
+  discarding the next release by making another draft the next release, undeploys it, logged. The
+  discard confirmation names the environments that stop serving it (`CatalogDraftBar.discardMessage`).
 - **History.** Every deploy, undeploy and release of a deployed draft is recorded in the environment's
   history (`DEPLOYED`, `UNDEPLOYED`, `RELEASED`, with the version's id, and the draft's name for a draft).
 - **Dependencies of a deployed draft** are used as for a release: what its declarations pin is used

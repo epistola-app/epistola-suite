@@ -42,6 +42,7 @@ class CatalogDraftBarVersionsTest {
         releases: List<CatalogRelease>,
         segment: CatalogSegment = CatalogSegment(letters, namespace = "acme"),
         mayEdit: Boolean = true,
+        draftFollowers: Map<String, List<String>> = emptyMap(),
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,
@@ -53,6 +54,7 @@ class CatalogDraftBarVersionsTest {
         chosen = segment.draft?.let { id -> drafts.first { it.versionId == id } } ?: drafts.firstOrNull { it.isNext },
         mayOpenDrafts = mayEdit,
         mayDiscardDrafts = true,
+        draftFollowers = draftFollowers,
         pageAt = { "/tenants/acme/catalogs/${it.value}/draft" },
     )
 
@@ -147,5 +149,28 @@ class CatalogDraftBarVersionsTest {
         assertThat(runOnly.versionRows.single().offerRemove).isTrue()
         assertThat(runOnly.offerCreateDraft).isFalse()
         assertThat(runOnly.offerRelease).isFalse()
+    }
+
+    @Test
+    fun `discarding a draft an environment serves says that environment stops serving the catalog, one that none serves says nothing of it`() {
+        val drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0"))
+        val served = bar(drafts, listOf(release("1.2.0")), draftFollowers = mapOf(nextId to listOf("Test", "Acceptance"), redesignId to listOf("Test")))
+
+        assertThat(served.discardMessage).isEqualTo(
+            "Every change in the next release is thrown away; it starts again from the latest published release. " +
+                "Published releases and parallel work are not affected. " +
+                "Test and Acceptance use it and will serve nothing of this catalog until a release is deployed there. This cannot be undone.",
+        )
+        assertThat(served.versionRows.map { it.discardMessage }).containsExactly(
+            served.discardMessage,
+            "Redesign is discarded with every change made in it. Published releases and the next release are not affected. " +
+                "Test uses it and will serve nothing of this catalog until a release is deployed there. This cannot be undone.",
+            null,
+        )
+        assertThat(served.followedBy).`as`("the chosen draft's followers, as the bar shows them").containsExactly("Test", "Acceptance")
+
+        val unserved = bar(drafts, listOf(release("1.2.0")))
+        assertThat(unserved.discardMessage).doesNotContain("serve").endsWith("Published releases and parallel work are not affected. This cannot be undone.")
+        assertThat(unserved.followedBy).isEmpty()
     }
 }
