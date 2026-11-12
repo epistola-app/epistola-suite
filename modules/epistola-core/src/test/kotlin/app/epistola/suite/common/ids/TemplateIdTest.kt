@@ -134,18 +134,9 @@ class TemplateIdTest {
         }
 
         @Test
-        fun `should reject reserved words`() {
-            assertThrows<IllegalArgumentException> { TemplateKey.of("admin") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("api") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("www") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("system") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("internal") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("null") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("undefined") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("new") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("create") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("edit") }
-            assertThrows<IllegalArgumentException> { TemplateKey.of("delete") }
+        fun `reads a reserved word, which is refused only where a key is chosen`() {
+            // ReservedResourceKeys: a template keyed `new` may arrive in a catalog import.
+            assertEquals("new", TemplateKey.of("new").value)
         }
 
         @Test
@@ -154,7 +145,6 @@ class TemplateIdTest {
             assertNull(TemplateKey.validateOrNull("ab"))
             assertNull(TemplateKey.validateOrNull("ABC"))
             assertNull(TemplateKey.validateOrNull("a" + "b".repeat(50))) // 51 chars
-            assertNull(TemplateKey.validateOrNull("admin")) // reserved word
         }
     }
 

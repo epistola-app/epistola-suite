@@ -5,7 +5,6 @@
 package app.epistola.suite.environments.commands
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.NewKeyRule
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -13,9 +12,9 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
-import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -31,9 +30,9 @@ data class CreateEnvironment(
     override val tenantKey get() = id.tenantKey
 
     init {
+        validateResourceKey("Environment", id.key)
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
-        validate("key", !NewKeyRule.isReserved(id.key), ValidationCode.KEY_RESERVED) { NewKeyRule.refusal("Environment") }
     }
 }
 

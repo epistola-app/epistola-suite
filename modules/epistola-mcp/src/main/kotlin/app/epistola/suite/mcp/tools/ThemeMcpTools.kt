@@ -117,7 +117,7 @@ class ThemeMcpTools(
     fun createTheme(
         @McpToolParam(description = "Catalog key to create the theme in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
-        @McpToolParam(description = "Key for the new theme: lowercase letters, digits and hyphens, e.g. `corporate`; not `new`.")
+        @McpToolParam(description = "Key for the new theme: lowercase letters, digits and hyphens, e.g. `corporate`; not a reserved word such as `new`.")
         themeId: String,
         @McpToolParam(description = "Display name.")
         name: String,

@@ -4,6 +4,9 @@
 
 package app.epistola.suite.validation
 
+import app.epistola.suite.common.ids.ReservedResourceKeys
+import app.epistola.suite.common.ids.SlugKey
+
 /**
  * Exception thrown when command validation fails.
  *
@@ -37,3 +40,10 @@ inline fun validate(
         throw ValidationException(field, lazyMessage(), code)
     }
 }
+
+/**
+ * Refuses [key] for a new [kind] resource ("Theme", "Code list") when it is one of the
+ * [ReservedResourceKeys]. Every command that lets an author choose a resource key calls it in its
+ * `init` (`ReservedResourceKeysGuardTest`).
+ */
+fun validateResourceKey(kind: String, key: SlugKey<*>) = validate("key", !ReservedResourceKeys.isReserved(key.value), ValidationCode.KEY_RESERVED) { ReservedResourceKeys.refusal(kind, key.value) }

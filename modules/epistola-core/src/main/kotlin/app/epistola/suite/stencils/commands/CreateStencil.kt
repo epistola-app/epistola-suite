@@ -34,6 +34,7 @@ import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.suite.validation.validateResourceKey
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -65,6 +66,7 @@ data class CreateStencil(
     override val tenantKey: TenantKey get() = id.tenantKey
 
     init {
+        validateResourceKey("Stencil", id.key)
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         // Load-bearing for the stencil-picker stored-XSS fix — don't relax without reading it.

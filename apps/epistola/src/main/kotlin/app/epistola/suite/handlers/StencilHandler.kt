@@ -228,9 +228,10 @@ class StencilHandler(
                 // Folds the old "invalid StencilKey" branch into field validation
                 // (same "Invalid stencil ID format" error) so all three failure
                 // modes share one error path. Reported only when no rule above
-                // failed first, so the specific message wins; what it adds beyond
-                // them is StencilKey's reserved-word rule.
+                // failed first, so the specific message wins. Reserved words
+                // (ReservedResourceKeys) come from newResourceKey.
                 asStencilId()
+                newResourceKey("Stencil")
             }
             field("name") {
                 required()

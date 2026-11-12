@@ -119,6 +119,7 @@ class CodeListHandler(
                 // share one error path. Layered ON TOP of the pattern/length rules
                 // above — strictly additive, never loosening them.
                 asCodeListId()
+                newResourceKey("Code list")
             }
             field("displayName") {
                 required()

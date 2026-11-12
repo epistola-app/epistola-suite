@@ -36,24 +36,6 @@ class FormBinderTest {
     }
 
     @Test
-    fun `a theme, code-list or environment slug of new is refused by name, as it is where the create form lives`() {
-        val form = requestWith("theme" to "new", "codeList" to "new", "environment" to "new", "other" to "newsletter").form {
-            field("theme") { asThemeId() }
-            field("codeList") { asCodeListId() }
-            field("environment") { asEnvironmentId() }
-            field("other") { asThemeId() }
-        }
-
-        assertThat(form.errors).containsExactlyInAnyOrderEntriesOf(
-            mapOf(
-                "theme" to "Theme ID 'new' is reserved and cannot be used",
-                "codeList" to "Code list ID 'new' is reserved and cannot be used",
-                "environment" to "Environment ID 'new' is reserved and cannot be used",
-            ),
-        )
-    }
-
-    @Test
     fun `asAttributeId accepts a valid slug`() {
         val form = requestWith("slug" to "language").form {
             field("slug") { asAttributeId() }
@@ -203,22 +185,36 @@ class FormBinderTest {
     }
 
     @Test
-    fun `the id validator still catches what the field rules cannot - a reserved word`() {
-        // "new" passes pattern, minLength(3) and maxLength(50); only TemplateKey's
-        // RESERVED_WORDS rejects it. This is the case asTemplateId() exists for, and
-        // it is reached precisely because no field rule failed first.
-        val form = requestWith("slug" to "new").form {
+    fun `a new resource key that is a reserved word is refused by name, after the format rules pass`() {
+        // "new" passes pattern, minLength(3), maxLength(50) and the key type; only
+        // newResourceKey() refuses it, and only because no rule before it failed.
+        val form = requestWith("slug" to "new", "short" to "ab").form {
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
                 maxLength(50)
                 asTemplateId()
+                newResourceKey("Template")
+            }
+            field("short") {
+                minLength(3)
+                newResourceKey("Template")
             }
         }
 
-        assertThat(form.hasErrors()).isTrue()
-        assertThat(form.errors["slug"]).isEqualTo("Invalid template ID format")
+        assertThat(form.errors).containsExactlyInAnyOrderEntriesOf(
+            mapOf("slug" to "Template ID 'new' is reserved and cannot be used", "short" to "Short must be at least 3 characters"),
+        )
+    }
+
+    @Test
+    fun `a field selecting an existing resource accepts a reserved word`() {
+        val form = requestWith("variant" to "new").form {
+            field("variant") { asVariantId() }
+        }
+
+        assertThat(form.hasErrors()).isFalse()
     }
 
     private fun requestWith(vararg params: Pair<String, String>): ServerRequest {

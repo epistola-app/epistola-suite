@@ -8,7 +8,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.NewKeyRule
+import app.epistola.suite.common.ids.ReservedResourceKeys
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -50,6 +50,9 @@ class FieldSpec(val fieldName: String) {
     var asVariantId: Boolean = false
     var asVersionId: Boolean = false
     var asTenantId: Boolean = false
+
+    /** The resource kind ("Theme") whose new key this field chooses, set by [newResourceKey]. */
+    var newResourceKeyKind: String? = null
 
     /**
      * Mark this field as required.
@@ -177,6 +180,15 @@ class FieldSpec(val fieldName: String) {
      */
     fun asTemplateId() {
         this.asTemplateId = true
+    }
+
+    /**
+     * Mark this field as the key a new [kind] resource ("Theme", "Code list") is created with:
+     * one of the [ReservedResourceKeys] is refused, after the format checks pass. Only on create
+     * forms — a field selecting an existing resource must accept every stored key.
+     */
+    fun newResourceKey(kind: String) {
+        this.newResourceKeyKind = kind
     }
 
     /**
@@ -346,11 +358,8 @@ class FormBuilder {
             // failure here is almost always a second opinion on a failure already
             // recorded above. Overwriting would replace a specific, actionable
             // message ("Slug must be at least 3 characters") with a generic one
-            // ("Invalid theme ID format"). What these checks genuinely ADD beyond the
-            // specs is the reserved-word rule on TemplateKey/StencilKey ("new",
-            // "edit", "admin", …) and NewKeyRule on theme, code-list and environment
-            // keys, and that only ever fires when the format and length rules have
-            // already passed — i.e. exactly when this block runs.
+            // ("Invalid theme ID format"). Reserved words are not the type's: they are
+            // newResourceKey(), checked after this block on create forms only.
             if (value.isNotBlank() && errors[fieldName] == null) {
                 when {
                     spec.asAttributeId -> {
@@ -360,11 +369,8 @@ class FormBuilder {
                     }
 
                     spec.asEnvironmentId -> {
-                        val key = EnvironmentKey.validateOrNull(value)
-                        if (key == null) {
+                        if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
-                        } else if (NewKeyRule.isReserved(key)) {
-                            errors[fieldName] = NewKeyRule.refusal("Environment")
                         }
                     }
 
@@ -376,11 +382,8 @@ class FormBuilder {
                     }
 
                     spec.asCodeListId -> {
-                        val key = CodeListKey.validateOrNull(value)
-                        if (key == null) {
+                        if (CodeListKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid code-list ID format"
-                        } else if (NewKeyRule.isReserved(key)) {
-                            errors[fieldName] = NewKeyRule.refusal("Code list")
                         }
                     }
 
@@ -397,11 +400,8 @@ class FormBuilder {
                     }
 
                     spec.asThemeId -> {
-                        val key = ThemeKey.validateOrNull(value)
-                        if (key == null) {
+                        if (ThemeKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid theme ID format"
-                        } else if (NewKeyRule.isReserved(key)) {
-                            errors[fieldName] = NewKeyRule.refusal("Theme")
                         }
                     }
 
@@ -429,6 +429,11 @@ class FormBuilder {
                         }
                     }
                 }
+            }
+
+            val newKeyKind = spec.newResourceKeyKind
+            if (newKeyKind != null && errors[fieldName] == null && ReservedResourceKeys.isReserved(value)) {
+                errors[fieldName] = ReservedResourceKeys.refusal(newKeyKind, value)
             }
         }
 

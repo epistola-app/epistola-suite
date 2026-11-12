@@ -331,9 +331,10 @@ class DocumentTemplateHandler(
                 // Folds the old "invalid TemplateKey" branch into field validation
                 // (same "Invalid template ID format" error) so all three failure
                 // modes share one error path. Reported only when no rule above
-                // failed first, so the specific message wins; what it adds beyond
-                // them is TemplateKey's reserved-word rule.
+                // failed first, so the specific message wins. Reserved words
+                // (ReservedResourceKeys) come from newResourceKey.
                 asTemplateId()
+                newResourceKey("Template")
             }
             field("name") {
                 required()

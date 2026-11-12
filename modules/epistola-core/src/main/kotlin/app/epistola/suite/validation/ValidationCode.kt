@@ -163,7 +163,7 @@ enum class ValidationCode(val wire: String) {
     SOURCE_URL_NOT_ALLOWED("SOURCE_URL_NOT_ALLOWED"),
 
     /**
-     * A new key takes a word its routes need (`NewKeyRule`). Not registered by the contract yet, so
+     * A new resource key is one of the suite's reserved words (`ReservedResourceKeys`). Not registered by the contract yet, so
      * the API sends it as a plain validation error.
      */
     KEY_RESERVED("KEY_RESERVED"),

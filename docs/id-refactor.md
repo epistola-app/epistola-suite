@@ -304,11 +304,12 @@ The standard slug pattern used in this codebase:
 - **Cannot end with**: a hyphen
 - **No consecutive hyphens**
 - **Regex**: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
-- **Reserved words**: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
-- **`new`**: never a template, variant or stencil key (the type refuses it), nor a theme, code-list or
-  environment key chosen from now on (`NewKeyRule`): their list pages open the create form at
-  `…/new`, beside the resource at `…/{key}`. Those three accepted it before, so a key already stored
-  or arriving in a catalog import still reads; only the create commands and forms refuse it.
+- **Reserved words** (tenant keys): `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `tenants`, `global`, `platform`
+- **Reserved words** for resource keys (`ReservedResourceKeys`, one list for every resource type):
+  `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `new`, `create`, `edit`,
+  `delete`. They are refused where an author chooses a key — every create command calls
+  `validateResourceKey`, every create form `newResourceKey(kind)` — never where a key is read, so a
+  key stored before or arriving in a catalog import still reads. The key types check the format only.
 
 This format is DNS subdomain compatible, suitable for use in URLs.
 
