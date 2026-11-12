@@ -243,5 +243,5 @@ without rendering (see [MCP](mcp.md)).
 
 - [Epistola project overview](epistola.md)
 - [Data Contract Storage and Compatibility](schema-versioning.md)
-- [Template catalog exchange format](exchange/v5/template.md)
+- [Catalog exchange format](exchange/README.md#parts--contract-versions)
 - [MCP data-contract tools](mcp.md)

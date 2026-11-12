@@ -9,24 +9,23 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 ## Parts & contract versions
 
-Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract. The per-part pages document wire version 5 ([`v5/`](v5/); [`v4/`](v4/) is the migration baseline). Versions 6–8 have no per-part pages here: their JSON Schemas ship in the `epistola-catalog` artifact (`META-INF/epistola-catalog/schemas/`, for example `catalog-manifest-v8.schema.json`), and those schemas are authoritative.
+Import/export is a **wire format**: a `catalog.json` manifest plus one detail file per resource. 2.0 reads and writes wire version 8. Its reference is the JSON Schemas in the contract repository, under [`contracts/catalog/schemas/`](https://github.com/epistola-app/epistola-contract/tree/v2.0.0/contracts/catalog/schemas), which also ship in the `epistola-catalog` artifact under `META-INF/epistola-catalog/schemas/`. This repository does not copy them into per-part pages.
 
 **There is one catalog-wide wire `schemaVersion`** (currently `8`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and explicit migrations are owned by `epistola-catalog`; version `4` is the accepted baseline and is migrated step by step to `8` before typed binding.
 
-**Parts** — each documented, at wire version 5, in [`v5/`](v5/):
+**Wire version 8 schemas:**
 
-| Part                                        | Carries                                                                           |
-| ------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Manifest](v5/manifest.md) (`catalog.json`) | catalog identity, `release` (version + fingerprint), resource index, dependencies |
-| [Asset](v5/asset.md)                        | image metadata + `contentUrl` to the binary                                       |
-| [Code list](v5/code-list.md)                | reusable enumerations (`entries`)                                                 |
-| [Font](v5/font.md)                          | asset-backed font family + variants                                               |
-| [Attribute](v5/attribute.md)                | variant attribute + `codeListBinding`                                             |
-| [Theme](v5/theme.md)                        | document styles, page settings, presets                                           |
-| [Stencil](v5/stencil.md)                    | published fragment (`content` + `version`)                                        |
-| [Template](v5/template.md)                  | `templateModel`, `dataModel`, variants                                            |
+| Schema                             | Covers                                                                                                           |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `catalog-manifest-v8.schema.json`  | the manifest: catalog identity, registry and namespace, `release`, the resource index, dependencies              |
+| `resource-detail-v8.schema.json`   | every resource detail file: templates, themes, stencils, attributes, images, code lists, fonts, quality profiles |
+| `template-document-v8.schema.json` | the template document inside templates and stencils: a flat graph of nodes and slots                             |
+| `template-shared-v8.schema.json`   | definitions the template schemas share: page settings, document styles, expressions, theme references            |
+| `theme-v8.schema.json`             | a theme's default styles, page settings and named block style presets                                            |
 
-(Rows are in install order — see [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).)
+Resources install in the order of [`CatalogConstants.RESOURCE_INSTALL_ORDER`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogConstants.kt).
+
+**Earlier versions** have per-part pages, kept as a record: [`v5/`](v5/) and [`v4/`](v4/), the oldest version 2.0 still migrates on import. They describe the shape at that version, not what 2.0 writes.
 
 **The three version axes** (orthogonal — don't conflate them):
 
@@ -38,7 +37,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) 
 
 These three are the **catalog-level** axes. For the full picture — including the template, contract and stencil versions 2.0 removed — see [version-axes.md](../version-axes.md).
 
-**Maintaining these docs:** the per-part pages stop at [`v5/`](v5/); versions 6–8 are defined only by the contract's schemas. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the current folder, edit the changed part(s), and land a dedicated migration class in the single chain. Leave old version folders in place so the whole set diffs against the previous wire version.
+**Maintaining these docs:** a wire version is defined by its schemas in the contract repository, not by pages here. A shape change that is **not** round-trip-compatible adds the next version's schemas and a migration class to the single chain in `epistola-catalog`. The suite takes it with the contract bump (`CATALOG_SCHEMA_VERSION` follows `CatalogWireSchema.CURRENT_VERSION`); update the version and the schema table and link above at the same time. Do not add per-part pages for a new version, and do not edit the [`v5/`](v5/) and [`v4/`](v4/) records.
 
 > **Implementation status.** `epistola-catalog` owns the portable
 > `CatalogSchemaMigrator`. It gates the manifest and every resource detail

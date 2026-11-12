@@ -89,9 +89,11 @@ anything substantial.
 
 ## From 1.x to 2.0
 
-**Start from 1.5.x and take a backup.** Upgrade from the supported 1.x line, 1.5.x
-([support policy](../SUPPORT_POLICY.md#upgrade-philosophy)); every 1.x release since 1.3.0 ends at
-the last 1.x migration (`V20260923150918`), where the 2.0 chain starts. The upgrade only goes
+**Upgrade to 1.5.x first, then to 2.0, and take a backup.** 1.5.x is the supported 1.x line
+([support policy](../SUPPORT_POLICY.md#upgrade-philosophy)) and the only one the upgrade to 2.0 is
+tested from. On an earlier 1.x release, upgrade to the latest 1.5.x as usual, start it once, then
+continue here. Releases since 1.3.0 already end at the last 1.x migration (`V20260923150918`), where
+the 2.0 chain starts, but going straight from them to 2.0 is untested. The upgrade only goes
 forward and drops the 1.x tables, so a [database backup](#backups-and-upgrades) taken before it is
 the only way back to 1.x. A 1.x build does not check the schema before it starts (it predates the
 [rollback guard](#rollback)): never start one on the upgraded database, restore the backup instead.
