@@ -1,5 +1,8 @@
 # Catalog wire format — v4
 
+> **Status:** Record of wire version 4, the oldest version 2.0 still migrates on import. 2.0 writes
+> version 8; see [Parts & contract versions](../README.md#parts--contract-versions).
+
 > Part of [catalog import/export](../README.md). This folder documents the **catalog-wide wire format at `schemaVersion` 4** — one file per part.
 
 A catalog export/import is a `catalog.json` [manifest](manifest.md) plus one detail file per resource. **All parts share a single, catalog-wide `schemaVersion`** (`4`): the manifest is authoritative for it and every resource detail carries the same number, so each file is self-describing but the whole bundle moves together. There is no independent per-resource version. See [ADR 0007](../../adr/0007-catalog-wire-format-migrations.md).

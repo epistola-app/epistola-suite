@@ -182,8 +182,10 @@ of [the 2.0 chain](#the-20-chain), from `V20261101000500__core_2_0_legacy_blobs`
 A 1.x database (the last 1.x migration is `V20260923150918`) migrates to 2.0 in one chain of steps,
 each doing one thing to it. The 2.0 alphas grew 74 migrations, each adjusting what the one before
 left; before 2.0 was released they were written again as these (`checkMigrationVersions` allows it:
-none reached `main`). A database migrated by an alpha or release-candidate build of 2.0 cannot
-migrate on; rebuild it from a 1.x database or from scratch.
+none reached `main`). The chain has not changed since 2.0.0-beta.1. A database that 2.0.0-alpha.1
+migrated needs a repair script first ([Upgrades](upgrades.md#from-200-alpha1)); one migrated by an
+unreleased 2.0 build from before the rewrite cannot migrate on: rebuild it from a 1.x database or
+from scratch.
 
 | Step | Migration                                               | What it does                                                                                                              |
 | ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |

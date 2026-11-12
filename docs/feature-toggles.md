@@ -46,9 +46,9 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
 
    ```kotlin
    val MY_FEATURE = FeatureKey.of("my-feature")
-   val all: List<FeatureKey> = listOf(FEEDBACK, MY_FEATURE)
+   val all: List<FeatureKey> = listOf(SUPPORT_REQUESTS, MY_FEATURE)
    val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
-       FEEDBACK to FeatureMetadata("Feedback", "Enables the feedback option."),
+       SUPPORT_REQUESTS to FeatureMetadata("Support requests", "Send support requests from the app."),
        MY_FEATURE to FeatureMetadata("My feature", "Description of my feature.", stage = FeatureStage.BETA),
    )
    ```
@@ -57,11 +57,11 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
 
    ```kotlin
    data class FeatureDefaults(
-       val feedback: Boolean = false,
+       val supportRequests: Boolean = true,
        val myFeature: Boolean = false,
    ) {
        fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
-           KnownFeatures.FEEDBACK -> feedback
+           KnownFeatures.SUPPORT_REQUESTS -> supportRequests
            KnownFeatures.MY_FEATURE -> myFeature
            else -> false
        }
@@ -73,13 +73,16 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
    ```yaml
    epistola:
      features:
-       feedback: true
+       support-requests: true
        my-feature: false
    ```
 
 4. **Use the toggle** in your code:
-   - **Kotlin (service layer)**: Inject `FeatureToggleService` and call `isEnabled(tenantKey, featureKey)`
-   - **Thymeleaf templates**: The `ShellModelInterceptor` exposes toggle state as model attributes (e.g., `feedbackEnabled`). Add new attributes there for template-level gating.
+   - **Kotlin**: read the resolved map through the mediator — `ResolveFeatureToggles(tenantKey).query()`
+     for UI rendering and background work, `GetFeatureToggles` behind `TENANT_SETTINGS` for the admin
+     page. Never inject `FeatureToggleService` (house idiom in `AGENTS.md`).
+   - **Thymeleaf templates**: resolve the toggle in the handler, or in a UI contributor through
+     `UiRequestContext.tenantKey`, and put a flag on the model.
 
 ## Database Schema
 

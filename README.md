@@ -16,7 +16,7 @@
 > security issues and their affected releases are listed in the
 > [vulnerability history](VULNERABILITIES.md).
 
-A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
+A document suite application built with Spring Boot 4 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
 ## Project Structure
 
@@ -282,22 +282,20 @@ The project uses GitHub Actions for CI/CD:
 
 - **Build and test** runs on all PRs and main branch pushes
 - **Docker images** are published to ghcr.io:
-  - On main: tagged with semantic version (based on conventional commits), SHA, and `latest`
+  - On a `vX.Y.Z` release tag: tagged with that version, the commit SHA, and `latest` (a
+    pre-release such as `2.0.0-beta.1` never becomes `latest`)
   - On PRs with `publish` label: tagged with `{version}-pr-{number}-{run}`
 - **Helm charts** are published to ghcr.io OCI registry:
-  - Triggered when changes are detected in the `charts/` directory
-  - Tagged with `chart-X.Y.Z` (separate versioning from the app)
+  - Released by a `<chart>-X.Y.Z` tag (`epistola-1.1.0`), versioned separately from the app
   - Published to `oci://ghcr.io/epistola-app/charts`
 
 ### Conventional Commits
 
-Version bumps are determined automatically from commit messages:
-
-- `feat:` - minor version bump
-- `fix:` - patch version bump
-- `feat!:` or `fix!:` with `BREAKING CHANGE` - major version bump
-
-Both the app and Helm chart follow this convention. The Helm chart version is only bumped when changes are made to the `charts/` directory.
+Commit messages follow Conventional Commits; the accepted types are in
+`.husky/commitlint.config.js`. Release versions do not come from commit types: the app's version
+is `version=` in `gradle.properties` and a chart's is `version:` in its `Chart.yaml`, and a release
+strips the `-SNAPSHOT` and pushes the matching tag (`.agents/skills/release/`,
+`.agents/skills/release-helm-chart/`).
 
 ## Support and upgrades
 

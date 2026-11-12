@@ -5,7 +5,7 @@
 **Role:** a document template — its layout (`templateModel`), the data shape it expects (`dataModel` JSON Schema), sample data, and its variants.
 
 **DTO:** `TemplateResource` (`CatalogResource` subtype, `epistola-catalog`).
-**Exported by:** [`ExportResources.kt`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/ExportResources.kt) → wrapped in `ResourceDetail` by [`CatalogContentBuilder`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt).
+**Exported by:** `ExportResources.kt` (removed in 2.0) → wrapped in `ResourceDetail` by [`CatalogContentBuilder`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt).
 **Imported by:** [`InstallFromCatalog`](../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/InstallFromCatalog.kt).
 **Install order:** 6 (last — depends on theme/stencil/asset).
 **Wire location:** `./resources/template/{slug}.json`.

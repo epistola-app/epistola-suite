@@ -9,11 +9,11 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 ## Parts & contract versions
 
-Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract, all documented together under **one folder per catalog wire version** (currently [`v5/`](v5/); [`v4/`](v4/) remains the migration baseline).
+Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) plus one detail file per resource. Each is a **part** with its own JSON contract. The per-part pages document wire version 5 ([`v5/`](v5/); [`v4/`](v4/) is the migration baseline). Versions 6–8 have no per-part pages here: their JSON Schemas ship in the `epistola-catalog` artifact (`META-INF/epistola-catalog/schemas/`, for example `catalog-manifest-v8.schema.json`), and those schemas are authoritative.
 
-**There is one catalog-wide wire `schemaVersion`** (currently `5`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and explicit migrations are owned by `epistola-catalog`; version `4` is the accepted baseline and is migrated to `5` before typed binding.
+**There is one catalog-wide wire `schemaVersion`** (currently `8`) that the whole bundle moves together — the manifest **and** every resource detail carry the same number, so each file is self-describing. The **manifest is authoritative** for it; resources are **not** versioned independently. A catalog is at a single wire version, not a _set_ of per-part versions. Portable version gating and explicit migrations are owned by `epistola-catalog`; version `4` is the accepted baseline and is migrated step by step to `8` before typed binding.
 
-**Parts, at catalog `schemaVersion` 5** — each documented in [`v5/`](v5/):
+**Parts** — each documented, at wire version 5, in [`v5/`](v5/):
 
 | Part                                        | Carries                                                                           |
 | ------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -38,14 +38,16 @@ Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) 
 
 These three are the **catalog-level** axes. For the full picture — including the template, contract and stencil versions 2.0 removed — see [version-axes.md](../version-axes.md).
 
-**Maintaining these docs:** the current wire shape lives under [`v5/`](v5/) — one file per part at catalog `schemaVersion` 5. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the current folder, edit the changed part(s), and land a dedicated migration class in the single chain. Leave old version folders in place so the whole set diffs against the previous wire version.
+**Maintaining these docs:** the per-part pages stop at [`v5/`](v5/); versions 6–8 are defined only by the contract's schemas. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the current folder, edit the changed part(s), and land a dedicated migration class in the single chain. Leave old version folders in place so the whole set diffs against the previous wire version.
 
 > **Implementation status.** `epistola-catalog` owns the portable
 > `CatalogSchemaMigrator`. It gates the manifest and every resource detail
-> before typed binding at both Suite import paths. The current supported window
-> spans baseline version `4` through current version `5`. `CatalogV4ToV5Migration`
-> removes legacy `isDraft` markers; exact stored-draft resolution that requires
-> Suite database state is handled by the matching Flyway migration.
+> before typed binding at both Suite import paths. The supported window spans
+> baseline version `4` through current version `8`, through `CatalogV4ToV5Migration`,
+> `CatalogV5ToV6Migration`, `CatalogV6ToV7Migration` and `CatalogV7ToV8Migration`.
+> `CatalogV4ToV5Migration` removes legacy `isDraft` markers; exact stored-draft
+> resolution that requires Suite database state is handled by the matching Flyway
+> migration.
 
 ## Concepts
 
@@ -176,6 +178,12 @@ own) naming its JSON content in `resource_contents`, stored once by hash; binari
 
 The catalog exchange protocol defines the wire format for sharing catalogs between Epistola instances. It is used for remote catalog URLs, ZIP exports, and classpath-bundled demo catalogs.
 
+> **Note:** the examples and field tables below show the wire version 4 shape. Version 8, the one
+> 2.0 writes, addresses a catalog by `registry`, `namespace` and `key` instead of `slug`, adds
+> catalog `attributes`, `keywords`, `license`, `presentation`, `defaultTheme`, `presets` and
+> `quality`, and a top-level `catalogDependencies`. The `epistola-catalog` schemas and the
+> `fixtures/v1/wire-v8/catalog.json` fixture in that artifact are authoritative.
+
 ### Catalog Manifest (`catalog.json`)
 
 ```json
@@ -223,7 +231,7 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 
 | Field                       | Type    | Required | Description                                                                                                                                                                                               |
 | --------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes      | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `4`. |
+| `schemaVersion`             | integer | yes      | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `8`. |
 | `catalog.slug`              | string  | yes      | Catalog identifier (URL-safe slug).                                                                                                                                                                       |
 | `catalog.name`              | string  | yes      | Display name.                                                                                                                                                                                             |
 | `publisher.name`            | string  | yes      | Publisher name.                                                                                                                                                                                           |
@@ -265,7 +273,7 @@ Dependencies use a sealed type hierarchy:
 
 ### Resource Detail Files
 
-Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` (`4`) as the manifest, so each file is self-describing:
+Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload. Every detail echoes the same catalog-wide `schemaVersion` as the manifest (`8` today; the example shows the version 4 shape), so each file is self-describing:
 
 ```json
 {
@@ -399,14 +407,15 @@ The import runs within `CatalogImportContext.runAsImport {}` to bypass editabili
 
 Every part (the manifest and each resource detail) is gated by the **single catalog-wide** `schemaVersion` before it is bound. The manifest is authoritative for the version, and every resource detail **must** carry the same number — a detail whose stamp differs from the manifest's is rejected. The portable `CatalogSchemaMigrator` decides:
 
-| `schemaVersion`                                       | Behaviour                                                                                   |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `== 4`                                                | Bind to the current portable model.                                                         |
-| `< 4`                                                 | **Reject** as too old. Re-export from a current producer; there is no migration path today. |
-| `> 4`                                                 | **Reject** as too new. Upgrade this instance.                                               |
-| detail version differs from manifest                  | **Reject** because a catalog has one wire version.                                          |
-| valid version but shape fails to bind                 | **Reject** as an unrecognized current-version payload.                                      |
-| invalid JSON, missing version, or non-integer version | **Reject** as an unrecognized catalog payload.                                              |
+| `schemaVersion`                                       | Behaviour                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `== 8`                                                | Bind to the current portable model.                                                   |
+| `4`–`7`                                               | Migrate step by step to `8`, then bind.                                               |
+| `< 4`                                                 | **Reject** as too old. Re-export from a current producer; there is no migration path. |
+| `> 8`                                                 | **Reject** as too new. Upgrade this instance.                                         |
+| detail version differs from manifest                  | **Reject** because a catalog has one wire version.                                    |
+| valid version but shape fails to bind                 | **Reject** as an unrecognized current-version payload.                                |
+| invalid JSON, missing version, or non-integer version | **Reject** as an unrecognized catalog payload.                                        |
 
 The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so
 browse, preview, and upgrade checks use the same policy. See
@@ -415,13 +424,10 @@ fingerprint compatibility.
 
 ### Import action for a below-current payload
 
-The Suite ZIP path retains a product-level decision point for future portable
-migrations because a ZIP is a source-less, one-shot transport. Today the
-portable window is exactly version `4`, so any below-current payload is
-rejected before this decision can authorize an import.
-
-If a future contract adds a migration, Suite will apply these product rules
-after portable migration and before database mutation:
+The Suite ZIP path has a product-level decision point for portable migrations,
+because a ZIP is a source-less, one-shot transport. Suite applies these rules
+after portable migration and before database mutation
+([`CatalogImportSchemaAction`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogImportSchemaAction.kt)):
 
 | Case (payload `schemaVersion` below current)     | Action                                                                                                                                                                                                         |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -430,8 +436,7 @@ after portable migration and before database mutation:
 | Below current, **migratable**, confirmed         | `IMPORT` — the `ImportCatalogZip` command was re-issued with `confirmMigration = true`.                                                                                                                        |
 
 This decision is the same for every import, whichever catalog receives it; installs nobody is asked about (REST, Exchange, a registry) confirm up front. It applies only to archives. URL subscriptions re-fetch their
-source and surface the schema sync state below instead. `CONFIRM_MIGRATION`
-remains unreachable until the contract publishes its first real migration.
+source and surface the schema sync state below instead.
 
 ### Source schema sync
 

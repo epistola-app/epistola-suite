@@ -21,7 +21,6 @@ Technical documentation: how the suite is built, deployed and extended. User-fac
 
 ## Known gaps
 
-Being fixed as they are touched, listed so they are not rediscovered: two ADRs share the number
-`0011`; a few index Status values disagree with the page banner; two intra-doc anchors do not
-resolve; `auth.md` and `plans/tenant-scoped.md` still mention `CoreIntegrationTestBase`, removed in
-April.
+Being fixed as they are touched, listed so they are not rediscovered: the per-part wire-format
+pages stop at `exchange/v5/` while 2.0 writes v8, and the protocol examples in `exchange/README.md`
+show the v4 shape (see its "Parts & contract versions").
