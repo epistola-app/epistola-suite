@@ -1,8 +1,8 @@
 ---
-type: fix
-scopes: [api]
+type: feat
+scopes: [api, security]
 breaking: true
-title: The REST API answers client mistakes with the contract's problem types, never a 500.
+title: REST errors use the contract's registered problem types, and a client mistake never answers 500.
 ---
 
-A body breaking the contract's constraints, a missing parameter, an unparseable query string, a header or path the firewall refuses, or a NUL character now answers `400` with a problem, not a `500` or Spring Boot's error body. A taken key answers `409 conflict`, a template a release lacks `404`, and the Consumers API `501 operation-not-implemented`. Types the contract does not register become the generic type of their status: per-resource `…-not-found` types `not-found`, `…-in-use` and `catalog-version-released` `conflict`, `type-mismatch`, `unsupported-sort` and every validation code `validation-error` (`errors[]` names the field), `payload-too-large` and `asset-too-large` `content-too-large`. The members naming the resource stay. **Action on upgrade:** a client switching on those types switches on `status` and the generic type.
+A body or parameter that breaks the contract, a NUL character or a refused header answers `400`, and an unsupported upload `415`. Every refusal is `https://epistola.app/errors/forbidden`, naming `requiredPermission` or `requiredPlatformRole`. Types the contract does not register become the generic type of their status (`not-found`, `conflict`, `validation-error`). Problems name resources by key (`templateKey`, not `templateId`), a `not-found` says what was `missing`, each validation error carries a `code`, and every problem links a `help` page. **Action on upgrade:** a client that switches on old problem types or members switches on `status`, the generic type and `missing`.

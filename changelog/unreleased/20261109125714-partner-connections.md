@@ -1,11 +1,7 @@
 ---
 type: feat
 scopes: [support]
-title: An installation can connect to a partner, signed in with a token the partner issued.
+title: An installation can connect to partners besides Epistola support.
 ---
 
-Besides Epistola support, `epistola.support.connections` (Helm `support.connections`, the token from a
-Secret) declares further support connections, such as a partner that hosts the suite or supports a
-client who hosts it. Each is checked regularly and listed under Platform → Support connections with what it
-grants and what is used over it. This works without the connection to Epistola support. Sending support
-requests and usage over a partner connection follows.
+A partner that hosts the suite or supports a client who does can be added under Platform → Support connections, by looking up its domain or entering its endpoint, with a token the partner issued, or declared in `epistola.support.connections`. Each connection has its own services, privacy settings and tenant consent. Support requests and usage go to a partner as to Epistola support, a partner can escalate a request to the connection it escalates to, and this works without a connection to Epistola. What a partner implements is published as `docs/support-partner-api.yaml` and `docs/support-partners.md`.

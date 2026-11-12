@@ -1,15 +1,8 @@
 ---
 type: feat
-scopes: [generation]
+scopes: [generation, themes]
 audience: user
-title: Rendering defaults V8 collapse nested block margins as CSS does.
+title: Releases published in 2.0 render with rendering defaults V8, with block spacing from the theme.
 ---
 
-A theme's block baseline (`defaultBlockStyles`) used to be added once per level where blocks nest:
-two cards with one paragraph each sat further apart than two loose paragraphs. From rendering
-defaults V8, a container's bottom margin and its last child's (and its top margin and its first
-child's) collapse into the larger of the two, as on the web. Padding or a border on that side, or a
-height, keeps them apart; siblings keep their own spacing. The editor canvas shows the same.
-
-Drafts render with V8 now. A release cut with V7 or earlier renders as it did; releasing a draft
-whose base was cut with V7 is a change the release dialog names ("Rendering defaults V7 → V8").
+A theme can set the space above and below every block (`defaultBlockStyles`); without it a block keeps 6pt below it, where the old default grew with the theme's spacing unit. Nested blocks' margins collapse into the larger one, as on the web. Drafts render with the newest defaults, a release keeps the defaults it was published with, and moving to new defaults is a change the publish dialog names. Every catalog's first 2.0 release renders with V8, including the one that puts back what 1.x published, so spacing can change: check documents before deploying (Upgrades guide).

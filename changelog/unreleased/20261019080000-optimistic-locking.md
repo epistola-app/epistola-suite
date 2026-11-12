@@ -1,7 +1,8 @@
 ---
 type: feat
 scopes: [editor, api, mcp]
-title: Two people editing the same template, theme or stencil no longer overwrite each other without noticing.
+audience: user
+title: Two people editing the same template, theme or stencil no longer overwrite each other unnoticed.
 ---
 
-Templates, variants, themes, stencils, code lists and attributes carry a revision that every change raises. The template, theme, stencil and data contract editors save against the revision they opened, and when someone else saved in between they ask whether to replace that version with yours or reload to see it, instead of silently replacing it. The REST API returns the revision as an `ETag` on reads and on successful updates; an update that sends it back in `If-Match` is refused with `resource-modified` (412) when the resource changed since, and one without `If-Match` writes as before. A PATCH that merges with the current state (code lists, attributes, variants) is always guarded against a write landing during the merge. MCP read tools return `revision`, and update tools take it back as `expectedRevision`. Saving content that did not change keeps the revision, and making another variant the default does not count as a change to this one.
+The editors and edit dialogs save against the revision they opened. When someone else saved in between, they ask whether to replace that version or reload it, instead of silently replacing it. Variants have revisions of their own, so two people editing different variants of one template do not conflict. The REST API returns the revision as an `ETag`, and an update that sends it in `If-Match` is refused with 412 `resource-modified` when the resource changed since. MCP read tools return `revision` and update tools take `expectedRevision`.

@@ -1,14 +1,9 @@
 ---
 type: refactor
-scopes: [support, catalog]
+scopes: [support, backups]
 breaking: true
-title: Tenant snapshots and Support → Upgrading are withdrawn.
+maturity: beta
+title: Tenant backups, tenant snapshots and Support → Upgrading are withdrawn; use a database backup.
 ---
 
-Tenant snapshots exported each catalog's work in progress as a catalog archive, which the 2.0 catalog
-format no longer allows for a catalog that depends on one never released. They are removed, and with
-them Support → Upgrading, whose compatibility checks the hub ran on those snapshots: its page, its
-`support-compatibility-check` feature toggle, the snapshot freshness sweep and its
-`epistola.support.upgrading.*` properties (now ignored), and the `TENANT_RESTORE` permission, which
-only restoring a snapshot used. Released catalog content is kept by its releases, which can be
-exported and deployed exactly as released; a database-level backup covers the rest.
+A release now keeps its content and can be exported and deployed exactly as it was published, so a database-level backup covers the rest: drafts, environments, API keys and settings. Removed: Support → Backups with `epistola.support.backups.*`, `BACKUP_VIEW` and `BACKUP_CREATE`; tenant snapshots and Support → Upgrading with the `support-compatibility-check` feature toggle, `epistola.support.upgrading.*` and `TENANT_RESTORE`. The properties are ignored. Existing tenant backups cannot be restored: take a database-level backup before upgrading.

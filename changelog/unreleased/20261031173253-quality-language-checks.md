@@ -2,17 +2,9 @@
 type: feat
 scopes: [quality]
 audience: user
+breaking: true
 maturity: alpha
-title: Quality checks read a template's text for language problems, on every save.
+title: Quality checks read templates for clear language, and findings belong to the catalog release they were checked in.
 ---
 
-Built-in "clear language" rules report repeated words, sentences of more than 25 words, spacing
-mistakes and formal words with a plain alternative (Dutch and English), each explaining why. A
-LanguageTool server adds spelling, grammar and style: an operator sets
-`epistola.quality.language-tool.url`, and a tenant administrator switches it on in the new quality
-settings; nothing is sent anywhere otherwise. Checks see template text only, every expression as a placeholder, never data,
-and each paragraph is checked once until it changes. The editor panel shows the flagged text and
-suggestions, never applied for you, and says when a check was skipped or failed.
-
-Templates are checked a few seconds after each save, and at once when a variant is marked ready, which
-before checked nothing. Requires the `quality` feature; see `docs/quality.md`.
+Built-in rules report repeated words, long sentences, spacing mistakes and formal words with a plain alternative, in Dutch and English. An optional LanguageTool server (`epistola.quality.language-tool.url`, switched on per tenant) adds spelling and grammar. Templates are checked a few seconds after each save. Each draft and release shows the findings checked against what it holds, and a finding about something changed since is marked outdated. The report is a catalog's page, at `…/catalogs/{namespace}/{key}/quality`; the tenant-wide report is gone. Upgrading keeps every note, comment and ignore. Requires the `quality` feature; see `docs/quality.md`.

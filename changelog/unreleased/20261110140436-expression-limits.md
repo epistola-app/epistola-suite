@@ -2,12 +2,7 @@
 type: fix
 scopes: [security, generation]
 breaking: true
-title: An expression past its limits fails the render with a message naming it, and `$pad` pads to at most 100 characters.
+title: A template or image can no longer tie up or exhaust a render node.
 ---
 
-One expression could tie up a CPU core for hours: JSONata's `$pad` takes any width and builds its
-result in time growing with the square of it, and runs inside a single evaluation step where the
-5-second budget is never checked. `$pad` now pads to at most 100 characters. An expression that runs
-past its 5 seconds, recurses more than 100 levels, nests too deeply to parse, or pads wider than 100
-no longer renders as empty: the editor preview shows a message naming it, and a document's
-generation fails with that message. Other expression errors still render as empty.
+JSONata's `$pad` now pads to at most 100 characters; a wider pad could hold a CPU core for hours. An expression that runs past its 5 seconds, recurses more than 100 levels or nests too deeply no longer renders as empty: the preview names it, and generation fails with that message. A QR code's resolution is bounded, an uploaded image whose header claims more than 40 million pixels is refused, and a document whose render keeps stopping a node fails after three recoveries (`epistola.generation.polling.max-recoveries`) instead of moving from node to node.

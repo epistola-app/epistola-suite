@@ -1,7 +1,7 @@
 ---
 type: feat
-scopes: [demo]
-title: The demo catalog shows stencils inside stencils and the scope rules of stencils by reference.
+scopes: [demo, catalog]
+title: The bundled catalogs ship in wire v8, and the demo catalog shows the 2.0 features.
 ---
 
-The demo catalog (6.1.0) depends on the system catalog, so an installed copy exports. Its Letter Shell stencil now contains the Letterhead stencil and passes its company name to the body that templates fill; a new Customer Address stencil reads the using template's data; and a new Stencil Showcase template puts them together. A data example may leave out a required field that has a default, as rendering fills it in.
+The system catalog is 2.1.1 and the demo catalog 6.9.0. The demo catalog depends on the system catalog, nests its Letterhead stencil in the Letter Shell stencil, has a Customer Address stencil that reads the template's data and a Stencil Showcase template, and its invoice uses an else branch and keeps its logo with the block after it.
