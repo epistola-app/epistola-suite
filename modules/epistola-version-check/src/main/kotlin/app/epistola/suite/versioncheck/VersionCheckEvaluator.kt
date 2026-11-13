@@ -40,7 +40,12 @@ object VersionCheckEvaluator {
         // Supported unless we have a parseable floor and the running version is strictly below it.
         val supported = minSupported == null || current >= minSupported
 
-        val supportedUntil = product.support?.until
+        // `until` is the last supported day of the floor's line, the X.Y that `minVersion` names, not
+        // of every supported version: a newer line ends later, or not at all, and the document does not
+        // carry its date. So a version on a newer line neither reports that date nor is told its
+        // support is ending. Without a parseable floor there is no line to compare against.
+        val onNewerLine = minSupported != null && newerLine(current, minSupported)
+        val supportedUntil = product.support?.until?.takeUnless { onNewerLine }
         val supportEndingSoon = supported && withinDeprecationWindow(supportedUntil, checkedAt, deprecationWindow)
 
         // When unsupported, the upgrade target that clears the floor is the stable (GA) release, not
@@ -101,6 +106,13 @@ object VersionCheckEvaluator {
         range.fixed?.let { fixed -> return SemVersion.parse(fixed)?.let { version < it } ?: false }
         range.lastAffected?.let { last -> return SemVersion.parse(last)?.let { version <= it } ?: false }
         return true
+    }
+
+    /** True when [version]'s `major.minor` line comes after [floor]'s. */
+    private fun newerLine(version: SemVersion, floor: SemVersion): Boolean {
+        val (major, minor) = version.core
+        val (floorMajor, floorMinor) = floor.core
+        return major > floorMajor || (major == floorMajor && minor > floorMinor)
     }
 
     /** True when [until] (an ISO date) is on or before [checkedAt] + [window] — i.e. the end of
