@@ -77,7 +77,7 @@ jobs:
         run: charts/epistola/tests/encryption-render.sh
 
       - name: Scan Helm chart for misconfigurations
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           scan-type: "config"
           scan-ref: "charts/${{ matrix.chart }}"
