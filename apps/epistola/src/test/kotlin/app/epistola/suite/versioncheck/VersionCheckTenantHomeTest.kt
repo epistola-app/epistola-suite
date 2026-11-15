@@ -6,14 +6,18 @@ package app.epistola.suite.versioncheck
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.productdomain.ProductDiscovery
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.info.BuildProperties
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpStatus
 import java.time.Instant
+import java.util.Properties
 
 @Isolated("Uses global app_metadata version-check status")
 class VersionCheckTenantHomeTest : BaseIntegrationTest() {
@@ -23,8 +27,18 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var metadata: AppMetadataService
 
+    /**
+     * No stored releases entry (an unreadable one reads as none), so the tests that store a status
+     * see it shown as before: the stored verdict until this build's first fetch.
+     */
+    @BeforeEach
+    fun clearStoredReleases() {
+        metadata.setAs(VersionCheckService.RELEASES_KEY, "no-stored-releases")
+    }
+
     @AfterEach
     fun resetVersionCheckStatus() {
+        clearStoredReleases()
         metadata.setAs(
             VersionCheckService.STATUS_KEY,
             VersionCheckStatus(
@@ -145,6 +159,105 @@ class VersionCheckTenantHomeTest : BaseIntegrationTest() {
         assertThat(response.body).contains("https://epistola.app/releases/epistola-suite/1.0.0")
         // The neutral pre-release banner supersedes the terracotta "update available" one.
         assertThat(response.body).doesNotContain("version-unsupported-card")
+    }
+
+    @Autowired
+    private lateinit var client: VersionCheckClient
+
+    @Autowired
+    private lateinit var properties: VersionCheckProperties
+
+    @Autowired
+    private lateinit var productDiscovery: ProductDiscovery
+
+    /** The service as a build of [version] runs it, on the real metadata table. */
+    private fun serviceRunning(version: String) = VersionCheckService(
+        client,
+        metadata,
+        properties,
+        productDiscovery,
+        BuildProperties(Properties().apply { setProperty("version", version) }),
+    )
+
+    /** The Suite's entry as the website served it on 14 November 2026: 2.0 supported, 1.5 ending, 1.4 ended. */
+    private fun storeReleases() {
+        val stable = ReleaseRef("2.0.0", "https://epistola.app/releases/epistola-suite/2.0.0")
+        metadata.setAs(
+            VersionCheckService.RELEASES_KEY,
+            StoredReleases(
+                fetchedAt = Instant.now(),
+                generatedAt = Instant.now(),
+                product = ProductReleases(
+                    stable = stable,
+                    lines = listOf(
+                        ReleaseLine("2.0", stable, null, "supported"),
+                        ReleaseLine("1.5", ReleaseRef("1.5.1", "https://epistola.app/releases/epistola-suite/1.5.1"), "2027-02-12", "ending"),
+                        ReleaseLine("1.4", ReleaseRef("1.4.0", "https://epistola.app/releases/epistola-suite/1.4.0"), "2026-11-14", "ended"),
+                    ),
+                    support = SupportPolicy(minVersion = "1.5.0"),
+                ),
+            ),
+        )
+    }
+
+    /** A verdict stored for another version, as one is right after an upgrade. */
+    private fun storeOldVerdict() {
+        metadata.setAs(
+            VersionCheckService.STATUS_KEY,
+            VersionCheckStatus(
+                checkedAt = Instant.parse("2026-07-08T10:00:00Z"),
+                currentVersion = "0.9.0",
+                latestVersion = "9.9.9",
+                updateAvailable = true,
+                supported = false,
+                minSupportedVersion = "9.0.0",
+            ),
+        )
+    }
+
+    @Test
+    fun `tenant home does not show an old verdict once the releases entry is stored`() {
+        val tenant = createTenant("Version Check Stored Releases")
+        storeOldVerdict()
+        storeReleases()
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).doesNotContain("v0.9.0")
+        assertThat(response.body).doesNotContain("9.9.9")
+        assertThat(response.body).doesNotContain("version-unsupported-card")
+    }
+
+    @Test
+    fun `one stored entry gives each running version its own line's status`() {
+        storeOldVerdict()
+        storeReleases()
+
+        val upgraded = serviceRunning("2.0.0").status()!!
+        assertThat(upgraded.currentVersion).isEqualTo("2.0.0")
+        assertThat(upgraded.supported).isTrue()
+        assertThat(upgraded.supportEndingSoon).isFalse()
+        assertThat(upgraded.updateAvailable).isFalse()
+
+        val ending = serviceRunning("1.5.0").status()!!
+        assertThat(ending.supportEndingSoon).isTrue()
+        assertThat(ending.supportedUntil).isEqualTo("2027-02-12")
+        assertThat(ending.latestVersion).isEqualTo("1.5.1")
+
+        val ended = serviceRunning("1.4.0").status()!!
+        assertThat(ended.supported).isFalse()
+        assertThat(ended.supportedUntil).isEqualTo("2026-11-14")
+    }
+
+    @Test
+    fun `without a stored entry the stored verdict is shown as before`() {
+        storeOldVerdict()
+
+        val status = serviceRunning("2.0.0").status()!!
+
+        assertThat(status.currentVersion).isEqualTo("0.9.0")
+        assertThat(status.latestVersion).isEqualTo("9.9.9")
     }
 
     @Test

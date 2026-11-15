@@ -25,8 +25,13 @@ pages. What every outbound call sends is in [Data shared with Epistola](outbound
   one discovery document ([ADR 0030](adr/0030-product-domain-and-discovery.md)); without it the
   check uses `https://{product-domain}/.well-known/epistola/releases.json`.
 
-The check result is cached in global `app_metadata` (`version-check.status`); every instance reads
-the cached value, and the scheduled task refreshes it.
+The scheduled task stores the Suite's entry from the document in global `app_metadata`
+(`version-check.releases`), with the outcome of the last run (`version-check.status`: time,
+availability, error). The banner is evaluated **whenever the page is shown**, from the stored entry
+and the version that is running then: an upgrade shows its own status at once, a line's status
+follows the stored document between checks, and a failed check keeps the last entry rather than an
+old verdict. Until a build's first successful check there is no stored entry, and the stored
+verdict of the previous build is shown, as before.
 
 ## Where it lives
 
@@ -85,6 +90,34 @@ or with the maintenance branches, and its message says what to publish instead.
 }
 ```
 
+### Lines: the support status the website decides
+
+The document also carries `generatedAt` and, per product, `lines` and `next`
+(schema: `https://epistola.app/releases.schema.json`):
+
+```json
+"lines": [
+  { "line": "2.0", "latest": { "version": "2.0.0", "…": "…" }, "supportEnds": null, "status": "supported" },
+  { "line": "1.5", "latest": { "version": "1.5.1", "…": "…" }, "supportEnds": "2027-02-12", "status": "ending" }
+]
+```
+
+The website decides each line's `status` (`supported`, `ending`, `ended`) from the support policy,
+so a policy change (a grace period, an extension) needs no Suite release, and there is no warning
+window in the Suite for it. The Suite looks up the line of the version it runs (`LineLookup`):
+
+- **`ending`**: the amber "support ending" banner, with the line's own `supportEnds`.
+- **`ended`**: the red "unsupported" banner. A version older than every listed line is ended too.
+- **Update:** the line's own newest patch (`latest`) first, then `stable` when it is on a newer line,
+  then, for a pre-release build, `next` when it is newer.
+- **Nothing about support** for a status the Suite does not know, a build of a line that is not
+  released yet, or a document generated more than seven days before (`generatedAt`).
+
+`LineLookup` passes the website's published test cases (`releases.conformance.json`, copied into
+the module's test resources). A document without `lines` is evaluated as below.
+
+### Documents without lines
+
 - **Stable vs pre-release build:** there is no "channel" the installation subscribes to — the
   operator chooses which build to deploy (the Helm image tag). A final build tracks the latest
   `stable`; a build that is itself a SemVer pre-release (RC/beta) tracks the latest `prerelease` when
@@ -109,8 +142,9 @@ or with the maintenance branches, and its message says what to publish instead.
   are skipped, text is cleaned and capped, and only `https:` links are rendered — the same holds
   for the release and changelog links.
 
-Effective banner precedence on the tenant home page: **unsupported** (below `minVersion`, red) →
-**support ending** (supported, `until` within the window, amber) → **pre-release** (supported
+Effective banner precedence on the tenant home page: **unsupported** (line `ended`, or below
+`minVersion` without lines; red) → **support ending** (line `ending`, or `until` within the window
+without lines; amber) → **pre-release** (supported
 pre-release build, blue — acknowledges the build, notes a newer pre-release if any, and links the
 latest stable) → **update available** (supported final build, newer stable, terracotta).
 

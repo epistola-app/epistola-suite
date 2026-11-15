@@ -300,6 +300,131 @@ class VersionCheckEvaluatorTest {
         assertThat(advisory.severity).isEqualTo("unknown")
     }
 
+    // The Suite's lines as the website served them on 14 November 2026.
+    private val linesGeneratedAt = Instant.parse("2026-11-14T11:55:00Z")
+    private val stable20 = ReleaseRef("2.0.0", "https://example.test/v2.0.0")
+
+    private fun linesProduct(next: ReleaseRef? = null) = ProductReleases(
+        stable = stable20,
+        next = next,
+        lines = listOf(
+            ReleaseLine("2.0", stable20, null, "supported"),
+            ReleaseLine("1.5", ReleaseRef("1.5.1", "https://example.test/v1.5.1"), "2027-02-12", "ending"),
+            ReleaseLine("1.4", ReleaseRef("1.4.0", "https://example.test/v1.4.0"), "2026-11-14", "ended"),
+        ),
+        support = SupportPolicy(minVersion = "1.5.0"),
+    )
+
+    private fun fromLines(version: String, now: Instant = linesGeneratedAt, product: ProductReleases = linesProduct()) = VersionCheckEvaluator.evaluate(product, linesGeneratedAt, version, linesGeneratedAt, now)
+
+    @Test
+    fun `the newest release on a supported line has nothing to say`() {
+        val status = fromLines("2.0.0")
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.supportedUntil).isNull()
+        assertThat(status.updateAvailable).isFalse()
+        assertThat(status.latestVersion).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `an ending line says so with its own end and offers its patch first`() {
+        val status = fromLines("1.5.0")
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isTrue()
+        assertThat(status.supportedUntil).isEqualTo("2027-02-12")
+        assertThat(status.updateAvailable).isTrue()
+        assertThat(status.latestVersion).isEqualTo("1.5.1")
+        assertThat(status.releaseUrl).isEqualTo("https://example.test/v1.5.1")
+        assertThat(status.latestStableVersion).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `the newest patch of an ending line is offered the newer line`() {
+        val status = fromLines("1.5.1")
+
+        assertThat(status.supportEndingSoon).isTrue()
+        assertThat(status.latestVersion).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `an ended line is unsupported`() {
+        val status = fromLines("1.4.0")
+
+        assertThat(status.supported).isFalse()
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.supportedUntil).isEqualTo("2026-11-14")
+        assertThat(status.latestVersion).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `the website's status decides, not a warning window`() {
+        val status = VersionCheckEvaluator.evaluate(
+            linesProduct(),
+            linesGeneratedAt,
+            "1.5.1",
+            linesGeneratedAt,
+            linesGeneratedAt,
+            java.time.Duration.ofDays(1),
+        )
+
+        assertThat(status.supportEndingSoon).isTrue()
+    }
+
+    @Test
+    fun `a stale document says nothing about support`() {
+        val status = fromLines("1.4.0", now = linesGeneratedAt.plus(java.time.Duration.ofDays(8)))
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.supportedUntil).isNull()
+        assertThat(status.updateAvailable).isTrue()
+    }
+
+    @Test
+    fun `an upgrade is evaluated for the version that runs, from the same stored entry`() {
+        // Before the upgrade, 1.5.1 on the ending line; after it, 2.0.0 with nothing to say. No new fetch.
+        assertThat(fromLines("1.5.1").supportEndingSoon).isTrue()
+        val upgraded = fromLines("2.0.0")
+        assertThat(upgraded.supportEndingSoon).isFalse()
+        assertThat(upgraded.updateAvailable).isFalse()
+        assertThat(upgraded.currentVersion).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `a snapshot build is shown as the release it leads to`() {
+        val status = fromLines("2.0.1-SNAPSHOT", product = linesProduct(next = ReleaseRef("2.1.0-rc.1", "https://example.test/rc1")))
+
+        assertThat(status.preRelease).isFalse()
+        assertThat(status.updateAvailable).isFalse()
+        assertThat(status.supported).isTrue()
+    }
+
+    @Test
+    fun `a pre-release build of an unreleased line is offered the newer pre-release`() {
+        val status = fromLines("2.1.0-beta.1", product = linesProduct(next = ReleaseRef("2.1.0-rc.1", "https://example.test/rc1")))
+
+        assertThat(status.preRelease).isTrue()
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.updateAvailable).isTrue()
+        assertThat(status.latestVersion).isEqualTo("2.1.0-rc.1")
+    }
+
+    @Test
+    fun `an end date that is not a date is not shown`() {
+        val product = linesProduct().copy(
+            lines = listOf(ReleaseLine("1.5", ReleaseRef("1.5.1", "https://example.test/v1.5.1"), "<b>soon</b>", "ending")),
+        )
+
+        val status = fromLines("1.5.1", product = product)
+
+        assertThat(status.supportEndingSoon).isTrue()
+        assertThat(status.supportedUntil).isNull()
+    }
+
     private fun document(
         stable: ReleaseRef? = null,
         prerelease: ReleaseRef? = null,

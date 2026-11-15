@@ -79,6 +79,7 @@ path = [
   "apps/epistola/src/test/resources/**/*.json",
   "modules/generation/src/test/resources/**/*.json",
   "modules/epistola-quality/src/test/resources/**/*.json",
+  "modules/epistola-version-check/src/test/resources/**/*.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Epistola Nederland B.V."
