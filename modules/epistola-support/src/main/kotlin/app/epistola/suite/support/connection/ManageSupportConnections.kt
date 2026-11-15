@@ -29,8 +29,10 @@ import java.util.UUID
 
 /**
  * What a server publishes about connecting to it (ADR 0053 §1a), from the `support` object of its
- * `/.well-known/epistola.json`: everything to set a connection up but the token, which its operator
- * hands out.
+ * `/.well-known/epistola.json`: everything to set a connection up but a token. Which of two fields it
+ * names says how this installation signs in ([auth]): `issuer`, an OAuth issuer it registers at
+ * (private_key_jwt, no token), or `endpoint`, a base URL it signs in to with a token the server's
+ * operator hands out.
  */
 data class SupportConnectionPreset(
     val name: String,
@@ -38,6 +40,7 @@ data class SupportConnectionPreset(
     val services: List<String>,
     val tenantIdentity: TenantIdentity?,
     val telemetry: TelemetryDetail?,
+    val auth: SupportConnectionAuth = SupportConnectionAuth.BEARER_TOKEN,
 )
 
 /** A preset could not be read; [reason] says why, in words for the platform page. */
@@ -74,14 +77,26 @@ class DiscoverSupportConnectionPresetHandler(
         } ?: throw SupportConnectionPresetUnavailableException("$base answered with an empty discovery document.")
         val support = document.path("support").takeIf { it.isObject }
             ?: throw SupportConnectionPresetUnavailableException("$base publishes no support connection in its discovery document.")
+        val issuer = support.path("issuer").stringValue("").trim()
         val endpoint = support.path("endpoint").stringValue("").trim()
-        if (endpoint.isEmpty()) throw SupportConnectionPresetUnavailableException("$base names no endpoint for its support connection.")
+        val (address, auth) = when {
+            issuer.isNotEmpty() && endpoint.isNotEmpty() -> throw SupportConnectionPresetUnavailableException(
+                "$base names both an issuer and an endpoint for its support connection, so how to sign in is unclear.",
+            )
+
+            issuer.isNotEmpty() -> issuer to SupportConnectionAuth.PRIVATE_KEY_JWT
+
+            endpoint.isNotEmpty() -> endpoint to SupportConnectionAuth.BEARER_TOKEN
+
+            else -> throw SupportConnectionPresetUnavailableException("$base names neither an issuer nor an endpoint for its support connection.")
+        }
         return SupportConnectionPreset(
             name = support.path("name").stringValue("").trim().ifEmpty { URI(base).host },
-            endpoint = endpoint,
+            endpoint = address,
             services = support.path("services").takeIf { it.isArray }?.mapNotNull { s -> s.takeIf { it.isString }?.stringValue() }.orEmpty(),
             tenantIdentity = support.path("tenantIdentity").stringValue(null)?.let(TenantIdentity::parse),
             telemetry = support.path("telemetry").stringValue(null)?.let(TelemetryDetail::parse),
+            auth = auth,
         )
     }
 

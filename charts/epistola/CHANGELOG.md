@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The comment on `support.endpoint` says what an empty value means since Epistola 2.0.1: the issuer
+  the product domain's discovery document names, else `https://support.{productDomain}`. Nothing
+  renders differently.
+
 ## [2.0.0] - 2026-11-12
 
 Chart 2.0.0 deploys Epistola 2.0.0. Moving from chart 1.x: back up the database, scale the release

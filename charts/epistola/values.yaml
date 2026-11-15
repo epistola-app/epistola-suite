@@ -439,7 +439,8 @@ support:
     telemetry: ""
 
   # The https URL (OAuth issuer) of the support connection support.enabled stores at startup, when
-  # it is not stored (also after an administrator removed it). Empty: https://support.{productDomain}.
+  # it is not stored (also after an administrator removed it). Empty: the issuer the product domain's
+  # discovery document names (support.issuer), else https://support.{productDomain}.
   # Plaintext is a local-development setting and is not exposed here.
   endpoint: ""
 

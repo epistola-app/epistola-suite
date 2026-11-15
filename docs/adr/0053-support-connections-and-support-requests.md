@@ -93,6 +93,13 @@ connection, and everything can be changed.
   domain, reads `/.well-known/epistola.json` there and fills everything in, so connecting to a
   partner is as easy as to Epistola. Without a discovery document the administrator fills in
   endpoint and token by hand.
+- **The field a preset names says how to sign in.** Its `support` object names exactly one of
+  `issuer` (an OAuth issuer the installation registers at: private_key_jwt, no token, the issuer
+  repeated exactly by its RFC 8414 metadata) and `endpoint` (a base URL it signs in to with a token
+  the server's operator issued). Both or neither is refused rather than guessed. `name`, `services`,
+  `tenantIdentity` and `telemetry` are optional either way; for an issuer `services` only preselects,
+  since the metadata's `scopes_supported` says what is offered. The product domain's document is the
+  same shape, so Epistola support's preset is `support.issuer`.
 - **Helm can declare further connections** (`support.connections`), each from a domain or by hand.
   Helm sets a connection until an administrator saves it, as with the privacy settings.
 - Adding a connection while another exists offers the escalation order (a partner escalating to

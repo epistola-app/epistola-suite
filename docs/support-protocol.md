@@ -26,6 +26,12 @@ The suite takes the service's **issuer** URL from, in order:
    (`https://{product-domain}/.well-known/epistola.json`, ADR 0030);
 3. the built-in default `https://support.{product-domain}`.
 
+The issuer is the connection's identity, so it is found once per start and kept until the next one: a
+refreshed discovery document never moves a running connection. While support is off only a stored
+copy of the document is read, so an installation that does not use support fetches nothing for it.
+An issuer the document moves is taken at the next start as a new connection; the old one keeps its
+registration until an administrator removes it.
+
 It then reads `GET {issuer}/.well-known/oauth-authorization-server` (RFC 8414):
 
 ```json

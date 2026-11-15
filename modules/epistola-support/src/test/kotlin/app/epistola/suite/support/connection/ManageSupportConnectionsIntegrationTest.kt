@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import java.net.URI
 import java.util.UUID
 
 /**
@@ -55,6 +56,28 @@ class ManageSupportConnectionsIntegrationTest : IntegrationTestBase() {
         assertThat(preset).isEqualTo(SupportConnectionPreset("Preset Partner", "https://desk.preset.example/epistola", listOf("requests", "usage"), TenantIdentity.NAMED, null))
         assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset("not a domain").query() } }.isInstanceOf(SupportConnectionPresetUnavailableException::class.java)
         assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset("ftp://partner.example").query() } }.isInstanceOf(SupportConnectionPresetUnavailableException::class.java)
+    }
+
+    @Test
+    fun `a preset naming an issuer registers through OAuth, and one naming both an issuer and an endpoint, or neither, is refused`() {
+        fun publishing(support: String) = server.route("GET", "/.well-known/epistola.json") { FakeSupportResponse.json(200, """{"support":$support}""") }
+        try {
+            // What epistola.app publishes for Epistola support: the service's OAuth issuer and nothing else.
+            publishing("""{"issuer":"https://connect.preset.example"}""")
+            assertThat(withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() }).isEqualTo(
+                SupportConnectionPreset(URI(server.baseUrl).host, "https://connect.preset.example", emptyList(), null, null, SupportConnectionAuth.PRIVATE_KEY_JWT),
+            )
+
+            publishing("""{"issuer":"https://connect.preset.example","endpoint":"https://desk.preset.example"}""")
+            assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() } }
+                .isInstanceOf(SupportConnectionPresetUnavailableException::class.java).hasMessageContaining("both an issuer and an endpoint")
+
+            publishing("""{"name":"Nameless"}""")
+            assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() } }
+                .isInstanceOf(SupportConnectionPresetUnavailableException::class.java).hasMessageContaining("neither an issuer nor an endpoint")
+        } finally {
+            server.clearRoutes()
+        }
     }
 
     @Test

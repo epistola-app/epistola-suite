@@ -20,21 +20,25 @@ import java.net.URI
  * `epistola.support.*` ([of]); another's from its row ([forEndpoint]).
  *
  * @property enabled false: the connection reads [SupportConnectionState.Disabled] and uses nothing.
- * @property issuer the support service's issuer: the connection's endpoint.
  * @property configuredServices the services used until an administrator saves a selection.
  * @property autoRegister the scheduled check registers on its own.
  * @property offReason what a call made while not [enabled] fails with.
+ * @param issuer gives the support service's issuer, the connection's endpoint, when it is first asked
+ *   for: Epistola support's may come from the discovery document, which is not read while beans are made.
  */
-data class RegisteringConnectionSettings(
+class RegisteringConnectionSettings(
     val enabled: Boolean,
-    val issuer: URI,
+    issuer: () -> URI,
     val configuredServices: List<String>,
     val autoRegister: Boolean,
     val offReason: String = "The support connection is off",
 ) {
+    /** The support service's issuer: the connection's endpoint. */
+    val issuer: URI by lazy(issuer)
+
     companion object {
         /** The connection `epistola.support.*` configures, at [endpoint] ([SupportConnections.configuredEndpoint]). */
-        fun of(properties: SupportProperties, endpoint: URI) = RegisteringConnectionSettings(
+        fun of(properties: SupportProperties, endpoint: () -> URI) = RegisteringConnectionSettings(
             enabled = properties.enabled,
             issuer = endpoint,
             configuredServices = properties.configuredServices,
@@ -47,7 +51,7 @@ data class RegisteringConnectionSettings(
          * `epistola.support.connections` names it: on, with [services] until an administrator selects
          * others, and registered when an administrator presses Register.
          */
-        fun forEndpoint(endpoint: URI, services: List<String> = emptyList()) = RegisteringConnectionSettings(enabled = true, issuer = endpoint, configuredServices = SupportScope.normalize(services), autoRegister = false)
+        fun forEndpoint(endpoint: URI, services: List<String> = emptyList()) = RegisteringConnectionSettings(enabled = true, issuer = { endpoint }, configuredServices = SupportScope.normalize(services), autoRegister = false)
     }
 }
 
@@ -73,7 +77,7 @@ class DefaultSupportConnectionConfiguration {
         supportHttp: SupportHttp,
     ): DefaultSupportConnection = DefaultSupportConnection(
         properties,
-        RegisteringConnectionSettings.of(properties, connections.configuredEndpoint()),
+        RegisteringConnectionSettings.of(properties, connections::configuredEndpoint),
         store,
         client,
         installations,
