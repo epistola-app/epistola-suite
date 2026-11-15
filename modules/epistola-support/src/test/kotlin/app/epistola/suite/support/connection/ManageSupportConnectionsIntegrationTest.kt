@@ -48,7 +48,7 @@ class ManageSupportConnectionsIntegrationTest : IntegrationTestBase() {
     @Test
     fun `a preset a server publishes fills in the connection, and an address that cannot be used says why`() {
         server.route("GET", "/.well-known/epistola.json") {
-            FakeSupportResponse.json(200, """{"support":{"name":"Preset Partner","endpoint":"https://desk.preset.example/epistola","services":["requests","usage"],"tenantIdentity":"named"}}""")
+            FakeSupportResponse.json(200, """{"support":{"auth":"bearer_token","name":"Preset Partner","endpoint":"https://desk.preset.example/epistola","services":["requests","usage"],"tenantIdentity":"named"}}""")
         }
 
         val preset = withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() }
@@ -59,22 +59,24 @@ class ManageSupportConnectionsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a preset naming an issuer registers through OAuth, and one naming both an issuer and an endpoint, or neither, is refused`() {
+    fun `a preset says how to sign in, names the address that goes with it, and is refused otherwise`() {
         fun publishing(support: String) = server.route("GET", "/.well-known/epistola.json") { FakeSupportResponse.json(200, """{"support":$support}""") }
+        fun refused(support: String) = publishing(support).let {
+            assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() } }.isInstanceOf(SupportConnectionPresetUnavailableException::class.java)
+        }
         try {
-            // What epistola.app publishes for Epistola support: the service's OAuth issuer and nothing else.
-            publishing("""{"issuer":"https://connect.preset.example"}""")
+            // What epistola.app publishes for Epistola support: OAuth registration at the service's issuer.
+            publishing("""{"auth":"private_key_jwt","issuer":"https://connect.preset.example"}""")
             assertThat(withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() }).isEqualTo(
                 SupportConnectionPreset(URI(server.baseUrl).host, "https://connect.preset.example", emptyList(), null, null, SupportConnectionAuth.PRIVATE_KEY_JWT),
             )
 
-            publishing("""{"issuer":"https://connect.preset.example","endpoint":"https://desk.preset.example"}""")
-            assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() } }
-                .isInstanceOf(SupportConnectionPresetUnavailableException::class.java).hasMessageContaining("both an issuer and an endpoint")
-
-            publishing("""{"name":"Nameless"}""")
-            assertThatThrownBy { withMediator { DiscoverSupportConnectionPreset(server.baseUrl).query() } }
-                .isInstanceOf(SupportConnectionPresetUnavailableException::class.java).hasMessageContaining("neither an issuer nor an endpoint")
+            refused("""{"issuer":"https://connect.preset.example"}""").hasMessageContaining("does not say how to sign in")
+            refused("""{"auth":"mtls","endpoint":"https://desk.preset.example"}""").hasMessageContaining("'mtls', which this version of Epistola cannot")
+            refused("""{"auth":"private_key_jwt","endpoint":"https://desk.preset.example"}""").hasMessageContaining("names no issuer")
+            refused("""{"auth":"bearer_token","issuer":"https://connect.preset.example"}""").hasMessageContaining("names no endpoint")
+            refused("""{"auth":"private_key_jwt","issuer":"https://connect.preset.example","endpoint":"https://desk.preset.example"}""")
+                .hasMessageContaining("names an endpoint for its support connection, which does not go with private_key_jwt")
         } finally {
             server.clearRoutes()
         }

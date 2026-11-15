@@ -93,13 +93,17 @@ connection, and everything can be changed.
   domain, reads `/.well-known/epistola.json` there and fills everything in, so connecting to a
   partner is as easy as to Epistola. Without a discovery document the administrator fills in
   endpoint and token by hand.
-- **The field a preset names says how to sign in.** Its `support` object names exactly one of
-  `issuer` (an OAuth issuer the installation registers at: private_key_jwt, no token, the issuer
-  repeated exactly by its RFC 8414 metadata) and `endpoint` (a base URL it signs in to with a token
-  the server's operator issued). Both or neither is refused rather than guessed. `name`, `services`,
-  `tenantIdentity` and `telemetry` are optional either way; for an issuer `services` only preselects,
-  since the metadata's `scopes_supported` says what is offered. The product domain's document is the
-  same shape, so Epistola support's preset is `support.issuer`.
+- **A preset says how to sign in.** Its `support` object lists `auth`, required, and names the
+  address for it: `private_key_jwt` with `issuer` (an OAuth issuer the installation registers at, no
+  token, the issuer repeated exactly by its RFC 8414 metadata), or `bearer_token` with `endpoint` (a
+  base URL it signs in to with a token the server's operator issued). It is listed rather than
+  inferred from which address is present, so a new way to sign in is a new value, and a Suite that
+  does not know one can say so. A missing `auth`, an unknown one, a missing address or the other
+  kind's address is refused, never guessed. `name`, `services`, `tenantIdentity` and `telemetry` are
+  optional either way; for an issuer `services` only preselects, since the metadata's
+  `scopes_supported` says what is offered. The product domain's document is the same shape, so
+  Epistola support's preset is `auth: private_key_jwt` with `support.issuer`; the configured
+  connection reads only the issuer, as it always registers.
 - **Helm can declare further connections** (`support.connections`), each from a domain or by hand.
   Helm sets a connection until an administrator saves it, as with the privacy settings.
 - Adding a connection while another exists offers the escalation order (a partner escalating to
