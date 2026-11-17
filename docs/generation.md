@@ -464,6 +464,47 @@ enum class PageFormat(val width: Float, val height: Float) {
 }
 ```
 
+## Generation context
+
+Every generated document records where it came from in its XMP metadata, so whoever holds the PDF
+can tell which release, template and request produced it without asking Epistola: support can find
+the release a customer's letter was rendered from, and an archive can index it. It is written with
+PDF/A and without, under its own namespace, with the PDF/A extension schema that describes it
+(`GenerationContextXmp`, `modules/generation`).
+
+Namespace `https://epistola.app/ns/generation/1.0/`, prefix `epistola`:
+
+| Property         | Type    | Value                                                            |
+| ---------------- | ------- | ---------------------------------------------------------------- |
+| `tenant`         | Text    | The tenant's key                                                 |
+| `registry`       | Text    | The catalog's registry                                           |
+| `namespace`      | Text    | The catalog's namespace                                          |
+| `catalog`        | Text    | The catalog's key                                                |
+| `template`       | Text    | The template's key                                               |
+| `variant`        | Text    | The variant's key                                                |
+| `release`        | Text    | The catalog release rendered; absent for a draft                 |
+| `draft`          | Text    | The draft rendered, through an environment following it          |
+| `draftLabel`     | Text    | The draft's name when it was rendered                            |
+| `catalogVersion` | Text    | The id of the catalog version rendered, a release's or a draft's |
+| `environment`    | Text    | The environment the request named                                |
+| `request`        | Text    | The generation request's id; absent for a preview                |
+| `batch`          | Text    | The batch the request belongs to                                 |
+| `preview`        | Boolean | Whether the document is a preview                                |
+| `renderedAt`     | Date    | When it was rendered: the `sys.render.time` the document shows   |
+| `locale`         | Text    | The BCP 47 locale it was formatted with                          |
+| `engine`         | Text    | The rendering engine string, as `EngineVersion` in the info dict |
+
+A property without a value is left out. The values are the ones the request recorded when it was
+accepted. A preview through the REST API (`/documents/preview`) of a release carries the context
+with `preview` true and no request; the editor's preview of the working copy carries none.
+
+**Never in it:** the submitted data, and the caller's `correlationId`, which often holds a case
+number — a PDF travels further than its request did. Epistola does not keep the data needed to
+render a document again for long (`epistola.partitions.retentionMonths`); the calling system keeps
+its own submission, and the context tells it which release to send it to.
+
+The properties are a published format. A change to one is a new namespace version, not an edit.
+
 ## Future: Additional Renderers
 
 ### HtmlRenderer (Kotlin)

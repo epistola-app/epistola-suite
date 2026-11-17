@@ -105,6 +105,10 @@ Metadata is populated from:
 - **author** — tenant name
 - **creator** — "Epistola Suite" (default)
 
+A generated document also carries its [generation context](generation.md#generation-context) in
+XMP, in both modes: the release, template and request it came from, under its own namespace with
+the extension schema PDF/A requires.
+
 ### ICC color profile
 
 PDF/A requires an output intent declaring the color space. Epistola embeds the sRGB IEC61966-2.1 ICC profile (bundled at `generation/src/main/resources/color/sRGB.icc`).

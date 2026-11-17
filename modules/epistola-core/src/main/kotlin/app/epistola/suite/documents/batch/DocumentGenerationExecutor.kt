@@ -31,6 +31,7 @@ import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
+import app.epistola.suite.generation.generationContext
 import app.epistola.suite.generation.release.ReleaseRef
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -279,7 +280,7 @@ class DocumentGenerationExecutor(
             inputs = inputs,
             data = dataMap,
             outputStream = outputStream,
-            metadata = PdfMetadata(title = inputs.templateName, author = tenant.name),
+            metadata = PdfMetadata(title = inputs.templateName, author = tenant.name, generationContext = request.generationContext()),
             culture = localeResolver.resolveCulture(tenant, inputs.variantAttributes),
         )
 
@@ -315,7 +316,7 @@ class DocumentGenerationExecutor(
      * against the draft's contract. A draft discarded since the request was accepted fails it.
      */
     private fun generateFromDraft(request: DocumentGenerationRequest, draftId: String): Triple<Document, ByteArray, String> {
-        val rendered = draftRenderer.render(request.catalogId, request.templateKey, request.variantKey, request.data, draftId)
+        val rendered = draftRenderer.render(request.catalogId, request.templateKey, request.variantKey, request.data, draftId, request.generationContext())
         val pdfBytes = rendered.pdf
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (pdfBytes.size > maxSizeBytes) {

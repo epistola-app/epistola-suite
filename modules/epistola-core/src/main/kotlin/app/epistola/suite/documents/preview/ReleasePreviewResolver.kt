@@ -26,6 +26,8 @@ import tools.jackson.databind.node.ObjectNode
 data class ReleasePreview(
     val tenant: Tenant,
     val inputs: ReleaseRenderInputs,
+    /** The variant the preview renders, chosen as generation would choose it. */
+    val variantKey: VariantKey,
     /** The request's data, or the release's first example when none was sent, with schema defaults applied. */
     val data: ObjectNode,
 )
@@ -59,6 +61,6 @@ class ReleasePreviewResolver(
         val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value, environment = environmentKey)
         val requested = if (data.isEmpty) inputs.firstDataExample ?: data else data
         val effective = inputs.dataModel?.let { schemaValidator.applyDefaults(it, requested) } ?: requested
-        return ReleasePreview(tenant, inputs, effective)
+        return ReleasePreview(tenant, inputs, target.variantKey, effective)
     }
 }

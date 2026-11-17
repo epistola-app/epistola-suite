@@ -20,6 +20,7 @@ import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.preview.ReleasePreviewResolver
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.generation.previewContext
 import app.epistola.suite.generation.release.CatalogSelection
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -156,7 +157,11 @@ class PreviewDocumentHandler(
             inputs = inputs,
             data = dataMap,
             outputStream = out,
-            metadata = PdfMetadata(title = inputs.templateName, author = preview.tenant.name),
+            metadata = PdfMetadata(
+                title = inputs.templateName,
+                author = preview.tenant.name,
+                generationContext = inputs.previewContext(query.templateId.value, preview.variantKey, query.environmentId),
+            ),
             culture = localeResolver.resolveCulture(preview.tenant, inputs.variantAttributes),
             watermarkText = DocumentPreviewRenderer.PREVIEW_WATERMARK,
         )
