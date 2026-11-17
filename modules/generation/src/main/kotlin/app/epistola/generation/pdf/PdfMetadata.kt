@@ -24,4 +24,9 @@ data class PdfMetadata(
      * Written to the PDF catalog /Lang entry for accessibility (WCAG PDF16).
      */
     val language: String = "nl-NL",
+    /**
+     * Where the document came from, written to its XMP ([GenerationContextXmp]) with the render
+     * time, locale and [engineVersion] it was rendered with. Null writes none.
+     */
+    val generationContext: GenerationContext? = null,
 )

@@ -145,4 +145,7 @@ object SystemParameterRegistry {
     fun buildGlobalParams(clock: Clock = Clock.systemUTC()): Map<String, Any?> = buildNestedMap(
         mapOf("render.time" to OffsetDateTime.now(clock.withZone(ZoneId.of("UTC"))).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
     )
+
+    /** The `sys.render.time` that [params], built by [buildGlobalParams], hold. */
+    fun renderTime(params: Map<String, Any?>): String? = (params["render"] as? Map<*, *>)?.get("time") as? String
 }
