@@ -761,6 +761,14 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: gradle ${{ matrix.project }}:bootBuildImage -PreleaseVersion=$VERSION ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
 
+      # CVE-2026-114938 (Java4Shell) mitigation: no image is pushed whose JVM starts with the Base64
+      # intrinsic enabled. See docs/sbom.md.
+      - name: Check image JVM flags
+        if: ${{ matrix.enabled && matrix.variant != 'Native' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/check-image-jvm-flags.sh epistola-suite:$VERSION${{ matrix.image-suffix }}
+
       - name: Tag and push Docker image (PR)
         if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}
         id: push_pr

@@ -28,6 +28,7 @@
     "**/build/**",
     "**/templates/**",
     "**/charts/**",
-    ".github/badges/**"
+    ".github/badges/**",
+    "**/releases/releases.conformance.json"
   ]
 }

@@ -152,6 +152,16 @@ reference, so it is pulled. Renovate raises a pull request for each new version,
 through the regex manager in `renovate.json`. The builder decides the buildpacks and with them the
 JRE the images ship, so a JRE fix reaches the images as a builder update.
 
+Until a JRE fix ships, a mitigation can go into the images' launch environment instead. The
+images currently start the JVM with `-XX:-UseBASE64Intrinsics` against CVE-2026-114938
+(Java4Shell), a heap overwrite in the x86-64 AVX-512 Base64 intrinsic that Spring Session reaches
+by decoding the session cookie before login. `bootBuildImage` sets it through
+`BPE_APPEND_JAVA_TOOL_OPTIONS`, which the buildpack launcher appends at start-up, so a
+`JAVA_TOOL_OPTIONS` the deployment sets keeps it. The `docker` job asserts it on every built image
+with `scripts/check-image-jvm-flags.sh`. The pure-Java decoder it falls back to is slower only on
+large payloads (about 1.5 ms per 2 MB). Remove the flag, the check and this paragraph once the
+builder ships a JRE newer than 25.0.5.0.3.
+
 ### Local Scanning
 
 #### Trivy
