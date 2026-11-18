@@ -259,7 +259,7 @@ describe('The picker, inserting into the content of the stencil being edited', (
   afterEach(() => document.querySelectorAll('dialog').forEach((d) => d.remove()));
 
   it('disables the stencil being edited and says why', async () => {
-    const { engine, callbacks, editing, registry } = loadedTemplate([
+    const { engine, editing, registry } = loadedTemplate([
       letter(),
       workingCopy('other', [text('o')]),
     ]);

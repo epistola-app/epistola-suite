@@ -286,8 +286,8 @@ jobs:
           retention-days: 30
 
   cve-triage:
-    name: File new CVEs
-    needs: image-scan
+    name: File new CVEs, close resolved ones
+    needs: [release-images, image-scan]
     # One image failing to scan must not hold back the findings of the others.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
@@ -304,7 +304,11 @@ jobs:
           pattern: trivy-image-*
           path: reports
 
-      - name: Open an issue per new vulnerability
+      # Issues whose vulnerability no supported image reports any more are closed, but
+      # only when every image in the list has a report: a failed scan is not a fix.
+      - name: Open an issue per new vulnerability, close resolved ones
+        shell: bash # -o pipefail, so tee does not hide a failing triage
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/cve_watch.py triage reports/*/trivy-image.json --repository "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
+          EXPECTED_IMAGES: ${{ needs.release-images.outputs.images }}
+        run: python3 scripts/cve_watch.py triage reports/*/trivy-image.json --repository "$GITHUB_REPOSITORY" --expected-images "$EXPECTED_IMAGES" | tee -a "$GITHUB_STEP_SUMMARY"

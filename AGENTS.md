@@ -129,8 +129,8 @@ changes go in `charts/epistola/CHANGELOG.md` instead.
 
 ## Rare workflows
 
-Releases, Helm chart releases, contract bumps and template debugging have skills in
-`.agents/skills/`. Vulnerability handling is confidential — read
+Releases, Helm chart releases, contract bumps, template debugging and security rounds over the
+supported lines have skills in `.agents/skills/`. Vulnerability handling is confidential — read
 [`vulnerabilities/AGENTS.md`](vulnerabilities/AGENTS.md) before touching that folder. The manual
 cluster and concurrency harnesses are in [`docs/cluster-resilience.md`](docs/cluster-resilience.md).
 

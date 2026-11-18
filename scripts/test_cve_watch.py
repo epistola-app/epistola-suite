@@ -214,5 +214,43 @@ class IssueTest(unittest.TestCase):
         self.assertIn("https://github.com/o/r/blob/main/docs/sbom.md#assessing-a-scanner-finding", body)
 
 
+class ResolvedIssuesTest(unittest.TestCase):
+    # On 2026-11-18 ten issues were open for CVEs filed against 1.4.0, 1.5.0 and 2.0.0-beta.1.
+    # The supported images had moved on to 1.5.1 and 2.0.0 and scanned clean, but the watch only
+    # ever opened issues, so they stayed open until closed by hand.
+    SUPPORTED = ["ghcr/e:2.0.0", "ghcr/e:2.0.0-demo", "ghcr/e:1.5.1", "ghcr/e:1.5.1-demo"]
+
+    def test_an_open_issue_no_supported_image_reports_is_resolved(self) -> None:
+        reports = [report(image) for image in self.SUPPORTED]
+        open_issues = [(1166, "[cve-watch] CVE-2026-45447 (HIGH) in libssl3t64, openssl")]
+        resolved = cve_watch.resolved_issues(open_issues, cve_watch.collect_findings(reports))
+        self.assertEqual(resolved, [(1166, "CVE-2026-45447")])
+
+    def test_an_issue_still_reported_by_one_image_stays_open(self) -> None:
+        reports = [report(self.SUPPORTED[0], vulnerability("CVE-1", "HIGH", "openssl", "3.0.13"))]
+        reports += [report(image) for image in self.SUPPORTED[1:]]
+        open_issues = [(1, "[cve-watch] CVE-1 (HIGH) in openssl"), (2, "[cve-watch] CVE-2 (HIGH) in gpgv")]
+        resolved = cve_watch.resolved_issues(open_issues, cve_watch.collect_findings(reports))
+        self.assertEqual(resolved, [(2, "CVE-2")])
+
+    def test_issues_the_watch_did_not_open_are_left_alone(self) -> None:
+        open_issues = [(9, "Critical vulnerabilities detected (1 critical, 0 high)")]
+        self.assertEqual(cve_watch.resolved_issues(open_issues, {}), [])
+
+    def test_an_image_without_a_report_blocks_closing(self) -> None:
+        # Its scan failed. Nothing reported is not the same as nothing found.
+        reports = [report(image) for image in self.SUPPORTED[:3]]
+        self.assertEqual(cve_watch.missing_images(self.SUPPORTED, reports), ["ghcr/e:1.5.1-demo"])
+
+    def test_every_image_reported_means_nothing_is_missing(self) -> None:
+        reports = [report(image) for image in self.SUPPORTED]
+        self.assertEqual(cve_watch.missing_images(self.SUPPORTED, reports), [])
+
+    def test_the_comment_names_the_images_scanned(self) -> None:
+        comment = cve_watch.resolved_comment("CVE-1", self.SUPPORTED)
+        self.assertIn("**CVE-1**", comment)
+        self.assertIn("- `ghcr/e:1.5.1-demo`", comment)
+
+
 if __name__ == "__main__":
     unittest.main()

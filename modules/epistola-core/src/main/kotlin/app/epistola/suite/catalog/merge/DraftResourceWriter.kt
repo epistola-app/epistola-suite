@@ -62,7 +62,6 @@ class DraftResourceWriter(
      *   entry (`mergedContent.<type/key>…`).
      */
     fun apply(at: ContentVersion, release: String, draftLabel: String, actions: Map<String, MergeAction>): DraftWrites = CatalogImportContext.runAsImport {
-        val catalog = at.catalog
         val writes = actions.mapNotNull { (key, action) -> (action as? MergeAction.Write)?.let { key to it.value } }
         // Merged content, written as given: not marked ready, and what breaks a rule here is its to fix.
         val merged = actions.filterValues { it is MergeAction.Write && !it.ready }.keys
