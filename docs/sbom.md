@@ -131,9 +131,16 @@ below. Closing the issue is the decision, and the watch never re-files a closed 
 `not_affected` finding with a `kind: dependency` record, so the VEX keeps it out of later scans
 and out of customers' scanners.
 
+The watch also closes open issues itself, with a comment, once no supported image reports
+the vulnerability any more: a newer release fixed it, or the release it was found in left
+support. It does so only when every image from `supported-images` has a report, because a
+scan that failed reports nothing and that must not read as a fix. Before this, issues filed
+against 1.4.0, 1.5.0 and 2.0.0-beta.1 stayed open long after 1.5.1 and 2.0.0 scanned clean.
+
 To try it locally: `python3 scripts/cve_watch.py supported-images --repository
 epistola-app/epistola-suite`, scan an image with `trivy image --format json`, then
-`python3 scripts/cve_watch.py triage <report.json> --repository epistola-app/epistola-suite --dry-run`.
+`python3 scripts/cve_watch.py triage <report.json> --repository epistola-app/epistola-suite --dry-run`
+(add `--expected-images` with the `supported-images` output to see whether it would close issues).
 `supported-images` reads the remote-tracking branches, so `git fetch --tags origin` first.
 
 To scan an image you built yourself, pull the builder first:

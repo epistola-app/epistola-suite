@@ -31,7 +31,10 @@ gap in two steps:
 ``triage``
     Reads the Trivy JSON reports, groups the findings per vulnerability, and opens
     one ``cve-watch`` issue for each vulnerability that has never had one. Closing
-    the issue is the triage decision; a closed issue is never reopened. A finding
+    the issue is the triage decision; a closed issue is never reopened. An open issue
+    whose vulnerability no supported image reports any more is closed by the watch
+    itself, but only when every supported image has a report (``--expected-images``):
+    a scan that failed reports nothing, and that must not read as fixed. A finding
     assessed ``not_affected`` belongs in a ``kind: dependency`` record instead, so
     the VEX suppresses it at scan time.
 
@@ -356,7 +359,39 @@ Follow [Assessing a scanner finding](https://github.com/{repository}/blob/main/d
 - [ ] Prefer an upgrade (dependency bump, or a rebuilt image on a patched base) over arguing.
 - [ ] Not affected and suppressing it, or knowingly shipping it: add a `kind: dependency` record under `vulnerabilities/`.
 
-Close this issue once it is triaged. The watch never reopens or re-files a closed issue.
+Close this issue once it is triaged. The watch never reopens or re-files a closed issue. It closes
+this one itself once no supported release image reports the vulnerability any more.
+"""
+
+
+def missing_images(expected: list[str], reports: list[dict[str, Any]]) -> list[str]:
+    """Supported images without a report: their scan failed, so their findings are unknown."""
+    scanned = {report.get("ArtifactName") for report in reports}
+    return sorted(image for image in expected if image not in scanned)
+
+
+def resolved_issues(open_issues: list[tuple[int, str]], findings: dict[str, Finding]) -> list[tuple[int, str]]:
+    """Open issues whose vulnerability no supported image reports any more, as (number, id).
+
+    That happens when a newer release fixes it, or when the release it was found in leaves
+    support. Only meaningful when every supported image was scanned: see missing_images.
+    """
+    return [
+        (number, match[1])
+        for number, title in open_issues
+        if (match := TITLE_ID.match(title)) and match[1] not in findings
+    ]
+
+
+def resolved_comment(identifier: str, images: list[str]) -> str:
+    scanned = "\n".join(f"- `{image}`" for image in sorted(images))
+    return f"""The daily CVE watch no longer finds **{identifier}** in any supported release image, so it closes this issue.
+
+Either a newer release fixed it, or the release it was found in has left support. The images scanned today:
+
+{scanned}
+
+If it was never triaged and you want to know whether a release that has left support was exposed, follow [Assessing a scanner finding](https://github.com/epistola-app/epistola-suite/blob/main/docs/sbom.md#assessing-a-scanner-finding) anyway.
 """
 
 
@@ -369,7 +404,29 @@ def existing_issue_titles() -> list[str]:
     return [issue["title"] for issue in json.loads(output)]
 
 
-def triage(report_paths: list[Path], repository: str, dry_run: bool, max_new: int) -> int:
+def open_issues() -> list[tuple[int, str]]:
+    output = gh("issue", "list", "--label", LABEL, "--state", "open", "--limit", "5000", "--json", "number,title")
+    return [(issue["number"], issue["title"]) for issue in json.loads(output)]
+
+
+def close_resolved(findings: dict[str, Finding], reports: list[dict[str, Any]], expected: list[str] | None, dry_run: bool) -> None:
+    if expected is None:
+        print("Not closing resolved issues: pass --expected-images to say which images should have been scanned.")
+        return
+    missing = missing_images(expected, reports)
+    if missing:
+        # A failed scan reports nothing, which must not read as "fixed".
+        print(f"Not closing resolved issues: no report for {', '.join(missing)}.")
+        return
+    if dry_run:
+        print("Would close every open issue whose vulnerability is not among these findings.")
+        return
+    for number, identifier in resolved_issues(open_issues(), findings):
+        gh("issue", "close", str(number), "--reason", "completed", "--comment", resolved_comment(identifier, expected))
+        print(f"closed: #{number} {identifier} is no longer in any supported image")
+
+
+def triage(report_paths: list[Path], repository: str, dry_run: bool, max_new: int, expected: list[str] | None = None) -> int:
     reports = [json.loads(path.read_text(encoding="utf-8")) for path in report_paths]
     findings = collect_findings(reports)
     if dry_run:
@@ -384,6 +441,7 @@ def triage(report_paths: list[Path], repository: str, dry_run: bool, max_new: in
         key=lambda finding: (-SEVERITY_ORDER.index(finding.severity), finding.identifier),
     )
     print(f"{len(findings)} vulnerabilities in {len(reports)} images; {len(new)} without an issue.")
+    close_resolved(findings, reports, expected, dry_run)
     for finding in new[:max_new]:
         title = issue_title(finding)
         if dry_run:
@@ -414,6 +472,11 @@ def main(argv: list[str] | None = None) -> int:
     triage_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
     triage_parser.add_argument("--dry-run", action="store_true", help="print, do not touch GitHub")
     triage_parser.add_argument("--max-new", type=int, default=20)
+    triage_parser.add_argument(
+        "--expected-images",
+        type=json.loads,
+        help="JSON list from supported-images; open issues are closed only when every one has a report",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "supported-images":
@@ -437,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
         if not problems:
             print("The published support floor matches SUPPORT_POLICY.md and the maintenance branches.")
         return 1 if problems else 0
-    return triage(args.reports, args.repository, args.dry_run, args.max_new)
+    return triage(args.reports, args.repository, args.dry_run, args.max_new, args.expected_images)
 
 
 if __name__ == "__main__":
