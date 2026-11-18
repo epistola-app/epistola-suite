@@ -3,7 +3,8 @@
 > **TL;DR** — Every render resolves one effective **BCP-47 locale** through a
 > three-step chain: **variant attribute → tenant default → app default**. That
 > locale drives the `$formatDate` / `$formatLocaleNumber` expression functions
-> (month/weekday names, decimal & grouping separators). The **same chain feeds
+> (month/weekday names, decimal & grouping separators) and is the PDF's
+> document language (`/Lang`, read by screen readers). The **same chain feeds
 > both the editor preview and the PDF renderer**, so what you see in the editor
 > is what the document produces.
 

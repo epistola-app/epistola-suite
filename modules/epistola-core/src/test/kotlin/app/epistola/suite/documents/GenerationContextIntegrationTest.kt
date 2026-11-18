@@ -158,6 +158,8 @@ class GenerationContextIntegrationTest : IntegrationTestBase() {
         assertThat(xmp.getProperty(ns, "draft")).isNull()
         assertThat(xmp.getPropertyBoolean(ns, "preview")).isFalse()
         assertThat(xmp.getPropertyString(ns, "locale")).isEqualTo(withMediator { localeResolver.resolve(variant.tenant) })
+        assertThat(PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { it.catalog.lang.toUnicodeString() })
+            .`as`("its /Lang is the language it was rendered in").isEqualTo(withMediator { localeResolver.resolve(variant.tenant) })
         assertThat(xmp.getPropertyString(ns, "engine")).startsWith("epistola-gen-")
         assertThat(xmp.getPropertyString(ns, "renderedAt")).isNotBlank()
 

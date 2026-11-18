@@ -223,8 +223,8 @@ class DirectPdfRenderer(
         fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
-        /** The BCP 47 locale the document is formatted with, recorded in its generation context. */
-        locale: String? = null,
+        /** The BCP 47 locale the document is formatted with: its /Lang, and in its generation context. */
+        locale: String,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -286,8 +286,8 @@ class DirectPdfRenderer(
         fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
-        /** The BCP 47 locale the document is formatted with, recorded in its generation context. */
-        locale: String? = null,
+        /** The BCP 47 locale the document is formatted with: its /Lang, and in its generation context. */
+        locale: String,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -352,6 +352,7 @@ class DirectPdfRenderer(
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
+            locale = locale,
         )
 
         // Second pass: render with known total page count
@@ -400,7 +401,7 @@ class DirectPdfRenderer(
         enableMetadata: Boolean = true,
         enableHeaderFooter: Boolean = true,
         watermarkText: String? = null,
-        locale: String? = null,
+        locale: String,
     ): Int {
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
@@ -596,7 +597,7 @@ class DirectPdfRenderer(
      * Every document is tagged, but only a PDF/A one claims PDF/UA-1: without PDF/A the standard
      * fonts are not embedded, which PDF/UA-1 requires (ISO 14289-1, 7.21.4.1; #1308).
      */
-    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata, claimPdfUa: Boolean, renderedAt: String?, locale: String?) {
+    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata, claimPdfUa: Boolean, renderedAt: String?, locale: String) {
         val info = pdfDocument.documentInfo
         metadata.title?.let { info.setTitle(it) }
         metadata.author?.let { info.setAuthor(it) }
@@ -604,8 +605,8 @@ class DirectPdfRenderer(
         info.setCreator(metadata.creator)
         metadata.engineVersion?.let { info.setMoreInfo("EngineVersion", it) }
 
-        // Document language for assistive technology (WCAG PDF16)
-        pdfDocument.catalog.lang = PdfString(metadata.language)
+        // Document language for assistive technology (WCAG PDF16): the language it was rendered in
+        pdfDocument.catalog.lang = PdfString(locale)
 
         // Show the document title (not the filename) in the viewer title bar (WCAG PDF18)
         if (metadata.title != null) {
