@@ -209,8 +209,12 @@ endpoint. `tenant-defaults` is applied at startup once per configured value, as
 
 An installation administrator can also add one under Platform → Support connections with **Add
 connection**: **Look up** a domain to fill in what it publishes in its `/.well-known/epistola.json` (a
-`support` object with `name`, `endpoint`, `services`, and optionally `tenantIdentity` and `telemetry`),
-or fill in the endpoint by hand, and enter the token the other side issued or choose to register. Each
+`support` object with `auth` and the address that goes with it, and optionally `name`, `services`,
+`tenantIdentity` and `telemetry`), or fill in the endpoint by hand, and enter the token the other side issued or choose to register. `auth` says how the installation
+signs in, and names the address: `private_key_jwt` with `issuer`, an OAuth issuer it registers at (no
+token), as epistola.app publishes for Epistola support; `bearer_token` with `endpoint`, a base URL it
+signs in to with a token. A document without `auth`, with one this version does not know, or with the
+other kind's address, is refused and the lookup says why. Each
 connection has a page of its own, where it can be renamed, have its services, token, privacy and setup
 for every tenant changed, and be removed: requests it handled return to the support desk's inbox. A connection an administrator added or saved is left alone by the configuration. The endpoint names the connection: the same endpoint at the next start is the same
 connection, with the name and token from the configuration. An entry removed from the configuration

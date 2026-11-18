@@ -500,8 +500,18 @@ components:
       properties:
         support:
           type: object
-          required: [endpoint]
+          description: |
+            A partner signing in with a token names `auth: bearer_token` and its `endpoint`. A service
+            an installation registers at through OAuth names `auth: private_key_jwt` and its `issuer`
+            instead, and implements support-api.yaml (ADR 0053 §1a). Any other combination is refused.
+          required: [auth, endpoint]
           properties:
+            auth:
+              {
+                type: string,
+                enum: [bearer_token],
+                description: "How the installation signs in: with the token the partner issued.",
+              }
             name: { type: string, description: "What the installation calls the connection." }
             endpoint:
               {

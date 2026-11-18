@@ -29,8 +29,10 @@ import java.util.UUID
 
 /**
  * What a server publishes about connecting to it (ADR 0053 §1a), from the `support` object of its
- * `/.well-known/epistola.json`: everything to set a connection up but the token, which its operator
- * hands out.
+ * `/.well-known/epistola.json`: everything to set a connection up but a token. Its `auth` says how this
+ * installation signs in ([auth]), and the address is named for it: `private_key_jwt` with `issuer`, an
+ * OAuth issuer it registers at (no token), or `bearer_token` with `endpoint`, a base URL it signs in to
+ * with a token the server's operator hands out.
  */
 data class SupportConnectionPreset(
     val name: String,
@@ -38,6 +40,7 @@ data class SupportConnectionPreset(
     val services: List<String>,
     val tenantIdentity: TenantIdentity?,
     val telemetry: TelemetryDetail?,
+    val auth: SupportConnectionAuth = SupportConnectionAuth.BEARER_TOKEN,
 )
 
 /** A preset could not be read; [reason] says why, in words for the platform page. */
@@ -74,16 +77,35 @@ class DiscoverSupportConnectionPresetHandler(
         } ?: throw SupportConnectionPresetUnavailableException("$base answered with an empty discovery document.")
         val support = document.path("support").takeIf { it.isObject }
             ?: throw SupportConnectionPresetUnavailableException("$base publishes no support connection in its discovery document.")
-        val endpoint = support.path("endpoint").stringValue("").trim()
-        if (endpoint.isEmpty()) throw SupportConnectionPresetUnavailableException("$base names no endpoint for its support connection.")
+        val auth = authOf(base, support.path("auth").stringValue("").trim())
+        val (field, other) = when (auth) {
+            SupportConnectionAuth.PRIVATE_KEY_JWT -> "issuer" to "endpoint"
+            SupportConnectionAuth.BEARER_TOKEN -> "endpoint" to "issuer"
+        }
+        val address = support.path(field).stringValue("").trim()
+        if (address.isEmpty()) throw SupportConnectionPresetUnavailableException("$base signs in with ${wire(auth)} but names no $field for its support connection.")
+        if (support.path(other).stringValue("").isNotBlank()) {
+            throw SupportConnectionPresetUnavailableException("$base names an $other for its support connection, which does not go with ${wire(auth)}.")
+        }
         return SupportConnectionPreset(
             name = support.path("name").stringValue("").trim().ifEmpty { URI(base).host },
-            endpoint = endpoint,
+            endpoint = address,
             services = support.path("services").takeIf { it.isArray }?.mapNotNull { s -> s.takeIf { it.isString }?.stringValue() }.orEmpty(),
             tenantIdentity = support.path("tenantIdentity").stringValue(null)?.let(TenantIdentity::parse),
             telemetry = support.path("telemetry").stringValue(null)?.let(TelemetryDetail::parse),
+            auth = auth,
         )
     }
+
+    /** The preset's `auth`: required, and one this version signs in with. */
+    private fun authOf(base: String, value: String): SupportConnectionAuth {
+        if (value.isEmpty()) throw SupportConnectionPresetUnavailableException("$base does not say how to sign in to its support connection (auth).")
+        return SupportConnectionAuth.entries.firstOrNull { wire(it) == value }
+            ?: throw SupportConnectionPresetUnavailableException("$base signs in with '${value.take(MAX_AUTH)}', which this version of Epistola cannot.")
+    }
+
+    /** How [auth] is written in a preset: `private_key_jwt`, `bearer_token`. */
+    private fun wire(auth: SupportConnectionAuth): String = auth.name.lowercase()
 
     /** A bare domain as `https://`; a full address only `https:`, or `http:` with `allow-http`. */
     private fun baseOf(input: String): String {
@@ -98,6 +120,7 @@ class DiscoverSupportConnectionPresetHandler(
     }
 
     private companion object {
+        const val MAX_AUTH = 40
         val DOMAIN = Regex("^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,63}$")
     }
 }

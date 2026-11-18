@@ -19,7 +19,8 @@ import java.time.Duration
  *   Epistola grants it.
  * @property endpoint the issuer URL of the support connection this configures, stored at startup
  *   while [enabled] ([app.epistola.suite.support.connection.ConfiguredSupportConnections]). Blank: the
- *   support service on the product domain, `https://support.{product-domain}`.
+ *   issuer the product domain's discovery document names (`support.issuer`), else the support service
+ *   on the product domain, `https://support.{product-domain}`.
  * @property allowHttp permit a plaintext `http:` support service. Local development only: the
  *   installation's client assertions, tokens and uploads cross this connection. An `http:`
  *   [endpoint] without it stops startup.

@@ -46,7 +46,7 @@
                        th:value="${pre != null ? pre.endpoint : (addForm != null ? addForm.get('endpoint') : '')}">
             </div>
             <div class="form-group" role="radiogroup" aria-labelledby="support-add-auth-label" data-testid="support-connection-add-auth"
-                 th:with="auth=${addForm != null and addForm.get('auth') == 'PRIVATE_KEY_JWT'} ? 'PRIVATE_KEY_JWT' : 'BEARER_TOKEN'">
+                 th:with="auth=${pre != null ? pre.auth.name() : (addForm != null and addForm.get('auth') == 'PRIVATE_KEY_JWT' ? 'PRIVATE_KEY_JWT' : 'BEARER_TOKEN')}">
                 <span class="ep-label" id="support-add-auth-label">How this installation signs in</span>
                 <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="BEARER_TOKEN" th:checked="${auth == 'BEARER_TOKEN'}"> With a token the other side issued</label>
                 <label class="ep-row ep-gap-1"><input type="radio" name="auth" value="PRIVATE_KEY_JWT" th:checked="${auth == 'PRIVATE_KEY_JWT'}"> By OAuth registration: this installation registers itself (RFC 7591) and signs its own tokens (private_key_jwt)</label>

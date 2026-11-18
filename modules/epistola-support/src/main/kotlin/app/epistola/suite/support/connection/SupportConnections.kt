@@ -5,6 +5,7 @@
 package app.epistola.suite.support.connection
 
 import app.epistola.suite.crypto.CredentialCipher
+import app.epistola.suite.productdomain.ProductDiscovery
 import app.epistola.suite.productdomain.ProductDomainProperties
 import app.epistola.suite.support.SupportProperties
 import org.jdbi.v3.core.Jdbi
@@ -57,6 +58,7 @@ class SupportConnections(
     private val objectMapper: ObjectMapper,
     private val properties: SupportProperties,
     private val domain: ProductDomainProperties,
+    private val discovery: ProductDiscovery,
 ) {
     /** Every connection, by creation. */
     fun all(): List<SupportConnectionRecord> = select("ORDER BY created_at, id", emptyMap())
@@ -68,10 +70,23 @@ class SupportConnections(
     fun findByEndpoint(endpoint: String): SupportConnectionRecord? = select("WHERE endpoint = :endpoint", mapOf("endpoint" to endpoint.trimEnd('/'))).firstOrNull()
 
     /**
-     * The endpoint of the connection `epistola.support.*` configures: `epistola.support.endpoint`, by
-     * default the support service on the product domain (`https://support.{product-domain}`).
+     * The endpoint of the connection `epistola.support.*` configures: `epistola.support.endpoint`, else
+     * the issuer the product domain's discovery document names (`support.issuer`, ADR 0030), else the
+     * support service on the product domain (`https://support.{product-domain}`).
+     *
+     * It is the connection's identity (its row, its registration), so it is found once, at the first
+     * call, and kept until the next start: a refreshed document never moves a running connection. While
+     * support is on the document is fetched when the stored copy is due; while it is off only the stored
+     * copy is read (both fall back to that default without one), so an installation that does not use support sends nothing for it. An issuer the
+     * document moves is taken at the next start, as a new connection; the old one stays, registered,
+     * until an administrator removes it.
      */
-    fun configuredEndpoint(): URI = properties.configuredIssuer ?: URI("https://support.${domain.host}")
+    fun configuredEndpoint(): URI = configured
+
+    private val configured: URI by lazy {
+        // Without a copy of the document, ProductDiscovery falls back to https://support.{product-domain}.
+        properties.configuredIssuer ?: (if (properties.enabled) discovery.endpoints() else discovery.cachedEndpoints()).support.issuer
+    }
 
     /** The id of the connection `epistola.support.*` configures: the one registering through OAuth at [configuredEndpoint]; null while there is none. */
     fun configuredId(): UUID? = findByEndpoint(configuredEndpoint().toString())?.takeIf { it.auth == SupportConnectionAuth.PRIVATE_KEY_JWT }?.id
