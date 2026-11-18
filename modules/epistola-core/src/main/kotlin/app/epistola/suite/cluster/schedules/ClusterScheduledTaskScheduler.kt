@@ -167,8 +167,8 @@ class ClusterScheduledTaskScheduler(
             // visible in the fleet metrics, not hidden inside the poll-cycle timer.
             meterRegistry.recordScheduledTask("cluster-scheduled-task:${task.taskType}") {
                 // A tenant-scoped task runs as that tenant's system principal (mediator
-                // authorization + log attribution); system-wide tasks run with none.
-                // Consistency follow-up (always bind a system principal): see issue #551.
+                // authorization + log attribution); system-wide tasks run with none, and
+                // dispatch only SystemInternal operations (see ClusterScheduledTaskHandler).
                 val principal = task.tenantKey?.let { SystemUser.principalForTenant(it) }
                 if (principal != null) {
                     SecurityContext.runWithPrincipal(principal) { handler.handle(task) }

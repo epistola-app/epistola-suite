@@ -12,6 +12,14 @@ package app.epistola.suite.cluster.schedules
  * must match exactly one registered [ClusterScheduledTaskDefinition]. Handlers
  * should be idempotent because a failed or expired lease may cause the same due
  * occurrence to be retried.
+ *
+ * A task with a tenant runs as that tenant's system principal
+ * (`SystemUser.principalForTenant`). A system-wide task runs with no principal,
+ * so it dispatches only `SystemInternal` operations, or binds a tenant's system
+ * principal itself before it touches that tenant (as the support-request sync
+ * does). A role-less principal is deliberately not bound: `RequiresAuthentication`
+ * reads such as `ListTenants` would then pass and return nothing instead of
+ * failing (#551).
  */
 interface ClusterScheduledTaskHandler {
     val taskType: String

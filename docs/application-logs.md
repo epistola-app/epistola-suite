@@ -125,8 +125,9 @@ tenant and is propagated across executor / virtual-thread handoffs by
   maintenance and log retention) → `tenant_key = NULL`, shown as **system**.
 
 A log line is "tenant X" because the work that emitted it runs as X — not because the
-message mentions X. (Making _all_ background work run under a system identity is a
-tracked consistency follow-up, issue #551.)
+message mentions X. System-wide work stays without a principal on purpose: it dispatches only
+`SystemInternal` operations, and a role-less principal would make reads such as `ListTenants`
+return nothing instead of failing (#551).
 
 ## Retention
 
