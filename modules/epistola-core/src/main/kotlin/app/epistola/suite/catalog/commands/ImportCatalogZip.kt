@@ -406,7 +406,7 @@ class ImportCatalogZipHandler(
     }
 
     private fun importArchive(command: ImportCatalogZip, parsed: ParsedCatalogArchive): ImportCatalogZipResult = CatalogImportContext.runAsImport {
-        val (entries, manifest, catalogCtx) = parsed
+        val (entries, manifest) = parsed
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         val catalog = CatalogId(manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey), catalogKey, TenantId(command.tenantKey))
         val receiving = command.intoDraft == null && !command.restore

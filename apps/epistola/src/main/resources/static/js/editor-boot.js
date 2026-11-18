@@ -38,13 +38,8 @@ async function mount(container) {
   const catalogSegment = config.catalogSegment || catalogId;
   // A catalog segment may name its namespace, `acme/letters` (ADR 0034): its parts are encoded apart.
   const catalogPath = (segment) => String(segment).split('/').map(encodeURIComponent).join('/');
-  // A draft other than the next version is named after `@`, `acme/letters@<draft id>`.
-  const inDraft = String(catalogSegment).includes('@');
   const segmentOf = (catalog) =>
     catalog === catalogId || catalog === catalogAddress ? catalogSegment : catalog;
-  // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
-  // this catalog's rows from it and every other catalog's from its current version.
-  const inParam = inDraft ? 'in=' + encodeURIComponent(catalogSegment) : '';
   // Using a resource of a catalog this one does not declare declares it first, once the author
   // confirms (catalog-dependencies.js). Offered only where the template can be changed; the server
   // lists such resources only where declaring can land.
