@@ -28,6 +28,16 @@ gap in two steps:
     end, a line dropped before it, an end date not announced, a supported major
     with no branch to patch it from, or a branch for a line nobody is promised.
 
+``runtime-scan``
+    Reports the vulnerabilities of the Java runtime in an image, in Trivy's report
+    shape so ``triage`` reads it like any other report. Trivy cannot: the buildpack
+    installs the JRE as a plain directory, neither an operating-system package nor a
+    jar, so CVE-2026-114938 (Java4Shell) in the JRE of 2.0.0 and 1.5.1 went unreported
+    until a maintainer noticed. The runtime's version comes from the JRE's ``release``
+    file in the image; what affects it comes from the OpenJDK vulnerability advisories,
+    which name the last affected version of every line on the day of disclosure, long
+    before the NVD has product data for a CVE.
+
 ``triage``
     Reads the Trivy JSON reports, groups the findings per vulnerability, and opens
     one ``cve-watch`` issue for each vulnerability that has never had one. Closing
@@ -46,12 +56,15 @@ where the assessment procedure lives.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
+import tempfile
 import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -71,6 +84,13 @@ REMOTE = "refs/remotes/origin/"
 # A maintenance branch is `release/1.x` (or `release/2.0`). The other `release/*` branches
 # are left over from preparing one release (`release/v1.1.0`, `release/grafana-0.1.1`).
 MAINTAINED_BRANCH = re.compile(r"^(main|release/\d+\.(\d+|x))$")
+# The JRE the Paketo BellSoft Liberica buildpack installs, and the OpenJDK advisories about it.
+RUNTIME_RELEASE_FILE = "/layers/paketo-buildpacks_bellsoft-liberica/jre/release"
+RUNTIME_PACKAGE = "java-runtime"
+RUNTIME_SCANNER = "openjdk-advisories"
+ADVISORIES_URL = "https://openjdk.org/groups/vulnerability/advisories/"
+# The image scan reports HIGH and CRITICAL only; CVSS v3 puts HIGH at 7.0.
+RUNTIME_MIN_SCORE = 7.0
 
 
 @dataclass(frozen=True)
@@ -365,9 +385,17 @@ this one itself once no supported release image reports the vulnerability any mo
 
 
 def missing_images(expected: list[str], reports: list[dict[str, Any]]) -> list[str]:
-    """Supported images without a report: their scan failed, so their findings are unknown."""
-    scanned = {report.get("ArtifactName") for report in reports}
-    return sorted(image for image in expected if image not in scanned)
+    """Supported images without a report: their scan failed, so their findings are unknown.
+
+    Every image needs two reports, Trivy's and the Java runtime's (``runtime-scan``), because
+    neither sees what the other does: without the runtime report, an open JRE issue would read
+    as fixed.
+    """
+    trivy = {report.get("ArtifactName") for report in reports if not report.get("Scanner")}
+    runtime = {report.get("ArtifactName") for report in reports if report.get("Scanner") == RUNTIME_SCANNER}
+    missing = [image for image in expected if image not in trivy]
+    missing += [f"{image} (Java runtime)" for image in expected if image in trivy and image not in runtime]
+    return sorted(missing)
 
 
 def resolved_issues(open_issues: list[tuple[int, str]], findings: dict[str, Finding]) -> list[tuple[int, str]]:
@@ -426,6 +454,206 @@ def close_resolved(findings: dict[str, Finding], reports: list[dict[str, Any]], 
         print(f"closed: #{number} {identifier} is no longer in any supported image")
 
 
+@dataclass(frozen=True)
+class Runtime:
+    """The JRE in an image, from its ``release`` file."""
+
+    implementor: str
+    version: str  # JAVA_VERSION, e.g. 25.0.5.0.3
+    runtime_version: str  # JAVA_RUNTIME_VERSION, e.g. 25.0.5.0.3+5-LTS
+    released: date | None  # JAVA_VERSION_DATE
+
+    @property
+    def feature(self) -> int:
+        return java_version_key(self.version)[0]
+
+
+@dataclass(frozen=True)
+class AdvisoryCve:
+    identifier: str
+    component: str
+    score: float
+    features: frozenset[int]
+
+
+@dataclass(frozen=True)
+class Advisory:
+    url: str
+    last_affected: dict[int, str]  # feature release -> last affected version
+    cves: list[AdvisoryCve]
+
+
+def java_version_key(version: str) -> tuple[int, ...]:
+    """Comparable form of a Java version: 25.0.5 < 25.0.5.0.3 < 25.0.5.1, and 8u512 is 8.0.512."""
+    if match := re.fullmatch(r"(\d+)u(\d+)", version):
+        parts = [int(match[1]), 0, int(match[2])]
+    else:
+        parts = [int(part) for part in re.findall(r"\d+", version.split("+")[0])]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def parse_runtime_release(text: str) -> Runtime:
+    values = dict(re.findall(r'^([A-Z_]+)="(.*)"$', text, re.MULTILINE))
+    released = values.get("JAVA_VERSION_DATE")
+    return Runtime(
+        implementor=values.get("IMPLEMENTOR", "unknown"),
+        version=values["JAVA_VERSION"],
+        runtime_version=values.get("JAVA_RUNTIME_VERSION", values["JAVA_VERSION"]),
+        released=date.fromisoformat(released) if released else None,
+    )
+
+
+class _Tables(HTMLParser):
+    """Collects every table as rows of cell texts; ``<br>`` inside a cell becomes a space."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tables: list[list[list[str]]] = []
+        self._cell: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "table":
+            self.tables.append([])
+        elif tag == "tr" and self.tables:
+            self.tables[-1].append([])
+        elif tag in ("td", "th"):
+            self._cell = []
+        elif tag == "br" and self._cell is not None:
+            self._cell.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("td", "th") and self._cell is not None and self.tables and self.tables[-1]:
+            self.tables[-1][-1].append(" ".join("".join(self._cell).split()))
+            self._cell = None
+
+    def handle_data(self, data: str) -> None:
+        if self._cell is not None:
+            self._cell.append(data)
+
+
+def parse_advisory(page: str, url: str) -> Advisory:
+    """One OpenJDK advisory: the last affected version per line, and the OpenJDK risk matrix.
+
+    The page states "The affected versions are 27.0.1.0.3, 25.0.5.0.3, …, 8u512, and earlier".
+    Only the first risk matrix is OpenJDK's; an OpenJFX matrix may follow it.
+    """
+    text = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
+    last_affected: dict[int, str] = {}
+    if match := re.search(r"affected versions are (.+?),? and earlier", text):
+        for version in (item.strip() for item in match[1].split(",")):
+            if version:
+                last_affected.setdefault(java_version_key(version)[0], version)
+    tables = _Tables()
+    tables.feed(page)
+    cves: list[AdvisoryCve] = []
+    matrix = tables.tables[0] if tables.tables else []
+    header = next((row for row in matrix if row and row[0] == "CVE ID"), None)
+    if header:
+        features = [int(cell) if cell.isdigit() else None for cell in header[3:]]
+        for row in matrix:
+            if not row or not re.fullmatch(r"CVE-\d{4}-\d+", row[0]):
+                continue
+            score = re.match(r"\d+(\.\d+)?", row[2])
+            marked = {feature for feature, cell in zip(features, row[3:]) if feature is not None and cell.strip()}
+            cves.append(AdvisoryCve(row[0], row[1].replace(" ", ""), float(score[0]) if score else 0.0, frozenset(marked)))
+    return Advisory(url=url, last_affected=last_affected, cves=cves)
+
+
+def advisory_urls(index: str, since: date | None) -> list[str]:
+    """Advisory pages from the runtime's release date on, newest first: an older advisory's
+    fixes are in the runtime already."""
+    dates = sorted(set(re.findall(r'href="(?:[^"]*/)?(\d{4}-\d{2}-\d{2})"', index)), reverse=True)
+    return [f"{ADVISORIES_URL}{day}" for day in dates if since is None or date.fromisoformat(day) >= since]
+
+
+def vex_suppressed(vex: dict[str, Any]) -> set[str]:
+    """CVEs our own VEX assesses ``not_affected`` or ``fixed`` for the buildpack JRE."""
+    return {
+        statement["vulnerability"]["name"]
+        for statement in vex.get("statements", [])
+        if statement.get("status") in ("not_affected", "fixed")
+        and any("bellsoft-jre" in product.get("@id", "") for product in statement.get("products", []))
+    }
+
+
+def cvss_severity(score: float) -> str:
+    if score >= 9.0:
+        return "CRITICAL"
+    if score >= 7.0:
+        return "HIGH"
+    return "MEDIUM" if score >= 4.0 else "LOW"
+
+
+def runtime_vulnerabilities(
+    runtime: Runtime, advisories: list[Advisory], suppressed: set[str] | None = None, min_score: float = RUNTIME_MIN_SCORE
+) -> list[dict[str, Any]]:
+    """The advisories' CVEs that reach this runtime, as Trivy vulnerability entries.
+
+    A CVE reaches it when the advisory marks the runtime's feature release, and the runtime is
+    no newer than the last version the advisory calls affected for that release.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    for advisory in advisories:
+        last = advisory.last_affected.get(runtime.feature)
+        if last is None or java_version_key(runtime.version) > java_version_key(last):
+            continue
+        for cve in advisory.cves:
+            if runtime.feature not in cve.features or cve.score < min_score or cve.identifier in (suppressed or set()):
+                continue
+            found.setdefault(cve.identifier, {
+                "VulnerabilityID": cve.identifier,
+                "Severity": cvss_severity(cve.score),
+                "PkgName": RUNTIME_PACKAGE,
+                "InstalledVersion": runtime.runtime_version,
+                "FixedVersion": f"later than {last}",
+                "Title": f"OpenJDK {cve.component} (CVSS {cve.score}), in {runtime.implementor} {runtime.runtime_version}",
+                "PrimaryURL": advisory.url,
+            })
+    return sorted(found.values(), key=lambda item: item["VulnerabilityID"])
+
+
+def runtime_report(image: str, runtime: Runtime, vulnerabilities: list[dict[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {"Target": f"Java runtime ({runtime.implementor} {runtime.runtime_version})", "Class": "runtime"}
+    if vulnerabilities:
+        result["Vulnerabilities"] = vulnerabilities
+    return {"ArtifactName": image, "Scanner": RUNTIME_SCANNER, "Results": [result]}
+
+
+def image_runtime_release(image: str) -> str:
+    """The JRE's release file, copied out of the image without running it."""
+    container = subprocess.run(
+        ["docker", "create", "--platform", "linux/amd64", image], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "release"
+            subprocess.run(["docker", "cp", f"{container}:{RUNTIME_RELEASE_FILE}", str(target)], check=True, capture_output=True)
+            return target.read_text(encoding="utf-8")
+    finally:
+        subprocess.run(["docker", "rm", container], check=False, capture_output=True)
+
+
+def fetch(url: str) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": "epistola-cve-watch"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8")
+
+
+def runtime_scan(image: str, vex_path: Path | None, output: Path) -> int:
+    runtime = parse_runtime_release(image_runtime_release(image))
+    urls = advisory_urls(fetch(ADVISORIES_URL), runtime.released)
+    advisories = [parse_advisory(fetch(url), url) for url in urls]
+    suppressed = vex_suppressed(json.loads(vex_path.read_text(encoding="utf-8"))) if vex_path else set()
+    vulnerabilities = runtime_vulnerabilities(runtime, advisories, suppressed)
+    output.write_text(json.dumps(runtime_report(image, runtime, vulnerabilities), indent=2), encoding="utf-8")
+    print(f"{image}: {runtime.implementor} {runtime.runtime_version}, {len(advisories)} advisories since "
+          f"{runtime.released}, {len(vulnerabilities)} HIGH/CRITICAL: "
+          + (", ".join(item["VulnerabilityID"] for item in vulnerabilities) or "none"))
+    return 0
+
+
 def triage(report_paths: list[Path], repository: str, dry_run: bool, max_new: int, expected: list[str] | None = None) -> int:
     reports = [json.loads(path.read_text(encoding="utf-8")) for path in report_paths]
     findings = collect_findings(reports)
@@ -467,8 +695,13 @@ def main(argv: list[str] | None = None) -> int:
     support_parser.add_argument("--releases-url", default=RELEASES_URL)
     support_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
 
+    runtime_parser = commands.add_parser("runtime-scan", help="report the Java runtime's vulnerabilities in an image")
+    runtime_parser.add_argument("image", help="image reference, e.g. ghcr.io/epistola-app/epistola-suite:2.0.0")
+    runtime_parser.add_argument("--vex", type=Path, help="our OpenVEX document; not_affected findings are left out")
+    runtime_parser.add_argument("--output", type=Path, required=True, help="where to write the report")
+
     triage_parser = commands.add_parser("triage", help="open an issue per new vulnerability")
-    triage_parser.add_argument("reports", nargs="+", type=Path, help="Trivy JSON reports")
+    triage_parser.add_argument("reports", nargs="+", type=Path, help="Trivy and runtime-scan JSON reports")
     triage_parser.add_argument("--repository", required=True, help="owner/name, e.g. epistola-app/epistola-suite")
     triage_parser.add_argument("--dry-run", action="store_true", help="print, do not touch GitHub")
     triage_parser.add_argument("--max-new", type=int, default=20)
@@ -500,6 +733,8 @@ def main(argv: list[str] | None = None) -> int:
         if not problems:
             print("The published support floor matches SUPPORT_POLICY.md and the maintenance branches.")
         return 1 if problems else 0
+    if args.command == "runtime-scan":
+        return runtime_scan(args.image, args.vex, args.output)
     return triage(args.reports, args.repository, args.dry_run, args.max_new, args.expected_images)
 
 

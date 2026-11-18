@@ -2,7 +2,11 @@ name: Security Scan
 
 on:
   schedule:
-    - cron: "0 6 * * *" # Daily at 6 AM UTC
+    # Twice a day, off the hour: GitHub delays top-of-the-hour schedules, and the 06:00 run
+    # started between 13:00 and 16:00 in November 2026, so a CVE disclosed in the evening (US)
+    # waited most of a day to be filed.
+    - cron: "37 4 * * *"
+    - cron: "37 16 * * *"
   workflow_dispatch: # Manual trigger
 
 jobs:
@@ -278,11 +282,24 @@ jobs:
           IMAGE: ${{ matrix.image }}
         run: echo "name=trivy-image-$(echo "$IMAGE" | tr '/:' '__')" >> "$GITHUB_OUTPUT"
 
+      # Trivy does not see the JRE the buildpack installs (it is neither an OS package nor a
+      # jar), so the runtime is checked against the OpenJDK vulnerability advisories.
+      - name: Scan the Java runtime
+        shell: bash # -o pipefail, so tee does not hide a failing scan
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: python3 scripts/cve_watch.py runtime-scan "$IMAGE" --vex build/vex/epistola.openvex.json --output runtime-image.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Also when the runtime scan failed: Trivy's report still counts, and triage closes
+      # nothing for an image whose runtime report is missing.
       - name: Upload report
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.report.outputs.name }}
-          path: trivy-image.json
+          path: |
+            trivy-image.json
+            runtime-image.json
           retention-days: 30
 
   cve-triage:
@@ -311,4 +328,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_IMAGES: ${{ needs.release-images.outputs.images }}
-        run: python3 scripts/cve_watch.py triage reports/*/trivy-image.json --repository "$GITHUB_REPOSITORY" --expected-images "$EXPECTED_IMAGES" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: shopt -s nullglob; python3 scripts/cve_watch.py triage reports/*/trivy-image.json reports/*/runtime-image.json --repository "$GITHUB_REPOSITORY" --expected-images "$EXPECTED_IMAGES" | tee -a "$GITHUB_STEP_SUMMARY"
