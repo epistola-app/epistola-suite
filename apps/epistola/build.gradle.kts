@@ -444,6 +444,8 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
     dependsOn(buildRunImage)
+    // Pinned in gradle.properties (and kept current by Renovate), never Spring Boot's :latest default.
+    builder.set(providers.gradleProperty("epistola.image.builder"))
     runImage.set("docker.io/library/epistola-run:noble")
     pullPolicy.set(org.springframework.boot.buildpack.platform.build.PullPolicy.IF_NOT_PRESENT)
     environment.set(

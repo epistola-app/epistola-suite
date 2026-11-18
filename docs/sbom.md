@@ -136,11 +136,14 @@ epistola-app/epistola-suite`, scan an image with `trivy image --format json`, th
 `python3 scripts/cve_watch.py triage <report.json> --repository epistola-app/epistola-suite --dry-run`.
 `supported-images` reads the remote-tracking branches, so `git fetch --tags origin` first.
 
-To scan an image you built yourself, pull the builder first:
-`docker pull paketobuildpacks/builder-noble-java-tiny:latest` (or `podman pull docker.io/…`).
-`bootBuildImage` keeps a cached builder (`pullPolicy` is `IF_NOT_PRESENT`, because the run image
-is built locally and cannot be pulled), and a stale builder ships outdated buildpack binaries:
-Go standard-library CVEs that the release image, built on a fresh CI runner, does not have.
+The builder and the run image are pinned to a version and digest, never `:latest`: the builder
+in `gradle.properties` (`epistola.image.builder`), the run image in the `FROM` line of
+`apps/epistola/docker/run-image/Dockerfile`. A local build therefore uses exactly the builder and
+base the release does, even though `bootBuildImage` keeps cached images (`pullPolicy` is
+`IF_NOT_PRESENT`, because the run image is built locally and cannot be pulled): a new pin is a new
+reference, so it is pulled. Renovate raises a pull request for each new version, the builder
+through the regex manager in `renovate.json`. The builder decides the buildpacks and with them the
+JRE the images ship, so a JRE fix reaches the images as a builder update.
 
 ### Local Scanning
 
