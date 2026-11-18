@@ -20,8 +20,14 @@
                 Your session has expired. Please log in again to continue.
             </div>
 
+            <!--/* An SSO login that failed after the identity provider redirected back (#714): no password
+                 was involved, so the credentials wording would mislead. The cause is in the server log. */-->
+            <div th:if="${param.error != null and param.error[0] == 'sso'}" class="alert alert-error" data-testid="login-error-sso">
+                <p>Sign-in failed. Please try again, or contact your administrator if it keeps failing.</p>
+            </div>
+
             <!-- Error message -->
-            <div th:if="${param.error}" class="alert alert-error">
+            <div th:if="${param.error != null and param.error[0] != 'sso'}" class="alert alert-error" data-testid="login-error">
                 <p>Invalid username or password. Please try again.</p>
             </div>
 

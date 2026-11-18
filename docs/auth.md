@@ -364,7 +364,8 @@ request:
   on the page they originally asked for.
 - **No provider session** — the provider answers `login_required` (or `interaction_required`,
   `consent_required`, `account_selection_required`). `SsoLoginFailureHandler` sends the user to the
-  normal login page, without an error banner. Any other SSO error still goes to `/login?error`.
+  normal login page, without an error banner. Any other SSO error goes to `/login?error=sso`; see
+  [OAuth2 Login Fails](#oauth2-login-fails).
 
 `LoginHandler` skips the attempt when:
 
@@ -750,6 +751,18 @@ In-memory users must not be used in production. Remove the `local`/`localauth` p
 3. Check for serialization errors in logs
 
 ### OAuth2 Login Fails
+
+A login that fails after the provider redirected back (the token exchange, the JWKS, the UserInfo
+response, ID-token validation or provisioning) shows "Sign-in failed" on the login page, and logs one
+WARN line from `SsoLoginFailureHandler` at the default log level:
+
+```text
+SSO login failed after the identity provider redirected back error=invalid_user_info_response exception=OAuth2AuthenticationException reason="…"
+```
+
+`error` is the OAuth2 error code and `reason` its description, cut off at 300 characters. Neither the
+token nor the provider's response body is logged. With several replicas, the line is on the one that
+handled the callback. Then:
 
 1. Verify Keycloak is running and accessible
 2. Check client ID and secret are correct
