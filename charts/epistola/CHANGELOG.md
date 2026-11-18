@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`jvm.options` disables the JVM's Base64 intrinsic by default** (`-XX:-UseBASE64Intrinsics`),
+  mitigating CVE-2026-114938 (Java4Shell) also for an `image.tag` from before Epistola 1.5.2, which
+  starts without it. If you override `jvm.options`, add the flag yourself when you run such an
+  image. Images from 1.5.2 on carry the flag themselves.
+
 ### Added
 
 - **`generation.fontCache.maxSize` and `generation.fontCache.maxFaces` — bounds of the parsed-font

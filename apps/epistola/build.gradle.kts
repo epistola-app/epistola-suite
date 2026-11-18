@@ -487,6 +487,12 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
     environment.set(
         mapOf(
             "BP_JVM_VERSION" to "25",
+            // CVE-2026-114938 (Java4Shell): the x86-64 AVX-512 Base64 intrinsic writes past its output
+            // array, and Spring Session decodes the session cookie with it before login. The pure-Java
+            // decoder has no such bug. Appended at launch, so a JAVA_TOOL_OPTIONS set by the deployment
+            // (the chart's jvm.options) keeps it. Remove once the JRE carries the fix (docs/sbom.md).
+            "BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
+            "BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:-UseBASE64Intrinsics",
         ),
     )
 }
