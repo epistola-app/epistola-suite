@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Asserts that a built Epistola image starts its JVM with the Base64 intrinsic disabled
 # (CVE-2026-114938, Java4Shell), also when the deployment sets its own JAVA_TOOL_OPTIONS
 # the way the Helm chart's jvm.options does.
