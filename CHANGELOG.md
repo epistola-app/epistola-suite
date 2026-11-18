@@ -2,6 +2,12 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [1.5.2] - 2026-11-18
+
+This release mitigates Java4Shell (CVE-2026-114938), a critical vulnerability in the bundled Java runtime that can be reached before login on recent x86-64 servers: upgrade promptly, or until you can, add `-XX:-UseBASE64Intrinsics` to `JAVA_TOOL_OPTIONS`. It has no database migrations, so it can be rolled back to 1.5.1 by redeploying that image ([rollback](docs/upgrades.md#rollback)).
+
+- fix(security,docker): **The images mitigate the Java4Shell vulnerability (CVE-2026-114938) in the bundled Java runtime.** The Java runtime in the images has a memory-corruption bug in its Base64 decoder on x86-64 processors with AVX-512 (recent Intel Xeon, AMD Zen 4 and newer), reachable before login through the session cookie. The images now start Java with `-XX:-UseBASE64Intrinsics`, which switches the affected decoder off, also when your deployment sets its own `JAVA_TOOL_OPTIONS`. Nothing behaves differently; Base64 decoding of large payloads is slightly slower. ARM servers were never affected.
+
 ## [1.5.1] - 2026-11-06
 
 This release fixes two security issues: removing a user's roles at the identity provider now removes their access, and an API key can no longer carry roles its creator lacks (review existing keys). It also stops the collect feed from losing a result under load, runs cluster tasks and timers once at a time, makes MCP work with more than one replica, and moves the image onto a maintained base. It has no database migrations, so it can be rolled back to 1.5.0 by redeploying that image ([rollback](docs/upgrades.md#rollback)).
