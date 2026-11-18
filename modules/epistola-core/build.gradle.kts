@@ -53,9 +53,6 @@ dependencies {
     // Validation
     implementation(libs.json.schema.validator)
 
-    // JSONata expression language (already in :modules:generation; declared here
-    // for compile-time visibility in epistola-core validators)
-    implementation(libs.jsonata)
     // npm SemVer ranges for catalog dependency selectors (contract ADR 0003).
     implementation(libs.semver4j)
 
@@ -77,9 +74,7 @@ dependencies {
     testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     // Test-only: cross-check the inline murmur3 helper in `generation/collect/domain/Partition.kt`
     // against Guava's implementation, which the contract docstring guarantees we must match.

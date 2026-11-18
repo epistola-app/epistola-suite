@@ -14,8 +14,6 @@ dependencies {
     api(project(":modules:epistola-core"))
 
     api("org.springframework.boot:spring-boot-starter-test")
-    api("org.springframework.boot:spring-boot-testcontainers")
-    api("org.testcontainers:testcontainers-junit-jupiter")
     api("org.testcontainers:testcontainers-postgresql")
     api("org.jetbrains.kotlin:kotlin-test-junit5")
 

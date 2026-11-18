@@ -87,9 +87,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.commonmark:commonmark:0.32.0")
 
-    // HTMX for dynamic UI
-    implementation(libs.htmx.spring.boot.thymeleaf)
-
     // Flyway for migrations (app deployment concern)
     implementation("org.flywaydb:flyway-database-postgresql")
 
@@ -127,10 +124,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
     testImplementation("org.springframework.boot:spring-boot-starter-thymeleaf-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.testcontainers:testcontainers-grafana")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation(libs.playwright)
     // JsonPath for readable JSON assertions in smoke / wire tests where Jackson
