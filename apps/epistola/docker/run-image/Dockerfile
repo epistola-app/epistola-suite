@@ -5,9 +5,11 @@
 # ubuntu-noble-run is Paketo's maintained Noble run image, rebuilt as Ubuntu ships
 # security updates. Its predecessor, run-noble-base, has not been updated since
 # April 2024: every image built on it shipped Noble's original OpenSSL, and could
-# never pick up a patched package. The build passes --pull so a stale local copy
-# of :latest is not reused either.
-FROM paketobuildpacks/ubuntu-noble-run:latest
+# never pick up a patched package.
+#
+# Pinned to a version and its digest, never :latest, so a build is reproducible and
+# every base-image update arrives as a Renovate pull request that says what changed.
+FROM paketobuildpacks/ubuntu-noble-run:0.0.160@sha256:46ab1abf505005e7decb422d1005fbed4cdd489fa2af27be9e427c44d71439d6
 
 # Pin the container locale to UTF-8. run-noble-base boots with the C/POSIX
 # locale, which makes the JVM resolve sun.jnu.encoding to ASCII and mis-handle

@@ -85,6 +85,16 @@
       "automerge": false
     }
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The bootBuildImage builder, pinned in gradle.properties: Renovate's gradle manager does not read the Kotlin DSL's builder.set(), so the `# renovate:` comment above the property names the image. The builder picks the buildpacks and with them the JRE the images ship.",
+      "managerFilePatterns": ["/(^|/)gradle\\.properties$/"],
+      "matchStrings": [
+        "#\\s*renovate: datasource=(?<datasource>docker) depName=(?<depName>\\S+)\\s*\\n[\\w.-]+=\\S+?:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
+    }
+  ],
   "gradle": {
     "managerFilePatterns": [
       "/(^|/)build\\.gradle\\.kts$/",
