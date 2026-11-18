@@ -25,6 +25,7 @@ import com.itextpdf.kernel.pdf.PdfViewerPreferences
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.kernel.pdf.navigation.PdfNamedDestination
+import com.itextpdf.kernel.xmp.XMPMeta
 import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
@@ -141,6 +142,7 @@ class DirectPdfRenderer(
                     fontScope = fontScope,
                     clock = clock,
                     watermarkText = watermarkText,
+                    locale = culture.locale.toLanguageTag(),
                 )
             } else {
                 renderSinglePass(
@@ -158,6 +160,7 @@ class DirectPdfRenderer(
                     fontScope = fontScope,
                     clock = clock,
                     watermarkText = watermarkText,
+                    locale = culture.locale.toLanguageTag(),
                 )
             }
         } catch (e: Exception) {
@@ -220,6 +223,8 @@ class DirectPdfRenderer(
         fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
+        /** The BCP 47 locale the document is formatted with: its /Lang, and in its generation context. */
+        locale: String,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -262,6 +267,7 @@ class DirectPdfRenderer(
             rightMargin = effectivePageMarginPt(null, "marginRight", context),
             leftMargin = effectivePageMarginPt(null, "marginLeft", context),
             watermarkText = watermarkText,
+            locale = locale,
         )
     }
 
@@ -280,6 +286,8 @@ class DirectPdfRenderer(
         fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
+        /** The BCP 47 locale the document is formatted with: its /Lang, and in its generation context. */
+        locale: String,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -344,6 +352,7 @@ class DirectPdfRenderer(
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
+            locale = locale,
         )
 
         // Second pass: render with known total page count
@@ -373,6 +382,7 @@ class DirectPdfRenderer(
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
             watermarkText = watermarkText,
+            locale = locale,
         )
     }
 
@@ -391,6 +401,7 @@ class DirectPdfRenderer(
         enableMetadata: Boolean = true,
         enableHeaderFooter: Boolean = true,
         watermarkText: String? = null,
+        locale: String,
     ): Int {
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
@@ -399,7 +410,13 @@ class DirectPdfRenderer(
             // (WCAG PDF3/PDF9/PDF11/PDF21). Skipped on the discarded
             // first counting pass.
             pdfDocument.setTagged()
-            applyMetadata(pdfDocument, metadata, claimPdfUa = enablePdfA)
+            applyMetadata(
+                pdfDocument,
+                metadata,
+                claimPdfUa = enablePdfA,
+                renderedAt = SystemParameterRegistry.renderTime(context.systemParams),
+                locale = locale,
+            )
         }
 
         val nodeRendererRegistry = createDefaultRegistry(pdfDocument)
@@ -549,11 +566,19 @@ class DirectPdfRenderer(
         }
     }
 
+    /**
+     * The XMP is completed when the document closes: iText adds the document info and its
+     * conformance entries, then [GenerationContextXmp.describe] adds the generation context's schema.
+     */
     private fun createPdfDocument(writer: PdfWriter, pdfaCompliant: Boolean): PdfDocument = if (pdfaCompliant) {
         val outputIntent = createSrgbOutputIntent()
-        PdfADocument(writer, PdfAConformance.PDF_A_2B, outputIntent)
+        object : PdfADocument(writer, PdfAConformance.PDF_A_2B, outputIntent) {
+            override fun updateDefaultXmpMetadata(): XMPMeta = GenerationContextXmp.describe(super.updateDefaultXmpMetadata())
+        }
     } else {
-        PdfDocument(writer)
+        object : PdfDocument(writer) {
+            override fun updateDefaultXmpMetadata(): XMPMeta = GenerationContextXmp.describe(super.updateDefaultXmpMetadata())
+        }
     }
 
     private fun createSrgbOutputIntent(): PdfOutputIntent {
@@ -572,7 +597,7 @@ class DirectPdfRenderer(
      * Every document is tagged, but only a PDF/A one claims PDF/UA-1: without PDF/A the standard
      * fonts are not embedded, which PDF/UA-1 requires (ISO 14289-1, 7.21.4.1; #1308).
      */
-    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata, claimPdfUa: Boolean) {
+    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata, claimPdfUa: Boolean, renderedAt: String?, locale: String) {
         val info = pdfDocument.documentInfo
         metadata.title?.let { info.setTitle(it) }
         metadata.author?.let { info.setAuthor(it) }
@@ -580,18 +605,20 @@ class DirectPdfRenderer(
         info.setCreator(metadata.creator)
         metadata.engineVersion?.let { info.setMoreInfo("EngineVersion", it) }
 
-        // Document language for assistive technology (WCAG PDF16)
-        pdfDocument.catalog.lang = PdfString(metadata.language)
+        // Document language for assistive technology (WCAG PDF16): the language it was rendered in
+        pdfDocument.catalog.lang = PdfString(locale)
 
         // Show the document title (not the filename) in the viewer title bar (WCAG PDF18)
         if (metadata.title != null) {
             pdfDocument.catalog.viewerPreferences = PdfViewerPreferences().setDisplayDocTitle(true)
         }
 
-        // PDF/UA-1 identification in XMP metadata (ISO 14289-1 §5)
-        if (claimPdfUa) {
+        val context = metadata.generationContext
+        if (claimPdfUa || context != null) {
             val xmpMeta = XMPMetaFactory.create()
-            xmpMeta.setPropertyInteger("http://www.aiim.org/pdfua/ns/id/", "pdfuaid:part", 1)
+            // PDF/UA-1 identification in XMP metadata (ISO 14289-1 §5)
+            if (claimPdfUa) xmpMeta.setPropertyInteger("http://www.aiim.org/pdfua/ns/id/", "pdfuaid:part", 1)
+            if (context != null) GenerationContextXmp.write(xmpMeta, context, renderedAt, locale, metadata.engineVersion)
             pdfDocument.xmpMetadata = xmpMeta
         }
     }

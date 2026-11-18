@@ -7,6 +7,7 @@ package app.epistola.suite.generation
 import app.epistola.generation.RenderCulture
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
+import app.epistola.generation.pdf.GenerationContext
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
@@ -182,7 +183,8 @@ class DraftDocumentRenderer(
 
     data class Rendered(val pdf: ByteArray, val templateResourceId: UUID?)
 
-    fun render(catalog: CatalogId, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String): Rendered {
+    /** [context] is where the document came from, written to its XMP. */
+    fun render(catalog: CatalogId, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String, context: GenerationContext): Rendered {
         val draft = CatalogReleaseRef(catalog, DraftRef.Id(draftId))
         val prepared = mediator.query(PrepareDraftRender(catalog, templateKey, variantKey, data, draft))
 
@@ -196,7 +198,12 @@ class DraftDocumentRenderer(
             dataMap,
             out,
             prepared.theme,
-            metadata = PdfMetadata(title = prepared.templateName, author = prepared.tenantName, engineVersion = RenderingDefaults.CURRENT.engineVersionString()),
+            metadata = PdfMetadata(
+                title = prepared.templateName,
+                author = prepared.tenantName,
+                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
+                generationContext = context,
+            ),
             pdfaCompliant = prepared.pdfaEnabled,
             assetResolver = assets,
             fontFamilyResolver = fontFamilyResolver(prepared.owning, catalogVersion = draft, dependencies = prepared.dependencies),

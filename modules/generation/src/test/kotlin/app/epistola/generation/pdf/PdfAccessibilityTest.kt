@@ -43,7 +43,7 @@ class PdfAccessibilityTest {
         )
 
         assertTrue(snapshot.tagged, "PDF should be tagged")
-        assertEquals("nl-NL", snapshot.lang, "default catalog /Lang")
+        assertEquals("en-US", snapshot.lang, "catalog /Lang: the default render locale (DocumentLanguageTest)")
         assertTrue(snapshot.displayDocTitle, "DisplayDocTitle viewer preference set when a title is present")
         assertTrue(snapshot.xmp.contains("pdfuaid:part"), "XMP should carry the PDF/UA-1 identifier")
         assertEquals("1", snapshot.pageLabels.firstOrNull(), "first page label is decimal 1")
@@ -60,17 +60,6 @@ class PdfAccessibilityTest {
 
         assertTrue(snapshot.tagged, "PDF should still be tagged")
         assertTrue("pdfuaid" !in snapshot.xmp, "no PDF/UA-1 identifier without PDF/A")
-    }
-
-    @Test
-    fun `custom document language is written to the catalog`() {
-        val doc = documentWithChildren(mapOf("p1" to textNode("p1", "Hello.")), listOf("p1"))
-
-        val snapshot = PdfAccessibilityInspector.inspect(
-            renderToBytes(doc, metadata = PdfMetadata(language = "en-US")),
-        )
-
-        assertEquals("en-US", snapshot.lang)
     }
 
     // ---------------------------------------------------------------------------

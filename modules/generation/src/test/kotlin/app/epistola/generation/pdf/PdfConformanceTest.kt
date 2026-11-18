@@ -264,8 +264,14 @@ class PdfConformanceTest {
             document = document,
             data = data,
             outputStream = out,
-            // As production passes it: the template name and the tenant (DocumentGenerationExecutor).
-            metadata = PdfMetadata(title = "Conformance letter", author = "Acme Corp"),
+            // As production passes it: the template name, the tenant, the engine and where the
+            // document came from (DocumentGenerationExecutor), whose XMP must conform as well.
+            metadata = PdfMetadata(
+                title = "Conformance letter",
+                author = "Acme Corp",
+                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
+                generationContext = GENERATION_CONTEXT,
+            ),
             resolvedTheme = theme,
             pdfaCompliant = pdfa,
             assetResolver = assetResolver,
@@ -322,6 +328,19 @@ class PdfConformanceTest {
 
     companion object {
         private const val FIGURE_WITHOUT_ALT = "ISO 14289-1:2014 7.3-1"
+
+        private val GENERATION_CONTEXT = GenerationContext(
+            tenant = "acme",
+            registry = "local",
+            namespace = "acme",
+            catalog = "letters",
+            template = "conformance-letter",
+            variant = "default",
+            release = "1.0.0",
+            catalogVersion = "0199a3c2-7f00-7000-8000-000000000001",
+            environment = "production",
+            request = "0199a3c2-7f00-7000-8000-000000000002",
+        )
 
         /**
          * None today. A violation that cannot be fixed in the change that reveals it goes here, per
