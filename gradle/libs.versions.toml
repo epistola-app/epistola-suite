@@ -6,7 +6,6 @@ graalvm-native = "1.1.18"
 ktlint = "14.2.0"
 # The ktlint engine the Gradle plugin runs; the plugin's own default lags behind (1.5.0).
 ktlint-engine = "1.8.0"
-htmx-spring-boot = "6.0.1"
 cyclonedx = "3.5.1"
 dependency-license-report = "3.1.5"
 kover = "0.9.11"
@@ -15,7 +14,6 @@ jdbi = "3.55.0"
 json-schema-validator = "3.0.9"
 jsonata = "0.9.10"
 uuid-creator = "6.1.1"
-spring-web = "7.0.10"
 playwright = "1.64.0"
 epistola-contract = "2.0.0"
 # The support connection's keys and client assertions; the version Spring Security 7.1 uses.
@@ -48,8 +46,6 @@ opentelemetry = "1.67.0"
 
 [libraries]
 semver4j = { module = "org.semver4j:semver4j", version.ref = "semver4j" }
-htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
-jdbi-bom = { module = "org.jdbi:jdbi3-bom", version.ref = "jdbi" }
 jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
 jdbi-kotlin = { module = "org.jdbi:jdbi3-kotlin", version.ref = "jdbi" }
 jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
@@ -58,7 +54,6 @@ jdbi-spring = { module = "org.jdbi:jdbi3-spring", version.ref = "jdbi" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 jsonata = { module = "com.dashjoin:jsonata", version.ref = "jsonata" }
 uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-creator" }
-spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
 epistola-catalog = { module = "app.epistola.contract:epistola-catalog", version.ref = "epistola-contract" }
