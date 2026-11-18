@@ -212,8 +212,10 @@ podDisruptionBudget:
 
 # JVM configuration
 jvm:
-  # JAVA_TOOL_OPTIONS passed to the JVM
-  options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
+  # JAVA_TOOL_OPTIONS passed to the JVM. -XX:-UseBASE64Intrinsics mitigates
+  # CVE-2026-114938 (Java4Shell) on images from before Epistola 2.0.1; those already
+  # start with it, and keep it whatever is set here. Safe on x86-64 and ARM.
+  options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC -XX:-UseBASE64Intrinsics"
 
 # Additional trusted root CA certificates for OUTBOUND TLS — e.g. an internal
 # Keycloak, a private catalog server, the Epistola support service, or a corporate

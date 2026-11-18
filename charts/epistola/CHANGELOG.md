@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **`jvm.options` disables the JVM's Base64 intrinsic by default** (`-XX:-UseBASE64Intrinsics`),
+  mitigating CVE-2026-114938 (Java4Shell) also for an `image.tag` from before Epistola 2.0.1, which
+  starts without it. If you override `jvm.options`, add the flag yourself when you run such an
+  image. Images from 2.0.1 on carry the flag themselves.
+
 - The comment on `support.endpoint` says what an empty value means since Epistola 2.0.1: the issuer
   the product domain's discovery document names, else `https://support.{productDomain}`. Nothing
   renders differently.
