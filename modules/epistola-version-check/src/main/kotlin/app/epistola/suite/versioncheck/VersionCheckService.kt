@@ -23,9 +23,32 @@ class VersionCheckService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val currentVersion: String get() = buildProperties?.version ?: "dev"
 
+    /**
+     * The status of the running version, evaluated now from the Suite's entry of the last successful
+     * fetch. So an upgrade shows its own status at once (no stale "update to the version you run"),
+     * a line's status follows the stored document between checks, and a failed fetch keeps the last
+     * entry instead of relabelling an old verdict. The last run's outcome (time, availability, error)
+     * comes from the stored run record. Until this build's first successful fetch there is no stored
+     * entry, and the stored verdict is shown as before.
+     */
     fun status(): VersionCheckStatus? {
         if (!properties.enabled) return null
-        return readStatus()
+        val run = readStatus()
+        val releases = readReleases()
+        val product = releases?.product ?: return run
+        val now = EpistolaClock.instant()
+        val evaluated = VersionCheckEvaluator.evaluate(
+            product = product,
+            generatedAt = releases.generatedAt,
+            currentVersion = currentVersion,
+            checkedAt = run?.checkedAt ?: releases.fetchedAt ?: now,
+            now = now,
+            deprecationWindow = properties.deprecationWarningWindow,
+        )
+        return evaluated.copy(
+            metadataAvailable = run?.metadataAvailable ?: true,
+            lastError = run?.lastError ?: evaluated.lastError,
+        )
     }
 
     /**
@@ -38,6 +61,13 @@ class VersionCheckService(
         metadata.getAs<VersionCheckStatus>(STATUS_KEY)
     } catch (e: Exception) {
         log.debug("Ignoring unreadable cached version-check status reason=\"{}\"", e.message)
+        null
+    }
+
+    private fun readReleases(): StoredReleases? = try {
+        metadata.getAs<StoredReleases>(RELEASES_KEY)
+    } catch (e: Exception) {
+        log.debug("Ignoring unreadable stored releases entry reason=\"{}\"", e.message)
         null
     }
 
@@ -62,6 +92,9 @@ class VersionCheckService(
 
         val status = try {
             val document = client.fetch(endpoint(discover = true))
+            document.products[PRODUCT_KEY]?.let { product ->
+                metadata.setAs(RELEASES_KEY, StoredReleases(fetchedAt = now, generatedAt = document.generatedAt, product = product))
+            }
             VersionCheckEvaluator.evaluate(document, currentVersion, now, properties.deprecationWarningWindow)
         } catch (e: VersionMetadataUnavailableException) {
             // Metadata temporarily absent (404) — keep any previously known update, like the
@@ -103,6 +136,9 @@ class VersionCheckService(
 
     companion object {
         const val STATUS_KEY = "version-check.status"
+
+        /** The Suite's entry from the last successful fetch ([StoredReleases]). */
+        const val RELEASES_KEY = "version-check.releases"
         const val PRODUCT_KEY = "epistola-suite"
     }
 }

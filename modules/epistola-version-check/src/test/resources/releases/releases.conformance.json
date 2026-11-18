@@ -1,0 +1,206 @@
+{
+  "description": "Test cases for clients of https://epistola.app/releases.json (schema: https://epistola.app/releases.schema.json). Each case evaluates `version` against `products[product]`, a product entry as releases.json serves it, and expects the result: `status` is the running version's support status (`supported`, `ending`, `ended`, or `unknown`: say nothing about support), `line` the matched line, and `patch`, `newerRelease` and `nextPrerelease` the version to offer, or null. The website's own reference client passes every case. A client copies this file into its tests; it changes only by adding cases.",
+  "products": {
+    "current": {
+      "stable": {
+        "version": "2.0.1",
+        "releaseUrl": "https://example.test/v2.0.1",
+        "changelogUrl": null,
+        "publishedAt": "2026-12-01T10:00:00Z"
+      },
+      "next": {
+        "version": "2.1.0-rc.1",
+        "releaseUrl": "https://example.test/v2.1.0-rc.1",
+        "changelogUrl": null,
+        "publishedAt": "2026-12-05T10:00:00Z"
+      },
+      "lines": [
+        {
+          "line": "2.0",
+          "latest": {
+            "version": "2.0.1",
+            "releaseUrl": "https://example.test/v2.0.1",
+            "changelogUrl": null,
+            "publishedAt": "2026-12-01T10:00:00Z"
+          },
+          "supportEnds": null,
+          "status": "supported"
+        },
+        {
+          "line": "1.5",
+          "latest": {
+            "version": "1.5.1",
+            "releaseUrl": "https://example.test/v1.5.1",
+            "changelogUrl": null,
+            "publishedAt": "2026-11-03T10:00:00Z"
+          },
+          "supportEnds": "2027-02-12",
+          "status": "ending"
+        },
+        {
+          "line": "1.4",
+          "latest": {
+            "version": "1.4.0",
+            "releaseUrl": "https://example.test/v1.4.0",
+            "changelogUrl": null,
+            "publishedAt": "2026-10-13T07:13:09Z"
+          },
+          "supportEnds": "2026-11-14",
+          "status": "ended"
+        },
+        {
+          "line": "1.3",
+          "latest": {
+            "version": "1.3.0",
+            "releaseUrl": "https://example.test/v1.3.0",
+            "changelogUrl": null,
+            "publishedAt": "2026-09-28T10:09:36Z"
+          },
+          "supportEnds": "2026-10-15",
+          "status": "ended"
+        }
+      ],
+      "support": { "minVersion": "1.5.0" }
+    },
+    "without-lines": {
+      "stable": {
+        "version": "2.0.0",
+        "releaseUrl": "https://example.test/v2.0.0",
+        "changelogUrl": null,
+        "publishedAt": null
+      },
+      "support": { "minVersion": "1.5.0" }
+    },
+    "unknown-status": {
+      "stable": {
+        "version": "1.0.0",
+        "releaseUrl": "https://example.test/v1.0.0",
+        "changelogUrl": null,
+        "publishedAt": null
+      },
+      "lines": [
+        {
+          "line": "1.0",
+          "latest": {
+            "version": "1.0.0",
+            "releaseUrl": "https://example.test/v1.0.0",
+            "changelogUrl": null,
+            "publishedAt": null
+          },
+          "supportEnds": "2027-12-31",
+          "status": "extended"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "the newest release is supported, with nothing to offer",
+      "product": "current",
+      "version": "2.0.1",
+      "expect": { "status": "supported", "line": "2.0", "patch": null, "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "an older patch of the newest line is supported and offered its line's patch",
+      "product": "current",
+      "version": "2.0.0",
+      "expect": { "status": "supported", "line": "2.0", "patch": "2.0.1", "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "the newest patch of an ending line is ending and offered the newer line",
+      "product": "current",
+      "version": "1.5.1",
+      "expect": { "status": "ending", "line": "1.5", "patch": null, "newerRelease": "2.0.1", "nextPrerelease": null }
+    },
+    {
+      "name": "an older patch of an ending line is offered both its patch and the newer line",
+      "product": "current",
+      "version": "1.5.0",
+      "expect": { "status": "ending", "line": "1.5", "patch": "1.5.1", "newerRelease": "2.0.1", "nextPrerelease": null }
+    },
+    {
+      "name": "an ended line is ended",
+      "product": "current",
+      "version": "1.4.0",
+      "expect": { "status": "ended", "line": "1.4", "patch": null, "newerRelease": "2.0.1", "nextPrerelease": null }
+    },
+    {
+      "name": "a version older than every listed line is ended",
+      "product": "current",
+      "version": "1.2.3",
+      "expect": { "status": "ended", "line": null, "patch": null, "newerRelease": "2.0.1", "nextPrerelease": null }
+    },
+    {
+      "name": "a pre-release of a line that is not released yet is unknown and offered a newer pre-release",
+      "product": "current",
+      "version": "2.1.0-beta.1",
+      "expect": {
+        "status": "unknown",
+        "line": null,
+        "patch": null,
+        "newerRelease": null,
+        "nextPrerelease": "2.1.0-rc.1"
+      }
+    },
+    {
+      "name": "the newest pre-release is unknown, with nothing to offer",
+      "product": "current",
+      "version": "2.1.0-rc.1",
+      "expect": { "status": "unknown", "line": null, "patch": null, "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "a pre-release of a released line is offered its final release as the patch",
+      "product": "current",
+      "version": "2.0.0-beta.1",
+      "expect": {
+        "status": "supported",
+        "line": "2.0",
+        "patch": "2.0.1",
+        "newerRelease": null,
+        "nextPrerelease": "2.1.0-rc.1"
+      }
+    },
+    {
+      "name": "a development build of a released line is not offered an older patch, but is a pre-release",
+      "product": "current",
+      "version": "2.0.2-SNAPSHOT",
+      "expect": {
+        "status": "supported",
+        "line": "2.0",
+        "patch": null,
+        "newerRelease": null,
+        "nextPrerelease": "2.1.0-rc.1"
+      }
+    },
+    {
+      "name": "a development build newer than every line is unknown",
+      "product": "current",
+      "version": "2.2.0-SNAPSHOT",
+      "expect": { "status": "unknown", "line": null, "patch": null, "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "a build of a line that was never released, between listed lines, is unknown",
+      "product": "current",
+      "version": "1.6.0",
+      "expect": { "status": "unknown", "line": null, "patch": null, "newerRelease": "2.0.1", "nextPrerelease": null }
+    },
+    {
+      "name": "a version that is not SemVer is unknown",
+      "product": "current",
+      "version": "dev",
+      "expect": { "status": "unknown", "line": null, "patch": null, "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "a document without lines is unknown: the client falls back to its older logic",
+      "product": "without-lines",
+      "version": "1.5.0",
+      "expect": { "status": "unknown", "line": null, "patch": null, "newerRelease": null, "nextPrerelease": null }
+    },
+    {
+      "name": "a status the client does not know is unknown",
+      "product": "unknown-status",
+      "version": "1.0.0",
+      "expect": { "status": "unknown", "line": "1.0", "patch": null, "newerRelease": null, "nextPrerelease": null }
+    }
+  ]
+}

@@ -32,9 +32,15 @@ data class SemVersion(
     }
 
     companion object {
-        fun parse(version: String): SemVersion? {
-            val normalized = normalize(version)
-            val withoutBuild = normalized.substringBefore("+")
+        fun parse(version: String): SemVersion? = parseStrict(normalize(version))
+
+        /**
+         * Parses [version] as SemVer, where a `-SNAPSHOT` build is a pre-release. The version
+         * check's line lookup uses this, so it answers the published test cases like every other
+         * client of releases.json.
+         */
+        fun parseStrict(version: String): SemVersion? {
+            val withoutBuild = version.trim().substringBefore("+")
             val core = withoutBuild.substringBefore("-").split(".")
             if (core.size != 3) return null
             val numbers = core.map { it.toIntOrNull() ?: return null }

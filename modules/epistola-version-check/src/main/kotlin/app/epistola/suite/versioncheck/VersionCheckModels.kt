@@ -28,15 +28,22 @@ data class VersionCheckStatus(
     val latestStableVersion: String? = null,
     val stableReleaseUrl: String? = null,
     val stableChangelogUrl: String? = null,
-    /** False when the running version is below the product's minimum supported version. */
+    /**
+     * False when the running version's line has ended (as the website decided it), or, for an older
+     * document without lines, when it is below the minimum supported version.
+     */
     val supported: Boolean = true,
-    /** True when still supported but [supportedUntil] falls within the deprecation-warning window. */
+    /**
+     * True when the running version's line is ending (it has an end date that has not passed), or,
+     * for an older document without lines, when [supportedUntil] falls within the warning window.
+     */
     val supportEndingSoon: Boolean = false,
     /** The product's minimum supported version, when the metadata declares one. */
     val minSupportedVersion: String? = null,
     /**
-     * ISO date (`YYYY-MM-DD`) until which the minimum supported version's line is supported, if
-     * declared. Null for a running version on a newer line: that date is not its own.
+     * ISO date (`YYYY-MM-DD`): the last supported day of the running version's line, when it is
+     * ending or has ended. For an older document without lines, the floor line's date, and null for
+     * a running version on a newer line: that date is not its own.
      */
     val supportedUntil: String? = null,
     /**
@@ -59,14 +66,26 @@ data class ApplicableAdvisory(
     val url: String? = null,
 )
 
+/**
+ * The releases document epistola.app serves (schema: https://epistola.app/releases.schema.json).
+ * Unknown fields are ignored: the website only ever adds fields.
+ */
 data class EpistolaReleasesDocument(
     val schemaVersion: Int = 0,
+    /** When the website computed the document; line statuses hold for that day. */
+    val generatedAt: Instant? = null,
     val products: Map<String, ProductReleases> = emptyMap(),
 )
 
 data class ProductReleases(
     val stable: ReleaseRef? = null,
+    /** Legacy: the newest pre-release, even when older than [stable]. New code reads [next]. */
     val prerelease: ReleaseRef? = null,
+    /** The newest pre-release, only while it is newer than [stable]. */
+    val next: ReleaseRef? = null,
+    /** Every release line, newest first, with the support status the website decided. */
+    val lines: List<ReleaseLine>? = null,
+    /** Legacy: the oldest supported line, as a floor. New code reads [lines]. */
     val support: SupportPolicy? = null,
     /** Published security advisories. Null (absent) means unknown; an empty list means none. */
     val advisories: List<Advisory>? = null,
@@ -103,6 +122,29 @@ data class AffectedRange(
 data class SupportPolicy(
     val minVersion: String? = null,
     val until: String? = null,
+)
+
+/** One `major.minor` release line. */
+data class ReleaseLine(
+    /** `major.minor`, e.g. `2.0`. */
+    val line: String? = null,
+    /** The line's newest final release. */
+    val latest: ReleaseRef? = null,
+    /** The line's last supported day (UTC, inclusive), or null while it has no successor. */
+    val supportEnds: String? = null,
+    /** `supported`, `ending` or `ended`; more values may be added. */
+    val status: String? = null,
+)
+
+/**
+ * The Suite's entry from the last successful fetch, kept so the status is evaluated whenever it is
+ * read, for the version that is running then: an upgrade shows its own status at once, and a later
+ * failed fetch keeps this entry rather than an old verdict.
+ */
+data class StoredReleases(
+    val fetchedAt: Instant? = null,
+    val generatedAt: Instant? = null,
+    val product: ProductReleases? = null,
 )
 
 /** A single published release the check compares against (the latest stable, or the latest pre-release). */
