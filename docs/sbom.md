@@ -117,6 +117,18 @@ takes the newest release tagged on it, plus the newest pre-release when that is 
 still in alpha or beta is scanned before it has a release. Deleting a maintenance branch takes its
 line out of the watch.
 
+Trivy does not see the Java runtime: the buildpack installs the JRE as a plain directory, neither
+an operating-system package nor a jar, so Java4Shell (CVE-2026-114938) in the JRE of 2.0.0 and
+1.5.1 went unreported until a maintainer noticed. Each image is therefore also checked with
+`python3 scripts/cve_watch.py runtime-scan <image> --output runtime.json`. It reads the JRE's
+version from its `release` file in the image and compares it with the
+[OpenJDK vulnerability advisories](https://openjdk.org/groups/vulnerability/advisories/), which
+name the last affected version of every line on the day of disclosure (the NVD often has no
+product data for a new CVE for days). A HIGH or CRITICAL CVE in an advisory that marks the
+runtime's line, while the runtime is no newer than the last affected version, becomes a finding
+in Trivy's report shape, and triage files and closes it like any other. Triage closes nothing for
+an image whose runtime report is missing. The watch runs twice a day, at 04:37 and 16:37 UTC.
+
 The same workflow checks that the support floor installations read (`support` in `releases.json`,
 see [version-check.md](version-check.md)) matches [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md) and
 these branches: no line advertised after its end or dropped before it, an end date published for

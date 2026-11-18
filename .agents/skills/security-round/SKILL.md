@@ -29,7 +29,8 @@ A failing `check-support` is itself a finding: `releases.json` and the policy di
 ## 2. Read the current scan, not the issue backlog
 
 Download the latest `Security Scan` run. Its `trivy-image-*` artifacts are today's image scans,
-with our VEX applied:
+with our VEX applied: `trivy-image.json` for the OS packages and jars, `runtime-image.json` for
+the Java runtime, which Trivy cannot see:
 
 ```bash
 gh run list --workflow security-scan.yml --limit 1
@@ -39,7 +40,8 @@ gh run download <run-id> --dir <scratch>/scan
 Confirm each report is real before you trust a zero: `ArtifactName` is a supported image and it
 lists packages (`[.Results[]?.Packages[]?] | length` is in the hundreds). A missing or empty report
 means a failed scan, not a clean one. If the run is more than a day old, scan locally instead:
-`trivy image --format json` with `TRIVY_VEX` set to the output of `pnpm vulnerabilities:export-vex`.
+`trivy image --format json` with `TRIVY_VEX` set to the output of `pnpm vulnerabilities:export-vex`, plus
+`python3 scripts/cve_watch.py runtime-scan <image> --output runtime.json`.
 
 ## 3. Triage everything open
 
