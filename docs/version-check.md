@@ -93,10 +93,11 @@ or with the maintenance branches, and its message says what to publish instead.
 - **`support.minVersion`:** installations strictly below this are flagged **unsupported** (a distinct
   banner urging an upgrade) instead of the ordinary "update available" banner. Omit the whole
   `support` block to disable support flagging.
-- **`support.until`:** ISO date (`YYYY-MM-DD`) through which the floor is supported. A still-supported
-  install whose `until` falls within `epistola.version-check.deprecation-warning-window` (default
-  `90d`) of the check date gets an amber "support ending" banner to plan an upgrade; outside that
-  window nothing extra shows. Support status itself (supported vs not) is decided purely by version
+- **`support.until`:** ISO date (`YYYY-MM-DD`) through which the floor's line (the `X.Y` of
+  `minVersion`) is supported. A still-supported install on that line whose `until` falls within
+  `epistola.version-check.deprecation-warning-window` (default `90d`) of the check date gets an amber
+  "support ending" banner to plan an upgrade; outside that window nothing extra shows. An install on
+  a newer line ignores `until`: the date is not its own, and its line ends later or not at all. Support status itself (supported vs not) is decided purely by version
   comparison against `minVersion`, not by this date.
 
 - **`advisories`:** the published security advisories (from `vulnerabilities/` in this repository).

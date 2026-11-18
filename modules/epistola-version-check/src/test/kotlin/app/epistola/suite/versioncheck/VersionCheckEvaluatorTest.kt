@@ -136,6 +136,67 @@ class VersionCheckEvaluatorTest {
     }
 
     @Test
+    fun `a patch on the floor line is told its support is ending`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseRef(version = "2.0.0"),
+                support = SupportPolicy(minVersion = "1.5.0", until = "2026-08-01"),
+            ),
+            currentVersion = "1.5.3",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supportEndingSoon).isTrue()
+        assertThat(status.supportedUntil).isEqualTo("2026-08-01")
+    }
+
+    @Test
+    fun `a newer major does not inherit the floor line's end of support`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseRef(version = "2.0.0"),
+                support = SupportPolicy(minVersion = "1.5.0", until = "2026-08-01"),
+            ),
+            currentVersion = "2.0.0",
+            checkedAt = checkedAt, // the floor line ends 24 days out; 2.0 is the newest line
+        )
+
+        assertThat(status.supported).isTrue()
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.supportedUntil).isNull()
+        assertThat(status.minSupportedVersion).isEqualTo("1.5.0")
+    }
+
+    @Test
+    fun `a newer minor does not inherit the floor line's end of support`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseRef(version = "1.2.0"),
+                support = SupportPolicy(minVersion = "1.1.0", until = "2026-08-01"),
+            ),
+            currentVersion = "1.2.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supportEndingSoon).isFalse()
+        assertThat(status.supportedUntil).isNull()
+    }
+
+    @Test
+    fun `without a parseable floor, until applies as published`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseRef(version = "2.0.0"),
+                support = SupportPolicy(minVersion = null, until = "2026-08-01"),
+            ),
+            currentVersion = "2.0.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.supportEndingSoon).isTrue()
+    }
+
+    @Test
     fun `unsupported versions do not also warn about ending support`() {
         val status = VersionCheckEvaluator.evaluate(
             document(

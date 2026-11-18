@@ -34,7 +34,10 @@ data class VersionCheckStatus(
     val supportEndingSoon: Boolean = false,
     /** The product's minimum supported version, when the metadata declares one. */
     val minSupportedVersion: String? = null,
-    /** ISO date (`YYYY-MM-DD`) until which the minimum supported version is supported, if declared. */
+    /**
+     * ISO date (`YYYY-MM-DD`) until which the minimum supported version's line is supported, if
+     * declared. Null for a running version on a newer line: that date is not its own.
+     */
     val supportedUntil: String? = null,
     /**
      * Published security advisories that apply to [currentVersion], most severe first. Null when
