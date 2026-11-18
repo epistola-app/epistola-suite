@@ -13,6 +13,12 @@ import java.time.OffsetDateTime
  * [timerType] is a stable string contract, not a class name; it must match the
  * value written by [ScheduleClusterTimer]. Handlers must be idempotent because
  * timers are leased and retried with at-least-once execution semantics.
+ *
+ * A timer with a tenant runs as that tenant's system principal
+ * (`SystemUser.principalForTenant`). A system-wide timer runs with no principal,
+ * so it dispatches only `SystemInternal` operations, or binds a tenant's system
+ * principal itself before it touches that tenant. See [ClusterScheduledTaskHandler]
+ * for why no role-less principal is bound (#551).
  */
 interface ClusterTimerHandler {
     val timerType: String

@@ -138,8 +138,8 @@ class ClusterTimerScheduler(
 
         try {
             // A tenant-scoped timer runs as that tenant's system principal (mediator
-            // authorization + log attribution); system-wide timers run with none.
-            // Consistency follow-up (always bind a system principal): see issue #551.
+            // authorization + log attribution); system-wide timers run with none, and
+            // dispatch only SystemInternal operations (see ClusterTimerHandler).
             val principal = timer.tenantKey?.let { SystemUser.principalForTenant(it) }
             val result = meterRegistry.recordScheduledTask("cluster-timer:${timer.timerType}") {
                 if (principal != null) {

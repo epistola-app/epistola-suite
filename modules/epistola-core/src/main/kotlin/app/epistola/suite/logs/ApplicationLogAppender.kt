@@ -72,7 +72,7 @@ class ApplicationLogAppender(
      * `currentTenantId` (a `ScopedValue`), read here on the **logging thread**.
      * It is propagated across request and background threads by the security/mediator
      * context, so background work that wants its logs attributed must run under a bound
-     * principal (e.g. `SystemUser.principalForTenant(...)`; see issue #551). Null when no
+     * principal (e.g. `SystemUser.principalForTenant(...)`). Null when no
      * principal is bound — a system/background log. Never throws.
      */
     private fun resolveTenantKey(): String? = runCatching {
