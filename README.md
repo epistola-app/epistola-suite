@@ -223,7 +223,7 @@ Customize the deployment with values:
 ```bash
 helm install epistola oci://ghcr.io/epistola-app/charts/epistola \
   --version <version> \
-  --set image.tag=2.0.0 \
+  --set image.tag=2.0.1 \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=epistola.example.com
 ```
