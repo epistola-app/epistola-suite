@@ -33,6 +33,8 @@ and only repeats its findings where they shape a step.
 
 - Saving progress on the form ("may" in the ADR). Until then, a reload keeps nothing the person typed.
 - Variant choice (`interactive.variantChoice`), which the ADR itself defers.
+- Forms that authors configure themselves. v1 generates every form, but is built so that a configured
+  form can replace the generated one later without touching the job, the token or the API (decision 8).
 - Exposing an application's allowed origins through the contract's consumer resource. Suite does not
   implement that resource yet.
 
@@ -71,6 +73,24 @@ and only repeats its findings where they shape a step.
    meaning where its frontend lives, so a leaked key can only send a browser back to its own system.
    The installation setting stays only for callers without an application (bearer tokens and the demo
    secret, until ADR 0054 step 2 gives them one). Suite's own origin is always allowed.
+8. **Prepare for configured forms: the page renders a form definition, never the schema directly.**
+   Later, authors may design the form themselves: field order, sections, labels, help text, which
+   fields to show. v1 lays the seam for that and builds only the generated case:
+   - A `FormDefinition` model: sections, each with fields, each field naming a JSON Pointer, a widget,
+     a label, help text and whether it is required.
+   - A `FormDefinitionResolver` with one implementation that generates the definition from the bound
+     release's data contract. A later implementation looks for a form the author made in the same
+     release first. It then follows the release the way templates do, so a job always shows the form
+     of the release it renders.
+   - The `data-form` bundle renders a `FormDefinition`, and reuses the example form's widgets for
+     individual fields.
+   - **The data contract stays the only source of validity.** A form is presentation. Submission is
+     validated against the contract, whatever the form shows. A configured form that leaves out a
+     required field gets it added in a final section, so a form can never make a job impossible to
+     submit.
+   - Nothing about the definition goes into the REST contract or the catalog wire format in v1. The
+     contract leaves the form's look to the server. A configured form becomes a catalog resource type
+     later, as an additive wire-format change with an ADR of its own.
 
 ## Steps
 
