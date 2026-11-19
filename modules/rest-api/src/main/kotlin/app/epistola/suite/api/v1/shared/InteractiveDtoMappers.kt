@@ -41,6 +41,7 @@ internal fun InteractiveState.toDto(objectMapper: ObjectMapper) = InteractiveGen
     missingFields = missingFields.map { MissingDataField(path = it.path, required = it.required, schema = objectMapper.convertValue(it.schema, SCHEMA_MAP)) },
     url = url,
     expiresAt = expiresAt,
+    urlExpiresAt = urlExpiresAt,
 )
 
 internal fun CancelReason.toDto(): GenerationCancelReason = when (this) {

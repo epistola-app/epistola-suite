@@ -35,7 +35,6 @@ import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -89,7 +88,7 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
     fun `missing data makes a waiting job, and the job status hands out a fresh link to it`() {
         val caller = caller()
 
-        val accepted = generate(caller, """{"name": "Jane"}""", """{"trigger": "incomplete", "title": "Letter, case Z-1"}""")
+        val accepted = generate(caller, """{"name": "Jane"}""", """{"trigger": "incomplete", "title": "Letter, case Z-1", "returnUrl": "https://cases.example.org/z/1"}""")
 
         assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
         val body = accepted.body!!
@@ -97,6 +96,7 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.interactive.trigger")).isEqualTo("incomplete")
         val url = JsonPath.read<String>(body, "$.interactive.url")
         assertThat(url).startsWith("https://suite.test/forms/${JsonPath.read<String>(body, "$.requestId")}?authCode=")
+        assertThat(JsonPath.read<String?>(body, "$.interactive.urlExpiresAt")).isNotNull()
         assertThat(JsonPath.read<String?>(body, "$.interactive.expiresAt")).isNotNull()
         assertThat(JsonPath.read<List<String>>(body, "$.interactive.missingFields[*].path")).contains("/motivation")
         assertThat(JsonPath.read<Any?>(body, "$.cancelReason")).isNull()
@@ -186,12 +186,6 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Any?>(line, "$.data")).isNull()
     }
 
-    /**
-     * Disabled until the contract fixes `returnUrl`'s pattern: 2.1.0 declares `^https?://`, a prefix
-     * in JSON Schema, which the generated Bean Validation `@Pattern` must match in full, so every
-     * real URL is refused with `pattern` before Suite sees it.
-     */
-    @Disabled("contract 2.1.0: returnUrl's pattern ^https?:// refuses every URL under Bean Validation's full match")
     @Test
     fun `a return URL on the application's origin is accepted and one off it is refused`() {
         val caller = caller()

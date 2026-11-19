@@ -15,7 +15,7 @@ json-schema-validator = "3.0.9"
 jsonata = "0.9.11"
 uuid-creator = "6.1.1"
 playwright = "1.64.0"
-epistola-contract = "2.1.0"
+epistola-contract = "2.1.1"
 # The support connection's keys and client assertions; the version Spring Security 7.1 uses.
 nimbus-jose-jwt = "10.10"
 # Checks the stand-in support service against docs/support-api.yaml (tests only).
