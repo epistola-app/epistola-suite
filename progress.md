@@ -111,6 +111,13 @@ public form page (`/forms/{id}`, own security chain, preview with per-form limit
 - `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
   `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
   work as specified. Predates this branch.
+- **Load impact** measured (`docs/interactive-generation-load-impact.md`): every emitted result and
+  every status poll now look up the interaction table (+0.03 ms and +0.01 ms, growing with the
+  number of partitions); the idle expiry sweep scans all interactions; previews have no node-wide
+  bound. Fixes proposed there, not yet made.
+- **Pre-existing, found by the load test:** `UPDATE api_keys SET last_used_at = NOW()`
+  (`RecordApiKeyUsage`) takes 13–28 ms of database time per API request under concurrency on one
+  key, the largest item in the database profile. Needs its own issue.
 - epistola-contract#134 (short-lived links) is implemented in Suite core and prepared in the
   contract worktree `epistola-contract-wt-forms` (branch `fix/url-pattern-anchors`, with the
   pattern fix) for 2.1.1. Until 2.1.1 is released, REST cannot return `urlExpiresAt` and the
