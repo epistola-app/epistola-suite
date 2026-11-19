@@ -55,6 +55,9 @@ class ApiValidationCodesTest {
         // a code the suite has no ValidationCode for could never reach a caller.
         val suite = ValidationCode.entries.mapNotNull(ApiValidationCodes::of).toSet()
         val constraintCodes = setOf("required", "type", "enum", "format", "pattern", "min-length", "max-length", "minimum", "maximum", "min-items", "max-items")
-        assertThat(suite).containsExactlyInAnyOrderElementsOf(KnownValidationCodes.ALL - constraintCodes)
+        // A domain rule may reuse a constraint code (`maximum` for an installation's bound), but
+        // every code the suite sends must be one the contract registers.
+        assertThat(suite - constraintCodes).containsExactlyInAnyOrderElementsOf(KnownValidationCodes.ALL - constraintCodes)
+        assertThat(KnownValidationCodes.ALL).containsAll(suite)
     }
 }

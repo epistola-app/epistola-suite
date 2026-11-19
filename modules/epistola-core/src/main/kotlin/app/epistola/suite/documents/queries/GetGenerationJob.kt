@@ -7,6 +7,7 @@ package app.epistola.suite.documents.queries
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.DocumentVisibility
+import app.epistola.suite.documents.interactive.InteractiveStates
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -45,6 +46,7 @@ data class GetGenerationJob(
 @Component
 class GetGenerationJobHandler(
     private val jdbi: Jdbi,
+    private val interactiveStates: InteractiveStates,
 ) : QueryHandler<GetGenerationJob, GenerationJobResult?> {
 
     override fun handle(query: GetGenerationJob): GenerationJobResult? = jdbi.withHandle<GenerationJobResult?, Exception> { handle ->
@@ -54,7 +56,7 @@ class GetGenerationJobHandler(
             """
             SELECT id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key, release_version, draft_id, draft_label, catalog_version_id, recoveries,
                    data, filename, correlation_id, routing_key, document_key, status, claimed_by, claimed_at,
-                   error_message, created_at, started_at, completed_at, expires_at
+                   error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at
             FROM document_generation_requests
             WHERE id = :requestId
               AND tenant_key = :tenantId
@@ -66,7 +68,9 @@ class GetGenerationJobHandler(
             .let(visibility::bindTo)
             .mapTo<DocumentGenerationRequest>()
             .findOne()
-            .orElse(null) ?: return@withHandle null
+            .orElse(null)
+            ?.let { interactiveStates.attach(handle, it) }
+            ?: return@withHandle null
 
         // For API compatibility, return request as both the job and a single-item list
         GenerationJobResult(request, listOf(request))

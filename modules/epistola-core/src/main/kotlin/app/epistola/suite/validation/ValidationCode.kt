@@ -169,6 +169,13 @@ enum class ValidationCode(val wire: String) {
     URL_NOT_ALLOWED("URL_NOT_ALLOWED"),
 
     /**
+     * A number above a maximum the installation sets, such as an interactive request's expiry above
+     * `epistola.generation.interactive.max-expiry`. The contract's constraint code `maximum`, which a
+     * domain rule reuses when the bound is the installation's rather than the schema's.
+     */
+    MAXIMUM("MAXIMUM"),
+
+    /**
      * A new resource key is one of the suite's reserved words (`NewResourceKeys`). Not registered by
      * the contract yet, so the API sends it as a plain validation error.
      */

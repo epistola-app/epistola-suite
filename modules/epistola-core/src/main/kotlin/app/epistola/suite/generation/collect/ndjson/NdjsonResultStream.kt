@@ -125,6 +125,9 @@ class NdjsonResultStream(
         "sizeBytes" to sizeBytes,
         "error" to error,
         "completedAt" to completedAt.toString(), // ISO-8601 with offset
+        "cancelReason" to cancelReason?.name?.lowercase(),
+        "data" to data,
+        "editedFields" to editedFields,
     )
 
     /** Final `_meta` line shape per the spec. */

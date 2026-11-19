@@ -6,6 +6,7 @@ package app.epistola.suite.generation.collect.commands
 
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.documents.model.CancelReason
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.generation.collect.domain.EmitsInFlight
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
@@ -23,7 +24,11 @@ import java.time.OffsetDateTime
 /**
  * Emit a terminal generation result into `generation_results` so collectors can
  * pick it up. Called by [DocumentGenerationExecutor][app.epistola.suite.documents.batch.DocumentGenerationExecutor]
- * when a request transitions to [ResultStatus.COMPLETED] or [ResultStatus.FAILED].
+ * when a request transitions to [ResultStatus.COMPLETED] or [ResultStatus.FAILED], and when a
+ * request created with `interactive` is cancelled ([ResultStatus.CANCELLED], with its [cancelReason]).
+ *
+ * For a request with a form, the row copies its `data` and `editedFields` (contract ADR 0011) once
+ * the form was submitted, or at acceptance when nothing was asked; a cancelled result carries neither.
  *
  * Routing-key fallback: if [DocumentGenerationRequest.routingKey] is null, the
  * request id is used as the routing key (per spec: *"if no routing key was
@@ -41,6 +46,7 @@ data class EmitGenerationResult(
     val contentType: String?,
     val error: String?,
     val completedAt: OffsetDateTime,
+    val cancelReason: CancelReason? = null,
 ) : Command<GenerationResultRow>,
     SystemInternal,
     NotEventLogged {
@@ -50,6 +56,9 @@ data class EmitGenerationResult(
         }
         require((status == ResultStatus.FAILED) == (error != null)) {
             "error must be set iff status == FAILED"
+        }
+        require((status == ResultStatus.CANCELLED) == (cancelReason != null)) {
+            "cancelReason must be set iff status == CANCELLED"
         }
     }
 }
@@ -78,20 +87,24 @@ class EmitGenerationResultHandler(
                     partition, request_id, batch_id, tenant_key, routing_key, status,
                     document_id, correlation_id, template_id, variant_id, version_id, release_version, draft_id, draft_label,
                     registry, namespace, catalog_key, catalog_version_id, filename, content_type, size_bytes, error, completed_at,
-                    application_id
+                    application_id, cancel_reason, data, edited_fields
                 )
                 VALUES (
                     :partition, :requestId, :batchId, :tenantKey, :routingKey, :status,
                     :documentId, :correlationId, :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     :registry, :namespace, :catalogKey,
                     (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId), :filename, :contentType, :sizeBytes, :error, :completedAt,
-                    (SELECT application_id FROM document_generation_requests WHERE id = :requestId)
+                    (SELECT application_id FROM document_generation_requests WHERE id = :requestId),
+                    :cancelReason,
+                    (SELECT q.data FROM document_generation_requests q JOIN generation_request_interactions i ON i.request_id = q.id AND i.created_at = q.created_at
+                     WHERE q.id = :requestId AND i.edited_fields IS NOT NULL AND :status <> 'CANCELLED'),
+                    (SELECT i.edited_fields FROM generation_request_interactions i WHERE i.request_id = :requestId AND :status <> 'CANCELLED')
                 )
                 RETURNING sequence, partition, created_at, request_id, batch_id, tenant_key,
                           routing_key, status, document_id, correlation_id, template_id,
                           variant_id, version_id, release_version, draft_id, draft_label, registry, namespace, catalog_key, catalog_version_id,
                           filename, content_type, size_bytes,
-                          error, completed_at
+                          error, completed_at, cancel_reason, data, edited_fields
                 """,
             )
                 .bind("partition", partition)
@@ -116,6 +129,7 @@ class EmitGenerationResultHandler(
                 .bind("sizeBytes", command.sizeBytes)
                 .bind("error", command.error)
                 .bind("completedAt", command.completedAt)
+                .bind("cancelReason", command.cancelReason?.name)
                 .mapTo<GenerationResultRow>()
                 .one()
         }

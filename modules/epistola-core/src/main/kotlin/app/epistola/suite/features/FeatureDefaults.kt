@@ -40,6 +40,8 @@ data class FeatureDefaults(
     val catalogPublishing: Boolean = false,
     /** Browsing Exchange and installing catalogs from it. Off while the feature is ALPHA. */
     val catalogInstalling: Boolean = false,
+    /** Interactive generation (contract ADR 0011). Off while the feature is ALPHA. */
+    val interactiveGeneration: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_REQUESTS -> supportRequests
@@ -49,6 +51,7 @@ data class FeatureDefaults(
         KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation
         KnownFeatures.CATALOG_PUBLISHING -> catalogPublishing
         KnownFeatures.CATALOG_INSTALLING -> catalogInstalling
+        KnownFeatures.INTERACTIVE_GENERATION -> interactiveGeneration
         else -> false
     }
 }

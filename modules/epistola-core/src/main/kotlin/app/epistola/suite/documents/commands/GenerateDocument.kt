@@ -15,26 +15,44 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.crypto.Secret
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.documents.interactive.BoundDataContract
+import app.epistola.suite.documents.interactive.InteractiveFormTokens
+import app.epistola.suite.documents.interactive.InteractiveGeneration
+import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
+import app.epistola.suite.documents.interactive.InteractiveState
+import app.epistola.suite.documents.interactive.InteractiveTrigger
+import app.epistola.suite.documents.interactive.ReturnOriginPolicy
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.environments.DeploymentUsage
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.generation.release.GenerationTarget
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.templates.validation.MissingDataField
+import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -54,6 +72,10 @@ import tools.jackson.databind.node.ObjectNode
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
+ * @property interactive Ask a person to complete the data in a form first (contract ADR 0011,
+ *   alpha). Ignored, as a server that predates it would, while the tenant's
+ *   `interactive-generation` toggle is off or the installation has no public base URL; the result's
+ *   [DocumentGenerationRequest.interactive] is then null, which is how a caller tells.
  */
 data class GenerateDocument(
     /** The template's catalog, by its address (ADR 0034, section 9). */
@@ -67,6 +89,7 @@ data class GenerateDocument(
     val filename: String?,
     val correlationId: String? = null,
     val routingKey: String? = null,
+    val interactive: InteractiveGeneration? = null,
 ) : Command<DocumentGenerationRequest>,
     RequiresPermission,
     NotAudited,
@@ -88,6 +111,12 @@ class GenerateDocumentHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
     private val usage: DeploymentUsage,
+    private val mediator: Mediator,
+    private val boundContract: BoundDataContract,
+    private val interactiveProperties: InteractiveGenerationProperties,
+    private val originPolicy: ReturnOriginPolicy,
+    private val formTokens: InteractiveFormTokens,
+    private val objectMapper: ObjectMapper,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -109,7 +138,12 @@ class GenerateDocumentHandler(
 
         log.info("Generating single document tenant={} template={} variant={} catalog={} version={}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
 
+        val interactive = command.interactive?.takeIf { interactiveAvailable(command) }
+        val form = interactive?.let { planForm(command, target, it) }
+        val application = DocumentVisibility.submittingApplication()
+
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
+            if (interactive != null) originPolicy.check(handle, command.tenantKey, application, interactive)
             val requestId = GenerationRequestKey.generate()
             val request = handle.createQuery(
                 """
@@ -146,18 +180,90 @@ class GenerateDocumentHandler(
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)
                 .bind("routingKey", command.routingKey)
-                .bind("status", RequestStatus.PENDING.name)
+                .bind("status", (if (form?.asks == true) RequestStatus.AWAITING_INPUT else RequestStatus.PENDING).name)
                 // From the credential, never the request body (ADR 0054).
-                .bind("applicationId", DocumentVisibility.submittingApplication()?.value)
+                .bind("applicationId", application?.value)
                 .mapTo<DocumentGenerationRequest>()
                 .one()
 
-            log.info("Created generation request request={} tenant={}", request.id, command.tenantId)
-            request
+            val accepted = if (interactive != null && form != null) {
+                request.copy(interactive = insertForm(handle, request, interactive, form, command.data))
+            } else {
+                request
+            }
+            log.info("Created generation request request={} tenant={} status={}", request.id, command.tenantId, accepted.status)
+            accepted
         }.also {
             // How much the deployed version is used, for deciding when to undeploy it.
             val version = target.releaseVersion
             if (command.environmentId != null && version != null) usage.record(command.environmentId, command.catalog, version)
         }
     }
+
+    /** Honoured only when the installation can serve forms and the tenant has the feature on. */
+    private fun interactiveAvailable(command: GenerateDocument): Boolean = interactiveProperties.configured &&
+        mediator.query(ResolveFeatureToggles(command.tenantKey))[KnownFeatures.INTERACTIVE_GENERATION] == true
+
+    /** What the form will be: whether it asks, what for, and until when. Refuses an expiry above the maximum. */
+    private fun planForm(command: GenerateDocument, target: GenerationTarget, interactive: InteractiveGeneration): PlannedForm {
+        val maxMinutes = interactiveProperties.maxExpiry.toMinutes()
+        val minutes = interactive.expiresInMinutes?.toLong() ?: interactiveProperties.defaultExpiry.toMinutes()
+        validate("interactive.expiresInMinutes", minutes <= maxMinutes, ValidationCode.MAXIMUM) { "at most $maxMinutes minutes" }
+
+        // The analysis validateTemplateData runs, against the binding just made and the data exactly
+        // as sent: never another version, never a data example in place of empty data.
+        val contract = boundContract.of(command.catalog, command.templateId, target.variantKey, target.releaseVersion, target.draft?.draftId, command.environmentId)
+        val analysis = boundContract.analyze(contract, command.data)
+        val asks = interactive.trigger == InteractiveTrigger.ALWAYS || !analysis.valid
+        return PlannedForm(asks, if (asks) analysis.missingFields else emptyList(), minutes)
+    }
+
+    private fun insertForm(
+        handle: Handle,
+        request: DocumentGenerationRequest,
+        interactive: InteractiveGeneration,
+        form: PlannedForm,
+        callerData: ObjectNode,
+    ): InteractiveState {
+        val token = if (form.asks) formTokens.mint() else null
+        val expiresAt = if (form.asks) EpistolaClock.offsetDateTime().plusMinutes(form.expiresInMinutes) else null
+        handle.createUpdate(
+            """
+            INSERT INTO generation_request_interactions (
+                request_id, created_at, tenant_key, trigger, token_hash, token_encrypted, expires_at, return_url, title, instructions,
+                links, locale, missing_fields, caller_data, edited_fields
+            )
+            VALUES (
+                :requestId, :createdAt, :tenantKey, :trigger, :tokenHash, :tokenEncrypted, :expiresAt, :returnUrl, :title, :instructions,
+                :links::jsonb, :locale, :missingFields::jsonb, :callerData::jsonb, :editedFields::jsonb
+            )
+            """,
+        )
+            .bind("requestId", request.id)
+            .bind("createdAt", request.createdAt)
+            .bind("tenantKey", request.tenantKey)
+            .bind("trigger", interactive.trigger.name)
+            .bind("tokenHash", token?.hash)
+            .bind("tokenEncrypted", token?.let { Secret(it.token) })
+            .bind("expiresAt", expiresAt)
+            .bind("returnUrl", interactive.returnUrl)
+            .bind("title", interactive.title)
+            .bind("instructions", interactive.instructions)
+            .bind("links", objectMapper.writeValueAsString(interactive.links))
+            .bind("locale", interactive.locale)
+            .bind("missingFields", objectMapper.writeValueAsString(form.missingFields))
+            .bind("callerData", callerData.toString())
+            // Nothing asked: the caller's data is final as sent, with nothing edited.
+            .bind("editedFields", if (form.asks) null else "[]")
+            .execute()
+        return InteractiveState(
+            trigger = interactive.trigger,
+            url = token?.let { formTokens.link(it.token) },
+            expiresAt = expiresAt,
+            missingFields = form.missingFields,
+            editedFields = if (form.asks) null else emptyList(),
+        )
+    }
+
+    private data class PlannedForm(val asks: Boolean, val missingFields: List<MissingDataField>, val expiresInMinutes: Long)
 }
